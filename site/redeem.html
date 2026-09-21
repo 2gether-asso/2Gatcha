@@ -13,9 +13,10 @@
 <body>
   <div id="burst-flash" class="burst-flash"></div>
   <div id="legendary-flash" class="legendary-flash"></div>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
-  <main>
+  <main id="main-content">
     <div class="panel">
       <h1>Réclamer un code</h1>
       <p class="lead">
@@ -28,9 +29,13 @@
       </div>
 
       <div id="redeem-zone" style="display:none;">
-        <div class="code-form">
-          <input type="text" id="code-input" placeholder="CODE" maxlength="20" autocomplete="off" />
-          <button id="redeem-btn">Réclamer</button>
+        <div class="redeem-card">
+          <span class="redeem-icon" aria-hidden="true">&#127873;</span>
+          <div class="code-form">
+            <label for="code-input" class="sr-only">Code de l'événement</label>
+            <input type="text" id="code-input" placeholder="CODE" maxlength="20" autocomplete="off" />
+            <button id="redeem-btn" type="button">Réclamer</button>
+          </div>
         </div>
 
         <div id="reward-zone"></div>

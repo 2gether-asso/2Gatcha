@@ -25,6 +25,7 @@ let stackIndex = 0;
 let ownedCountMap = new Map();
 let extProgressByExt = new Map();
 let catalogCache = [];
+let lastOpenedExtension = null;
 
 const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3 };
 
@@ -93,7 +94,7 @@ function buildCardEl(card, index, cardBackImageId) {
     <div class="card-info">
       <div class="card-name">${card.name}</div>
       <div class="card-artist">${card.artist || ""}</div>
-      <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
+      <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
         ${card.rarity?.name || "Commune"}
       </span>
     </div>
@@ -182,53 +183,204 @@ function onAllRevealed() {
 
   const shareBtn = document.getElementById("share-pull-btn");
   if (shareBtn && lastRevealedCards.length) shareBtn.style.display = "inline-flex";
+
+  // Enchainer directement sur un autre booster de la meme extension, sans
+  // repasser par le selecteur : le cas d'usage principal (ouvrir plusieurs
+  // boosters d'affilee) ne devrait pas demander de fermer/rouvrir la modale
+  // a chaque fois.
+  const openAnotherBtn = document.getElementById("open-another-btn");
+  if (openAnotherBtn) {
+    if (lastOpenedExtension && boosterCount > 0) {
+      const icon = String.fromCodePoint(128257);
+      openAnotherBtn.textContent = `${icon} Ouvrir un autre (${boosterCount} restant${boosterCount > 1 ? "s" : ""})`;
+      openAnotherBtn.style.display = "inline-flex";
+    } else {
+      openAnotherBtn.style.display = "none";
+    }
+  }
+}
+
+function loadImageCORS(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+// Dessine une image en mode "cover" (recadree, jamais deformee) dans une
+// boite donnee - le drawImage brut precedent etirait l'art au format de la
+// boite, ce qui donnait des visuels ecrases/deformes selon le ratio source.
+function drawImageCover(ctx, img, x, y, w, h) {
+  const imgRatio = img.width / img.height;
+  const boxRatio = w / h;
+  let sx, sy, sw, sh;
+  if (imgRatio > boxRatio) {
+    sh = img.height; sw = sh * boxRatio; sx = (img.width - sw) / 2; sy = 0;
+  } else {
+    sw = img.width; sh = sw / boxRatio; sx = 0; sy = (img.height - sh) / 2;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 // Genere une image partageable (canvas) reprenant le plus beau tirage du
-// lot, dans le style d'une vraie carte, et declenche son telechargement.
-function shareBestPull() {
+// lot dans un vrai cadre de carte (bordure/lueur couleur rarete, art
+// recadre proprement), avec le reste du lot en bandeau et le branding du
+// site - remplace l'ancienne version (une simple image etiree + du texte).
+async function shareBestPull() {
   if (!lastRevealedCards.length) return;
-  const best = lastRevealedCards.reduce((a, b) => {
-    const ka = a.rarity?.key || "commune", kb = b.rarity?.key || "commune";
-    return (RARITY_ORDER[kb] ?? 0) > (RARITY_ORDER[ka] ?? 0) ? b : a;
-  });
-  const color = best.rarity?.colorHex || "#9aa0b4";
-  const imgSrc = API.imageUrl(best.imageId) || PLACEHOLDER_IMG;
+  const shareBtn = document.getElementById("share-pull-btn");
+  const originalLabel = shareBtn ? shareBtn.innerHTML : "";
+  if (shareBtn) { shareBtn.disabled = true; shareBtn.innerHTML = "Génération..."; }
 
-  const canvas = document.createElement("canvas");
-  canvas.width = 720;
-  canvas.height = 960;
-  const ctx = canvas.getContext("2d");
+  try {
+    const best = lastRevealedCards.reduce((a, b) => {
+      const ka = a.rarity?.key || "commune", kb = b.rarity?.key || "commune";
+      return (RARITY_ORDER[kb] ?? 0) > (RARITY_ORDER[ka] ?? 0) ? b : a;
+    });
+    const color = best.rarity?.colorHex || "#9aa0b4";
+    const others = lastRevealedCards.filter((c) => c !== best).slice(0, 4);
 
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    ctx.fillStyle = "#0b0d20";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const grad = ctx.createRadialGradient(360, 300, 40, 360, 300, 500);
-    grad.addColorStop(0, color + "55");
-    grad.addColorStop(1, "#0b0d2000");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const [bestImg, ...otherImgs] = await Promise.all([
+      loadImageCORS(API.imageUrl(best.imageId) || PLACEHOLDER_IMG),
+      ...others.map((c) => loadImageCORS(API.imageUrl(c.imageId) || PLACEHOLDER_IMG).catch(() => null))
+    ]);
+    // Les polices web (Sora/Inter) doivent etre chargees AVANT de dessiner
+    // du texte sur le canvas, sinon le navigateur rend avec une police de
+    // secours generique (c'etait l'une des causes du rendu "cheap" precedent).
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
 
-    const artH = 620;
-    ctx.drawImage(img, 40, 40, canvas.width - 80, artH);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 6;
-    ctx.strokeRect(40, 40, canvas.width - 80, artH);
-
-    ctx.fillStyle = "#f5f5fc";
-    ctx.font = "700 34px Sora, sans-serif";
+    const W = 1080, H = 1440;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
     ctx.textAlign = "center";
-    ctx.fillText(best.name || "Carte", canvas.width / 2, artH + 100);
 
-    ctx.fillStyle = color;
-    ctx.font = "800 24px Sora, sans-serif";
-    ctx.fillText((best.rarity?.name || "Commune").toUpperCase(), canvas.width / 2, artH + 145);
+    // Fond : couleur de base + halo colore rarete + legere trame d'etoiles,
+    // dans l'esprit du fond ambiant du site (body::before/after).
+    ctx.fillStyle = "#06070f";
+    ctx.fillRect(0, 0, W, H);
+    const glow = ctx.createRadialGradient(W / 2, 500, 60, W / 2, 500, 640);
+    glow.addColorStop(0, color + "4d");
+    glow.addColorStop(1, "#06070f00");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    for (let i = 0; i < 70; i++) {
+      const sx = (i * 197) % W, sy = (i * 359 + 40) % H;
+      ctx.beginPath();
+      ctx.arc(sx, sy, i % 5 === 0 ? 1.6 : 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
+    // Wordmark degrade (meme esprit que .brand en CSS).
+    ctx.font = "800 46px Sora, sans-serif";
+    const wmGrad = ctx.createLinearGradient(W / 2 - 150, 0, W / 2 + 150, 0);
+    wmGrad.addColorStop(0, "#8b5cf6");
+    wmGrad.addColorStop(1, "#22d3ee");
+    ctx.fillStyle = wmGrad;
+    ctx.fillText("2GATCHA", W / 2, 88);
+    ctx.font = "600 26px Inter, sans-serif";
     ctx.fillStyle = "#9a9cc4";
-    ctx.font = "500 20px Inter, sans-serif";
-    ctx.fillText("2Gatcha – " + (Session.pseudo || ""), canvas.width / 2, canvas.height - 30);
+    ctx.fillText(lastOpenedExtension?.name || "Ouverture de booster", W / 2, 128);
+
+    // Cadre de la carte principale : lueur douce, art recadre (jamais
+    // deforme), double liseré colore comme les vraies cartes du site.
+    const cardW = 560, cardH = 750;
+    const cardX = (W - cardW) / 2, cardY = 168;
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 80;
+    roundRectPath(ctx, cardX, cardY, cardW, cardH, 28);
+    ctx.fillStyle = "#14162e";
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    roundRectPath(ctx, cardX, cardY, cardW, cardH, 28);
+    ctx.clip();
+    drawImageCover(ctx, bestImg, cardX, cardY, cardW, cardH);
+    if (best.rarity?.key === "legendaire") {
+      const sweep = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+      sweep.addColorStop(0, "rgba(255,255,255,0)");
+      sweep.addColorStop(0.46, "rgba(255,255,255,0.24)");
+      sweep.addColorStop(0.54, "rgba(255,255,255,0)");
+      ctx.fillStyle = sweep;
+      ctx.fillRect(cardX, cardY, cardW, cardH);
+    }
+    ctx.restore();
+
+    roundRectPath(ctx, cardX, cardY, cardW, cardH, 28);
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    roundRectPath(ctx, cardX + 9, cardY + 9, cardW - 18, cardH - 18, 21);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.stroke();
+
+    // Nom + pastille de rarete (meme habillage que .rarity-badge en CSS).
+    ctx.fillStyle = "#f5f5fc";
+    ctx.font = "800 48px Sora, sans-serif";
+    ctx.fillText(best.name || "Carte", W / 2, cardY + cardH + 66);
+
+    const rarityLabel = (best.rarity?.name || "Commune").toUpperCase();
+    ctx.font = "800 26px Sora, sans-serif";
+    const pillW = ctx.measureText(rarityLabel).width + 74;
+    const pillX = (W - pillW) / 2, pillY = cardY + cardH + 92, pillH = 48;
+    roundRectPath(ctx, pillX, pillY, pillW, pillH, pillH / 2);
+    ctx.fillStyle = color + "26";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.fillText(rarityLabel, W / 2, pillY + 33);
+
+    // Bandeau du reste du lot (si booster multi-cartes) : chaque vignette
+    // garde le liseré de SA propre rarete.
+    const validOthers = others.map((c, i) => ({ card: c, img: otherImgs[i] })).filter((o) => o.img);
+    if (validOthers.length) {
+      const stripY = pillY + 96;
+      ctx.font = "600 24px Inter, sans-serif";
+      ctx.fillStyle = "#9a9cc4";
+      ctx.fillText("+ le reste du lot", W / 2, stripY - 14);
+
+      const thumbW = 150, thumbH = 200, gap = 22;
+      const totalW = validOthers.length * thumbW + (validOthers.length - 1) * gap;
+      let sx = (W - totalW) / 2;
+      validOthers.forEach(({ card, img }) => {
+        const c = card.rarity?.colorHex || "#9aa0b4";
+        ctx.save();
+        roundRectPath(ctx, sx, stripY, thumbW, thumbH, 14);
+        ctx.clip();
+        drawImageCover(ctx, img, sx, stripY, thumbW, thumbH);
+        ctx.restore();
+        roundRectPath(ctx, sx, stripY, thumbW, thumbH, 14);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = c;
+        ctx.stroke();
+        sx += thumbW + gap;
+      });
+    }
+
+    // Pied de page : pseudo + URL du site, pour la viralite.
+    ctx.font = "600 24px Inter, sans-serif";
+    ctx.fillStyle = "#9a9cc4";
+    ctx.fillText((Session.pseudo ? Session.pseudo + "  ·  " : "") + "gatcha.2gether-asso.fr", W / 2, H - 36);
 
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob);
@@ -240,13 +392,14 @@ function shareBestPull() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     });
-  };
-  // Note : le partage necessite que le workflow get-image.json renvoie un
-  // en-tete Access-Control-Allow-Origin (sinon le navigateur refuse de lire
-  // les pixels de l'image sur le canvas et declenche onerror ici plutot
-  // qu'une erreur silencieuse).
-  img.onerror = () => Toast.error("Impossible de générer l'image a partager (probleme de CORS sur le serveur d'images).");
-  img.src = imgSrc;
+  } catch (e) {
+    // Le partage necessite que get-image.json renvoie un en-tete
+    // Access-Control-Allow-Origin (sinon le navigateur refuse de lire les
+    // pixels de l'image sur le canvas et le chargement rejette ici).
+    Toast.error("Impossible de générer l'image a partager (probleme de CORS sur le serveur d'images).");
+  } finally {
+    if (shareBtn) { shareBtn.disabled = false; shareBtn.innerHTML = originalLabel; }
+  }
 }
 
 // Important : l'effet legendaire n'anime JAMAIS le transform d'un ancetre
@@ -542,6 +695,8 @@ function openModalFor(extensionId) {
   }
   const shareBtn = document.getElementById("share-pull-btn");
   if (shareBtn) shareBtn.style.display = "none";
+  const openAnotherBtn = document.getElementById("open-another-btn");
+  if (openAnotherBtn) openAnotherBtn.style.display = "none";
 
   // Au cas ou une precedente fermeture animee (voir closeModal) n'aurait
   // pas eu le temps de se terminer avant une reouverture immediate.
@@ -576,6 +731,7 @@ function closeModal() {
 
 async function startOpening(ext) {
   isBusy = true;
+  lastOpenedExtension = ext;
 
   const pack = document.getElementById("booster-pack");
   const flash = document.getElementById("burst-flash");
@@ -727,6 +883,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const shareBtn = document.getElementById("share-pull-btn");
   if (shareBtn) shareBtn.addEventListener("click", shareBestPull);
+
+  const openAnotherBtn = document.getElementById("open-another-btn");
+  if (openAnotherBtn) {
+    openAnotherBtn.addEventListener("click", () => {
+      if (isBusy || !lastOpenedExtension || boosterCount < 1) return;
+      Sfx.click();
+      openModalFor(lastOpenedExtension.id);
+      startOpening(lastOpenedExtension);
+    });
+  }
 
   // Espace/Entree : tape le booster (avant ouverture) ou revele la carte
   // active de la pile - convention courante des jeux de cartes (Hearthstone

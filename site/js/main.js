@@ -395,6 +395,36 @@ function lightenColor(hex, amount) {
   return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 }
 
+// Ratio de contraste WCAG entre deux couleurs hex (formule standard sRGB).
+function contrastRatio(hex1, hex2) {
+  function lum(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return 1;
+    const num = parseInt(m[1], 16);
+    const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  }
+  const l1 = lum(hex1), l2 = lum(hex2);
+  const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// Les couleurs de rareté viennent de Grist et ne sont pas garanties d'avoir
+// un contraste suffisant utilisees comme TEXTE sur fond sombre (le bleu
+// "rare" par defaut, par exemple, echoue de justesse le seuil WCAG AA).
+// Eclaircit progressivement jusqu'au seuil (4.5:1) sans jamais toucher a la
+// couleur d'origine utilisee pour les fonds/bordures, purement decoratifs.
+function rarityTextColor(hex, bg = "#1c1f42") {
+  let color = hex || "#9aa0b4";
+  let amount = 0;
+  while (contrastRatio(color, bg) < 4.5 && amount < 0.9) {
+    amount += 0.08;
+    color = lightenColor(hex, amount);
+  }
+  return color;
+}
+
 function getParticleLayer() {
   let el = document.querySelector(".rarity-particle-layer");
   if (!el) {

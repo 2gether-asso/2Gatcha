@@ -32,7 +32,7 @@ function buildCardEl(card, index) {
         <div class="card-info">
           <div class="card-name">${card.name}</div>
           <div class="card-artist">${card.artist || ""}</div>
-          <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
+          <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
             ${card.rarity?.name || "Commune"}
           </span>
         </div>

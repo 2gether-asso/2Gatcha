@@ -11,9 +11,10 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
-  <main>
+  <main id="main-content">
     <div class="panel">
       <h1>Craft &amp; Decraft</h1>
       <p class="lead">
@@ -43,7 +44,7 @@
         </div>
 
         <div class="craft-toolbar">
-          <input type="text" id="craft-search-input" placeholder="Rechercher une carte..." autocomplete="off" />
+          <input type="text" id="craft-search-input" placeholder="Rechercher une carte..." autocomplete="off" aria-label="Rechercher une carte" />
           <div class="filters" id="craft-rarity-filters"></div>
           <label id="hide-owned-label" class="checkbox-inline" style="display:none;">
             <input type="checkbox" id="hide-owned-toggle" />

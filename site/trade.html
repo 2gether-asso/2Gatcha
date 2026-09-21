@@ -11,9 +11,10 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
-  <main>
+  <main id="main-content">
     <div class="panel">
       <h1>Échanges</h1>
       <p class="lead">Propose l'échange d'une de tes cartes contre celle d'un autre joueur.</p>
@@ -57,7 +58,7 @@
         </div>
 
         <div class="actions" style="margin-top:16px;align-items:center;">
-          <input type="text" id="trade-history-search" placeholder="Filtrer par pseudo..." autocomplete="off" style="flex:1;" />
+          <input type="text" id="trade-history-search" placeholder="Filtrer par pseudo..." autocomplete="off" style="flex:1;" aria-label="Filtrer les échanges par pseudo" />
           <button type="button" class="btn-ghost" id="bulk-cancel-toggle">Annulation groupée</button>
         </div>
         <div id="bulk-cancel-bar" class="bulk-action-bar" style="display:none;">

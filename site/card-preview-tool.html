@@ -11,9 +11,10 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
-  <main>
+  <main id="main-content">
     <div class="panel">
       <h1>Prévisualisation de carte</h1>
       <p class="lead">
@@ -85,7 +86,7 @@
       const color = opt.dataset.color;
       previewRarity.textContent = opt.textContent;
       previewRarity.style.background = color + "22";
-      previewRarity.style.color = color;
+      previewRarity.style.color = rarityTextColor(color);
       previewRarity.style.border = `1px solid ${color}`;
       const cardFace = document.querySelector(".preview-tool-stage .card-face.card-front");
       cardFace.style.boxShadow = `0 0 30px ${color}55`;

@@ -151,6 +151,10 @@ function showCardModal(cardId, navList) {
     const owned = ownedMap.get(card.cardId);
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
     const color = card.rarity?.colorHex || "#9aa0b4";
+    // Actions rapides aussi ici : en vue dense, les boutons ne tiennent pas
+    // sur la vignette (voir .collection-grid.dense), la modale reste donc le
+    // seul chemin pour agir sur une carte dans ce mode.
+    const disenchantValue = craftCostByCard.get(card.cardId)?.disenchantValue;
     overlay.innerHTML = `
       <div class="card-modal ${direction ? "slide-" + direction : ""}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
@@ -160,10 +164,16 @@ function showCardModal(cardId, navList) {
         <div class="card-modal-body">
           <div class="card-modal-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
           <div class="card-modal-artist">${card.artist || ""}${card.extension ? " &middot; " + card.extension.name : ""}</div>
-          <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
+          <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
             ${card.rarity?.name || "Commune"}
           </span>
           ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
+          ${!card.isPromo ? `
+            <div class="card-modal-actions">
+              ${disenchantValue != null ? `<button type="button" class="btn-ghost modal-disenchant-btn">&#9851; Décrafter (+${disenchantValue})</button>` : ""}
+              <button type="button" class="btn-secondary modal-trade-btn">&#8644; Échanger</button>
+            </div>
+          ` : ""}
         </div>
       </div>
     `;
@@ -172,6 +182,10 @@ function showCardModal(cardId, navList) {
     const nextBtn = overlay.querySelector(".card-modal-nav.next");
     if (prevBtn) prevBtn.addEventListener("click", () => go(-1));
     if (nextBtn) nextBtn.addEventListener("click", () => go(1));
+    const modalDisenchantBtn = overlay.querySelector(".modal-disenchant-btn");
+    if (modalDisenchantBtn) modalDisenchantBtn.addEventListener("click", () => { close(); disenchantCardQuick(card.cardId); });
+    const modalTradeBtn = overlay.querySelector(".modal-trade-btn");
+    if (modalTradeBtn) modalTradeBtn.addEventListener("click", () => { close(); openQuickTrade(card.cardId); });
   }
 
   function go(delta) {
@@ -260,7 +274,7 @@ function cardTileHtml(card, now) {
       <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" />
       <div class="card-info">
         <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
-        <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
+        <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
           ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
         </span>
         ${owned ? `<div class="count-badge">x${owned.count}</div>` : ""}

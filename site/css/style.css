@@ -14,7 +14,7 @@
   --accent-3: #f472b6;
 
   --rarity-commune: #9aa0b4;
-  --rarity-rare: #3b82f6;
+  --rarity-rare: #60a5fa;
   --rarity-epique: #a855f7;
   --rarity-legendaire: #f5a524;
 
@@ -44,6 +44,41 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; height: 100%; }
   outline: 2px solid var(--accent-2);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Lien d'evitement : premier element focusable de la page, invisible tant
+   qu'il n'a pas le focus clavier - permet de sauter directement au contenu
+   sans devoir traverser le header/la nav a chaque page. */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 12px;
+  z-index: 1000;
+  background: var(--accent);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: max(12px, env(safe-area-inset-top, 0px));
+}
+
+/* Texte present pour les lecteurs d'ecran mais retire visuellement - pour
+   les cas ou un placeholder ou une icone suffit visuellement mais ne
+   remplace pas un vrai label accessible. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 body {
@@ -912,6 +947,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
    Groupes d'extension repliables (collection) : le compteur N/X vit dans le
    titre plutot que dans une barre de progression separee.
    ======================================================================== */
+.collection-ext-group + .collection-ext-group { margin-top: 10px; }
 .collection-extension-heading {
   display: flex;
   align-items: center;
@@ -920,7 +956,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   cursor: pointer;
   user-select: none;
 }
-.collection-extension-heading:first-child { margin-top: 0; }
+/* Cible le premier groupe uniquement (pas juste le premier enfant de CHAQUE
+   groupe, ce qui annulait la marge de toutes les extensions par erreur -
+   voir la marge ajoutee ci-dessus entre groupes, qui compense desormais). */
+.collection-ext-group:first-child .collection-extension-heading { margin-top: 0; }
 .ext-fold-toggle {
   background: transparent;
   border: none;
@@ -973,6 +1012,21 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 
 /* --- Formulaire de code (redeem.html) --- */
+/* Le code d'evenement a l'allure d'un ticket/coupon a gratter, pas d'un
+   simple champ de formulaire perdu dans la page. */
+.redeem-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(139,92,246,0.16), rgba(34,211,238,0.1));
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 22px 24px;
+  margin: 20px 0;
+}
+.redeem-icon { font-size: 2.6rem; flex-shrink: 0; line-height: 1; }
+.redeem-card .code-form { flex: 1; margin: 0; }
+
 .code-form {
   display: flex;
   gap: 12px;
@@ -1590,6 +1644,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .card-modal .card-modal-body { padding: 18px 20px 22px; }
 .card-modal .card-modal-name { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; }
 .card-modal .card-modal-artist { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px; }
+.card-modal-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .card-modal-close {
   position: absolute;
   top: 14px; right: 14px;
@@ -1631,16 +1686,15 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
    ======================================================================== */
 .extension-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  /* minmax tune pour plafonner a 5 colonnes a cette largeur de conteneur
+     (996px environ) sans jamais laisser de colonnes vides quand il y a
+     moins de 5 extensions actives : auto-fit reduit alors le nombre de
+     colonnes et etire les tuiles existantes, contrairement a un repeat(5,..)
+     fixe qui aurait laisse un grand vide a droite avec 1-3 extensions. */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
   width: 100%;
   margin-bottom: 8px;
-}
-/* A partir d'une largeur confortable, exactement 5 boosters par ligne
-   (demande explicite) plutot que de laisser auto-fit choisir le nombre de
-   colonnes selon la largeur disponible. */
-@media (min-width: 900px) {
-  .extension-picker { grid-template-columns: repeat(5, 1fr); }
 }
 .extension-tile {
   position: relative;
@@ -1774,6 +1828,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 
 #reveal-all-btn { margin-top: 6px; }
+.post-reveal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
 
 /* ========================================================================
    Modal plein ecran d'ouverture (par-dessus toute la page, comme Hearthstone)
@@ -2029,6 +2090,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
    Formatage visuel du champ code (redeem.html)
    ======================================================================== */
 .code-form input[type="text"] { letter-spacing: 0.12em; }
+.redeem-card { flex-direction: column; text-align: center; }
 
 /* ========================================================================
    Apercu de carte a cote des selects (trade.html)
@@ -2158,6 +2220,12 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 .collection-grid.dense .card-info { padding: 4px; }
 .collection-grid.dense .card-name { font-size: 0.68rem; }
 .collection-grid.dense .rarity-badge { display: none; }
+/* Les actions rapides (crafter/decrafter/echanger) ne rentrent pas dans une
+   vignette compacte a 96px et vont a l'encontre du but de la vue dense
+   (parcourir vite) : on les masque, l'ouverture de la modale carte reste le
+   chemin pour agir depuis cette vue. */
+.collection-grid.dense .quick-craft-btn,
+.collection-grid.dense .quick-actions-row { display: none; }
 
 /* ========================================================================
    Cadre special pour les cartes promo dans la collection
@@ -2253,6 +2321,38 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
   margin: 12px 0;
 }
 .milestone-banner strong { color: var(--text); }
+
+/* ========================================================================
+   En-tete de profil public
+   ======================================================================== */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.profile-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 24px rgba(139,92,246,0.4);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.profile-identity { flex: 1; min-width: 200px; }
+.profile-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin: 0;
+}
+.profile-meta { color: var(--text-dim); font-size: 0.85rem; margin: 4px 0 0; }
 
 /* ========================================================================
    Panneau de stats personnelles (collection)
@@ -2384,7 +2484,7 @@ body.hide-stats #stats-block { display: none; }
   .panel { padding: 40px 44px; }
   .collection-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 22px; }
   .reveal-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 26px; }
-  .extension-picker { grid-template-columns: repeat(5, 1fr); gap: 20px; }
+  .extension-picker { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 20px; }
   .craft-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 22px; }
   .pack-modal-stage { width: min(920px, 92vw); }
 }

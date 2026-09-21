@@ -11,9 +11,10 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
-  <main>
+  <main id="main-content">
     <div class="panel">
       <h1>Ma collection</h1>
 
@@ -38,7 +39,7 @@
 
         <div class="filters" id="rarity-filters"></div>
         <div class="collection-toolbar">
-          <input type="text" id="search-input" placeholder="Rechercher une carte..." autocomplete="off" />
+          <input type="text" id="search-input" placeholder="Rechercher une carte..." autocomplete="off" aria-label="Rechercher une carte dans la collection" />
           <select id="sort-select">
             <option value="extension">Trier : par extension</option>
             <option value="name">Trier : alphabetique</option>

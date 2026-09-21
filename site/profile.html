@@ -11,9 +11,10 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
-  <main>
+  <main id="main-content">
     <div class="panel">
       <div id="profile-loading" class="loading-row"><div class="spinner"></div></div>
       <div id="profile-not-found" style="display:none;">
@@ -21,11 +22,19 @@
         <p class="lead">Ce pseudo ne correspond à aucun joueur.</p>
       </div>
       <div id="profile-zone" style="display:none;">
-        <h1 id="profile-title"></h1>
-        <p id="profile-member-since" class="lead" style="font-size:0.85rem;"></p>
-        <div id="profile-complete-badge" class="reward-banner" style="display:none;">&#127942; Collection complète !</div>
+        <div class="profile-header">
+          <img id="profile-avatar" class="profile-avatar" alt="" style="display:none;" />
+          <div class="profile-identity">
+            <h1 id="profile-title" class="profile-name"></h1>
+            <p id="profile-member-since" class="profile-meta"></p>
+          </div>
+          <div id="profile-complete-badge" class="reward-banner" style="display:none;">&#127942; Collection complète !</div>
+        </div>
+
         <div id="profile-stats" class="stats-grid"></div>
-        <h2>Collection publique</h2>
+        <div id="profile-rarity-breakdown" class="rarity-progress-list"></div>
+
+        <h2 style="margin-top:24px;">Collection publique</h2>
         <p class="lead" style="font-size:0.8rem;">Le badge <span class="dupe-badge" style="position:static;display:inline-flex;">×N</span> indique une carte possédée en plusieurs exemplaires : ce joueur a peut-être un doublon à échanger.</p>
         <div id="profile-grid" class="collection-grid"></div>
       </div>
@@ -46,7 +55,13 @@
       }
       try {
         const res = await API.getPublicProfile(pseudo);
-        document.getElementById("profile-title").textContent = `Collection de ${res.pseudo}`;
+        document.getElementById("profile-title").textContent = res.pseudo;
+        if (res.discordAvatar) {
+          const avatar = document.getElementById("profile-avatar");
+          avatar.src = res.discordAvatar;
+          avatar.alt = "";
+          avatar.style.display = "block";
+        }
         if (res.memberSince) {
           const d = new Date(res.memberSince * 1000);
           document.getElementById("profile-member-since").textContent =
@@ -57,6 +72,26 @@
           <div class="stat-tile"><div class="stat-value">${res.uniqueCards}${res.totalCards ? ` / ${res.totalCards}` : ""}</div><div class="stat-label">Cartes uniques</div></div>
           <div class="stat-tile"><div class="stat-value">${res.totalPulls}</div><div class="stat-label">Tirages au total</div></div>
         `;
+
+        // Repartition par rarete parmi ce que le joueur possede (pas une
+        // progression vers un total - le profil public n'expose pas le
+        // catalogue complet, juste ce qui a ete obtenu).
+        const byRarity = new Map();
+        (res.cards || []).forEach((c) => {
+          const key = c.rarity?.key || "commune";
+          if (!byRarity.has(key)) byRarity.set(key, { name: c.rarity?.name || key, colorHex: c.rarity?.colorHex || "#9aa0b4", sortOrder: c.rarity?.sortOrder || 0, count: 0 });
+          byRarity.get(key).count++;
+        });
+        const rarityRows = [...byRarity.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+        const maxCount = Math.max(1, ...rarityRows.map((r) => r.count));
+        document.getElementById("profile-rarity-breakdown").innerHTML = rarityRows.map((r) => `
+          <div class="rarity-progress-row">
+            <span class="rp-label" style="color:${rarityTextColor(r.colorHex)};">${r.name}</span>
+            <span class="rp-track"><span class="rp-fill" style="width:${Math.round((r.count / maxCount) * 100)}%;background:${r.colorHex};"></span></span>
+            <span class="rp-count">${r.count}</span>
+          </div>
+        `).join("");
+
         const grid = document.getElementById("profile-grid");
         const cards = res.cards || [];
         grid.innerHTML = cards.length ? cards.map((c) => {
@@ -65,10 +100,10 @@
           return `
             <div class="collection-card" data-rarity="${c.rarity?.key || "commune"}" data-promo="${c.isPromo ? "1" : "0"}">
               ${c.count > 1 && !c.isPromo ? `<span class="dupe-badge" title="Doublon possible a echanger">×${c.count} dispo</span>` : ""}
-              <img src="${imgSrc}" alt="${c.name}" />
+              <img src="${imgSrc}" alt="${c.name}" loading="lazy" />
               <div class="card-info">
                 <div class="card-name">${c.name}${c.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
-                <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
+                <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
                   ${rarityIcon(c.rarity?.key)} ${c.rarity?.name || "Commune"}
                 </span>
                 <div class="count-badge">x${c.count}</div>

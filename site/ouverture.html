@@ -13,9 +13,10 @@
 <body>
   <div id="burst-flash" class="burst-flash"></div>
   <div id="legendary-flash" class="legendary-flash"></div>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
-  <main>
+  <main id="main-content">
     <div class="panel">
       <h1>Ouverture de booster</h1>
       <p class="lead">Un booster contient 5 cartes. Les boosters s'obtiennent uniquement en réclamant un code d'événement. Tape sur un pack pour l'ouvrir.</p>
@@ -58,7 +59,10 @@
         <option value="950" selected>Vitesse : normale</option>
         <option value="550">Vitesse : rapide</option>
       </select>
-      <button type="button" id="share-pull-btn" class="btn-secondary" style="display:none;">&#128247; Partager ce pull</button>
+      <div class="post-reveal-actions">
+        <button type="button" id="open-another-btn" class="btn-secondary" style="display:none;"></button>
+        <button type="button" id="share-pull-btn" class="btn-secondary" style="display:none;">&#128247; Partager ce pull</button>
+      </div>
     </div>
   </div>
 
