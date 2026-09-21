@@ -12,7 +12,10 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-2200, 700]
+      "position": [
+        -2200,
+        700
+      ]
     },
     {
       "parameters": {
@@ -23,14 +26,28 @@
       "name": "Set Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1980, 700]
+      "position": [
+        -1980,
+        700
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ $json.action }}", "rightValue": "create", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -40,14 +57,28 @@
       "name": "If Action Is Create",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-1760, 700]
+      "position": [
+        -1760,
+        700
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ $json.action }}", "rightValue": "list", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "list",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -57,14 +88,28 @@
       "name": "If Action Is List",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-1540, 900]
+      "position": [
+        -1540,
+        900
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ $json.action }}", "rightValue": "respond", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "respond",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -74,27 +119,91 @@
       "name": "If Action Is Respond",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-1320, 1100]
+      "position": [
+        -1320,
+        1100
+      ]
     },
-
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} }, "id": "create-get-users", "name": "Create Get Users", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-1540, 150], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} }, "id": "create-get-pulls", "name": "Create Get Pulls", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-1540, 300], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "create-get-users",
+      "name": "Create Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1540,
+        150
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "create-get-pulls",
+      "name": "Create Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1540,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Create Get Users').all().map((i) => i.json);\nconst pulls = $('Create Get Pulls').all().map((i) => i.json);\n\nconst toUser = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.toPseudo.toLowerCase());\nif (!toUser) {\n  return [{ json: { ok: false, error: 'user_not_found' } }];\n}\nif (toUser.id === cfg.userId) {\n  return [{ json: { ok: false, error: 'cannot_trade_self' } }];\n}\nconst owns = pulls.some((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.offeredCardId);\nif (!owns) {\n  return [{ json: { ok: false, error: 'card_not_owned' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    fromUserId: cfg.userId,\n    toUserId: toUser.id,\n    offeredCardId: cfg.offeredCardId,\n    requestedCardId: cfg.requestedCardId,\n    createdAt: Math.floor(Date.now() / 1000)\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Create Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Create Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst toUser = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.toPseudo.toLowerCase());\nif (!toUser) {\n  return [{ json: { ok: false, error: 'user_not_found' } }];\n}\nif (toUser.id === cfg.userId) {\n  return [{ json: { ok: false, error: 'cannot_trade_self' } }];\n}\nconst owns = pulls.some((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.offeredCardId);\nif (!owns) {\n  return [{ json: { ok: false, error: 'card_not_owned' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    fromUserId: cfg.userId,\n    toUserId: toUser.id,\n    offeredCardId: cfg.offeredCardId,\n    requestedCardId: cfg.requestedCardId,\n    createdAt: Math.floor(Date.now() / 1000)\n  }\n}];"
       },
       "id": "prepare-trade",
       "name": "Prepare Trade",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1320, 220]
+      "position": [
+        -1320,
+        220
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [ { "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -103,7 +212,10 @@
       "name": "If Create Valid",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-1100, 220]
+      "position": [
+        -1100,
+        220
+      ]
     },
     {
       "parameters": {
@@ -113,12 +225,30 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "FromUser", "fieldValue": "={{ $json.fromUserId }}" },
-            { "fieldId": "ToUser", "fieldValue": "={{ $json.toUserId }}" },
-            { "fieldId": "OfferedCard", "fieldValue": "={{ $json.offeredCardId }}" },
-            { "fieldId": "RequestedCard", "fieldValue": "={{ $json.requestedCardId }}" },
-            { "fieldId": "Status", "fieldValue": "pending" },
-            { "fieldId": "CreatedAt", "fieldValue": "={{ $json.createdAt }}" }
+            {
+              "fieldId": "FromUser",
+              "fieldValue": "={{ $json.fromUserId }}"
+            },
+            {
+              "fieldId": "ToUser",
+              "fieldValue": "={{ $json.toUserId }}"
+            },
+            {
+              "fieldId": "OfferedCard",
+              "fieldValue": "={{ $json.offeredCardId }}"
+            },
+            {
+              "fieldId": "RequestedCard",
+              "fieldValue": "={{ $json.requestedCardId }}"
+            },
+            {
+              "fieldId": "Status",
+              "fieldValue": "pending"
+            },
+            {
+              "fieldId": "CreatedAt",
+              "fieldValue": "={{ $json.createdAt }}"
+            }
           ]
         }
       },
@@ -126,8 +256,16 @@
       "name": "Create Trade",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [-880, 120],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -880,
+        120
+      ],
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "parameters": {
@@ -138,44 +276,200 @@
       "name": "Format Created Trade",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-660, 120]
+      "position": [
+        -660,
+        120
+      ]
     },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }, "id": "respond-trade-created", "name": "Respond Trade Created", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [-440, 120] },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }, "id": "respond-create-error", "name": "Respond Create Error", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [-880, 320] },
-
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Trades", "returnAll": true, "additionalOptions": {} }, "id": "list-get-trades", "name": "List Get Trades", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-1320, 500], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} }, "id": "list-get-users", "name": "List Get Users", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-1320, 620], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} }, "id": "list-get-cards", "name": "List Get Cards", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-1320, 740], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-trade-created",
+      "name": "Respond Trade Created",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -440,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-create-error",
+      "name": "Respond Create Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -880,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Trades",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "list-get-trades",
+      "name": "List Get Trades",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1320,
+        500
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "list-get-users",
+      "name": "List Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1320,
+        620
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "list-get-cards",
+      "name": "List Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1320,
+        740
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('List Get Trades').all().map((i) => i.json);\nconst users = $('List Get Users').all().map((i) => i.json);\nconst cards = $('List Get Cards').all().map((i) => i.json);\n\nconst userById = {};\nusers.forEach((u) => { userById[u.id] = u.Pseudo; });\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c.Name; });\n\nconst mine = trades.filter((t) => refId(t.FromUser) === cfg.userId || refId(t.ToUser) === cfg.userId);\nconst list = mine.map((t) => ({\n  tradeId: t.id,\n  direction: refId(t.FromUser) === cfg.userId ? 'outgoing' : 'incoming',\n  fromPseudo: userById[refId(t.FromUser)] || '?',\n  toPseudo: userById[refId(t.ToUser)] || '?',\n  offeredCard: { id: refId(t.OfferedCard), name: cardById[refId(t.OfferedCard)] || '?' },\n  requestedCard: { id: refId(t.RequestedCard), name: cardById[refId(t.RequestedCard)] || '?' },\n  status: t.Status,\n  createdAt: t.CreatedAt,\n  respondedAt: t.RespondedAt || null\n})).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { trades: list } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('List Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('List Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('List Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst userById = {};\nusers.forEach((u) => { userById[u.id] = u.Pseudo; });\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c.Name; });\n\nconst mine = trades.filter((t) => refId(t.FromUser) === cfg.userId || refId(t.ToUser) === cfg.userId);\nconst list = mine.map((t) => ({\n  tradeId: t.id,\n  direction: refId(t.FromUser) === cfg.userId ? 'outgoing' : 'incoming',\n  fromPseudo: userById[refId(t.FromUser)] || '?',\n  toPseudo: userById[refId(t.ToUser)] || '?',\n  offeredCard: { id: refId(t.OfferedCard), name: cardById[refId(t.OfferedCard)] || '?' },\n  requestedCard: { id: refId(t.RequestedCard), name: cardById[refId(t.RequestedCard)] || '?' },\n  status: t.Status,\n  createdAt: t.CreatedAt,\n  respondedAt: t.RespondedAt || null\n})).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { trades: list } }];"
       },
       "id": "build-trade-list",
       "name": "Build Trade List",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1100, 620]
+      "position": [
+        -1100,
+        620
+      ]
     },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }, "id": "respond-trade-list", "name": "Respond Trade List", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [-880, 620] },
-
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Trades", "returnAll": true, "additionalOptions": {} }, "id": "respond-get-trades", "name": "Respond Get Trades", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-1100, 900], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-trade-list",
+      "name": "Respond Trade List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -880,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Trades",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "respond-get-trades",
+      "name": "Respond Get Trades",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1100,
+        900
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('Respond Get Trades').all().map((i) => i.json);\nconst trade = trades.find((t) => t.id === cfg.tradeId);\n\nif (!trade) {\n  return [{ json: { ok: false, error: 'trade_not_found' } }];\n}\nif (refId(trade.ToUser) !== cfg.userId) {\n  return [{ json: { ok: false, error: 'not_your_trade' } }];\n}\nif (trade.Status !== 'pending') {\n  return [{ json: { ok: false, error: 'trade_not_pending' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    tradeId: trade.id,\n    fromUserId: refId(trade.FromUser),\n    toUserId: refId(trade.ToUser),\n    offeredCardId: refId(trade.OfferedCard),\n    requestedCardId: refId(trade.RequestedCard),\n    accept: cfg.accept\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('Respond Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst trade = trades.find((t) => t.id === cfg.tradeId);\n\nif (!trade) {\n  return [{ json: { ok: false, error: 'trade_not_found' } }];\n}\nif (refId(trade.ToUser) !== cfg.userId) {\n  return [{ json: { ok: false, error: 'not_your_trade' } }];\n}\nif (trade.Status !== 'pending') {\n  return [{ json: { ok: false, error: 'trade_not_pending' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    tradeId: trade.id,\n    fromUserId: refId(trade.FromUser),\n    toUserId: refId(trade.ToUser),\n    offeredCardId: refId(trade.OfferedCard),\n    requestedCardId: refId(trade.RequestedCard),\n    accept: cfg.accept\n  }\n}];"
       },
       "id": "find-trade-to-respond",
       "name": "Find Trade To Respond",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-880, 900]
+      "position": [
+        -880,
+        900
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [ { "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -184,14 +478,46 @@
       "name": "If Trade Respondable",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-660, 900]
+      "position": [
+        -660,
+        900
+      ]
     },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }, "id": "respond-not-respondable-error", "name": "Respond Not Respondable Error", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [-440, 1050] },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-not-respondable-error",
+      "name": "Respond Not Respondable Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -440,
+        1050
+      ]
+    },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [ { "leftValue": "={{ $json.accept }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.accept }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -200,25 +526,67 @@
       "name": "If Accept Trade",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-440, 830]
+      "position": [
+        -440,
+        830
+      ]
     },
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Find Trade To Respond').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} }, "id": "respond-get-pulls", "name": "Respond Get Pulls", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-220, 730], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Find Trade To Respond').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "respond-get-pulls",
+      "name": "Respond Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        730
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst t = $('Find Trade To Respond').first().json;\nconst pulls = $input.all().map((i) => i.json);\nconst pullFrom = pulls.find((p) => refId(p.User) === t.fromUserId && refId(p.Card) === t.offeredCardId);\nconst pullTo = pulls.find((p) => refId(p.User) === t.toUserId && refId(p.Card) === t.requestedCardId);\nif (!pullFrom || !pullTo) {\n  return [{ json: { ok: false, error: 'cards_no_longer_available' } }];\n}\nreturn [{\n  json: {\n    ok: true,\n    docId: t.docId,\n    tradeId: t.tradeId,\n    pullFromId: pullFrom.id,\n    pullToId: pullTo.id,\n    toUserId: t.toUserId,\n    fromUserId: t.fromUserId,\n    respondedAt: Math.floor(Date.now() / 1000)\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst t = $('Find Trade To Respond').first().json;\nconst pulls = $input.all().map((i) => i.json).filter((r) => r.id != null);\nconst pullFrom = pulls.find((p) => refId(p.User) === t.fromUserId && refId(p.Card) === t.offeredCardId);\nconst pullTo = pulls.find((p) => refId(p.User) === t.toUserId && refId(p.Card) === t.requestedCardId);\nif (!pullFrom || !pullTo) {\n  return [{ json: { ok: false, error: 'cards_no_longer_available' } }];\n}\nreturn [{\n  json: {\n    ok: true,\n    docId: t.docId,\n    tradeId: t.tradeId,\n    pullFromId: pullFrom.id,\n    pullToId: pullTo.id,\n    toUserId: t.toUserId,\n    fromUserId: t.fromUserId,\n    respondedAt: Math.floor(Date.now() / 1000)\n  }\n}];"
       },
       "id": "pick-pulls-to-swap",
       "name": "Pick Pulls To Swap",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [0, 730]
+      "position": [
+        0,
+        730
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [ { "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -227,7 +595,10 @@
       "name": "If Pulls Available",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [220, 730]
+      "position": [
+        220,
+        730
+      ]
     },
     {
       "parameters": {
@@ -236,14 +607,29 @@
         "tableId": "Pulls",
         "rowId": "={{ $json.pullFromId }}",
         "dataToSend": "defineInNode",
-        "fieldsToSend": { "properties": [ { "fieldId": "User", "fieldValue": "={{ $json.toUserId }}" } ] }
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.toUserId }}"
+            }
+          ]
+        }
       },
       "id": "reassign-offered-pull",
       "name": "Reassign Offered Pull",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [440, 630],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        440,
+        630
+      ],
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "parameters": {
@@ -252,14 +638,29 @@
         "tableId": "Pulls",
         "rowId": "={{ $('Pick Pulls To Swap').first().json.pullToId }}",
         "dataToSend": "defineInNode",
-        "fieldsToSend": { "properties": [ { "fieldId": "User", "fieldValue": "={{ $('Pick Pulls To Swap').first().json.fromUserId }}" } ] }
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $('Pick Pulls To Swap').first().json.fromUserId }}"
+            }
+          ]
+        }
       },
       "id": "reassign-requested-pull",
       "name": "Reassign Requested Pull",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [660, 630],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        660,
+        630
+      ],
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "parameters": {
@@ -270,8 +671,14 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "Status", "fieldValue": "accepted" },
-            { "fieldId": "RespondedAt", "fieldValue": "={{ $('Pick Pulls To Swap').first().json.respondedAt }}" }
+            {
+              "fieldId": "Status",
+              "fieldValue": "accepted"
+            },
+            {
+              "fieldId": "RespondedAt",
+              "fieldValue": "={{ $('Pick Pulls To Swap').first().json.respondedAt }}"
+            }
           ]
         }
       },
@@ -279,11 +686,49 @@
       "name": "Mark Trade Accepted",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [880, 630],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        880,
+        630
+      ],
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ { tradeId: $json.id, status: 'accepted' } }}", "options": {} }, "id": "respond-trade-accepted", "name": "Respond Trade Accepted", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [1100, 630] },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 409 } }, "id": "respond-cards-unavailable-error", "name": "Respond Cards Unavailable Error", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [440, 830] },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { tradeId: $json.id, status: 'accepted' } }}",
+        "options": {}
+      },
+      "id": "respond-trade-accepted",
+      "name": "Respond Trade Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        630
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "id": "respond-cards-unavailable-error",
+      "name": "Respond Cards Unavailable Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        830
+      ]
+    },
     {
       "parameters": {
         "operation": "update",
@@ -293,8 +738,14 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "Status", "fieldValue": "declined" },
-            { "fieldId": "RespondedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" }
+            {
+              "fieldId": "Status",
+              "fieldValue": "declined"
+            },
+            {
+              "fieldId": "RespondedAt",
+              "fieldValue": "={{ Math.floor(Date.now() / 1000) }}"
+            }
           ]
         }
       },
@@ -302,28 +753,88 @@
       "name": "Mark Trade Declined",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [-220, 950],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -220,
+        950
+      ],
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ { tradeId: $json.id, status: 'declined' } }}", "options": {} }, "id": "respond-trade-declined", "name": "Respond Trade Declined", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [0, 950] },
-
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Trades", "returnAll": true, "additionalOptions": {} }, "id": "cancel-get-trades", "name": "Cancel Get Trades", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-1100, 1300], "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { tradeId: $json.id, status: 'declined' } }}",
+        "options": {}
+      },
+      "id": "respond-trade-declined",
+      "name": "Respond Trade Declined",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        950
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Trades",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "cancel-get-trades",
+      "name": "Cancel Get Trades",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1100,
+        1300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('Cancel Get Trades').all().map((i) => i.json);\nconst trade = trades.find((t) => t.id === cfg.tradeId);\n\nif (!trade) {\n  return [{ json: { ok: false, error: 'trade_not_found' } }];\n}\nif (refId(trade.FromUser) !== cfg.userId) {\n  return [{ json: { ok: false, error: 'not_your_trade' } }];\n}\nif (trade.Status !== 'pending') {\n  return [{ json: { ok: false, error: 'trade_not_pending' } }];\n}\nreturn [{ json: { ok: true, docId: cfg.docId, tradeId: trade.id } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('Cancel Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst trade = trades.find((t) => t.id === cfg.tradeId);\n\nif (!trade) {\n  return [{ json: { ok: false, error: 'trade_not_found' } }];\n}\nif (refId(trade.FromUser) !== cfg.userId) {\n  return [{ json: { ok: false, error: 'not_your_trade' } }];\n}\nif (trade.Status !== 'pending') {\n  return [{ json: { ok: false, error: 'trade_not_pending' } }];\n}\nreturn [{ json: { ok: true, docId: cfg.docId, tradeId: trade.id } }];"
       },
       "id": "find-trade-to-cancel",
       "name": "Find Trade To Cancel",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-880, 1300]
+      "position": [
+        -880,
+        1300
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [ { "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -332,7 +843,10 @@
       "name": "If Cancel Allowed",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-660, 1300]
+      "position": [
+        -660,
+        1300
+      ]
     },
     {
       "parameters": {
@@ -343,8 +857,14 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "Status", "fieldValue": "cancelled" },
-            { "fieldId": "RespondedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" }
+            {
+              "fieldId": "Status",
+              "fieldValue": "cancelled"
+            },
+            {
+              "fieldId": "RespondedAt",
+              "fieldValue": "={{ Math.floor(Date.now() / 1000) }}"
+            }
           ]
         }
       },
@@ -352,87 +872,440 @@
       "name": "Mark Trade Cancelled",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [-440, 1250],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -440,
+        1250
+      ],
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ { tradeId: $json.id, status: 'cancelled' } }}", "options": {} }, "id": "respond-trade-cancelled", "name": "Respond Trade Cancelled", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [-220, 1250] },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }, "id": "respond-cancel-error", "name": "Respond Cancel Error", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [-440, 1400] }
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { tradeId: $json.id, status: 'cancelled' } }}",
+        "options": {}
+      },
+      "id": "respond-trade-cancelled",
+      "name": "Respond Trade Cancelled",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -220,
+        1250
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-cancel-error",
+      "name": "Respond Cancel Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -440,
+        1400
+      ]
+    }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
-    "Set Config": { "main": [[{ "node": "If Action Is Create", "type": "main", "index": 0 }]] },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "If Action Is Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Action Is Create": {
       "main": [
-        [ { "node": "Create Get Users", "type": "main", "index": 0 }, { "node": "Create Get Pulls", "type": "main", "index": 0 } ],
-        [ { "node": "If Action Is List", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "Create Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Action Is List",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Create Get Users": { "main": [[{ "node": "Prepare Trade", "type": "main", "index": 0 }]] },
-    "Create Get Pulls": { "main": [[{ "node": "Prepare Trade", "type": "main", "index": 0 }]] },
-    "Prepare Trade": { "main": [[{ "node": "If Create Valid", "type": "main", "index": 0 }]] },
+    "Create Get Users": {
+      "main": [
+        [
+          {
+            "node": "Create Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Prepare Trade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Trade": {
+      "main": [
+        [
+          {
+            "node": "If Create Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Create Valid": {
       "main": [
-        [ { "node": "Create Trade", "type": "main", "index": 0 } ],
-        [ { "node": "Respond Create Error", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "Create Trade",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Create Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Create Trade": { "main": [[{ "node": "Format Created Trade", "type": "main", "index": 0 }]] },
-    "Format Created Trade": { "main": [[{ "node": "Respond Trade Created", "type": "main", "index": 0 }]] },
-
+    "Create Trade": {
+      "main": [
+        [
+          {
+            "node": "Format Created Trade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Created Trade": {
+      "main": [
+        [
+          {
+            "node": "Respond Trade Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Action Is List": {
       "main": [
-        [ { "node": "List Get Trades", "type": "main", "index": 0 }, { "node": "List Get Users", "type": "main", "index": 0 }, { "node": "List Get Cards", "type": "main", "index": 0 } ],
-        [ { "node": "If Action Is Respond", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "List Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Action Is Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "List Get Trades": { "main": [[{ "node": "Build Trade List", "type": "main", "index": 0 }]] },
-    "List Get Users": { "main": [[{ "node": "Build Trade List", "type": "main", "index": 0 }]] },
-    "List Get Cards": { "main": [[{ "node": "Build Trade List", "type": "main", "index": 0 }]] },
-    "Build Trade List": { "main": [[{ "node": "Respond Trade List", "type": "main", "index": 0 }]] },
-
+    "List Get Trades": {
+      "main": [
+        [
+          {
+            "node": "List Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Get Users": {
+      "main": [
+        [
+          {
+            "node": "List Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Build Trade List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Trade List": {
+      "main": [
+        [
+          {
+            "node": "Respond Trade List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Action Is Respond": {
       "main": [
-        [ { "node": "Respond Get Trades", "type": "main", "index": 0 } ],
-        [ { "node": "Cancel Get Trades", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "Respond Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancel Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Respond Get Trades": { "main": [[{ "node": "Find Trade To Respond", "type": "main", "index": 0 }]] },
-    "Find Trade To Respond": { "main": [[{ "node": "If Trade Respondable", "type": "main", "index": 0 }]] },
+    "Respond Get Trades": {
+      "main": [
+        [
+          {
+            "node": "Find Trade To Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Trade To Respond": {
+      "main": [
+        [
+          {
+            "node": "If Trade Respondable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Trade Respondable": {
       "main": [
-        [ { "node": "If Accept Trade", "type": "main", "index": 0 } ],
-        [ { "node": "Respond Not Respondable Error", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "If Accept Trade",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Not Respondable Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "If Accept Trade": {
       "main": [
-        [ { "node": "Respond Get Pulls", "type": "main", "index": 0 } ],
-        [ { "node": "Mark Trade Declined", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "Respond Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Trade Declined",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Respond Get Pulls": { "main": [[{ "node": "Pick Pulls To Swap", "type": "main", "index": 0 }]] },
-    "Pick Pulls To Swap": { "main": [[{ "node": "If Pulls Available", "type": "main", "index": 0 }]] },
+    "Respond Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Pick Pulls To Swap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Pulls To Swap": {
+      "main": [
+        [
+          {
+            "node": "If Pulls Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Pulls Available": {
       "main": [
-        [ { "node": "Reassign Offered Pull", "type": "main", "index": 0 } ],
-        [ { "node": "Respond Cards Unavailable Error", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "Reassign Offered Pull",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Cards Unavailable Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Reassign Offered Pull": { "main": [[{ "node": "Reassign Requested Pull", "type": "main", "index": 0 }]] },
-    "Reassign Requested Pull": { "main": [[{ "node": "Mark Trade Accepted", "type": "main", "index": 0 }]] },
-    "Mark Trade Accepted": { "main": [[{ "node": "Respond Trade Accepted", "type": "main", "index": 0 }]] },
-    "Mark Trade Declined": { "main": [[{ "node": "Respond Trade Declined", "type": "main", "index": 0 }]] },
-
-    "Cancel Get Trades": { "main": [[{ "node": "Find Trade To Cancel", "type": "main", "index": 0 }]] },
-    "Find Trade To Cancel": { "main": [[{ "node": "If Cancel Allowed", "type": "main", "index": 0 }]] },
+    "Reassign Offered Pull": {
+      "main": [
+        [
+          {
+            "node": "Reassign Requested Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reassign Requested Pull": {
+      "main": [
+        [
+          {
+            "node": "Mark Trade Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Trade Accepted": {
+      "main": [
+        [
+          {
+            "node": "Respond Trade Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Trade Declined": {
+      "main": [
+        [
+          {
+            "node": "Respond Trade Declined",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel Get Trades": {
+      "main": [
+        [
+          {
+            "node": "Find Trade To Cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Trade To Cancel": {
+      "main": [
+        [
+          {
+            "node": "If Cancel Allowed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Cancel Allowed": {
       "main": [
-        [ { "node": "Mark Trade Cancelled", "type": "main", "index": 0 } ],
-        [ { "node": "Respond Cancel Error", "type": "main", "index": 0 } ]
+        [
+          {
+            "node": "Mark Trade Cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Cancel Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Mark Trade Cancelled": { "main": [[{ "node": "Respond Trade Cancelled", "type": "main", "index": 0 }]] }
+    "Mark Trade Cancelled": {
+      "main": [
+        [
+          {
+            "node": "Respond Trade Cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }
