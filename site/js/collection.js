@@ -16,9 +16,9 @@ let activeFilter = "all";
 
 function renderFilters(rarities) {
   const el = document.getElementById("rarity-filters");
-  const buttons = ["all", ...rarities].map((key) => {
-    const label = key === "all" ? "Toutes" : key;
-    return `<button data-filter="${key}" class="btn-secondary ${key === activeFilter ? "active" : ""}">${label}</button>`;
+  const items = [{ key: "all", name: "Toutes" }, ...rarities];
+  const buttons = items.map(({ key, name }) => {
+    return `<button data-filter="${key}" class="btn-secondary ${key === activeFilter ? "active" : ""}">${name}</button>`;
   });
   el.innerHTML = buttons.join("");
 
@@ -137,14 +137,12 @@ function renderGrid() {
     return;
   }
 
-  // Tri : extension (SortOrder) puis rarete (SortOrder, du moins rare au plus rare).
+  // Tri : uniquement par extension (SortOrder). La rarete est geree par les
+  // boutons de filtre au-dessus, pas par un tri automatique dans la grille.
   const sorted = [...cards].sort((a, b) => {
     const extA = a.extension?.sortOrder ?? 999;
     const extB = b.extension?.sortOrder ?? 999;
     if (extA !== extB) return extA - extB;
-    const rarA = a.rarity?.sortOrder ?? 999;
-    const rarB = b.rarity?.sortOrder ?? 999;
-    if (rarA !== rarB) return rarA - rarB;
     return (a.name || "").localeCompare(b.name || "");
   });
 
@@ -194,8 +192,14 @@ async function loadCollection() {
 
     renderRarityProgress();
 
-    const rarityKeys = [...new Set(allCardsCache.map((c) => c.rarity?.key).filter(Boolean))];
-    renderFilters(rarityKeys);
+    const rarityByKey = new Map();
+    allCardsCache.forEach((c) => {
+      if (c.rarity?.key && !rarityByKey.has(c.rarity.key)) {
+        rarityByKey.set(c.rarity.key, { key: c.rarity.key, name: c.rarity.name || c.rarity.key, sortOrder: c.rarity.sortOrder ?? 999 });
+      }
+    });
+    const rarities = [...rarityByKey.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+    renderFilters(rarities);
     renderGrid();
 
     zone.style.display = "block";
