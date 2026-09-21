@@ -11,6 +11,37 @@
 const NEW_BADGE_WINDOW_SECONDS = 24 * 3600;
 const FAVORITES_KEY = "2gatcha_favorites";
 
+// Messages d'erreur dupliques depuis craft.js/trade.js (meme convention que
+// les branches n8n paralleles du projet : duplication ciblee plutot qu'un
+// import partage, pour garder chaque page autonome).
+const DISENCHANT_ERRORS_LOCAL = {
+  card_not_found: "Carte introuvable.",
+  promo_not_disenchantable: "Cette carte promo ne peut pas etre decraftee.",
+  card_not_owned: "Tu ne possèdes pas cette carte."
+};
+const CRAFT_ERRORS_LOCAL = {
+  card_not_found: "Carte introuvable.",
+  promo_not_craftable: "Cette carte promo ne peut pas etre craftee.",
+  card_inactive: "Cette carte n'est plus disponible.",
+  insufficient_dust: "Pas assez de poussières d'etoile."
+};
+const TRADE_ERRORS_LOCAL = {
+  user_not_found: "Aucun joueur ne porte ce pseudo.",
+  cannot_trade_self: "Tu ne peux pas t'echanger une carte avec toi-meme.",
+  card_not_owned: "Tu ne possèdes pas cette carte.",
+  promo_not_tradeable: "Les cartes promo ne sont pas echangeables."
+};
+
+const COLLAPSED_EXT_KEY = "2gatcha_collapsed_extensions";
+function loadCollapsedExtensions() {
+  try { return new Set(JSON.parse(localStorage.getItem(COLLAPSED_EXT_KEY) || "[]")); }
+  catch (e) { return new Set(); }
+}
+function saveCollapsedExtensions(set) {
+  try { localStorage.setItem(COLLAPSED_EXT_KEY, JSON.stringify([...set])); } catch (e) {}
+}
+let collapsedExtensions = loadCollapsedExtensions();
+
 const PREFS_KEY = "2gatcha_collection_prefs";
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); }
@@ -204,33 +235,6 @@ function renderRarityProgress() {
   }).join("");
 }
 
-function renderExtensionProgress() {
-  const el = document.getElementById("extension-progress");
-  if (!el) return;
-  const byExt = new Map();
-  allCardsCache.forEach((c) => {
-    const key = c.extension?.key || "__none__";
-    if (!byExt.has(key)) {
-      byExt.set(key, { name: c.extension?.name || "Sans extension", sortOrder: c.extension?.sortOrder ?? 999, total: 0, owned: 0 });
-    }
-    const entry = byExt.get(key);
-    entry.total++;
-    if (ownedMap.has(c.cardId)) entry.owned++;
-  });
-  const rows = [...byExt.values()].sort((a, b) => a.sortOrder - b.sortOrder);
-  if (rows.length < 2) { el.innerHTML = ""; return; }
-  el.innerHTML = rows.map((r) => {
-    const pct = r.total ? Math.round((r.owned / r.total) * 100) : 0;
-    return `
-      <div class="rarity-progress-row">
-        <span class="rp-label">${r.name}</span>
-        <span class="rp-track"><span class="rp-fill" style="width:${pct}%;background:var(--accent-2);"></span></span>
-        <span class="rp-count">${r.owned}/${r.total}</span>
-      </div>
-    `;
-  }).join("");
-}
-
 function cardTileHtml(card, now) {
   const owned = ownedMap.get(card.cardId);
   const locked = !owned;
@@ -240,10 +244,14 @@ function cardTileHtml(card, now) {
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
 
   // Carte manquante mais a portee de poussieres : le signaler directement
-  // sur la vignette, avec un lien vers craft.html plutot que de laisser le
-  // joueur decouvrir ca par hasard en changeant de page.
-  const craftCost = craftCostByCard.get(card.cardId);
+  // sur la vignette, avec une action de craft immediate (plus besoin de
+  // changer de page pour la carte la plus courante : combler un trou de
+  // collection depuis la collection elle-meme).
+  const info = craftCostByCard.get(card.cardId);
+  const craftCost = info?.craftCost;
+  const disenchantValue = info?.disenchantValue;
   const craftable = locked && !card.isPromo && craftCost != null && stardustBalance >= craftCost;
+  const canQuickAct = !locked && !card.isPromo;
 
   return `
     <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
@@ -256,10 +264,131 @@ function cardTileHtml(card, now) {
           ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
         </span>
         ${owned ? `<div class="count-badge">x${owned.count}</div>` : ""}
-        ${craftable ? `<a href="craft.html?cardId=${card.cardId}" class="craftable-link" onclick="event.stopPropagation();">&#9879; Craftable (${craftCost})</a>` : ""}
+        ${craftable ? `<button type="button" class="card-quick-action quick-craft-btn" data-card-id="${card.cardId}">&#10024; Crafter (${craftCost})</button>` : ""}
+        ${canQuickAct ? `
+          <div class="quick-actions-row">
+            ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" title="Décrafter contre ${disenchantValue} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
+            <button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>
+          </div>
+        ` : ""}
       </div>
     </div>
   `;
+}
+
+// Actions rapides directement depuis la collection : eviter d'avoir a
+// changer de page pour un craft/decraft/echange ponctuel. Mettent a jour
+// l'etat local (ownedMap/stardustBalance) et re-rendent juste la grille,
+// plutot qu'un rechargement complet de la page.
+async function craftCardQuick(cardId) {
+  const card = allCardsCache.find((c) => c.cardId === cardId);
+  const info = craftCostByCard.get(cardId);
+  const cost = info?.craftCost || 0;
+  const ok = await Confirm.show(
+    `Crafter <strong>${card?.name || "cette carte"}</strong> pour <strong>${cost} poussières d'étoile</strong> ? ` +
+    `Solde : ${stardustBalance} &rarr; <strong>${stardustBalance - cost}</strong>.`,
+    { title: "Crafter cette carte ?", confirmText: "Crafter" }
+  );
+  if (!ok) return;
+  try {
+    const res = await API.craftCard(Session.userId, cardId);
+    Toast.success(`${res.card.name} craftee !`);
+    if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+    stardustBalance = res.newStardust ?? (stardustBalance - cost);
+    const existing = ownedMap.get(cardId);
+    if (existing) existing.count++;
+    else ownedMap.set(cardId, { cardId, count: 1, lastObtainedAt: Math.floor(Date.now() / 1000) });
+    renderStatsAndMilestone();
+    renderGrid();
+  } catch (e) {
+    Toast.error(CRAFT_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
+async function disenchantCardQuick(cardId) {
+  const card = allCardsCache.find((c) => c.cardId === cardId);
+  const info = craftCostByCard.get(cardId);
+  const dust = info?.disenchantValue || 0;
+  const ok = await Confirm.show(
+    `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
+    `Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+    { title: "Décrafter cette carte ?", confirmText: "Décrafter", dangerous: true }
+  );
+  if (!ok) return;
+  try {
+    const res = await API.disenchantCard(Session.userId, cardId);
+    Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
+    stardustBalance = res.newStardust ?? (stardustBalance + dust);
+    const owned = ownedMap.get(cardId);
+    if (owned) {
+      if (owned.count > 1) owned.count--;
+      else ownedMap.delete(cardId);
+    }
+    renderStatsAndMilestone();
+    renderGrid();
+  } catch (e) {
+    Toast.error(DISENCHANT_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
+async function openQuickTrade(cardId) {
+  const card = allCardsCache.find((c) => c.cardId === cardId);
+  if (!card) return;
+  let usersRes, cardsRes;
+  try {
+    [usersRes, cardsRes] = await Promise.all([API.listUsers(), API.getCards()]);
+  } catch (e) {
+    Toast.error("Impossible de charger la liste des joueurs.");
+    return;
+  }
+  const others = (usersRes.users || []).filter((u) => String(u.userId) !== String(Session.userId));
+  if (!others.length) { Toast.info("Aucun autre joueur a qui proposer un échange pour l'instant."); return; }
+
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay confirm-overlay";
+  overlay.innerHTML = `
+    <div class="confirm-box quick-trade-box">
+      <div class="confirm-title">Échanger ${card.name}</div>
+      <div class="quick-trade-form">
+        <label>À qui ?
+          <select id="qt-target"></select>
+        </label>
+        <label>Contre quelle carte ? (optionnel)
+          <select id="qt-requested"><option value="">Aucune (don)</option></select>
+        </label>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn-ghost qt-cancel">Annuler</button>
+        <button type="button" class="qt-submit">Proposer l'échange</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  syncScrollLock();
+
+  const targetSelect = overlay.querySelector("#qt-target");
+  targetSelect.innerHTML = others.map((u) => `<option value="${u.pseudo}">${u.pseudo}</option>`).join("");
+  const requestedSelect = overlay.querySelector("#qt-requested");
+  requestedSelect.innerHTML += (cardsRes.cards || [])
+    .filter((c) => !c.isPromo)
+    .map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
+  enhanceSelect(targetSelect);
+  enhanceSelect(requestedSelect);
+
+  function close() { overlay.remove(); syncScrollLock(); }
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector(".qt-cancel").addEventListener("click", close);
+  overlay.querySelector(".qt-submit").addEventListener("click", async () => {
+    const toPseudo = targetSelect.value;
+    const requestedCardId = requestedSelect.value ? Number(requestedSelect.value) : null;
+    try {
+      await API.createTrade(Session.userId, toPseudo, cardId, requestedCardId);
+      Toast.success(`Échange proposé à ${toPseudo}.`);
+      close();
+    } catch (e) {
+      Toast.error(TRADE_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
+    }
+  });
 }
 
 function renderStatsAndMilestone() {
@@ -319,7 +448,6 @@ function renderStatsAndMilestone() {
 
 function renderGrid() {
   const container = document.getElementById("collection-grid");
-  container.classList.toggle("dense", document.body.classList.contains("dense-view"));
   const now = Math.floor(Date.now() / 1000);
   let cards = allCardsCache.filter(
     (c) => activeFilter === "all" || c.rarity?.key === activeFilter
@@ -386,17 +514,46 @@ function renderGrid() {
     groups = [{ key: "__flat__", name: "", cards: sorted }];
   }
 
+  // Regroupement par extension repliable (plutot qu'une simple barre de
+  // progression a part, qui n'aidait pas vraiment a naviguer) : le compteur
+  // N/X vit directement dans le titre du groupe, et chaque groupe peut se
+  // replier pour se concentrer sur les autres.
+  const isDense = document.body.classList.contains("dense-view");
   const showHeadings = groups.length > 1;
-  container.innerHTML = groups.map((group) => `
-    ${showHeadings ? `<h2 class="collection-extension-heading">${group.name}</h2>` : ""}
-    <div class="collection-grid">${group.cards.map((c) => cardTileHtml(c, now)).join("")}</div>
-  `).join("");
+  container.innerHTML = groups.map((group) => {
+    const total = group.cards.length;
+    const ownedCount = group.cards.filter((c) => ownedMap.has(c.cardId)).length;
+    const isCollapsed = showHeadings && collapsedExtensions.has(group.key);
+    return `
+      <div class="collection-ext-group ${isCollapsed ? "collapsed" : ""}" data-ext-key="${group.key}">
+        ${showHeadings ? `
+          <h2 class="collection-extension-heading">
+            <button type="button" class="ext-fold-toggle" aria-label="${isCollapsed ? "Déplier" : "Plier"} ${group.name}" aria-expanded="${!isCollapsed}">&#9662;</button>
+            <span class="ext-heading-name">${group.name}</span>
+            <span class="ext-heading-count">${ownedCount}/${total}</span>
+          </h2>
+        ` : ""}
+        <div class="collection-grid ${isDense ? "dense" : ""}">${group.cards.map((c) => cardTileHtml(c, now)).join("")}</div>
+      </div>
+    `;
+  }).join("");
+
+  container.querySelectorAll(".collection-extension-heading").forEach((heading) => {
+    heading.addEventListener("click", () => {
+      const groupEl = heading.closest(".collection-ext-group");
+      const key = groupEl.dataset.extKey;
+      const collapsed = groupEl.classList.toggle("collapsed");
+      heading.querySelector(".ext-fold-toggle").setAttribute("aria-expanded", String(!collapsed));
+      if (collapsed) collapsedExtensions.add(key); else collapsedExtensions.delete(key);
+      saveCollapsedExtensions(collapsedExtensions);
+    });
+  });
 
   const visibleOwnedIds = [...container.querySelectorAll(".collection-card:not(.locked)")].map((el) => Number(el.dataset.cardId));
   container.querySelectorAll(".collection-card:not(.locked)").forEach((el) => {
     attachTilt(el);
     el.addEventListener("click", (e) => {
-      if (e.target.closest(".fav-btn")) return;
+      if (e.target.closest(".fav-btn, .card-quick-action")) return;
       const cardId = Number(el.dataset.cardId);
       showCardModal(cardId, visibleOwnedIds);
     });
@@ -418,6 +575,15 @@ function renderGrid() {
       saveFavorites(favorites);
       btn.classList.toggle("active");
     });
+  });
+  container.querySelectorAll(".quick-craft-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); craftCardQuick(Number(btn.dataset.cardId)); });
+  });
+  container.querySelectorAll(".quick-disenchant-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); disenchantCardQuick(Number(btn.dataset.cardId)); });
+  });
+  container.querySelectorAll(".quick-trade-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); openQuickTrade(Number(btn.dataset.cardId)); });
   });
 }
 
@@ -457,7 +623,7 @@ async function loadCollection() {
     allCardsCache = res.cards || [];
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
     stardustBalance = statusRes.stardust || 0;
-    craftCostByCard = new Map((cardsRes.cards || []).map((c) => [c.cardId, c.rarity?.craftCost]));
+    craftCostByCard = new Map((cardsRes.cards || []).map((c) => [c.cardId, c.rarity]));
 
     const stats = res.stats || { owned: ownedMap.size, total: allCardsCache.length };
     document.getElementById("progress-label").textContent =
@@ -466,7 +632,6 @@ async function loadCollection() {
     document.getElementById("progress-fill").style.width = pct + "%";
 
     renderRarityProgress();
-    renderExtensionProgress();
     renderStatsAndMilestone();
 
     const rarityByKey = new Map();
@@ -508,6 +673,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (prefs.denseView) {
     document.body.classList.add("dense-view");
     denseBtn.classList.add("active");
+  }
+  const statsToggleBtn = document.getElementById("stats-toggle");
+  function applyStatsToggleLabel(hidden) {
+    statsToggleBtn.innerHTML = hidden ? "&#128202; Afficher les stats" : "&#128202; Masquer les stats";
+    statsToggleBtn.classList.toggle("active", hidden);
+  }
+  if (prefs.hideStats) {
+    document.body.classList.add("hide-stats");
+    applyStatsToggleLabel(true);
   }
 
   loadCollection();
@@ -562,6 +736,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.classList.toggle("cinema-mode");
     e.target.classList.toggle("active", document.body.classList.contains("cinema-mode"));
   });
+  statsToggleBtn.addEventListener("click", () => {
+    document.body.classList.toggle("hide-stats");
+    const hidden = document.body.classList.contains("hide-stats");
+    savePrefs({ hideStats: hidden });
+    applyStatsToggleLabel(hidden);
+  });
   document.getElementById("reset-filters-btn").addEventListener("click", () => {
     searchQuery = "";
     activeFilter = "all";
@@ -569,8 +749,8 @@ document.addEventListener("DOMContentLoaded", () => {
     missingOnly = false;
     favoritesOnly = false;
     artistFilter = "";
-    document.body.classList.remove("dense-view", "cinema-mode");
-    savePrefs({ sortMode, missingOnly, denseView: false });
+    document.body.classList.remove("dense-view", "cinema-mode", "hide-stats");
+    savePrefs({ sortMode, missingOnly, denseView: false, hideStats: false });
 
     document.getElementById("search-input").value = "";
     document.getElementById("sort-select").value = sortMode;
@@ -579,6 +759,7 @@ document.addEventListener("DOMContentLoaded", () => {
     favoritesBtn.classList.remove("active");
     denseBtn.classList.remove("active");
     document.getElementById("cinema-toggle").classList.remove("active");
+    applyStatsToggleLabel(false);
     document.querySelectorAll("#rarity-filters button").forEach((b) => b.classList.toggle("active", b.dataset.filter === "all"));
 
     renderGrid();

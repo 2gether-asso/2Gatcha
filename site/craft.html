@@ -37,20 +37,38 @@
 
         <div id="unused-dust-reminder" class="milestone-banner" style="display:none;"></div>
 
-        <div class="actions" style="margin-top:0;align-items:center;">
-          <h2 style="flex:1;margin:0;">Mes cartes (decrafter)</h2>
-          <button type="button" class="btn-ghost" id="bulk-select-toggle">Sélection multiple</button>
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" id="tab-disenchant-btn" role="tab" aria-selected="true">&#9851; Décrafter</button>
+          <button type="button" class="tab" id="tab-craft-btn" role="tab" aria-selected="false">&#10024; Crafter</button>
         </div>
-        <div id="bulk-disenchant-bar" class="bulk-action-bar" style="display:none;">
-          <span id="bulk-disenchant-summary"></span>
-          <button type="button" class="btn-danger" id="bulk-disenchant-btn">Décrafter la sélection</button>
-        </div>
-        <div id="disenchant-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
-        <div id="disenchant-grid" class="craft-grid"></div>
 
-        <h2>Crafter une carte</h2>
-        <div id="craft-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
-        <div id="craft-grid" class="craft-grid"></div>
+        <div class="craft-toolbar">
+          <input type="text" id="craft-search-input" placeholder="Rechercher une carte..." autocomplete="off" />
+          <div class="filters" id="craft-rarity-filters"></div>
+          <label id="hide-owned-label" class="checkbox-inline" style="display:none;">
+            <input type="checkbox" id="hide-owned-toggle" />
+            Cacher les cartes déjà possédées
+          </label>
+        </div>
+
+        <div id="disenchant-pane">
+          <div class="actions" style="margin-top:0;align-items:center;">
+            <p class="lead" style="flex:1;margin:0;font-size:0.85rem;">Triées par poussières rapportées, les plus rentables d'abord.</p>
+            <button type="button" class="btn-ghost" id="bulk-select-toggle">Sélection multiple</button>
+          </div>
+          <div id="bulk-disenchant-bar" class="bulk-action-bar" style="display:none;">
+            <span id="bulk-disenchant-summary"></span>
+            <button type="button" class="btn-danger" id="bulk-disenchant-btn">Décrafter la sélection</button>
+          </div>
+          <div id="disenchant-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
+          <div id="disenchant-grid" class="craft-grid"></div>
+        </div>
+
+        <div id="craft-pane" style="display:none;">
+          <p class="lead" style="font-size:0.85rem;">Triées par cout croissant ; les cartes que tu peux te permettre dès maintenant sont en avant.</p>
+          <div id="craft-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
+          <div id="craft-grid" class="craft-grid"></div>
+        </div>
       </div>
     </div>
   </main>

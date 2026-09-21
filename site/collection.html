@@ -27,13 +27,14 @@
       </div>
 
       <div id="collection-zone" style="display:none;">
-        <p class="lead" id="progress-label"></p>
-        <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+        <div id="stats-block">
+          <p class="lead" id="progress-label"></p>
+          <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
 
-        <div id="rarity-progress" class="rarity-progress-list"></div>
-        <div id="extension-progress" class="rarity-progress-list"></div>
-        <div id="stats-grid" class="stats-grid"></div>
-        <div id="milestone-banner" class="milestone-banner" style="display:none;"></div>
+          <div id="rarity-progress" class="rarity-progress-list"></div>
+          <div id="stats-grid" class="stats-grid"></div>
+          <div id="milestone-banner" class="milestone-banner" style="display:none;"></div>
+        </div>
 
         <div class="filters" id="rarity-filters"></div>
         <div class="collection-toolbar">
@@ -47,11 +48,12 @@
           <select id="artist-filter">
             <option value="">Tous les artistes</option>
           </select>
-          <button type="button" class="btn-secondary" id="missing-toggle">Manquantes uniquement</button>
-          <button type="button" class="btn-secondary" id="favorites-toggle">Favoris uniquement</button>
-          <button type="button" class="btn-secondary" id="mark-seen-btn">Tout marquer comme vu</button>
-          <button type="button" class="btn-secondary" id="dense-toggle">Vue dense</button>
-          <button type="button" class="btn-secondary" id="cinema-toggle">Mode cinema</button>
+          <button type="button" class="btn-secondary" id="missing-toggle">&#128269; Manquantes uniquement</button>
+          <button type="button" class="btn-secondary" id="favorites-toggle">&#9733; Favoris uniquement</button>
+          <button type="button" class="btn-secondary" id="mark-seen-btn">&#10003; Tout marquer comme vu</button>
+          <button type="button" class="btn-secondary" id="dense-toggle" title="Grille compacte : plus de cartes visibles a l'ecran">&#9638; Grille compacte</button>
+          <button type="button" class="btn-secondary" id="cinema-toggle" title="Plein ecran : masque le menu et les stats pour ne garder que les cartes">&#128065; Plein écran</button>
+          <button type="button" class="btn-secondary" id="stats-toggle" title="Masquer le bandeau de stats pour gagner de la place">&#128202; Masquer les stats</button>
           <button type="button" class="btn-ghost" id="reset-filters-btn">Réinitialiser</button>
         </div>
 

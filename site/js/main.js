@@ -148,6 +148,127 @@ const Confirm = {
 };
 
 // ---------------------------------------------------------------------------
+// Menu deroulant stylise a la place du <select> natif du navigateur (moche
+// et non personnalisable). Le <select> d'origine reste dans le DOM comme
+// source de verite (garde .value, continue a emettre "change") : tout code
+// appelant qui lisait deja filterEl.value / ecoutait "change" continue de
+// marcher sans modification. On le masque visuellement et on construit une
+// interface custom par-dessus, synchronisee avec lui.
+// ---------------------------------------------------------------------------
+function enhanceSelect(selectEl) {
+  if (!selectEl || selectEl._fancyEnhanced) return;
+  selectEl._fancyEnhanced = true;
+
+  const wrap = document.createElement("div");
+  wrap.className = "fancy-select";
+  // Le wrapper reprend les styles inline du select d'origine (margin,
+  // display:none initial le temps qu'il soit pertinent...) : c'est lui qui
+  // pilote desormais la mise en page a la place du select, devenu invisible.
+  wrap.style.cssText = selectEl.style.cssText;
+  selectEl.removeAttribute("style");
+  selectEl.parentNode.insertBefore(wrap, selectEl);
+  wrap.appendChild(selectEl);
+  selectEl.classList.add("fancy-select-native");
+  selectEl.setAttribute("tabindex", "-1");
+  selectEl.setAttribute("aria-hidden", "true");
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "fancy-select-trigger";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.innerHTML = `<span class="fancy-select-label"></span><span class="fancy-select-arrow" aria-hidden="true">&#9662;</span>`;
+  wrap.appendChild(trigger);
+
+  const menu = document.createElement("div");
+  menu.className = "fancy-select-menu";
+  menu.setAttribute("role", "listbox");
+  menu.hidden = true;
+  wrap.appendChild(menu);
+
+  const label = trigger.querySelector(".fancy-select-label");
+  let highlighted = -1;
+
+  function renderLabel() {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    label.textContent = opt ? opt.textContent : "";
+  }
+
+  function renderOptions() {
+    menu.innerHTML = "";
+    highlighted = selectEl.selectedIndex;
+    [...selectEl.options].forEach((opt, i) => {
+      const item = document.createElement("div");
+      item.className = "fancy-select-option";
+      item.setAttribute("role", "option");
+      item.dataset.index = String(i);
+      item.textContent = opt.textContent;
+      if (i === selectEl.selectedIndex) item.setAttribute("aria-selected", "true");
+      item.addEventListener("mouseenter", () => setHighlighted(i));
+      item.addEventListener("click", () => choose(i));
+      menu.appendChild(item);
+    });
+  }
+
+  function setHighlighted(i) {
+    highlighted = i;
+    [...menu.children].forEach((el, idx) => el.classList.toggle("highlighted", idx === i));
+  }
+
+  function choose(i) {
+    if (selectEl.selectedIndex !== i) {
+      selectEl.selectedIndex = i;
+      selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    renderLabel();
+    closeMenu();
+  }
+
+  function openMenu() {
+    renderOptions();
+    menu.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+    wrap.classList.add("open");
+    setHighlighted(selectEl.selectedIndex);
+    document.addEventListener("click", onOutsideClick);
+  }
+  function closeMenu() {
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    wrap.classList.remove("open");
+    document.removeEventListener("click", onOutsideClick);
+  }
+  function onOutsideClick(e) {
+    if (!wrap.contains(e.target)) closeMenu();
+  }
+
+  trigger.addEventListener("click", () => {
+    if (menu.hidden) openMenu(); else closeMenu();
+  });
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeMenu(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (menu.hidden) { openMenu(); return; }
+      const count = selectEl.options.length;
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      setHighlighted((highlighted + dir + count) % count);
+      return;
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (menu.hidden) openMenu();
+      else if (highlighted >= 0) choose(highlighted);
+    }
+  });
+
+  // Si le code appelant ajoute des <option> apres coup (liste peuplee de
+  // maniere asynchrone), il suffit d'appeler selectEl._fancyRefresh().
+  selectEl._fancyRefresh = renderLabel;
+  renderLabel();
+}
+
+// ---------------------------------------------------------------------------
 // SFX minimalistes generes en WebAudio (pas de fichiers audio a heberger) :
 // un tic au flip d'une carte, un carillon dont la richesse suit la rarete.
 // Un jeu totalement silencieux se sent inacheve - ce n'est pas un habillage
@@ -635,6 +756,17 @@ async function loadHeaderBoosterBadge() {
 // Header qui se tasse legerement au scroll vers le bas (et revient au
 // scroll vers le haut) : recupere un peu de hauteur d'ecran sur les pages
 // longues, sans jamais masquer completement la nav.
+// Le header est en position:fixed (voir style.css) : il ne reserve plus
+// d'espace dans le flux du document, donc <main> recoit sa hauteur reelle
+// via la variable CSS --header-h. Mesuree au chargement/redimensionnement
+// seulement, jamais au scroll (sinon on retombe dans le glitch qu'on evite :
+// re-mesurer/reflow le contenu a chaque frame de scroll).
+function syncHeaderOffset() {
+  const header = document.getElementById("site-header");
+  if (!header) return;
+  document.documentElement.style.setProperty("--header-h", `${header.offsetHeight}px`);
+}
+
 function initHeaderShrink() {
   const header = document.getElementById("site-header");
   if (!header) return;
@@ -685,6 +817,19 @@ function initBackToTop() {
 
 document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
+  syncHeaderOffset();
   initHeaderShrink();
   initBackToTop();
+
+  let resizeTicking = false;
+  const scheduleHeaderSync = () => {
+    if (resizeTicking) return;
+    resizeTicking = true;
+    requestAnimationFrame(() => { syncHeaderOffset(); resizeTicking = false; });
+  };
+  window.addEventListener("resize", scheduleHeaderSync);
+  window.addEventListener("orientationchange", scheduleHeaderSync);
+  // Les polices web (Sora/Inter) peuvent legerement changer la hauteur du
+  // header une fois chargees : on recale une fois qu'elles sont pretes.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderOffset);
 });

@@ -51,7 +51,12 @@
           <div id="trade-suggestions-list" class="suggestions-list"></div>
         </div>
 
-        <div class="actions" style="margin-top:24px;align-items:center;">
+        <div class="tabs" role="tablist" style="margin-top:28px;">
+          <button type="button" class="tab active" id="tab-incoming-btn" role="tab" aria-selected="true">Reçus <span class="tab-count" id="incoming-count"></span></button>
+          <button type="button" class="tab" id="tab-outgoing-btn" role="tab" aria-selected="false">Envoyés <span class="tab-count" id="outgoing-count"></span></button>
+        </div>
+
+        <div class="actions" style="margin-top:16px;align-items:center;">
           <input type="text" id="trade-history-search" placeholder="Filtrer par pseudo..." autocomplete="off" style="flex:1;" />
           <button type="button" class="btn-ghost" id="bulk-cancel-toggle">Annulation groupée</button>
         </div>
@@ -60,12 +65,9 @@
           <button type="button" class="btn-danger" id="bulk-cancel-btn">Annuler la sélection</button>
         </div>
 
-        <h2>Recus</h2>
         <div id="trades-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
-        <div id="incoming-trades" class="trade-list"></div>
-
-        <h2>Envoyes</h2>
-        <div id="outgoing-trades" class="trade-list"></div>
+        <div id="incoming-pane"><div id="incoming-trades" class="trade-list"></div></div>
+        <div id="outgoing-pane" style="display:none;"><div id="outgoing-trades" class="trade-list"></div></div>
       </div>
     </div>
   </main>

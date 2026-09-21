@@ -90,6 +90,7 @@
     }
 
     refreshLoginUI();
+    enhanceSelect(document.getElementById("activity-extension-filter"));
 
     // Fil d'activite global (derniers tirages, toutes extensions/joueurs
     // confondus) : visible seulement connecte, purement informatif/social,
@@ -127,13 +128,13 @@
         allRecentPulls.forEach((p) => { if (p.extension) extKeys.set(p.extension.key, p.extension.name); });
         if (extKeys.size > 1) {
           const filterEl = document.getElementById("activity-extension-filter");
-          filterEl.style.display = "block";
           [...extKeys.entries()].forEach(([key, name]) => {
             const opt = document.createElement("option");
             opt.value = key;
             opt.textContent = name;
             filterEl.appendChild(opt);
           });
+          filterEl.closest(".fancy-select").style.display = "block";
           filterEl.addEventListener("change", () => renderActivityFeed(filterEl.value));
         }
       }).catch(() => {
@@ -146,7 +147,7 @@
       API.getLeaderboard().then((res) => {
         const el = document.getElementById("community-legendary-counter");
         if (typeof res.totalLegendaries === "number") {
-          el.textContent = `${rarityIcon("legendaire")} ${res.totalLegendaries} légendaires sorties au total`;
+          el.innerHTML = `${rarityIcon("legendaire")} ${res.totalLegendaries} légendaires sorties au total`;
         }
       }).catch(() => {});
 

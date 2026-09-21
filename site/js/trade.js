@@ -30,6 +30,17 @@ let allTradesCache = [];
 let historySearch = "";
 let bulkCancelMode = false;
 let bulkCancelSelected = new Set();
+let activeTradeTab = "incoming";
+
+function setActiveTradeTab(tab) {
+  activeTradeTab = tab;
+  document.getElementById("tab-incoming-btn").classList.toggle("active", tab === "incoming");
+  document.getElementById("tab-incoming-btn").setAttribute("aria-selected", String(tab === "incoming"));
+  document.getElementById("tab-outgoing-btn").classList.toggle("active", tab === "outgoing");
+  document.getElementById("tab-outgoing-btn").setAttribute("aria-selected", String(tab === "outgoing"));
+  document.getElementById("incoming-pane").style.display = tab === "incoming" ? "block" : "none";
+  document.getElementById("outgoing-pane").style.display = tab === "outgoing" ? "block" : "none";
+}
 
 async function loadFormOptions() {
   const [collection, cardsRes, usersRes] = await Promise.all([
@@ -148,8 +159,19 @@ function renderTradeGroup(container, trades, emptyLabel) {
 function renderAllTrades() {
   const incoming = document.getElementById("incoming-trades");
   const outgoing = document.getElementById("outgoing-trades");
-  renderTradeGroup(incoming, allTradesCache.filter((t) => t.direction === "incoming"), "Aucun échange recu.");
-  renderTradeGroup(outgoing, allTradesCache.filter((t) => t.direction === "outgoing"), "Aucun échange envoye.");
+  const incomingTrades = allTradesCache.filter((t) => t.direction === "incoming");
+  const outgoingTrades = allTradesCache.filter((t) => t.direction === "outgoing");
+  renderTradeGroup(incoming, incomingTrades, "Aucun échange recu.");
+  renderTradeGroup(outgoing, outgoingTrades, "Aucun échange envoye.");
+
+  // Le compteur sur "Recus" met en avant les demandes EN ATTENTE (celles qui
+  // demandent une action), pas le total de l'historique.
+  const incomingPending = incomingTrades.filter((t) => t.status === "pending").length;
+  const incomingCountEl = document.getElementById("incoming-count");
+  incomingCountEl.textContent = incomingPending ? String(incomingPending) : "";
+  incomingCountEl.classList.toggle("tab-count-alert", incomingPending > 0);
+  document.getElementById("outgoing-count").textContent = outgoingTrades.length ? String(outgoingTrades.length) : "";
+
   updateBulkCancelBar();
 }
 
@@ -299,6 +321,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("offered-card-select").addEventListener("change", () => updateCardPreview("offered-card-select", "offered-card-preview"));
   document.getElementById("requested-card-select").addEventListener("change", () => updateCardPreview("requested-card-select", "requested-card-preview"));
+  enhanceSelect(document.getElementById("offered-card-select"));
+  enhanceSelect(document.getElementById("requested-card-select"));
+  enhanceSelect(document.getElementById("target-select"));
+
+  document.getElementById("tab-incoming-btn").addEventListener("click", () => setActiveTradeTab("incoming"));
+  document.getElementById("tab-outgoing-btn").addEventListener("click", () => setActiveTradeTab("outgoing"));
 
   document.getElementById("create-trade-form").addEventListener("submit", async (e) => {
     e.preventDefault();
