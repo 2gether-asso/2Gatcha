@@ -75,8 +75,34 @@ const Toast = {
     stack.appendChild(el);
     setTimeout(() => {
       el.classList.add("hide");
-      setTimeout(() => el.remove(), 250);
+      setTimeout(() => {
+        el.remove();
+        this._updateClearAll();
+      }, 250);
     }, duration);
+    this._updateClearAll();
+  },
+  // Plusieurs actions rapides peuvent empiler pas mal de toasts d'un coup
+  // (ex: reveal d'un x5) : un bouton pour tout balayer plutot que d'attendre.
+  _updateClearAll() {
+    const stack = this._stack();
+    let clearBtn = stack.querySelector(".toast-clear-all");
+    const count = stack.querySelectorAll(".toast:not(.hide)").length;
+    if (count >= 3) {
+      if (!clearBtn) {
+        clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "toast-clear-all";
+        clearBtn.textContent = "Tout effacer";
+        clearBtn.addEventListener("click", () => {
+          stack.querySelectorAll(".toast").forEach((t) => t.remove());
+          clearBtn.remove();
+        });
+        stack.prepend(clearBtn);
+      }
+    } else if (clearBtn) {
+      clearBtn.remove();
+    }
   },
   success(msg) { this.show(msg, "success"); },
   error(msg) { this.show(msg, "error"); },
@@ -389,7 +415,7 @@ function bumpNumber(el, newValue) {
 
 const NAV_ITEMS = [
   { href: "index.html", label: "Accueil", icon: "&#127968;", auth: false },
-  { href: "ouverture.html", label: "Boosters", icon: "&#127873;", auth: false },
+  { href: "ouverture.html", label: "Boosters", icon: "&#127873;", auth: false, badgeKey: "boosters" },
   { href: "collection.html", label: "Collection", icon: "&#128218;", auth: false },
   { href: "craft.html", label: "Craft", icon: "&#10024;", auth: true },
   { href: "redeem.html", label: "Code", icon: "&#127915;", auth: true },
@@ -459,6 +485,28 @@ async function loadNavBadges() {
       (a.querySelector(".bn-icon") || a).appendChild(dot);
     }
   });
+
+  // Meme principe pour le nombre de boosters disponibles : un rappel visuel
+  // sur l'onglet, pas seulement le badge du header (moins visible sur
+  // mobile, ou le header se replie).
+  try {
+    const cachedBoosters = API._cacheGet("2gatcha_cache_booster_count", 45 * 1000);
+    let boosterCount = cachedBoosters;
+    if (boosterCount == null) {
+      const status = await API.getBoosterStatus(Session.userId);
+      boosterCount = status.count || 0;
+      API._cacheSet("2gatcha_cache_booster_count", boosterCount);
+    }
+    document.querySelectorAll('[data-badge-key="boosters"]').forEach((a) => {
+      a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
+      if (boosterCount > 0) {
+        const dot = document.createElement("span");
+        dot.className = "nav-dot";
+        dot.textContent = boosterCount > 9 ? "9+" : String(boosterCount);
+        (a.querySelector(".bn-icon") || a).appendChild(dot);
+      }
+    });
+  } catch (e) { /* pas grave, juste un rappel visuel */ }
 }
 
 function renderHeader() {
@@ -496,6 +544,8 @@ function renderHeader() {
             </button>
             <div class="user-menu-dropdown" id="user-menu-dropdown">
               <button id="edit-pseudo-btn" type="button">&#9998; Modifier le pseudo</button>
+              <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}">&#128100; Voir mon profil</a>
+              <button id="copy-profile-link-btn" type="button">&#128279; Copier le lien de mon profil</button>
               <button id="mute-toggle-btn" type="button">${Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif"}</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button">&#10162; Déconnexion</button>
@@ -516,6 +566,16 @@ function renderHeader() {
       Sfx.setMuted(!Sfx.muted);
       e.target.innerHTML = Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif";
       if (!Sfx.muted) Sfx.click();
+    });
+    document.getElementById("copy-profile-link-btn").addEventListener("click", async () => {
+      const url = window.location.origin + window.location.pathname.replace(/[^/]*$/, "") +
+        "profile.html?pseudo=" + encodeURIComponent(Session.pseudo || "");
+      try {
+        await navigator.clipboard.writeText(url);
+        Toast.success("Lien de profil copié !");
+      } catch (e) {
+        Toast.error("Impossible de copier le lien.");
+      }
     });
     document.getElementById("logout-btn").addEventListener("click", () => {
       Session.clear();
@@ -572,6 +632,21 @@ async function loadHeaderBoosterBadge() {
   }
 }
 
+// Header qui se tasse legerement au scroll vers le bas (et revient au
+// scroll vers le haut) : recupere un peu de hauteur d'ecran sur les pages
+// longues, sans jamais masquer completement la nav.
+function initHeaderShrink() {
+  const header = document.getElementById("site-header");
+  if (!header) return;
+  let lastY = window.scrollY;
+  window.addEventListener("scroll", () => {
+    const y = window.scrollY;
+    header.classList.toggle("shrunk", y > 60 && y > lastY);
+    lastY = y;
+  }, { passive: true });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
+  initHeaderShrink();
 });

@@ -136,7 +136,13 @@ header#site-header {
   display: flex;
   align-items: center;
   gap: 24px;
+  transition: padding 0.2s ease;
 }
+/* Se tasse au scroll vers le bas (initHeaderShrink, main.js) : recupere de
+   la hauteur d'ecran sur les longues pages sans jamais disparaitre. */
+header#site-header.shrunk .header-inner { padding: 8px 20px; }
+header#site-header.shrunk .brand { font-size: 1.1rem; }
+header#site-header.shrunk .avatar { width: 22px; height: 22px; }
 
 .brand {
   font-family: var(--font-display);
@@ -752,6 +758,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   font-weight: 600;
 }
 
+.craftable-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent-3);
+  text-decoration: none;
+}
+.craftable-link:hover { text-decoration: underline; }
+
 .empty-state { color: var(--text-dim); text-align: center; padding: 40px 0; }
 .empty-state::before {
   content: "\1F5C3";
@@ -930,6 +948,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   gap: 10px;
   max-width: min(360px, calc(100vw - 32px));
   pointer-events: none;
+}
+.toast-clear-all {
+  pointer-events: auto;
+  align-self: flex-end;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px -8px rgba(0,0,0,0.5);
 }
 
 .toast {
@@ -1394,7 +1424,23 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .extension-tile.skeleton-tile { cursor: default; }
 .extension-tile.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-2), 0 16px 32px -16px rgba(34,211,238,0.5); }
 .extension-tile.disabled { opacity: 0.45; cursor: not-allowed; }
-.extension-tile img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; margin-bottom: 8px; }
+/* Survoler la tuile devoile le dos de carte de l'extension (avant meme de
+   l'ouvrir) : un aperçu discret, courant dans les vitrines de sets de TCG. */
+.ext-art { position: relative; margin-bottom: 8px; }
+.ext-art-front, .ext-art-back {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+.ext-art-back {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.extension-tile:hover:not(.disabled) .ext-art-back { opacity: 1; }
 .extension-tile .ext-name { font-family: var(--font-display); font-weight: 700; font-size: 0.88rem; }
 .extension-tile .ext-count { color: var(--text-dim); font-size: 0.76rem; margin-top: 3px; font-variant-numeric: tabular-nums; }
 
@@ -1587,6 +1633,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   border: 2px solid var(--border-soft);
   background: var(--bg-panel-2);
   overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+/* Lien direct depuis une carte verrouillee de la collection (?cardId=...). */
+.craft-card.highlighted {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(34,211,238,0.35), 0 0 24px rgba(34,211,238,0.4);
 }
 .craft-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
 .craft-card .card-info { padding: 8px 10px 12px; }

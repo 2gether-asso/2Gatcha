@@ -23,12 +23,15 @@ const prefs = loadPrefs();
 
 let allCardsCache = [];
 let ownedMap = new Map();
+let craftCostByCard = new Map();
+let stardustBalance = 0;
 let activeFilter = "all";
 let searchQuery = "";
 // Tri/vue memorises d'une visite a l'autre : pas de raison de refaire le
 // meme reglage a chaque fois qu'on revient sur la page.
 let sortMode = prefs.sortMode || "extension";
 let missingOnly = !!prefs.missingOnly;
+let favoritesOnly = false;
 
 // Favoris : purement locaux (par appareil), pas de backend necessaire.
 function loadFavorites() {
@@ -39,6 +42,18 @@ function saveFavorites(set) {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...set])); } catch (e) {}
 }
 let favorites = loadFavorites();
+
+// "Vues" : independant de la fenetre de 24h du badge New, pour pouvoir les
+// effacer explicitement d'un coup ("Tout marquer comme vu") sans attendre.
+const SEEN_KEY = "2gatcha_seen_cards";
+function loadSeen() {
+  try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]")); }
+  catch (e) { return new Set(); }
+}
+function saveSeen(set) {
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify([...set])); } catch (e) {}
+}
+let seenCards = loadSeen();
 
 function normalize(str) {
   return (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -141,13 +156,47 @@ function renderRarityProgress() {
   }).join("");
 }
 
+function renderExtensionProgress() {
+  const el = document.getElementById("extension-progress");
+  if (!el) return;
+  const byExt = new Map();
+  allCardsCache.forEach((c) => {
+    const key = c.extension?.key || "__none__";
+    if (!byExt.has(key)) {
+      byExt.set(key, { name: c.extension?.name || "Sans extension", sortOrder: c.extension?.sortOrder ?? 999, total: 0, owned: 0 });
+    }
+    const entry = byExt.get(key);
+    entry.total++;
+    if (ownedMap.has(c.cardId)) entry.owned++;
+  });
+  const rows = [...byExt.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+  if (rows.length < 2) { el.innerHTML = ""; return; }
+  el.innerHTML = rows.map((r) => {
+    const pct = r.total ? Math.round((r.owned / r.total) * 100) : 0;
+    return `
+      <div class="rarity-progress-row">
+        <span class="rp-label">${r.name}</span>
+        <span class="rp-track"><span class="rp-fill" style="width:${pct}%;background:var(--accent-2);"></span></span>
+        <span class="rp-count">${r.owned}/${r.total}</span>
+      </div>
+    `;
+  }).join("");
+}
+
 function cardTileHtml(card, now) {
   const owned = ownedMap.get(card.cardId);
   const locked = !owned;
-  const isNew = !!(owned && owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS);
+  const isNew = !!(owned && owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(card.cardId));
   const isFav = favorites.has(card.cardId);
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+
+  // Carte manquante mais a portee de poussieres : le signaler directement
+  // sur la vignette, avec un lien vers craft.html plutot que de laisser le
+  // joueur decouvrir ca par hasard en changeant de page.
+  const craftCost = craftCostByCard.get(card.cardId);
+  const craftable = locked && !card.isPromo && craftCost != null && stardustBalance >= craftCost;
+
   return `
     <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}">
       ${isNew ? '<span class="new-badge">New</span>' : ""}
@@ -159,6 +208,7 @@ function cardTileHtml(card, now) {
           ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
         </span>
         ${owned ? `<div class="count-badge">x${owned.count}</div>` : ""}
+        ${craftable ? `<a href="craft.html?cardId=${card.cardId}" class="craftable-link" onclick="event.stopPropagation();">&#9879; Craftable (${craftCost})</a>` : ""}
       </div>
     </div>
   `;
@@ -227,6 +277,7 @@ function renderGrid() {
     (c) => activeFilter === "all" || c.rarity?.key === activeFilter
   );
   if (missingOnly) cards = cards.filter((c) => !ownedMap.has(c.cardId));
+  if (favoritesOnly) cards = cards.filter((c) => favorites.has(c.cardId));
   if (searchQuery) {
     const q = normalize(searchQuery);
     cards = cards.filter((c) => ownedMap.has(c.cardId) && normalize(c.name).includes(q));
@@ -319,9 +370,15 @@ async function loadCollection() {
   zone.style.display = "none";
 
   try {
-    const res = await API.getCollection(Session.userId);
+    const [res, statusRes, cardsRes] = await Promise.all([
+      API.getCollection(Session.userId),
+      API.getBoosterStatus(Session.userId).catch(() => ({ stardust: 0 })),
+      API.getCards().catch(() => ({ cards: [] }))
+    ]);
     allCardsCache = res.cards || [];
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
+    stardustBalance = statusRes.stardust || 0;
+    craftCostByCard = new Map((cardsRes.cards || []).map((c) => [c.cardId, c.rarity?.craftCost]));
 
     const stats = res.stats || { owned: ownedMap.size, total: allCardsCache.length };
     document.getElementById("progress-label").textContent =
@@ -330,6 +387,7 @@ async function loadCollection() {
     document.getElementById("progress-fill").style.width = pct + "%";
 
     renderRarityProgress();
+    renderExtensionProgress();
     renderStatsAndMilestone();
 
     const rarityByKey = new Map();
@@ -386,6 +444,25 @@ document.addEventListener("DOMContentLoaded", () => {
     e.target.classList.toggle("active", missingOnly);
     renderGrid();
   });
+  const favoritesBtn = document.getElementById("favorites-toggle");
+  favoritesBtn.addEventListener("click", (e) => {
+    favoritesOnly = !favoritesOnly;
+    e.target.classList.toggle("active", favoritesOnly);
+    renderGrid();
+  });
+  document.getElementById("mark-seen-btn").addEventListener("click", () => {
+    const now = Math.floor(Date.now() / 1000);
+    let count = 0;
+    ownedMap.forEach((owned, cardId) => {
+      if (owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(cardId)) {
+        seenCards.add(cardId);
+        count++;
+      }
+    });
+    saveSeen(seenCards);
+    renderGrid();
+    Toast.info(count ? `${count} carte${count > 1 ? "s" : ""} marquee${count > 1 ? "s" : ""} comme vue${count > 1 ? "s" : ""}.` : "Rien de nouveau a marquer.");
+  });
   denseBtn.addEventListener("click", (e) => {
     document.body.classList.toggle("dense-view");
     const isDense = document.body.classList.contains("dense-view");
@@ -396,6 +473,26 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("cinema-toggle").addEventListener("click", (e) => {
     document.body.classList.toggle("cinema-mode");
     e.target.classList.toggle("active", document.body.classList.contains("cinema-mode"));
+  });
+  document.getElementById("reset-filters-btn").addEventListener("click", () => {
+    searchQuery = "";
+    activeFilter = "all";
+    sortMode = "extension";
+    missingOnly = false;
+    favoritesOnly = false;
+    document.body.classList.remove("dense-view", "cinema-mode");
+    savePrefs({ sortMode, missingOnly, denseView: false });
+
+    document.getElementById("search-input").value = "";
+    document.getElementById("sort-select").value = sortMode;
+    missingBtn.classList.remove("active");
+    favoritesBtn.classList.remove("active");
+    denseBtn.classList.remove("active");
+    document.getElementById("cinema-toggle").classList.remove("active");
+    document.querySelectorAll("#rarity-filters button").forEach((b) => b.classList.toggle("active", b.dataset.filter === "all"));
+
+    renderGrid();
+    Toast.info("Filtres réinitialisés.");
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && document.body.classList.contains("cinema-mode")) {

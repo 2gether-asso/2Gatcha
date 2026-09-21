@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profil - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <div id="profile-loading" class="loading-row"><div class="spinner"></div></div>
+      <div id="profile-not-found" style="display:none;">
+        <h1>Profil introuvable</h1>
+        <p class="lead">Ce pseudo ne correspond à aucun joueur.</p>
+      </div>
+      <div id="profile-zone" style="display:none;">
+        <h1 id="profile-title"></h1>
+        <div id="profile-stats" class="stats-grid"></div>
+        <h2>Collection publique</h2>
+        <div id="profile-grid" class="collection-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const pseudo = new URLSearchParams(window.location.search).get("pseudo");
+      const loading = document.getElementById("profile-loading");
+      if (!pseudo) {
+        loading.style.display = "none";
+        document.getElementById("profile-not-found").style.display = "block";
+        return;
+      }
+      try {
+        const res = await API.getPublicProfile(pseudo);
+        document.getElementById("profile-title").textContent = `Collection de ${res.pseudo}`;
+        document.getElementById("profile-stats").innerHTML = `
+          <div class="stat-tile"><div class="stat-value">${res.uniqueCards}</div><div class="stat-label">Cartes uniques</div></div>
+          <div class="stat-tile"><div class="stat-value">${res.totalPulls}</div><div class="stat-label">Tirages au total</div></div>
+        `;
+        const grid = document.getElementById("profile-grid");
+        const cards = res.cards || [];
+        grid.innerHTML = cards.length ? cards.map((c) => {
+          const color = c.rarity?.colorHex || "#9aa0b4";
+          const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
+          return `
+            <div class="collection-card" data-rarity="${c.rarity?.key || "commune"}" data-promo="${c.isPromo ? "1" : "0"}">
+              <img src="${imgSrc}" alt="${c.name}" />
+              <div class="card-info">
+                <div class="card-name">${c.name}${c.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
+                <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
+                  ${rarityIcon(c.rarity?.key)} ${c.rarity?.name || "Commune"}
+                </span>
+                <div class="count-badge">x${c.count}</div>
+              </div>
+            </div>
+          `;
+        }).join("") : `<div class="empty-state">Collection vide pour l'instant.</div>`;
+        document.getElementById("profile-zone").style.display = "block";
+      } catch (e) {
+        document.getElementById("profile-not-found").style.display = "block";
+      } finally {
+        loading.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>

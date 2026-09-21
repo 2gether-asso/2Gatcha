@@ -26,7 +26,7 @@ function craftCardTile(card, mode) {
     const owned = ownedMap.get(card.cardId);
     const dust = card.rarity?.disenchantValue || 0;
     return `
-      <div class="craft-card">
+      <div class="craft-card" data-card-id="${card.cardId}">
         <img src="${imgSrc}" alt="${card.name}" />
         <div class="card-info">
           <div class="card-name">${card.name}</div>
@@ -40,7 +40,7 @@ function craftCardTile(card, mode) {
   const cost = card.rarity?.craftCost || 0;
   const canAfford = stardust >= cost;
   return `
-    <div class="craft-card ${canAfford ? "" : "unavailable"}">
+    <div class="craft-card ${canAfford ? "" : "unavailable"}" data-card-id="${card.cardId}">
       <img src="${imgSrc}" alt="${card.name}" />
       <div class="card-info">
         <div class="card-name">${card.name}</div>
@@ -49,6 +49,34 @@ function craftCardTile(card, mode) {
       </div>
     </div>
   `;
+}
+
+// Suivi via ?cardId=... (lien direct depuis la collection) : met la carte
+// en evidence et scrolle jusqu'a elle une fois la grille rendue.
+function highlightCardFromQuery() {
+  const cardId = new URLSearchParams(window.location.search).get("cardId");
+  if (!cardId) return;
+  const el = document.querySelector(`.craft-card[data-card-id="${cardId}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.add("highlighted");
+  setTimeout(() => el.classList.remove("highlighted"), 2200);
+}
+
+// Signale discretement qu'il y a assez de poussieres pour crafter au moins
+// une carte manquante, plutot que de laisser un solde dormir sans le savoir.
+function renderUnusedDustReminder() {
+  const el = document.getElementById("unused-dust-reminder");
+  if (!el) return;
+  const cheapestMissing = allCards
+    .filter((c) => !c.isPromo && !ownedMap.has(c.cardId) && c.rarity?.craftCost != null)
+    .sort((a, b) => a.rarity.craftCost - b.rarity.craftCost)[0];
+  if (cheapestMissing && stardust >= cheapestMissing.rarity.craftCost) {
+    el.style.display = "flex";
+    el.innerHTML = `&#10024; Tu as assez de poussières pour crafter au moins une carte manquante (dès ${cheapestMissing.rarity.craftCost}).`;
+  } else {
+    el.style.display = "none";
+  }
 }
 
 function renderDisenchantGrid() {
@@ -77,7 +105,8 @@ async function disenchant(cardId) {
   const card = allCards.find((c) => c.cardId === cardId);
   const dust = card?.rarity?.disenchantValue || 0;
   const ok = await Confirm.show(
-    `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>${dust} poussières d'étoile</strong> ? Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+    `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
+    `Solde : ${stardust} &rarr; <strong>${stardust + dust}</strong>. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
     { title: "Décrafter cette carte ?", confirmText: "Décrafter", dangerous: true }
   );
   if (!ok) return;
@@ -91,6 +120,14 @@ async function disenchant(cardId) {
 }
 
 async function craftCard(cardId) {
+  const card = allCards.find((c) => c.cardId === cardId);
+  const cost = card?.rarity?.craftCost || 0;
+  const ok = await Confirm.show(
+    `Crafter <strong>${card?.name || "cette carte"}</strong> pour <strong>${cost} poussières d'étoile</strong> ? ` +
+    `Solde : ${stardust} &rarr; <strong>${stardust - cost}</strong>.`,
+    { title: "Crafter cette carte ?", confirmText: "Crafter" }
+  );
+  if (!ok) return;
   try {
     const res = await API.craftCard(Session.userId, cardId);
     Toast.success(`${res.card.name} craftee !`);
@@ -117,6 +154,8 @@ async function reload() {
 
     renderDisenchantGrid();
     renderCraftGrid();
+    renderUnusedDustReminder();
+    highlightCardFromQuery();
   } catch (e) {
     Toast.error("Impossible de charger le craft. (" + e.message + ")");
   } finally {

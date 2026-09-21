@@ -23,6 +23,7 @@ let lastRevealedCards = [];
 let stackCardEls = [];
 let stackIndex = 0;
 let ownedCountMap = new Map();
+let extProgressByExt = new Map();
 
 const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3 };
 
@@ -322,14 +323,19 @@ function renderExtensionPicker() {
   const disabled = boosterCount < 1;
   el.innerHTML = extensionsCache.map((ext) => {
     const img = API.imageUrl(ext.packImageId);
+    const backImg = API.imageUrl(ext.cardBackImageId);
     const pity = pityByExt.get(ext.id) || 0;
     const pct = pityThreshold ? Math.min(100, Math.round((pity / pityThreshold) * 100)) : 0;
     const pityLabel = pityThreshold ? `${pity} / ${pityThreshold}` : `${pity} tirage${pity > 1 ? "s" : ""}`;
+    const progress = extProgressByExt.get(ext.id);
     return `
       <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}">
-        ${img ? `<img src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
+        <div class="ext-art">
+          ${img ? `<img class="ext-art-front" src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
+          ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" />` : ""}
+        </div>
         <div class="ext-name">${ext.name}</div>
-        <div class="ext-count">Ouvrir</div>
+        <div class="ext-count">${progress ? `${progress.owned}/${progress.total} cartes` : "Ouvrir"}</div>
         <div class="pity-row" title="Progression vers la légendaire garantie">
           <span class="pity-icon">${rarityIcon("legendaire")}</span>
           <span class="pity-track"><span class="pity-fill" style="width:${pct}%;"></span></span>
@@ -370,6 +376,20 @@ async function refreshStatus() {
     // Sert a detecter les doublons a la volee pendant le reveal (voir
     // startOpening) : combien d'exemplaires le joueur avait AVANT ce pack.
     ownedCountMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o.count]));
+
+    // Progression par extension (X/Y cartes decouvertes), affichee sur
+    // chaque tuile - reutilise le catalogue complet deja renvoye par
+    // get-collection.json, pas besoin d'un appel getCards() de plus.
+    extProgressByExt = new Map();
+    (collectionRes.cards || []).forEach((c) => {
+      const extId = c.extension?.id;
+      if (extId == null) return;
+      if (!extProgressByExt.has(extId)) extProgressByExt.set(extId, { owned: 0, total: 0 });
+      const entry = extProgressByExt.get(extId);
+      entry.total++;
+      if (ownedCountMap.has(c.cardId)) entry.owned++;
+    });
+
     renderExtensionPicker();
   } catch (e) {
     Toast.error("Impossible de recuperer les extensions/boosters. (" + e.message + ")");
