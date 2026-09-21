@@ -1,0 +1,126 @@
+{
+  "name": "2Gatcha - get-image",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "image",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4aadfb74-5edc-49c1-ad72-58347db43135",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        880,
+        208
+      ],
+      "webhookId": "b6d1ea65-ed93-4244-b5fa-27cf45a6e75d"
+    },
+    {
+      "parameters": {
+        "jsCode": "// A adapter une seule fois : URL de ton Grist et ID du document.\nconst query = $input.first().json.query || {};\nreturn [{\n  json: {\n    gristBaseUrl: 'https://grist.matiboux.com/o/2gether',\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    attachmentId: query.id\n  }\n}];"
+      },
+      "id": "3db51768-690a-4a8a-be3b-d2a73c31f242",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.gristBaseUrl }}/api/docs/{{ $json.docId }}/attachments/{{ $json.attachmentId }}/download",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gristApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer CHANGE-MOI-GRIST-API-KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "0448a886-e4c5-4c16-842b-4b3e6f4ffee7",
+      "name": "Download Attachment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        208
+      ],
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "options": {}
+      },
+      "id": "5a7709c7-0577-495c-8150-5cc728c6b556",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1520,
+        208
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Download Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Attachment": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reclamer un code - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="burst-flash" class="burst-flash"></div>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <h1>Reclamer un code</h1>
+      <p class="lead">
+        Saisis le code distribue lors d'un evenement de l'asso pour recevoir
+        des boosters, ou parfois directement une carte precise.
+      </p>
+
+      <div id="guest-warning" style="display:none;">
+        <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+      </div>
+
+      <div id="redeem-zone" style="display:none;">
+        <div class="code-form">
+          <input type="text" id="code-input" placeholder="CODE" maxlength="20" autocomplete="off" />
+          <button id="redeem-btn">Reclamer</button>
+        </div>
+
+        <div id="reward-zone"></div>
+        <div id="reveal-grid" class="reveal-grid"></div>
+      </div>
+
+      <div id="error-zone"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/redeem.js"></script>
+</body>
+</html>

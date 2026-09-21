@@ -1,0 +1,110 @@
+{
+  "name": "2Gatcha - get-collection",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "collection",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// A adapter une seule fois : ID du document Grist.\nconst userId = Number($input.first().json.query.userId);\nreturn [{ json: { docId: 'cRP1WgZQv7KmwmVrUbuEF8', userId } }];"
+      },
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [220, 300],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [440, 300],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [660, 300],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst pullsRows = $('Get Pulls').all().map((i) => i.json).filter((p) => refId(p.User) === config.userId);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.Active);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json);\n\nconst rarityById = {};\nraritiesRows.forEach((r) => {\n  rarityById[r.id] = { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex };\n});\n\nconst cards = cardsRows.map((c) => {\n  return {\n    cardId: c.id,\n    name: c.Name,\n    artist: c.Artist,\n    imageId: firstAttachment(c.Image),\n    rarity: rarityById[refId(c.Rarity)] || null\n  };\n});\n\nconst ownedCounts = {};\nfor (const p of pullsRows) {\n  const cardRef = refId(p.Card);\n  ownedCounts[cardRef] = (ownedCounts[cardRef] || 0) + 1;\n}\nconst owned = Object.entries(ownedCounts).map(([cardId, count]) => ({ cardId: Number(cardId), count }));\n\nconst stats = { owned: owned.length, total: cards.length };\n\nreturn [{ json: { cards, owned, stats } }];"
+      },
+      "id": "format-collection",
+      "name": "Format Collection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
+    "Get Pulls": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
+    "Get Cards": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
+    "Get Rarities": { "main": [[{ "node": "Format Collection", "type": "main", "index": 0 }]] },
+    "Format Collection": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

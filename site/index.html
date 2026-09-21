@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2Gatcha - Collection d'art de l'asso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <h1>&#10024; Bienvenue sur 2Gatcha</h1>
+      <p class="lead">
+        Ouvre des boosters pour collectionner les creations artistiques de l'asso.
+        Les boosters s'obtiennent en reclamant un code distribue lors des evenements
+        de l'asso &mdash; connecte-toi avec ton compte Discord (membre du serveur de
+        l'asso) pour commencer.
+      </p>
+
+      <div id="login-zone">
+        <a id="discord-login-btn" class="btn" href="#">&#128172; Se connecter avec Discord</a>
+      </div>
+
+      <div id="logged-zone" style="display:none;">
+        <p>Connecte en tant que <strong id="pseudo-display"></strong>.</p>
+        <div class="actions">
+          <a class="btn" href="ouverture.html">&#127183; Ouvrir un booster</a>
+          <a class="btn btn-secondary" href="collection.html">Voir ma collection</a>
+          <a class="btn btn-secondary" href="redeem.html">Reclamer un code</a>
+          <a class="btn btn-secondary" href="trade.html">Echanges</a>
+        </div>
+      </div>
+
+      <div id="error-zone"></div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    function showError(msg) {
+      document.getElementById("error-zone").innerHTML =
+        `<div class="error-box">${msg}</div>`;
+    }
+
+    function refreshLoginUI() {
+      const loginZone = document.getElementById("login-zone");
+      const loggedZone = document.getElementById("logged-zone");
+      if (Session.isLoggedIn()) {
+        loginZone.style.display = "none";
+        loggedZone.style.display = "block";
+        document.getElementById("pseudo-display").textContent = Session.pseudo;
+      } else {
+        loginZone.style.display = "block";
+        loggedZone.style.display = "none";
+      }
+    }
+
+    document.getElementById("discord-login-btn").addEventListener("click", (e) => {
+      e.preventDefault();
+      window.location.href = API.discordLoginUrl();
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "not_in_guild") {
+      showError("Ce compte Discord ne fait pas partie du serveur de l'asso, connexion refusee.");
+    } else if (params.get("error")) {
+      showError("Connexion Discord annulee ou impossible.");
+    }
+
+    refreshLoginUI();
+  </script>
+</body>
+</html>

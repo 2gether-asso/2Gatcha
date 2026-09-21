@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Echanges - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <h1>Echanges</h1>
+      <p class="lead">Propose l'echange d'une de tes cartes contre celle d'un autre joueur.</p>
+
+      <div id="guest-warning" style="display:none;">
+        <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+      </div>
+
+      <div id="trade-zone" style="display:none;">
+        <h2>Proposer un echange</h2>
+        <form id="create-trade-form" class="trade-form">
+          <label>
+            Ma carte a offrir
+            <select id="offered-card-select" required></select>
+          </label>
+          <label>
+            Pseudo du joueur cible
+            <select id="target-select" required></select>
+          </label>
+          <label>
+            Carte demandee
+            <select id="requested-card-select" required></select>
+          </label>
+          <button type="submit">Proposer l'echange</button>
+        </form>
+
+        <div id="create-error-zone"></div>
+
+        <h2>Recus</h2>
+        <div id="incoming-trades" class="trade-list"></div>
+
+        <h2>Envoyes</h2>
+        <div id="outgoing-trades" class="trade-list"></div>
+      </div>
+
+      <div id="error-zone"></div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/trade.js"></script>
+</body>
+</html>

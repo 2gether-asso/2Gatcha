@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ouvrir un booster - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="burst-flash" class="burst-flash"></div>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <h1>Ouverture de booster</h1>
+      <p class="lead">Un booster contient 5 cartes. Les boosters s'obtiennent uniquement en reclamant un code d'evenement.</p>
+
+      <div id="guest-warning" style="display:none;">
+        <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+      </div>
+
+      <div id="booster-zone" class="booster-hero" style="display:none;">
+        <div class="booster-stock">
+          <div id="stock-label" class="stock-label"></div>
+        </div>
+
+        <div class="booster-stage">
+          <div id="booster-pack" class="booster-pack">
+            <div class="booster-emoji">&#127183;</div>
+            <div class="booster-title">Booster</div>
+            <div class="booster-sub">5 cartes</div>
+          </div>
+        </div>
+
+        <div id="booster-hint" class="booster-hint"></div>
+
+        <div id="reveal-grid" class="reveal-grid"></div>
+      </div>
+
+      <div id="error-zone"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/opening.js"></script>
+</body>
+</html>

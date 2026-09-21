@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Codes evenement - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <h1>Admin - Codes evenement</h1>
+      <p class="lead">Cree un code a distribuer pendant un evenement de l'asso.</p>
+
+      <div id="guest-warning" style="display:none;">
+        <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+      </div>
+
+      <div id="denied-warning" style="display:none;">
+        <div class="error-box">Ce compte n'est pas administrateur.</div>
+      </div>
+
+      <div id="admin-zone" style="display:none;">
+        <form id="create-code-form" class="admin-form">
+          <label>
+            Code (laisse vide pour en generer un)
+            <input type="text" id="code-input" maxlength="20" placeholder="ex: SOIREE20" />
+          </label>
+          <label>
+            Note interne (optionnel)
+            <input type="text" id="label-input" maxlength="60" placeholder="ex: Soiree jeux du 20/09" />
+          </label>
+          <label>
+            Recompense
+            <select id="reward-type-select">
+              <option value="booster">Boosters</option>
+              <option value="card">Carte precise</option>
+            </select>
+          </label>
+          <label>
+            Quantite (nb de boosters, ou d'exemplaires de la carte)
+            <input type="number" id="quantity-input" min="1" value="1" required />
+          </label>
+          <label id="card-select-label" style="display:none;">
+            Carte
+            <select id="card-select"></select>
+          </label>
+          <label>
+            Validite (en heures)
+            <input type="number" id="expires-input" min="1" value="4" required />
+          </label>
+          <label>
+            Nombre max de joueurs pouvant reclamer (0 = illimite)
+            <input type="number" id="max-redemptions-input" min="0" value="0" required />
+          </label>
+          <button type="submit">Creer le code</button>
+        </form>
+
+        <div id="created-zone"></div>
+        <div id="create-error-zone"></div>
+
+        <h2>Codes existants</h2>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Code</th><th>Note</th><th>Recompense</th><th>Utilisations</th>
+              <th>Expire</th><th>Statut</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="codes-tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="error-zone"></div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

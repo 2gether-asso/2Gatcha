@@ -1,0 +1,332 @@
+{
+  "name": "2Gatcha - redeem-code",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "redeem-code",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1600, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// A adapter une seule fois : ID du document Grist.\nconst body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    code: (body.code || '').toString().trim()\n  }\n}];"
+      },
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1380, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "EventCodes",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-event-codes",
+      "name": "Get Event Codes",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-1160, 180],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "CodeRedemptions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-code-redemptions",
+      "name": "Get Code Redemptions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-1160, 320],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-1160, 460],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-1160, 600],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-1160, 740],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst codesRows = $('Get Event Codes').all().map((i) => i.json);\nconst redemptionsRows = $('Get Code Redemptions').all().map((i) => i.json);\nconst cardsRows = $('Get Cards').all().map((i) => i.json);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json);\nconst usersRows = $('Get Users').all().map((i) => i.json);\n\nif (!config.code) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nconst normalized = config.code.toLowerCase();\nconst codeRow = codesRows.find((c) => (c.Code || '').toString().trim().toLowerCase() === normalized);\n\nif (!codeRow) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nif (codeRow.Active === false) {\n  return [{ json: { ok: false, error: 'code_inactive' } }];\n}\nconst now = Math.floor(Date.now() / 1000);\nif (codeRow.ExpiresAt && now > codeRow.ExpiresAt) {\n  return [{ json: { ok: false, error: 'code_expired' } }];\n}\n\nconst codeRedemptions = redemptionsRows.filter((r) => refId(r.Code) === codeRow.id);\nif (codeRedemptions.some((r) => refId(r.User) === config.userId)) {\n  return [{ json: { ok: false, error: 'already_redeemed' } }];\n}\nif (codeRow.MaxRedemptions && codeRedemptions.length >= codeRow.MaxRedemptions) {\n  return [{ json: { ok: false, error: 'code_exhausted' } }];\n}\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) {\n  return [{ json: { ok: false, error: 'unknown_user' } }];\n}\n\nconst quantity = codeRow.Quantity || 1;\nconst batchId = `code-${codeRow.Code}-${Date.now()}`;\n\nif (codeRow.RewardType === 'card') {\n  const card = cardsRows.find((c) => c.id === refId(codeRow.CardId));\n  if (!card) {\n    return [{ json: { ok: false, error: 'code_misconfigured' } }];\n  }\n  const rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\n  const rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\n  const items = [];\n  for (let i = 0; i < quantity; i++) {\n    items.push({\n      json: {\n        ok: true,\n        kind: 'card',\n        docId: config.docId,\n        codeRowId: codeRow.id,\n        userId: config.userId,\n        obtainedAt: now,\n        batchId,\n        cardId: card.id,\n        name: card.Name,\n        artist: card.Artist,\n        description: card.Description,\n        imageId: firstAttachment(card.Image),\n        rarity\n      }\n    });\n  }\n  return items;\n}\n\nreturn [{\n  json: {\n    ok: true,\n    kind: 'booster',\n    docId: config.docId,\n    codeRowId: codeRow.id,\n    userId: config.userId,\n    quantity,\n    newBoosterCount: (user.BoosterCount || 0) + quantity\n  }\n}];"
+      },
+      "id": "validate-prepare",
+      "name": "Validate & Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-940, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-valid",
+      "name": "If Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-720, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-500, 620]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.kind }}",
+              "rightValue": "card",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-is-card",
+      "name": "If Is Card",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-500, 220]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Validate & Prepare').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "User", "fieldValue": "={{ $json.userId }}" },
+            { "fieldId": "Card", "fieldValue": "={{ $json.cardId }}" },
+            { "fieldId": "ObtainedAt", "fieldValue": "={{ $json.obtainedAt }}" },
+            { "fieldId": "BatchId", "fieldValue": "={{ $json.batchId }}" }
+          ]
+        }
+      },
+      "id": "insert-pulls",
+      "name": "Insert Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-280, 80],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cards = $('Validate & Prepare').all().map((i) => i.json).map((c) => ({\n  cardId: c.cardId,\n  name: c.name,\n  artist: c.artist,\n  description: c.description,\n  imageId: c.imageId,\n  rarity: c.rarity\n}));\nconst first = $('Validate & Prepare').first().json;\nreturn [{ json: { kind: 'card', codeRowId: first.codeRowId, userId: first.userId, docId: first.docId, cards } }];"
+      },
+      "id": "finalize-card",
+      "name": "Finalize Card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-60, 80]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "CodeRedemptions",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "Code", "fieldValue": "={{ $json.codeRowId }}" },
+            { "fieldId": "User", "fieldValue": "={{ $json.userId }}" },
+            { "fieldId": "RedeemedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" }
+          ]
+        }
+      },
+      "id": "insert-redemption-card",
+      "name": "Insert Redemption Card",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [160, 80],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { type: 'card', cards: $('Finalize Card').first().json.cards } }}",
+        "options": {}
+      },
+      "id": "respond-card",
+      "name": "Respond Card",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [380, 80]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "BoosterCount", "fieldValue": "={{ $json.newBoosterCount }}" }
+          ]
+        }
+      },
+      "id": "update-booster",
+      "name": "Update Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-280, 360],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Validate & Prepare').first().json.docId }}",
+        "tableId": "CodeRedemptions",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "Code", "fieldValue": "={{ $('Validate & Prepare').first().json.codeRowId }}" },
+            { "fieldId": "User", "fieldValue": "={{ $('Validate & Prepare').first().json.userId }}" },
+            { "fieldId": "RedeemedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" }
+          ]
+        }
+      },
+      "id": "insert-redemption-booster",
+      "name": "Insert Redemption Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-60, 360],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { type: 'booster', quantity: $('Validate & Prepare').first().json.quantity, newBoosterCount: $('Validate & Prepare').first().json.newBoosterCount } }}",
+        "options": {}
+      },
+      "id": "respond-booster",
+      "name": "Respond Booster",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [160, 360]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": {
+      "main": [
+        [
+          { "node": "Get Event Codes", "type": "main", "index": 0 },
+          { "node": "Get Code Redemptions", "type": "main", "index": 0 },
+          { "node": "Get Cards", "type": "main", "index": 0 },
+          { "node": "Get Rarities", "type": "main", "index": 0 },
+          { "node": "Get Users", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Event Codes": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
+    "Get Code Redemptions": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
+    "Get Cards": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
+    "Get Rarities": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
+    "Get Users": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
+    "Validate & Prepare": { "main": [[{ "node": "If Valid", "type": "main", "index": 0 }]] },
+    "If Valid": {
+      "main": [
+        [{ "node": "If Is Card", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Is Card": {
+      "main": [
+        [{ "node": "Insert Pulls", "type": "main", "index": 0 }],
+        [{ "node": "Update Booster", "type": "main", "index": 0 }]
+      ]
+    },
+    "Insert Pulls": { "main": [[{ "node": "Finalize Card", "type": "main", "index": 0 }]] },
+    "Finalize Card": { "main": [[{ "node": "Insert Redemption Card", "type": "main", "index": 0 }]] },
+    "Insert Redemption Card": { "main": [[{ "node": "Respond Card", "type": "main", "index": 0 }]] },
+    "Update Booster": { "main": [[{ "node": "Insert Redemption Booster", "type": "main", "index": 0 }]] },
+    "Insert Redemption Booster": { "main": [[{ "node": "Respond Booster", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

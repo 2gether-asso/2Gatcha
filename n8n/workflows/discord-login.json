@@ -1,0 +1,301 @@
+{
+  "name": "2Gatcha - discord-login",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "discord-login",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1600, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// A adapter une seule fois : ID du document Grist + app Discord (voir README).\nconst body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    clientId: '1551531676335870104',\n    clientSecret: 'CHANGE-MOI-DISCORD-CLIENT-SECRET',\n    redirectUri: 'https://gatcha.2gether-asso.fr/auth-callback.html',\n    guildId: '778692492644188211',\n    code: (body.code || '').toString().trim()\n  }\n}];"
+      },
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1380, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/oauth2/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "client_id", "value": "={{ $json.clientId }}" },
+            { "name": "client_secret", "value": "={{ $json.clientSecret }}" },
+            { "name": "grant_type", "value": "authorization_code" },
+            { "name": "code", "value": "={{ $json.code }}" },
+            { "name": "redirect_uri", "value": "={{ $json.redirectUri }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "exchange-token",
+      "name": "Exchange Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1160, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://discord.com/api/users/@me",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-discord-user",
+      "name": "Get Discord User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-940, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://discord.com/api/users/@me/guilds",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Exchange Token').first().json.access_token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-discord-guilds",
+      "name": "Get Discord Guilds",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-720, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Verifie que l'utilisateur Discord fait partie du serveur de l'asso, et\n// precalcule son avatar (avatar par defaut si aucun n'est defini).\nconst config = $('Set Config').first().json;\nconst discordUser = $('Get Discord User').first().json;\nconst guilds = $('Get Discord Guilds').all().map((i) => i.json);\nconst inGuild = guilds.some((g) => g.id === config.guildId);\n\nlet avatarUrl;\nif (discordUser.avatar) {\n  avatarUrl = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=128`;\n} else {\n  const defaultIndex = Number(BigInt(discordUser.id) >> 22n) % 6;\n  avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultIndex}.png`;\n}\n\nreturn [{\n  json: {\n    inGuild,\n    discordId: discordUser.id,\n    discordUsername: discordUser.global_name || discordUser.username,\n    discordAvatar: avatarUrl\n  }\n}];"
+      },
+      "id": "check-guild",
+      "name": "Check Guild Membership",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.inGuild }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-in-guild",
+      "name": "If In Guild",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-280, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'not_in_guild' } }}",
+        "options": { "responseCode": 403 }
+      },
+      "id": "respond-forbidden",
+      "name": "Respond Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-60, 460]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [-60, 180],
+      "alwaysOutputData": true,
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const config = $('Set Config').first().json;\nconst guild = $('Check Guild Membership').first().json;\nconst users = $input.all().map((i) => i.json);\nconst match = users.find((u) => (u.DiscordId || '').toString() === guild.discordId);\n\nreturn [{\n  json: {\n    found: !!match,\n    userId: match ? match.id : null,\n    pseudo: match ? match.Pseudo : (guild.discordUsername || 'Joueur'),\n    discordId: guild.discordId,\n    discordUsername: guild.discordUsername,\n    discordAvatar: guild.discordAvatar,\n    docId: config.docId\n  }\n}];"
+      },
+      "id": "match-user",
+      "name": "Match User",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-found",
+      "name": "If Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [380, 180]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Match User').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "DiscordUsername", "fieldValue": "={{ $json.discordUsername }}" },
+            { "fieldId": "DiscordAvatar", "fieldValue": "={{ $json.discordAvatar }}" }
+          ]
+        }
+      },
+      "id": "update-user",
+      "name": "Update User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [600, 60],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const m = $('Match User').first().json;\nreturn [{ json: { userId: m.userId, pseudo: m.pseudo, discordId: m.discordId, discordUsername: m.discordUsername, discordAvatar: m.discordAvatar } }];"
+      },
+      "id": "format-existing",
+      "name": "Format Existing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 60]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-existing",
+      "name": "Respond Existing",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 60]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Match User').first().json.docId }}",
+        "tableId": "Users",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "DiscordId", "fieldValue": "={{ $('Match User').first().json.discordId }}" },
+            { "fieldId": "DiscordUsername", "fieldValue": "={{ $('Match User').first().json.discordUsername }}" },
+            { "fieldId": "DiscordAvatar", "fieldValue": "={{ $('Match User').first().json.discordAvatar }}" },
+            { "fieldId": "Pseudo", "fieldValue": "={{ $('Match User').first().json.pseudo }}" },
+            { "fieldId": "CreatedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" },
+            { "fieldId": "PullsSinceTopRarity", "fieldValue": "={{ 0 }}" },
+            { "fieldId": "TotalPulls", "fieldValue": "={{ 0 }}" },
+            { "fieldId": "BoosterCount", "fieldValue": "={{ 0 }}" }
+          ]
+        }
+      },
+      "id": "create-user",
+      "name": "Create User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const created = $input.first().json;\nreturn [{ json: { userId: created.id, pseudo: created.Pseudo, discordId: created.DiscordId, discordUsername: created.DiscordUsername, discordAvatar: created.DiscordAvatar } }];"
+      },
+      "id": "format-created",
+      "name": "Format Created",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-created",
+      "name": "Respond Created",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Exchange Token", "type": "main", "index": 0 }]] },
+    "Exchange Token": { "main": [[{ "node": "Get Discord User", "type": "main", "index": 0 }]] },
+    "Get Discord User": { "main": [[{ "node": "Get Discord Guilds", "type": "main", "index": 0 }]] },
+    "Get Discord Guilds": { "main": [[{ "node": "Check Guild Membership", "type": "main", "index": 0 }]] },
+    "Check Guild Membership": { "main": [[{ "node": "If In Guild", "type": "main", "index": 0 }]] },
+    "If In Guild": {
+      "main": [
+        [{ "node": "Get Users", "type": "main", "index": 0 }],
+        [{ "node": "Respond Forbidden", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Users": { "main": [[{ "node": "Match User", "type": "main", "index": 0 }]] },
+    "Match User": { "main": [[{ "node": "If Found", "type": "main", "index": 0 }]] },
+    "If Found": {
+      "main": [
+        [{ "node": "Update User", "type": "main", "index": 0 }],
+        [{ "node": "Create User", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update User": { "main": [[{ "node": "Format Existing", "type": "main", "index": 0 }]] },
+    "Format Existing": { "main": [[{ "node": "Respond Existing", "type": "main", "index": 0 }]] },
+    "Create User": { "main": [[{ "node": "Format Created", "type": "main", "index": 0 }]] },
+    "Format Created": { "main": [[{ "node": "Respond Created", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
