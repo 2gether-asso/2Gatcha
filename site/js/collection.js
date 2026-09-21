@@ -62,9 +62,15 @@ function attachTilt(el) {
   const reset = () => {
     el.style.setProperty("--rx", `0deg`);
     el.style.setProperty("--ry", `0deg`);
+    el.style.willChange = "auto";
   };
+  // will-change seulement pendant l'interaction : le poser en permanence en
+  // CSS sur toute la grille forcerait un calque GPU par carte (saccades sur
+  // une grande collection).
+  el.addEventListener("mouseenter", () => { el.style.willChange = "transform"; });
   el.addEventListener("mousemove", (e) => update(e.clientX, e.clientY));
   el.addEventListener("mouseleave", reset);
+  el.addEventListener("touchstart", () => { el.style.willChange = "transform"; }, { passive: true });
   el.addEventListener("touchmove", (e) => {
     if (e.touches[0]) update(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
@@ -174,6 +180,11 @@ function renderStatsAndMilestone() {
   const legendaryEntry = [...byRarity.values()].find((r) => r.name && normalize(r.name) === "legendaire");
   const legendaryShare = totalCopies && legendaryEntry ? Math.round((legendaryEntry.owned / totalCopies) * 100) : 0;
 
+  // Halo ambiant du panel (voir .panel::before) : reprend la couleur de la
+  // carte la plus rare possedee, pour personnaliser le fond par joueur.
+  const panelEl = document.querySelector(".panel");
+  if (panelEl && bestRarity) panelEl.style.setProperty("--rarity-glow", bestRarity.colorHex);
+
   statsEl.innerHTML = `
     <div class="stat-tile"><div class="stat-value">${ownedMap.size}</div><div class="stat-label">Cartes uniques</div></div>
     <div class="stat-tile"><div class="stat-value">${totalCopies}</div><div class="stat-label">Exemplaires au total</div></div>
@@ -228,10 +239,20 @@ function renderGrid() {
       return tb - ta;
     });
   } else {
+    // Le regroupement plus bas suppose que toutes les cartes d'une meme
+    // extension sont CONTIGUES apres ce tri. Trier uniquement par
+    // sortOrder ne suffit pas : deux extensions peuvent partager le meme
+    // sortOrder (ex: 0 par defaut), auquel cas le tri retombe sur le nom
+    // de la carte et entrelace les extensions - la meme extension
+    // reapparaissait alors comme plusieurs groupes separes. La cle
+    // d'extension (unique) doit toujours departager avant le nom.
     sorted = [...cards].sort((a, b) => {
       const extA = a.extension?.sortOrder ?? 999;
       const extB = b.extension?.sortOrder ?? 999;
       if (extA !== extB) return extA - extB;
+      const keyA = a.extension?.key || "";
+      const keyB = b.extension?.key || "";
+      if (keyA !== keyB) return keyA.localeCompare(keyB);
       return (a.name || "").localeCompare(b.name || "");
     });
   }

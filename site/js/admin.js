@@ -32,7 +32,7 @@ function renderCodesTable(codes) {
     const used = c.maxRedemptions ? `${c.used} / ${c.maxRedemptions}` : `${c.used} / illimite`;
     const canRevoke = c.active;
     return `
-      <tr>
+      <tr data-status="${c.status}">
         <td><code>${c.code}</code>${c.label ? `<div class="table-sub">${c.label}</div>` : ""}</td>
         <td>${c.label || "-"}</td>
         <td>${reward}</td>

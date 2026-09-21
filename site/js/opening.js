@@ -19,6 +19,8 @@ let pendingReveals = 0;
 let pityByExt = new Map();
 let openQuantity = 1;
 let lastRevealedCards = [];
+let stackCardEls = [];
+let stackIndex = 0;
 
 const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3 };
 
@@ -51,7 +53,6 @@ function buildCardEl(card, index, cardBackImageId) {
   const wrap = document.createElement("div");
   wrap.className = "card";
   wrap.dataset.rarity = card.rarity?.key || "commune";
-  wrap.style.animationDelay = `${index * 90}ms`;
 
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
@@ -75,16 +76,49 @@ function buildCardEl(card, index, cardBackImageId) {
   inner.appendChild(front);
   wrap.appendChild(inner);
 
+  // Pile de cartes : seule la carte "active" (au sommet, voir layoutStack)
+  // reagit au clic. On avance automatiquement vers la suivante une fois
+  // l'effet de reveal joue, plutot que de tout montrer d'un coup.
   const flip = () => {
-    if (wrap.classList.contains("revealed")) return;
+    if (wrap.classList.contains("revealed") || wrap.dataset.active !== "true") return;
     wrap.classList.add("revealed");
     celebrateRarity(card.rarity?.key, wrap, color);
-    pendingReveals--;
-    if (pendingReveals <= 0) onAllRevealed();
+    setTimeout(advanceStack, 850);
   };
   wrap.addEventListener("click", flip);
   wrap._flip = flip;
   return wrap;
+}
+
+// Positionne chaque carte de la pile : la carte a stackIndex est active
+// (au sommet, cliquable) ; les suivantes sont decalees en pile derriere
+// elle ; les precedentes (deja revelees) se sont envolees sur le cote.
+function layoutStack() {
+  stackCardEls.forEach((el, i) => {
+    const rel = i - stackIndex;
+    if (rel < 0) {
+      el.classList.add("discarded");
+      el.dataset.active = "false";
+      el.style.transform = "translateX(-160%) rotate(-18deg)";
+      return;
+    }
+    el.dataset.active = rel === 0 ? "true" : "false";
+    const depth = Math.min(rel, 4);
+    el.style.transform = `translate(${depth * 5}px, ${depth * 7}px) rotate(${depth * 2}deg) scale(${1 - depth * 0.03})`;
+    el.style.zIndex = String(100 - depth);
+  });
+  const progress = document.getElementById("stack-progress");
+  if (progress) {
+    progress.textContent = stackCardEls.length
+      ? `Carte ${Math.min(stackIndex + 1, stackCardEls.length)} / ${stackCardEls.length}`
+      : "";
+  }
+}
+
+function advanceStack() {
+  stackIndex++;
+  layoutStack();
+  if (stackIndex >= stackCardEls.length) onAllRevealed();
 }
 
 function onAllRevealed() {
@@ -194,6 +228,70 @@ function extensionById(id) {
   return extensionsCache.find((e) => e.id === id);
 }
 
+// Fondu enchaine entre le fond de la modale d'une extension a l'autre :
+// on empile un nouveau calque avec opacity:0 -> 1 (transition CSS), puis on
+// retire les calques precedents une fois le fondu termine. Un changement
+// direct de `background-image` ne se fond pas de facon fiable entre
+// navigateurs, d'ou ce calque dedie.
+function crossfadeModalBackground(imgUrl) {
+  const overlay = document.getElementById("pack-modal-overlay");
+  if (!overlay) return;
+  const layer = document.createElement("div");
+  layer.className = "pack-modal-bg-layer";
+  if (imgUrl) {
+    layer.style.backgroundImage =
+      `radial-gradient(circle at 50% 30%, rgba(139,92,246,0.25), transparent 55%), linear-gradient(rgba(4,5,12,0.88), rgba(4,5,12,0.96)), url(${imgUrl})`;
+  }
+  overlay.insertBefore(layer, overlay.firstChild);
+  requestAnimationFrame(() => { layer.classList.add("visible"); });
+
+  const previous = overlay.querySelectorAll(".pack-modal-bg-layer:not(:first-child)");
+  setTimeout(() => previous.forEach((el) => el.remove()), 550);
+}
+
+// Leger tilt 3D du packet, qui suit le curseur avant meme d'etre tape
+// (effet lenticulaire). Pointeur fin uniquement.
+function attachPackTilt(pack) {
+  if (pack._tiltAttached) return;
+  pack._tiltAttached = true;
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+  pack.addEventListener("mousemove", (e) => {
+    if (pack.classList.contains("charging") || pack.classList.contains("tearing")) return;
+    const rect = pack.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    pack.style.setProperty("--pack-ry", `${px * 14}deg`);
+    pack.style.setProperty("--pack-rx", `${py * -14}deg`);
+  });
+  pack.addEventListener("mouseleave", () => {
+    pack.style.setProperty("--pack-rx", "0deg");
+    pack.style.setProperty("--pack-ry", "0deg");
+  });
+}
+
+// Poussiere ambiante flottante dans la modale d'ouverture (distincte de la
+// trainee qui suit le curseur) : quelques particules lentes qui montent et
+// se dissipent, tant que la modale est ouverte.
+let ambientParticleTimer = null;
+function startAmbientParticles() {
+  stopAmbientParticles();
+  const overlay = document.getElementById("pack-modal-overlay");
+  if (!overlay) return;
+  ambientParticleTimer = setInterval(() => {
+    if (overlay.hidden) return;
+    const p = document.createElement("span");
+    p.className = "ambient-dust";
+    p.style.left = `${5 + Math.random() * 90}%`;
+    p.style.animationDuration = `${4 + Math.random() * 3}s`;
+    overlay.appendChild(p);
+    setTimeout(() => p.remove(), 7000);
+  }, 450);
+}
+function stopAmbientParticles() {
+  if (ambientParticleTimer) clearInterval(ambientParticleTimer);
+  ambientParticleTimer = null;
+}
+
 function renderBoosterCountLabel() {
   const el = document.getElementById("booster-count-label");
   if (!el) return;
@@ -229,7 +327,19 @@ function renderExtensionPicker() {
   });
 }
 
+function renderExtensionPickerSkeleton() {
+  const el = document.getElementById("extension-picker");
+  if (!el) return;
+  el.innerHTML = Array.from({ length: 3 }).map(() => `
+    <div class="extension-tile skeleton-tile">
+      <div class="skeleton-card" style="aspect-ratio:3/4;margin-bottom:8px;"></div>
+      <div class="skeleton-row" style="height:14px;margin-bottom:0;"></div>
+    </div>
+  `).join("");
+}
+
 async function refreshStatus() {
+  renderExtensionPickerSkeleton();
   try {
     const [extRes, statusRes] = await Promise.all([
       API.getExtensions(),
@@ -257,6 +367,10 @@ function openModalFor(extensionId) {
   const hint = document.getElementById("booster-hint");
 
   grid.innerHTML = "";
+  stackCardEls = [];
+  stackIndex = 0;
+  const progressEl = document.getElementById("stack-progress");
+  if (progressEl) progressEl.textContent = "";
   const oldRevealAll = document.getElementById("reveal-all-btn");
   if (oldRevealAll) oldRevealAll.remove();
   pack.classList.remove("locked", "charging", "tearing");
@@ -275,11 +389,10 @@ function openModalFor(extensionId) {
 
   // Skin de fond par extension : le packet flou en toile de fond de la
   // modale, pour que chaque extension ait une ambiance visuelle distincte.
-  overlay.style.backgroundImage = img
-    ? `radial-gradient(circle at 50% 30%, rgba(139,92,246,0.25), transparent 55%), linear-gradient(rgba(4,5,12,0.88), rgba(4,5,12,0.96)), url(${img})`
-    : "";
-  overlay.style.backgroundSize = "cover";
-  overlay.style.backgroundPosition = "center";
+  // Fondu enchaine plutot qu'un changement instantane quand on choisit une
+  // autre extension (voir crossfadeModalBackground).
+  crossfadeModalBackground(img);
+  attachPackTilt(pack);
 
   const qtyPicker = document.getElementById("quantity-picker");
   if (qtyPicker) {
@@ -296,11 +409,13 @@ function openModalFor(extensionId) {
 
   overlay.hidden = false;
   syncScrollLock();
+  startAmbientParticles();
 }
 
 function closeModal() {
   document.getElementById("pack-modal-overlay").hidden = true;
   syncScrollLock();
+  stopAmbientParticles();
 }
 
 async function startOpening(ext) {
@@ -348,12 +463,12 @@ async function startOpening(ext) {
       const k = c.rarity?.key || "commune";
       return (RARITY_ORDER[k] ?? 0) > (RARITY_ORDER[best] ?? 0) ? k : best;
     }, "commune");
-    if (bestRarity === "legendaire" || bestRarity === "epique") {
+    if (bestRarity === "legendaire" || bestRarity === "epique" || bestRarity === "rare") {
       pack.classList.add("charging-" + bestRarity);
     }
 
     await wait(500);
-    pack.classList.remove("charging", "charging-legendaire", "charging-epique");
+    pack.classList.remove("charging", "charging-legendaire", "charging-epique", "charging-rare");
     pack.classList.add("tearing");
     flash.classList.add("flash-active");
 
@@ -364,11 +479,13 @@ async function startOpening(ext) {
     hint.textContent = "Tape sur chaque carte pour la reveler";
 
     lastRevealedCards = allCards;
-    pendingReveals = allCards.length;
-    allCards.forEach((card, i) => {
+    stackIndex = 0;
+    stackCardEls = allCards.map((card, i) => {
       const el = buildCardEl(card, i, ext.cardBackImageId);
       grid.appendChild(el);
+      return el;
     });
+    layoutStack();
 
     if (allCards.length) {
       const revealAllBtn = document.createElement("button");
@@ -376,9 +493,17 @@ async function startOpening(ext) {
       revealAllBtn.className = "btn-secondary";
       revealAllBtn.textContent = "Tout reveler";
       revealAllBtn.addEventListener("click", () => {
-        grid.querySelectorAll(".card:not(.revealed)").forEach((el, i) => {
-          setTimeout(() => el._flip && el._flip(), i * 160);
-        });
+        // Meme en pile, on ne peut reveler qu'une carte a la fois (chacune
+        // doit passer au sommet pour reagir au clic) : on enchaine les
+        // reveals automatiquement au meme rythme que l'utilisateur.
+        revealAllBtn.disabled = true;
+        const playNext = () => {
+          const active = stackCardEls[stackIndex];
+          if (!active) return;
+          active._flip();
+          setTimeout(playNext, 950);
+        };
+        playNext();
       });
       grid.after(revealAllBtn);
     } else {

@@ -69,6 +69,7 @@ function updateCardPreview(selectId, previewId) {
 function renderTradeCard(trade, mine) {
   const el = document.createElement("div");
   el.className = "trade-card";
+  el.dataset.status = trade.status;
   const statusClass = "trade-status-" + trade.status;
 
   let actions = "";

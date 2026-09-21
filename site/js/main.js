@@ -162,6 +162,18 @@ const RARITY_CONFETTI = {
   legendaire: { particleCount: 150, spread: 120 }
 };
 
+// Melange une couleur hex avec du blanc (0 = couleur intacte, 1 = blanc
+// pur) : sert a obtenir une teinte plus claire de la meme couleur plutot
+// que de retomber sur un blanc plat pour le 2e ton des confettis.
+function lightenColor(hex, amount) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return hex;
+  const num = parseInt(m[1], 16);
+  const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
 function getParticleLayer() {
   let el = document.querySelector(".rarity-particle-layer");
   if (!el) {
@@ -207,9 +219,15 @@ function spawnRarityBurst(key, colorHex, originEl) {
   const conf = RARITY_CONFETTI[rarityKey] || RARITY_CONFETTI.commune;
   if (conf.particleCount && typeof confetti === "function") {
     const origin = { x: cx / window.innerWidth, y: cy / window.innerHeight };
-    confetti({ particleCount: conf.particleCount, spread: conf.spread, origin, colors: [color, "#ffffff"] });
+    // zIndex par defaut de canvas-confetti = 100, largement en dessous du
+    // modal plein ecran d'ouverture (400) : sans le forcer ici, tous les
+    // confettis se retrouvent invisibles derriere la modale.
+    // Degrade de la couleur de rarete (au lieu de couleur + blanc plat)
+    // pour un rendu plus riche, coherent avec le badge/le halo de la carte.
+    const tint = lightenColor(color, 0.55);
+    confetti({ particleCount: conf.particleCount, spread: conf.spread, origin, colors: [color, tint], zIndex: 420 });
     if (rarityKey === "legendaire") {
-      setTimeout(() => confetti({ particleCount: 90, spread: 140, origin: { x: origin.x, y: Math.max(0, origin.y - 0.1) }, colors: [color, "#ffd166", "#ffffff"] }), 220);
+      setTimeout(() => confetti({ particleCount: 90, spread: 140, origin: { x: origin.x, y: Math.max(0, origin.y - 0.1) }, colors: [color, "#ffd166", tint], zIndex: 420 }), 220);
     }
   }
 }
@@ -238,23 +256,61 @@ document.addEventListener("keydown", (e) => {
 // a chaque ouverture/fermeture plutot que de compter un simple booleen, pour
 // rester correct meme si une modale est fermee par un autre chemin (Echap,
 // clic sur l'overlay, fin d'animation...).
+//
+// Technique "figer body en position:fixed" plutot qu'un simple
+// overflow:hidden : cette derniere ne bloque pas fiablement le scroll
+// tactile sur mobile et peut faire "sauter" la page a la fermeture. On
+// mémorise le scroll courant, on fixe le body a cette position, puis on
+// restaure exactement la meme position au deverrouillage.
+let _scrollLockY = 0;
 function syncScrollLock() {
   const cardModalOpen = !!document.querySelector(".card-modal-overlay");
   const packModal = document.getElementById("pack-modal-overlay");
   const packModalOpen = !!(packModal && !packModal.hidden);
-  document.documentElement.classList.toggle("scroll-locked", cardModalOpen || packModalOpen);
+  const shouldLock = cardModalOpen || packModalOpen;
+  const isLocked = document.body.classList.contains("scroll-locked");
+
+  if (shouldLock && !isLocked) {
+    _scrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.classList.add("scroll-locked");
+    document.body.style.top = `-${_scrollLockY}px`;
+  } else if (!shouldLock && isLocked) {
+    document.body.classList.remove("scroll-locked");
+    document.body.style.top = "";
+    window.scrollTo(0, _scrollLockY);
+  }
 }
 
 // Anime un changement de valeur numerique (badge boosters, stats...) avec un
 // petit "bump" au lieu d'un saut sec.
 function bumpNumber(el, newValue) {
-  const prev = el.textContent.trim();
-  el.textContent = newValue;
-  if (prev !== "" && prev !== String(newValue) && prev !== "...") {
-    el.classList.remove("count-bump");
-    void el.offsetWidth; // relance l'animation meme si la classe etait deja posee
-    el.classList.add("count-bump");
+  const prevRaw = el.textContent.trim();
+  const prevNum = Number(prevRaw);
+  const nextNum = Number(newValue);
+  const canAnimate = prevRaw !== "" && prevRaw !== "..." && Number.isFinite(prevNum) && Number.isFinite(nextNum) && prevNum !== nextNum;
+
+  if (!canAnimate) {
+    el.textContent = newValue;
+    return;
   }
+
+  // Petit effet "compteur qui defile" plutot qu'un saut sec au nouveau
+  // chiffre : interpole la valeur affichee sur ~450ms.
+  el.classList.remove("count-bump");
+  void el.offsetWidth;
+  el.classList.add("count-bump");
+
+  const duration = 450;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const value = Math.round(prevNum + (nextNum - prevNum) * eased);
+    el.textContent = value;
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = newValue;
+  }
+  requestAnimationFrame(step);
 }
 
 const NAV_ITEMS = [

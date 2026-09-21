@@ -201,12 +201,27 @@ main {
 }
 
 .panel {
+  position: relative;
   background: var(--bg-panel);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-soft);
   border-radius: 18px;
   padding: 32px;
   box-shadow: 0 20px 60px -20px rgba(0,0,0,0.6);
+}
+/* Halo ambiant derriere le panel : --rarity-glow est pose par collection.js
+   sur la couleur de la carte la plus rare possedee (accent par defaut
+   ailleurs). */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 0%, var(--rarity-glow, var(--accent)), transparent 65%);
+  opacity: 0.16;
+  pointer-events: none;
+  transition: background 0.6s ease;
 }
 
 h1 { font-size: 2rem; margin-top: 0; font-weight: 800; }
@@ -331,6 +346,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   display: flex;
   align-items: center;
   justify-content: center;
+  perspective: 800px;
 }
 
 .booster-pack {
@@ -396,9 +412,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   filter: brightness(1.08);
 }
 
+/* --pack-rx/--pack-ry sont poses en JS (attachPackTilt, opening.js) et
+   restent a 0deg par defaut : le tilt s'ajoute a l'animation de flottement
+   sans la remplacer (une propriete personnalisee reste lisible en direct
+   dans des keyframes, contrairement a un transform fixe qu'une animation
+   ecraserait). */
 @keyframes boosterFloat {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50% { transform: translateY(-10px) rotate(1deg); }
+  0%, 100% { transform: translateY(0) rotate(-1deg) rotateX(var(--pack-rx, 0deg)) rotateY(var(--pack-ry, 0deg)); }
+  50% { transform: translateY(-10px) rotate(1deg) rotateX(var(--pack-rx, 0deg)) rotateY(var(--pack-ry, 0deg)); }
 }
 
 @keyframes boosterSheen {
@@ -426,6 +447,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
 /* Tremblement intensifie quand le meilleur tirage du lot est deja connu
    (spoiler discret cote gacha, avant la dechirure du pack). */
+.booster-pack.charging-rare { box-shadow: 0 0 26px rgba(59,130,246,0.55); }
 .booster-pack.charging-epique { animation: boosterChargeEpique 0.35s ease-in-out infinite; box-shadow: 0 0 40px rgba(168,85,247,0.6); }
 .booster-pack.charging-legendaire { animation: boosterChargeLegendaire 0.22s ease-in-out infinite; box-shadow: 0 0 60px rgba(245,165,36,0.8); }
 @keyframes boosterChargeEpique {
@@ -578,21 +600,34 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .card-artist { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
 
 .rarity-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.62rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding: 3px 9px;
+  padding: 3px 9px 3px 6px;
   border-radius: 999px;
   margin-top: 6px;
 }
+/* Petit "gemme" avant le texte, plutot qu'une pastille plate uniforme. */
+.rarity-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  flex-shrink: 0;
+}
 
-.card[data-rarity="commune"] .card-face { box-shadow: 0 0 16px rgba(154,160,180,0.35); }
-.card[data-rarity="rare"] .card-face { box-shadow: 0 0 22px rgba(59,130,246,0.55); }
-.card[data-rarity="epique"] .card-face { box-shadow: 0 0 28px rgba(168,85,247,0.6); }
+/* Le 2e calque (1.5px/3px, decale, opaque) simule une tranche de carte
+   physique en plus du halo de rarete. */
+.card[data-rarity="commune"] .card-face { box-shadow: 0 0 16px rgba(154,160,180,0.35), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.card[data-rarity="rare"] .card-face { box-shadow: 0 0 22px rgba(59,130,246,0.55), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.card[data-rarity="epique"] .card-face { box-shadow: 0 0 28px rgba(168,85,247,0.6), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
 .card[data-rarity="legendaire"] .card-face {
-  box-shadow: 0 0 40px rgba(245,165,36,0.75);
+  box-shadow: 0 0 40px rgba(245,165,36,0.75), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
   animation: legendaryPulse 1.6s ease-in-out infinite;
 }
 
@@ -618,6 +653,22 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
 .filters { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
 .filters button.active { outline: 2px solid var(--accent-2); }
+/* Bordure animee en degrade tournant sur le filtre "Legendaire". */
+.filters button[data-filter="legendaire"] {
+  position: relative;
+  z-index: 0;
+  background: var(--bg-panel-solid);
+}
+.filters button[data-filter="legendaire"]::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, var(--rarity-legendaire), #ffd166, var(--accent-3), var(--rarity-legendaire));
+  animation: legendaryBorderSpin 3s linear infinite;
+}
+@keyframes legendaryBorderSpin { to { transform: rotate(360deg); } }
 
 .collection-grid {
   display: grid;
@@ -653,6 +704,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 
 .empty-state { color: var(--text-dim); text-align: center; padding: 40px 0; }
+.empty-state::before {
+  content: "\1F5C3";
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
 
 .error-box {
   background: #3b1220;
@@ -739,9 +797,16 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   flex-wrap: wrap;
   background: var(--bg-panel-2);
   border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border-soft);
   border-radius: 12px;
   padding: 14px 18px;
 }
+/* Liseré colore selon le statut, pour un reperage plus rapide qu'en lisant
+   le badge de texte. */
+.trade-card[data-status="pending"] { border-left-color: var(--accent-2); }
+.trade-card[data-status="accepted"] { border-left-color: #4ade80; }
+.trade-card[data-status="declined"],
+.trade-card[data-status="cancelled"] { border-left-color: #fb7185; }
 
 .trade-info { font-size: 0.92rem; display: flex; flex-direction: column; gap: 6px; }
 .trade-actions { display: flex; gap: 10px; }
@@ -769,7 +834,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   border-collapse: collapse;
   margin-top: 16px;
   font-size: 0.88rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-2) transparent;
 }
+.admin-table::-webkit-scrollbar { height: 8px; }
+.admin-table::-webkit-scrollbar-track { background: transparent; }
+.admin-table::-webkit-scrollbar-thumb { background: var(--accent-2); border-radius: 999px; }
 .admin-table th, .admin-table td {
   text-align: left;
   padding: 10px 12px;
@@ -783,6 +853,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+/* Liseré colore par statut (border-collapse rend un border-left sur <tr>
+   peu fiable entre navigateurs : on le pose sur la 1ere cellule). */
+.admin-table tr[data-status] td:first-child { border-left: 3px solid var(--border-soft); }
+.admin-table tr[data-status="active"] td:first-child { border-left-color: var(--success); }
+.admin-table tr[data-status="expired"] td:first-child { border-left-color: var(--text-dim); }
+.admin-table tr[data-status="exhausted"] td:first-child { border-left-color: var(--accent-3); }
+.admin-table tr[data-status="disabled"] td:first-child { border-left-color: var(--danger); }
 .admin-table code {
   background: var(--bg-panel-solid);
   padding: 2px 8px;
@@ -942,20 +1019,46 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .collection-card {
   position: relative;
   transform-style: preserve-3d;
-  will-change: transform;
+  /* Pas de will-change permanent ici : sur une grille de dizaines de
+     cartes, ca force autant de calques de composition GPU en continu et
+     provoque des saccades. attachTilt() (collection.js) l'ajoute/l'enleve
+     lui-meme, seulement sur la carte survolee/touchee. */
 }
 .collection-card:not(.locked)[data-rarity="rare"] { box-shadow: 0 0 0 1px rgba(59,130,246,0.35); }
 .collection-card:not(.locked)[data-rarity="epique"] { box-shadow: 0 0 0 1px rgba(168,85,247,0.4); }
 .collection-card:not(.locked)[data-rarity="legendaire"] {
   box-shadow: 0 0 0 1px rgba(245,165,36,0.5), 0 0 18px rgba(245,165,36,0.25);
 }
+/* Cadre distinct par rarete, plutot que le meme rectangle pour toutes. */
+.collection-card:not(.locked)[data-rarity="rare"] { border-color: rgba(59,130,246,0.55); }
+.collection-card:not(.locked)[data-rarity="epique"] { border-width: 2px; border-style: double; border-color: rgba(168,85,247,0.7); }
+.collection-card:not(.locked)[data-rarity="legendaire"] {
+  border-style: solid;
+  border-width: 2px;
+  border-image: linear-gradient(135deg, var(--rarity-legendaire), #ffd166, var(--rarity-legendaire)) 1;
+}
+/* Epaisseur "carte physique" : une fine ombre en decalage simule une
+   tranche, plutot qu'un visuel totalement plat (le halo de rarete est
+   fusionne dans le meme box-shadow pour .card-face, voir plus haut). */
+.collection-card {
+  box-shadow: 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
+}
+.collection-card:not(.locked)[data-rarity="rare"] { box-shadow: 0 0 0 1px rgba(59,130,246,0.35), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.collection-card:not(.locked)[data-rarity="epique"] { box-shadow: 0 0 0 1px rgba(168,85,247,0.4), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.collection-card:not(.locked)[data-rarity="legendaire"] {
+  box-shadow: 0 0 0 1px rgba(245,165,36,0.5), 0 0 18px rgba(245,165,36,0.25), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
+}
+.collection-card:not(.locked) {
+  overflow: hidden;
+}
 .collection-card:not(.locked)::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.28) 50%, transparent 60%);
-  background-size: 220% 220%;
-  background-position: 200% 0;
+  top: 0;
+  left: -60%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.28) 50%, transparent 80%);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
@@ -963,11 +1066,35 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .collection-card:not(.locked)[data-rarity="epique"]::after,
 .collection-card:not(.locked)[data-rarity="legendaire"]::after {
   opacity: 0.7;
+  /* transform plutot que background-position : anime sur le compositeur
+     GPU (pas de repaint a chaque frame), bien moins couteux repete sur
+     plusieurs cartes en meme temps. */
   animation: cardHoloDrift 3.5s ease-in-out infinite;
 }
+/* Reflet foil au survol des legendaires : plus vif et plus rapide que le
+   shimmer ambiant permanent (qui reste sur ::after), sur ::before. */
+.collection-card:not(.locked)[data-rarity="legendaire"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.collection-card:not(.locked)[data-rarity="legendaire"]:hover::before {
+  opacity: 1;
+  animation: legendaryFoilSweep 0.7s ease-out;
+}
+@keyframes legendaryFoilSweep {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(120%); }
+}
 @keyframes cardHoloDrift {
-  0% { background-position: 200% 0; }
-  100% { background-position: -50% 0; }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(280%); }
 }
 
 /* ========================================================================
@@ -1105,7 +1232,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   background: var(--bg-panel-2);
   overflow: hidden;
 }
-.rarity-progress-row .rp-fill { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+.rarity-progress-row .rp-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
 .rarity-progress-row .rp-count { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
 
 /* ========================================================================
@@ -1175,6 +1307,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .extension-tile:hover:not(.disabled) { transform: translateY(-4px); border-color: var(--border); }
+.extension-tile.skeleton-tile { cursor: default; }
 .extension-tile.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-2), 0 16px 32px -16px rgba(34,211,238,0.5); }
 .extension-tile.disabled { opacity: 0.45; cursor: not-allowed; }
 .extension-tile img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; margin-bottom: 8px; }
@@ -1218,6 +1351,38 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 .card-back-image { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
 
+/* ========================================================================
+   Pile de cartes (reveal one-by-one) : plus lisible qu'une grille dense,
+   surtout pour un x5 (25 cartes). Une seule carte "active" (au-dessus,
+   cliquable) ; les suivantes sont decalees en pile derriere ; les cartes
+   deja revelees s'envolent sur le cote.
+   ======================================================================== */
+.reveal-grid.stacked {
+  display: block;
+  position: relative;
+  width: min(240px, 78vw);
+  aspect-ratio: 3 / 4;
+  margin: 6px auto 0;
+}
+.reveal-grid.stacked .card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 1;
+  animation: none;
+  transition: transform 0.45s cubic-bezier(.2,.9,.3,1), opacity 0.35s ease;
+}
+.reveal-grid.stacked .card[data-active="true"] { cursor: pointer; }
+.reveal-grid.stacked .card[data-active="false"] { pointer-events: none; }
+.reveal-grid.stacked .card.discarded { opacity: 0; pointer-events: none; }
+.stack-progress {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 10px;
+}
+
 #reveal-all-btn { margin-top: 6px; }
 
 /* ========================================================================
@@ -1230,8 +1395,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   background:
     radial-gradient(circle at 50% 30%, rgba(139,92,246,0.25), transparent 55%),
     rgba(4, 5, 12, 0.94);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  /* Un peu plus de flou qu'avant : accentue la separation de profondeur
+     entre la scene au premier plan et le reste de la page. */
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1239,6 +1406,45 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 .pack-modal-overlay[hidden] { display: none; }
 .pack-modal-overlay:not([hidden]) { animation: modalFadeIn 0.25s ease forwards; }
+/* Vignettage : assombrit les bords pour concentrer le regard sur la pile
+   de cartes au centre. */
+.pack-modal-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.55) 100%);
+}
+
+/* Fond par extension, en fondu enchaine (voir crossfadeModalBackground). */
+.pack-modal-bg-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+.pack-modal-bg-layer.visible { opacity: 1; }
+
+/* Poussiere ambiante flottante (distincte de la trainee sous le curseur). */
+.ambient-dust {
+  position: absolute;
+  bottom: -10px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.55);
+  box-shadow: 0 0 6px 1px rgba(255,255,255,0.4);
+  pointer-events: none;
+  animation: ambientDustRise linear forwards;
+}
+@keyframes ambientDustRise {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: 0.8; }
+  100% { transform: translateY(-70vh) translateX(20px); opacity: 0; }
+}
 
 .pack-modal-stage {
   position: relative;
@@ -1252,7 +1458,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   gap: 26px;
   padding: 10px 4px 30px;
   scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
 }
+.pack-modal-stage::-webkit-scrollbar { width: 8px; }
+.pack-modal-stage::-webkit-scrollbar-track { background: transparent; }
+.pack-modal-stage::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 999px; }
 
 .pack-modal-close {
   position: fixed;
