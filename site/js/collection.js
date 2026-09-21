@@ -11,12 +11,24 @@
 const NEW_BADGE_WINDOW_SECONDS = 24 * 3600;
 const FAVORITES_KEY = "2gatcha_favorites";
 
+const PREFS_KEY = "2gatcha_collection_prefs";
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); }
+  catch (e) { return {}; }
+}
+function savePrefs(patch) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), ...patch })); } catch (e) {}
+}
+const prefs = loadPrefs();
+
 let allCardsCache = [];
 let ownedMap = new Map();
 let activeFilter = "all";
 let searchQuery = "";
-let sortMode = "extension";
-let missingOnly = false;
+// Tri/vue memorises d'une visite a l'autre : pas de raison de refaire le
+// meme reglage a chaque fois qu'on revient sur la page.
+let sortMode = prefs.sortMode || "extension";
+let missingOnly = !!prefs.missingOnly;
 
 // Favoris : purement locaux (par appareil), pas de backend necessaire.
 function loadFavorites() {
@@ -343,6 +355,19 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("guest-warning").style.display = "block";
     return;
   }
+
+  // Applique les preferences memorisees aux controles avant le premier
+  // rendu (loadCollection appelle renderGrid, qui doit deja voir le bon
+  // etat de missingOnly/sortMode/dense-view).
+  document.getElementById("sort-select").value = sortMode;
+  const missingBtn = document.getElementById("missing-toggle");
+  missingBtn.classList.toggle("active", missingOnly);
+  const denseBtn = document.getElementById("dense-toggle");
+  if (prefs.denseView) {
+    document.body.classList.add("dense-view");
+    denseBtn.classList.add("active");
+  }
+
   loadCollection();
 
   let searchTimer = null;
@@ -352,16 +377,20 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("sort-select").addEventListener("change", (e) => {
     sortMode = e.target.value;
+    savePrefs({ sortMode });
     renderGrid();
   });
-  document.getElementById("missing-toggle").addEventListener("click", (e) => {
+  missingBtn.addEventListener("click", (e) => {
     missingOnly = !missingOnly;
+    savePrefs({ missingOnly });
     e.target.classList.toggle("active", missingOnly);
     renderGrid();
   });
-  document.getElementById("dense-toggle").addEventListener("click", (e) => {
+  denseBtn.addEventListener("click", (e) => {
     document.body.classList.toggle("dense-view");
-    e.target.classList.toggle("active", document.body.classList.contains("dense-view"));
+    const isDense = document.body.classList.contains("dense-view");
+    savePrefs({ denseView: isDense });
+    e.target.classList.toggle("active", isDense);
     renderGrid();
   });
   document.getElementById("cinema-toggle").addEventListener("click", (e) => {

@@ -83,6 +83,103 @@ const Toast = {
   info(msg) { this.show(msg, "info"); }
 };
 
+// ---------------------------------------------------------------------------
+// Confirmation stylisee (remplace window.confirm, qui casse totalement le
+// ton "jeu premium" du reste du site avec sa popup navigateur brute) -
+// utilisee pour toute action destructive/irreversible (decraft, revocation
+// de code...).
+// ---------------------------------------------------------------------------
+const Confirm = {
+  show(message, { title = "Confirmer", confirmText = "Confirmer", cancelText = "Annuler", dangerous = false } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "card-modal-overlay confirm-overlay";
+      overlay.innerHTML = `
+        <div class="confirm-box">
+          <div class="confirm-title">${title}</div>
+          <div class="confirm-message">${message}</div>
+          <div class="confirm-actions">
+            <button type="button" class="btn-ghost confirm-cancel">${cancelText}</button>
+            <button type="button" class="${dangerous ? "btn-danger" : ""} confirm-ok">${confirmText}</button>
+          </div>
+        </div>
+      `;
+      const finish = (result) => {
+        overlay.remove();
+        syncScrollLock();
+        resolve(result);
+      };
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(false); });
+      overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(false));
+      overlay.querySelector(".confirm-ok").addEventListener("click", () => finish(true));
+      document.addEventListener("keydown", function onKey(e) {
+        if (e.key === "Escape") { document.removeEventListener("keydown", onKey); finish(false); }
+      });
+      document.body.appendChild(overlay);
+      syncScrollLock();
+    });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// SFX minimalistes generes en WebAudio (pas de fichiers audio a heberger) :
+// un tic au flip d'une carte, un carillon dont la richesse suit la rarete.
+// Un jeu totalement silencieux se sent inacheve - ce n'est pas un habillage
+// cosmetique de plus, c'est le retour manquant sur l'action principale.
+// ---------------------------------------------------------------------------
+const Sfx = {
+  _ctx: null,
+  _muted: localStorage.getItem("2gatcha_muted") === "1",
+  get ctx() {
+    if (!this._ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this._ctx = new AudioCtx();
+    }
+    return this._ctx;
+  },
+  get muted() { return this._muted; },
+  setMuted(m) {
+    this._muted = m;
+    localStorage.setItem("2gatcha_muted", m ? "1" : "0");
+  },
+  _tone(freq, start, duration, type, gain) {
+    if (this._muted) return;
+    const ctx = this.ctx;
+    if (!ctx) return;
+    try {
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const t0 = ctx.currentTime + start;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + duration + 0.05);
+    } catch (e) { /* AudioContext indisponible ou bloque : silence, pas grave */ }
+  },
+  flip() {
+    this._tone(320, 0, 0.09, "triangle", 0.12);
+  },
+  reveal(rarityKey) {
+    const chords = {
+      commune: [392],
+      rare: [392, 523.25],
+      epique: [392, 523.25, 659.25],
+      legendaire: [392, 523.25, 659.25, 783.99, 987.77]
+    };
+    const notes = chords[rarityKey] || chords.commune;
+    notes.forEach((freq, i) => this._tone(freq, i * 0.055, 0.55, "sine", 0.085));
+  },
+  click() {
+    this._tone(500, 0, 0.05, "square", 0.05);
+  }
+};
+
 // Petite icone distinctive par rareté (en plus de la couleur, pour ne pas
 // reposer uniquement sur la teinte).
 const RARITY_ICONS = { commune: "&#9679;", rare: "&#9670;", epique: "&#9733;", legendaire: "&#128081;" };
@@ -399,6 +496,7 @@ function renderHeader() {
             </button>
             <div class="user-menu-dropdown" id="user-menu-dropdown">
               <button id="edit-pseudo-btn" type="button">&#9998; Modifier le pseudo</button>
+              <button id="mute-toggle-btn" type="button">${Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif"}</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button">&#10162; Déconnexion</button>
             </div>
@@ -413,6 +511,11 @@ function renderHeader() {
     });
     document.addEventListener("click", (e) => {
       if (!userMenu.contains(e.target)) userMenu.classList.remove("open");
+    });
+    document.getElementById("mute-toggle-btn").addEventListener("click", (e) => {
+      Sfx.setMuted(!Sfx.muted);
+      e.target.innerHTML = Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif";
+      if (!Sfx.muted) Sfx.click();
     });
     document.getElementById("logout-btn").addEventListener("click", () => {
       Session.clear();

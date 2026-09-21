@@ -17,10 +17,12 @@ let extensionsCache = [];
 let boosterCount = 0;
 let pendingReveals = 0;
 let pityByExt = new Map();
+let pityThreshold = 0;
 let openQuantity = 1;
 let lastRevealedCards = [];
 let stackCardEls = [];
 let stackIndex = 0;
+let ownedCountMap = new Map();
 
 const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3 };
 
@@ -39,9 +41,15 @@ function requestSkip() {
   }
 }
 
-function buildCardBackEl(cardBackImageId) {
+// Le dos de la carte laisse deviner un peu d'intensite avant meme le flip
+// (comme le "shine" d'un pack dans TCG Pocket) : pas la rarete exacte, juste
+// une lueur plus ou moins marquee, pour nourrir l'anticipation sans gacher
+// la surprise.
+function buildCardBackEl(cardBackImageId, rarityKey, colorHex) {
   const back = document.createElement("div");
   back.className = "card-face card-back";
+  if (rarityKey && rarityKey !== "commune") back.classList.add("card-back-shine", "shine-" + rarityKey);
+  if (colorHex) back.style.setProperty("--shine-color", colorHex);
   const src = API.imageUrl(cardBackImageId);
   back.innerHTML = src
     ? `<img class="card-back-image" src="${src}" alt="" /><span class="tap-hint" style="position:relative;z-index:1;">Tape pour révéler</span>`
@@ -59,11 +67,15 @@ function buildCardEl(card, index, cardBackImageId) {
 
   const inner = document.createElement("div");
   inner.className = "card-inner";
-  inner.appendChild(buildCardBackEl(cardBackImageId));
+  inner.appendChild(buildCardBackEl(cardBackImageId, card.rarity?.key, color));
 
+  const dupeBadge = card.isNewToPlayer
+    ? `<span class="new-badge">Nouvelle !</span>`
+    : `<span class="dupe-badge">×${card.ownedCountAfter}</span>`;
   const front = document.createElement("div");
   front.className = "card-face card-front";
   front.innerHTML = `
+    ${dupeBadge}
     <img src="${imgSrc}" alt="${card.name}" />
     <div class="card-info">
       <div class="card-name">${card.name}</div>
@@ -82,6 +94,8 @@ function buildCardEl(card, index, cardBackImageId) {
   const flip = () => {
     if (wrap.classList.contains("revealed") || wrap.dataset.active !== "true") return;
     wrap.classList.add("revealed");
+    Sfx.flip();
+    setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
     celebrateRarity(card.rarity?.key, wrap, color);
     setTimeout(advanceStack, 850);
   };
@@ -309,14 +323,17 @@ function renderExtensionPicker() {
   el.innerHTML = extensionsCache.map((ext) => {
     const img = API.imageUrl(ext.packImageId);
     const pity = pityByExt.get(ext.id) || 0;
+    const pct = pityThreshold ? Math.min(100, Math.round((pity / pityThreshold) * 100)) : 0;
+    const pityLabel = pityThreshold ? `${pity} / ${pityThreshold}` : `${pity} tirage${pity > 1 ? "s" : ""}`;
     return `
       <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}">
         ${img ? `<img src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
         <div class="ext-name">${ext.name}</div>
         <div class="ext-count">Ouvrir</div>
-        <div class="pity-row" title="Nombre de tirages depuis la dernière legendaire">
-          <span>${rarityIcon("legendaire")}</span>
-          <span>${pity} tirage${pity > 1 ? "s" : ""}</span>
+        <div class="pity-row" title="Progression vers la légendaire garantie">
+          <span class="pity-icon">${rarityIcon("legendaire")}</span>
+          <span class="pity-track"><span class="pity-fill" style="width:${pct}%;"></span></span>
+          <span class="pity-label">${pityLabel}</span>
         </div>
       </div>
     `;
@@ -341,13 +358,18 @@ function renderExtensionPickerSkeleton() {
 async function refreshStatus() {
   renderExtensionPickerSkeleton();
   try {
-    const [extRes, statusRes] = await Promise.all([
+    const [extRes, statusRes, collectionRes] = await Promise.all([
       API.getExtensions(),
-      API.getBoosterStatus(Session.userId)
+      API.getBoosterStatus(Session.userId),
+      API.getCollection(Session.userId).catch(() => ({ owned: [] }))
     ]);
     extensionsCache = (extRes.extensions || []).filter((e) => e.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     boosterCount = statusRes.count || 0;
+    pityThreshold = statusRes.pityThreshold || 0;
     pityByExt = new Map((statusRes.extensions || []).map((e) => [e.extensionId, e.pullsSinceTop || 0]));
+    // Sert a detecter les doublons a la volee pendant le reveal (voir
+    // startOpening) : combien d'exemplaires le joueur avait AVANT ce pack.
+    ownedCountMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o.count]));
     renderExtensionPicker();
   } catch (e) {
     Toast.error("Impossible de recuperer les extensions/boosters. (" + e.message + ")");
@@ -384,7 +406,7 @@ function openModalFor(extensionId) {
 
   pack.onclick = () => {
     if (isBusy) requestSkip();
-    else startOpening(ext);
+    else { Sfx.click(); startOpening(ext); }
   };
 
   // Skin de fond par extension : le packet flou en toile de fond de la
@@ -484,6 +506,16 @@ async function startOpening(ext) {
     await wait(250);
     hint.textContent = "Tape sur chaque carte pour la révéler";
 
+    // Marque chaque carte comme nouvelle ou doublon AVANT de construire les
+    // elements : incremente au fil du lot pour gerer aussi les doublons
+    // internes a un x5 (deux fois la meme carte dans le meme paquet).
+    allCards.forEach((card) => {
+      const before = ownedCountMap.get(card.cardId) || 0;
+      card.isNewToPlayer = before === 0;
+      card.ownedCountAfter = before + 1;
+      ownedCountMap.set(card.cardId, before + 1);
+    });
+
     lastRevealedCards = allCards;
     stackIndex = 0;
     stackCardEls = allCards.map((card, i) => {
@@ -559,6 +591,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const shareBtn = document.getElementById("share-pull-btn");
   if (shareBtn) shareBtn.addEventListener("click", shareBestPull);
+
+  // Espace/Entree : tape le booster (avant ouverture) ou revele la carte
+  // active de la pile - convention courante des jeux de cartes (Hearthstone
+  // utilise Espace pour enchainer les etapes).
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== " " && e.key !== "Enter") return;
+    if (overlay.hidden) return;
+    e.preventDefault();
+    const pack = document.getElementById("booster-pack");
+    if (!isBusy && pack.style.visibility !== "hidden") { pack.onclick && pack.onclick(); return; }
+    const active = stackCardEls[stackIndex];
+    if (active) active._flip();
+  });
 
   refreshStatus();
 });

@@ -97,13 +97,18 @@ async function loadCodes() {
 }
 
 async function revokeCode(code) {
-  if (!window.confirm(`Revoquer le code ${code} ?`)) return;
+  const ok = await Confirm.show(`Le code <strong>${code}</strong> ne pourra plus être réclamé par personne.`, {
+    title: "Révoquer ce code ?",
+    confirmText: "Révoquer",
+    dangerous: true
+  });
+  if (!ok) return;
   try {
     await API.adminRevokeCode(Session.discordId, code);
-    Toast.info(`Code ${code} revoque.`);
+    Toast.info(`Code ${code} révoqué.`);
     loadCodes();
   } catch (e) {
-    Toast.error("Impossible de revoquer ce code. (" + e.message + ")");
+    Toast.error("Impossible de révoquer ce code. (" + e.message + ")");
   }
 }
 

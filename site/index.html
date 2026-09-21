@@ -39,6 +39,12 @@
       </div>
 
     </div>
+
+    <div class="panel" id="activity-panel" style="display:none;margin-top:24px;">
+      <h2>&#9889; Activité récente</h2>
+      <div id="activity-loading" class="loading-row"><div class="spinner"></div></div>
+      <div id="activity-feed" class="activity-feed"></div>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
@@ -72,6 +78,38 @@
     }
 
     refreshLoginUI();
+
+    // Fil d'activite global (derniers tirages, toutes extensions/joueurs
+    // confondus) : visible seulement connecte, purement informatif/social,
+    // n'affecte jamais rien cote gameplay.
+    if (Session.isLoggedIn()) {
+      const panel = document.getElementById("activity-panel");
+      panel.style.display = "block";
+      API.getRecentPulls().then((res) => {
+        const feed = document.getElementById("activity-feed");
+        const pulls = res.pulls || [];
+        if (!pulls.length) {
+          feed.innerHTML = `<div class="empty-state">Aucun tirage pour l'instant.</div>`;
+          return;
+        }
+        feed.innerHTML = pulls.slice(0, 12).map((p) => {
+          const color = p.rarity?.colorHex || "#9aa0b4";
+          const minutesAgo = Math.max(0, Math.round((Date.now() / 1000 - p.obtainedAt) / 60));
+          const when = minutesAgo < 1 ? "à l'instant" : minutesAgo < 60 ? `il y a ${minutesAgo} min` : `il y a ${Math.round(minutesAgo / 60)} h`;
+          return `
+            <div class="activity-row">
+              <span class="activity-dot" style="background:${color};"></span>
+              <span class="activity-text"><strong>${p.pseudo}</strong> a obtenu <strong style="color:${color};">${p.cardName}</strong></span>
+              <span class="activity-time">${when}</span>
+            </div>
+          `;
+        }).join("");
+      }).catch(() => {
+        document.getElementById("activity-feed").innerHTML = `<div class="empty-state">Impossible de charger l'activité récente.</div>`;
+      }).finally(() => {
+        document.getElementById("activity-loading").style.display = "none";
+      });
+    }
 
     try {
       if (sessionStorage.getItem("2gatcha_just_logged_in")) {

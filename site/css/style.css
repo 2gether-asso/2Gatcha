@@ -250,6 +250,24 @@ h1 { font-size: 2rem; margin-top: 0; font-weight: 800; }
   color: transparent;
 }
 h2 { font-size: 1.3rem; color: var(--text); font-weight: 700; }
+
+/* ========================================================================
+   Fil d'activite (accueil)
+   ======================================================================== */
+.activity-feed { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.88rem;
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.activity-text { flex: 1; color: var(--text-dim); }
+.activity-text strong { color: var(--text); }
+.activity-time { color: var(--text-dim); font-size: 0.76rem; flex-shrink: 0; }
 p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 
 input[type="text"] {
@@ -560,6 +578,36 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   font-size: 2.2rem;
   color: var(--accent-2);
   font-family: var(--font-display);
+}
+/* Lueur avant meme le flip, plus marquee selon la rarete (jamais sur les
+   communes) - fait deviner l'intensite du tirage sans reveler la carte,
+   a la maniere du "shine" de pack dans TCG Pocket. */
+.card-back-shine { box-shadow: inset 0 0 0 2px var(--shine-color, transparent); }
+.card-back-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, var(--shine-color, transparent), transparent 70%);
+  mix-blend-mode: screen;
+}
+/* Une seule declaration d'opacity par regle : une animation remplace
+   entierement une valeur statique sur la meme propriete (jamais un
+   melange), donc l'intensite par palier doit vivre DANS chaque keyframe. */
+.shine-rare::after { animation: cardBackShinePulseRare 2s ease-in-out infinite; }
+.shine-epique::after { animation: cardBackShinePulseEpique 1.6s ease-in-out infinite; }
+.shine-legendaire::after { animation: cardBackShinePulseLegendaire 1.2s ease-in-out infinite; }
+@keyframes cardBackShinePulseRare {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.35; }
+}
+@keyframes cardBackShinePulseEpique {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.55; }
+}
+@keyframes cardBackShinePulseLegendaire {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
 }
 
 .card-front {
@@ -1195,6 +1243,23 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   box-shadow: 0 4px 12px -4px rgba(244, 114, 182, 0.7);
   animation: newBadgePulse 1.8s ease-in-out infinite;
 }
+/* Doublon detecte a la volee pendant le reveal (voir opening.js) : meme
+   emplacement que .new-badge (jamais les deux en meme temps sur une carte),
+   plus discret puisque ce n'est pas une bonne nouvelle a celebrer. */
+.dupe-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  background: rgba(10, 11, 24, 0.75);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
 @keyframes newBadgePulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
@@ -1281,6 +1346,28 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   z-index: 1;
+}
+
+/* ========================================================================
+   Confirmation stylisee (remplace window.confirm)
+   ======================================================================== */
+.confirm-box {
+  width: min(360px, 100%);
+  background: var(--bg-panel-solid);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  padding: 22px 24px;
+  transform: scale(0.92) translateY(10px);
+  animation: modalPopIn 0.28s cubic-bezier(.2,.9,.3,1.3) forwards;
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
+}
+.confirm-title { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; margin-bottom: 8px; }
+.confirm-message { color: var(--text-dim); font-size: 0.92rem; line-height: 1.5; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 8px 24px -8px rgba(239,68,68,0.55);
 }
 
 /* ========================================================================
@@ -1753,9 +1840,16 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 /* ========================================================================
    Barre de pity (ouverture de booster)
    ======================================================================== */
-.pity-row { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-dim); margin-top: 6px; }
+.pity-row { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; }
+.pity-row .pity-icon { flex-shrink: 0; }
 .pity-row .pity-track { flex: 1; height: 6px; border-radius: 999px; background: var(--bg-panel-2); overflow: hidden; }
-.pity-row .pity-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--rarity-legendaire)); transition: width 0.6s ease; }
+.pity-row .pity-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--rarity-legendaire));
+  transition: width 0.6s ease;
+}
+.pity-row .pity-label { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 /* ========================================================================
    Favoris (collection)

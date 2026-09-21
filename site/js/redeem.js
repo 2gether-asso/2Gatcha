@@ -90,6 +90,8 @@ async function redeem() {
         grid.appendChild(el);
         setTimeout(() => {
           el.classList.add("revealed");
+          Sfx.flip();
+          setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
           celebrateRarity(card.rarity?.key, el, card.rarity?.colorHex);
         }, 300 + i * 220);
       });

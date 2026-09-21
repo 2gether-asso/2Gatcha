@@ -74,6 +74,13 @@ function renderCraftGrid() {
 }
 
 async function disenchant(cardId) {
+  const card = allCards.find((c) => c.cardId === cardId);
+  const dust = card?.rarity?.disenchantValue || 0;
+  const ok = await Confirm.show(
+    `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>${dust} poussières d'étoile</strong> ? Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+    { title: "Décrafter cette carte ?", confirmText: "Décrafter", dangerous: true }
+  );
+  if (!ok) return;
   try {
     const res = await API.disenchantCard(Session.userId, cardId);
     Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
