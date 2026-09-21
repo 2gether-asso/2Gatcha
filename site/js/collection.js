@@ -98,11 +98,9 @@ function attachTilt(el) {
   el.addEventListener("mouseenter", () => { el.style.willChange = "transform"; });
   el.addEventListener("mousemove", (e) => update(e.clientX, e.clientY));
   el.addEventListener("mouseleave", reset);
-  el.addEventListener("touchstart", () => { el.style.willChange = "transform"; }, { passive: true });
-  el.addEventListener("touchmove", (e) => {
-    if (e.touches[0]) update(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  el.addEventListener("touchend", reset);
+  // Pas de suivi tactile : sur mobile, chaque touchmove pendant un simple
+  // scroll de la grille declenchait un recalcul de style par carte survolee
+  // par le doigt, ce qui causait le lag observe sur portable.
 }
 
 // navList = tableau ordonne des cardId actuellement affiches (dans l'ordre

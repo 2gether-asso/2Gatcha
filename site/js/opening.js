@@ -59,6 +59,15 @@ function buildCardBackEl(cardBackImageId, rarityKey, colorHex) {
   return back;
 }
 
+// Vitesse d'enchainement entre deux cartes : lue en direct sur le select,
+// utilisee aussi bien au tap manuel qu'en mode "Tout révéler" (avant, seul
+// le mode auto en tenait compte, donc changer le select ne faisait rien
+// quand on tapait les cartes une a une soi-meme).
+function getRevealDelay() {
+  const sel = document.getElementById("reveal-speed-select");
+  return Number(sel?.value) || 950;
+}
+
 function buildCardEl(card, index, cardBackImageId) {
   const wrap = document.createElement("div");
   wrap.className = "card";
@@ -101,7 +110,7 @@ function buildCardEl(card, index, cardBackImageId) {
     Sfx.flip();
     setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
     celebrateRarity(card.rarity?.key, wrap, color);
-    setTimeout(advanceStack, 850);
+    setTimeout(advanceStack, getRevealDelay());
   };
   wrap.addEventListener("click", flip);
   wrap._flip = flip;
@@ -666,8 +675,7 @@ async function startOpening(ext) {
           const active = stackCardEls[stackIndex];
           if (!active) return;
           active._flip();
-          const delay = Number(speedSelect?.value) || 950;
-          setTimeout(playNext, delay);
+          setTimeout(playNext, getRevealDelay());
         };
         playNext();
       });

@@ -2169,3 +2169,28 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
   .pack-modal-stage { gap: 18px; padding: 6px 2px 20px; }
   .rarity-chart { gap: 8px; height: 110px; }
 }
+
+/* Le flou de fond (backdrop-filter) force le moteur a recomposer tout ce
+   qu'il y a derriere a chaque frame ; sur des elements fixed/sticky comme le
+   header et la barre du bas, ca tourne en continu pendant tout le scroll et
+   c'est une cause connue de lag sur mobile. On le desactive sur tactile/petit
+   ecran et on compense par un fond plus opaque pour rester lisible. */
+@media (max-width: 768px), (pointer: coarse) {
+  header#site-header,
+  .bottom-nav,
+  .panel,
+  .card-modal-overlay,
+  .pack-modal-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  header#site-header { background: rgba(6, 7, 15, 0.97); }
+  .bottom-nav { background: rgba(10, 11, 24, 0.98); }
+  .panel { background: rgba(20, 22, 45, 0.92); }
+  .card-modal-overlay { background: rgba(4, 5, 12, 0.95); }
+  .pack-modal-overlay {
+    background:
+      radial-gradient(circle at 50% 30%, rgba(139,92,246,0.25), transparent 55%),
+      rgba(4, 5, 12, 0.97);
+  }
+}
