@@ -458,6 +458,20 @@
         -240,
         720
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-1",
+      "name": "Sync List Get Codes -> List Get Redemptions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -860,
+        380
+      ]
     }
   ],
   "connections": {
@@ -574,7 +588,7 @@
       "main": [
         [
           {
-            "node": "List Get Redemptions",
+            "node": "Sync List Get Codes -> List Get Redemptions",
             "type": "main",
             "index": 0
           }
@@ -648,6 +662,17 @@
         [
           {
             "node": "Respond Revoked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync List Get Codes -> List Get Redemptions": {
+      "main": [
+        [
+          {
+            "node": "List Get Redemptions",
             "type": "main",
             "index": 0
           }

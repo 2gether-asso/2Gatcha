@@ -1,0 +1,15 @@
+# Outils de test locaux - ne doivent jamais etre pousses ni deployes
+# (contournent la connexion Discord, cf. avertissement dans dev-login.html).
+site/dev-login.html
+site/js/dev-login.js
+
+# Secrets / config locale
+.env
+.env.*
+*.local
+
+# OS / editeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -436,6 +436,62 @@
         160,
         360
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-7",
+      "name": "Sync Get Event Codes -> Get Code Redemptions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-8",
+      "name": "Sync Get Code Redemptions -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-9",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-10",
+      "name": "Sync Get Rarities -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        660
+      ]
     }
   ],
   "connections": {
@@ -465,7 +521,7 @@
       "main": [
         [
           {
-            "node": "Get Code Redemptions",
+            "node": "Sync Get Event Codes -> Get Code Redemptions",
             "type": "main",
             "index": 0
           }
@@ -476,7 +532,7 @@
       "main": [
         [
           {
-            "node": "Get Cards",
+            "node": "Sync Get Code Redemptions -> Get Cards",
             "type": "main",
             "index": 0
           }
@@ -487,7 +543,7 @@
       "main": [
         [
           {
-            "node": "Get Rarities",
+            "node": "Sync Get Cards -> Get Rarities",
             "type": "main",
             "index": 0
           }
@@ -498,7 +554,7 @@
       "main": [
         [
           {
-            "node": "Get Users",
+            "node": "Sync Get Rarities -> Get Users",
             "type": "main",
             "index": 0
           }
@@ -612,6 +668,50 @@
         [
           {
             "node": "Respond Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Event Codes -> Get Code Redemptions": {
+      "main": [
+        [
+          {
+            "node": "Get Code Redemptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Code Redemptions -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
             "type": "main",
             "index": 0
           }

@@ -99,6 +99,7 @@ async function openBooster() {
     if (res.error === "no_boosters") {
       pack.classList.remove("charging");
       renderStock(res.count || 0);
+      loadHeaderBoosterBadge();
       showError("Plus de booster disponible pour l'instant.");
       isBusy = false;
       return;
@@ -125,6 +126,7 @@ async function openBooster() {
       flash.classList.remove("flash-active");
       pack.classList.remove("bursting");
       if (res.booster) renderStock(res.booster.count);
+      loadHeaderBoosterBadge();
       isBusy = false;
     }, 550 + cards.length * 220 + 300);
   } catch (e) {

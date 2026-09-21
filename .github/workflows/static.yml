@@ -33,11 +33,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Remove dev-only files
+        # dev-login.html contourne la connexion Discord pour les tests locaux :
+        # ne doit jamais atterrir sur le site public.
+        run: rm -f site/dev-login.html site/js/dev-login.js
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # Seul le dossier site/ contient le site statique publiable
+          # (grist/ et n8n/ ne sont que de la doc/config, pas a servir).
+          path: './site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

@@ -914,6 +914,48 @@
         -440,
         1400
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-11",
+      "name": "Sync Create Get Users -> Create Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1500,
+        210
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-12",
+      "name": "Sync List Get Trades -> List Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-13",
+      "name": "Sync List Get Users -> List Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        680
+      ]
     }
   ],
   "connections": {
@@ -961,7 +1003,7 @@
       "main": [
         [
           {
-            "node": "Create Get Pulls",
+            "node": "Sync Create Get Users -> Create Get Pulls",
             "type": "main",
             "index": 0
           }
@@ -1052,7 +1094,7 @@
       "main": [
         [
           {
-            "node": "List Get Users",
+            "node": "Sync List Get Trades -> List Get Users",
             "type": "main",
             "index": 0
           }
@@ -1063,7 +1105,7 @@
       "main": [
         [
           {
-            "node": "List Get Cards",
+            "node": "Sync List Get Users -> List Get Cards",
             "type": "main",
             "index": 0
           }
@@ -1297,6 +1339,39 @@
         [
           {
             "node": "Respond Trade Cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Create Get Users -> Create Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Create Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync List Get Trades -> List Get Users": {
+      "main": [
+        [
+          {
+            "node": "List Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync List Get Users -> List Get Cards": {
+      "main": [
+        [
+          {
+            "node": "List Get Cards",
             "type": "main",
             "index": 0
           }

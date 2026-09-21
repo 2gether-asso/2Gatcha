@@ -12,7 +12,10 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-200, 300]
+      "position": [
+        -200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -23,7 +26,10 @@
       "name": "Set Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [0, 300]
+      "position": [
+        0,
+        300
+      ]
     },
     {
       "parameters": {
@@ -37,9 +43,17 @@
       "name": "Get Cards",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [220, 300],
+      "position": [
+        220,
+        300
+      ],
       "alwaysOutputData": true,
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "parameters": {
@@ -53,9 +67,17 @@
       "name": "Get Rarities",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [440, 300],
+      "position": [
+        440,
+        300
+      ],
       "alwaysOutputData": true,
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "parameters": {
@@ -66,7 +88,10 @@
       "name": "Format Cards",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 300]
+      "position": [
+        660,
+        300
+      ]
     },
     {
       "parameters": {
@@ -78,16 +103,96 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [880, 300]
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n execute un node Grist 'classique' une fois PAR ITEM recu en entree.\n// Sans ce noeud-tampon, ce node getAll recevrait plusieurs items du node\n// precedent et s'executerait plusieurs fois, dupliquant ses resultats.\n// On reduit systematiquement a 1 seul item entre deux appels Grist chaines.\nreturn [{ json: {} }];"
+      },
+      "id": "barrier-2",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        360
+      ]
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
-    "Set Config": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
-    "Get Cards": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
-    "Get Rarities": { "main": [[{ "node": "Format Cards", "type": "main", "index": 0 }]] },
-    "Format Cards": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Format Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Cards": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

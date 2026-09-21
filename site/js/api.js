@@ -40,6 +40,21 @@ const API = {
     return data;
   },
 
+  // Petit cache navigateur (sessionStorage, par onglet) pour les donnees qui
+  // changent rarement (catalogue de cartes, liste des joueurs) : evite de
+  // refaire l'aller-retour Grist a chaque changement de page.
+  _cacheGet(key, ttlMs) {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (cached && Date.now() - cached.ts < ttlMs) return cached.data;
+    } catch (e) {}
+    return null;
+  },
+
+  _cacheSet(key, data) {
+    try { sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch (e) {}
+  },
+
   discordLoginUrl() {
     const params = new URLSearchParams({
       client_id: window.APP_CONFIG.discordClientId,
@@ -58,12 +73,20 @@ const API = {
     return this.post("updatePseudo", { userId, pseudo });
   },
 
-  listUsers() {
-    return this.get("users");
+  async listUsers() {
+    const cached = this._cacheGet("2gatcha_cache_users", 60 * 1000);
+    if (cached) return cached;
+    const data = await this.get("users");
+    this._cacheSet("2gatcha_cache_users", data);
+    return data;
   },
 
-  getCards() {
-    return this.get("cards");
+  async getCards() {
+    const cached = this._cacheGet("2gatcha_cache_cards", 5 * 60 * 1000);
+    if (cached) return cached;
+    const data = await this.get("cards");
+    this._cacheSet("2gatcha_cache_cards", data);
+    return data;
   },
 
   openPack(userId) {
