@@ -2,13 +2,13 @@
 // Contrat n8n "extensions" (GET) : { extensions: [{ id, name, key, active, packImageId, cardBackImageId }] }
 // Contrat n8n "booster-status" (GET ?userId=...) :
 // { count, stardust, extensions: [{ extensionId, name, key, sortOrder, pullsSinceTop }] }
-// (count = solde GENERIQUE, commun a toutes les extensions ; c'est
+// (count = solde Générique, commun a toutes les extensions ; c'est
 // l'utilisateur qui choisit avec quelle extension le depenser)
 // Contrat n8n "open-pack" (POST { userId, extensionId }) :
 // { cards: [...], pity: { pullsSinceTop }, booster: { extensionId, count } }
 // ou, si le stock est a 0 : { error: "no_boosters", count, extensionId }
 //
-// L'ouverture se fait dans un modal plein ecran (#pack-modal-overlay), pas
+// L'ouverture se fait dans un modal plein écran (#pack-modal-overlay), pas
 // inline dans la page : la page ne montre que le choix du pack a ouvrir.
 
 let isBusy = false;
@@ -44,8 +44,8 @@ function buildCardBackEl(cardBackImageId) {
   back.className = "card-face card-back";
   const src = API.imageUrl(cardBackImageId);
   back.innerHTML = src
-    ? `<img class="card-back-image" src="${src}" alt="" /><span class="tap-hint" style="position:relative;z-index:1;">Tape pour reveler</span>`
-    : `<span>?</span><span class="tap-hint">Tape pour reveler</span>`;
+    ? `<img class="card-back-image" src="${src}" alt="" /><span class="tap-hint" style="position:relative;z-index:1;">Tape pour révéler</span>`
+    : `<span>?</span><span class="tap-hint">Tape pour révéler</span>`;
   return back;
 }
 
@@ -92,7 +92,7 @@ function buildCardEl(card, index, cardBackImageId) {
 
 // Positionne chaque carte de la pile : la carte a stackIndex est active
 // (au sommet, cliquable) ; les suivantes sont decalees en pile derriere
-// elle ; les precedentes (deja revelees) se sont envolees sur le cote.
+// elle ; les precedentes (deja révélées) se sont envolees sur le cote.
 function layoutStack() {
   stackCardEls.forEach((el, i) => {
     const rel = i - stackIndex;
@@ -126,7 +126,7 @@ function onAllRevealed() {
   if (btn) btn.remove();
   isBusy = false;
   const hint = document.getElementById("booster-hint");
-  if (hint) hint.textContent = "Toutes les cartes sont revelees !";
+  if (hint) hint.textContent = "Toutes les cartes sont révélées !";
   const shareBtn = document.getElementById("share-pull-btn");
   if (shareBtn && lastRevealedCards.length) shareBtn.style.display = "inline-flex";
 }
@@ -192,7 +192,7 @@ function shareBestPull() {
   // en-tete Access-Control-Allow-Origin (sinon le navigateur refuse de lire
   // les pixels de l'image sur le canvas et declenche onerror ici plutot
   // qu'une erreur silencieuse).
-  img.onerror = () => Toast.error("Impossible de generer l'image a partager (probleme de CORS sur le serveur d'images).");
+  img.onerror = () => Toast.error("Impossible de générer l'image a partager (probleme de CORS sur le serveur d'images).");
   img.src = imgSrc;
 }
 
@@ -201,11 +201,11 @@ function shareBestPull() {
 // transform-style:preserve-3d pour le flip 3D ; animer le transform d'un
 // parent commun casse ce rendu dans certains navigateurs (c'est ce qui
 // provoquait un blocage de la page). L'effet est donc isole a un calque de
-// flash plein ecran + un filtre sur la carte elle-meme uniquement.
+// flash plein écran + un filtre sur la carte elle-meme uniquement.
 //
 // Les particules (spawnRarityBurst, main.js) sont sur un calque a
 // z-index:420, au-dessus du modal d'ouverture (400) et du flash legendaire
-// (410) : elles restent visibles par-dessus toute la modale plein ecran.
+// (410) : elles restent visibles par-dessus toute la modale plein écran.
 function celebrateRarity(key, cardEl, colorHex) {
   spawnRarityBurst(key, colorHex, cardEl);
   if (key === "legendaire") {
@@ -220,7 +220,7 @@ function celebrateRarity(key, cardEl, colorHex) {
       void cardEl.offsetWidth;
       cardEl.classList.add("legendary-hit");
     }
-    Toast.success("Legendaire !");
+    Toast.success("Légendaire !");
   }
 }
 
@@ -269,7 +269,7 @@ function attachPackTilt(pack) {
   });
 }
 
-// Poussiere ambiante flottante dans la modale d'ouverture (distincte de la
+// Poussière ambiante flottante dans la modale d'ouverture (distincte de la
 // trainee qui suit le curseur) : quelques particules lentes qui montent et
 // se dissipent, tant que la modale est ouverte.
 let ambientParticleTimer = null;
@@ -285,7 +285,7 @@ function startAmbientParticles() {
     p.style.animationDuration = `${4 + Math.random() * 3}s`;
     overlay.appendChild(p);
     setTimeout(() => p.remove(), 7000);
-  }, 450);
+  }, 900);
 }
 function stopAmbientParticles() {
   if (ambientParticleTimer) clearInterval(ambientParticleTimer);
@@ -314,7 +314,7 @@ function renderExtensionPicker() {
         ${img ? `<img src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
         <div class="ext-name">${ext.name}</div>
         <div class="ext-count">Ouvrir</div>
-        <div class="pity-row" title="Nombre de tirages depuis la derniere legendaire">
+        <div class="pity-row" title="Nombre de tirages depuis la dernière legendaire">
           <span>${rarityIcon("legendaire")}</span>
           <span>${pity} tirage${pity > 1 ? "s" : ""}</span>
         </div>
@@ -434,7 +434,7 @@ async function startOpening(ext) {
 
   try {
     // x1 ou x5 : on ouvre les boosters demandes a la suite (chaque appel
-    // reste un tirage independant cote backend), puis on revele tout
+    // reste un tirage independant cote backend), puis on révélé tout
     // ensemble pour ne pas repeter l'animation de dechirure N fois.
     const quantity = Math.min(openQuantity, boosterCount);
     const allCards = [];
@@ -457,7 +457,7 @@ async function startOpening(ext) {
       lastBoosterInfo = res.booster;
     }
 
-    // Intensifie le tremblement du pack selon la meilleure rarete deja
+    // Intensifie le tremblement du pack selon la meilleure rareté deja
     // tiree (spoiler discret, courant dans les jeux gacha).
     const bestRarity = allCards.reduce((best, c) => {
       const k = c.rarity?.key || "commune";
@@ -467,16 +467,22 @@ async function startOpening(ext) {
       pack.classList.add("charging-" + bestRarity);
     }
 
-    await wait(500);
+    // Sequence volontairement plus lente qu'avant : charge (750ms) ->
+    // dechirure marquee (750ms, voir packTear) -> court silence (250ms)
+    // avant l'apparition des cartes. Le pull est LE moment fort de la
+    // page, il ne doit pas se sentir expedie.
+    await wait(750);
     pack.classList.remove("charging", "charging-legendaire", "charging-epique", "charging-rare");
     pack.classList.add("tearing");
     flash.classList.add("flash-active");
-
-    await wait(480);
     skipHint.classList.remove("visible");
+
+    await wait(750);
     pack.classList.remove("tearing");
     pack.style.visibility = "hidden";
-    hint.textContent = "Tape sur chaque carte pour la reveler";
+
+    await wait(250);
+    hint.textContent = "Tape sur chaque carte pour la révéler";
 
     lastRevealedCards = allCards;
     stackIndex = 0;
@@ -491,9 +497,9 @@ async function startOpening(ext) {
       const revealAllBtn = document.createElement("button");
       revealAllBtn.id = "reveal-all-btn";
       revealAllBtn.className = "btn-secondary";
-      revealAllBtn.textContent = "Tout reveler";
+      revealAllBtn.textContent = "Tout révéler";
       revealAllBtn.addEventListener("click", () => {
-        // Meme en pile, on ne peut reveler qu'une carte a la fois (chacune
+        // Meme en pile, on ne peut révéler qu'une carte a la fois (chacune
         // doit passer au sommet pour reagir au clic) : on enchaine les
         // reveals automatiquement au meme rythme que l'utilisateur.
         revealAllBtn.disabled = true;
@@ -527,24 +533,6 @@ async function startOpening(ext) {
   }
 }
 
-// Petite trainee d'etincelles qui suit le curseur, ambiance gacha (pointeur
-// fin uniquement, jamais sur tactile).
-function initSparkleTrail() {
-  if (window.matchMedia("(hover: none)").matches) return;
-  let last = 0;
-  document.addEventListener("mousemove", (e) => {
-    const now = Date.now();
-    if (now - last < 60) return;
-    last = now;
-    const s = document.createElement("div");
-    s.className = "sparkle-trail";
-    s.style.left = e.clientX + "px";
-    s.style.top = e.clientY + "px";
-    document.body.appendChild(s);
-    setTimeout(() => s.remove(), 650);
-  });
-}
-
 document.addEventListener("DOMContentLoaded", () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
@@ -573,5 +561,4 @@ document.addEventListener("DOMContentLoaded", () => {
   if (shareBtn) shareBtn.addEventListener("click", shareBestPull);
 
   refreshStatus();
-  initSparkleTrail();
 });

@@ -175,22 +175,29 @@ header#site-header {
 
 .user-box { display: flex; align-items: center; gap: 14px; font-size: 0.9rem; color: var(--text-dim); }
 
-/* Badge boosters dans le header */
-.booster-badge {
+/* Ressources du joueur regroupees en une seule pastille (plutot que deux
+   badges flottants cote a cote) : plus lisible, moins de "clutter" dans le
+   header. */
+.header-stats {
   display: flex;
   align-items: center;
-  gap: 7px;
-  background: linear-gradient(135deg, rgba(139,92,246,0.18), rgba(34,211,238,0.12));
-  border: 1px solid var(--border);
-  padding: 5px 12px;
+  gap: 10px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  padding: 6px 12px;
   border-radius: 999px;
+}
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.82rem;
   color: var(--text);
 }
-.booster-badge .icon { font-size: 0.95rem; }
-.booster-badge .timer { color: var(--text-dim); font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat-chip .icon { font-size: 0.92rem; }
+.stat-divider { width: 1px; height: 14px; background: var(--border-soft); }
 
 main {
   max-width: 1100px;
@@ -487,11 +494,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   z-index: 50;
 }
 .burst-flash.flash-active {
-  animation: flashPulse 0.5s ease-out forwards;
+  animation: flashPulse 0.9s ease-out forwards;
 }
 @keyframes flashPulse {
   0% { opacity: 0; }
-  15% { opacity: 0.9; }
+  35% { opacity: 0.9; }
+  60% { opacity: 0.75; }
   100% { opacity: 0; }
 }
 
@@ -653,22 +661,15 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
 .filters { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
 .filters button.active { outline: 2px solid var(--accent-2); }
-/* Bordure animee en degrade tournant sur le filtre "Legendaire". */
+/* Liseré degrade sobre sur le filtre "Legendaire" (un contour tournant en
+   continu attirerait l'oeil en permanence, meme sans interaction : trop
+   voyant pour un simple bouton de filtre). */
 .filters button[data-filter="legendaire"] {
-  position: relative;
-  z-index: 0;
-  background: var(--bg-panel-solid);
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box,
+    linear-gradient(135deg, var(--rarity-legendaire), #ffd166) border-box;
 }
-.filters button[data-filter="legendaire"]::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  z-index: -1;
-  border-radius: inherit;
-  background: conic-gradient(from 0deg, var(--rarity-legendaire), #ffd166, var(--accent-3), var(--rarity-legendaire));
-  animation: legendaryBorderSpin 3s linear infinite;
-}
-@keyframes legendaryBorderSpin { to { transform: rotate(360deg); } }
 
 .collection-grid {
   display: grid;
@@ -1153,10 +1154,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   to { transform: scale(1); }
 }
 
-.stardust-badge {
-  background: linear-gradient(135deg, rgba(244, 114, 182, 0.2), rgba(139, 92, 246, 0.15));
-}
-
 /* ========================================================================
    Skeleton loaders (remplacent le spinner dans les listes)
    ======================================================================== */
@@ -1318,13 +1315,16 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
    Ouverture "Hearthstone" : dechirure du pack, cartes face cachee tapees
    individuellement
    ======================================================================== */
+/* Dechirure plus lente et marquee : le moment du pull merite un vrai
+   "beat" plutot qu'un pack qui disparait en un clin d'oeil. */
 .booster-pack.tearing {
-  animation: packTear 0.55s cubic-bezier(.3,.1,.4,1) forwards;
+  animation: packTear 0.75s cubic-bezier(.3,.1,.4,1) forwards;
 }
 @keyframes packTear {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.08) rotate(-1deg); }
-  100% { transform: scale(1.15); opacity: 0; filter: brightness(1.6); }
+  0% { transform: scale(1); filter: brightness(1); }
+  30% { transform: scale(1.1) rotate(-1deg); filter: brightness(1.3); }
+  60% { transform: scale(1.16) rotate(1deg); opacity: 1; filter: brightness(1.9); }
+  100% { transform: scale(1.22); opacity: 0; filter: brightness(2.2); }
 }
 .pack-half {
   position: absolute;
@@ -1550,22 +1550,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   background: var(--bg-panel-2);
 }
 
-/* ========================================================================
-   Curseur etincelle (page ouverture)
-   ======================================================================== */
-.sparkle-trail {
-  position: fixed;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #fff, var(--accent-2) 60%, transparent);
-  pointer-events: none;
-  z-index: 500;
-  animation: sparkleFade 0.6s ease-out forwards;
-}
-@keyframes sparkleFade {
-  to { transform: scale(0.2) translateY(10px); opacity: 0; }
-}
 
 /* ========================================================================
    Mini bar chart (admin - repartition des raretes)
@@ -1623,44 +1607,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   15% { opacity: 1; }
   100% { translate: var(--dx) var(--dy); scale: 1; rotate: 180deg; opacity: 0; }
 }
-
-/* ========================================================================
-   Grain / bruit subtil (casse le cote trop lisse du glassmorphism)
-   ======================================================================== */
-body::after { /* deja utilise pour les etoiles ; on ajoute un grain via un 2e calque */ }
-.grain-layer {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* ========================================================================
-   Halo curseur (desktop uniquement, suit la souris avec un leger retard)
-   ======================================================================== */
-/* Sert a la fois de halo-curseur et d'effet parallax : deplacee en JS par
-   translate3d direct (le fond ambiant, lui, a deja sa propre animation de
-   derive continue sur `transform` - une regle statique sur ce meme
-   ancetre/propriete serait sans effet, une animation gagne toujours face a
-   une valeur non-animee sur la meme propriete). */
-.cursor-glow {
-  position: fixed;
-  top: 0; left: 0;
-  width: 340px;
-  height: 340px;
-  margin: -170px 0 0 -170px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%);
-  pointer-events: none;
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.4s;
-  will-change: transform;
-}
-.cursor-glow.active { opacity: 1; }
 
 /* ========================================================================
    Transitions de page (View Transitions API)
@@ -1917,10 +1863,11 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
   .toast-stack { left: 16px; right: 16px; max-width: none; top: max(16px, env(safe-area-inset-top, 0px)); }
   .rarity-progress-row { grid-template-columns: 70px 1fr 44px; }
 
-  /* Le user-box contient avatar + 2 badges + pseudo + 2 boutons : ca ne
-     tient pas sur une ligne en dessous de 640px, il faut pouvoir wrapper. */
+  /* Le user-box contient les ressources groupees + le menu utilisateur :
+     ca ne tient pas sur une ligne en dessous de 640px, il faut wrapper. */
   .user-box { flex-wrap: wrap; justify-content: center; gap: 8px 10px; width: 100%; }
-  .booster-badge { padding: 4px 10px; font-size: 0.76rem; }
+  .header-stats { padding: 4px 10px; }
+  .stat-chip { font-size: 0.76rem; }
 
   main { padding: 24px 16px 90px; }
   .panel { padding: 20px; }

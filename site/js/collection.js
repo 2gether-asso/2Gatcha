@@ -29,7 +29,7 @@ function saveFavorites(set) {
 let favorites = loadFavorites();
 
 function normalize(str) {
-  return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function renderFilters(rarities) {
@@ -92,7 +92,7 @@ function showCardModal(card, owned) {
         <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
           ${card.rarity?.name || "Commune"}
         </span>
-        ${owned ? `<div class="count-badge" style="margin-top:8px;">Possedee x${owned.count}</div>` : ""}
+        ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
       </div>
     </div>
   `;
@@ -140,7 +140,7 @@ function cardTileHtml(card, now) {
     <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}">
       ${isNew ? '<span class="new-badge">New</span>' : ""}
       ${!locked ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
-      <img src="${imgSrc}" alt="${locked ? "Carte non decouverte" : card.name}" />
+      <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" />
       <div class="card-info">
         <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
         <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
@@ -181,7 +181,7 @@ function renderStatsAndMilestone() {
   const legendaryShare = totalCopies && legendaryEntry ? Math.round((legendaryEntry.owned / totalCopies) * 100) : 0;
 
   // Halo ambiant du panel (voir .panel::before) : reprend la couleur de la
-  // carte la plus rare possedee, pour personnaliser le fond par joueur.
+  // carte la plus rare possédée, pour personnaliser le fond par joueur.
   const panelEl = document.querySelector(".panel");
   if (panelEl && bestRarity) panelEl.style.setProperty("--rarity-glow", bestRarity.colorHex);
 
@@ -199,10 +199,10 @@ function renderStatsAndMilestone() {
     if (next) {
       const missing = next.total - next.owned;
       milestoneEl.style.display = "flex";
-      milestoneEl.innerHTML = `&#127919; Encore <strong>${missing} carte${missing > 1 ? "s" : ""} ${next.name}</strong> pour completer cette rarete !`;
+      milestoneEl.innerHTML = `&#127919; Encore <strong>${missing} carte${missing > 1 ? "s" : ""} ${next.name}</strong> pour completer cette rareté !`;
     } else {
       milestoneEl.style.display = "flex";
-      milestoneEl.innerHTML = `&#127942; Collection complete, felicitations !`;
+      milestoneEl.innerHTML = `&#127942; Collection complète, félicitations !`;
     }
   }
 }
@@ -225,7 +225,7 @@ function renderGrid() {
     return;
   }
 
-  // Tri "extension" (par defaut) : par SortOrder d'extension, la rarete
+  // Tri "extension" (par defaut) : par SortOrder d'extension, la rareté
   // restant geree par les boutons de filtre, pas par un tri automatique.
   let sorted;
   if (sortMode === "name") {
@@ -313,7 +313,7 @@ async function loadCollection() {
 
     const stats = res.stats || { owned: ownedMap.size, total: allCardsCache.length };
     document.getElementById("progress-label").textContent =
-      `${stats.owned} / ${stats.total} cartes decouvertes`;
+      `${stats.owned} / ${stats.total} cartes découvertes`;
     const pct = stats.total ? Math.round((stats.owned / stats.total) * 100) : 0;
     document.getElementById("progress-fill").style.width = pct + "%";
 

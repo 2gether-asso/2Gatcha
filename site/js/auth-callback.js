@@ -1,5 +1,5 @@
 // Page de retour du flux OAuth Discord (redirect_uri).
-// Recupere ?code=... dans l'URL, l'echange cote n8n (discord-login.json) et
+// Recupere ?code=... dans l'URL, l'échange cote n8n (discord-login.json) et
 // stocke la session avant de revenir a l'accueil.
 
 document.addEventListener("DOMContentLoaded", async () => {

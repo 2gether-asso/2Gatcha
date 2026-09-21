@@ -1,4 +1,4 @@
-// Logique de la page d'echanges.
+// Logique de la page d'échanges.
 // Contrat n8n "trade" (POST { userId, action, ... }) :
 // - action=create { toPseudo, offeredCardId, requestedCardId } -> { tradeId, status }
 // - action=list -> { trades: [{ tradeId, direction, fromPseudo, toPseudo,
@@ -9,10 +9,10 @@
 const TRADE_ERROR_MESSAGES = {
   user_not_found: "Aucun joueur ne porte ce pseudo.",
   cannot_trade_self: "Tu ne peux pas t'echanger une carte avec toi-meme.",
-  card_not_owned: "Tu ne possedes pas cette carte.",
-  trade_not_found: "Echange introuvable.",
-  not_your_trade: "Cet echange ne te concerne pas.",
-  trade_not_pending: "Cet echange n'est plus en attente.",
+  card_not_owned: "Tu ne possèdes pas cette carte.",
+  trade_not_found: "Échange introuvable.",
+  not_your_trade: "Cet échange ne te concerne pas.",
+  trade_not_pending: "Cet échange n'est plus en attente.",
   cards_no_longer_available: "Une des deux cartes n'est plus disponible (deja echangee ailleurs).",
   promo_not_tradeable: "Les cartes promo ne sont pas echangeables."
 };
@@ -41,7 +41,7 @@ async function loadFormOptions() {
   const offeredSelect = document.getElementById("offered-card-select");
   offeredSelect.innerHTML = myOwnedCards
     .map((c) => `<option value="${c.cardId}">${c.name} (x${ownedMap.get(c.cardId).count})</option>`)
-    .join("") || `<option value="">Aucune carte possedee</option>`;
+    .join("") || `<option value="">Aucune carte possédée</option>`;
 
   const requestedSelect = document.getElementById("requested-card-select");
   requestedSelect.innerHTML = `<option value="">Aucune (don)</option>` + allCards
@@ -102,7 +102,7 @@ function renderTradeCard(trade, mine) {
   return el;
 }
 
-// Affiche une liste d'echanges dans un conteneur, en separant "en attente"
+// Affiche une liste d'échanges dans un conteneur, en separant "en attente"
 // (action possible) de "termine" (historique en lecture seule).
 function renderTradeGroup(container, trades, emptyLabel) {
   container.innerHTML = "";
@@ -134,10 +134,10 @@ async function loadTrades() {
     const incoming = document.getElementById("incoming-trades");
     const outgoing = document.getElementById("outgoing-trades");
 
-    renderTradeGroup(incoming, trades.filter((t) => t.direction === "incoming"), "Aucun echange recu.");
-    renderTradeGroup(outgoing, trades.filter((t) => t.direction === "outgoing"), "Aucun echange envoye.");
+    renderTradeGroup(incoming, trades.filter((t) => t.direction === "incoming"), "Aucun échange recu.");
+    renderTradeGroup(outgoing, trades.filter((t) => t.direction === "outgoing"), "Aucun échange envoye.");
   } catch (e) {
-    Toast.error("Impossible de charger les echanges. (" + e.message + ")");
+    Toast.error("Impossible de charger les échanges. (" + e.message + ")");
   } finally {
     if (loading) loading.style.display = "none";
   }
@@ -146,7 +146,7 @@ async function loadTrades() {
 async function respond(tradeId, accept) {
   try {
     await API.respondTrade(Session.userId, Number(tradeId), accept);
-    Toast.success(accept ? "Echange accepte !" : "Echange refuse.");
+    Toast.success(accept ? "Échange accepte !" : "Échange refuse.");
     loadTrades();
   } catch (e) {
     Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
@@ -156,7 +156,7 @@ async function respond(tradeId, accept) {
 async function cancel(tradeId) {
   try {
     await API.cancelTrade(Session.userId, Number(tradeId));
-    Toast.info("Echange annule.");
+    Toast.info("Échange annule.");
     loadTrades();
   } catch (e) {
     Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
@@ -190,7 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       await API.createTrade(Session.userId, toPseudo, offeredCardId, requestedCardId);
-      Toast.success("Echange propose !");
+      Toast.success("Échange propose !");
       loadTrades();
     } catch (err) {
       Toast.error(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));

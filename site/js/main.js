@@ -83,7 +83,7 @@ const Toast = {
   info(msg) { this.show(msg, "info"); }
 };
 
-// Petite icone distinctive par rarete (en plus de la couleur, pour ne pas
+// Petite icone distinctive par rareté (en plus de la couleur, pour ne pas
 // reposer uniquement sur la teinte).
 const RARITY_ICONS = { commune: "&#9679;", rare: "&#9670;", epique: "&#9733;", legendaire: "&#128081;" };
 function rarityIcon(key) {
@@ -119,39 +119,16 @@ const TopLoadingBar = {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Halo/curseur desktop : suit la souris avec un leger amorti (pointeur fin
-// uniquement, jamais sur tactile).
-// ---------------------------------------------------------------------------
-function initCursorGlow() {
-  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-  const el = document.createElement("div");
-  el.className = "cursor-glow";
-  document.body.appendChild(el);
-  let tx = 0, ty = 0, cx = 0, cy = 0, active = false;
-  document.addEventListener("mousemove", (e) => {
-    tx = e.clientX; ty = e.clientY;
-    if (!active) { active = true; el.classList.add("active"); cx = tx; cy = ty; }
-  });
-  document.addEventListener("mouseleave", () => { active = false; el.classList.remove("active"); });
-  (function raf() {
-    cx += (tx - cx) * 0.08;
-    cy += (ty - cy) * 0.08;
-    el.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
-    requestAnimationFrame(raf);
-  })();
-}
-
-function initGrainLayer() {
-  const el = document.createElement("div");
-  el.className = "grain-layer";
-  document.body.appendChild(el);
-}
+// Note : un halo qui suit le curseur et un calque de grain permanents ont
+// ete retires - dans une passe de sobriete generale (trop d'effets
+// decoratifs simultanes = rendu "demo CSS" plutot que site pro), ce sont
+// les deux qui n'ajoutaient rien de fonctionnel (aucun lien avec une
+// action du joueur, juste du mouvement en continu).
 
 // ---------------------------------------------------------------------------
 // Effets de particules/energie a la revelation d'une carte, intensite
-// proportionnelle a la rarete, couleur = celle de la rarete. Le calque dedie
-// a un z-index superieur au modal plein ecran d'ouverture (400) et a son
+// proportionnelle a la rareté, couleur = celle de la rareté. Le calque dedie
+// a un z-index superieur au modal plein écran d'ouverture (400) et a son
 // flash legendaire (410) : les effets doivent toujours passer PAR-DESSUS.
 // ---------------------------------------------------------------------------
 const RARITY_PARTICLE_COUNTS = { commune: 5, rare: 12, epique: 24, legendaire: 42 };
@@ -220,9 +197,9 @@ function spawnRarityBurst(key, colorHex, originEl) {
   if (conf.particleCount && typeof confetti === "function") {
     const origin = { x: cx / window.innerWidth, y: cy / window.innerHeight };
     // zIndex par defaut de canvas-confetti = 100, largement en dessous du
-    // modal plein ecran d'ouverture (400) : sans le forcer ici, tous les
+    // modal plein écran d'ouverture (400) : sans le forcer ici, tous les
     // confettis se retrouvent invisibles derriere la modale.
-    // Degrade de la couleur de rarete (au lieu de couleur + blanc plat)
+    // Dégradé de la couleur de rareté (au lieu de couleur + blanc plat)
     // pour un rendu plus riche, coherent avec le badge/le halo de la carte.
     const tint = lightenColor(color, 0.55);
     confetti({ particleCount: conf.particleCount, spread: conf.spread, origin, colors: [color, tint], zIndex: 420 });
@@ -242,7 +219,7 @@ document.addEventListener("keydown", (e) => {
   // `isBusy` est une variable globale declaree dans opening.js (script
   // classique, pas un module : partage le meme scope global). `typeof` sur
   // un identifiant jamais declare ne plante pas, contrairement a `isBusy`
-  // en acces direct sur une page qui ne charge pas opening.js.
+  // en accès direct sur une page qui ne charge pas opening.js.
   if (packModal && !packModal.hidden && typeof isBusy !== "undefined" && !isBusy) {
     packModal.hidden = true;
     syncScrollLock();
@@ -250,7 +227,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Verrouillage du scroll de la page pendant qu'une modale plein ecran est
+// Verrouillage du scroll de la page pendant qu'une modale plein écran est
 // ouverte (zoom de carte, ouverture de booster) : sans ca, la page derriere
 // continue de defiler sous la modale, ce qui est deroutant. On resynchronise
 // a chaque ouverture/fermeture plutot que de compter un simple booleen, pour
@@ -258,7 +235,7 @@ document.addEventListener("keydown", (e) => {
 // clic sur l'overlay, fin d'animation...).
 //
 // Technique "figer body en position:fixed" plutot qu'un simple
-// overflow:hidden : cette derniere ne bloque pas fiablement le scroll
+// overflow:hidden : cette dernière ne bloque pas fiablement le scroll
 // tactile sur mobile et peut faire "sauter" la page a la fermeture. On
 // mémorise le scroll courant, on fixe le body a cette position, puis on
 // restaure exactement la meme position au deverrouillage.
@@ -319,7 +296,7 @@ const NAV_ITEMS = [
   { href: "collection.html", label: "Collection", icon: "&#128218;", auth: false },
   { href: "craft.html", label: "Craft", icon: "&#10024;", auth: true },
   { href: "redeem.html", label: "Code", icon: "&#127915;", auth: true },
-  { href: "trade.html", label: "Echanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
+  { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
   { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
 ];
 
@@ -351,8 +328,8 @@ function renderBottomNav() {
   `).join("");
 }
 
-// Petite pastille rouge sur l'onglet Echanges (nav du bas + nav du haut)
-// quand au moins un echange entrant est en attente de reponse.
+// Petite pastille rouge sur l'onglet Échanges (nav du bas + nav du haut)
+// quand au moins un échange entrant est en attente de reponse.
 async function loadNavBadges() {
   if (!Session.isLoggedIn()) return;
   const cached = API._cacheGet("2gatcha_cache_pending_trades", 45 * 1000);
@@ -364,12 +341,12 @@ async function loadNavBadges() {
       API._cacheSet("2gatcha_cache_pending_trades", pendingCount);
 
       // Notification en jeu : signale une nouvelle proposition recue depuis
-      // la derniere visite, sauf sur la page d'echanges elle-meme (deja
+      // la dernière visite, sauf sur la page d'échanges elle-meme (deja
       // sous les yeux de l'utilisateur).
       const lastSeenKey = "2gatcha_last_seen_pending_trades";
       const lastSeen = Number(localStorage.getItem(lastSeenKey) || 0);
       if (pendingCount > lastSeen && currentPage() !== "trade.html") {
-        Toast.info(`Nouvelle proposition d'echange recue ! (${pendingCount} en attente)`);
+        Toast.info(`Nouvelle proposition d'échange recue ! (${pendingCount} en attente)`);
       }
       localStorage.setItem(lastSeenKey, String(pendingCount));
     } catch (e) {
@@ -405,12 +382,15 @@ function renderHeader() {
         <span class="brand">2Gatcha</span>
         ${links}
         <div class="user-box">
-          <span id="header-booster-badge" class="booster-badge" title="Boosters disponibles">
-            <span class="icon">&#127183;</span><span>...</span>
-          </span>
-          <span id="header-stardust-badge" class="booster-badge stardust-badge" title="Poussieres d'etoile (craft/decraft)">
-            <span class="icon">&#10024;</span><span>...</span>
-          </span>
+          <div class="header-stats" title="Tes ressources">
+            <span id="header-booster-badge" class="stat-chip" title="Boosters disponibles">
+              <span class="icon">&#127183;</span><span class="count">...</span>
+            </span>
+            <span class="stat-divider" aria-hidden="true"></span>
+            <span id="header-stardust-badge" class="stat-chip" title="Poussières d'étoile (craft/décraft)">
+              <span class="icon">&#10024;</span><span class="count">...</span>
+            </span>
+          </div>
           <div class="user-menu" id="user-menu">
             <button type="button" class="user-menu-trigger" id="user-menu-trigger">
               ${avatar}
@@ -420,7 +400,7 @@ function renderHeader() {
             <div class="user-menu-dropdown" id="user-menu-dropdown">
               <button id="edit-pseudo-btn" type="button">&#9998; Modifier le pseudo</button>
               <div class="menu-sep"></div>
-              <button id="logout-btn" type="button">&#10162; Deconnexion</button>
+              <button id="logout-btn" type="button">&#10162; Déconnexion</button>
             </div>
           </div>
         </div>
@@ -491,6 +471,4 @@ async function loadHeaderBoosterBadge() {
 
 document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
-  initGrainLayer();
-  initCursorGlow();
 });

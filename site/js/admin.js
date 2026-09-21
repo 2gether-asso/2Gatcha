@@ -1,4 +1,4 @@
-// Page admin : creation/gestion des codes d'evenement.
+// Page admin : creation/gestion des codes d'événement.
 // Protection reelle cote n8n (admin-codes.json verifie Session.discordId
 // contre une liste codee en dur) ; cote site on se contente de cacher le
 // formulaire si l'appel renvoie "forbidden".
@@ -6,8 +6,8 @@
 const STATUS_LABELS = {
   active: "Actif",
   expired: "Expire",
-  exhausted: "Epuise",
-  disabled: "Desactive"
+  exhausted: "Épuisé",
+  disabled: "Désactivé"
 };
 
 let cardsCatalog = [];
@@ -22,13 +22,13 @@ function formatExpiry(epochSeconds) {
 function renderCodesTable(codes) {
   const tbody = document.getElementById("codes-tbody");
   if (!codes.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Aucun code cree pour l'instant.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Aucun code créé pour l'instant.</td></tr>`;
     return;
   }
   tbody.innerHTML = codes.map((c) => {
     const reward = c.rewardType === "card"
       ? `Carte #${c.cardId} x${c.quantity}`
-      : `${c.quantity} booster${c.quantity > 1 ? "s" : ""} (generique)`;
+      : `${c.quantity} booster${c.quantity > 1 ? "s" : ""} (générique)`;
     const used = c.maxRedemptions ? `${c.used} / ${c.maxRedemptions}` : `${c.used} / illimite`;
     const canRevoke = c.active;
     return `
@@ -53,7 +53,7 @@ function renderCodesCalendar(codes) {
   const el = document.getElementById("codes-calendar");
   if (!el) return;
   if (!codes.length) {
-    el.innerHTML = `<div class="empty-state">Aucun code cree pour l'instant.</div>`;
+    el.innerHTML = `<div class="empty-state">Aucun code créé pour l'instant.</div>`;
     return;
   }
   const byDay = new Map();
@@ -177,7 +177,7 @@ async function loadStats() {
   }
 }
 
-// --- Parametres du gacha (pity/rarete garantie) ---
+// --- Paramètres du gacha (pity/rareté garantie) ---
 async function loadConfig() {
   const res = await API.adminGetConfig(Session.discordId);
   const raritySelect = document.getElementById("top-rarity-select");
@@ -203,7 +203,7 @@ async function loadExtensionsAdmin() {
         <div class="day-code-row">
           <span>Ordre : ${ext.sortOrder}</span>
           <button type="button" class="btn-ghost ext-toggle-btn" data-ext-id="${ext.id}" data-active="${ext.active}">
-            ${ext.active ? "Desactiver" : "Activer"}
+            ${ext.active ? "Désactiver" : "Activer"}
           </button>
         </div>
       </div>
@@ -215,7 +215,7 @@ async function loadExtensionsAdmin() {
       const nextActive = btn.dataset.active !== "true";
       try {
         await API.adminUpdateExtension(Session.discordId, { extensionId, active: nextActive });
-        Toast.success(nextActive ? "Extension activee." : "Extension desactivee.");
+        Toast.success(nextActive ? "Extension activee." : "Extension désactivée.");
         API._cacheSet("2gatcha_cache_extensions", null);
         loadExtensionsAdmin();
       } catch (e) {
@@ -254,7 +254,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         pityThreshold: Number(document.getElementById("pity-threshold-input").value) || undefined,
         topRarityKey: document.getElementById("top-rarity-select").value
       });
-      Toast.success("Parametres enregistres.");
+      Toast.success("Paramètres enregistres.");
     } catch (e) {
       Toast.error("Impossible d'enregistrer. (" + e.message + ")");
     }
@@ -269,12 +269,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         sortOrder: Number(document.getElementById("ext-sort-input").value) || 0,
         active: true
       });
-      Toast.success("Extension creee ! Ajoute son visuel dans Grist pour la rendre jolie.");
+      Toast.success("Extension créée ! Ajoute son visuel dans Grist pour la rendre jolie.");
       document.getElementById("create-extension-form").reset();
       API._cacheSet("2gatcha_cache_extensions", null);
       loadExtensionsAdmin();
     } catch (e) {
-      Toast.error("Impossible de creer l'extension. (" + e.message + ")");
+      Toast.error("Impossible de créer l'extension. (" + e.message + ")");
     }
   });
 
@@ -313,14 +313,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const created = await API.adminCreateCode(Session.discordId, params);
       document.getElementById("created-zone").innerHTML =
-        `<div class="reward-banner">Code cree : <code>${created.code}</code></div>`;
+        `<div class="reward-banner">Code créé : <code>${created.code}</code></div>`;
       renderCodeQr(created.code);
       document.getElementById("create-code-form").reset();
       updateCardFieldVisibility();
-      Toast.success(`Code ${created.code} cree !`);
+      Toast.success(`Code ${created.code} créé !`);
       loadCodes();
     } catch (err) {
-      Toast.error("Impossible de creer le code. (" + err.message + ")");
+      Toast.error("Impossible de créer le code. (" + err.message + ")");
     }
   });
 });

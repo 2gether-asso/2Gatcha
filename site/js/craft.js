@@ -7,13 +7,13 @@
 const DISENCHANT_ERRORS = {
   card_not_found: "Carte introuvable.",
   promo_not_disenchantable: "Cette carte promo ne peut pas etre decraftee.",
-  card_not_owned: "Tu ne possedes pas cette carte."
+  card_not_owned: "Tu ne possèdes pas cette carte."
 };
 const CRAFT_ERRORS = {
   card_not_found: "Carte introuvable.",
   promo_not_craftable: "Cette carte promo ne peut pas etre craftee.",
   card_inactive: "Cette carte n'est plus disponible.",
-  insufficient_dust: "Pas assez de poussieres d'etoile."
+  insufficient_dust: "Pas assez de poussières d'etoile."
 };
 
 let stardust = 0;
@@ -30,8 +30,8 @@ function craftCardTile(card, mode) {
         <img src="${imgSrc}" alt="${card.name}" />
         <div class="card-info">
           <div class="card-name">${card.name}</div>
-          <div class="owned-count">Possede x${owned.count}</div>
-          <div class="craft-cost">+${dust} poussieres</div>
+          <div class="owned-count">Possède x${owned.count}</div>
+          <div class="craft-cost">+${dust} poussières</div>
           <button class="disenchant-btn" data-card-id="${card.cardId}">Decrafter</button>
         </div>
       </div>
@@ -44,7 +44,7 @@ function craftCardTile(card, mode) {
       <img src="${imgSrc}" alt="${card.name}" />
       <div class="card-info">
         <div class="card-name">${card.name}</div>
-        <div class="craft-cost">${cost} poussieres</div>
+        <div class="craft-cost">${cost} poussières</div>
         <button class="craft-btn" data-card-id="${card.cardId}" ${canAfford ? "" : "disabled"}>Crafter</button>
       </div>
     </div>
@@ -76,7 +76,7 @@ function renderCraftGrid() {
 async function disenchant(cardId) {
   try {
     const res = await API.disenchantCard(Session.userId, cardId);
-    Toast.success(`+${res.dustGained} poussieres (${res.cardName})`);
+    Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
     await reload();
   } catch (e) {
     Toast.error(DISENCHANT_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));

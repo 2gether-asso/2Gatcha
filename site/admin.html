@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin - Codes evenement - 2Gatcha</title>
+  <title>Admin - Codes événement - 2Gatcha</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -15,10 +15,10 @@
 
   <main>
     <div class="panel">
-      <h1>Admin - Codes evenement</h1>
-      <p class="lead">Cree un code a distribuer pendant un evenement de l'asso.
+      <h1>Admin - Codes événement</h1>
+      <p class="lead">Créé un code a distribuer pendant un événement de l'asso.
         Besoin de verifier le rendu d'une carte avant de l'uploader dans Grist ?
-        <a href="card-preview-tool.html">Outil de previsualisation &rarr;</a>
+        <a href="card-preview-tool.html">Outil de prévisualisation &rarr;</a>
       </p>
 
       <div id="guest-warning" style="display:none;">
@@ -30,14 +30,14 @@
       </div>
 
       <div id="admin-zone" style="display:none;">
-        <h2>Parametres du gacha</h2>
+        <h2>Paramètres du gacha</h2>
         <form id="config-form" class="admin-form">
           <label>
-            Pity (nb de tirages sans la rarete garantie)
+            Pity (nb de tirages sans la rareté garantie)
             <input type="number" id="pity-threshold-input" min="1" />
           </label>
           <label>
-            Rarete garantie par la pity
+            Rareté garantie par la pity
             <select id="top-rarity-select"></select>
           </label>
           <button type="submit">Enregistrer</button>
@@ -45,7 +45,7 @@
 
         <h2>Extensions</h2>
         <p class="lead" style="font-size:0.85rem;">
-          Cree une nouvelle extension ici, puis ajoute son visuel de packet et
+          Créé une nouvelle extension ici, puis ajoute son visuel de packet et
           son dos de carte directement dans Grist (table <code>Extensions</code>,
           colonnes <code>PackImage</code>/<code>CardBackImage</code>).
         </p>
@@ -63,13 +63,13 @@
             Ordre d'affichage
             <input type="number" id="ext-sort-input" min="0" value="0" />
           </label>
-          <button type="submit">Creer l'extension</button>
+          <button type="submit">Créer l'extension</button>
         </form>
 
-        <h2>Codes evenement</h2>
+        <h2>Codes événement</h2>
         <form id="create-code-form" class="admin-form">
           <label>
-            Code (laisse vide pour en generer un)
+            Code (laisse vide pour en générer un)
             <input type="text" id="code-input" maxlength="20" placeholder="ex: SOIREE20" />
           </label>
           <label>
@@ -80,7 +80,7 @@
             Recompense
             <select id="reward-type-select">
               <option value="booster">Boosters</option>
-              <option value="card">Carte precise</option>
+              <option value="card">Carte précise</option>
             </select>
           </label>
           <label>
@@ -97,15 +97,15 @@
             <input type="number" id="expires-input" min="1" value="4" required />
           </label>
           <label>
-            Nombre max de joueurs pouvant reclamer (0 = illimite)
+            Nombre max de joueurs pouvant réclamer (0 = illimite)
             <input type="number" id="max-redemptions-input" min="0" value="0" required />
           </label>
-          <button type="submit">Creer le code</button>
+          <button type="submit">Créer le code</button>
         </form>
 
         <div id="created-zone"></div>
 
-        <h2>Repartition des tirages recents</h2>
+        <h2>Répartition des tirages recents</h2>
         <div id="rarity-chart" class="rarity-chart"></div>
 
         <div class="actions" style="margin-top:24px;">

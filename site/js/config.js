@@ -24,7 +24,7 @@ window.APP_CONFIG = {
     openPack: "/open-pack",           // POST { userId, extensionId } -> ouvre 1 booster (5 cartes) de cette extension
     collection: "/collection",        // GET ?userId=... -> collection de l'utilisateur
     image: "/image",                  // GET ?id=... -> proxy binaire vers une piece jointe Grist
-    boosterStatus: "/booster-status", // GET ?userId=... -> { count, stardust, extensions: [{extensionId,name,key,sortOrder}] } (count = solde generique, commun a toutes les extensions)
+    boosterStatus: "/booster-status", // GET ?userId=... -> { count, stardust, extensions: [{extensionId,name,key,sortOrder}] } (count = solde générique, commun a toutes les extensions)
     redeemCode: "/redeem-code",       // POST { userId, code } -> { type: 'booster'|'card', ... }
     adminCodes: "/admin-codes",       // POST { discordId, action: 'create'|'list'|'revoke', ... }
     trade: "/trade",                  // POST { userId, action: 'create'|'list'|'respond'|'cancel', ... }

@@ -1,4 +1,4 @@
-// Petite couche d'acces a l'API n8n. Tous les webhooks n8n retournent du JSON.
+// Petite couche d'accès a l'API n8n. Tous les webhooks n8n retournent du JSON.
 const API = {
   base() {
     return window.APP_CONFIG.n8nBaseUrl.replace(/\/$/, "");

@@ -1,4 +1,4 @@
-// Logique de la page de reclamation de code d'evenement.
+// Logique de la page de reclamation de code d'événement.
 // Contrat attendu du webhook n8n "redeem-code" (POST { userId, code }):
 // { "type": "booster", "quantity": 3, "newBoosterCount": 5 }
 // ou
@@ -7,9 +7,9 @@
 
 const ERROR_MESSAGES = {
   invalid_code: "Ce code n'existe pas.",
-  code_inactive: "Ce code a ete desactive.",
+  code_inactive: "Ce code a ete désactivé.",
   code_expired: "Ce code a expire.",
-  already_redeemed: "Tu as deja reclame ce code.",
+  already_redeemed: "Tu as deja réclame ce code.",
   code_exhausted: "Ce code a atteint son nombre maximum d'utilisations.",
   unknown_user: "Utilisateur introuvable, reconnecte-toi.",
   code_misconfigured: "Ce code est mal configure, previens un admin."
@@ -43,12 +43,12 @@ function buildCardEl(card, index) {
 }
 
 function celebrateRarity(key, cardEl, colorHex) {
-  // Particules proportionnelles a la rarete (spawnRarityBurst, main.js),
+  // Particules proportionnelles a la rareté (spawnRarityBurst, main.js),
   // toujours au-dessus de tout (z-index:420).
   spawnRarityBurst(key, colorHex, cardEl);
   if (key === "legendaire") {
     // Pas de transform sur un ancetre des cartes (voir opening.js) : on
-    // isole l'effet a un flash plein ecran + un filtre sur la carte.
+    // isole l'effet a un flash plein écran + un filtre sur la carte.
     const flash = document.getElementById("legendary-flash");
     if (flash) {
       flash.classList.remove("active");
@@ -60,7 +60,7 @@ function celebrateRarity(key, cardEl, colorHex) {
       void cardEl.offsetWidth;
       cardEl.classList.add("legendary-hit");
     }
-    Toast.success("Legendaire !");
+    Toast.success("Légendaire !");
   }
 }
 
@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter") redeem();
   });
 
-  // Prefill depuis un QR code genere par l'admin (redeem.html?code=XXXX).
+  // Prefill depuis un QR code génère par l'admin (redeem.html?code=XXXX).
   const prefill = new URLSearchParams(window.location.search).get("code");
   if (prefill) {
     document.getElementById("code-input").value = prefill.toUpperCase();
