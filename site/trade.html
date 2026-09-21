@@ -26,7 +26,10 @@
         <form id="create-trade-form" class="trade-form">
           <label>
             Ma carte a offrir
-            <select id="offered-card-select" required></select>
+            <div class="card-preview-row">
+              <img id="offered-card-preview" class="card-preview-thumb" alt="" />
+              <select id="offered-card-select" required></select>
+            </div>
           </label>
           <label>
             Pseudo du joueur cible
@@ -34,21 +37,21 @@
           </label>
           <label>
             Carte demandee
-            <select id="requested-card-select" required></select>
+            <div class="card-preview-row">
+              <img id="requested-card-preview" class="card-preview-thumb" alt="" />
+              <select id="requested-card-select" required></select>
+            </div>
           </label>
           <button type="submit">Proposer l'echange</button>
         </form>
 
-        <div id="create-error-zone"></div>
-
         <h2>Recus</h2>
+        <div id="trades-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
         <div id="incoming-trades" class="trade-list"></div>
 
         <h2>Envoyes</h2>
         <div id="outgoing-trades" class="trade-list"></div>
       </div>
-
-      <div id="error-zone"></div>
     </div>
   </main>
 

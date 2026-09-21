@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       discordUsername: res.discordUsername,
       discordAvatar: res.discordAvatar
     });
+    try { sessionStorage.setItem("2gatcha_just_logged_in", "1"); } catch (e) {}
     window.location.href = "index.html";
   } catch (e) {
     statusLabel.textContent = "Connexion impossible.";

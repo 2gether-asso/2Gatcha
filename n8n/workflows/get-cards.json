@@ -82,7 +82,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.Active);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json);\n\nconst rarityById = {};\nraritiesRows.forEach((r) => {\n  rarityById[r.id] = { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex };\n});\n\nconst cards = cardsRows.map((c) => {\n  return {\n    cardId: c.id,\n    name: c.Name,\n    artist: c.Artist,\n    description: c.Description,\n    imageId: firstAttachment(c.Image),\n    rarity: rarityById[refId(c.Rarity)] || null\n  };\n});\n\nreturn [{ json: { cards } }];"
+        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst extensionById = {};\nextensionsRows.forEach((e) => { extensionById[e.id] = { id: e.id, name: e.Name, key: e.Key, sortOrder: e.SortOrder || 0 }; });\n\nconst rarityById = {};\nraritiesRows.forEach((r) => {\n  rarityById[r.id] = { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex, sortOrder: r.SortOrder || 0, disenchantValue: r.DisenchantValue || 0, craftCost: r.CraftCost || 0 };\n});\n\nconst cards = cardsRows.map((c) => {\n  return {\n    cardId: c.id,\n    name: c.Name,\n    artist: c.Artist,\n    description: c.Description,\n    imageId: firstAttachment(c.Image),\n    rarity: rarityById[refId(c.Rarity)] || null,\n    extension: extensionById[refId(c.Extension)] || null,\n    isPromo: !!c.IsPromo\n  };\n});\n\nreturn [{ json: { cards } }];"
       },
       "id": "format-cards",
       "name": "Format Cards",
@@ -121,6 +121,44 @@
         260,
         360
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "id": "barrier-rarities-ext",
+      "name": "Sync Get Rarities -> Get Extensions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-extensions",
+      "name": "Get Extensions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -161,7 +199,7 @@
       "main": [
         [
           {
-            "node": "Format Cards",
+            "node": "Sync Get Rarities -> Get Extensions",
             "type": "main",
             "index": 0
           }
@@ -184,6 +222,28 @@
         [
           {
             "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Format Cards",
             "type": "main",
             "index": 0
           }

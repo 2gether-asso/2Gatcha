@@ -13,7 +13,8 @@ const TRADE_ERROR_MESSAGES = {
   trade_not_found: "Echange introuvable.",
   not_your_trade: "Cet echange ne te concerne pas.",
   trade_not_pending: "Cet echange n'est plus en attente.",
-  cards_no_longer_available: "Une des deux cartes n'est plus disponible (deja echangee ailleurs)."
+  cards_no_longer_available: "Une des deux cartes n'est plus disponible (deja echangee ailleurs).",
+  promo_not_tradeable: "Les cartes promo ne sont pas echangeables."
 };
 
 const STATUS_LABELS = {
@@ -26,17 +27,6 @@ const STATUS_LABELS = {
 let myOwnedCards = [];
 let allCards = [];
 
-function showError(msg) {
-  document.getElementById("error-zone").innerHTML = `<div class="error-box">${msg}</div>`;
-}
-function showCreateError(msg) {
-  document.getElementById("create-error-zone").innerHTML = `<div class="error-box">${msg}</div>`;
-}
-function clearErrors() {
-  document.getElementById("error-zone").innerHTML = "";
-  document.getElementById("create-error-zone").innerHTML = "";
-}
-
 async function loadFormOptions() {
   const [collection, cardsRes, usersRes] = await Promise.all([
     API.getCollection(Session.userId),
@@ -45,7 +35,7 @@ async function loadFormOptions() {
   ]);
 
   const ownedMap = new Map((collection.owned || []).map((o) => [o.cardId, o]));
-  allCards = cardsRes.cards || [];
+  allCards = (cardsRes.cards || []).filter((c) => !c.isPromo);
   myOwnedCards = allCards.filter((c) => ownedMap.has(c.cardId));
 
   const offeredSelect = document.getElementById("offered-card-select");
@@ -63,6 +53,17 @@ async function loadFormOptions() {
   targetSelect.innerHTML = users
     .map((u) => `<option value="${u.pseudo}">${u.pseudo}</option>`)
     .join("") || `<option value="">Aucun autre joueur</option>`;
+
+  updateCardPreview("offered-card-select", "offered-card-preview");
+  updateCardPreview("requested-card-select", "requested-card-preview");
+}
+
+function updateCardPreview(selectId, previewId) {
+  const select = document.getElementById(selectId);
+  const preview = document.getElementById(previewId);
+  if (!select || !preview) return;
+  const card = allCards.find((c) => String(c.cardId) === select.value);
+  preview.src = (card && API.imageUrl(card.imageId)) || PLACEHOLDER_IMG;
 }
 
 function renderTradeCard(trade, mine) {
@@ -99,6 +100,8 @@ function renderTradeCard(trade, mine) {
 }
 
 async function loadTrades() {
+  const loading = document.getElementById("trades-loading");
+  if (loading) loading.style.display = "flex";
   try {
     const res = await API.listTrades(Session.userId);
     const trades = res.trades || [];
@@ -114,25 +117,29 @@ async function loadTrades() {
     outgoing.innerHTML = "";
     outgoing.append(...(outList.length ? outList.map((t) => renderTradeCard(t)) : [Object.assign(document.createElement("div"), { className: "empty-state", textContent: "Aucun echange envoye." })]));
   } catch (e) {
-    showError("Impossible de charger les echanges. (" + e.message + ")");
+    Toast.error("Impossible de charger les echanges. (" + e.message + ")");
+  } finally {
+    if (loading) loading.style.display = "none";
   }
 }
 
 async function respond(tradeId, accept) {
   try {
     await API.respondTrade(Session.userId, Number(tradeId), accept);
+    Toast.success(accept ? "Echange accepte !" : "Echange refuse.");
     loadTrades();
   } catch (e) {
-    showError(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }
 
 async function cancel(tradeId) {
   try {
     await API.cancelTrade(Session.userId, Number(tradeId));
+    Toast.info("Echange annule.");
     loadTrades();
   } catch (e) {
-    showError(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }
 
@@ -146,13 +153,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadFormOptions();
   } catch (e) {
-    showError("Impossible de charger tes cartes. (" + e.message + ")");
+    Toast.error("Impossible de charger tes cartes. (" + e.message + ")");
   }
   loadTrades();
 
+  document.getElementById("offered-card-select").addEventListener("change", () => updateCardPreview("offered-card-select", "offered-card-preview"));
+  document.getElementById("requested-card-select").addEventListener("change", () => updateCardPreview("requested-card-select", "requested-card-preview"));
+
   document.getElementById("create-trade-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    clearErrors();
     const offeredCardId = Number(document.getElementById("offered-card-select").value);
     const requestedCardId = Number(document.getElementById("requested-card-select").value);
     const toPseudo = document.getElementById("target-select").value;
@@ -160,9 +169,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       await API.createTrade(Session.userId, toPseudo, offeredCardId, requestedCardId);
+      Toast.success("Echange propose !");
       loadTrades();
     } catch (err) {
-      showCreateError(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));
+      Toast.error(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));
     }
   });
 });

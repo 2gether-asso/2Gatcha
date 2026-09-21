@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Craft - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <h1>Craft &amp; Decraft</h1>
+      <p class="lead">
+        Decrafte une carte que tu possedes en trop pour recevoir des
+        poussieres d'etoile, puis utilise-les pour crafter la carte de ton
+        choix. Les cartes promo ne sont ni decraftables ni craftables.
+      </p>
+
+      <div id="guest-warning" style="display:none;">
+        <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+      </div>
+
+      <div id="craft-zone" style="display:none;">
+        <div class="stardust-hero">
+          <span class="sd-icon">&#10024;</span>
+          <div>
+            <div id="stardust-amount" class="sd-count">...</div>
+            <div class="sd-label">poussieres d'etoile</div>
+          </div>
+        </div>
+
+        <h2>Mes cartes (decrafter)</h2>
+        <div id="disenchant-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
+        <div id="disenchant-grid" class="craft-grid"></div>
+
+        <h2>Crafter une carte</h2>
+        <div id="craft-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
+        <div id="craft-grid" class="craft-grid"></div>
+      </div>
+
+      <div id="error-zone"></div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/craft.js"></script>
+</body>
+</html>

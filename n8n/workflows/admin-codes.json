@@ -20,7 +20,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (voir README, section admin).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    code: body.code,\n    label: body.label,\n    rewardType: body.rewardType,\n    quantity: body.quantity,\n    cardId: body.cardId,\n    expiresInHours: body.expiresInHours,\n    maxRedemptions: body.maxRedemptions\n  }\n}];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (voir README, section admin).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    code: body.code,\n    label: body.label,\n    rewardType: body.rewardType,\n    quantity: body.quantity,\n    cardId: body.cardId,\n    expiresInHours: body.expiresInHours,\n    maxRedemptions: body.maxRedemptions,\n    extension: body.extension\n  }\n}];"
       },
       "id": "set-config",
       "name": "Set Config",
@@ -113,7 +113,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const cfg = $('Set Config').first().json;\nfunction randomCode() {\n  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\n  let s = '';\n  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];\n  return s;\n}\nconst code = (cfg.code || '').toString().trim().toUpperCase() || randomCode();\nconst now = Math.floor(Date.now() / 1000);\nconst expiresInHours = Number(cfg.expiresInHours) || 4;\nconst quantity = Number(cfg.quantity) || 1;\n\nreturn [{\n  json: {\n    docId: cfg.docId,\n    code,\n    label: cfg.label || '',\n    rewardType: cfg.rewardType === 'card' ? 'card' : 'booster',\n    quantity,\n    cardId: cfg.rewardType === 'card' ? (Number(cfg.cardId) || 0) : 0,\n    maxRedemptions: Number(cfg.maxRedemptions) || 0,\n    expiresAt: now + expiresInHours * 3600,\n    createdAt: now,\n    createdBy: cfg.discordId\n  }\n}];"
+        "jsCode": "const cfg = $('Set Config').first().json;\nfunction randomCode() {\n  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\n  let s = '';\n  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];\n  return s;\n}\nconst code = (cfg.code || '').toString().trim().toUpperCase() || randomCode();\nconst now = Math.floor(Date.now() / 1000);\nconst expiresInHours = Number(cfg.expiresInHours) || 4;\nconst quantity = Number(cfg.quantity) || 1;\n\nreturn [{\n  json: {\n    docId: cfg.docId,\n    code,\n    label: cfg.label || '',\n    rewardType: cfg.rewardType === 'card' ? 'card' : 'booster',\n    quantity,\n    cardId: cfg.rewardType === 'card' ? (Number(cfg.cardId) || 0) : 0,\n    extensionId: cfg.rewardType === 'booster' ? (Number(cfg.extension) || 0) : 0,\n    maxRedemptions: Number(cfg.maxRedemptions) || 0,\n    expiresAt: now + expiresInHours * 3600,\n    createdAt: now,\n    createdBy: cfg.discordId\n  }\n}];"
       },
       "id": "generate-code",
       "name": "Generate Code",
@@ -171,6 +171,10 @@
             {
               "fieldId": "CreatedBy",
               "fieldValue": "={{ $json.createdBy }}"
+            },
+            {
+              "fieldId": "Extension",
+              "fieldValue": "={{ $json.extensionId }}"
             }
           ]
         }
@@ -193,7 +197,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const created = $input.first().json;\nreturn [{\n  json: {\n    code: created.Code,\n    label: created.Label,\n    rewardType: created.RewardType,\n    quantity: created.Quantity,\n    cardId: created.CardId,\n    maxRedemptions: created.MaxRedemptions,\n    expiresAt: created.ExpiresAt,\n    active: created.Active\n  }\n}];"
+        "jsCode": "const created = $input.first().json;\nreturn [{\n  json: {\n    code: created.Code,\n    label: created.Label,\n    rewardType: created.RewardType,\n    quantity: created.Quantity,\n    cardId: created.CardId,\n    extensionId: created.Extension,\n    maxRedemptions: created.MaxRedemptions,\n    expiresAt: created.ExpiresAt,\n    active: created.Active\n  }\n}];"
       },
       "id": "format-created",
       "name": "Format Created",
@@ -301,7 +305,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst now = Math.floor(Date.now() / 1000);\nconst codes = $('List Get Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptions = $('List Get Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst list = codes.map((c) => {\n  const used = redemptions.filter((r) => refId(r.Code) === c.id).length;\n  let status = 'active';\n  if (c.Active === false) status = 'disabled';\n  else if (c.ExpiresAt && now > c.ExpiresAt) status = 'expired';\n  else if (c.MaxRedemptions && used >= c.MaxRedemptions) status = 'exhausted';\n  return {\n    code: c.Code,\n    label: c.Label,\n    rewardType: c.RewardType,\n    quantity: c.Quantity,\n    cardId: refId(c.CardId) || null,\n    maxRedemptions: c.MaxRedemptions,\n    used,\n    expiresAt: c.ExpiresAt,\n    active: c.Active !== false,\n    status,\n    createdAt: c.CreatedAt,\n    createdBy: c.CreatedBy\n  };\n}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { codes: list } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst now = Math.floor(Date.now() / 1000);\nconst codes = $('List Get Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptions = $('List Get Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst list = codes.map((c) => {\n  const used = redemptions.filter((r) => refId(r.Code) === c.id).length;\n  let status = 'active';\n  if (c.Active === false) status = 'disabled';\n  else if (c.ExpiresAt && now > c.ExpiresAt) status = 'expired';\n  else if (c.MaxRedemptions && used >= c.MaxRedemptions) status = 'exhausted';\n  return {\n    code: c.Code,\n    label: c.Label,\n    rewardType: c.RewardType,\n    quantity: c.Quantity,\n    cardId: refId(c.CardId) || null,\n    extensionId: refId(c.Extension) || null,\n    maxRedemptions: c.MaxRedemptions,\n    used,\n    expiresAt: c.ExpiresAt,\n    active: c.Active !== false,\n    status,\n    createdAt: c.CreatedAt,\n    createdBy: c.CreatedBy\n  };\n}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { codes: list } }];"
       },
       "id": "build-list",
       "name": "Build List",
@@ -472,6 +476,166 @@
         -860,
         380
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "stats",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-action-stats",
+      "name": "If Action Is Stats",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "stats-get-pulls",
+      "name": "Stats Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -680,
+        560
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "id": "barrier-stats-1",
+      "name": "Sync Stats Get Pulls -> Stats Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "stats-get-cards",
+      "name": "Stats Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        560
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "id": "barrier-stats-2",
+      "name": "Sync Stats Get Cards -> Stats Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "stats-get-rarities",
+      "name": "Stats Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        560
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst pulls = $('Stats Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Stats Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Stats Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c; });\n\nconst recentPulls = pulls.sort((a, b) => (b.ObtainedAt || 0) - (a.ObtainedAt || 0)).slice(0, 500);\n\nconst counts = {};\nfor (const p of recentPulls) {\n  const card = cardById[refId(p.Card)];\n  if (!card) continue;\n  const rId = refId(card.Rarity);\n  counts[rId] = (counts[rId] || 0) + 1;\n}\n\nconst result = rarities\n  .sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))\n  .map((r) => ({ key: r.Key, name: r.Name, colorHex: r.ColorHex, count: counts[r.id] || 0 }));\n\nreturn [{ json: { rarities: result, sampleSize: recentPulls.length } }];"
+      },
+      "id": "build-stats",
+      "name": "Build Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-stats",
+      "name": "Respond Stats",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        560
+      ]
     }
   ],
   "connections": {
@@ -577,7 +741,7 @@
         ],
         [
           {
-            "node": "Revoke Get Codes",
+            "node": "If Action Is Stats",
             "type": "main",
             "index": 0
           }
@@ -673,6 +837,90 @@
         [
           {
             "node": "List Get Redemptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Action Is Stats": {
+      "main": [
+        [
+          {
+            "node": "Stats Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Revoke Get Codes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stats Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Stats Get Pulls -> Stats Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Stats Get Pulls -> Stats Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Stats Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stats Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Stats Get Cards -> Stats Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Stats Get Cards -> Stats Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Stats Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stats Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Build Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Stats": {
+      "main": [
+        [
+          {
+            "node": "Respond Stats",
             "type": "main",
             "index": 0
           }

@@ -175,7 +175,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Create Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Create Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst toUser = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.toPseudo.toLowerCase());\nif (!toUser) {\n  return [{ json: { ok: false, error: 'user_not_found' } }];\n}\nif (toUser.id === cfg.userId) {\n  return [{ json: { ok: false, error: 'cannot_trade_self' } }];\n}\nconst owns = pulls.some((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.offeredCardId);\nif (!owns) {\n  return [{ json: { ok: false, error: 'card_not_owned' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    fromUserId: cfg.userId,\n    toUserId: toUser.id,\n    offeredCardId: cfg.offeredCardId,\n    requestedCardId: cfg.requestedCardId,\n    createdAt: Math.floor(Date.now() / 1000)\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Create Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Create Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Create Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst toUser = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.toPseudo.toLowerCase());\nif (!toUser) {\n  return [{ json: { ok: false, error: 'user_not_found' } }];\n}\nif (toUser.id === cfg.userId) {\n  return [{ json: { ok: false, error: 'cannot_trade_self' } }];\n}\n\nconst offeredCard = cards.find((c) => c.id === cfg.offeredCardId);\nconst requestedCard = cards.find((c) => c.id === cfg.requestedCardId);\nif ((offeredCard && offeredCard.IsPromo) || (requestedCard && requestedCard.IsPromo)) {\n  return [{ json: { ok: false, error: 'promo_not_tradeable' } }];\n}\n\nconst owns = pulls.some((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.offeredCardId);\nif (!owns) {\n  return [{ json: { ok: false, error: 'card_not_owned' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    fromUserId: cfg.userId,\n    toUserId: toUser.id,\n    offeredCardId: cfg.offeredCardId,\n    requestedCardId: cfg.requestedCardId,\n    createdAt: Math.floor(Date.now() / 1000)\n  }\n}];"
       },
       "id": "prepare-trade",
       "name": "Prepare Trade",
@@ -956,6 +956,44 @@
         -1280,
         680
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "id": "barrier-create-pulls-cards",
+      "name": "Sync Create Get Pulls -> Create Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "create-get-cards",
+      "name": "Create Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1420,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -1014,7 +1052,7 @@
       "main": [
         [
           {
-            "node": "Prepare Trade",
+            "node": "Sync Create Get Pulls -> Create Get Cards",
             "type": "main",
             "index": 0
           }
@@ -1372,6 +1410,28 @@
         [
           {
             "node": "List Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Create Get Pulls -> Create Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Create Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Prepare Trade",
             "type": "main",
             "index": 0
           }

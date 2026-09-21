@@ -15,14 +15,6 @@ const ERROR_MESSAGES = {
   code_misconfigured: "Ce code est mal configure, previens un admin."
 };
 
-function showError(msg) {
-  document.getElementById("error-zone").innerHTML = `<div class="error-box">${msg}</div>`;
-}
-
-function clearError() {
-  document.getElementById("error-zone").innerHTML = "";
-}
-
 function buildCardEl(card, index) {
   const wrap = document.createElement("div");
   wrap.className = "card";
@@ -51,10 +43,15 @@ function buildCardEl(card, index) {
 }
 
 function celebrateRarity(key) {
-  if (typeof confetti !== "function") return;
   if (key === "legendaire") {
-    confetti({ particleCount: 160, spread: 100, origin: { y: 0.5 }, colors: ["#f5a524", "#ffd166", "#ffffff"] });
-  } else if (key === "epique") {
+    document.body.classList.remove("screen-shake");
+    void document.body.offsetWidth;
+    document.body.classList.add("screen-shake");
+    if (typeof confetti === "function") {
+      confetti({ particleCount: 160, spread: 100, origin: { y: 0.5 }, colors: ["#f5a524", "#ffd166", "#ffffff"] });
+    }
+    Toast.success("Legendaire !");
+  } else if (key === "epique" && typeof confetti === "function") {
     confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 }, colors: ["#a855f7", "#d8b4fe"] });
   }
 }
@@ -65,7 +62,6 @@ async function redeem() {
   const code = input.value.trim();
   if (!code) return;
 
-  clearError();
   document.getElementById("reward-zone").innerHTML = "";
   document.getElementById("reveal-grid").innerHTML = "";
   btn.disabled = true;
@@ -76,7 +72,8 @@ async function redeem() {
     if (res.type === "booster") {
       document.getElementById("reward-zone").innerHTML =
         `<div class="reward-banner">+${res.quantity} booster${res.quantity > 1 ? "s" : ""} ! Tu en as maintenant ${res.newBoosterCount}.</div>`;
-      confetti && confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+      if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+      Toast.success(`+${res.quantity} booster${res.quantity > 1 ? "s" : ""} !`);
     } else if (res.type === "card") {
       document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">Carte reçue !</div>`;
       const grid = document.getElementById("reveal-grid");
@@ -93,7 +90,7 @@ async function redeem() {
     input.value = "";
     loadHeaderBoosterBadge();
   } catch (e) {
-    showError(ERROR_MESSAGES[e.code] || ("Erreur lors de la reclamation. (" + e.message + ")"));
+    Toast.error(ERROR_MESSAGES[e.code] || ("Erreur lors de la reclamation. (" + e.message + ")"));
   } finally {
     btn.disabled = false;
   }

@@ -20,12 +20,15 @@ window.APP_CONFIG = {
     updatePseudo: "/update-pseudo",   // POST { userId, pseudo } -> { userId, pseudo }
     users: "/users",                  // GET -> { users: [{ userId, pseudo }] }
     cards: "/cards",                  // GET -> liste du catalogue complet
-    openPack: "/open-pack",           // POST { userId } -> ouvre 1 booster (5 cartes)
+    extensions: "/extensions",        // GET -> { extensions: [{ id, name, key, active, packImageId, cardBackImageId }] }
+    openPack: "/open-pack",           // POST { userId, extensionId } -> ouvre 1 booster (5 cartes) de cette extension
     collection: "/collection",        // GET ?userId=... -> collection de l'utilisateur
     image: "/image",                  // GET ?id=... -> proxy binaire vers une piece jointe Grist
-    boosterStatus: "/booster-status", // GET ?userId=... -> { count }
+    boosterStatus: "/booster-status", // GET ?userId=... -> { count, stardust, extensions: [{extensionId,name,key,sortOrder,count}] }
     redeemCode: "/redeem-code",       // POST { userId, code } -> { type: 'booster'|'card', ... }
     adminCodes: "/admin-codes",       // POST { discordId, action: 'create'|'list'|'revoke', ... }
-    trade: "/trade"                   // POST { userId, action: 'create'|'list'|'respond'|'cancel', ... }
+    trade: "/trade",                  // POST { userId, action: 'create'|'list'|'respond'|'cancel', ... }
+    disenchant: "/disenchant",        // POST { userId, cardId } -> { disenchanted, cardName, dustGained, newStardust }
+    craft: "/craft"                   // POST { userId, cardId } -> { crafted, card, craftCost, newStardust }
   }
 };

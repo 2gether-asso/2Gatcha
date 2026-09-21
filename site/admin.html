@@ -46,6 +46,10 @@
             Quantite (nb de boosters, ou d'exemplaires de la carte)
             <input type="number" id="quantity-input" min="1" value="1" required />
           </label>
+          <label id="extension-select-label">
+            Extension (pour des boosters)
+            <select id="extension-select"></select>
+          </label>
           <label id="card-select-label" style="display:none;">
             Carte
             <select id="card-select"></select>
@@ -62,9 +66,12 @@
         </form>
 
         <div id="created-zone"></div>
-        <div id="create-error-zone"></div>
+
+        <h2>Repartition des tirages recents</h2>
+        <div id="rarity-chart" class="rarity-chart"></div>
 
         <h2>Codes existants</h2>
+        <div id="codes-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
         <table class="admin-table">
           <thead>
             <tr>
@@ -75,8 +82,6 @@
           <tbody id="codes-tbody"></tbody>
         </table>
       </div>
-
-      <div id="error-zone"></div>
     </div>
   </main>
 

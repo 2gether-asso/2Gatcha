@@ -89,8 +89,24 @@ const API = {
     return data;
   },
 
-  openPack(userId) {
-    return this.post("openPack", { userId });
+  async getExtensions() {
+    const cached = this._cacheGet("2gatcha_cache_extensions", 5 * 60 * 1000);
+    if (cached) return cached;
+    const data = await this.get("extensions");
+    this._cacheSet("2gatcha_cache_extensions", data);
+    return data;
+  },
+
+  openPack(userId, extensionId) {
+    return this.post("openPack", { userId, extensionId });
+  },
+
+  disenchantCard(userId, cardId) {
+    return this.post("disenchant", { userId, cardId });
+  },
+
+  craftCard(userId, cardId) {
+    return this.post("craft", { userId, cardId });
   },
 
   getCollection(userId) {
@@ -120,6 +136,10 @@ const API = {
 
   adminRevokeCode(discordId, code) {
     return this.post("adminCodes", { discordId, action: "revoke", code });
+  },
+
+  adminGetStats(discordId) {
+    return this.post("adminCodes", { discordId, action: "stats" });
   },
 
   createTrade(userId, toPseudo, offeredCardId, requestedCardId) {

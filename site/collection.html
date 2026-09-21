@@ -20,16 +20,21 @@
         <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
       </div>
 
+      <div id="loading-zone" class="collection-grid" style="display:none;">
+        <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+        <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+      </div>
+
       <div id="collection-zone" style="display:none;">
         <p class="lead" id="progress-label"></p>
         <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
 
+        <div id="rarity-progress" class="rarity-progress-list"></div>
+
         <div class="filters" id="rarity-filters"></div>
 
-        <div class="collection-grid" id="collection-grid"></div>
+        <div id="collection-grid"></div>
       </div>
-
-      <div id="error-zone"></div>
     </div>
   </main>
 

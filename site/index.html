@@ -36,19 +36,14 @@
         </div>
       </div>
 
-      <div id="error-zone"></div>
     </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/main.js"></script>
   <script>
-    function showError(msg) {
-      document.getElementById("error-zone").innerHTML =
-        `<div class="error-box">${msg}</div>`;
-    }
-
     function refreshLoginUI() {
       const loginZone = document.getElementById("login-zone");
       const loggedZone = document.getElementById("logged-zone");
@@ -69,12 +64,22 @@
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("error") === "not_in_guild") {
-      showError("Ce compte Discord ne fait pas partie du serveur de l'asso, connexion refusee.");
+      Toast.error("Ce compte Discord ne fait pas partie du serveur de l'asso, connexion refusee.");
     } else if (params.get("error")) {
-      showError("Connexion Discord annulee ou impossible.");
+      Toast.error("Connexion Discord annulee ou impossible.");
     }
 
     refreshLoginUI();
+
+    try {
+      if (sessionStorage.getItem("2gatcha_just_logged_in")) {
+        sessionStorage.removeItem("2gatcha_just_logged_in");
+        if (typeof confetti === "function") {
+          confetti({ particleCount: 120, spread: 100, origin: { y: 0.4 } });
+        }
+        Toast.success(`Bienvenue, ${Session.pseudo} !`);
+      }
+    } catch (e) {}
   </script>
 </body>
 </html>

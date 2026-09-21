@@ -1,6 +1,6 @@
 # Workflows n8n - 2Gatcha
 
-11 workflows a importer dans n8n, un par fichier JSON dans `workflows/`. Chacun
+14 workflows a importer dans n8n, un par fichier JSON dans `workflows/`. Chacun
 expose un webhook qui sert d'API pour le site (`/site`). Ils utilisent le
 **node natif Grist** de n8n (pas de bricolage HTTP manuel) pour lire/ecrire
 les tables, et un node HTTP Request dedie uniquement pour servir les images
@@ -11,14 +11,17 @@ les tables, et un node HTTP Request dedie uniquement pour servir les images
 | `discord-login.json`       | POST    | `/webhook/discord-login`     | echange le code OAuth Discord, cree/retrouve le compte |
 | `update-pseudo.json`       | POST    | `/webhook/update-pseudo`     | modifie le pseudo affiche d'un utilisateur |
 | `list-users.json`          | GET     | `/webhook/users`             | liste minimale (userId, pseudo) pour le selecteur d'echange |
-| `get-cards.json`           | GET     | `/webhook/cards`             | catalogue complet des cartes actives       |
-| `open-pack.json`           | POST    | `/webhook/open-pack`         | ouvre 1 booster (5 cartes), decremente le solde |
+| `get-cards.json`           | GET     | `/webhook/cards`             | catalogue complet des cartes actives (avec extension/promo) |
+| `get-extensions.json`      | GET     | `/webhook/extensions`        | liste des extensions (packs) actives       |
+| `open-pack.json`           | POST    | `/webhook/open-pack`         | ouvre 1 booster (5 cartes) d'une extension, decremente son solde |
 | `get-collection.json`      | GET     | `/webhook/collection`        | collection d'un utilisateur + progression  |
-| `get-image.json`           | GET     | `/webhook/image?id=...`      | sert l'image d'une carte (proxy vers Grist)|
-| `get-booster-status.json`  | GET     | `/webhook/booster-status`    | solde de boosters actuel                   |
-| `redeem-code.json`         | POST    | `/webhook/redeem-code`       | reclame un code d'evenement (boosters ou carte precise) |
-| `admin-codes.json`         | POST    | `/webhook/admin-codes`       | creation/liste/revocation des codes (reserve aux admins) |
-| `trade.json`               | POST    | `/webhook/trade`             | echanges cibles entre deux joueurs         |
+| `get-image.json`           | GET     | `/webhook/image?id=...`      | sert une image (carte, packet, dos de carte - proxy vers Grist) |
+| `get-booster-status.json`  | GET     | `/webhook/booster-status`    | solde de boosters par extension + total + poussieres d'etoile |
+| `redeem-code.json`         | POST    | `/webhook/redeem-code`       | reclame un code d'evenement (boosters d'une extension ou carte precise) |
+| `admin-codes.json`         | POST    | `/webhook/admin-codes`       | creation/liste/revocation des codes + stats de tirage (reserve aux admins) |
+| `trade.json`               | POST    | `/webhook/trade`             | echanges cibles entre deux joueurs (cartes non-promo uniquement) |
+| `disenchant.json`          | POST    | `/webhook/disenchant`        | detruit un exemplaire d'une carte non-promo contre des poussieres d'etoile |
+| `craft.json`               | POST    | `/webhook/craft`             | depense des poussieres d'etoile pour obtenir une carte non-promo precise |
 
 Ces chemins correspondent a ceux deja configures dans `site/js/config.js`.
 
@@ -84,13 +87,17 @@ Pour chacun des 11 fichiers dans `n8n/workflows/` :
    automatiquement, les fichiers reference deja son ID reel).
 4. Active le workflow (toggle "Active" en haut a droite).
 
-Fais ca pour les 11 workflows.
+Fais ca pour les 14 workflows.
 
 **Important** : toutes les tables de `/grist/SCHEMA.md` doivent deja exister
-avec exactement les colonnes decrites (`Users` a notamment besoin de
-`DiscordId`, `DiscordUsername`, `DiscordAvatar`, `BoosterCount` ; les
-nouvelles tables `EventCodes`, `CodeRedemptions` et `Trades` sont
-indispensables aux nouveaux workflows).
+avec exactement les colonnes decrites. En particulier, si tu avais deja cree
+le schema d'une version precedente de ce projet (avec un `BoosterCount` et un
+`PullsSinceTopRarity` directement sur `Users`) : ces deux colonnes sont
+**supprimees** au profit de la table `BoosterInventory` (solde et pity par
+extension). Verifie aussi que `Cards` a bien `Extension` et `IsPromo`, que
+`Rarities` a bien `DisenchantValue`/`CraftCost`, que `Users` a bien
+`StardustCount`, et que `EventCodes` a bien `Extension`. Les tables
+`Extensions` et `BoosterInventory` sont nouvelles.
 
 ## 4. Brancher le site
 
@@ -113,34 +120,45 @@ Une fois connecte, note ton `userId` (visible dans le localStorage du
 navigateur, cle `2gatcha_userId`) pour la suite.
 
 ```bash
-# 1. Lister les cartes
-curl https://ton-n8n.fr/webhook/cards
-# -> cartes avec un "imageId" (pas une URL directe, voir plus bas)
+# 1. Lister les extensions (il en faut au moins une, avec des cartes actives)
+curl https://ton-n8n.fr/webhook/extensions
+# -> [{"id":1,"name":"Saison 1", ...}]
 
-# 2. Voir une image dans le navigateur
+# 2. Lister les cartes
+curl https://ton-n8n.fr/webhook/cards
+# -> cartes avec un "imageId" (pas une URL directe, voir plus bas), leur
+#    extension et si elles sont promo
+
+# 3. Voir une image dans le navigateur
 # https://ton-n8n.fr/webhook/image?id=<imageId recupere ci-dessus>
 
-# 3. Creer un code de test (remplace TON-ID-DISCORD par un ID present dans
-#    adminDiscordIds)
+# 4. Creer un code de test (remplace TON-ID-DISCORD par un ID present dans
+#    adminDiscordIds, et EXTENSION_ID par l'id recupere a l'etape 1)
 curl -X POST https://ton-n8n.fr/webhook/admin-codes \
   -H "Content-Type: application/json" \
-  -d '{"discordId":"TON-ID-DISCORD","action":"create","rewardType":"booster","quantity":3,"expiresInHours":4}'
+  -d '{"discordId":"TON-ID-DISCORD","action":"create","rewardType":"booster","extension":EXTENSION_ID,"quantity":3,"expiresInHours":4}'
 # -> {"code":"XXXXXXXX", ...}
 
-# 4. Reclamer ce code (remplace USER_ID par le userId note plus haut)
+# 5. Reclamer ce code (remplace USER_ID par le userId note plus haut)
 curl -X POST https://ton-n8n.fr/webhook/redeem-code \
   -H "Content-Type: application/json" -d '{"userId":USER_ID,"code":"XXXXXXXX"}'
 
-# 5. Ouvrir un booster
+# 6. Ouvrir un booster de cette extension
 curl -X POST https://ton-n8n.fr/webhook/open-pack \
-  -H "Content-Type: application/json" -d '{"userId":USER_ID}'
+  -H "Content-Type: application/json" -d '{"userId":USER_ID,"extensionId":EXTENSION_ID}'
 
-# 6. Voir la collection
+# 7. Voir la collection
 curl "https://ton-n8n.fr/webhook/collection?userId=USER_ID"
 
-# 7. Lister les codes crees (admin)
+# 8. Lister les codes crees (admin)
 curl -X POST https://ton-n8n.fr/webhook/admin-codes \
   -H "Content-Type: application/json" -d '{"discordId":"TON-ID-DISCORD","action":"list"}'
+
+# 9. Decrafter puis crafter une carte non-promo (remplace CARD_ID)
+curl -X POST https://ton-n8n.fr/webhook/disenchant \
+  -H "Content-Type: application/json" -d '{"userId":USER_ID,"cardId":CARD_ID}'
+curl -X POST https://ton-n8n.fr/webhook/craft \
+  -H "Content-Type: application/json" -d '{"userId":USER_ID,"cardId":CARD_ID}'
 ```
 
 Si une etape echoue : **404** = workflow pas actif, **401/403** = credential
@@ -162,12 +180,24 @@ ca que les workflows renvoient un `imageId` (l'identifiant de la piece
 jointe) plutot qu'une URL Grist directe ; le site construit lui-meme l'URL
 finale via `API.imageUrl(imageId)` -> `{n8nBaseUrl}/image?id=...`.
 
+## Extensions (packs de boosters)
+
+Chaque extension (`Extensions`) a son propre pool de cartes (`Cards.Extension`),
+son propre visuel de packet et de dos de carte, et son propre solde de
+boosters + compteur de pity par utilisateur (table `BoosterInventory`, une
+ligne par couple utilisateur/extension). `open-pack.json` prend desormais
+`{ userId, extensionId }` et ne tire que parmi les cartes actives et
+non-promo de cette extension. `get-booster-status.json` renvoie le detail
+par extension (`extensions: [...]`) et un total (`count`) pour le badge du
+header.
+
 ## Economie des boosters et codes d'evenement
 
-Il n'y a plus de recharge horaire ni de plafond : `BoosterCount` est un
-simple solde qui ne bouge que via deux mecanismes :
-- `redeem-code.json` (+N boosters quand un utilisateur reclame un code
-  d'evenement de type `booster`) ;
+Il n'y a plus de recharge horaire ni de plafond : le solde d'une extension
+(`BoosterInventory.Count`) ne bouge que via deux mecanismes :
+- `redeem-code.json` (+N boosters de l'extension ciblee par le code, quand un
+  utilisateur reclame un code d'evenement de type `booster` - cree la ligne
+  `BoosterInventory` si c'est la premiere fois) ;
 - `open-pack.json` (-1 a chaque ouverture, qui tire toujours 5 cartes ;
   repond `{"error":"no_boosters","count":0}` si le solde est a 0).
 
@@ -179,24 +209,41 @@ par utilisateur et par code, expiration, plafond global optionnel).
 
 ## Logique de tirage (open-pack)
 
-- Chaque rarete a un `Weight` (table `Rarities`), le tirage est pondere.
-- Un compteur de pity par utilisateur (`PullsSinceTopRarity`) garantit la
-  rarete definie dans `Config.TopRarity` au bout de `Config.PityThreshold`
-  tirages sans l'avoir obtenue.
+- Chaque rarete a un `Weight` (table `Rarities`), le tirage est pondere -
+  verifie via simulation (1M tirages) que la distribution observee colle aux
+  poids configures.
+- Un compteur de pity **par extension** (`BoosterInventory.PullsSinceTopRarity`)
+  garantit la rarete definie dans `Config.TopRarity` (regle commune a toutes
+  les extensions) au bout de `Config.PityThreshold` tirages sans l'avoir
+  obtenue, au sein de cette extension.
+- Si aucune carte de l'extension n'a la rarete tiree, le tirage retombe sur
+  une carte au hasard de l'extension mais **affiche toujours la vraie
+  rarete de la carte tiree**, jamais la rarete initialement visee (sinon
+  une carte peut sembler changer de rarete d'un tirage a l'autre).
 - Le node "Draw Cards" produit un item par carte tiree ; le node Grist
   "Insert Pulls" s'execute donc automatiquement une fois par carte (c'est le
   comportement normal des nodes n8n : ils tournent une fois par item recu).
+
+## Craft / Decraft (poussieres d'etoile)
+
+`disenchant.json` detruit un exemplaire d'une carte possedee (suppression
+d'une ligne `Pulls`) et credite `Users.StardustCount` de la valeur
+`Rarities.DisenchantValue` de sa rarete. `craft.json` fait l'inverse : debite
+`Rarities.CraftCost` et cree une nouvelle ligne `Pulls` pour la carte
+choisie. Les deux refusent les cartes promo (`Cards.IsPromo`).
 
 ## Echanges (trade.json)
 
 Un echange est toujours cible : `FromUser` propose sa carte contre celle de
 `ToUser` (identifie par pseudo au moment de la creation), qui accepte ou
-refuse. A l'acceptation, le workflow ne cree pas de nouvelles cartes : il
-reassigne le champ `User` d'une ligne `Pulls` existante de chaque cote (un
-exemplaire change juste de proprietaire). Si l'une des deux cartes n'est
-plus disponible au moment de l'acceptation (deja echangee ailleurs entre
-temps), l'echange reste `pending` et l'erreur `cards_no_longer_available`
-est renvoyee ; l'utilisateur peut reessayer ou l'initiateur peut annuler.
+refuse. Une carte promo ne peut etre ni proposee ni demandee (erreur
+`promo_not_tradeable`). A l'acceptation, le workflow ne cree pas de
+nouvelles cartes : il reassigne le champ `User` d'une ligne `Pulls`
+existante de chaque cote (un exemplaire change juste de proprietaire). Si
+l'une des deux cartes n'est plus disponible au moment de l'acceptation
+(deja echangee ailleurs entre temps), l'echange reste `pending` et l'erreur
+`cards_no_longer_available` est renvoyee ; l'utilisateur peut reessayer ou
+l'initiateur peut annuler.
 
 ## Limites connues / a adapter
 

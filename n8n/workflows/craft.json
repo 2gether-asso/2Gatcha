@@ -1,0 +1,111 @@
+{
+  "name": "2Gatcha - craft",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "craft", "responseMode": "responseNode", "options": {} },
+      "id": "webhook", "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [-1400, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    cardId: Number(body.cardId)\n  }\n}];"
+      },
+      "id": "set-config", "name": "Set Config", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-1180, 300]
+    },
+    {
+      "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} },
+      "id": "get-cards", "name": "Get Cards", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-960, 300],
+      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }, "id": "barrier-1", "name": "Sync Get Cards -> Get Rarities", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-820, 300] },
+    {
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Rarities", "returnAll": true, "additionalOptions": {} },
+      "id": "get-rarities", "name": "Get Rarities", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-680, 300],
+      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }, "id": "barrier-2", "name": "Sync Get Rarities -> Get Users", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-540, 300] },
+    {
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
+      "id": "get-users", "name": "Get Users", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-400, 300],
+      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst card = cardsRows.find((c) => c.id === config.cardId);\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_craftable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) return [{ json: { ok: false, error: 'unknown_user' } }];\n\nconst rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\nconst craftCost = rarityRow ? (rarityRow.CraftCost || 0) : 0;\nconst stardust = user.StardustCount || 0;\nif (stardust < craftCost) return [{ json: { ok: false, error: 'insufficient_dust' } }];\n\nconst now = Math.floor(Date.now() / 1000);\nconst rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\nreturn [{\n  json: {\n    ok: true,\n    docId: config.docId,\n    userId: config.userId,\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity,\n    obtainedAt: now,\n    batchId: `craft-${config.userId}-${Date.now()}`,\n    craftCost,\n    newStardust: stardust - craftCost\n  }\n}];"
+      },
+      "id": "validate", "name": "Validate & Prepare", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-260, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [ { "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-valid", "name": "If Valid", "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [-40, 300]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } },
+      "id": "respond-error", "name": "Respond Error", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [180, 460]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": { "properties": [
+          { "fieldId": "User", "fieldValue": "={{ $json.userId }}" },
+          { "fieldId": "Card", "fieldValue": "={{ $json.cardId }}" },
+          { "fieldId": "ObtainedAt", "fieldValue": "={{ $json.obtainedAt }}" },
+          { "fieldId": "BatchId", "fieldValue": "={{ $json.batchId }}" }
+        ] }
+      },
+      "id": "create-pull", "name": "Create Pull", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [180, 180],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Validate & Prepare').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Validate & Prepare').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": { "properties": [ { "fieldId": "StardustCount", "fieldValue": "={{ $('Validate & Prepare').first().json.newStardust }}" } ] }
+      },
+      "id": "update-user", "name": "Update User", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [400, 180],
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { crafted: true, card: { cardId: $('Validate & Prepare').first().json.cardId, name: $('Validate & Prepare').first().json.name, artist: $('Validate & Prepare').first().json.artist, description: $('Validate & Prepare').first().json.description, imageId: $('Validate & Prepare').first().json.imageId, rarity: $('Validate & Prepare').first().json.rarity }, craftCost: $('Validate & Prepare').first().json.craftCost, newStardust: $('Validate & Prepare').first().json.newStardust } }}",
+        "options": {}
+      },
+      "id": "respond-ok", "name": "Respond OK", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [620, 180]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
+    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Rarities", "type": "main", "index": 0 }]] },
+    "Sync Get Cards -> Get Rarities": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
+    "Get Rarities": { "main": [[{ "node": "Sync Get Rarities -> Get Users", "type": "main", "index": 0 }]] },
+    "Sync Get Rarities -> Get Users": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
+    "Get Users": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
+    "Validate & Prepare": { "main": [[{ "node": "If Valid", "type": "main", "index": 0 }]] },
+    "If Valid": {
+      "main": [
+        [{ "node": "Create Pull", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Pull": { "main": [[{ "node": "Update User", "type": "main", "index": 0 }]] },
+    "Update User": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
