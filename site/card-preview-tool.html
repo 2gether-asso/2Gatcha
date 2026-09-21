@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Previsualisation de carte - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main>
+    <div class="panel">
+      <h1>Previsualisation de carte</h1>
+      <p class="lead">
+        Outil local (rien n'est envoye a Grist ni a n8n) pour verifier le rendu
+        d'une illustration dans le gabarit reel d'une carte avant de l'uploader.
+      </p>
+
+      <div class="preview-tool-layout">
+        <form class="preview-tool-form" id="preview-form">
+          <label>
+            Image de la carte
+            <input type="file" id="pt-image" accept="image/*" />
+          </label>
+          <label>
+            Nom de la carte
+            <input type="text" id="pt-name" placeholder="ex: Le Chat Cosmique" value="Nom de la carte" />
+          </label>
+          <label>
+            Artiste
+            <input type="text" id="pt-artist" placeholder="ex: Jules D." value="Artiste" />
+          </label>
+          <label>
+            Rarete
+            <select id="pt-rarity">
+              <option value="commune" data-color="#9aa0b4">Commune</option>
+              <option value="rare" data-color="#3b82f6">Rare</option>
+              <option value="epique" data-color="#a855f7">Epique</option>
+              <option value="legendaire" data-color="#f5a524" selected>Legendaire</option>
+            </select>
+          </label>
+        </form>
+
+        <div class="preview-tool-stage">
+          <div class="card" style="opacity:1;transform:none;animation:none;">
+            <div class="card-inner" style="transform:rotateY(180deg);">
+              <div class="card-face card-back"><span>?</span></div>
+              <div class="card-face card-front">
+                <img id="pt-preview-img" src="" alt="" />
+                <div class="card-info">
+                  <div class="card-name" id="pt-preview-name">Nom de la carte</div>
+                  <div class="card-artist" id="pt-preview-artist">Artiste</div>
+                  <span class="rarity-badge" id="pt-preview-rarity">Legendaire</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    const imgInput = document.getElementById("pt-image");
+    const nameInput = document.getElementById("pt-name");
+    const artistInput = document.getElementById("pt-artist");
+    const raritySelect = document.getElementById("pt-rarity");
+    const previewImg = document.getElementById("pt-preview-img");
+    const previewName = document.getElementById("pt-preview-name");
+    const previewArtist = document.getElementById("pt-preview-artist");
+    const previewRarity = document.getElementById("pt-preview-rarity");
+
+    function updatePreview() {
+      previewName.textContent = nameInput.value || "Nom de la carte";
+      previewArtist.textContent = artistInput.value || "";
+      const opt = raritySelect.selectedOptions[0];
+      const color = opt.dataset.color;
+      previewRarity.textContent = opt.textContent;
+      previewRarity.style.background = color + "22";
+      previewRarity.style.color = color;
+      previewRarity.style.border = `1px solid ${color}`;
+      const cardFace = document.querySelector(".preview-tool-stage .card-face.card-front");
+      cardFace.style.boxShadow = `0 0 30px ${color}55`;
+    }
+
+    imgInput.addEventListener("change", () => {
+      const file = imgInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => { previewImg.src = e.target.result; };
+      reader.readAsDataURL(file);
+    });
+    [nameInput, artistInput, raritySelect].forEach((el) => el.addEventListener("input", updatePreview));
+    updatePreview();
+  </script>
+</body>
+</html>

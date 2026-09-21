@@ -40,7 +40,7 @@ function craftCardTile(card, mode) {
   const cost = card.rarity?.craftCost || 0;
   const canAfford = stardust >= cost;
   return `
-    <div class="craft-card">
+    <div class="craft-card ${canAfford ? "" : "unavailable"}">
       <img src="${imgSrc}" alt="${card.name}" />
       <div class="card-info">
         <div class="card-name">${card.name}</div>

@@ -34,6 +34,11 @@
   <div id="pack-modal-overlay" class="pack-modal-overlay" hidden>
     <button id="pack-modal-close" class="card-modal-close pack-modal-close" aria-label="Fermer">&times;</button>
     <div class="pack-modal-stage">
+      <div class="quantity-picker" id="quantity-picker">
+        <button type="button" class="btn-secondary active" data-qty="1">Ouvrir x1</button>
+        <button type="button" class="btn-secondary" data-qty="5">Ouvrir x5</button>
+      </div>
+
       <div class="booster-stage">
         <div id="booster-pack" class="booster-pack">
           <div class="booster-emoji">&#127183;</div>
@@ -46,6 +51,7 @@
       <div id="booster-hint" class="booster-hint"></div>
 
       <div id="reveal-grid" class="reveal-grid hearthstone"></div>
+      <button type="button" id="share-pull-btn" class="btn-secondary" style="display:none;">&#128247; Partager ce pull</button>
     </div>
   </div>
 

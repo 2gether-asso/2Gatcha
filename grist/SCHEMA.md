@@ -1,9 +1,10 @@
 # Schema Grist - 2Gatcha
 
-Un seul document Grist avec 10 tables. Cree-les dans cet ordre (les references
+Un seul document Grist avec 11 tables. Cree-les dans cet ordre (les references
 ont besoin que la table ciblee existe deja) :
 `Rarities` -> `Extensions` -> `Cards` -> `Users` -> `Pulls` -> `Config` ->
-`EventCodes` -> `CodeRedemptions` -> `Trades` -> `BoosterInventory`.
+`EventCodes` -> `CodeRedemptions` -> `Trades` -> `BoosterInventory` ->
+`Wishlist`.
 
 ## 1. Rarities
 
@@ -62,6 +63,8 @@ son propre compteur de pity.
 | IsPromo     | Bool                  | si `true`, exclue du tirage normal des boosters : obtenable uniquement via un code d'evenement (`EventCodes`, `RewardType=card`). Une carte promo n'est **ni decraftable, ni craftable, ni echangeable** (`disenchant.json`, `craft.json` et `trade.json` la refusent) |
 | Image       | Attachments            | l'image de la carte, uploadee dans Grist    |
 | Active      | Bool                   | si `false`, la carte n'est plus tirable     |
+| FirstObtainedBy | Reference -> Users | vide tant que personne ne l'a obtenue ; rempli une seule fois, par le premier tirage/reclamation qui la sort (`open-pack.json`, `redeem-code.json`) |
+| FirstObtainedAt | DateTime           | date du premier obtention (epoch secondes) |
 
 ## 4. Users
 
@@ -136,6 +139,16 @@ aux participants pendant sa duree de validite.
 | Active           | Bool                    | permet a l'admin de desactiver un code avant son expiration |
 | CreatedAt        | DateTime                | |
 | CreatedBy        | Text                    | DiscordId de l'admin qui a cree le code |
+
+## Wishlist
+
+Cartes qu'un utilisateur recherche activement, pour faciliter les echanges
+avec les autres membres (visible sur le profil/dans l'outil d'echange).
+
+| Colonne | Type                | Notes |
+|---------|----------------------|-------|
+| User    | Reference -> Users   | |
+| Card    | Reference -> Cards   | |
 
 ## 8. CodeRedemptions
 

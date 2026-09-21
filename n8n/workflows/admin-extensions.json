@@ -1,0 +1,436 @@
+{
+  "name": "2Gatcha - admin-extensions",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2000,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-extensions",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "e658b0e0-3746-4d1b-9222-e0adc016b4d0"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1780,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Memes ID admin que admin-codes.json / admin-config.json.\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    extensionId: body.extensionId,\n    name: body.name,\n    key: body.key,\n    sortOrder: body.sortOrder,\n    active: body.active\n  }\n}];"
+      }
+    },
+    {
+      "id": "if-admin",
+      "name": "If Admin",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1560,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isAdmin }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-forbidden",
+      "name": "Respond Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1340,
+        640
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'forbidden' } }}",
+        "options": {
+          "responseCode": 403
+        }
+      }
+    },
+    {
+      "id": "if-action-create",
+      "name": "If Action Is Create",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1340,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "validate-create",
+      "name": "Validate Create",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1160,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const c = $('Set Config').first().json;\nif (!c.name || !c.key) throw new Error('name et key sont requis.');\nreturn [{ json: {\n  name: c.name,\n  key: c.key,\n  sortOrder: Number(c.sortOrder) || 0,\n  active: c.active !== false\n} }];"
+      }
+    },
+    {
+      "id": "create-extension",
+      "name": "Create Extension",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -980,
+        200
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "Name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldId": "Key",
+              "fieldValue": "={{ $json.key }}"
+            },
+            {
+              "fieldId": "SortOrder",
+              "fieldValue": "={{ $json.sortOrder }}"
+            },
+            {
+              "fieldId": "Active",
+              "fieldValue": "={{ $json.active }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-created",
+      "name": "Format Created",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const row = $input.first().json;\nreturn [{ json: {\n  extension: { id: row.id, name: row.Name, key: row.Key, sortOrder: row.SortOrder || 0, active: row.Active !== false },\n  note: 'Extension creee sans visuel : ajoute PackImage et CardBackImage directement dans Grist pour cette ligne.'\n} }];"
+      }
+    },
+    {
+      "id": "get-extensions",
+      "name": "Get Extensions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1160,
+        440
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "build-update",
+      "name": "Build Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        440
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const c = $('Set Config').first().json;\nconst rows = $input.all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => r.id === Number(c.extensionId));\nif (!row) throw new Error('Extension introuvable: ' + c.extensionId);\n\nreturn [{ json: {\n  rowId: row.id,\n  name: c.name != null && c.name !== '' ? c.name : row.Name,\n  key: c.key != null && c.key !== '' ? c.key : row.Key,\n  sortOrder: c.sortOrder != null && c.sortOrder !== '' ? Number(c.sortOrder) : (row.SortOrder || 0),\n  active: c.active != null ? !!c.active : (row.Active !== false)\n} }];"
+      }
+    },
+    {
+      "id": "update-extension",
+      "name": "Update Extension",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        440
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "Name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldId": "Key",
+              "fieldValue": "={{ $json.key }}"
+            },
+            {
+              "fieldId": "SortOrder",
+              "fieldValue": "={{ $json.sortOrder }}"
+            },
+            {
+              "fieldId": "Active",
+              "fieldValue": "={{ $json.active }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-updated",
+      "name": "Format Updated",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        440
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const row = $input.first().json;\nreturn [{ json: { extension: { id: row.id, name: row.Name, key: row.Key, sortOrder: row.SortOrder || 0, active: row.Active !== false } } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -440,
+        320
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "If Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Admin": {
+      "main": [
+        [
+          {
+            "node": "If Action Is Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Forbidden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Action Is Create": {
+      "main": [
+        [
+          {
+            "node": "Validate Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Create": {
+      "main": [
+        [
+          {
+            "node": "Create Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Extension": {
+      "main": [
+        [
+          {
+            "node": "Format Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Created": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Build Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Update": {
+      "main": [
+        [
+          {
+            "node": "Update Extension",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Extension": {
+      "main": [
+        [
+          {
+            "node": "Format Updated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Updated": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

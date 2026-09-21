@@ -33,6 +33,19 @@ html, body {
   height: 100%;
 }
 
+html { scroll-behavior: smooth; }
+
+/* Pose sur <html> (pas <body>, qui porte deja overflow-x:hidden + son
+   animation d'entree) pendant qu'une modale plein ecran est ouverte : evite
+   que la page derriere continue de defiler sous la modale. */
+html.scroll-locked, html.scroll-locked body { overflow: hidden; height: 100%; }
+
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -45,9 +58,12 @@ body {
   animation: pageFadeIn 0.4s ease forwards;
 }
 
+/* Uniquement l'opacite : animer transform sur body creerait un containing
+   block pour tous ses descendants position:fixed (modal plein ecran,
+   bottom-nav, toasts, flashs), les empechant de rester colles a l'ecran. */
 @keyframes pageFadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -132,9 +148,30 @@ header#site-header {
   color: transparent;
 }
 
-.nav { display: flex; gap: 18px; flex: 1; font-family: var(--font-display); }
-.nav a { color: var(--text-dim); font-weight: 600; font-size: 0.92rem; transition: color 0.15s; }
-.nav a:hover { color: var(--text); text-decoration: none; }
+.nav { display: flex; gap: 6px; flex: 1; font-family: var(--font-display); }
+.nav a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+.nav a:hover { color: var(--text); text-decoration: none; background: rgba(255,255,255,0.05); }
+.nav a.active { color: var(--text); }
+.nav a.active::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 1px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
 
 .user-box { display: flex; align-items: center; gap: 14px; font-size: 0.9rem; color: var(--text-dim); }
 
@@ -173,6 +210,23 @@ main {
 }
 
 h1 { font-size: 2rem; margin-top: 0; font-weight: 800; }
+.hero-eyebrow {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: 10px;
+}
+.hero-title { font-size: 2.6rem; text-wrap: balance; }
+.hero-highlight {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 h2 { font-size: 1.3rem; color: var(--text); font-weight: 700; }
 p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 
@@ -369,6 +423,28 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   60% { transform: translate(-3px, 0) scale(1.05) rotate(-1deg); }
   80% { transform: translate(3px, 0) scale(1.05) rotate(1deg); }
 }
+
+/* Tremblement intensifie quand le meilleur tirage du lot est deja connu
+   (spoiler discret cote gacha, avant la dechirure du pack). */
+.booster-pack.charging-epique { animation: boosterChargeEpique 0.35s ease-in-out infinite; box-shadow: 0 0 40px rgba(168,85,247,0.6); }
+.booster-pack.charging-legendaire { animation: boosterChargeLegendaire 0.22s ease-in-out infinite; box-shadow: 0 0 60px rgba(245,165,36,0.8); }
+@keyframes boosterChargeEpique {
+  0%, 100% { transform: translate(0, 0) scale(1.04) rotate(0deg); }
+  25% { transform: translate(-6px, 0) scale(1.06) rotate(-3deg); }
+  50% { transform: translate(6px, 0) scale(1.07) rotate(3deg); }
+  75% { transform: translate(-5px, 0) scale(1.06) rotate(-2deg); }
+}
+@keyframes boosterChargeLegendaire {
+  0%, 100% { transform: translate(0, 0) scale(1.06) rotate(0deg); }
+  25% { transform: translate(-9px, 0) scale(1.1) rotate(-4deg); }
+  50% { transform: translate(9px, 0) scale(1.12) rotate(4deg); }
+  75% { transform: translate(-7px, 0) scale(1.1) rotate(-3deg); }
+}
+
+/* Choix x1/x5 (modale d'ouverture) */
+.quantity-picker { display: flex; gap: 10px; }
+.quantity-picker button.active { outline: 2px solid var(--accent-2); }
+.quantity-picker button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .booster-pack.bursting {
   animation: boosterBurst 0.5s cubic-bezier(.2,.9,.3,1) forwards;
@@ -1221,6 +1297,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .craft-card button { width: 100%; padding: 8px; font-size: 0.82rem; }
 .craft-card .owned-count { font-size: 0.7rem; color: var(--text-dim); }
 .disenchant-btn { background: linear-gradient(135deg, #6d28d9, var(--accent-3)); }
+.craft-card.unavailable { opacity: 0.5; filter: grayscale(0.6); }
+.craft-card.unavailable img { filter: grayscale(0.4); }
 
 .promo-badge {
   display: inline-block;
@@ -1308,6 +1386,312 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   transition: height 0.6s cubic-bezier(.2,.9,.3,1);
 }
 .rarity-chart .bar-label { font-size: 0.68rem; color: var(--text-dim); text-align: center; }
+
+/* ========================================================================
+   Particules de rarete (revelation de carte) : DOIT rester au-dessus du
+   modal plein ecran d'ouverture (z-index 400) et de son flash legendaire
+   (z-index 410).
+   ======================================================================== */
+.rarity-particle-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 420;
+  pointer-events: none;
+  overflow: hidden;
+}
+.rarity-particle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  animation-name: rarityParticleFly;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+  text-shadow: 0 0 8px currentColor, 0 0 16px currentColor;
+  line-height: 1;
+}
+@keyframes rarityParticleFly {
+  0% { translate: 0 0; scale: 0.4; rotate: 0deg; opacity: 0; }
+  15% { opacity: 1; }
+  100% { translate: var(--dx) var(--dy); scale: 1; rotate: 180deg; opacity: 0; }
+}
+
+/* ========================================================================
+   Grain / bruit subtil (casse le cote trop lisse du glassmorphism)
+   ======================================================================== */
+body::after { /* deja utilise pour les etoiles ; on ajoute un grain via un 2e calque */ }
+.grain-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ========================================================================
+   Halo curseur (desktop uniquement, suit la souris avec un leger retard)
+   ======================================================================== */
+/* Sert a la fois de halo-curseur et d'effet parallax : deplacee en JS par
+   translate3d direct (le fond ambiant, lui, a deja sa propre animation de
+   derive continue sur `transform` - une regle statique sur ce meme
+   ancetre/propriete serait sans effet, une animation gagne toujours face a
+   une valeur non-animee sur la meme propriete). */
+.cursor-glow {
+  position: fixed;
+  top: 0; left: 0;
+  width: 340px;
+  height: 340px;
+  margin: -170px 0 0 -170px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s;
+  will-change: transform;
+}
+.cursor-glow.active { opacity: 1; }
+
+/* ========================================================================
+   Transitions de page (View Transitions API)
+   ======================================================================== */
+::view-transition-old(root) { animation: viewFadeOut 0.22s ease both; }
+::view-transition-new(root) { animation: viewFadeIn 0.28s ease both; }
+@keyframes viewFadeOut { to { opacity: 0; transform: scale(0.99); } }
+@keyframes viewFadeIn { from { opacity: 0; transform: scale(1.01); } }
+
+/* ========================================================================
+   Mode cinema (collection) : masque le chrome, plein ecran sur la grille
+   ======================================================================== */
+body.cinema-mode header#site-header,
+body.cinema-mode .bottom-nav { display: none !important; }
+body.cinema-mode main { max-width: none; padding: 24px; }
+body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow: none; }
+.cinema-toggle-btn { position: fixed; top: 16px; right: 16px; z-index: 60; }
+
+/* ========================================================================
+   Grille "classeur" dense (alternative a la grille de collection)
+   ======================================================================== */
+.collection-grid.dense {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.collection-grid.dense .card-info { padding: 4px; }
+.collection-grid.dense .card-name { font-size: 0.68rem; }
+.collection-grid.dense .rarity-badge { display: none; }
+
+/* ========================================================================
+   Cadre special pour les cartes promo dans la collection
+   ======================================================================== */
+.collection-card[data-promo="1"] {
+  border-color: var(--accent-3);
+  box-shadow: 0 0 0 1px var(--accent-3), 0 0 20px -4px rgba(244,114,182,0.5);
+}
+
+/* ========================================================================
+   Menu utilisateur (dropdown) dans le header
+   ======================================================================== */
+.user-menu { position: relative; }
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.88rem;
+  box-shadow: none;
+}
+.user-menu-trigger .caret { font-size: 0.65rem; color: var(--text-dim); transition: transform 0.15s; }
+.user-menu.open .user-menu-trigger .caret { transform: rotate(180deg); }
+.user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 200px;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px -16px rgba(0,0,0,0.7);
+  padding: 8px;
+  display: none;
+  z-index: 20;
+}
+.user-menu.open .user-menu-dropdown { display: block; animation: modalPopIn 0.15s ease forwards; }
+.user-menu-dropdown button, .user-menu-dropdown a {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.88rem;
+  padding: 9px 10px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transform: none !important;
+}
+.user-menu-dropdown button:hover, .user-menu-dropdown a:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+.user-menu-dropdown .menu-sep { height: 1px; background: var(--border-soft); margin: 6px 2px; }
+
+/* ========================================================================
+   Barre de chargement (haut de page, pendant les appels API)
+   ======================================================================== */
+.top-loading-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2.5px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  z-index: 999;
+  transition: width 0.25s ease, opacity 0.2s ease;
+  box-shadow: 0 0 8px var(--accent-2);
+}
+.top-loading-bar.done { width: 100%; opacity: 0; }
+
+/* ========================================================================
+   Bandeau "prochain jalon" / milestone
+   ======================================================================== */
+.milestone-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 0.86rem;
+  color: var(--text-dim);
+  margin: 12px 0;
+}
+.milestone-banner strong { color: var(--text); }
+
+/* ========================================================================
+   Panneau de stats personnelles (collection)
+   ======================================================================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+.stat-tile {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+}
+.stat-tile .stat-value { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; }
+.stat-tile .stat-label { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+
+/* ========================================================================
+   Barre de pity (ouverture de booster)
+   ======================================================================== */
+.pity-row { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-dim); margin-top: 6px; }
+.pity-row .pity-track { flex: 1; height: 6px; border-radius: 999px; background: var(--bg-panel-2); overflow: hidden; }
+.pity-row .pity-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--rarity-legendaire)); transition: width 0.6s ease; }
+
+/* ========================================================================
+   Favoris (collection)
+   ======================================================================== */
+.fav-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.55);
+  font-size: 0.85rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  transform: none !important;
+}
+.fav-btn.active { color: var(--accent-3); }
+.fav-btn:hover { color: var(--accent-3); }
+
+/* ========================================================================
+   Recherche / tri / toggles (collection)
+   ======================================================================== */
+.collection-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+}
+.collection-toolbar input[type="text"] { min-width: 180px; flex: 1; }
+.collection-toolbar button.active { outline: 2px solid var(--accent-2); }
+.collection-toolbar select {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-family: var(--font-body);
+}
+
+/* ========================================================================
+   QR code (admin) et vue calendrier des codes
+   ======================================================================== */
+.qr-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+.qr-box canvas, .qr-box img { display: block; }
+.qr-box .qr-caption { color: #111; font-size: 0.7rem; font-family: var(--font-display); font-weight: 700; }
+
+.codes-calendar { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+.codes-calendar-day { border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px 16px; background: var(--bg-panel-2); }
+.codes-calendar-day .day-label { font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; color: var(--accent-2); margin-bottom: 8px; }
+.codes-calendar-day .day-codes { display: flex; flex-direction: column; gap: 6px; }
+.codes-calendar-day .day-code-row { display: flex; justify-content: space-between; gap: 10px; font-size: 0.85rem; color: var(--text-dim); }
+
+/* ========================================================================
+   Aperçu de carte (outil admin de previsualisation, card-preview-tool.html)
+   ======================================================================== */
+.preview-tool-layout { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 32px; align-items: start; }
+.preview-tool-form { display: flex; flex-direction: column; gap: 12px; }
+.preview-tool-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-dim); }
+.preview-tool-stage { display: flex; justify-content: center; }
+.preview-tool-stage .card { width: 260px; }
+
+/* ========================================================================
+   Grands ecrans : le contenu ne doit pas rester ecrase au centre d'un vide,
+   on lui donne plus de place et des grilles plus genereuses.
+   ======================================================================== */
+@media (min-width: 1300px) {
+  .header-inner, main { max-width: 1280px; }
+  .panel { padding: 40px 44px; }
+  .collection-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 22px; }
+  .reveal-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 26px; }
+  .extension-picker { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 20px; }
+  .craft-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 22px; }
+  .pack-modal-stage { width: min(920px, 92vw); }
+}
 
 /* --- Responsive --- */
 @media (max-width: 640px) {

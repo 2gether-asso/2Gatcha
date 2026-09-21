@@ -1,0 +1,385 @@
+{
+  "name": "2Gatcha - get-public-profile",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "public-profile",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "aa7ab8d3-7b12-4f6d-a34d-47d537878081"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const pseudo = ($input.first().json.query.pseudo || '').toString();\nreturn [{ json: { docId: 'cRP1WgZQv7KmwmVrUbuEF8', pseudo } }];"
+      }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -760,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-user-found",
+      "name": "If User Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Get Users').all().map(i => i.json).some(u => (u.Pseudo || '').toString().trim().toLowerCase() === $('Set Config').first().json.pseudo.toLowerCase()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-not-found",
+      "name": "Respond Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -440,
+        460
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'user_not_found' } }}",
+        "options": {
+          "responseCode": 404
+        }
+      }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Users -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -280,
+        180
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        40,
+        180
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-3",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        340,
+        180
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.pseudo.toLowerCase());\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === user.id);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\n\nconst countByCard = {};\npulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n\nconst owned = Object.entries(countByCard).map(([cid, count]) => {\n  const card = cardById[Number(cid)];\n  if (!card) return null;\n  const rarity = rarityById[refId(card.Rarity)];\n  return {\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    imageId: firstAttachment(card.Image),\n    isPromo: card.IsPromo === true,\n    count,\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null\n  };\n}).filter(Boolean).sort((a, b) => (a.rarity?.sortOrder || 0) - (b.rarity?.sortOrder || 0));\n\nreturn [{ json: {\n  pseudo: user.Pseudo,\n  totalPulls: user.TotalPulls || 0,\n  uniqueCards: owned.length,\n  cards: owned\n} }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        680,
+        180
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "If User Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If User Found": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users -> Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

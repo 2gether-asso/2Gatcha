@@ -16,6 +16,11 @@ let skipToken = null;
 let extensionsCache = [];
 let boosterCount = 0;
 let pendingReveals = 0;
+let pityByExt = new Map();
+let openQuantity = 1;
+let lastRevealedCards = [];
+
+const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3 };
 
 // Attend `ms` millisecondes, sauf si l'utilisateur tape pour accelerer.
 function wait(ms) {
@@ -73,7 +78,7 @@ function buildCardEl(card, index, cardBackImageId) {
   const flip = () => {
     if (wrap.classList.contains("revealed")) return;
     wrap.classList.add("revealed");
-    celebrateRarity(card.rarity?.key, wrap);
+    celebrateRarity(card.rarity?.key, wrap, color);
     pendingReveals--;
     if (pendingReveals <= 0) onAllRevealed();
   };
@@ -88,6 +93,73 @@ function onAllRevealed() {
   isBusy = false;
   const hint = document.getElementById("booster-hint");
   if (hint) hint.textContent = "Toutes les cartes sont revelees !";
+  const shareBtn = document.getElementById("share-pull-btn");
+  if (shareBtn && lastRevealedCards.length) shareBtn.style.display = "inline-flex";
+}
+
+// Genere une image partageable (canvas) reprenant le plus beau tirage du
+// lot, dans le style d'une vraie carte, et declenche son telechargement.
+function shareBestPull() {
+  if (!lastRevealedCards.length) return;
+  const best = lastRevealedCards.reduce((a, b) => {
+    const ka = a.rarity?.key || "commune", kb = b.rarity?.key || "commune";
+    return (RARITY_ORDER[kb] ?? 0) > (RARITY_ORDER[ka] ?? 0) ? b : a;
+  });
+  const color = best.rarity?.colorHex || "#9aa0b4";
+  const imgSrc = API.imageUrl(best.imageId) || PLACEHOLDER_IMG;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 720;
+  canvas.height = 960;
+  const ctx = canvas.getContext("2d");
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    ctx.fillStyle = "#0b0d20";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const grad = ctx.createRadialGradient(360, 300, 40, 360, 300, 500);
+    grad.addColorStop(0, color + "55");
+    grad.addColorStop(1, "#0b0d2000");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const artH = 620;
+    ctx.drawImage(img, 40, 40, canvas.width - 80, artH);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 6;
+    ctx.strokeRect(40, 40, canvas.width - 80, artH);
+
+    ctx.fillStyle = "#f5f5fc";
+    ctx.font = "700 34px Sora, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(best.name || "Carte", canvas.width / 2, artH + 100);
+
+    ctx.fillStyle = color;
+    ctx.font = "800 24px Sora, sans-serif";
+    ctx.fillText((best.rarity?.name || "Commune").toUpperCase(), canvas.width / 2, artH + 145);
+
+    ctx.fillStyle = "#9a9cc4";
+    ctx.font = "500 20px Inter, sans-serif";
+    ctx.fillText("2Gatcha – " + (Session.pseudo || ""), canvas.width / 2, canvas.height - 30);
+
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `2gatcha-${(best.name || "carte").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    });
+  };
+  // Note : le partage necessite que le workflow get-image.json renvoie un
+  // en-tete Access-Control-Allow-Origin (sinon le navigateur refuse de lire
+  // les pixels de l'image sur le canvas et declenche onerror ici plutot
+  // qu'une erreur silencieuse).
+  img.onerror = () => Toast.error("Impossible de generer l'image a partager (probleme de CORS sur le serveur d'images).");
+  img.src = imgSrc;
 }
 
 // Important : l'effet legendaire n'anime JAMAIS le transform d'un ancetre
@@ -96,7 +168,12 @@ function onAllRevealed() {
 // parent commun casse ce rendu dans certains navigateurs (c'est ce qui
 // provoquait un blocage de la page). L'effet est donc isole a un calque de
 // flash plein ecran + un filtre sur la carte elle-meme uniquement.
-function celebrateRarity(key, cardEl) {
+//
+// Les particules (spawnRarityBurst, main.js) sont sur un calque a
+// z-index:420, au-dessus du modal d'ouverture (400) et du flash legendaire
+// (410) : elles restent visibles par-dessus toute la modale plein ecran.
+function celebrateRarity(key, cardEl, colorHex) {
+  spawnRarityBurst(key, colorHex, cardEl);
   if (key === "legendaire") {
     const flash = document.getElementById("legendary-flash");
     if (flash) {
@@ -109,13 +186,7 @@ function celebrateRarity(key, cardEl) {
       void cardEl.offsetWidth;
       cardEl.classList.add("legendary-hit");
     }
-    if (typeof confetti === "function") {
-      confetti({ particleCount: 160, spread: 110, origin: { y: 0.5 }, colors: ["#f5a524", "#ffd166", "#ffffff"] });
-      setTimeout(() => confetti({ particleCount: 90, spread: 140, origin: { y: 0.4 }, colors: ["#f5a524", "#ffffff"] }), 220);
-    }
     Toast.success("Legendaire !");
-  } else if (key === "epique" && typeof confetti === "function") {
-    confetti({ particleCount: 70, spread: 85, origin: { y: 0.5 }, colors: ["#a855f7", "#d8b4fe"] });
   }
 }
 
@@ -139,11 +210,16 @@ function renderExtensionPicker() {
   const disabled = boosterCount < 1;
   el.innerHTML = extensionsCache.map((ext) => {
     const img = API.imageUrl(ext.packImageId);
+    const pity = pityByExt.get(ext.id) || 0;
     return `
       <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}">
         ${img ? `<img src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
         <div class="ext-name">${ext.name}</div>
         <div class="ext-count">Ouvrir</div>
+        <div class="pity-row" title="Nombre de tirages depuis la derniere legendaire">
+          <span>${rarityIcon("legendaire")}</span>
+          <span>${pity} tirage${pity > 1 ? "s" : ""}</span>
+        </div>
       </div>
     `;
   }).join("");
@@ -161,6 +237,7 @@ async function refreshStatus() {
     ]);
     extensionsCache = (extRes.extensions || []).filter((e) => e.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     boosterCount = statusRes.count || 0;
+    pityByExt = new Map((statusRes.extensions || []).map((e) => [e.extensionId, e.pullsSinceTop || 0]));
     renderExtensionPicker();
   } catch (e) {
     Toast.error("Impossible de recuperer les extensions/boosters. (" + e.message + ")");
@@ -196,11 +273,34 @@ function openModalFor(extensionId) {
     else startOpening(ext);
   };
 
+  // Skin de fond par extension : le packet flou en toile de fond de la
+  // modale, pour que chaque extension ait une ambiance visuelle distincte.
+  overlay.style.backgroundImage = img
+    ? `radial-gradient(circle at 50% 30%, rgba(139,92,246,0.25), transparent 55%), linear-gradient(rgba(4,5,12,0.88), rgba(4,5,12,0.96)), url(${img})`
+    : "";
+  overlay.style.backgroundSize = "cover";
+  overlay.style.backgroundPosition = "center";
+
+  const qtyPicker = document.getElementById("quantity-picker");
+  if (qtyPicker) {
+    qtyPicker.style.display = "flex";
+    openQuantity = 1;
+    qtyPicker.querySelectorAll("button").forEach((b) => {
+      const qty = Number(b.dataset.qty);
+      b.classList.toggle("active", qty === 1);
+      b.disabled = qty > boosterCount;
+    });
+  }
+  const shareBtn = document.getElementById("share-pull-btn");
+  if (shareBtn) shareBtn.style.display = "none";
+
   overlay.hidden = false;
+  syncScrollLock();
 }
 
 function closeModal() {
   document.getElementById("pack-modal-overlay").hidden = true;
+  syncScrollLock();
 }
 
 async function startOpening(ext) {
@@ -211,25 +311,49 @@ async function startOpening(ext) {
   const grid = document.getElementById("reveal-grid");
   const skipHint = document.getElementById("skip-hint");
   const hint = document.getElementById("booster-hint");
+  const qtyPicker = document.getElementById("quantity-picker");
 
+  if (qtyPicker) qtyPicker.style.display = "none";
   skipHint.classList.add("visible");
   pack.classList.add("charging");
 
   try {
-    const res = await API.openPack(Session.userId, ext.id);
+    // x1 ou x5 : on ouvre les boosters demandes a la suite (chaque appel
+    // reste un tirage independant cote backend), puis on revele tout
+    // ensemble pour ne pas repeter l'animation de dechirure N fois.
+    const quantity = Math.min(openQuantity, boosterCount);
+    const allCards = [];
+    let lastBoosterInfo = null;
+    for (let i = 0; i < quantity; i++) {
+      const res = await API.openPack(Session.userId, ext.id);
+      if (res.error === "no_boosters") {
+        if (i === 0) {
+          pack.classList.remove("charging");
+          skipHint.classList.remove("visible");
+          await refreshStatus();
+          Toast.error("Plus de booster disponible pour l'instant.");
+          isBusy = false;
+          closeModal();
+          return;
+        }
+        break;
+      }
+      allCards.push(...(res.cards || []));
+      lastBoosterInfo = res.booster;
+    }
 
-    if (res.error === "no_boosters") {
-      pack.classList.remove("charging");
-      skipHint.classList.remove("visible");
-      await refreshStatus();
-      Toast.error("Plus de booster disponible pour l'instant.");
-      isBusy = false;
-      closeModal();
-      return;
+    // Intensifie le tremblement du pack selon la meilleure rarete deja
+    // tiree (spoiler discret, courant dans les jeux gacha).
+    const bestRarity = allCards.reduce((best, c) => {
+      const k = c.rarity?.key || "commune";
+      return (RARITY_ORDER[k] ?? 0) > (RARITY_ORDER[best] ?? 0) ? k : best;
+    }, "commune");
+    if (bestRarity === "legendaire" || bestRarity === "epique") {
+      pack.classList.add("charging-" + bestRarity);
     }
 
     await wait(500);
-    pack.classList.remove("charging");
+    pack.classList.remove("charging", "charging-legendaire", "charging-epique");
     pack.classList.add("tearing");
     flash.classList.add("flash-active");
 
@@ -239,14 +363,14 @@ async function startOpening(ext) {
     pack.style.visibility = "hidden";
     hint.textContent = "Tape sur chaque carte pour la reveler";
 
-    const cards = res.cards || [];
-    pendingReveals = cards.length;
-    cards.forEach((card, i) => {
+    lastRevealedCards = allCards;
+    pendingReveals = allCards.length;
+    allCards.forEach((card, i) => {
       const el = buildCardEl(card, i, ext.cardBackImageId);
       grid.appendChild(el);
     });
 
-    if (cards.length) {
+    if (allCards.length) {
       const revealAllBtn = document.createElement("button");
       revealAllBtn.id = "reveal-all-btn";
       revealAllBtn.className = "btn-secondary";
@@ -262,8 +386,8 @@ async function startOpening(ext) {
     }
 
     flash.classList.remove("flash-active");
-    if (res.booster) {
-      boosterCount = res.booster.count;
+    if (lastBoosterInfo) {
+      boosterCount = lastBoosterInfo.count;
       renderExtensionPicker();
     }
     loadHeaderBoosterBadge();
@@ -308,6 +432,20 @@ document.addEventListener("DOMContentLoaded", () => {
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay && !isBusy) closeModal();
   });
+
+  const qtyPicker = document.getElementById("quantity-picker");
+  if (qtyPicker) {
+    qtyPicker.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (isBusy || btn.disabled) return;
+        openQuantity = Number(btn.dataset.qty);
+        qtyPicker.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+      });
+    });
+  }
+
+  const shareBtn = document.getElementById("share-pull-btn");
+  if (shareBtn) shareBtn.addEventListener("click", shareBestPull);
 
   refreshStatus();
   initSparkleTrail();

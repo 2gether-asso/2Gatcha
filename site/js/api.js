@@ -11,33 +11,43 @@ const API = {
   },
 
   async post(name, body) {
-    const res = await fetch(this.url(name), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body || {})
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
-      err.code = data.error;
-      throw err;
+    if (typeof TopLoadingBar !== "undefined") TopLoadingBar.start();
+    try {
+      const res = await fetch(this.url(name), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
+        err.code = data.error;
+        throw err;
+      }
+      return data;
+    } finally {
+      if (typeof TopLoadingBar !== "undefined") TopLoadingBar.stop();
     }
-    return data;
   },
 
   async get(name, query) {
     // "_ts" force une URL differente a chaque appel : evite qu'un cache
     // (navigateur ou CDN devant n8n) ne reserve indefiniment une vieille
     // reponse pour des endpoints dont la valeur change (stock de boosters...).
-    const bustedQuery = { ...(query || {}), _ts: Date.now() };
-    const res = await fetch(this.url(name, bustedQuery), { cache: "no-store" });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
-      err.code = data.error;
-      throw err;
+    if (typeof TopLoadingBar !== "undefined") TopLoadingBar.start();
+    try {
+      const bustedQuery = { ...(query || {}), _ts: Date.now() };
+      const res = await fetch(this.url(name, bustedQuery), { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
+        err.code = data.error;
+        throw err;
+      }
+      return data;
+    } finally {
+      if (typeof TopLoadingBar !== "undefined") TopLoadingBar.stop();
     }
-    return data;
   },
 
   // Petit cache navigateur (sessionStorage, par onglet) pour les donnees qui
@@ -156,5 +166,45 @@ const API = {
 
   cancelTrade(userId, tradeId) {
     return this.post("trade", { userId, action: "cancel", tradeId });
+  },
+
+  adminGetConfig(discordId) {
+    return this.post("adminConfig", { discordId, action: "get" });
+  },
+
+  adminSetConfig(discordId, params) {
+    return this.post("adminConfig", { discordId, action: "set", ...params });
+  },
+
+  adminCreateExtension(discordId, params) {
+    return this.post("adminExtensions", { discordId, action: "create", ...params });
+  },
+
+  adminUpdateExtension(discordId, params) {
+    return this.post("adminExtensions", { discordId, action: "update", ...params });
+  },
+
+  getLeaderboard() {
+    return this.get("leaderboard");
+  },
+
+  getRecentPulls() {
+    return this.get("recentPulls");
+  },
+
+  getPublicProfile(pseudo) {
+    return this.get("publicProfile", { pseudo });
+  },
+
+  listWishlist(userId) {
+    return this.post("wishlist", { userId, action: "list" });
+  },
+
+  addToWishlist(userId, cardId) {
+    return this.post("wishlist", { userId, action: "add", cardId });
+  },
+
+  removeFromWishlist(userId, cardId) {
+    return this.post("wishlist", { userId, action: "remove", cardId });
   }
 };

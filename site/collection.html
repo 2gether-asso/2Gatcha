@@ -30,8 +30,22 @@
         <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
 
         <div id="rarity-progress" class="rarity-progress-list"></div>
+        <div id="stats-grid" class="stats-grid"></div>
+        <div id="milestone-banner" class="milestone-banner" style="display:none;"></div>
 
         <div class="filters" id="rarity-filters"></div>
+        <div class="collection-toolbar">
+          <input type="text" id="search-input" placeholder="Rechercher une carte..." autocomplete="off" />
+          <select id="sort-select">
+            <option value="extension">Trier : par extension</option>
+            <option value="name">Trier : alphabetique</option>
+            <option value="artist">Trier : par artiste</option>
+            <option value="recent">Trier : recemment obtenues</option>
+          </select>
+          <button type="button" class="btn-secondary" id="missing-toggle">Manquantes uniquement</button>
+          <button type="button" class="btn-secondary" id="dense-toggle">Vue dense</button>
+          <button type="button" class="btn-secondary" id="cinema-toggle">Mode cinema</button>
+        </div>
 
         <div id="collection-grid"></div>
       </div>

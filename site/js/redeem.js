@@ -42,7 +42,10 @@ function buildCardEl(card, index) {
   return wrap;
 }
 
-function celebrateRarity(key, cardEl) {
+function celebrateRarity(key, cardEl, colorHex) {
+  // Particules proportionnelles a la rarete (spawnRarityBurst, main.js),
+  // toujours au-dessus de tout (z-index:420).
+  spawnRarityBurst(key, colorHex, cardEl);
   if (key === "legendaire") {
     // Pas de transform sur un ancetre des cartes (voir opening.js) : on
     // isole l'effet a un flash plein ecran + un filtre sur la carte.
@@ -57,12 +60,7 @@ function celebrateRarity(key, cardEl) {
       void cardEl.offsetWidth;
       cardEl.classList.add("legendary-hit");
     }
-    if (typeof confetti === "function") {
-      confetti({ particleCount: 160, spread: 100, origin: { y: 0.5 }, colors: ["#f5a524", "#ffd166", "#ffffff"] });
-    }
     Toast.success("Legendaire !");
-  } else if (key === "epique" && typeof confetti === "function") {
-    confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 }, colors: ["#a855f7", "#d8b4fe"] });
   }
 }
 
@@ -92,7 +90,7 @@ async function redeem() {
         grid.appendChild(el);
         setTimeout(() => {
           el.classList.add("revealed");
-          celebrateRarity(card.rarity?.key, el);
+          celebrateRarity(card.rarity?.key, el, card.rarity?.colorHex);
         }, 300 + i * 220);
       });
     }
@@ -116,4 +114,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("code-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") redeem();
   });
+
+  // Prefill depuis un QR code genere par l'admin (redeem.html?code=XXXX).
+  const prefill = new URLSearchParams(window.location.search).get("code");
+  if (prefill) {
+    document.getElementById("code-input").value = prefill.toUpperCase();
+  }
 });

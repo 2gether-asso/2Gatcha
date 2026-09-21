@@ -29,6 +29,12 @@ window.APP_CONFIG = {
     adminCodes: "/admin-codes",       // POST { discordId, action: 'create'|'list'|'revoke', ... }
     trade: "/trade",                  // POST { userId, action: 'create'|'list'|'respond'|'cancel', ... }
     disenchant: "/disenchant",        // POST { userId, cardId } -> { disenchanted, cardName, dustGained, newStardust }
-    craft: "/craft"                   // POST { userId, cardId } -> { crafted, card, craftCost, newStardust }
+    craft: "/craft",                  // POST { userId, cardId } -> { crafted, card, craftCost, newStardust }
+    adminConfig: "/admin-config",     // POST { discordId, action: 'get'|'set', pityThreshold?, topRarityKey? }
+    adminExtensions: "/admin-extensions", // POST { discordId, action: 'create'|'update', ... }
+    leaderboard: "/leaderboard",      // GET -> { topPullers, topLegendaries }
+    recentPulls: "/recent-pulls",     // GET -> { pulls: [{pseudo,cardName,imageId,rarity,obtainedAt}] }
+    publicProfile: "/public-profile", // GET ?pseudo=... -> { pseudo, totalPulls, uniqueCards, cards }
+    wishlist: "/wishlist"             // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { wishlist }
   }
 };

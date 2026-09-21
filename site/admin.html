@@ -15,7 +15,10 @@
   <main>
     <div class="panel">
       <h1>Admin - Codes evenement</h1>
-      <p class="lead">Cree un code a distribuer pendant un evenement de l'asso.</p>
+      <p class="lead">Cree un code a distribuer pendant un evenement de l'asso.
+        Besoin de verifier le rendu d'une carte avant de l'uploader dans Grist ?
+        <a href="card-preview-tool.html">Outil de previsualisation &rarr;</a>
+      </p>
 
       <div id="guest-warning" style="display:none;">
         <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
@@ -26,6 +29,43 @@
       </div>
 
       <div id="admin-zone" style="display:none;">
+        <h2>Parametres du gacha</h2>
+        <form id="config-form" class="admin-form">
+          <label>
+            Pity (nb de tirages sans la rarete garantie)
+            <input type="number" id="pity-threshold-input" min="1" />
+          </label>
+          <label>
+            Rarete garantie par la pity
+            <select id="top-rarity-select"></select>
+          </label>
+          <button type="submit">Enregistrer</button>
+        </form>
+
+        <h2>Extensions</h2>
+        <p class="lead" style="font-size:0.85rem;">
+          Cree une nouvelle extension ici, puis ajoute son visuel de packet et
+          son dos de carte directement dans Grist (table <code>Extensions</code>,
+          colonnes <code>PackImage</code>/<code>CardBackImage</code>).
+        </p>
+        <div id="extensions-list" class="codes-calendar"></div>
+        <form id="create-extension-form" class="admin-form">
+          <label>
+            Nom
+            <input type="text" id="ext-name-input" placeholder="ex: Halloween 2026" required />
+          </label>
+          <label>
+            Cle (slug)
+            <input type="text" id="ext-key-input" placeholder="ex: halloween-2026" required />
+          </label>
+          <label>
+            Ordre d'affichage
+            <input type="number" id="ext-sort-input" min="0" value="0" />
+          </label>
+          <button type="submit">Creer l'extension</button>
+        </form>
+
+        <h2>Codes evenement</h2>
         <form id="create-code-form" class="admin-form">
           <label>
             Code (laisse vide pour en generer un)
@@ -49,6 +89,7 @@
           <label id="card-select-label" style="display:none;">
             Carte
             <select id="card-select"></select>
+            <img id="card-select-preview" class="card-preview-thumb" alt="" style="display:none;margin-top:6px;width:90px;height:120px;" />
           </label>
           <label>
             Validite (en heures)
@@ -66,9 +107,13 @@
         <h2>Repartition des tirages recents</h2>
         <div id="rarity-chart" class="rarity-chart"></div>
 
-        <h2>Codes existants</h2>
+        <div class="actions" style="margin-top:24px;">
+          <h2 style="flex:1;margin:0;">Codes existants</h2>
+          <button type="button" class="btn-secondary active" id="view-table-btn">Tableau</button>
+          <button type="button" class="btn-secondary" id="view-calendar-btn">Calendrier</button>
+        </div>
         <div id="codes-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
-        <table class="admin-table">
+        <table class="admin-table" id="codes-table">
           <thead>
             <tr>
               <th>Code</th><th>Note</th><th>Recompense</th><th>Utilisations</th>
@@ -77,10 +122,12 @@
           </thead>
           <tbody id="codes-tbody"></tbody>
         </table>
+        <div id="codes-calendar" class="codes-calendar" style="display:none;"></div>
       </div>
     </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/main.js"></script>

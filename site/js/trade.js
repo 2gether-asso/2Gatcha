@@ -44,7 +44,7 @@ async function loadFormOptions() {
     .join("") || `<option value="">Aucune carte possedee</option>`;
 
   const requestedSelect = document.getElementById("requested-card-select");
-  requestedSelect.innerHTML = allCards
+  requestedSelect.innerHTML = `<option value="">Aucune (don)</option>` + allCards
     .map((c) => `<option value="${c.cardId}">${c.name}</option>`)
     .join("");
 
@@ -83,10 +83,12 @@ function renderTradeCard(trade, mine) {
     }
   }
 
+  const requestPart = trade.requestedCard
+    ? `contre <strong>${trade.requestedCard.name}</strong> a <strong>${trade.toPseudo}</strong>`
+    : `en cadeau a <strong>${trade.toPseudo}</strong> (aucune contrepartie)`;
   el.innerHTML = `
     <div class="trade-info">
-      <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong>
-        contre <strong>${trade.requestedCard.name}</strong> a <strong>${trade.toPseudo}</strong></div>
+      <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong> ${requestPart}</div>
       <span class="trade-status ${statusClass}">${STATUS_LABELS[trade.status] || trade.status}</span>
     </div>
     <div class="trade-actions">${actions}</div>
@@ -99,6 +101,29 @@ function renderTradeCard(trade, mine) {
   return el;
 }
 
+// Affiche une liste d'echanges dans un conteneur, en separant "en attente"
+// (action possible) de "termine" (historique en lecture seule).
+function renderTradeGroup(container, trades, emptyLabel) {
+  container.innerHTML = "";
+  if (!trades.length) {
+    container.append(Object.assign(document.createElement("div"), { className: "empty-state", textContent: emptyLabel }));
+    return;
+  }
+  const pending = trades.filter((t) => t.status === "pending");
+  const done = trades.filter((t) => t.status !== "pending");
+  if (pending.length) {
+    container.append(...pending.map((t) => renderTradeCard(t)));
+  }
+  if (done.length) {
+    const heading = document.createElement("h2");
+    heading.textContent = "Termine";
+    heading.style.fontSize = "0.95rem";
+    heading.style.margin = "14px 0 6px";
+    heading.style.color = "var(--text-dim)";
+    container.append(heading, ...done.map((t) => renderTradeCard(t)));
+  }
+}
+
 async function loadTrades() {
   const loading = document.getElementById("trades-loading");
   if (loading) loading.style.display = "flex";
@@ -108,14 +133,8 @@ async function loadTrades() {
     const incoming = document.getElementById("incoming-trades");
     const outgoing = document.getElementById("outgoing-trades");
 
-    const inList = trades.filter((t) => t.direction === "incoming");
-    const outList = trades.filter((t) => t.direction === "outgoing");
-
-    incoming.innerHTML = "";
-    incoming.append(...(inList.length ? inList.map((t) => renderTradeCard(t)) : [Object.assign(document.createElement("div"), { className: "empty-state", textContent: "Aucun echange recu." })]));
-
-    outgoing.innerHTML = "";
-    outgoing.append(...(outList.length ? outList.map((t) => renderTradeCard(t)) : [Object.assign(document.createElement("div"), { className: "empty-state", textContent: "Aucun echange envoye." })]));
+    renderTradeGroup(incoming, trades.filter((t) => t.direction === "incoming"), "Aucun echange recu.");
+    renderTradeGroup(outgoing, trades.filter((t) => t.direction === "outgoing"), "Aucun echange envoye.");
   } catch (e) {
     Toast.error("Impossible de charger les echanges. (" + e.message + ")");
   } finally {
@@ -163,9 +182,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("create-trade-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const offeredCardId = Number(document.getElementById("offered-card-select").value);
-    const requestedCardId = Number(document.getElementById("requested-card-select").value);
+    const requestedRaw = document.getElementById("requested-card-select").value;
+    const requestedCardId = requestedRaw ? Number(requestedRaw) : null;
     const toPseudo = document.getElementById("target-select").value;
-    if (!offeredCardId || !requestedCardId || !toPseudo) return;
+    if (!offeredCardId || !toPseudo) return;
 
     try {
       await API.createTrade(Session.userId, toPseudo, offeredCardId, requestedCardId);

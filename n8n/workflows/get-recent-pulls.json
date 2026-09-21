@@ -1,0 +1,319 @@
+{
+  "name": "2Gatcha - get-recent-pulls",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "recent-pulls",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "6a0ed754-2bea-4c15-8eba-14998d2a1474"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { docId: 'cRP1WgZQv7KmwmVrUbuEF8' } }];"
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -760,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -480,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -340,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -200,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-3",
+      "name": "Sync Get Rarities -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        80,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst userById = {}; users.forEach((u) => { userById[u.id] = u; });\n\nconst recent = pulls\n  .filter((p) => !(p.BatchId || '').toString().startsWith('craft-'))\n  .sort((a, b) => (b.ObtainedAt || 0) - (a.ObtainedAt || 0))\n  .slice(0, 30)\n  .map((p) => {\n    const card = cardById[refId(p.Card)];\n    const rarity = card ? rarityById[refId(card.Rarity)] : null;\n    const user = userById[refId(p.User)];\n    return {\n      pseudo: (user && user.Pseudo) || '?',\n      cardName: (card && card.Name) || '?',\n      imageId: card ? firstAttachment(card.Image) : null,\n      rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null,\n      obtainedAt: p.ObtainedAt || 0\n    };\n  });\n\nreturn [{ json: { pulls: recent } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Rarities -> Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

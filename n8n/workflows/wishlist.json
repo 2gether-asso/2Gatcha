@@ -1,0 +1,509 @@
+{
+  "name": "2Gatcha - wishlist",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wishlist",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "79d70851-883a-4a22-8d60-88000118ab06"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1180,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  cardId: Number(body.cardId)\n} }];"
+      }
+    },
+    {
+      "id": "get-wishlist",
+      "name": "Get Wishlist",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -960,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Wishlist",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Wishlist -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -640,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -320,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "dispatch",
+      "name": "Dispatch Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Wishlist').all().map((i) => i.json).filter((r) => r.id != null);\nconst mine = rows.filter((r) => refId(r.User) === cfg.userId);\nconst existing = mine.find((r) => refId(r.Card) === cfg.cardId);\nreturn [{ json: { ...cfg, existingRowId: existing ? existing.id : null, alreadyPresent: !!existing } }];"
+      }
+    },
+    {
+      "id": "if-action-add",
+      "name": "If Action Is Add",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        0,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "add",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "if-not-already-present",
+      "name": "If Not Already Present",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        180,
+        140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.alreadyPresent }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-wishlist-row",
+      "name": "Create Wishlist Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        360,
+        60
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Wishlist",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "Card",
+              "fieldValue": "={{ $json.cardId }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-action-remove",
+      "name": "If Action Is Remove",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        0,
+        380
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "remove",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "delete-wishlist-row",
+      "name": "Delete Wishlist Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        180,
+        380
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Wishlist",
+        "rowId": "={{ $json.existingRowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-list",
+      "name": "Format List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        540
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Wishlist').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === cfg.userId);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\n\nconst list = rows.map((r) => {\n  const card = cardById[refId(r.Card)];\n  if (!card) return null;\n  const rarity = rarityById[refId(card.Rarity)];\n  return {\n    cardId: card.id,\n    name: card.Name,\n    imageId: firstAttachment(card.Image),\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null\n  };\n}).filter(Boolean);\n\nreturn [{ json: { wishlist: list } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        380
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Wishlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wishlist": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Wishlist -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Wishlist -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Action": {
+      "main": [
+        [
+          {
+            "node": "If Action Is Add",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Action Is Add": {
+      "main": [
+        [
+          {
+            "node": "If Not Already Present",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Action Is Remove",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Not Already Present": {
+      "main": [
+        [
+          {
+            "node": "Format List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Wishlist Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Wishlist Row": {
+      "main": [
+        [
+          {
+            "node": "Format List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Action Is Remove": {
+      "main": [
+        [
+          {
+            "node": "Delete Wishlist Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Wishlist Row": {
+      "main": [
+        [
+          {
+            "node": "Format List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format List": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

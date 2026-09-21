@@ -9,10 +9,28 @@
 // }
 
 const NEW_BADGE_WINDOW_SECONDS = 24 * 3600;
+const FAVORITES_KEY = "2gatcha_favorites";
 
 let allCardsCache = [];
 let ownedMap = new Map();
 let activeFilter = "all";
+let searchQuery = "";
+let sortMode = "extension";
+let missingOnly = false;
+
+// Favoris : purement locaux (par appareil), pas de backend necessaire.
+function loadFavorites() {
+  try { return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]")); }
+  catch (e) { return new Set(); }
+}
+function saveFavorites(set) {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...set])); } catch (e) {}
+}
+let favorites = loadFavorites();
+
+function normalize(str) {
+  return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
 
 function renderFilters(rarities) {
   const el = document.getElementById("rarity-filters");
@@ -72,10 +90,11 @@ function showCardModal(card, owned) {
       </div>
     </div>
   `;
-  const close = () => overlay.remove();
+  const close = () => { overlay.remove(); syncScrollLock(); };
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   overlay.querySelector(".card-modal-close").addEventListener("click", close);
   document.body.appendChild(overlay);
+  syncScrollLock();
 }
 
 function renderRarityProgress() {
@@ -108,16 +127,18 @@ function cardTileHtml(card, now) {
   const owned = ownedMap.get(card.cardId);
   const locked = !owned;
   const isNew = !!(owned && owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS);
+  const isFav = favorites.has(card.cardId);
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   return `
-    <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}">
+    <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}">
       ${isNew ? '<span class="new-badge">New</span>' : ""}
+      ${!locked ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
       <img src="${imgSrc}" alt="${locked ? "Carte non decouverte" : card.name}" />
       <div class="card-info">
         <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
         <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
-          ${card.rarity?.name || "Commune"}
+          ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
         </span>
         ${owned ? `<div class="count-badge">x${owned.count}</div>` : ""}
       </div>
@@ -125,37 +146,111 @@ function cardTileHtml(card, now) {
   `;
 }
 
+function renderStatsAndMilestone() {
+  const statsEl = document.getElementById("stats-grid");
+  const milestoneEl = document.getElementById("milestone-banner");
+  if (!statsEl) return;
+
+  let totalCopies = 0;
+  let bestRarity = null;
+  const byRarity = new Map();
+  allCardsCache.forEach((c) => {
+    const key = c.rarity?.key || "commune";
+    if (!byRarity.has(key)) {
+      byRarity.set(key, { name: c.rarity?.name || key, colorHex: c.rarity?.colorHex || "#9aa0b4", sortOrder: c.rarity?.sortOrder || 0, total: 0, owned: 0 });
+    }
+    const entry = byRarity.get(key);
+    entry.total++;
+    const owned = ownedMap.get(c.cardId);
+    if (owned) {
+      entry.owned++;
+      totalCopies += owned.count;
+      if (!bestRarity || (c.rarity?.sortOrder || 0) > bestRarity.sortOrder) {
+        bestRarity = { name: c.rarity?.name || "Commune", sortOrder: c.rarity?.sortOrder || 0, colorHex: c.rarity?.colorHex || "#9aa0b4" };
+      }
+    }
+  });
+
+  const legendaryEntry = [...byRarity.values()].find((r) => r.name && normalize(r.name) === "legendaire");
+  const legendaryShare = totalCopies && legendaryEntry ? Math.round((legendaryEntry.owned / totalCopies) * 100) : 0;
+
+  statsEl.innerHTML = `
+    <div class="stat-tile"><div class="stat-value">${ownedMap.size}</div><div class="stat-label">Cartes uniques</div></div>
+    <div class="stat-tile"><div class="stat-value">${totalCopies}</div><div class="stat-label">Exemplaires au total</div></div>
+    <div class="stat-tile"><div class="stat-value" style="color:${bestRarity?.colorHex || "inherit"};">${bestRarity ? bestRarity.name : "-"}</div><div class="stat-label">Meilleur pull</div></div>
+    <div class="stat-tile"><div class="stat-value">${legendaryShare}%</div><div class="stat-label">Part de legendaires</div></div>
+  `;
+
+  if (milestoneEl) {
+    const candidates = [...byRarity.values()].filter((r) => r.owned < r.total);
+    candidates.sort((a, b) => (a.total - a.owned) - (b.total - b.owned));
+    const next = candidates[0];
+    if (next) {
+      const missing = next.total - next.owned;
+      milestoneEl.style.display = "flex";
+      milestoneEl.innerHTML = `&#127919; Encore <strong>${missing} carte${missing > 1 ? "s" : ""} ${next.name}</strong> pour completer cette rarete !`;
+    } else {
+      milestoneEl.style.display = "flex";
+      milestoneEl.innerHTML = `&#127942; Collection complete, felicitations !`;
+    }
+  }
+}
+
 function renderGrid() {
   const container = document.getElementById("collection-grid");
+  container.classList.toggle("dense", document.body.classList.contains("dense-view"));
   const now = Math.floor(Date.now() / 1000);
-  const cards = allCardsCache.filter(
+  let cards = allCardsCache.filter(
     (c) => activeFilter === "all" || c.rarity?.key === activeFilter
   );
+  if (missingOnly) cards = cards.filter((c) => !ownedMap.has(c.cardId));
+  if (searchQuery) {
+    const q = normalize(searchQuery);
+    cards = cards.filter((c) => ownedMap.has(c.cardId) && normalize(c.name).includes(q));
+  }
 
   if (!cards.length) {
-    container.innerHTML = `<div class="empty-state">Aucune carte dans cette categorie.</div>`;
+    container.innerHTML = `<div class="empty-state">Aucune carte ne correspond.</div>`;
     return;
   }
 
-  // Tri : uniquement par extension (SortOrder). La rarete est geree par les
-  // boutons de filtre au-dessus, pas par un tri automatique dans la grille.
-  const sorted = [...cards].sort((a, b) => {
-    const extA = a.extension?.sortOrder ?? 999;
-    const extB = b.extension?.sortOrder ?? 999;
-    if (extA !== extB) return extA - extB;
-    return (a.name || "").localeCompare(b.name || "");
-  });
+  // Tri "extension" (par defaut) : par SortOrder d'extension, la rarete
+  // restant geree par les boutons de filtre, pas par un tri automatique.
+  let sorted;
+  if (sortMode === "name") {
+    sorted = [...cards].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  } else if (sortMode === "artist") {
+    sorted = [...cards].sort((a, b) => (a.artist || "").localeCompare(b.artist || "") || (a.name || "").localeCompare(b.name || ""));
+  } else if (sortMode === "recent") {
+    sorted = [...cards].sort((a, b) => {
+      const ta = ownedMap.get(a.cardId)?.lastObtainedAt || 0;
+      const tb = ownedMap.get(b.cardId)?.lastObtainedAt || 0;
+      return tb - ta;
+    });
+  } else {
+    sorted = [...cards].sort((a, b) => {
+      const extA = a.extension?.sortOrder ?? 999;
+      const extB = b.extension?.sortOrder ?? 999;
+      if (extA !== extB) return extA - extB;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }
 
-  // Regroupe par extension en conservant l'ordre de tri.
-  const groups = [];
-  let current = null;
-  for (const card of sorted) {
-    const extKey = card.extension?.key || "__none__";
-    if (!current || current.key !== extKey) {
-      current = { key: extKey, name: card.extension?.name || "Sans extension", cards: [] };
-      groups.push(current);
+  // Regroupe par extension uniquement en mode de tri "extension".
+  let groups;
+  if (sortMode === "extension") {
+    groups = [];
+    let current = null;
+    for (const card of sorted) {
+      const extKey = card.extension?.key || "__none__";
+      if (!current || current.key !== extKey) {
+        current = { key: extKey, name: card.extension?.name || "Sans extension", cards: [] };
+        groups.push(current);
+      }
+      current.cards.push(card);
     }
-    current.cards.push(card);
+  } else {
+    groups = [{ key: "__flat__", name: "", cards: sorted }];
   }
 
   const showHeadings = groups.length > 1;
@@ -166,10 +261,21 @@ function renderGrid() {
 
   container.querySelectorAll(".collection-card:not(.locked)").forEach((el) => {
     attachTilt(el);
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".fav-btn")) return;
       const cardId = Number(el.dataset.cardId);
       const card = allCardsCache.find((c) => c.cardId === cardId);
       if (card) showCardModal(card, ownedMap.get(cardId));
+    });
+  });
+
+  container.querySelectorAll(".fav-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = Number(btn.dataset.favId);
+      if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
+      saveFavorites(favorites);
+      btn.classList.toggle("active");
     });
   });
 }
@@ -191,6 +297,7 @@ async function loadCollection() {
     document.getElementById("progress-fill").style.width = pct + "%";
 
     renderRarityProgress();
+    renderStatsAndMilestone();
 
     const rarityByKey = new Map();
     allCardsCache.forEach((c) => {
@@ -216,4 +323,34 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   loadCollection();
+
+  let searchTimer = null;
+  document.getElementById("search-input").addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { searchQuery = e.target.value; renderGrid(); }, 150);
+  });
+  document.getElementById("sort-select").addEventListener("change", (e) => {
+    sortMode = e.target.value;
+    renderGrid();
+  });
+  document.getElementById("missing-toggle").addEventListener("click", (e) => {
+    missingOnly = !missingOnly;
+    e.target.classList.toggle("active", missingOnly);
+    renderGrid();
+  });
+  document.getElementById("dense-toggle").addEventListener("click", (e) => {
+    document.body.classList.toggle("dense-view");
+    e.target.classList.toggle("active", document.body.classList.contains("dense-view"));
+    renderGrid();
+  });
+  document.getElementById("cinema-toggle").addEventListener("click", (e) => {
+    document.body.classList.toggle("cinema-mode");
+    e.target.classList.toggle("active", document.body.classList.contains("cinema-mode"));
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("cinema-mode")) {
+      document.body.classList.remove("cinema-mode");
+      document.getElementById("cinema-toggle").classList.remove("active");
+    }
+  });
 });
