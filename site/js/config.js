@@ -35,6 +35,7 @@ window.APP_CONFIG = {
     leaderboard: "/leaderboard",      // GET -> { topPullers, topLegendaries }
     recentPulls: "/recent-pulls",     // GET -> { pulls: [{pseudo,cardName,imageId,rarity,obtainedAt}] }
     publicProfile: "/public-profile", // GET ?pseudo=... -> { pseudo, totalPulls, uniqueCards, cards }
-    wishlist: "/wishlist"             // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { wishlist }
+    wishlist: "/wishlist",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { wishlist }
+    quests: "/quests"                 // POST { userId } -> { quests, completedCount, rewardClaimed, justClaimedReward }
   }
 };

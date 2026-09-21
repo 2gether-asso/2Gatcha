@@ -26,6 +26,10 @@ const STATUS_LABELS = {
 
 let myOwnedCards = [];
 let allCards = [];
+let allTradesCache = [];
+let historySearch = "";
+let bulkCancelMode = false;
+let bulkCancelSelected = new Set();
 
 async function loadFormOptions() {
   const [collection, cardsRes, usersRes] = await Promise.all([
@@ -66,12 +70,13 @@ function updateCardPreview(selectId, previewId) {
   preview.src = (card && API.imageUrl(card.imageId)) || PLACEHOLDER_IMG;
 }
 
-function renderTradeCard(trade, mine) {
+function renderTradeCard(trade) {
   const el = document.createElement("div");
   el.className = "trade-card";
   el.dataset.status = trade.status;
   const statusClass = "trade-status-" + trade.status;
 
+  const canBulkCancel = bulkCancelMode && trade.direction === "outgoing" && trade.status === "pending";
   let actions = "";
   if (trade.status === "pending") {
     if (trade.direction === "incoming") {
@@ -79,7 +84,7 @@ function renderTradeCard(trade, mine) {
         <button class="btn-secondary accept-btn" data-id="${trade.tradeId}">Accepter</button>
         <button class="btn-ghost decline-btn" data-id="${trade.tradeId}">Refuser</button>
       `;
-    } else {
+    } else if (!bulkCancelMode) {
       actions = `<button class="btn-ghost cancel-btn" data-id="${trade.tradeId}">Annuler</button>`;
     }
   }
@@ -88,6 +93,7 @@ function renderTradeCard(trade, mine) {
     ? `contre <strong>${trade.requestedCard.name}</strong> a <strong>${trade.toPseudo}</strong>`
     : `en cadeau a <strong>${trade.toPseudo}</strong> (aucune contrepartie)`;
   el.innerHTML = `
+    ${canBulkCancel ? `<label class="bulk-checkbox" style="position:static;"><input type="checkbox" data-bulk-trade-id="${trade.tradeId}" ${bulkCancelSelected.has(trade.tradeId) ? "checked" : ""} /></label>` : ""}
     <div class="trade-info">
       <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong> ${requestPart}</div>
       <span class="trade-status ${statusClass}">${STATUS_LABELS[trade.status] || trade.status}</span>
@@ -98,20 +104,34 @@ function renderTradeCard(trade, mine) {
   el.querySelectorAll(".accept-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, true)));
   el.querySelectorAll(".decline-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, false)));
   el.querySelectorAll(".cancel-btn").forEach((b) => b.addEventListener("click", () => cancel(b.dataset.id)));
+  el.querySelectorAll("[data-bulk-trade-id]").forEach((cb) => {
+    cb.addEventListener("change", (e) => {
+      const id = Number(cb.dataset.bulkTradeId);
+      if (e.target.checked) bulkCancelSelected.add(id); else bulkCancelSelected.delete(id);
+      updateBulkCancelBar();
+    });
+  });
 
   return el;
 }
 
 // Affiche une liste d'échanges dans un conteneur, en separant "en attente"
-// (action possible) de "termine" (historique en lecture seule).
+// (action possible) de "termine" (historique en lecture seule). Filtrable
+// par pseudo de l'autre joueur (voir #trade-history-search).
 function renderTradeGroup(container, trades, emptyLabel) {
   container.innerHTML = "";
-  if (!trades.length) {
-    container.append(Object.assign(document.createElement("div"), { className: "empty-state", textContent: emptyLabel }));
+  const filtered = historySearch
+    ? trades.filter((t) => {
+        const other = t.direction === "incoming" ? t.fromPseudo : t.toPseudo;
+        return (other || "").toLowerCase().includes(historySearch.toLowerCase());
+      })
+    : trades;
+  if (!filtered.length) {
+    container.append(Object.assign(document.createElement("div"), { className: "empty-state", textContent: historySearch ? "Aucun échange avec ce joueur." : emptyLabel }));
     return;
   }
-  const pending = trades.filter((t) => t.status === "pending");
-  const done = trades.filter((t) => t.status !== "pending");
+  const pending = filtered.filter((t) => t.status === "pending");
+  const done = filtered.filter((t) => t.status !== "pending");
   if (pending.length) {
     container.append(...pending.map((t) => renderTradeCard(t)));
   }
@@ -125,17 +145,51 @@ function renderTradeGroup(container, trades, emptyLabel) {
   }
 }
 
+function renderAllTrades() {
+  const incoming = document.getElementById("incoming-trades");
+  const outgoing = document.getElementById("outgoing-trades");
+  renderTradeGroup(incoming, allTradesCache.filter((t) => t.direction === "incoming"), "Aucun échange recu.");
+  renderTradeGroup(outgoing, allTradesCache.filter((t) => t.direction === "outgoing"), "Aucun échange envoye.");
+  updateBulkCancelBar();
+}
+
+function updateBulkCancelBar() {
+  const bar = document.getElementById("bulk-cancel-bar");
+  if (!bar) return;
+  if (!bulkCancelMode || bulkCancelSelected.size === 0) {
+    bar.style.display = "none";
+    return;
+  }
+  bar.style.display = "flex";
+  document.getElementById("bulk-cancel-summary").textContent =
+    `${bulkCancelSelected.size} échange${bulkCancelSelected.size > 1 ? "s" : ""} sélectionné${bulkCancelSelected.size > 1 ? "s" : ""}`;
+}
+
+// Notifie quand un envoi passe de "en attente" a "accepte"/"refuse" depuis
+// la derniere visite (l'inverse - une nouvelle demande RECUE - est deja
+// gere globalement dans main.js/loadNavBadges).
+const TRADE_STATUS_SEEN_KEY = "2gatcha_trade_status_seen";
+function checkOutgoingStatusChanges(trades) {
+  let seen = {};
+  try { seen = JSON.parse(localStorage.getItem(TRADE_STATUS_SEEN_KEY) || "{}"); } catch (e) {}
+  trades.filter((t) => t.direction === "outgoing").forEach((t) => {
+    const prev = seen[t.tradeId];
+    if (prev === "pending" && (t.status === "accepted" || t.status === "declined")) {
+      Toast.info(`${t.toPseudo} a ${t.status === "accepted" ? "accepté" : "refusé"} ton échange de ${t.offeredCard.name}.`);
+    }
+    seen[t.tradeId] = t.status;
+  });
+  try { localStorage.setItem(TRADE_STATUS_SEEN_KEY, JSON.stringify(seen)); } catch (e) {}
+}
+
 async function loadTrades() {
   const loading = document.getElementById("trades-loading");
   if (loading) loading.style.display = "flex";
   try {
     const res = await API.listTrades(Session.userId);
-    const trades = res.trades || [];
-    const incoming = document.getElementById("incoming-trades");
-    const outgoing = document.getElementById("outgoing-trades");
-
-    renderTradeGroup(incoming, trades.filter((t) => t.direction === "incoming"), "Aucun échange recu.");
-    renderTradeGroup(outgoing, trades.filter((t) => t.direction === "outgoing"), "Aucun échange envoye.");
+    allTradesCache = res.trades || [];
+    checkOutgoingStatusChanges(allTradesCache);
+    renderAllTrades();
   } catch (e) {
     Toast.error("Impossible de charger les échanges. (" + e.message + ")");
   } finally {
@@ -160,6 +214,72 @@ async function cancel(tradeId) {
     loadTrades();
   } catch (e) {
     Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
+async function bulkCancel() {
+  const ids = [...bulkCancelSelected];
+  if (!ids.length) return;
+  const ok = await Confirm.show(`Annuler ces <strong>${ids.length} échanges</strong> en attente ?`, {
+    title: "Annuler la sélection ?",
+    confirmText: "Tout annuler",
+    dangerous: true
+  });
+  if (!ok) return;
+  let successCount = 0;
+  for (const id of ids) {
+    try {
+      await API.cancelTrade(Session.userId, id);
+      successCount++;
+    } catch (e) { /* on continue avec les suivants */ }
+  }
+  Toast.info(`${successCount} échange${successCount > 1 ? "s" : ""} annulé${successCount > 1 ? "s" : ""}.`);
+  bulkCancelSelected.clear();
+  bulkCancelMode = false;
+  document.getElementById("bulk-cancel-toggle").classList.remove("active");
+  loadTrades();
+}
+
+// Suggestions d'échange : parmi les autres joueurs, qui possède en double
+// une carte qu'on n'a pas du tout ? Verification bornee (au plus 15 autres
+// joueurs) pour ne pas multiplier les requetes sur une grosse asso.
+async function loadTradeSuggestions() {
+  const zone = document.getElementById("trade-suggestions");
+  if (!zone) return;
+  try {
+    const [usersRes, myCollection] = await Promise.all([
+      API.listUsers(),
+      API.getCollection(Session.userId)
+    ]);
+    const myOwnedIds = new Set((myCollection.owned || []).map((o) => o.cardId));
+    const others = (usersRes.users || [])
+      .filter((u) => String(u.userId) !== String(Session.userId) && u.pseudo)
+      .slice(0, 15);
+    if (!others.length) { zone.style.display = "none"; return; }
+
+    const profiles = await Promise.all(
+      others.map((u) => API.getPublicProfile(u.pseudo).then((p) => ({ pseudo: u.pseudo, profile: p })).catch(() => null))
+    );
+
+    const suggestions = [];
+    profiles.filter(Boolean).forEach(({ pseudo, profile }) => {
+      (profile.cards || []).forEach((c) => {
+        if (c.count > 1 && !c.isPromo && !myOwnedIds.has(c.cardId)) {
+          suggestions.push({ pseudo, cardName: c.name, colorHex: c.rarity?.colorHex });
+        }
+      });
+    });
+
+    if (!suggestions.length) { zone.style.display = "none"; return; }
+    zone.style.display = "block";
+    document.getElementById("trade-suggestions-list").innerHTML = suggestions.slice(0, 8).map((s) => `
+      <div class="suggestion-row">
+        <span>&#128161; <strong>${s.pseudo}</strong> a un doublon de <strong style="color:${s.colorHex || "inherit"};">${s.cardName}</strong> que tu n'as pas.</span>
+        <a class="btn-ghost" href="profile.html?pseudo=${encodeURIComponent(s.pseudo)}">Voir son profil</a>
+      </div>
+    `).join("");
+  } catch (e) {
+    zone.style.display = "none";
   }
 }
 
@@ -196,4 +316,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       Toast.error(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));
     }
   });
+
+  let historyTimer = null;
+  document.getElementById("trade-history-search").addEventListener("input", (e) => {
+    clearTimeout(historyTimer);
+    historyTimer = setTimeout(() => { historySearch = e.target.value; renderAllTrades(); }, 150);
+  });
+
+  document.getElementById("bulk-cancel-toggle").addEventListener("click", (e) => {
+    bulkCancelMode = !bulkCancelMode;
+    bulkCancelSelected.clear();
+    e.target.classList.toggle("active", bulkCancelMode);
+    renderAllTrades();
+  });
+  document.getElementById("bulk-cancel-btn").addEventListener("click", bulkCancel);
+
+  loadTradeSuggestions();
 });

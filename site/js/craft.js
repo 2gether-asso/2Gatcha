@@ -19,20 +19,24 @@ const CRAFT_ERRORS = {
 let stardust = 0;
 let ownedMap = new Map();
 let allCards = [];
+let bulkSelectMode = false;
+let bulkSelected = new Set();
 
 function craftCardTile(card, mode) {
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   if (mode === "disenchant") {
     const owned = ownedMap.get(card.cardId);
     const dust = card.rarity?.disenchantValue || 0;
+    const checked = bulkSelected.has(card.cardId);
     return `
-      <div class="craft-card" data-card-id="${card.cardId}">
-        <img src="${imgSrc}" alt="${card.name}" />
+      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}">
+        ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
+        <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
         <div class="card-info">
           <div class="card-name">${card.name}</div>
           <div class="owned-count">Possède x${owned.count}</div>
           <div class="craft-cost">+${dust} poussières</div>
-          <button class="disenchant-btn" data-card-id="${card.cardId}">Decrafter</button>
+          <button class="disenchant-btn" data-card-id="${card.cardId}" ${bulkSelectMode ? "disabled" : ""}>Decrafter</button>
         </div>
       </div>
     `;
@@ -41,7 +45,7 @@ function craftCardTile(card, mode) {
   const canAfford = stardust >= cost;
   return `
     <div class="craft-card ${canAfford ? "" : "unavailable"}" data-card-id="${card.cardId}">
-      <img src="${imgSrc}" alt="${card.name}" />
+      <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
       <div class="card-info">
         <div class="card-name">${card.name}</div>
         <div class="craft-cost">${cost} poussières</div>
@@ -88,6 +92,53 @@ function renderDisenchantGrid() {
   grid.querySelectorAll(".disenchant-btn").forEach((btn) => {
     btn.addEventListener("click", () => disenchant(Number(btn.dataset.cardId)));
   });
+  grid.querySelectorAll("[data-bulk-id]").forEach((cb) => {
+    cb.addEventListener("change", (e) => {
+      const id = Number(cb.dataset.bulkId);
+      if (e.target.checked) bulkSelected.add(id); else bulkSelected.delete(id);
+      cb.closest(".craft-card").classList.toggle("selected", e.target.checked);
+      updateBulkBar();
+    });
+  });
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById("bulk-disenchant-bar");
+  if (!bulkSelectMode || bulkSelected.size === 0) {
+    bar.style.display = "none";
+    return;
+  }
+  const dust = [...bulkSelected].reduce((sum, id) => {
+    const card = allCards.find((c) => c.cardId === id);
+    return sum + (card?.rarity?.disenchantValue || 0);
+  }, 0);
+  bar.style.display = "flex";
+  document.getElementById("bulk-disenchant-summary").textContent =
+    `${bulkSelected.size} carte${bulkSelected.size > 1 ? "s" : ""} sélectionnée${bulkSelected.size > 1 ? "s" : ""} · +${dust} poussières`;
+}
+
+async function bulkDisenchant() {
+  const ids = [...bulkSelected];
+  if (!ids.length) return;
+  const dust = ids.reduce((sum, id) => sum + (allCards.find((c) => c.cardId === id)?.rarity?.disenchantValue || 0), 0);
+  const ok = await Confirm.show(
+    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>+${dust} poussières d'étoile</strong> ? ` +
+    `Solde : ${stardust} &rarr; <strong>${stardust + dust}</strong>. Cette action est irréversible.`,
+    { title: "Décrafter la sélection ?", confirmText: "Décrafter tout", dangerous: true }
+  );
+  if (!ok) return;
+  let successCount = 0;
+  for (const id of ids) {
+    try {
+      await API.disenchantCard(Session.userId, id);
+      successCount++;
+    } catch (e) { /* on continue avec les suivantes */ }
+  }
+  Toast.success(`${successCount} carte${successCount > 1 ? "s" : ""} décraftée${successCount > 1 ? "s" : ""}.`);
+  bulkSelected.clear();
+  bulkSelectMode = false;
+  document.getElementById("bulk-select-toggle").classList.remove("active");
+  await reload();
 }
 
 function renderCraftGrid() {
@@ -171,4 +222,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   document.getElementById("craft-zone").style.display = "block";
   reload();
+
+  document.getElementById("bulk-select-toggle").addEventListener("click", (e) => {
+    bulkSelectMode = !bulkSelectMode;
+    bulkSelected.clear();
+    e.target.classList.toggle("active", bulkSelectMode);
+    updateBulkBar();
+    renderDisenchantGrid();
+  });
+  document.getElementById("bulk-disenchant-btn").addEventListener("click", bulkDisenchant);
 });

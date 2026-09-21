@@ -173,13 +173,43 @@ function renderRarityChart(rarities) {
   `).join("");
 }
 
+function renderRetentionStats(retention) {
+  const el = document.getElementById("retention-stats");
+  if (!el) return;
+  if (!retention) { el.innerHTML = `<div class="empty-state">Pas encore de données.</div>`; return; }
+  el.innerHTML = `
+    <div class="stat-tile"><div class="stat-value">${retention.totalUsers}</div><div class="stat-label">Comptes créés</div></div>
+    <div class="stat-tile"><div class="stat-value">${retention.active7}</div><div class="stat-label">Actifs sur 7 jours</div></div>
+    <div class="stat-tile"><div class="stat-value">${retention.active30}</div><div class="stat-label">Actifs sur 30 jours</div></div>
+  `;
+}
+
 async function loadStats() {
   try {
     const res = await API.adminGetStats(Session.discordId);
     renderRarityChart(res.rarities || []);
+    renderRetentionStats(res.retention);
   } catch (e) {
     // Non bloquant : le graphique est secondaire par rapport a la gestion des codes.
   }
+}
+
+// Aperçu de la banniere de recompense telle qu'elle apparaitra une fois le
+// code créé, mise a jour en direct pendant la saisie du formulaire.
+function updateRewardPreview() {
+  const preview = document.getElementById("reward-preview");
+  if (!preview) return;
+  const rewardType = document.getElementById("reward-type-select").value;
+  const quantity = Number(document.getElementById("quantity-input").value) || 1;
+  let text;
+  if (rewardType === "card") {
+    const card = cardsCatalog.find((c) => String(c.cardId) === document.getElementById("card-select").value);
+    text = `+${quantity} exemplaire${quantity > 1 ? "s" : ""} de ${card ? card.name : "..."}`;
+  } else {
+    text = `+${quantity} booster${quantity > 1 ? "s" : ""}`;
+  }
+  preview.style.display = "block";
+  preview.textContent = `Aperçu : ${text}`;
 }
 
 // --- Paramètres du gacha (pity/rareté garantie) ---
@@ -283,9 +313,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  document.getElementById("reward-type-select").addEventListener("change", updateCardFieldVisibility);
-  document.getElementById("card-select").addEventListener("change", updateCardPreview);
+  document.getElementById("reward-type-select").addEventListener("change", () => { updateCardFieldVisibility(); updateRewardPreview(); });
+  document.getElementById("card-select").addEventListener("change", () => { updateCardPreview(); updateRewardPreview(); });
+  document.getElementById("quantity-input").addEventListener("input", updateRewardPreview);
   updateCardFieldVisibility();
+  updateRewardPreview();
 
   document.getElementById("view-table-btn").addEventListener("click", (e) => {
     calendarView = false;
@@ -312,7 +344,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       quantity: Number(document.getElementById("quantity-input").value) || 1,
       cardId: rewardType === "card" ? Number(document.getElementById("card-select").value) : undefined,
       expiresInHours: Number(document.getElementById("expires-input").value) || 4,
-      maxRedemptions: Number(document.getElementById("max-redemptions-input").value) || 0
+      maxRedemptions: Number(document.getElementById("max-redemptions-input").value) || 0,
+      notifyDiscord: document.getElementById("notify-discord-checkbox").checked
     };
 
     try {
@@ -322,6 +355,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderCodeQr(created.code);
       document.getElementById("create-code-form").reset();
       updateCardFieldVisibility();
+      updateRewardPreview();
       Toast.success(`Code ${created.code} créé !`);
       loadCodes();
     } catch (err) {

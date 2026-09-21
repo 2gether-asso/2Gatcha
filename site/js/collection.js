@@ -32,6 +32,7 @@ let searchQuery = "";
 let sortMode = prefs.sortMode || "extension";
 let missingOnly = !!prefs.missingOnly;
 let favoritesOnly = false;
+let artistFilter = "";
 
 // Favoris : purement locaux (par appareil), pas de backend necessaire.
 function loadFavorites() {
@@ -104,29 +105,78 @@ function attachTilt(el) {
   el.addEventListener("touchend", reset);
 }
 
-function showCardModal(card, owned) {
+// navList = tableau ordonne des cardId actuellement affiches (dans l'ordre
+// visible de la grille) : permet de naviguer a la carte precedente/suivante
+// sans fermer la modale, au clavier (fleches) ou au doigt (swipe).
+function showCardModal(cardId, navList) {
   const overlay = document.createElement("div");
   overlay.className = "card-modal-overlay";
-  const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
-  const color = card.rarity?.colorHex || "#9aa0b4";
-  overlay.innerHTML = `
-    <div class="card-modal">
-      <button class="card-modal-close" aria-label="Fermer">&times;</button>
-      <img src="${imgSrc}" alt="${card.name}" />
-      <div class="card-modal-body">
-        <div class="card-modal-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
-        <div class="card-modal-artist">${card.artist || ""}${card.extension ? " &middot; " + card.extension.name : ""}</div>
-        <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
-          ${card.rarity?.name || "Commune"}
-        </span>
-        ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
-      </div>
-    </div>
-  `;
-  const close = () => { overlay.remove(); syncScrollLock(); };
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-  overlay.querySelector(".card-modal-close").addEventListener("click", close);
   document.body.appendChild(overlay);
+
+  let index = Math.max(0, navList.indexOf(cardId));
+
+  function renderAt(newIndex, direction) {
+    index = newIndex;
+    const card = allCardsCache.find((c) => c.cardId === navList[index]);
+    if (!card) return;
+    const owned = ownedMap.get(card.cardId);
+    const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+    const color = card.rarity?.colorHex || "#9aa0b4";
+    overlay.innerHTML = `
+      <div class="card-modal ${direction ? "slide-" + direction : ""}">
+        <button class="card-modal-close" aria-label="Fermer">&times;</button>
+        ${navList.length > 1 ? `<button class="card-modal-nav prev" aria-label="Carte precedente">&#10094;</button>` : ""}
+        ${navList.length > 1 ? `<button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
+        <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+        <div class="card-modal-body">
+          <div class="card-modal-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
+          <div class="card-modal-artist">${card.artist || ""}${card.extension ? " &middot; " + card.extension.name : ""}</div>
+          <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
+            ${card.rarity?.name || "Commune"}
+          </span>
+          ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
+        </div>
+      </div>
+    `;
+    overlay.querySelector(".card-modal-close").addEventListener("click", close);
+    const prevBtn = overlay.querySelector(".card-modal-nav.prev");
+    const nextBtn = overlay.querySelector(".card-modal-nav.next");
+    if (prevBtn) prevBtn.addEventListener("click", () => go(-1));
+    if (nextBtn) nextBtn.addEventListener("click", () => go(1));
+  }
+
+  function go(delta) {
+    const next = (index + delta + navList.length) % navList.length;
+    renderAt(next, delta > 0 ? "left" : "right");
+  }
+
+  function close() { overlay.remove(); syncScrollLock(); document.removeEventListener("keydown", onKey); }
+  // Echap est deja gere globalement par main.js (qui retire directement
+  // l'overlay du DOM sans passer par close() ici) : ne pas le regerer ici
+  // eviterait un double-handling, mais il faut quand meme nettoyer ce
+  // listener flechage si la fermeture arrive par ce chemin-la plutot que
+  // par close() - d'ou la verification de presence dans le DOM a chaque
+  // frappe, qui s'auto-desinscrit si l'overlay a deja disparu.
+  function onKey(e) {
+    if (!document.body.contains(overlay)) { document.removeEventListener("keydown", onKey); return; }
+    if (e.key === "ArrowRight") go(1);
+    else if (e.key === "ArrowLeft") go(-1);
+  }
+
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  document.addEventListener("keydown", onKey);
+
+  // Swipe tactile.
+  let touchStartX = null;
+  overlay.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  overlay.addEventListener("touchend", (e) => {
+    if (touchStartX == null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+    touchStartX = null;
+  }, { passive: true });
+
+  renderAt(index, null);
   syncScrollLock();
 }
 
@@ -198,10 +248,10 @@ function cardTileHtml(card, now) {
   const craftable = locked && !card.isPromo && craftCost != null && stardustBalance >= craftCost;
 
   return `
-    <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}">
+    <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
       ${isNew ? '<span class="new-badge">New</span>' : ""}
       ${!locked ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
-      <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" />
+      <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" />
       <div class="card-info">
         <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
         <span class="rarity-badge" style="background:${color}22;color:${color};border:1px solid ${color};">
@@ -278,6 +328,7 @@ function renderGrid() {
   );
   if (missingOnly) cards = cards.filter((c) => !ownedMap.has(c.cardId));
   if (favoritesOnly) cards = cards.filter((c) => favorites.has(c.cardId));
+  if (artistFilter) cards = cards.filter((c) => (c.artist || "") === artistFilter);
   if (searchQuery) {
     const q = normalize(searchQuery);
     cards = cards.filter((c) => ownedMap.has(c.cardId) && normalize(c.name).includes(q));
@@ -343,13 +394,21 @@ function renderGrid() {
     <div class="collection-grid">${group.cards.map((c) => cardTileHtml(c, now)).join("")}</div>
   `).join("");
 
+  const visibleOwnedIds = [...container.querySelectorAll(".collection-card:not(.locked)")].map((el) => Number(el.dataset.cardId));
   container.querySelectorAll(".collection-card:not(.locked)").forEach((el) => {
     attachTilt(el);
     el.addEventListener("click", (e) => {
       if (e.target.closest(".fav-btn")) return;
       const cardId = Number(el.dataset.cardId);
-      const card = allCardsCache.find((c) => c.cardId === cardId);
-      if (card) showCardModal(card, ownedMap.get(cardId));
+      showCardModal(cardId, visibleOwnedIds);
+    });
+    // Cartes cliquables au clavier (tabindex+role="button" poses dans
+    // cardTileHtml) : Entree/Espace equivalent au clic, pour ne pas
+    // reserver la collection aux seuls utilisateurs de souris/tactile.
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      showCardModal(Number(el.dataset.cardId), visibleOwnedIds);
     });
   });
 
@@ -369,12 +428,34 @@ async function loadCollection() {
   document.getElementById("loading-zone").style.display = "grid";
   zone.style.display = "none";
 
+  const OFFLINE_CACHE_KEY = "2gatcha_offline_collection_" + Session.userId;
+  let res, statusRes, cardsRes, isOffline = false;
   try {
-    const [res, statusRes, cardsRes] = await Promise.all([
+    [res, statusRes, cardsRes] = await Promise.all([
       API.getCollection(Session.userId),
       API.getBoosterStatus(Session.userId).catch(() => ({ stardust: 0 })),
       API.getCards().catch(() => ({ cards: [] }))
     ]);
+    // Sauvegarde pour un affichage hors-ligne basique si le prochain
+    // chargement echoue (reseau coupe) : mieux qu'un ecran d'erreur vide.
+    try { localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(res)); } catch (e) {}
+  } catch (e) {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(OFFLINE_CACHE_KEY) || "null"); } catch (e2) {}
+    if (cached) {
+      res = cached;
+      statusRes = { stardust: 0 };
+      cardsRes = { cards: [] };
+      isOffline = true;
+      Toast.info("Mode hors-ligne : dernière collection connue affichée (peut-être obsolète).");
+    } else {
+      Toast.error("Impossible de charger la collection. (" + e.message + ")");
+      document.getElementById("loading-zone").style.display = "none";
+      return;
+    }
+  }
+
+  try {
     allCardsCache = res.cards || [];
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
     stardustBalance = statusRes.stardust || 0;
@@ -382,7 +463,7 @@ async function loadCollection() {
 
     const stats = res.stats || { owned: ownedMap.size, total: allCardsCache.length };
     document.getElementById("progress-label").textContent =
-      `${stats.owned} / ${stats.total} cartes découvertes`;
+      `${stats.owned} / ${stats.total} cartes découvertes` + (isOffline ? " (hors-ligne)" : "");
     const pct = stats.total ? Math.round((stats.owned / stats.total) * 100) : 0;
     document.getElementById("progress-fill").style.width = pct + "%";
 
@@ -398,6 +479,11 @@ async function loadCollection() {
     });
     const rarities = [...rarityByKey.values()].sort((a, b) => a.sortOrder - b.sortOrder);
     renderFilters(rarities);
+
+    const artistSelect = document.getElementById("artist-filter");
+    const artists = [...new Set(allCardsCache.map((c) => c.artist).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    artistSelect.innerHTML = `<option value="">Tous les artistes</option>` +
+      artists.map((a) => `<option value="${a}" ${a === artistFilter ? "selected" : ""}>${a}</option>`).join("");
     renderGrid();
 
     zone.style.display = "block";
@@ -450,6 +536,10 @@ document.addEventListener("DOMContentLoaded", () => {
     e.target.classList.toggle("active", favoritesOnly);
     renderGrid();
   });
+  document.getElementById("artist-filter").addEventListener("change", (e) => {
+    artistFilter = e.target.value;
+    renderGrid();
+  });
   document.getElementById("mark-seen-btn").addEventListener("click", () => {
     const now = Math.floor(Date.now() / 1000);
     let count = 0;
@@ -480,11 +570,13 @@ document.addEventListener("DOMContentLoaded", () => {
     sortMode = "extension";
     missingOnly = false;
     favoritesOnly = false;
+    artistFilter = "";
     document.body.classList.remove("dense-view", "cinema-mode");
     savePrefs({ sortMode, missingOnly, denseView: false });
 
     document.getElementById("search-input").value = "";
     document.getElementById("sort-select").value = sortMode;
+    document.getElementById("artist-filter").value = "";
     missingBtn.classList.remove("active");
     favoritesBtn.classList.remove("active");
     denseBtn.classList.remove("active");

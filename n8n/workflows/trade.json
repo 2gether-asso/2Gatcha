@@ -1026,6 +1026,262 @@
         },
         "options": {}
       }
+    },
+    {
+      "id": "quest-Trade-get",
+      "name": "Quest Trade: Get Daily Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        400,
+        900
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Prepare Trade').first().json.docId }}",
+        "tableId": "DailyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Trade-compute",
+      "name": "Quest Trade: Compute Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        900
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst docId = $('Prepare Trade').first().json.docId;\nconst userId = $('Prepare Trade').first().json.fromUserId;\nconst today = new Date().toISOString().slice(0, 10);\nconst rows = $('Quest Trade: Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === userId && r.Date === today);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\nflags.TradeDone = true;\n\nconst completedCount = [\"LoginDone\",\"CraftDone\",\"TradeDone\",\"OpenBoosterDone\"].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 2 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId, userId, today, rowId: row ? row.id : null, exists: !!row, shouldGrantReward, ...flags } }];"
+      }
+    },
+    {
+      "id": "quest-Trade-if-exists",
+      "name": "Quest Trade: If Row Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        900
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-Trade-update",
+      "name": "Quest Trade: Update Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        820
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Trade-create",
+      "name": "Quest Trade: Create Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        980
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "Date",
+              "fieldValue": "={{ $json.today }}"
+            },
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Trade-if-grant",
+      "name": "Quest Trade: If Should Grant",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        900
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Quest Trade: Compute Update').first().json.shouldGrantReward }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-Trade-get-user",
+      "name": "Quest Trade: Get User For Reward",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1200,
+        820
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Quest Trade: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Trade-grant",
+      "name": "Quest Trade: Grant Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        820
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Quest Trade: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Quest Trade: Compute Update').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ ($('Quest Trade: Get User For Reward').all().map(i => i.json).find(u => u.id === $('Quest Trade: Compute Update').first().json.userId).BoosterCount || 0) + 1 }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -1125,6 +1381,11 @@
         [
           {
             "node": "Format Created Trade",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Quest Trade: Get Daily Quests",
             "type": "main",
             "index": 0
           }
@@ -1482,6 +1743,91 @@
         [
           {
             "node": "Reassign Requested Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Trade: Get Daily Quests": {
+      "main": [
+        [
+          {
+            "node": "Quest Trade: Compute Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Trade: Compute Update": {
+      "main": [
+        [
+          {
+            "node": "Quest Trade: If Row Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Trade: If Row Exists": {
+      "main": [
+        [
+          {
+            "node": "Quest Trade: Update Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quest Trade: Create Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Trade: Update Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Trade: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Trade: Create Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Trade: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Trade: If Should Grant": {
+      "main": [
+        [
+          {
+            "node": "Quest Trade: Get User For Reward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Quest Trade: Get User For Reward": {
+      "main": [
+        [
+          {
+            "node": "Quest Trade: Grant Booster",
             "type": "main",
             "index": 0
           }

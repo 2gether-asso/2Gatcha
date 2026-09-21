@@ -4,6 +4,7 @@
     {
       "id": "webhook",
       "name": "Webhook",
+      "webhookId": "8c4f615b-0874-4ba0-b418-c1778a0fa88f",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -15,8 +16,7 @@
         "path": "leaderboard",
         "responseMode": "responseNode",
         "options": {}
-      },
-      "webhookId": "8c4f615b-0874-4ba0-b418-c1778a0fa88f"
+      }
     },
     {
       "id": "set-config",
@@ -181,7 +181,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst legendaryRarity = rarities.find((r) => r.Key === 'legendaire');\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c; });\n\nconst legendaryCountByUser = {};\nif (legendaryRarity) {\n  pulls.forEach((p) => {\n    const card = cardById[refId(p.Card)];\n    if (card && refId(card.Rarity) === legendaryRarity.id) {\n      const uid = refId(p.User);\n      legendaryCountByUser[uid] = (legendaryCountByUser[uid] || 0) + 1;\n    }\n  });\n}\n\nconst topPullers = [...users]\n  .sort((a, b) => (b.TotalPulls || 0) - (a.TotalPulls || 0))\n  .slice(0, 10)\n  .map((u) => ({ pseudo: u.Pseudo || '?', totalPulls: u.TotalPulls || 0 }));\n\nconst topLegendaries = Object.entries(legendaryCountByUser)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 10)\n  .map(([uid, count]) => {\n    const u = users.find((x) => x.id === Number(uid));\n    return { pseudo: (u && u.Pseudo) || '?', legendaryCount: count };\n  });\n\nreturn [{ json: { topPullers, topLegendaries } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst legendaryRarity = rarities.find((r) => r.Key === 'legendaire');\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c; });\n\nconst legendaryCountByUser = {};\nif (legendaryRarity) {\n  pulls.forEach((p) => {\n    const card = cardById[refId(p.Card)];\n    if (card && refId(card.Rarity) === legendaryRarity.id) {\n      const uid = refId(p.User);\n      legendaryCountByUser[uid] = (legendaryCountByUser[uid] || 0) + 1;\n    }\n  });\n}\n\nconst topPullers = [...users]\n  .sort((a, b) => (b.TotalPulls || 0) - (a.TotalPulls || 0))\n  .slice(0, 10)\n  .map((u) => ({ pseudo: u.Pseudo || '?', totalPulls: u.TotalPulls || 0 }));\n\nconst topLegendaries = Object.entries(legendaryCountByUser)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 10)\n  .map(([uid, count]) => {\n    const u = users.find((x) => x.id === Number(uid));\n    return { pseudo: (u && u.Pseudo) || '?', legendaryCount: count };\n  });\n\nconst totalLegendaries = Object.values(legendaryCountByUser).reduce((sum, c) => sum + c, 0);\n\nreturn [{ json: { topPullers, topLegendaries, totalLegendaries } }];"
       }
     },
     {

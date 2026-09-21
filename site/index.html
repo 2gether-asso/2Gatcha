@@ -40,8 +40,20 @@
 
     </div>
 
+    <div class="panel" id="quests-panel" style="display:none;margin-top:24px;">
+      <h2>&#127919; Quêtes du jour</h2>
+      <p class="lead" style="font-size:0.85rem;">Complète 2 des 4 quêtes aujourd'hui pour recevoir un booster gratuit.</p>
+      <div id="quests-list" class="quests-list"></div>
+    </div>
+
     <div class="panel" id="activity-panel" style="display:none;margin-top:24px;">
-      <h2>&#9889; Activité récente</h2>
+      <div class="actions" style="margin-top:0;align-items:center;">
+        <h2 style="flex:1;margin:0;">&#9889; Activité récente</h2>
+        <span id="community-legendary-counter" class="community-counter"></span>
+      </div>
+      <select id="activity-extension-filter" style="margin:12px 0;display:none;">
+        <option value="">Toutes les extensions</option>
+      </select>
       <div id="activity-loading" class="loading-row"><div class="spinner"></div></div>
       <div id="activity-feed" class="activity-feed"></div>
     </div>
@@ -82,32 +94,93 @@
     // Fil d'activite global (derniers tirages, toutes extensions/joueurs
     // confondus) : visible seulement connecte, purement informatif/social,
     // n'affecte jamais rien cote gameplay.
+    let allRecentPulls = [];
+    function renderActivityFeed(extKey) {
+      const feed = document.getElementById("activity-feed");
+      const pulls = extKey ? allRecentPulls.filter((p) => p.extension?.key === extKey) : allRecentPulls;
+      if (!pulls.length) {
+        feed.innerHTML = `<div class="empty-state">Aucun tirage pour l'instant.</div>`;
+        return;
+      }
+      feed.innerHTML = pulls.slice(0, 12).map((p) => {
+        const color = p.rarity?.colorHex || "#9aa0b4";
+        const minutesAgo = Math.max(0, Math.round((Date.now() / 1000 - p.obtainedAt) / 60));
+        const when = minutesAgo < 1 ? "à l'instant" : minutesAgo < 60 ? `il y a ${minutesAgo} min` : `il y a ${Math.round(minutesAgo / 60)} h`;
+        return `
+          <div class="activity-row">
+            <span class="activity-dot" style="background:${color};"></span>
+            <span class="activity-text"><strong>${p.pseudo}</strong> a obtenu <strong style="color:${color};">${p.cardName}</strong>${p.extension ? ` <span class="activity-ext">(${p.extension.name})</span>` : ""}</span>
+            <span class="activity-time">${when}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
     if (Session.isLoggedIn()) {
       const panel = document.getElementById("activity-panel");
       panel.style.display = "block";
       API.getRecentPulls().then((res) => {
-        const feed = document.getElementById("activity-feed");
-        const pulls = res.pulls || [];
-        if (!pulls.length) {
-          feed.innerHTML = `<div class="empty-state">Aucun tirage pour l'instant.</div>`;
-          return;
+        allRecentPulls = res.pulls || [];
+        renderActivityFeed("");
+
+        const extKeys = new Map();
+        allRecentPulls.forEach((p) => { if (p.extension) extKeys.set(p.extension.key, p.extension.name); });
+        if (extKeys.size > 1) {
+          const filterEl = document.getElementById("activity-extension-filter");
+          filterEl.style.display = "block";
+          [...extKeys.entries()].forEach(([key, name]) => {
+            const opt = document.createElement("option");
+            opt.value = key;
+            opt.textContent = name;
+            filterEl.appendChild(opt);
+          });
+          filterEl.addEventListener("change", () => renderActivityFeed(filterEl.value));
         }
-        feed.innerHTML = pulls.slice(0, 12).map((p) => {
-          const color = p.rarity?.colorHex || "#9aa0b4";
-          const minutesAgo = Math.max(0, Math.round((Date.now() / 1000 - p.obtainedAt) / 60));
-          const when = minutesAgo < 1 ? "à l'instant" : minutesAgo < 60 ? `il y a ${minutesAgo} min` : `il y a ${Math.round(minutesAgo / 60)} h`;
-          return `
-            <div class="activity-row">
-              <span class="activity-dot" style="background:${color};"></span>
-              <span class="activity-text"><strong>${p.pseudo}</strong> a obtenu <strong style="color:${color};">${p.cardName}</strong></span>
-              <span class="activity-time">${when}</span>
-            </div>
-          `;
-        }).join("");
       }).catch(() => {
         document.getElementById("activity-feed").innerHTML = `<div class="empty-state">Impossible de charger l'activité récente.</div>`;
       }).finally(() => {
         document.getElementById("activity-loading").style.display = "none";
+      });
+
+      // Compteur communautaire (toutes legendaires sorties sur le serveur).
+      API.getLeaderboard().then((res) => {
+        const el = document.getElementById("community-legendary-counter");
+        if (typeof res.totalLegendaries === "number") {
+          el.textContent = `${rarityIcon("legendaire")} ${res.totalLegendaries} légendaires sorties au total`;
+        }
+      }).catch(() => {});
+
+      // Quetes du jour.
+      const questsPanel = document.getElementById("quests-panel");
+      questsPanel.style.display = "block";
+      const QUEST_LABELS = {
+        login: { icon: "&#128100;", label: "Se connecter" },
+        craft: { icon: "&#10024;", label: "Crafter une carte" },
+        trade: { icon: "&#128260;", label: "Proposer un échange" },
+        openBooster: { icon: "&#127183;", label: "Ouvrir un booster" }
+      };
+      API.getQuestStatus(Session.userId).then((res) => {
+        const list = document.getElementById("quests-list");
+        const quests = res.quests || {};
+        list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
+          const done = !!quests[key];
+          return `
+            <div class="quest-row ${done ? "done" : ""}">
+              <span class="quest-icon">${done ? "&#9989;" : meta.icon}</span>
+              <span class="quest-label">${meta.label}</span>
+            </div>
+          `;
+        }).join("") + `
+          <div class="quest-reward ${res.rewardClaimed ? "claimed" : ""}">
+            ${res.rewardClaimed ? "&#127183; Booster gratuit débloqué aujourd'hui !" : `${res.completedCount || 0} / 2 pour débloquer 1 booster gratuit`}
+          </div>
+        `;
+        if (res.justClaimedReward) {
+          Toast.success("Quêtes du jour : booster gratuit débloqué !");
+          if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+        }
+      }).catch(() => {
+        document.getElementById("quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
       });
     }
 

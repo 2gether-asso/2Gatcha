@@ -2,110 +2,765 @@
   "name": "2Gatcha - craft",
   "nodes": [
     {
-      "parameters": { "httpMethod": "POST", "path": "craft", "responseMode": "responseNode", "options": {} },
-      "id": "webhook", "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [-1400, 300]
+      "id": "webhook",
+      "name": "Webhook",
+      "webhookId": "62783235-ea88-4422-93b7-d35ad7b8c114",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "craft",
+        "responseMode": "responseNode",
+        "options": {}
+      }
     },
     {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1180,
+        300
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    cardId: Number(body.cardId)\n  }\n}];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -960,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
       },
-      "id": "set-config", "name": "Set Config", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-1180, 300]
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
-      "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} },
-      "id": "get-cards", "name": "Get Cards", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-960, 300],
-      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
-    },
-    { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }, "id": "barrier-1", "name": "Sync Get Cards -> Get Rarities", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-820, 300] },
-    {
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Rarities", "returnAll": true, "additionalOptions": {} },
-      "id": "get-rarities", "name": "Get Rarities", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-680, 300],
-      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
-    },
-    { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }, "id": "barrier-2", "name": "Sync Get Rarities -> Get Users", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-540, 300] },
-    {
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
-      "id": "get-users", "name": "Get Users", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-400, 300],
-      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "id": "barrier-1",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -820,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -680,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Rarities -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -400,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validate & Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        300
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst card = cardsRows.find((c) => c.id === config.cardId);\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_craftable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) return [{ json: { ok: false, error: 'unknown_user' } }];\n\nconst rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\nconst craftCost = rarityRow ? (rarityRow.CraftCost || 0) : 0;\nconst stardust = user.StardustCount || 0;\nif (stardust < craftCost) return [{ json: { ok: false, error: 'insufficient_dust' } }];\n\nconst now = Math.floor(Date.now() / 1000);\nconst rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\nreturn [{\n  json: {\n    ok: true,\n    docId: config.docId,\n    userId: config.userId,\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity,\n    obtainedAt: now,\n    batchId: `craft-${config.userId}-${Date.now()}`,\n    craftCost,\n    newStardust: stardust - craftCost\n  }\n}];"
-      },
-      "id": "validate", "name": "Validate & Prepare", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-260, 300]
+      }
     },
     {
+      "id": "if-valid",
+      "name": "If Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        300
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [ { "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
-      },
-      "id": "if-valid", "name": "If Valid", "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [-40, 300]
+      }
     },
     {
-      "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } },
-      "id": "respond-error", "name": "Respond Error", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [180, 460]
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        460
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
     },
     {
+      "id": "create-pull",
+      "name": "Create Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        180,
+        180
+      ],
       "parameters": {
         "operation": "create",
         "docId": "={{ $json.docId }}",
         "tableId": "Pulls",
         "dataToSend": "defineInNode",
-        "fieldsToSend": { "properties": [
-          { "fieldId": "User", "fieldValue": "={{ $json.userId }}" },
-          { "fieldId": "Card", "fieldValue": "={{ $json.cardId }}" },
-          { "fieldId": "ObtainedAt", "fieldValue": "={{ $json.obtainedAt }}" },
-          { "fieldId": "BatchId", "fieldValue": "={{ $json.batchId }}" }
-        ] }
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "Card",
+              "fieldValue": "={{ $json.cardId }}"
+            },
+            {
+              "fieldId": "ObtainedAt",
+              "fieldValue": "={{ $json.obtainedAt }}"
+            },
+            {
+              "fieldId": "BatchId",
+              "fieldValue": "={{ $json.batchId }}"
+            }
+          ]
+        }
       },
-      "id": "create-pull", "name": "Create Pull", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [180, 180],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
+      "id": "update-user",
+      "name": "Update User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        400,
+        180
+      ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $('Validate & Prepare').first().json.docId }}",
         "tableId": "Users",
         "rowId": "={{ $('Validate & Prepare').first().json.userId }}",
         "dataToSend": "defineInNode",
-        "fieldsToSend": { "properties": [ { "fieldId": "StardustCount", "fieldValue": "={{ $('Validate & Prepare').first().json.newStardust }}" } ] }
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "StardustCount",
+              "fieldValue": "={{ $('Validate & Prepare').first().json.newStardust }}"
+            }
+          ]
+        }
       },
-      "id": "update-user", "name": "Update User", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [400, 180],
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        620,
+        180
+      ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ { crafted: true, card: { cardId: $('Validate & Prepare').first().json.cardId, name: $('Validate & Prepare').first().json.name, artist: $('Validate & Prepare').first().json.artist, description: $('Validate & Prepare').first().json.description, imageId: $('Validate & Prepare').first().json.imageId, rarity: $('Validate & Prepare').first().json.rarity }, craftCost: $('Validate & Prepare').first().json.craftCost, newStardust: $('Validate & Prepare').first().json.newStardust } }}",
         "options": {}
+      }
+    },
+    {
+      "id": "quest-Craft-get",
+      "name": "Quest Craft: Get Daily Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        400,
+        900
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Validate & Prepare').first().json.docId }}",
+        "tableId": "DailyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
       },
-      "id": "respond-ok", "name": "Respond OK", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [620, 180]
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Craft-compute",
+      "name": "Quest Craft: Compute Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        900
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst docId = $('Validate & Prepare').first().json.docId;\nconst userId = $('Validate & Prepare').first().json.userId;\nconst today = new Date().toISOString().slice(0, 10);\nconst rows = $('Quest Craft: Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === userId && r.Date === today);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\nflags.CraftDone = true;\n\nconst completedCount = [\"LoginDone\",\"CraftDone\",\"TradeDone\",\"OpenBoosterDone\"].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 2 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId, userId, today, rowId: row ? row.id : null, exists: !!row, shouldGrantReward, ...flags } }];"
+      }
+    },
+    {
+      "id": "quest-Craft-if-exists",
+      "name": "Quest Craft: If Row Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        900
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-Craft-update",
+      "name": "Quest Craft: Update Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        820
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Craft-create",
+      "name": "Quest Craft: Create Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        980
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "Date",
+              "fieldValue": "={{ $json.today }}"
+            },
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Craft-if-grant",
+      "name": "Quest Craft: If Should Grant",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        900
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Quest Craft: Compute Update').first().json.shouldGrantReward }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-Craft-get-user",
+      "name": "Quest Craft: Get User For Reward",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1200,
+        820
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Quest Craft: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-Craft-grant",
+      "name": "Quest Craft: Grant Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        820
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Quest Craft: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Quest Craft: Compute Update').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ ($('Quest Craft: Get User For Reward').all().map(i => i.json).find(u => u.id === $('Quest Craft: Compute Update').first().json.userId).BoosterCount || 0) + 1 }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
-    "Set Config": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
-    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Rarities", "type": "main", "index": 0 }]] },
-    "Sync Get Cards -> Get Rarities": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
-    "Get Rarities": { "main": [[{ "node": "Sync Get Rarities -> Get Users", "type": "main", "index": 0 }]] },
-    "Sync Get Rarities -> Get Users": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
-    "Get Users": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
-    "Validate & Prepare": { "main": [[{ "node": "If Valid", "type": "main", "index": 0 }]] },
-    "If Valid": {
+    "Webhook": {
       "main": [
-        [{ "node": "Create Pull", "type": "main", "index": 0 }],
-        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Create Pull": { "main": [[{ "node": "Update User", "type": "main", "index": 0 }]] },
-    "Update User": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Rarities -> Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Validate & Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Prepare": {
+      "main": [
+        [
+          {
+            "node": "If Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Valid": {
+      "main": [
+        [
+          {
+            "node": "Create Pull",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pull": {
+      "main": [
+        [
+          {
+            "node": "Update User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Quest Craft: Get Daily Quests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Craft: Get Daily Quests": {
+      "main": [
+        [
+          {
+            "node": "Quest Craft: Compute Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Craft: Compute Update": {
+      "main": [
+        [
+          {
+            "node": "Quest Craft: If Row Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Craft: If Row Exists": {
+      "main": [
+        [
+          {
+            "node": "Quest Craft: Update Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quest Craft: Create Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Craft: Update Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Craft: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Craft: Create Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Craft: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Craft: If Should Grant": {
+      "main": [
+        [
+          {
+            "node": "Quest Craft: Get User For Reward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Quest Craft: Get User For Reward": {
+      "main": [
+        [
+          {
+            "node": "Quest Craft: Grant Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "active": false,
-  "settings": { "executionOrder": "v1" }
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

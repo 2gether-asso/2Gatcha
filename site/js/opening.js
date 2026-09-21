@@ -24,6 +24,7 @@ let stackCardEls = [];
 let stackIndex = 0;
 let ownedCountMap = new Map();
 let extProgressByExt = new Map();
+let catalogCache = [];
 
 const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3 };
 
@@ -70,9 +71,11 @@ function buildCardEl(card, index, cardBackImageId) {
   inner.className = "card-inner";
   inner.appendChild(buildCardBackEl(cardBackImageId, card.rarity?.key, color));
 
-  const dupeBadge = card.isNewToPlayer
-    ? `<span class="new-badge">Nouvelle !</span>`
-    : `<span class="dupe-badge">×${card.ownedCountAfter}</span>`;
+  const dupeBadge = card.isFirstEver
+    ? `<span class="new-badge first-ever-badge">&#127942; 1ère obtention du serveur !</span>`
+    : card.isNewToPlayer
+      ? `<span class="new-badge">Nouvelle !</span>`
+      : `<span class="dupe-badge">×${card.ownedCountAfter}</span>`;
   const front = document.createElement("div");
   front.className = "card-face card-front";
   front.innerHTML = `
@@ -128,6 +131,14 @@ function layoutStack() {
       ? `Carte ${Math.min(stackIndex + 1, stackCardEls.length)} / ${stackCardEls.length}`
       : "";
   }
+
+  // Precharge l'image de la carte suivante pendant qu'on regarde la carte
+  // active : evite un petit flash/attente au moment ou elle passe au sommet.
+  const next = lastRevealedCards[stackIndex + 1];
+  if (next) {
+    const src = API.imageUrl(next.imageId);
+    if (src) { const img = new Image(); img.src = src; }
+  }
 }
 
 function advanceStack() {
@@ -141,7 +152,25 @@ function onAllRevealed() {
   if (btn) btn.remove();
   isBusy = false;
   const hint = document.getElementById("booster-hint");
-  if (hint) hint.textContent = "Toutes les cartes sont révélées !";
+
+  // Recap de session (utile surtout apres un x5) : repartition par rarete
+  // du lot qui vient d'etre revele, + rappel du solde restant.
+  if (lastRevealedCards.length > 1) {
+    const counts = {};
+    lastRevealedCards.forEach((c) => {
+      const key = c.rarity?.key || "commune";
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const order = ["legendaire", "epique", "rare", "commune"];
+    const parts = order.filter((k) => counts[k]).map((k) => `${counts[k]} ${rarityIcon(k)}`);
+    if (hint) hint.innerHTML = `Terminé : ${parts.join(" · ")}`;
+  } else if (hint) {
+    hint.textContent = "Toutes les cartes sont révélées !";
+  }
+  if (boosterCount > 0) {
+    Toast.info(`Il te reste ${boosterCount} booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}.`);
+  }
+
   const shareBtn = document.getElementById("share-pull-btn");
   if (shareBtn && lastRevealedCards.length) shareBtn.style.display = "inline-flex";
 }
@@ -329,7 +358,7 @@ function renderExtensionPicker() {
     const pityLabel = pityThreshold ? `${pity} / ${pityThreshold}` : `${pity} tirage${pity > 1 ? "s" : ""}`;
     const progress = extProgressByExt.get(ext.id);
     return `
-      <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}">
+      <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster ' + ext.name.replace(/"/g, "&quot;") + '"'}>
         <div class="ext-art">
           ${img ? `<img class="ext-art-front" src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
           ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" />` : ""}
@@ -341,13 +370,66 @@ function renderExtensionPicker() {
           <span class="pity-track"><span class="pity-fill" style="width:${pct}%;"></span></span>
           <span class="pity-label">${pityLabel}</span>
         </div>
+        <button type="button" class="set-summary-link" data-ext-id="${ext.id}">Voir les cartes du set</button>
       </div>
     `;
   }).join("");
 
   el.querySelectorAll(".extension-tile:not(.disabled)").forEach((tile) => {
-    tile.addEventListener("click", () => openModalFor(Number(tile.dataset.extId)));
+    tile.addEventListener("click", (e) => {
+      if (e.target.closest(".set-summary-link")) return;
+      openModalFor(Number(tile.dataset.extId));
+    });
+    tile.addEventListener("keydown", (e) => {
+      if ((e.key !== "Enter" && e.key !== " ") || e.target.closest(".set-summary-link")) return;
+      e.preventDefault();
+      openModalFor(Number(tile.dataset.extId));
+    });
   });
+  el.querySelectorAll(".set-summary-link").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showSetSummary(Number(btn.dataset.extId));
+    });
+  });
+}
+
+// Sommaire du set : liste des cartes de l'extension (nom + rarete), sans
+// reveler le contenu des cartes non decouvertes (silhouette "???", comme
+// dans la collection) - un checklist consultable avant meme d'ouvrir.
+function showSetSummary(extensionId) {
+  const ext = extensionById(extensionId);
+  const cards = catalogCache.filter((c) => c.extension?.id === extensionId);
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay";
+  const rows = cards
+    .sort((a, b) => (a.rarity?.sortOrder || 0) - (b.rarity?.sortOrder || 0) || (a.name || "").localeCompare(b.name || ""))
+    .map((c) => {
+      const owned = ownedCountMap.has(c.cardId);
+      const color = c.rarity?.colorHex || "#9aa0b4";
+      return `
+        <div class="set-summary-row">
+          <span class="rarity-dot" style="background:${color};"></span>
+          <span>${owned ? c.name : "???"}</span>
+          ${c.isPromo ? '<span class="promo-badge">Promo</span>' : ""}
+        </div>
+      `;
+    }).join("");
+  overlay.innerHTML = `
+    <div class="card-modal set-summary-modal">
+      <button class="card-modal-close" aria-label="Fermer">&times;</button>
+      <div class="card-modal-body">
+        <div class="card-modal-name">${ext ? ext.name : "Extension"}</div>
+        <p class="lead" style="font-size:0.8rem;">${cards.length} cartes au total. Les cartes non decouvertes restent masquees.</p>
+        <div class="set-summary-list">${rows || `<div class="empty-state">Aucune carte pour l'instant.</div>`}</div>
+      </div>
+    </div>
+  `;
+  const close = () => { overlay.remove(); syncScrollLock(); };
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector(".card-modal-close").addEventListener("click", close);
+  document.body.appendChild(overlay);
+  syncScrollLock();
 }
 
 function renderExtensionPickerSkeleton() {
@@ -376,6 +458,7 @@ async function refreshStatus() {
     // Sert a detecter les doublons a la volee pendant le reveal (voir
     // startOpening) : combien d'exemplaires le joueur avait AVANT ce pack.
     ownedCountMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o.count]));
+    catalogCache = collectionRes.cards || [];
 
     // Progression par extension (X/Y cartes decouvertes), affichee sur
     // chaque tuile - reutilise le catalogue complet deja renvoye par
@@ -415,6 +498,8 @@ function openModalFor(extensionId) {
   if (progressEl) progressEl.textContent = "";
   const oldRevealAll = document.getElementById("reveal-all-btn");
   if (oldRevealAll) oldRevealAll.remove();
+  const speedSelectEl = document.getElementById("reveal-speed-select");
+  if (speedSelectEl) speedSelectEl.style.display = "none";
   pack.classList.remove("locked", "charging", "tearing");
   pack.style.visibility = "visible";
 
@@ -449,15 +534,35 @@ function openModalFor(extensionId) {
   const shareBtn = document.getElementById("share-pull-btn");
   if (shareBtn) shareBtn.style.display = "none";
 
+  // Au cas ou une precedente fermeture animee (voir closeModal) n'aurait
+  // pas eu le temps de se terminer avant une reouverture immediate.
+  const stageEl = overlay.querySelector(".pack-modal-stage");
+  if (stageEl) stageEl.classList.remove("closing");
+
   overlay.hidden = false;
   syncScrollLock();
   startAmbientParticles();
 }
 
+// Petite animation de "rangement" a la fermeture (la pile se replie) plutot
+// qu'une disparition sechecomme - une session qui vient de se terminer
+// merite une sortie aussi soignee que son entree.
 function closeModal() {
-  document.getElementById("pack-modal-overlay").hidden = true;
-  syncScrollLock();
-  stopAmbientParticles();
+  const overlay = document.getElementById("pack-modal-overlay");
+  const stage = overlay.querySelector(".pack-modal-stage");
+  if (stage && !stage.classList.contains("closing")) {
+    stage.classList.add("closing");
+    setTimeout(() => {
+      stage.classList.remove("closing");
+      overlay.hidden = true;
+      syncScrollLock();
+      stopAmbientParticles();
+    }, 220);
+  } else {
+    overlay.hidden = true;
+    syncScrollLock();
+    stopAmbientParticles();
+  }
 }
 
 async function startOpening(ext) {
@@ -545,7 +650,9 @@ async function startOpening(ext) {
     });
     layoutStack();
 
+    const speedSelect = document.getElementById("reveal-speed-select");
     if (allCards.length) {
+      if (speedSelect) speedSelect.style.display = "inline-block";
       const revealAllBtn = document.createElement("button");
       revealAllBtn.id = "reveal-all-btn";
       revealAllBtn.className = "btn-secondary";
@@ -553,13 +660,14 @@ async function startOpening(ext) {
       revealAllBtn.addEventListener("click", () => {
         // Meme en pile, on ne peut révéler qu'une carte a la fois (chacune
         // doit passer au sommet pour reagir au clic) : on enchaine les
-        // reveals automatiquement au meme rythme que l'utilisateur.
+        // reveals automatiquement, au rythme choisi dans reveal-speed-select.
         revealAllBtn.disabled = true;
         const playNext = () => {
           const active = stackCardEls[stackIndex];
           if (!active) return;
           active._flip();
-          setTimeout(playNext, 950);
+          const delay = Number(speedSelect?.value) || 950;
+          setTimeout(playNext, delay);
         };
         playNext();
       });

@@ -4,6 +4,7 @@
     {
       "id": "webhook",
       "name": "Webhook",
+      "webhookId": "6a0ed754-2bea-4c15-8eba-14998d2a1474",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -15,8 +16,7 @@
         "path": "recent-pulls",
         "responseMode": "responseNode",
         "options": {}
-      },
-      "webhookId": "6a0ed754-2bea-4c15-8eba-14998d2a1474"
+      }
     },
     {
       "id": "set-config",
@@ -181,7 +181,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst userById = {}; users.forEach((u) => { userById[u.id] = u; });\n\nconst recent = pulls\n  .filter((p) => !(p.BatchId || '').toString().startsWith('craft-'))\n  .sort((a, b) => (b.ObtainedAt || 0) - (a.ObtainedAt || 0))\n  .slice(0, 30)\n  .map((p) => {\n    const card = cardById[refId(p.Card)];\n    const rarity = card ? rarityById[refId(card.Rarity)] : null;\n    const user = userById[refId(p.User)];\n    return {\n      pseudo: (user && user.Pseudo) || '?',\n      cardName: (card && card.Name) || '?',\n      imageId: card ? firstAttachment(card.Image) : null,\n      rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null,\n      obtainedAt: p.ObtainedAt || 0\n    };\n  });\n\nreturn [{ json: { pulls: recent } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensions = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst userById = {}; users.forEach((u) => { userById[u.id] = u; });\nconst extById = {}; extensions.forEach((e) => { extById[e.id] = e; });\n\nconst recent = pulls\n  .filter((p) => !(p.BatchId || '').toString().startsWith('craft-'))\n  .sort((a, b) => (b.ObtainedAt || 0) - (a.ObtainedAt || 0))\n  .slice(0, 50)\n  .map((p) => {\n    const card = cardById[refId(p.Card)];\n    const rarity = card ? rarityById[refId(card.Rarity)] : null;\n    const user = userById[refId(p.User)];\n    const ext = card ? extById[refId(card.Extension)] : null;\n    return {\n      pseudo: (user && user.Pseudo) || '?',\n      cardName: (card && card.Name) || '?',\n      imageId: card ? firstAttachment(card.Image) : null,\n      rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null,\n      extension: ext ? { key: ext.Key, name: ext.Name } : null,\n      obtainedAt: p.ObtainedAt || 0\n    };\n  });\n\nreturn [{ json: { pulls: recent } }];"
       }
     },
     {
@@ -197,6 +197,44 @@
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
+      }
+    },
+    {
+      "id": "barrier-ext",
+      "name": "Sync Get Users -> Get Extensions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-extensions",
+      "name": "Get Extensions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        360,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
       }
     }
   ],
@@ -293,7 +331,7 @@
       "main": [
         [
           {
-            "node": "Format Response",
+            "node": "Sync Get Users -> Get Extensions",
             "type": "main",
             "index": 0
           }
@@ -305,6 +343,28 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
             "type": "main",
             "index": 0
           }

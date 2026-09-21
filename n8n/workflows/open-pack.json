@@ -8,8 +8,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -1400,
-        300
+        -1408,
+        304
       ],
       "parameters": {
         "httpMethod": "POST",
@@ -24,12 +24,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1180,
-        300
+        -1184,
+        304
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// A adapter une seule fois : ID du document Grist, webhook Discord (optionnel).\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordWebhookUrl = 'CHANGE-MOI-DISCORD-WEBHOOK-URL';\nconst body = $input.first().json.body || {};\nconst requestedDryRun = !!body.dryRun;\nconst isAdmin = adminDiscordIds.includes((body.discordId || '').toString());\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    extensionId: Number(body.extensionId),\n    boosterSize: 5,\n    dryRun: requestedDryRun && isAdmin,\n    discordWebhookUrl\n  }\n}];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist, webhook Discord (optionnel).\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordWebhookUrl = 'https://discord.com/api/webhooks/1551618475179511940/BsIPFGMDe0jiylrnEGTluRaPCP3zEi2tEWangoaZHgT_uShe2Zyy4dgTIRkLRjQ1cxZW';\nconst body = $input.first().json.body || {};\nconst requestedDryRun = !!body.dryRun;\nconst isAdmin = adminDiscordIds.includes((body.discordId || '').toString());\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    extensionId: Number(body.extensionId),\n    boosterSize: 5,\n    dryRun: requestedDryRun && isAdmin,\n    discordWebhookUrl\n  }\n}];"
       }
     },
     {
@@ -40,10 +39,9 @@
       "alwaysOutputData": true,
       "position": [
         -960,
-        300
+        304
       ],
       "parameters": {
-        "operation": "getAll",
         "docId": "={{ $json.docId }}",
         "tableId": "Users",
         "returnAll": true,
@@ -62,11 +60,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -820,
-        300
+        -816,
+        304
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "return [{ json: {} }];"
       }
     },
@@ -77,11 +74,10 @@
       "typeVersion": 1,
       "alwaysOutputData": true,
       "position": [
-        -680,
-        300
+        -688,
+        304
       ],
       "parameters": {
-        "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "BoosterInventory",
         "returnAll": true,
@@ -100,11 +96,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -460,
-        300
+        -464,
+        304
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst config = $('Set Config').first().json;\nconst userRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = userRows.find((u) => u.id === config.userId);\nif (!user) {\n  throw new Error('Utilisateur introuvable (userId=' + config.userId + ')');\n}\n\nconst invRows = $('Get Booster Inventory').all().map((i) => i.json).filter((r) => r.id != null);\nconst inv = invRows.find((r) => refId(r.User) === config.userId && refId(r.Extension) === config.extensionId);\n\nconst boosterCount = user.BoosterCount || 0;\n\nreturn [{\n  json: {\n    userId: config.userId,\n    extensionId: config.extensionId,\n    inventoryId: inv ? inv.id : null,\n    inventoryExists: !!inv,\n    boosterCount,\n    hasStock: config.dryRun || boosterCount >= 1,\n    pullsSinceTop: inv ? (inv.PullsSinceTopRarity || 0) : 0,\n    totalPulls: user.TotalPulls || 0\n  }\n}];"
       }
     },
@@ -115,14 +110,15 @@
       "typeVersion": 2,
       "position": [
         -240,
-        300
+        304
       ],
       "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 1
           },
           "conditions": [
             {
@@ -145,8 +141,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        -20,
-        460
+        -16,
+        464
       ],
       "parameters": {
         "respondWith": "json",
@@ -161,11 +157,10 @@
       "typeVersion": 1,
       "alwaysOutputData": true,
       "position": [
-        -20,
-        180
+        -16,
+        192
       ],
       "parameters": {
-        "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "Rarities",
         "returnAll": true,
@@ -184,11 +179,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        200,
-        180
+        208,
+        192
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "return [{ json: {} }];"
       }
     },
@@ -199,11 +193,10 @@
       "typeVersion": 1,
       "alwaysOutputData": true,
       "position": [
-        420,
-        180
+        432,
+        192
       ],
       "parameters": {
-        "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "Cards",
         "returnAll": true,
@@ -223,10 +216,9 @@
       "typeVersion": 2,
       "position": [
         640,
-        180
+        192
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "return [{ json: {} }];"
       }
     },
@@ -237,11 +229,10 @@
       "typeVersion": 1,
       "alwaysOutputData": true,
       "position": [
-        860,
-        180
+        864,
+        192
       ],
       "parameters": {
-        "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "Config",
         "returnAll": true,
@@ -260,11 +251,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1080,
-        180
+        1088,
+        192
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst status = $('Compute Booster Status').first().json;\nlet pullsSinceTop = status.pullsSinceTop;\nlet totalPulls = status.totalPulls;\n\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active && refId(c.Extension) === config.extensionId && c.IsPromo !== true);\nconst configRows = $('Get Config Table').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!cardsRows.length) {\n  throw new Error('Aucune carte tirable pour cette extension (verifie Active/Extension/IsPromo dans Grist)');\n}\n\nconst cardsByRarity = {};\nfor (const c of cardsRows) {\n  const rId = refId(c.Rarity);\n  if (!cardsByRarity[rId]) cardsByRarity[rId] = [];\n  cardsByRarity[rId].push(c);\n}\n\nlet pityThreshold = Infinity;\nlet topRarityId = null;\nif (configRows.length) {\n  pityThreshold = configRows[0].PityThreshold || Infinity;\n  topRarityId = refId(configRows[0].TopRarity);\n}\n\nfunction weightedPick() {\n  const total = raritiesRows.reduce((s, r) => s + (r.Weight || 0), 0);\n  let roll = Math.random() * total;\n  for (const r of raritiesRows) {\n    roll -= (r.Weight || 0);\n    if (roll <= 0) return r;\n  }\n  return raritiesRows[raritiesRows.length - 1];\n}\n\nconst batchId = `${config.userId}-${Date.now()}`;\nconst nowEpoch = Math.floor(Date.now() / 1000);\nconst drawn = [];\n\nfor (let i = 0; i < config.boosterSize; i++) {\n  pullsSinceTop++;\n  let rarity;\n  if (pullsSinceTop >= pityThreshold && topRarityId) {\n    rarity = raritiesRows.find((r) => r.id === topRarityId) || weightedPick();\n  } else {\n    rarity = weightedPick();\n  }\n  if (rarity.id === topRarityId) pullsSinceTop = 0;\n\n  const pool = (cardsByRarity[rarity.id] && cardsByRarity[rarity.id].length) ? cardsByRarity[rarity.id] : cardsRows;\n  const card = pool[Math.floor(Math.random() * pool.length)];\n  // La carte piochee peut venir du pool de secours (aucune carte pour la\n  // rarete tiree dans cette extension) : on affiche toujours la VRAIE\n  // rarete de la carte, jamais la rarete tiree.\n  const cardRarity = raritiesRows.find((r) => r.id === refId(card.Rarity)) || rarity;\n\n  drawn.push({\n    isFirstEver: !card.FirstObtainedBy,\n    userId: config.userId,\n    extensionId: config.extensionId,\n    inventoryId: status.inventoryId,\n    inventoryExists: status.inventoryExists,\n    cardId: card.id,\n    obtainedAt: nowEpoch,\n    batchId,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity: { id: cardRarity.id, name: cardRarity.Name, key: cardRarity.Key, colorHex: cardRarity.ColorHex }\n  });\n}\n\ntotalPulls += config.boosterSize;\nconst newBoosterCount = status.boosterCount - 1;\n\nreturn drawn.map((d) => ({ json: { ...d, pullsSinceTop, totalPulls, newBoosterCount } }));"
       }
     },
@@ -274,14 +264,13 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "position": [
-        1300,
-        180
+        1312,
+        192
       ],
       "parameters": {
         "operation": "create",
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "Pulls",
-        "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
             {
@@ -317,10 +306,9 @@
       "typeVersion": 2,
       "position": [
         1520,
-        180
+        192
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const draw = $('Draw Cards').first().json;\nreturn [{ json: { docId: $('Set Config').first().json.docId, userId: draw.userId, extensionId: draw.extensionId, inventoryId: draw.inventoryId, inventoryExists: draw.inventoryExists, pullsSinceTop: draw.pullsSinceTop, totalPulls: draw.totalPulls, boosterCount: draw.newBoosterCount } }];"
       }
     },
@@ -330,15 +318,14 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "position": [
-        1740,
-        180
+        1744,
+        192
       ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $json.docId }}",
         "tableId": "BoosterInventory",
         "rowId": "={{ $json.inventoryId }}",
-        "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
             {
@@ -361,15 +348,14 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "position": [
-        1960,
-        180
+        1968,
+        192
       ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "Users",
         "rowId": "={{ $('Finalize').first().json.userId }}",
-        "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
             {
@@ -396,11 +382,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2180,
-        180
+        2192,
+        192
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver\n}));\nconst last = $('Finalize').first().json;\nreturn [{\n  json: {\n    cards,\n    pity: { pullsSinceTop: last.pullsSinceTop },\n    booster: { extensionId: last.extensionId, count: last.boosterCount }\n  }\n}];"
       }
     },
@@ -411,7 +396,7 @@
       "typeVersion": 1.1,
       "position": [
         2400,
-        180
+        192
       ],
       "parameters": {
         "respondWith": "json",
@@ -425,14 +410,13 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "position": [
-        1740,
+        1744,
         320
       ],
       "parameters": {
         "operation": "create",
         "docId": "={{ $json.docId }}",
         "tableId": "BoosterInventory",
-        "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
             {
@@ -463,15 +447,16 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1740,
-        180
+        1744,
+        192
       ],
       "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 1
           },
           "conditions": [
             {
@@ -494,15 +479,16 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -40,
-        300
+        -48,
+        304
       ],
       "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 1
           },
           "conditions": [
             {
@@ -525,11 +511,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        140,
-        180
+        144,
+        192
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver\n}));\nconst draw = $('Draw Cards').first().json;\nreturn [{ json: { cards, dryRun: true, pity: { pullsSinceTop: draw.pullsSinceTop }, booster: { extensionId: draw.extensionId, count: draw.newBoosterCount } } }];"
       }
     },
@@ -539,7 +524,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        140,
+        144,
         480
       ],
       "parameters": {
@@ -547,7 +532,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 1
           },
           "conditions": [
             {
@@ -578,7 +564,6 @@
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "Cards",
         "rowId": "={{ $json.cardId }}",
-        "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
             {
@@ -605,11 +590,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        520,
-        620
+        528,
+        624
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const config = $('Set Config').first().json;\nconst drawn = $('Draw Cards').all().map((i) => i.json);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === config.userId);\nconst legendaryCards = drawn.filter((c) => c.rarity && c.rarity.key === 'legendaire');\nconst shouldNotify = !config.dryRun && legendaryCards.length > 0 && !!config.discordWebhookUrl && !config.discordWebhookUrl.startsWith('CHANGE-MOI');\nconst names = legendaryCards.map((c) => c.name).join(', ');\nreturn [{ json: {\n  shouldNotify,\n  webhookUrl: config.discordWebhookUrl,\n  content: `\\u{1F31F} **${(user && user.Pseudo) || 'Un joueur'}** vient d'obtenir une carte legendaire : **${names}** !`\n} }];"
       }
     },
@@ -619,15 +603,16 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        700,
-        620
+        704,
+        624
       ],
       "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 1
           },
           "conditions": [
             {
@@ -651,7 +636,7 @@
       "typeVersion": 4.2,
       "position": [
         880,
-        620
+        624
       ],
       "parameters": {
         "method": "POST",
@@ -666,6 +651,262 @@
           ]
         },
         "options": {}
+      }
+    },
+    {
+      "id": "quest-OpenBooster-get",
+      "name": "Quest OpenBooster: Get Daily Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        400,
+        900
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "DailyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-OpenBooster-compute",
+      "name": "Quest OpenBooster: Compute Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        900
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst docId = $('Set Config').first().json.docId;\nconst userId = $('Finalize').first().json.userId;\nconst today = new Date().toISOString().slice(0, 10);\nconst rows = $('Quest OpenBooster: Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === userId && r.Date === today);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\nflags.OpenBoosterDone = true;\n\nconst completedCount = [\"LoginDone\",\"CraftDone\",\"TradeDone\",\"OpenBoosterDone\"].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 2 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId, userId, today, rowId: row ? row.id : null, exists: !!row, shouldGrantReward, ...flags } }];"
+      }
+    },
+    {
+      "id": "quest-OpenBooster-if-exists",
+      "name": "Quest OpenBooster: If Row Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        900
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-OpenBooster-update",
+      "name": "Quest OpenBooster: Update Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        820
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-OpenBooster-create",
+      "name": "Quest OpenBooster: Create Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        980
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "Date",
+              "fieldValue": "={{ $json.today }}"
+            },
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-OpenBooster-if-grant",
+      "name": "Quest OpenBooster: If Should Grant",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        900
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Quest OpenBooster: Compute Update').first().json.shouldGrantReward }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-OpenBooster-get-user",
+      "name": "Quest OpenBooster: Get User For Reward",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1200,
+        820
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Quest OpenBooster: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-OpenBooster-grant",
+      "name": "Quest OpenBooster: Grant Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        820
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Quest OpenBooster: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Quest OpenBooster: Compute Update').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ ($('Quest OpenBooster: Get User For Reward').all().map(i => i.json).find(u => u.id === $('Quest OpenBooster: Compute Update').first().json.userId).BoosterCount || 0) + 1 }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
       }
     }
   ],
@@ -865,6 +1106,11 @@
             "node": "Format Response",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Quest OpenBooster: Get Daily Quests",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -976,6 +1222,91 @@
           }
         ],
         []
+      ]
+    },
+    "Quest OpenBooster: Get Daily Quests": {
+      "main": [
+        [
+          {
+            "node": "Quest OpenBooster: Compute Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest OpenBooster: Compute Update": {
+      "main": [
+        [
+          {
+            "node": "Quest OpenBooster: If Row Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest OpenBooster: If Row Exists": {
+      "main": [
+        [
+          {
+            "node": "Quest OpenBooster: Update Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quest OpenBooster: Create Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest OpenBooster: Update Row": {
+      "main": [
+        [
+          {
+            "node": "Quest OpenBooster: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest OpenBooster: Create Row": {
+      "main": [
+        [
+          {
+            "node": "Quest OpenBooster: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest OpenBooster: If Should Grant": {
+      "main": [
+        [
+          {
+            "node": "Quest OpenBooster: Get User For Reward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Quest OpenBooster: Get User For Reward": {
+      "main": [
+        [
+          {
+            "node": "Quest OpenBooster: Grant Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

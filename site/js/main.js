@@ -639,14 +639,52 @@ function initHeaderShrink() {
   const header = document.getElementById("site-header");
   if (!header) return;
   let lastY = window.scrollY;
+  let ticking = false;
+  // Le defilement (surtout au trackpad/mobile, avec inertie) n'est pas
+  // strictement monotone : de minuscules sursauts dans l'autre sens
+  // arrivent en continu meme pendant un scroll "vers le bas". Sans seuil
+  // ni throttle, la classe "shrunk" s'activait/desactivait en rafale a
+  // chaque frame, provoquant un scintillement visible du header.
   window.addEventListener("scroll", () => {
-    const y = window.scrollY;
-    header.classList.toggle("shrunk", y > 60 && y > lastY);
-    lastY = y;
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = Math.max(0, window.scrollY);
+      const delta = y - lastY;
+      if (Math.abs(delta) > 10) {
+        header.classList.toggle("shrunk", y > 60 && delta > 0);
+        lastY = y;
+      }
+      ticking = false;
+    });
+  }, { passive: true });
+}
+
+// Bouton flottant "retour en haut", utile sur les pages longues (collection,
+// echanges avec beaucoup d'historique...). Apparait seulement apres un
+// scroll significatif pour ne pas polluer l'ecran des le chargement.
+function initBackToTop() {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "back-to-top";
+  btn.setAttribute("aria-label", "Retour en haut de la page");
+  btn.innerHTML = "&#8593;";
+  btn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+  document.body.appendChild(btn);
+
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      btn.classList.toggle("visible", window.scrollY > 600);
+      ticking = false;
+    });
   }, { passive: true });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
   initHeaderShrink();
+  initBackToTop();
 });

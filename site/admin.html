@@ -100,10 +100,18 @@
             Nombre max de joueurs pouvant réclamer (0 = illimite)
             <input type="number" id="max-redemptions-input" min="0" value="0" required />
           </label>
+          <label style="flex-direction:row;align-items:center;gap:8px;">
+            <input type="checkbox" id="notify-discord-checkbox" style="width:auto;" />
+            Notifier sur Discord à la création
+          </label>
           <button type="submit">Créer le code</button>
         </form>
 
+        <div id="reward-preview" class="reward-banner" style="display:none;"></div>
         <div id="created-zone"></div>
+
+        <h2>Statistiques de rétention</h2>
+        <div id="retention-stats" class="stats-grid"></div>
 
         <h2>Répartition des tirages recents</h2>
         <div id="rarity-chart" class="rarity-chart"></div>

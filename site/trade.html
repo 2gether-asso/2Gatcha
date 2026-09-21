@@ -46,6 +46,20 @@
           <button type="submit">Proposer l'échange</button>
         </form>
 
+        <div id="trade-suggestions" class="panel" style="display:none;margin:20px 0;padding:16px;">
+          <h2 style="font-size:1.05rem;">&#128161; Suggestions d'échange</h2>
+          <div id="trade-suggestions-list" class="suggestions-list"></div>
+        </div>
+
+        <div class="actions" style="margin-top:24px;align-items:center;">
+          <input type="text" id="trade-history-search" placeholder="Filtrer par pseudo..." autocomplete="off" style="flex:1;" />
+          <button type="button" class="btn-ghost" id="bulk-cancel-toggle">Annulation groupée</button>
+        </div>
+        <div id="bulk-cancel-bar" class="bulk-action-bar" style="display:none;">
+          <span id="bulk-cancel-summary"></span>
+          <button type="button" class="btn-danger" id="bulk-cancel-btn">Annuler la sélection</button>
+        </div>
+
         <h2>Recus</h2>
         <div id="trades-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
         <div id="incoming-trades" class="trade-list"></div>

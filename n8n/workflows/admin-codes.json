@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (voir README, section admin).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    code: body.code,\n    label: body.label,\n    rewardType: body.rewardType,\n    quantity: body.quantity,\n    cardId: body.cardId,\n    expiresInHours: body.expiresInHours,\n    maxRedemptions: body.maxRedemptions\n  }\n}];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (voir README, section admin), + webhook Discord\n// optionnel (case a cocher a la creation d'un code, voir admin.html).\nconst discordWebhookUrl = 'CHANGE-MOI-DISCORD-WEBHOOK-URL';\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordWebhookUrl,\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    code: body.code,\n    label: body.label,\n    rewardType: body.rewardType,\n    quantity: body.quantity,\n    cardId: body.cardId,\n    expiresInHours: body.expiresInHours,\n    maxRedemptions: body.maxRedemptions,\n    notifyDiscord: !!body.notifyDiscord\n  }\n}];"
       }
     },
     {
@@ -616,7 +616,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst pulls = $('Stats Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Stats Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Stats Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c; });\n\nconst recentPulls = pulls.sort((a, b) => (b.ObtainedAt || 0) - (a.ObtainedAt || 0)).slice(0, 500);\n\nconst counts = {};\nfor (const p of recentPulls) {\n  const card = cardById[refId(p.Card)];\n  if (!card) continue;\n  const rId = refId(card.Rarity);\n  counts[rId] = (counts[rId] || 0) + 1;\n}\n\nconst result = rarities\n  .sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))\n  .map((r) => ({ key: r.Key, name: r.Name, colorHex: r.ColorHex, count: counts[r.id] || 0 }));\n\n// Statistiques d'usage des codes (taux de reclamation, heures de pointe).\nlet codeStats = null;\ntry {\n  const codes = $('Stats Get Event Codes').all().map((i) => i.json).filter((r) => r.id != null);\n  const redemptions = $('Stats Get Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\n  const redemptionsByCode = {};\n  redemptions.forEach((r) => {\n    const cid = refId(r.Code);\n    redemptionsByCode[cid] = (redemptionsByCode[cid] || 0) + 1;\n  });\n  const byHour = new Array(24).fill(0);\n  redemptions.forEach((r) => {\n    if (!r.RedeemedAt) return;\n    const h = new Date(r.RedeemedAt * 1000).getHours();\n    byHour[h]++;\n  });\n  const totalCapacity = codes.reduce((sum, c) => sum + (c.MaxRedemptions || 0), 0);\n  const cappedCodes = codes.filter((c) => c.MaxRedemptions);\n  const claimRate = cappedCodes.length && totalCapacity\n    ? Math.round((redemptions.filter((r) => cappedCodes.some((c) => c.id === refId(r.Code))).length / totalCapacity) * 100)\n    : null;\n  codeStats = {\n    totalCodes: codes.length,\n    totalRedemptions: redemptions.length,\n    claimRate,\n    peakHour: byHour.indexOf(Math.max(...byHour)),\n    byHour: byHour.map((count, hour) => ({ hour, count }))\n  };\n} catch (e) {\n  // Table EventCodes/CodeRedemptions absente ou vide : stats de code non bloquantes.\n}\n\nreturn [{ json: { rarities: result, sampleSize: recentPulls.length, codeStats } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst pulls = $('Stats Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Stats Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Stats Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c; });\n\nconst recentPulls = pulls.sort((a, b) => (b.ObtainedAt || 0) - (a.ObtainedAt || 0)).slice(0, 500);\n\nconst counts = {};\nfor (const p of recentPulls) {\n  const card = cardById[refId(p.Card)];\n  if (!card) continue;\n  const rId = refId(card.Rarity);\n  counts[rId] = (counts[rId] || 0) + 1;\n}\n\nconst result = rarities\n  .sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))\n  .map((r) => ({ key: r.Key, name: r.Name, colorHex: r.ColorHex, count: counts[r.id] || 0 }));\n\n// Statistiques d'usage des codes (taux de reclamation, heures de pointe).\nlet codeStats = null;\ntry {\n  const codes = $('Stats Get Event Codes').all().map((i) => i.json).filter((r) => r.id != null);\n  const redemptions = $('Stats Get Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\n  const redemptionsByCode = {};\n  redemptions.forEach((r) => {\n    const cid = refId(r.Code);\n    redemptionsByCode[cid] = (redemptionsByCode[cid] || 0) + 1;\n  });\n  const byHour = new Array(24).fill(0);\n  redemptions.forEach((r) => {\n    if (!r.RedeemedAt) return;\n    const h = new Date(r.RedeemedAt * 1000).getHours();\n    byHour[h]++;\n  });\n  const totalCapacity = codes.reduce((sum, c) => sum + (c.MaxRedemptions || 0), 0);\n  const cappedCodes = codes.filter((c) => c.MaxRedemptions);\n  const claimRate = cappedCodes.length && totalCapacity\n    ? Math.round((redemptions.filter((r) => cappedCodes.some((c) => c.id === refId(r.Code))).length / totalCapacity) * 100)\n    : null;\n  codeStats = {\n    totalCodes: codes.length,\n    totalRedemptions: redemptions.length,\n    claimRate,\n    peakHour: byHour.indexOf(Math.max(...byHour)),\n    byHour: byHour.map((count, hour) => ({ hour, count }))\n  };\n} catch (e) {\n  // Table EventCodes/CodeRedemptions absente ou vide : stats de code non bloquantes.\n}\n\n// Retention : joueurs ayant tire au moins une fois dans les 7/30 derniers\n// jours, rapporte au nombre total de comptes crees.\nlet retention = null;\ntry {\n  const users = $('Stats Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n  const now = Math.floor(Date.now() / 1000);\n  const DAY = 86400;\n  const lastPullByUser = {};\n  pulls.forEach((p) => {\n    const uid = refId(p.User);\n    if (!lastPullByUser[uid] || p.ObtainedAt > lastPullByUser[uid]) lastPullByUser[uid] = p.ObtainedAt || 0;\n  });\n  const active7 = Object.values(lastPullByUser).filter((t) => now - t < 7 * DAY).length;\n  const active30 = Object.values(lastPullByUser).filter((t) => now - t < 30 * DAY).length;\n  retention = { totalUsers: users.length, active7, active30 };\n} catch (e) {\n  // Non bloquant.\n}\n\nreturn [{ json: { rarities: result, sampleSize: recentPulls.length, codeStats, retention } }];"
       }
     },
     {
@@ -709,6 +709,99 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "if-should-notify-code",
+      "name": "If Should Notify Code",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Set Config').first().json.notifyDiscord && !$('Set Config').first().json.discordWebhookUrl.startsWith('CHANGE-MOI') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "notify-discord-code",
+      "name": "Notify Discord Code",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -320,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Config').first().json.discordWebhookUrl }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ '\\uD83C\\uDF9F\\uFE0F Nouveau code disponible : **' + $json.Code + '** (' + $('Set Config').first().json.quantity + ' ' + ($('Set Config').first().json.rewardType === 'card' ? 'exemplaire(s) d\\'une carte' : 'booster(s)') + ')' }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "stats-barrier-users",
+      "name": "Sync Stats Get Redemptions -> Stats Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        700
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "stats-get-users",
+      "name": "Stats Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        760,
+        700
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -786,6 +879,11 @@
         [
           {
             "node": "Format Created",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Should Notify Code",
             "type": "main",
             "index": 0
           }
@@ -1034,6 +1132,40 @@
       ]
     },
     "Stats Get Redemptions": {
+      "main": [
+        [
+          {
+            "node": "Sync Stats Get Redemptions -> Stats Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Should Notify Code": {
+      "main": [
+        [
+          {
+            "node": "Notify Discord Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Sync Stats Get Redemptions -> Stats Get Users": {
+      "main": [
+        [
+          {
+            "node": "Stats Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stats Get Users": {
       "main": [
         [
           {

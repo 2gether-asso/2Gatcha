@@ -150,6 +150,26 @@ avec les autres membres (visible sur le profil/dans l'outil d'echange).
 | User    | Reference -> Users   | |
 | Card    | Reference -> Cards   | |
 
+## DailyQuests
+
+Une ligne par couple (User, jour). 4 quetes quotidiennes fixes ; en
+completer 2 sur 4 accorde automatiquement 1 booster gratuit (une seule fois
+par jour, voir `RewardClaimed`). Cree/mise a jour par `quests.json` (quete
+"se connecter", au premier chargement de la page qui consulte les quetes du
+jour) et par une branche additionnelle dans `craft.json` (crafter une
+carte), `trade.json` (proposer un echange) et `open-pack.json` (ouvrir un
+booster reel, pas en mode test admin).
+
+| Colonne          | Type                | Notes                                    |
+|-------------------|----------------------|---------------------------------------------|
+| User              | Reference -> Users   |                                              |
+| Date              | Text                  | jour au format `AAAA-MM-JJ` (UTC), pas un DateTime : on compare des jours calendaires, pas des instants |
+| LoginDone         | Bool                  | vrai des que le joueur consulte ses quetes du jour |
+| CraftDone         | Bool                  | vrai apres un craft reussi ce jour-la       |
+| TradeDone         | Bool                  | vrai apres la creation d'une proposition d'echange |
+| OpenBoosterDone   | Bool                  | vrai apres l'ouverture d'un booster reel    |
+| RewardClaimed     | Bool                  | passe a `true` des que 2 quetes sur 4 sont vraies le meme jour ; `Users.BoosterCount` recoit alors +1 automatiquement |
+
 ## 8. CodeRedemptions
 
 Une ligne par reclamation reussie. Sert a bloquer la double reclamation d'un

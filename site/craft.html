@@ -37,7 +37,14 @@
 
         <div id="unused-dust-reminder" class="milestone-banner" style="display:none;"></div>
 
-        <h2>Mes cartes (decrafter)</h2>
+        <div class="actions" style="margin-top:0;align-items:center;">
+          <h2 style="flex:1;margin:0;">Mes cartes (decrafter)</h2>
+          <button type="button" class="btn-ghost" id="bulk-select-toggle">Sélection multiple</button>
+        </div>
+        <div id="bulk-disenchant-bar" class="bulk-action-bar" style="display:none;">
+          <span id="bulk-disenchant-summary"></span>
+          <button type="button" class="btn-danger" id="bulk-disenchant-btn">Décrafter la sélection</button>
+        </div>
         <div id="disenchant-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
         <div id="disenchant-grid" class="craft-grid"></div>
 

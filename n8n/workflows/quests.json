@@ -1,0 +1,462 @@
+{
+  "name": "2Gatcha - quests",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quests",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "02ba8182-049d-4ee8-b329-3ba1f5c84634"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  today: new Date().toISOString().slice(0, 10)\n} }];"
+      }
+    },
+    {
+      "id": "get-daily-quests",
+      "name": "Get Daily Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1180,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "compute-quest-update",
+      "name": "Compute Quest Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === cfg.userId && r.Date === cfg.today);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\n// Le simple fait de consulter ses quetes du jour compte comme \"se connecter\".\nflags.LoginDone = true;\n\nconst completedCount = ['LoginDone', 'CraftDone', 'TradeDone', 'OpenBoosterDone'].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 2 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId: cfg.docId, userId: cfg.userId, today: cfg.today, rowId: row ? row.id : null, exists: !!row, completedCount, shouldGrantReward, ...flags } }];"
+      }
+    },
+    {
+      "id": "if-row-exists",
+      "name": "If Row Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -740,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-quest-row",
+      "name": "Update Quest Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        320
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "create-quest-row",
+      "name": "Create Quest Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        480
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "Date",
+              "fieldValue": "={{ $json.today }}"
+            },
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-should-grant",
+      "name": "If Should Grant Reward",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Compute Quest Update').first().json.shouldGrantReward }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "get-user-for-reward",
+      "name": "Get User For Reward",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -220,
+        320
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Compute Quest Update').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "grant-booster",
+      "name": "Grant Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        320
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Compute Quest Update').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Compute Quest Update').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ ($('Get User For Reward').all().map(i => i.json).find(u => u.id === $('Compute Quest Update').first().json.userId).BoosterCount || 0) + 1 }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        140,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const q = $('Compute Quest Update').first().json;\nreturn [{ json: {\n  quests: {\n    login: q.LoginDone,\n    craft: q.CraftDone,\n    trade: q.TradeDone,\n    openBooster: q.OpenBoosterDone\n  },\n  completedCount: q.completedCount,\n  rewardClaimed: q.RewardClaimed,\n  justClaimedReward: q.shouldGrantReward\n} }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Daily Quests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Daily Quests": {
+      "main": [
+        [
+          {
+            "node": "Compute Quest Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Quest Update": {
+      "main": [
+        [
+          {
+            "node": "If Row Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Row Exists": {
+      "main": [
+        [
+          {
+            "node": "Update Quest Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Quest Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Quest Row": {
+      "main": [
+        [
+          {
+            "node": "If Should Grant Reward",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Quest Row": {
+      "main": [
+        [
+          {
+            "node": "If Should Grant Reward",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Should Grant Reward": {
+      "main": [
+        [
+          {
+            "node": "Get User For Reward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User For Reward": {
+      "main": [
+        [
+          {
+            "node": "Grant Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grant Booster": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

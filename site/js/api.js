@@ -206,5 +206,9 @@ const API = {
 
   removeFromWishlist(userId, cardId) {
     return this.post("wishlist", { userId, action: "remove", cardId });
+  },
+
+  getQuestStatus(userId) {
+    return this.post("quests", { userId });
   }
 };

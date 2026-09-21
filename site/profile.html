@@ -22,8 +22,11 @@
       </div>
       <div id="profile-zone" style="display:none;">
         <h1 id="profile-title"></h1>
+        <p id="profile-member-since" class="lead" style="font-size:0.85rem;"></p>
+        <div id="profile-complete-badge" class="reward-banner" style="display:none;">&#127942; Collection complète !</div>
         <div id="profile-stats" class="stats-grid"></div>
         <h2>Collection publique</h2>
+        <p class="lead" style="font-size:0.8rem;">Le badge <span class="dupe-badge" style="position:static;display:inline-flex;">×N</span> indique une carte possédée en plusieurs exemplaires : ce joueur a peut-être un doublon à échanger.</p>
         <div id="profile-grid" class="collection-grid"></div>
       </div>
     </div>
@@ -44,8 +47,14 @@
       try {
         const res = await API.getPublicProfile(pseudo);
         document.getElementById("profile-title").textContent = `Collection de ${res.pseudo}`;
+        if (res.memberSince) {
+          const d = new Date(res.memberSince * 1000);
+          document.getElementById("profile-member-since").textContent =
+            `Membre depuis ${d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
+        }
+        if (res.isComplete) document.getElementById("profile-complete-badge").style.display = "block";
         document.getElementById("profile-stats").innerHTML = `
-          <div class="stat-tile"><div class="stat-value">${res.uniqueCards}</div><div class="stat-label">Cartes uniques</div></div>
+          <div class="stat-tile"><div class="stat-value">${res.uniqueCards}${res.totalCards ? ` / ${res.totalCards}` : ""}</div><div class="stat-label">Cartes uniques</div></div>
           <div class="stat-tile"><div class="stat-value">${res.totalPulls}</div><div class="stat-label">Tirages au total</div></div>
         `;
         const grid = document.getElementById("profile-grid");
@@ -55,6 +64,7 @@
           const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
           return `
             <div class="collection-card" data-rarity="${c.rarity?.key || "commune"}" data-promo="${c.isPromo ? "1" : "0"}">
+              ${c.count > 1 && !c.isPromo ? `<span class="dupe-badge" title="Doublon possible a echanger">×${c.count} dispo</span>` : ""}
               <img src="${imgSrc}" alt="${c.name}" />
               <div class="card-info">
                 <div class="card-name">${c.name}${c.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
