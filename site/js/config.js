@@ -13,7 +13,7 @@ window.APP_CONFIG = {
   // A adapter : memes ID Discord que la liste `adminDiscordIds` codee en dur
   // dans n8n/workflows/admin-codes.json. Ne sert ici qu'a afficher (ou pas)
   // le lien "Admin" dans le menu ; la verification qui compte est cote n8n.
-  adminDiscordIds: ["785223211730075709"],
+  adminDiscordIds: ["785223211730075709", "184008667690041345"],
 
   endpoints: {
     discordLogin: "/discord-login",   // POST { code } -> { userId, pseudo, discordUsername, discordAvatar }
@@ -24,7 +24,7 @@ window.APP_CONFIG = {
     openPack: "/open-pack",           // POST { userId, extensionId } -> ouvre 1 booster (5 cartes) de cette extension
     collection: "/collection",        // GET ?userId=... -> collection de l'utilisateur
     image: "/image",                  // GET ?id=... -> proxy binaire vers une piece jointe Grist
-    boosterStatus: "/booster-status", // GET ?userId=... -> { count, stardust, extensions: [{extensionId,name,key,sortOrder,count}] }
+    boosterStatus: "/booster-status", // GET ?userId=... -> { count, stardust, extensions: [{extensionId,name,key,sortOrder}] } (count = solde generique, commun a toutes les extensions)
     redeemCode: "/redeem-code",       // POST { userId, code } -> { type: 'booster'|'card', ... }
     adminCodes: "/admin-codes",       // POST { discordId, action: 'create'|'list'|'revoke', ... }
     trade: "/trade",                  // POST { userId, action: 'create'|'list'|'respond'|'cancel', ... }

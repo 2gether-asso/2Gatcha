@@ -1,48 +1,258 @@
 {
   "name": "2Gatcha - get-booster-status",
   "nodes": [
-    { "parameters": { "httpMethod": "GET", "path": "booster-status", "responseMode": "responseNode", "options": {} },
-      "id": "webhook", "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [-1200, 300] },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "booster-status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        300
+      ]
+    },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const userId = Number($input.first().json.query.userId);\nreturn [{ json: { docId: 'cRP1WgZQv7KmwmVrUbuEF8', userId } }];"
       },
-      "id": "set-config", "name": "Set Config", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-980, 300]
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        300
+      ]
     },
-    { "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
-      "id": "get-users", "name": "Get Users", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-760, 300],
-      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
-    { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" },
-      "id": "barrier-1", "name": "Sync Get Users -> Get Extensions", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-620, 300] },
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Extensions", "returnAll": true, "additionalOptions": {} },
-      "id": "get-extensions", "name": "Get Extensions", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-480, 300],
-      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
-    { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" },
-      "id": "barrier-2", "name": "Sync Get Extensions -> Get Booster Inventory", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-340, 300] },
-    { "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "BoosterInventory", "returnAll": true, "additionalOptions": {} },
-      "id": "get-booster-inventory", "name": "Get Booster Inventory", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-200, 300],
-      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } } },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst config = $('Set Config').first().json;\nconst userRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = userRows.find((u) => u.id === config.userId);\nif (!user) {\n  throw new Error('Utilisateur introuvable (userId=' + config.userId + ')');\n}\n\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null && r.Active !== false);\nconst invRows = $('Get Booster Inventory').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === config.userId);\nconst invByExtension = {};\ninvRows.forEach((r) => { invByExtension[refId(r.Extension)] = r; });\n\nconst extensions = extensionsRows\n  .map((e) => ({\n    extensionId: e.id,\n    name: e.Name,\n    key: e.Key,\n    sortOrder: e.SortOrder || 0,\n    count: (invByExtension[e.id] && invByExtension[e.id].Count) || 0\n  }))\n  .sort((a, b) => a.sortOrder - b.sortOrder);\n\nconst total = extensions.reduce((s, e) => s + e.count, 0);\n\nreturn [{ json: { count: total, stardust: user.StardustCount || 0, extensions } }];"
+        "jsCode": "return [{ json: {} }];"
       },
-      "id": "format-response", "name": "Format Response", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-60, 300]
+      "id": "barrier-1",
+      "name": "Sync Get Users -> Get Extensions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        300
+      ]
     },
-    { "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} },
-      "id": "respond", "name": "Respond", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [160, 300] }
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-extensions",
+      "name": "Get Extensions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "id": "barrier-2",
+      "name": "Sync Get Extensions -> Get Booster Inventory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "BoosterInventory",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "get-booster-inventory",
+      "name": "Get Booster Inventory",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst config = $('Set Config').first().json;\nconst userRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = userRows.find((u) => u.id === config.userId);\nif (!user) {\n  throw new Error('Utilisateur introuvable (userId=' + config.userId + ')');\n}\n\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null && r.Active !== false);\nconst invRows = $('Get Booster Inventory').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === config.userId);\nconst invByExtension = {};\ninvRows.forEach((r) => { invByExtension[refId(r.Extension)] = r; });\n\n// Le solde de boosters est generique (Users.BoosterCount, commun a toutes\n// les extensions) : seule la progression vers la pity reste par extension.\nconst extensions = extensionsRows\n  .map((e) => ({\n    extensionId: e.id,\n    name: e.Name,\n    key: e.Key,\n    sortOrder: e.SortOrder || 0,\n    pullsSinceTop: (invByExtension[e.id] && invByExtension[e.id].PullsSinceTopRarity) || 0\n  }))\n  .sort((a, b) => a.sortOrder - b.sortOrder);\n\nreturn [{ json: { count: user.BoosterCount || 0, stardust: user.StardustCount || 0, extensions } }];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        300
+      ]
+    }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
-    "Set Config": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
-    "Get Users": { "main": [[{ "node": "Sync Get Users -> Get Extensions", "type": "main", "index": 0 }]] },
-    "Sync Get Users -> Get Extensions": { "main": [[{ "node": "Get Extensions", "type": "main", "index": 0 }]] },
-    "Get Extensions": { "main": [[{ "node": "Sync Get Extensions -> Get Booster Inventory", "type": "main", "index": 0 }]] },
-    "Sync Get Extensions -> Get Booster Inventory": { "main": [[{ "node": "Get Booster Inventory", "type": "main", "index": 0 }]] },
-    "Get Booster Inventory": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] },
-    "Format Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users -> Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Extensions -> Get Booster Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Extensions -> Get Booster Inventory": {
+      "main": [
+        [
+          {
+            "node": "Get Booster Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booster Inventory": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

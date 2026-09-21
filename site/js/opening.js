@@ -1,18 +1,23 @@
 // Logique de la page d'ouverture de booster.
 // Contrat n8n "extensions" (GET) : { extensions: [{ id, name, key, active, packImageId, cardBackImageId }] }
 // Contrat n8n "booster-status" (GET ?userId=...) :
-// { count, stardust, extensions: [{ extensionId, name, key, sortOrder, count }] }
+// { count, stardust, extensions: [{ extensionId, name, key, sortOrder, pullsSinceTop }] }
+// (count = solde GENERIQUE, commun a toutes les extensions ; c'est
+// l'utilisateur qui choisit avec quelle extension le depenser)
 // Contrat n8n "open-pack" (POST { userId, extensionId }) :
 // { cards: [...], pity: { pullsSinceTop }, booster: { extensionId, count } }
 // ou, si le stock est a 0 : { error: "no_boosters", count, extensionId }
+//
+// L'ouverture se fait dans un modal plein ecran (#pack-modal-overlay), pas
+// inline dans la page : la page ne montre que le choix du pack a ouvrir.
 
 let isBusy = false;
 let skipToken = null;
 let extensionsCache = [];
-let statusByExtension = new Map();
-let selectedExtensionId = null;
+let boosterCount = 0;
 let pendingReveals = 0;
 
+// Attend `ms` millisecondes, sauf si l'utilisateur tape pour accelerer.
 function wait(ms) {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, ms);
@@ -20,7 +25,11 @@ function wait(ms) {
   });
 }
 function requestSkip() {
-  if (skipToken) { const fn = skipToken; skipToken = null; fn(); }
+  if (skipToken) {
+    const fn = skipToken;
+    skipToken = null;
+    fn();
+  }
 }
 
 function buildCardBackEl(cardBackImageId) {
@@ -64,137 +73,146 @@ function buildCardEl(card, index, cardBackImageId) {
   const flip = () => {
     if (wrap.classList.contains("revealed")) return;
     wrap.classList.add("revealed");
-    celebrateRarity(card.rarity?.key);
+    celebrateRarity(card.rarity?.key, wrap);
     pendingReveals--;
-    if (pendingReveals <= 0) {
-      const btn = document.getElementById("reveal-all-btn");
-      if (btn) btn.remove();
-      isBusy = false;
-    }
+    if (pendingReveals <= 0) onAllRevealed();
   };
   wrap.addEventListener("click", flip);
   wrap._flip = flip;
   return wrap;
 }
 
-function celebrateRarity(key) {
+function onAllRevealed() {
+  const btn = document.getElementById("reveal-all-btn");
+  if (btn) btn.remove();
+  isBusy = false;
+  const hint = document.getElementById("booster-hint");
+  if (hint) hint.textContent = "Toutes les cartes sont revelees !";
+}
+
+// Important : l'effet legendaire n'anime JAMAIS le transform d'un ancetre
+// des cartes (document.body notamment). Les cartes de reveal utilisent
+// transform-style:preserve-3d pour le flip 3D ; animer le transform d'un
+// parent commun casse ce rendu dans certains navigateurs (c'est ce qui
+// provoquait un blocage de la page). L'effet est donc isole a un calque de
+// flash plein ecran + un filtre sur la carte elle-meme uniquement.
+function celebrateRarity(key, cardEl) {
   if (key === "legendaire") {
-    document.body.classList.remove("screen-shake");
-    void document.body.offsetWidth;
-    document.body.classList.add("screen-shake");
+    const flash = document.getElementById("legendary-flash");
+    if (flash) {
+      flash.classList.remove("active");
+      void flash.offsetWidth;
+      flash.classList.add("active");
+    }
+    if (cardEl) {
+      cardEl.classList.remove("legendary-hit");
+      void cardEl.offsetWidth;
+      cardEl.classList.add("legendary-hit");
+    }
     if (typeof confetti === "function") {
-      confetti({ particleCount: 220, spread: 120, origin: { y: 0.5 }, colors: ["#f5a524", "#ffd166", "#ffffff"] });
-      setTimeout(() => confetti({ particleCount: 140, spread: 160, origin: { y: 0.4 }, colors: ["#f5a524", "#ffffff"] }), 250);
-      setTimeout(() => confetti({ particleCount: 100, angle: 60, spread: 70, origin: { x: 0, y: 0.6 } }), 400);
-      setTimeout(() => confetti({ particleCount: 100, angle: 120, spread: 70, origin: { x: 1, y: 0.6 } }), 400);
+      confetti({ particleCount: 160, spread: 110, origin: { y: 0.5 }, colors: ["#f5a524", "#ffd166", "#ffffff"] });
+      setTimeout(() => confetti({ particleCount: 90, spread: 140, origin: { y: 0.4 }, colors: ["#f5a524", "#ffffff"] }), 220);
     }
     Toast.success("Legendaire !");
   } else if (key === "epique" && typeof confetti === "function") {
-    confetti({ particleCount: 90, spread: 90, origin: { y: 0.5 }, colors: ["#a855f7", "#d8b4fe"] });
+    confetti({ particleCount: 70, spread: 85, origin: { y: 0.5 }, colors: ["#a855f7", "#d8b4fe"] });
   }
 }
 
-function currentExtension() {
-  return extensionsCache.find((e) => e.id === selectedExtensionId);
+function extensionById(id) {
+  return extensionsCache.find((e) => e.id === id);
+}
+
+function renderBoosterCountLabel() {
+  const el = document.getElementById("booster-count-label");
+  if (!el) return;
+  el.textContent = `${boosterCount} booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}`;
 }
 
 function renderExtensionPicker() {
+  renderBoosterCountLabel();
   const el = document.getElementById("extension-picker");
   if (!extensionsCache.length) {
     el.innerHTML = `<div class="empty-state">Aucune extension configuree pour l'instant.</div>`;
     return;
   }
+  const disabled = boosterCount < 1;
   el.innerHTML = extensionsCache.map((ext) => {
-    const count = (statusByExtension.get(ext.id) || {}).count || 0;
     const img = API.imageUrl(ext.packImageId);
-    const disabled = count < 1;
     return `
-      <div class="extension-tile ${disabled ? "disabled" : ""} ${ext.id === selectedExtensionId ? "selected" : ""}" data-ext-id="${ext.id}">
+      <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}">
         ${img ? `<img src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
         <div class="ext-name">${ext.name}</div>
-        <div class="ext-count">${count} booster${count > 1 ? "s" : ""}</div>
+        <div class="ext-count">Ouvrir</div>
       </div>
     `;
   }).join("");
 
   el.querySelectorAll(".extension-tile:not(.disabled)").forEach((tile) => {
-    tile.addEventListener("click", () => {
-      if (isBusy) return;
-      selectExtension(Number(tile.dataset.extId));
-    });
+    tile.addEventListener("click", () => openModalFor(Number(tile.dataset.extId)));
   });
 }
 
-function selectExtension(extensionId) {
-  selectedExtensionId = extensionId;
-  document.querySelectorAll(".extension-tile").forEach((t) => {
-    t.classList.toggle("selected", Number(t.dataset.extId) === extensionId);
-  });
-  renderHero();
-}
-
-function renderHero() {
-  const ext = currentExtension();
-  const heroZone = document.getElementById("booster-hero-zone");
-  const pack = document.getElementById("booster-pack");
-  const labelEl = document.getElementById("stock-label");
-  const hintEl = document.getElementById("booster-hint");
-  if (!ext) {
-    heroZone.style.display = "none";
-    return;
-  }
-  heroZone.style.display = "flex";
-  const count = (statusByExtension.get(ext.id) || {}).count || 0;
-  const img = API.imageUrl(ext.packImageId);
-
-  pack.innerHTML = img
-    ? `<img src="${img}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px;position:absolute;inset:0;" />`
-    : `<div class="booster-emoji">&#127183;</div><div class="booster-title">${ext.name}</div><div class="booster-sub">5 cartes</div>`;
-
-  labelEl.textContent = `${ext.name} - ${count} booster${count > 1 ? "s" : ""} disponible${count > 1 ? "s" : ""}`;
-  pack.classList.toggle("locked", count < 1);
-  hintEl.innerHTML = count > 0
-    ? "Tape sur le booster pour l'ouvrir"
-    : `Reclame un code d'evenement pour recevoir des boosters (page <a href="redeem.html">Reclamer un code</a>)`;
-}
-
-async function refreshStatus(keepSelection) {
+async function refreshStatus() {
   try {
     const [extRes, statusRes] = await Promise.all([
       API.getExtensions(),
       API.getBoosterStatus(Session.userId)
     ]);
     extensionsCache = (extRes.extensions || []).filter((e) => e.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-    statusByExtension = new Map((statusRes.extensions || []).map((e) => [e.extensionId, e]));
-
-    if (!keepSelection || !currentExtension()) {
-      const firstAvailable = extensionsCache.find((e) => (statusByExtension.get(e.id) || {}).count > 0);
-      selectedExtensionId = (firstAvailable || extensionsCache[0] || {}).id ?? null;
-    }
+    boosterCount = statusRes.count || 0;
     renderExtensionPicker();
-    renderHero();
   } catch (e) {
     Toast.error("Impossible de recuperer les extensions/boosters. (" + e.message + ")");
   }
 }
 
-async function openBooster() {
-  const ext = currentExtension();
-  if (isBusy || !ext) return;
-  const count = (statusByExtension.get(ext.id) || {}).count || 0;
-  if (count < 1) return;
+// Ouvre le modal sur le pack de l'extension choisie, pret a etre tape pour
+// demarrer l'ouverture (le tirage reel n'a pas encore eu lieu a ce stade).
+function openModalFor(extensionId) {
+  if (isBusy || boosterCount < 1) return;
+  const ext = extensionById(extensionId);
+  if (!ext) return;
+
+  const overlay = document.getElementById("pack-modal-overlay");
+  const pack = document.getElementById("booster-pack");
+  const grid = document.getElementById("reveal-grid");
+  const hint = document.getElementById("booster-hint");
+
+  grid.innerHTML = "";
+  const oldRevealAll = document.getElementById("reveal-all-btn");
+  if (oldRevealAll) oldRevealAll.remove();
+  pack.classList.remove("locked", "charging", "tearing");
+  pack.style.visibility = "visible";
+
+  const img = API.imageUrl(ext.packImageId);
+  pack.innerHTML = img
+    ? `<img src="${img}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px;position:absolute;inset:0;" />`
+    : `<div class="booster-emoji">&#127183;</div><div class="booster-title">${ext.name}</div><div class="booster-sub">5 cartes</div>`;
+  hint.textContent = "Tape sur le booster pour l'ouvrir";
+
+  pack.onclick = () => {
+    if (isBusy) requestSkip();
+    else startOpening(ext);
+  };
+
+  overlay.hidden = false;
+}
+
+function closeModal() {
+  document.getElementById("pack-modal-overlay").hidden = true;
+}
+
+async function startOpening(ext) {
   isBusy = true;
 
   const pack = document.getElementById("booster-pack");
   const flash = document.getElementById("burst-flash");
   const grid = document.getElementById("reveal-grid");
   const skipHint = document.getElementById("skip-hint");
-  grid.innerHTML = "";
-  grid.classList.add("hearthstone");
-  const oldRevealAll = document.getElementById("reveal-all-btn");
-  if (oldRevealAll) oldRevealAll.remove();
-  skipHint.classList.add("visible");
+  const hint = document.getElementById("booster-hint");
 
+  skipHint.classList.add("visible");
   pack.classList.add("charging");
 
   try {
@@ -203,9 +221,10 @@ async function openBooster() {
     if (res.error === "no_boosters") {
       pack.classList.remove("charging");
       skipHint.classList.remove("visible");
-      await refreshStatus(true);
+      await refreshStatus();
       Toast.error("Plus de booster disponible pour l'instant.");
       isBusy = false;
+      closeModal();
       return;
     }
 
@@ -217,6 +236,8 @@ async function openBooster() {
     await wait(480);
     skipHint.classList.remove("visible");
     pack.classList.remove("tearing");
+    pack.style.visibility = "hidden";
+    hint.textContent = "Tape sur chaque carte pour la reveler";
 
     const cards = res.cards || [];
     pendingReveals = cards.length;
@@ -236,27 +257,31 @@ async function openBooster() {
         });
       });
       grid.after(revealAllBtn);
+    } else {
+      onAllRevealed();
     }
 
     flash.classList.remove("flash-active");
     if (res.booster) {
-      statusByExtension.set(res.booster.extensionId, { ...(statusByExtension.get(res.booster.extensionId) || {}), count: res.booster.count });
+      boosterCount = res.booster.count;
       renderExtensionPicker();
-      renderHero();
     }
     loadHeaderBoosterBadge();
-    // isBusy repasse a false une fois toutes les cartes tapees (voir buildCardEl).
+    // isBusy repasse a false une fois toutes les cartes tapees (voir onAllRevealed).
   } catch (e) {
     pack.classList.remove("charging", "tearing");
+    pack.style.visibility = "visible";
     skipHint.classList.remove("visible");
     Toast.error("Erreur lors de l'ouverture du booster. (" + e.message + ")");
     isBusy = false;
+    closeModal();
   }
 }
 
-// Petite trainee d'etincelles qui suit le curseur, ambiance gacha.
+// Petite trainee d'etincelles qui suit le curseur, ambiance gacha (pointeur
+// fin uniquement, jamais sur tactile).
 function initSparkleTrail() {
-  if (window.matchMedia("(hover: none)").matches) return; // pas sur tactile
+  if (window.matchMedia("(hover: none)").matches) return;
   let last = 0;
   document.addEventListener("mousemove", (e) => {
     const now = Date.now();
@@ -277,10 +302,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   document.getElementById("booster-zone").style.display = "flex";
-  document.getElementById("booster-pack").addEventListener("click", () => {
-    if (isBusy) requestSkip();
-    else openBooster();
+
+  const overlay = document.getElementById("pack-modal-overlay");
+  document.getElementById("pack-modal-close").addEventListener("click", closeModal);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay && !isBusy) closeModal();
   });
-  refreshStatus(false);
+
+  refreshStatus();
   initSparkleTrail();
 });

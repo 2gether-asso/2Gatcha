@@ -11,41 +11,43 @@
 </head>
 <body>
   <div id="burst-flash" class="burst-flash"></div>
+  <div id="legendary-flash" class="legendary-flash"></div>
   <header id="site-header"></header>
 
   <main>
     <div class="panel">
       <h1>Ouverture de booster</h1>
-      <p class="lead">Un booster contient 5 cartes. Les boosters s'obtiennent uniquement en reclamant un code d'evenement.</p>
+      <p class="lead">Un booster contient 5 cartes. Les boosters s'obtiennent uniquement en reclamant un code d'evenement. Tape sur un pack pour l'ouvrir.</p>
 
       <div id="guest-warning" style="display:none;">
         <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
       </div>
 
       <div id="booster-zone" style="display:none;">
+        <p id="booster-count-label" class="stock-label" style="margin-bottom:16px;"></p>
         <div class="extension-picker" id="extension-picker"></div>
-
-        <div id="booster-hero-zone" class="booster-hero" style="display:none;">
-          <div class="booster-stock">
-            <div id="stock-label" class="stock-label"></div>
-          </div>
-
-          <div class="booster-stage">
-            <div id="booster-pack" class="booster-pack">
-              <div class="booster-emoji">&#127183;</div>
-              <div class="booster-title">Booster</div>
-              <div class="booster-sub">5 cartes</div>
-            </div>
-            <div id="skip-hint" class="skip-hint">Tape pour accelerer</div>
-          </div>
-
-          <div id="booster-hint" class="booster-hint"></div>
-
-          <div id="reveal-grid" class="reveal-grid"></div>
-        </div>
       </div>
     </div>
   </main>
+
+  <!-- Modal plein ecran : ouverture + reveal, par-dessus toute la page -->
+  <div id="pack-modal-overlay" class="pack-modal-overlay" hidden>
+    <button id="pack-modal-close" class="card-modal-close pack-modal-close" aria-label="Fermer">&times;</button>
+    <div class="pack-modal-stage">
+      <div class="booster-stage">
+        <div id="booster-pack" class="booster-pack">
+          <div class="booster-emoji">&#127183;</div>
+          <div class="booster-title">Booster</div>
+          <div class="booster-sub">5 cartes</div>
+        </div>
+        <div id="skip-hint" class="skip-hint">Tape pour accelerer</div>
+      </div>
+
+      <div id="booster-hint" class="booster-hint"></div>
+
+      <div id="reveal-grid" class="reveal-grid hearthstone"></div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script src="js/config.js"></script>

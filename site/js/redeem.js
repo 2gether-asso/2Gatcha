@@ -42,11 +42,21 @@ function buildCardEl(card, index) {
   return wrap;
 }
 
-function celebrateRarity(key) {
+function celebrateRarity(key, cardEl) {
   if (key === "legendaire") {
-    document.body.classList.remove("screen-shake");
-    void document.body.offsetWidth;
-    document.body.classList.add("screen-shake");
+    // Pas de transform sur un ancetre des cartes (voir opening.js) : on
+    // isole l'effet a un flash plein ecran + un filtre sur la carte.
+    const flash = document.getElementById("legendary-flash");
+    if (flash) {
+      flash.classList.remove("active");
+      void flash.offsetWidth;
+      flash.classList.add("active");
+    }
+    if (cardEl) {
+      cardEl.classList.remove("legendary-hit");
+      void cardEl.offsetWidth;
+      cardEl.classList.add("legendary-hit");
+    }
     if (typeof confetti === "function") {
       confetti({ particleCount: 160, spread: 100, origin: { y: 0.5 }, colors: ["#f5a524", "#ffd166", "#ffffff"] });
     }
@@ -82,7 +92,7 @@ async function redeem() {
         grid.appendChild(el);
         setTimeout(() => {
           el.classList.add("revealed");
-          celebrateRarity(card.rarity?.key);
+          celebrateRarity(card.rarity?.key, el);
         }, 300 + i * 220);
       });
     }

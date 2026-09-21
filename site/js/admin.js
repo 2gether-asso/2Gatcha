@@ -11,16 +11,10 @@ const STATUS_LABELS = {
 };
 
 let cardsCatalog = [];
-let extensionsCatalog = [];
 
 function formatExpiry(epochSeconds) {
   if (!epochSeconds) return "-";
   return new Date(epochSeconds * 1000).toLocaleString("fr-FR");
-}
-
-function extensionName(extensionId) {
-  const ext = extensionsCatalog.find((e) => e.id === extensionId);
-  return ext ? ext.name : null;
 }
 
 function renderCodesTable(codes) {
@@ -32,7 +26,7 @@ function renderCodesTable(codes) {
   tbody.innerHTML = codes.map((c) => {
     const reward = c.rewardType === "card"
       ? `Carte #${c.cardId} x${c.quantity}`
-      : `${c.quantity} booster${c.quantity > 1 ? "s" : ""} (${extensionName(c.extensionId) || "extension ?"})`;
+      : `${c.quantity} booster${c.quantity > 1 ? "s" : ""} (generique)`;
     const used = c.maxRedemptions ? `${c.used} / ${c.maxRedemptions}` : `${c.used} / illimite`;
     const canRevoke = c.active;
     return `
@@ -78,7 +72,6 @@ async function revokeCode(code) {
 function updateCardFieldVisibility() {
   const isCard = document.getElementById("reward-type-select").value === "card";
   document.getElementById("card-select-label").style.display = isCard ? "block" : "none";
-  document.getElementById("extension-select-label").style.display = isCard ? "none" : "block";
 }
 
 async function loadCardOptions() {
@@ -87,14 +80,6 @@ async function loadCardOptions() {
   document.getElementById("card-select").innerHTML = cardsCatalog
     .map((c) => `<option value="${c.cardId}">${c.name}${c.isPromo ? " (promo)" : ""}</option>`)
     .join("");
-}
-
-async function loadExtensionOptions() {
-  const res = await API.getExtensions();
-  extensionsCatalog = res.extensions || [];
-  document.getElementById("extension-select").innerHTML = extensionsCatalog
-    .map((e) => `<option value="${e.id}">${e.name}</option>`)
-    .join("") || `<option value="">Aucune extension</option>`;
 }
 
 function renderRarityChart(rarities) {
@@ -130,7 +115,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    await loadExtensionOptions();
     await loadCardOptions();
     await loadCodes();
     loadStats();
@@ -158,7 +142,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       rewardType,
       quantity: Number(document.getElementById("quantity-input").value) || 1,
       cardId: rewardType === "card" ? Number(document.getElementById("card-select").value) : undefined,
-      extension: rewardType === "booster" ? Number(document.getElementById("extension-select").value) : undefined,
       expiresInHours: Number(document.getElementById("expires-input").value) || 4,
       maxRedemptions: Number(document.getElementById("max-redemptions-input").value) || 0
     };

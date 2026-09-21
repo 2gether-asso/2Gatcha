@@ -74,9 +74,14 @@ son propre compteur de pity.
 | CreatedAt             | DateTime  | rempli a la creation                     |
 | TotalPulls            | Numeric   | defaut 0, compteur global (toutes extensions confondues) |
 | StardustCount         | Numeric   | defaut 0, monnaie de craft/decraft (voir plus bas), globale (pas par extension) |
+| BoosterCount          | Numeric   | defaut 0, solde **generique** de boosters (voir "Economie des boosters" plus bas) |
 
-Le stock de boosters et le compteur de pity ne sont plus sur `Users` : ils
-sont par extension, voir `BoosterInventory`.
+`BoosterCount` est un stock unique, commun a toutes les extensions : un code
+d'evenement de type `booster` ajoute des points generiques (`+N`, sans
+preciser d'extension), et c'est l'utilisateur qui choisit lui-meme, au
+moment d'ouvrir un booster, quelle extension il consomme avec ces points
+(`open-pack.json` prend `{ userId, extensionId }`). Seul le compteur de pity
+reste par extension, voir `BoosterInventory`.
 
 **Connexion** : geree par `discord-login.json`. Le compte est identifie par
 `DiscordId` ; `Pseudo` reste un champ libre que l'utilisateur peut modifier
@@ -123,8 +128,7 @@ aux participants pendant sa duree de validite.
 |------------------|------------------------|-------------------------------------------|
 | Code             | Text                    | code a saisir sur le site (unique, genere ou choisi par l'admin) |
 | Label            | Text                    | note interne optionnelle, ex "Soiree jeux 20/09" |
-| RewardType       | Text                    | `booster` (ajoute des boosters d'une extension) ou `card` (donne directement des exemplaires d'une carte precise, y compris une carte promo) |
-| Extension        | Reference -> Extensions | rempli seulement si `RewardType = booster` : quelle extension de boosters offrir |
+| RewardType       | Text                    | `booster` (ajoute des boosters generiques, toutes extensions) ou `card` (donne directement des exemplaires d'une carte precise, y compris une carte promo) |
 | Quantity         | Numeric                 | nb de boosters, ou nb d'exemplaires de la carte |
 | CardId           | Reference -> Cards      | rempli seulement si `RewardType = card` |
 | MaxRedemptions   | Numeric                 | nb max d'utilisateurs differents pouvant reclamer ce code ; 0 ou vide = illimite. Un meme utilisateur ne peut de toute facon reclamer un code qu'une seule fois (voir `CodeRedemptions`) |
@@ -171,25 +175,26 @@ exemplaire change juste de proprietaire).
 
 ## 10. BoosterInventory
 
-Le solde de boosters ET le compteur de pity d'un utilisateur, **par
-extension**. Une ligne par couple (User, Extension), creee a la premiere
-reclamation d'un booster de cette extension (`redeem-code.json`).
+**Uniquement le compteur de pity**, par extension (le solde de boosters,
+lui, est generique : voir `Users.BoosterCount`). Une ligne par couple (User,
+Extension), creee la premiere fois qu'un utilisateur ouvre un booster de
+cette extension (`open-pack.json`).
 
 | Colonne              | Type                    | Notes                              |
 |-----------------------|--------------------------|---------------------------------------|
 | User                  | Reference -> Users        | |
 | Extension             | Reference -> Extensions   | |
-| Count                 | Numeric                   | solde de boosters de cette extension pour cet utilisateur |
 | PullsSinceTopRarity   | Numeric                   | compteur de pity, independant par extension |
 
 **Economie des boosters** : plus de recharge automatique ni de plafond.
-`Count` ne bouge que via deux mecanismes :
+`Users.BoosterCount` (le stock, generique) ne bouge que via deux mecanismes :
 - +N quand un utilisateur reclame un code d'evenement de type `booster`
-  cible sur cette extension (`redeem-code.json` cree la ligne si elle
-  n'existe pas encore, sinon incremente) ;
-- -1 quand un utilisateur ouvre un booster de cette extension
-  (`open-pack.json`, qui tire toujours 5 cartes d'un coup, exclusivement
-  parmi les cartes actives et non-promo de cette extension).
+  (`redeem-code.json`) ;
+- -1 quand un utilisateur ouvre un booster, **quelle que soit l'extension
+  choisie** (`open-pack.json`, qui tire toujours 5 cartes d'un coup,
+  exclusivement parmi les cartes actives et non-promo de l'extension
+  choisie). Seule la progression vers la pity (`BoosterInventory.PullsSinceTopRarity`)
+  est propre a l'extension ouverte.
 
 ## Craft / decraft (poussieres d'etoile)
 

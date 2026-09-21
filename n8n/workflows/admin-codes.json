@@ -20,7 +20,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (voir README, section admin).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    code: body.code,\n    label: body.label,\n    rewardType: body.rewardType,\n    quantity: body.quantity,\n    cardId: body.cardId,\n    expiresInHours: body.expiresInHours,\n    maxRedemptions: body.maxRedemptions,\n    extension: body.extension\n  }\n}];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (voir README, section admin).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    code: body.code,\n    label: body.label,\n    rewardType: body.rewardType,\n    quantity: body.quantity,\n    cardId: body.cardId,\n    expiresInHours: body.expiresInHours,\n    maxRedemptions: body.maxRedemptions\n  }\n}];"
       },
       "id": "set-config",
       "name": "Set Config",
@@ -113,7 +113,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const cfg = $('Set Config').first().json;\nfunction randomCode() {\n  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\n  let s = '';\n  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];\n  return s;\n}\nconst code = (cfg.code || '').toString().trim().toUpperCase() || randomCode();\nconst now = Math.floor(Date.now() / 1000);\nconst expiresInHours = Number(cfg.expiresInHours) || 4;\nconst quantity = Number(cfg.quantity) || 1;\n\nreturn [{\n  json: {\n    docId: cfg.docId,\n    code,\n    label: cfg.label || '',\n    rewardType: cfg.rewardType === 'card' ? 'card' : 'booster',\n    quantity,\n    cardId: cfg.rewardType === 'card' ? (Number(cfg.cardId) || 0) : 0,\n    extensionId: cfg.rewardType === 'booster' ? (Number(cfg.extension) || 0) : 0,\n    maxRedemptions: Number(cfg.maxRedemptions) || 0,\n    expiresAt: now + expiresInHours * 3600,\n    createdAt: now,\n    createdBy: cfg.discordId\n  }\n}];"
+        "jsCode": "const cfg = $('Set Config').first().json;\nfunction randomCode() {\n  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\n  let s = '';\n  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];\n  return s;\n}\nconst code = (cfg.code || '').toString().trim().toUpperCase() || randomCode();\nconst now = Math.floor(Date.now() / 1000);\nconst expiresInHours = Number(cfg.expiresInHours) || 4;\nconst quantity = Number(cfg.quantity) || 1;\n\nreturn [{\n  json: {\n    docId: cfg.docId,\n    code,\n    label: cfg.label || '',\n    rewardType: cfg.rewardType === 'card' ? 'card' : 'booster',\n    quantity,\n    cardId: cfg.rewardType === 'card' ? (Number(cfg.cardId) || 0) : 0,\n    maxRedemptions: Number(cfg.maxRedemptions) || 0,\n    expiresAt: now + expiresInHours * 3600,\n    createdAt: now,\n    createdBy: cfg.discordId\n  }\n}];"
       },
       "id": "generate-code",
       "name": "Generate Code",
@@ -171,10 +171,6 @@
             {
               "fieldId": "CreatedBy",
               "fieldValue": "={{ $json.createdBy }}"
-            },
-            {
-              "fieldId": "Extension",
-              "fieldValue": "={{ $json.extensionId }}"
             }
           ]
         }
@@ -197,7 +193,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const created = $input.first().json;\nreturn [{\n  json: {\n    code: created.Code,\n    label: created.Label,\n    rewardType: created.RewardType,\n    quantity: created.Quantity,\n    cardId: created.CardId,\n    extensionId: created.Extension,\n    maxRedemptions: created.MaxRedemptions,\n    expiresAt: created.ExpiresAt,\n    active: created.Active\n  }\n}];"
+        "jsCode": "const created = $input.first().json;\nreturn [{\n  json: {\n    code: created.Code,\n    label: created.Label,\n    rewardType: created.RewardType,\n    quantity: created.Quantity,\n    cardId: created.CardId,\n    maxRedemptions: created.MaxRedemptions,\n    expiresAt: created.ExpiresAt,\n    active: created.Active\n  }\n}];"
       },
       "id": "format-created",
       "name": "Format Created",
@@ -305,7 +301,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst now = Math.floor(Date.now() / 1000);\nconst codes = $('List Get Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptions = $('List Get Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst list = codes.map((c) => {\n  const used = redemptions.filter((r) => refId(r.Code) === c.id).length;\n  let status = 'active';\n  if (c.Active === false) status = 'disabled';\n  else if (c.ExpiresAt && now > c.ExpiresAt) status = 'expired';\n  else if (c.MaxRedemptions && used >= c.MaxRedemptions) status = 'exhausted';\n  return {\n    code: c.Code,\n    label: c.Label,\n    rewardType: c.RewardType,\n    quantity: c.Quantity,\n    cardId: refId(c.CardId) || null,\n    extensionId: refId(c.Extension) || null,\n    maxRedemptions: c.MaxRedemptions,\n    used,\n    expiresAt: c.ExpiresAt,\n    active: c.Active !== false,\n    status,\n    createdAt: c.CreatedAt,\n    createdBy: c.CreatedBy\n  };\n}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { codes: list } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst now = Math.floor(Date.now() / 1000);\nconst codes = $('List Get Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptions = $('List Get Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst list = codes.map((c) => {\n  const used = redemptions.filter((r) => refId(r.Code) === c.id).length;\n  let status = 'active';\n  if (c.Active === false) status = 'disabled';\n  else if (c.ExpiresAt && now > c.ExpiresAt) status = 'expired';\n  else if (c.MaxRedemptions && used >= c.MaxRedemptions) status = 'exhausted';\n  return {\n    code: c.Code,\n    label: c.Label,\n    rewardType: c.RewardType,\n    quantity: c.Quantity,\n    cardId: refId(c.CardId) || null,\n    maxRedemptions: c.MaxRedemptions,\n    used,\n    expiresAt: c.ExpiresAt,\n    active: c.Active !== false,\n    status,\n    createdAt: c.CreatedAt,\n    createdBy: c.CreatedBy\n  };\n}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { codes: list } }];"
       },
       "id": "build-list",
       "name": "Build List",

@@ -812,16 +812,34 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 
 /* ========================================================================
-   Secousse d'ecran (legendaire) + tap-to-skip
+   Impact legendaire (flash + pulse) et tap-to-skip
    ======================================================================== */
-.screen-shake {
-  animation: screenShake 0.5s cubic-bezier(.36,.07,.19,.97);
+/* Volontairement PAS de transform/shake sur un ancetre des cartes : les
+   cartes de reveal utilisent transform-style:preserve-3d pour le flip, et
+   animer le transform d'un parent (ex: document.body) au-dessus casse le
+   rendu 3D dans certains navigateurs (plantage/ecran fige constate). On
+   isole donc l'effet a un calque de flash independant + un filtre sur la
+   carte elle-meme (jamais un ancetre commun a d'autres elements 3D). */
+.legendary-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 410;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(245,165,36,0.55), transparent 65%);
+  opacity: 0;
 }
-@keyframes screenShake {
-  10%, 90% { transform: translate3d(-1px, 0, 0); }
-  20%, 80% { transform: translate3d(2px, 0, 0); }
-  30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
-  40%, 60% { transform: translate3d(5px, 0, 0); }
+.legendary-flash.active { animation: legendaryFlashPulse 0.9s ease-out; }
+@keyframes legendaryFlashPulse {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.card.legendary-hit .card-front { animation: legendaryHit 0.6s ease-out; }
+@keyframes legendaryHit {
+  0% { filter: brightness(1); }
+  30% { filter: brightness(2); }
+  100% { filter: brightness(1); }
 }
 
 .skip-hint {
@@ -1127,6 +1145,47 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 #reveal-all-btn { margin-top: 6px; }
 
 /* ========================================================================
+   Modal plein ecran d'ouverture (par-dessus toute la page, comme Hearthstone)
+   ======================================================================== */
+.pack-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(139,92,246,0.25), transparent 55%),
+    rgba(4, 5, 12, 0.94);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.pack-modal-overlay[hidden] { display: none; }
+.pack-modal-overlay:not([hidden]) { animation: modalFadeIn 0.25s ease forwards; }
+
+.pack-modal-stage {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  padding: 10px 4px 30px;
+  scrollbar-width: thin;
+}
+
+.pack-modal-close {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  right: 16px;
+  z-index: 401;
+}
+
+/* ========================================================================
    Craft / Decraft
    ======================================================================== */
 .stardust-hero {
@@ -1188,6 +1247,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.card-preview-row select {
+  flex: 1;
+  min-width: 0;
 }
 .card-preview-thumb {
   width: 44px;
@@ -1259,4 +1322,20 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   header#site-header .nav { display: none; }
   .toast-stack { left: 16px; right: 16px; max-width: none; top: max(16px, env(safe-area-inset-top, 0px)); }
   .rarity-progress-row { grid-template-columns: 70px 1fr 44px; }
+
+  /* Le user-box contient avatar + 2 badges + pseudo + 2 boutons : ca ne
+     tient pas sur une ligne en dessous de 640px, il faut pouvoir wrapper. */
+  .user-box { flex-wrap: wrap; justify-content: center; gap: 8px 10px; width: 100%; }
+  .booster-badge { padding: 4px 10px; font-size: 0.76rem; }
+
+  main { padding: 24px 16px 90px; }
+  .panel { padding: 20px; }
+
+  .extension-picker { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+  .craft-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .trade-form, .admin-form { grid-template-columns: 1fr; }
+  .reveal-grid { gap: 14px; }
+  .pack-modal-overlay { padding: 12px; }
+  .pack-modal-stage { gap: 18px; padding: 6px 2px 20px; }
+  .rarity-chart { gap: 8px; height: 110px; }
 }
