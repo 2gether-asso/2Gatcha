@@ -26,6 +26,7 @@ const STATUS_LABELS = {
 
 let myOwnedCards = [];
 let allCards = [];
+let cardById = new Map();
 let allTradesCache = [];
 let historySearch = "";
 let bulkCancelMode = false;
@@ -52,6 +53,9 @@ async function loadFormOptions() {
   const ownedMap = new Map((collection.owned || []).map((o) => [o.cardId, o]));
   allCards = (cardsRes.cards || []).filter((c) => !c.isPromo);
   myOwnedCards = allCards.filter((c) => ownedMap.has(c.cardId));
+  // Utilise pour retrouver l'image/rarete d'une carte dans l'historique des
+  // echanges (l'API ne renvoie que {id, name} par carte impliquee).
+  cardById = new Map((cardsRes.cards || []).map((c) => [c.cardId, c]));
 
   const offeredSelect = document.getElementById("offered-card-select");
   offeredSelect.innerHTML = myOwnedCards
@@ -78,7 +82,11 @@ function updateCardPreview(selectId, previewId) {
   const preview = document.getElementById(previewId);
   if (!select || !preview) return;
   const card = allCards.find((c) => String(c.cardId) === select.value);
-  preview.src = (card && API.imageUrl(card.imageId)) || PLACEHOLDER_IMG;
+  // Pas de select => pas de vignette du tout plutot que le placeholder
+  // "pas d'image" ecrase a 44px (illisible, on dirait une image cassee).
+  if (!card) { preview.style.visibility = "hidden"; return; }
+  preview.style.visibility = "visible";
+  preview.src = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
 }
 
 function renderTradeCard(trade) {
@@ -103,8 +111,26 @@ function renderTradeCard(trade) {
   const requestPart = trade.requestedCard
     ? `contre <strong>${trade.requestedCard.name}</strong> a <strong>${trade.toPseudo}</strong>`
     : `en cadeau a <strong>${trade.toPseudo}</strong> (aucune contrepartie)`;
+
+  // Petites vignettes des cartes concernees : un mur de texte pur ne
+  // rendait pas justice au cote "jeu de cartes" du site. L'API ne renvoie
+  // que {id, name} par carte impliquee, on retrouve image/rarete via le
+  // catalogue complet deja charge (cardById).
+  function thumb(cardRef, isGift) {
+    if (isGift) return `<div class="trade-card-thumb gift" title="Don, sans contrepartie">&#127873;</div>`;
+    const card = cardRef ? cardById.get(cardRef.id) : null;
+    const color = card?.rarity?.colorHex || "#9aa0b4";
+    const src = card ? (API.imageUrl(card.imageId) || PLACEHOLDER_IMG) : PLACEHOLDER_IMG;
+    return `<div class="trade-card-thumb" style="border-color:${color};"><img src="${src}" alt="${cardRef?.name || ""}" loading="lazy" /></div>`;
+  }
+
   el.innerHTML = `
     ${canBulkCancel ? `<label class="bulk-checkbox" style="position:static;"><input type="checkbox" data-bulk-trade-id="${trade.tradeId}" ${bulkCancelSelected.has(trade.tradeId) ? "checked" : ""} /></label>` : ""}
+    <div class="trade-visual">
+      ${thumb(trade.offeredCard, false)}
+      <span class="trade-arrow" aria-hidden="true">&#8594;</span>
+      ${thumb(trade.requestedCard, !trade.requestedCard)}
+    </div>
     <div class="trade-info">
       <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong> ${requestPart}</div>
       <span class="trade-status ${statusClass}">${STATUS_LABELS[trade.status] || trade.status}</span>

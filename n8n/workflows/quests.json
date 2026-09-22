@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  today: new Date().toISOString().slice(0, 10)\n} }];"
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date())\n} }];"
       }
     },
     {
@@ -276,7 +276,7 @@
           "properties": [
             {
               "fieldId": "BoosterCount",
-              "fieldValue": "={{ ($('Get User For Reward').all().map(i => i.json).find(u => u.id === $('Compute Quest Update').first().json.userId).BoosterCount || 0) + 1 }}"
+              "fieldValue": "={{ ($('Get User For Reward').all().map(i => i.json).find(u => u.id === $('Compute Quest Update').first().json.userId).BoosterCount || 0) + 2 }}"
             }
           ]
         }

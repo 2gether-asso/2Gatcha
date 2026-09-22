@@ -106,7 +106,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst pullsRows = $('Get Pulls').all().map((i) => i.json).filter((p) => p.id != null && refId(p.User) === config.userId);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst extensionById = {};\nextensionsRows.forEach((e) => { extensionById[e.id] = { id: e.id, name: e.Name, key: e.Key, sortOrder: e.SortOrder || 0 }; });\n\nconst rarityById = {};\nraritiesRows.forEach((r) => {\n  rarityById[r.id] = { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex, sortOrder: r.SortOrder || 0, disenchantValue: r.DisenchantValue || 0, craftCost: r.CraftCost || 0 };\n});\n\nconst cards = cardsRows.map((c) => {\n  return {\n    cardId: c.id,\n    name: c.Name,\n    artist: c.Artist,\n    imageId: firstAttachment(c.Image),\n    rarity: rarityById[refId(c.Rarity)] || null,\n    extension: extensionById[refId(c.Extension)] || null,\n    isPromo: !!c.IsPromo\n  };\n});\n\nconst ownedCounts = {};\nconst lastObtained = {};\nfor (const p of pullsRows) {\n  const cardRef = refId(p.Card);\n  ownedCounts[cardRef] = (ownedCounts[cardRef] || 0) + 1;\n  if (!lastObtained[cardRef] || (p.ObtainedAt || 0) > lastObtained[cardRef]) {\n    lastObtained[cardRef] = p.ObtainedAt || 0;\n  }\n}\nconst owned = Object.entries(ownedCounts).map(([cardId, count]) => ({ cardId: Number(cardId), count, lastObtainedAt: lastObtained[cardId] || null }));\n\nconst stats = { owned: owned.length, total: cards.length };\n\nreturn [{ json: { cards, owned, stats } }];"
+        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst pullsRows = $('Get Pulls').all().map((i) => i.json).filter((p) => p.id != null && refId(p.User) === config.userId);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pseudoById = {}; usersRows.forEach((u) => { pseudoById[u.id] = u.Pseudo; });\n\nconst extensionById = {};\nextensionsRows.forEach((e) => { extensionById[e.id] = { id: e.id, name: e.Name, key: e.Key, sortOrder: e.SortOrder || 0 }; });\n\nconst rarityById = {};\nraritiesRows.forEach((r) => {\n  rarityById[r.id] = { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex, sortOrder: r.SortOrder || 0, disenchantValue: r.DisenchantValue || 0, craftCost: r.CraftCost || 0 };\n});\n\nconst cards = cardsRows.map((c) => {\n  const firstObtainedById = refId(c.FirstObtainedBy);\n  return {\n    cardId: c.id,\n    name: c.Name,\n    artist: c.Artist,\n    description: c.Description || null,\n    imageId: firstAttachment(c.Image),\n    rarity: rarityById[refId(c.Rarity)] || null,\n    extension: extensionById[refId(c.Extension)] || null,\n    isPromo: !!c.IsPromo,\n    firstObtainedBy: firstObtainedById ? (pseudoById[firstObtainedById] || null) : null,\n    firstObtainedAt: c.FirstObtainedAt || null\n  };\n});\n\nconst ownedCounts = {};\nconst lastObtained = {};\nfor (const p of pullsRows) {\n  const cardRef = refId(p.Card);\n  ownedCounts[cardRef] = (ownedCounts[cardRef] || 0) + 1;\n  if (!lastObtained[cardRef] || (p.ObtainedAt || 0) > lastObtained[cardRef]) {\n    lastObtained[cardRef] = p.ObtainedAt || 0;\n  }\n}\nconst owned = Object.entries(ownedCounts).map(([cardId, count]) => ({ cardId: Number(cardId), count, lastObtainedAt: lastObtained[cardId] || null }));\n\nconst stats = { owned: owned.length, total: cards.length };\n\nreturn [{ json: { cards, owned, stats } }];"
       },
       "id": "format-collection",
       "name": "Format Collection",
@@ -191,6 +191,44 @@
         300
       ],
       "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-extensions-users",
+      "name": "Sync Get Extensions -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-users-collection",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1300,
+        460
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
       "credentials": {
         "gristApi": {
           "id": "Yoc8FS9lCXpWBRrk",
@@ -300,6 +338,28 @@
       ]
     },
     "Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Extensions -> Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Extensions -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
       "main": [
         [
           {

@@ -229,7 +229,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.pseudo.toLowerCase());\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === user.id);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\n\nconst countByCard = {};\npulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n\nconst owned = Object.entries(countByCard).map(([cid, count]) => {\n  const card = cardById[Number(cid)];\n  if (!card) return null;\n  const rarity = rarityById[refId(card.Rarity)];\n  return {\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    imageId: firstAttachment(card.Image),\n    isPromo: card.IsPromo === true,\n    count,\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null\n  };\n}).filter(Boolean).sort((a, b) => (a.rarity?.sortOrder || 0) - (b.rarity?.sortOrder || 0));\n\nreturn [{ json: {\n  pseudo: user.Pseudo,\n  discordAvatar: user.DiscordAvatar || null,\n  totalPulls: user.TotalPulls || 0,\n  uniqueCards: owned.length,\n  totalCards: cards.length,\n  isComplete: cards.length > 0 && owned.length === cards.length,\n  memberSince: user.CreatedAt || null,\n  cards: owned\n} }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.pseudo.toLowerCase());\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === user.id);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\n\nconst countByCard = {};\npulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n\nconst owned = Object.entries(countByCard).map(([cid, count]) => {\n  const card = cardById[Number(cid)];\n  if (!card) return null;\n  const rarity = rarityById[refId(card.Rarity)];\n  return {\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    imageId: firstAttachment(card.Image),\n    isPromo: card.IsPromo === true,\n    count,\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null\n  };\n}).filter(Boolean).sort((a, b) => (a.rarity?.sortOrder || 0) - (b.rarity?.sortOrder || 0));\n\nfunction refId2(v) { return Array.isArray(v) ? v[1] : v; }\nconst wishlistRows = $('Get Wishlist').all().map((i) => i.json).filter((r) => r.id != null && refId2(r.User) === user.id && !countByCard[refId2(r.Card)]);\nconst wishlist = wishlistRows.map((r) => {\n  const c = cardById[refId2(r.Card)];\n  if (!c) return null;\n  const rarity = rarityById[refId2(c.Rarity)];\n  return { cardId: c.id, name: c.Name, imageId: firstAttachment(c.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null };\n}).filter(Boolean);\n\nreturn [{ json: {\n  pseudo: user.Pseudo,\n  discordAvatar: user.DiscordAvatar || null,\n  totalPulls: user.TotalPulls || 0,\n  uniqueCards: owned.length,\n  totalCards: cards.length,\n  isComplete: cards.length > 0 && owned.length === cards.length,\n  memberSince: user.CreatedAt || null,\n  cards: owned,\n  wishlist\n} }];"
       }
     },
     {
@@ -245,6 +245,44 @@
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
+      }
+    },
+    {
+      "id": "sync-rarities-wishlist",
+      "name": "Sync Get Rarities -> Get Wishlist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-wishlist-profile",
+      "name": "Get Wishlist",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        560,
+        340
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Wishlist",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
       }
     }
   ],
@@ -359,7 +397,7 @@
       "main": [
         [
           {
-            "node": "Format Response",
+            "node": "Sync Get Rarities -> Get Wishlist",
             "type": "main",
             "index": 0
           }
@@ -371,6 +409,28 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Wishlist": {
+      "main": [
+        [
+          {
+            "node": "Get Wishlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wishlist": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
             "type": "main",
             "index": 0
           }

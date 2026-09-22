@@ -1142,8 +1142,30 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .trade-card[data-status="declined"],
 .trade-card[data-status="cancelled"] { border-left-color: #fb7185; }
 
-.trade-info { font-size: 0.92rem; display: flex; flex-direction: column; gap: 6px; }
+.trade-info { font-size: 0.92rem; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
 .trade-actions { display: flex; gap: 10px; }
+
+/* Vignettes carte offerte -> carte demandee : remplace le mur de texte pur
+   par un visuel rapide a scanner, dans l'esprit "carte a carte" du site. */
+.trade-visual { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.trade-card-thumb {
+  width: 44px;
+  height: 58px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-soft);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-panel-solid);
+}
+.trade-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.trade-card-thumb.gift {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  border-style: dashed;
+}
+.trade-arrow { color: var(--text-dim); font-size: 1rem; flex-shrink: 0; }
 
 .trade-status {
   display: inline-block;
@@ -1645,6 +1667,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .card-modal .card-modal-name { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; }
 .card-modal .card-modal-artist { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px; }
 .card-modal-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.card-modal-description {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  white-space: pre-line;
+}
+.first-obtainer-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(245,165,36,0.22), rgba(255,209,102,0.14));
+  border: 1px solid var(--rarity-legendaire);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  margin-top: 12px;
+}
 .card-modal-close {
   position: absolute;
   top: 14px; right: 14px;
@@ -2354,6 +2395,32 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 }
 .profile-meta { color: var(--text-dim); font-size: 0.85rem; margin: 4px 0 0; }
 
+/* Mini-grille des cartes recherchees (wishlist) sur le profil public : plus
+   petite que la grille de collection, juste de quoi reperer une carte. */
+.wishlist-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.wishlist-mini-card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wishlist-mini-card img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--border-soft);
+}
+.wishlist-mini-name {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 /* ========================================================================
    Panneau de stats personnelles (collection)
    ======================================================================== */
@@ -2390,7 +2457,8 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 /* ========================================================================
    Favoris (collection)
    ======================================================================== */
-.fav-btn {
+.fav-btn,
+.wishlist-btn {
   position: absolute;
   top: 8px;
   right: 8px;
@@ -2410,6 +2478,10 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
   transform: none !important;
 }
 .fav-btn.active { color: var(--accent-3); }
+/* Jamais affiches ensemble (favoris = cartes possedees, wishlist = cartes
+   manquantes), donc meme position sans conflit. Couleur distincte de
+   .fav-btn pour rester reconnaissable ("je veux" vs "je prefere"). */
+.wishlist-btn.active { color: var(--rarity-legendaire); }
 .fav-btn:hover { color: var(--accent-3); }
 
 /* ========================================================================

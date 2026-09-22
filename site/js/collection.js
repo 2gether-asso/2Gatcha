@@ -56,6 +56,11 @@ let allCardsCache = [];
 let ownedMap = new Map();
 let craftCostByCard = new Map();
 let stardustBalance = 0;
+// Wishlist : cote serveur (visible sur le profil public, contrairement aux
+// favoris qui restent purement locaux) - un Set d'ids pour verifier
+// rapidement l'etat au rendu, tenu a jour de maniere optimiste apres chaque
+// action (pas besoin d'attendre un aller-retour serveur pour se mettre a jour).
+let wishlistSet = new Set();
 let activeFilter = "all";
 let searchQuery = "";
 // Tri/vue memorises d'une visite a l'autre : pas de raison de refaire le
@@ -155,6 +160,7 @@ function showCardModal(cardId, navList) {
     // sur la vignette (voir .collection-grid.dense), la modale reste donc le
     // seul chemin pour agir sur une carte dans ce mode.
     const disenchantValue = craftCostByCard.get(card.cardId)?.disenchantValue;
+    const isFirstObtainer = card.firstObtainedBy && card.firstObtainedBy === Session.pseudo;
     overlay.innerHTML = `
       <div class="card-modal ${direction ? "slide-" + direction : ""}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
@@ -168,6 +174,12 @@ function showCardModal(cardId, navList) {
             ${card.rarity?.name || "Commune"}
           </span>
           ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
+          ${card.description ? `<p class="card-modal-description">${card.description}</p>` : ""}
+          ${card.firstObtainedBy ? `
+            <div class="first-obtainer-badge">
+              &#127942; ${isFirstObtainer ? "C'est toi qui as" : `<strong>${card.firstObtainedBy}</strong> a`} obtenu cette carte en premier sur le serveur !
+            </div>
+          ` : ""}
           ${!card.isPromo ? `
             <div class="card-modal-actions">
               ${disenchantValue != null ? `<button type="button" class="btn-ghost modal-disenchant-btn">&#9851; Décrafter (+${disenchantValue})</button>` : ""}
@@ -266,11 +278,13 @@ function cardTileHtml(card, now) {
   const disenchantValue = info?.disenchantValue;
   const craftable = locked && !card.isPromo && craftCost != null && stardustBalance >= craftCost;
   const canQuickAct = !locked && !card.isPromo;
+  const inWishlist = locked && wishlistSet.has(card.cardId);
 
   return `
     <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
       ${isNew ? '<span class="new-badge">New</span>' : ""}
       ${!locked ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
+      ${locked ? `<button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>` : ""}
       <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" />
       <div class="card-info">
         <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
@@ -403,6 +417,29 @@ async function openQuickTrade(cardId) {
       Toast.error(TRADE_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
     }
   });
+}
+
+// Mise a jour optimiste (pas besoin d'attendre/faire confiance a la liste
+// renvoyee par add/remove, qui reflete l'etat AVANT l'action cote workflow -
+// le bouton et le Set local sont la seule source de verite immediate).
+async function toggleWishlist(cardId, btn) {
+  const wasIn = wishlistSet.has(cardId);
+  try {
+    if (wasIn) {
+      await API.removeFromWishlist(Session.userId, cardId);
+      wishlistSet.delete(cardId);
+      Toast.info("Retiree de ta wishlist.");
+    } else {
+      await API.addToWishlist(Session.userId, cardId);
+      wishlistSet.add(cardId);
+      Toast.success("Ajoutee a ta wishlist !");
+    }
+    btn.classList.toggle("active", !wasIn);
+    btn.title = !wasIn ? "Retirer de ma wishlist" : "Ajouter a ma wishlist";
+    btn.setAttribute("aria-label", btn.title);
+  } catch (e) {
+    Toast.error("Erreur. (" + e.message + ")");
+  }
 }
 
 function renderStatsAndMilestone() {
@@ -590,6 +627,12 @@ function renderGrid() {
       btn.classList.toggle("active");
     });
   });
+  container.querySelectorAll(".wishlist-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleWishlist(Number(btn.dataset.wishlistId), btn);
+    });
+  });
   container.querySelectorAll(".quick-craft-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); craftCardQuick(Number(btn.dataset.cardId)); });
   });
@@ -607,12 +650,13 @@ async function loadCollection() {
   zone.style.display = "none";
 
   const OFFLINE_CACHE_KEY = "2gatcha_offline_collection_" + Session.userId;
-  let res, statusRes, cardsRes, isOffline = false;
+  let res, statusRes, cardsRes, wishlistRes, isOffline = false;
   try {
-    [res, statusRes, cardsRes] = await Promise.all([
+    [res, statusRes, cardsRes, wishlistRes] = await Promise.all([
       API.getCollection(Session.userId),
       API.getBoosterStatus(Session.userId).catch(() => ({ stardust: 0 })),
-      API.getCards().catch(() => ({ cards: [] }))
+      API.getCards().catch(() => ({ cards: [] })),
+      API.listWishlist(Session.userId).catch(() => ({ wishlist: [] }))
     ]);
     // Sauvegarde pour un affichage hors-ligne basique si le prochain
     // chargement echoue (reseau coupe) : mieux qu'un ecran d'erreur vide.
@@ -624,6 +668,7 @@ async function loadCollection() {
       res = cached;
       statusRes = { stardust: 0 };
       cardsRes = { cards: [] };
+      wishlistRes = { wishlist: [] };
       isOffline = true;
       Toast.info("Mode hors-ligne : dernière collection connue affichée (peut-être obsolète).");
     } else {
@@ -638,6 +683,7 @@ async function loadCollection() {
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
     stardustBalance = statusRes.stardust || 0;
     craftCostByCard = new Map((cardsRes.cards || []).map((c) => [c.cardId, c.rarity]));
+    wishlistSet = new Set((wishlistRes.wishlist || []).map((w) => w.cardId));
 
     const stats = res.stats || { owned: ownedMap.size, total: allCardsCache.length };
     document.getElementById("progress-label").textContent =

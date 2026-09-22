@@ -34,6 +34,12 @@
         <div id="profile-stats" class="stats-grid"></div>
         <div id="profile-rarity-breakdown" class="rarity-progress-list"></div>
 
+        <div id="profile-wishlist-zone" style="display:none;">
+          <h2 style="margin-top:24px;">&#127775; Recherche activement</h2>
+          <p class="lead" style="font-size:0.8rem;">Ces cartes lui manquent : propose-lui un échange si tu en as un doublon.</p>
+          <div id="profile-wishlist-grid" class="wishlist-mini-grid"></div>
+        </div>
+
         <h2 style="margin-top:24px;">Collection publique</h2>
         <p class="lead" style="font-size:0.8rem;">Le badge <span class="dupe-badge" style="position:static;display:inline-flex;">×N</span> indique une carte possédée en plusieurs exemplaires : ce joueur a peut-être un doublon à échanger.</p>
         <div id="profile-grid" class="collection-grid"></div>
@@ -91,6 +97,23 @@
             <span class="rp-count">${r.count}</span>
           </div>
         `).join("");
+
+        // Wishlist : ce que ce joueur cherche activement, utile pour cibler
+        // une proposition d'echange plutot que de deviner.
+        const wishlist = res.wishlist || [];
+        if (wishlist.length) {
+          document.getElementById("profile-wishlist-zone").style.display = "block";
+          document.getElementById("profile-wishlist-grid").innerHTML = wishlist.map((c) => {
+            const color = c.rarity?.colorHex || "#9aa0b4";
+            const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
+            return `
+              <div class="wishlist-mini-card">
+                <img src="${imgSrc}" alt="${c.name}" loading="lazy" style="border-color:${color};" />
+                <span class="wishlist-mini-name">${c.name}</span>
+              </div>
+            `;
+          }).join("");
+        }
 
         const grid = document.getElementById("profile-grid");
         const cards = res.cards || [];
