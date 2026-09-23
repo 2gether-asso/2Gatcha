@@ -755,6 +755,15 @@ function renderHeader() {
       </div>
     `;
   }
+
+  // Banniere beta : ajoutee en enfant du header (pas un element separe) pour
+  // que sa hauteur soit automatiquement comptee dans --header-h
+  // (syncHeaderOffset) sans code special. A retirer au lancement de la V1.
+  el.insertAdjacentHTML("afterbegin", `
+    <div class="beta-banner">
+      &#128679; <strong>Version bêta</strong> — toutes les données (cartes, boosters, échanges) seront réinitialisées au lancement de la V1.
+    </div>
+  `);
 }
 
 async function loadHeaderBoosterBadge() {

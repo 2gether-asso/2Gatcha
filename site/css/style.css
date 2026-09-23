@@ -173,6 +173,20 @@ header#site-header {
   z-index: 10;
 }
 
+/* Banniere beta : ajoutee en JS comme premier enfant du header (voir
+   renderHeader, main.js), pas un element separe - sa hauteur compte donc
+   automatiquement dans --header-h sans code special. A retirer avec son
+   appel JS au lancement de la V1. */
+.beta-banner {
+  background: linear-gradient(90deg, #f5a524, #fbbf24);
+  color: #1a1200;
+  text-align: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  line-height: 1.4;
+}
+
 .header-inner {
   max-width: 1100px;
   margin: 0 auto;
