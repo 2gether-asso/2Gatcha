@@ -854,6 +854,43 @@ function initBackToTop() {
   }, { passive: true });
 }
 
+// Prechauffe en tache de fond le cache navigateur de toutes les images de
+// cartes (+ visuels d'extension), depuis la page d'accueil : le workflow n8n
+// "get-image" renvoie desormais un Cache-Control longue duree (voir
+// get-image.json), donc une image deja vue ici est servie par le cache du
+// navigateur, sans nouvel appel n8n, quand l'utilisateur arrive ensuite sur
+// la collection/l'ouverture/le journal. Petits lots + requestIdleCallback
+// pour rester en arriere-plan : ne rivalise ni avec le chargement de la page
+// ni avec les vrais appels n8n de l'utilisateur.
+async function prefetchAllCardImages() {
+  try {
+    const [cardsRes, extRes] = await Promise.all([API.getCards(), API.getExtensions()]);
+    const ids = new Set();
+    (cardsRes.cards || []).forEach((c) => { if (c.imageId) ids.add(c.imageId); });
+    (extRes.extensions || []).forEach((e) => {
+      if (e.packImageId) ids.add(e.packImageId);
+      if (e.cardBackImageId) ids.add(e.cardBackImageId);
+    });
+    const urls = [...ids].map((id) => API.imageUrl(id)).filter(Boolean);
+
+    const BATCH_SIZE = 4;
+    let i = 0;
+    const scheduleNext = () => {
+      if (typeof requestIdleCallback === "function") requestIdleCallback(loadNextBatch, { timeout: 2000 });
+      else setTimeout(loadNextBatch, 200);
+    };
+    function loadNextBatch() {
+      urls.slice(i, i + BATCH_SIZE).forEach((src) => { const img = new Image(); img.src = src; });
+      i += BATCH_SIZE;
+      if (i < urls.length) scheduleNext();
+    }
+    scheduleNext();
+  } catch (e) {
+    // Optimisation de cache uniquement : un echec ne doit jamais gener la
+    // navigation, on l'ignore silencieusement.
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
   syncHeaderOffset();

@@ -246,6 +246,42 @@
       }
     },
     {
+      "id": "barrier-config-allpulls",
+      "name": "Sync Get Config Table -> Get All Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        320
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-all-pulls",
+      "name": "Get All Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1024,
+        320
+      ],
+      "parameters": {
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
       "id": "draw-cards",
       "name": "Draw Cards",
       "type": "n8n-nodes-base.code",
@@ -255,7 +291,7 @@
         192
       ],
       "parameters": {
-        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst status = $('Compute Booster Status').first().json;\nlet pullsSinceTop = status.pullsSinceTop;\nlet totalPulls = status.totalPulls;\n\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active && refId(c.Extension) === config.extensionId && c.IsPromo !== true);\nconst configRows = $('Get Config Table').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!cardsRows.length) {\n  throw new Error('Aucune carte tirable pour cette extension (verifie Active/Extension/IsPromo dans Grist)');\n}\n\nconst cardsByRarity = {};\nfor (const c of cardsRows) {\n  const rId = refId(c.Rarity);\n  if (!cardsByRarity[rId]) cardsByRarity[rId] = [];\n  cardsByRarity[rId].push(c);\n}\n\nlet pityThreshold = Infinity;\nlet topRarityId = null;\nif (configRows.length) {\n  pityThreshold = configRows[0].PityThreshold || Infinity;\n  topRarityId = refId(configRows[0].TopRarity);\n}\n\nfunction weightedPick() {\n  const total = raritiesRows.reduce((s, r) => s + (r.Weight || 0), 0);\n  let roll = Math.random() * total;\n  for (const r of raritiesRows) {\n    roll -= (r.Weight || 0);\n    if (roll <= 0) return r;\n  }\n  return raritiesRows[raritiesRows.length - 1];\n}\n\nconst batchId = `${config.userId}-${Date.now()}`;\nconst nowEpoch = Math.floor(Date.now() / 1000);\nconst drawn = [];\n\nfor (let i = 0; i < config.boosterSize; i++) {\n  pullsSinceTop++;\n  let rarity;\n  if (pullsSinceTop >= pityThreshold && topRarityId) {\n    rarity = raritiesRows.find((r) => r.id === topRarityId) || weightedPick();\n  } else {\n    rarity = weightedPick();\n  }\n  if (rarity.id === topRarityId) pullsSinceTop = 0;\n\n  const pool = (cardsByRarity[rarity.id] && cardsByRarity[rarity.id].length) ? cardsByRarity[rarity.id] : cardsRows;\n  const card = pool[Math.floor(Math.random() * pool.length)];\n  // La carte piochee peut venir du pool de secours (aucune carte pour la\n  // rarete tiree dans cette extension) : on affiche toujours la VRAIE\n  // rarete de la carte, jamais la rarete tiree.\n  const cardRarity = raritiesRows.find((r) => r.id === refId(card.Rarity)) || rarity;\n\n  drawn.push({\n    isFirstEver: !card.FirstObtainedBy,\n    userId: config.userId,\n    extensionId: config.extensionId,\n    inventoryId: status.inventoryId,\n    inventoryExists: status.inventoryExists,\n    cardId: card.id,\n    obtainedAt: nowEpoch,\n    batchId,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity: { id: cardRarity.id, name: cardRarity.Name, key: cardRarity.Key, colorHex: cardRarity.ColorHex }\n  });\n}\n\ntotalPulls += config.boosterSize;\nconst newBoosterCount = status.boosterCount - 1;\n\nreturn drawn.map((d) => ({ json: { ...d, pullsSinceTop, totalPulls, newBoosterCount } }));"
+        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst status = $('Compute Booster Status').first().json;\nlet pullsSinceTop = status.pullsSinceTop;\nlet totalPulls = status.totalPulls;\n\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active && refId(c.Extension) === config.extensionId && c.IsPromo !== true);\nconst configRows = $('Get Config Table').all().map((i) => i.json).filter((r) => r.id != null);\nconst allPulls = $('Get All Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!cardsRows.length) {\n  throw new Error('Aucune carte tirable pour cette extension (verifie Active/Extension/IsPromo dans Grist)');\n}\n\n// Compteur d'exemplaires 'dans la nature' par carte (Cards.MaxSerial, 100 par\n// defaut), incremente au fil du tirage pour gerer le cas ou la meme carte\n// sort plusieurs fois dans le meme booster.\nconst countByCard = {};\nallPulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\nfunction isAvailable(c) { return (countByCard[c.id] || 0) < (c.MaxSerial || 100); }\n\nlet availableCardsRows = cardsRows.filter(isAvailable);\nif (!availableCardsRows.length) {\n  throw new Error(\"Toutes les cartes de cette extension sont epuisees (limite d'exemplaires atteinte)\");\n}\n\nconst cardsByRarity = {};\nfor (const c of availableCardsRows) {\n  const rId = refId(c.Rarity);\n  if (!cardsByRarity[rId]) cardsByRarity[rId] = [];\n  cardsByRarity[rId].push(c);\n}\n\nlet pityThreshold = Infinity;\nlet topRarityId = null;\nif (configRows.length) {\n  pityThreshold = configRows[0].PityThreshold || Infinity;\n  topRarityId = refId(configRows[0].TopRarity);\n}\n\nfunction weightedPick() {\n  const total = raritiesRows.reduce((s, r) => s + (r.Weight || 0), 0);\n  let roll = Math.random() * total;\n  for (const r of raritiesRows) {\n    roll -= (r.Weight || 0);\n    if (roll <= 0) return r;\n  }\n  return raritiesRows[raritiesRows.length - 1];\n}\n\nconst batchId = `${config.userId}-${Date.now()}`;\nconst nowEpoch = Math.floor(Date.now() / 1000);\nconst drawn = [];\n\nfor (let i = 0; i < config.boosterSize; i++) {\n  pullsSinceTop++;\n  let rarity;\n  if (pullsSinceTop >= pityThreshold && topRarityId) {\n    rarity = raritiesRows.find((r) => r.id === topRarityId) || weightedPick();\n  } else {\n    rarity = weightedPick();\n  }\n  if (rarity.id === topRarityId) pullsSinceTop = 0;\n\n  // Cartes de la rarete tiree qui ne sont pas epuisees ; a defaut, n'importe\n  // quelle carte encore disponible de l'extension (pool de secours).\n  const pool = (cardsByRarity[rarity.id] && cardsByRarity[rarity.id].length) ? cardsByRarity[rarity.id] : availableCardsRows;\n  if (!pool.length) {\n    throw new Error('Plus aucune carte disponible dans cette extension pendant le tirage.');\n  }\n  const card = pool[Math.floor(Math.random() * pool.length)];\n  // La carte piochee peut venir du pool de secours (aucune carte pour la\n  // rarete tiree dans cette extension) : on affiche toujours la VRAIE\n  // rarete de la carte, jamais la rarete tiree.\n  const cardRarity = raritiesRows.find((r) => r.id === refId(card.Rarity)) || rarity;\n\n  const serialNumber = (countByCard[card.id] || 0) + 1;\n  const maxSerial = card.MaxSerial || 100;\n  countByCard[card.id] = serialNumber;\n  // La carte peut atteindre sa limite pendant ce meme booster : on la retire\n  // des pools pour le reste du tirage.\n  if (serialNumber >= maxSerial) {\n    availableCardsRows = availableCardsRows.filter((c) => c.id !== card.id);\n    if (cardsByRarity[cardRarity.id]) {\n      cardsByRarity[cardRarity.id] = cardsByRarity[cardRarity.id].filter((c) => c.id !== card.id);\n    }\n  }\n\n  drawn.push({\n    isFirstEver: !card.FirstObtainedBy,\n    userId: config.userId,\n    extensionId: config.extensionId,\n    inventoryId: status.inventoryId,\n    inventoryExists: status.inventoryExists,\n    cardId: card.id,\n    obtainedAt: nowEpoch,\n    batchId,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity: { id: cardRarity.id, name: cardRarity.Name, key: cardRarity.Key, colorHex: cardRarity.ColorHex },\n    serialNumber,\n    maxSerial\n  });\n}\n\ntotalPulls += config.boosterSize;\nconst newBoosterCount = status.boosterCount - 1;\n\nreturn drawn.map((d) => ({ json: { ...d, pullsSinceTop, totalPulls, newBoosterCount } }));"
       }
     },
     {
@@ -288,6 +324,10 @@
             {
               "fieldId": "BatchId",
               "fieldValue": "={{ $json.batchId }}"
+            },
+            {
+              "fieldId": "SerialNumber",
+              "fieldValue": "={{ $json.serialNumber }}"
             }
           ]
         }
@@ -386,7 +426,7 @@
         192
       ],
       "parameters": {
-        "jsCode": "const cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver\n}));\nconst last = $('Finalize').first().json;\nreturn [{\n  json: {\n    cards,\n    pity: { pullsSinceTop: last.pullsSinceTop },\n    booster: { extensionId: last.extensionId, count: last.boosterCount }\n  }\n}];"
+        "jsCode": "const cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver,\n  serialNumber: i.json.serialNumber,\n  maxSerial: i.json.maxSerial\n}));\nconst last = $('Finalize').first().json;\nreturn [{\n  json: {\n    cards,\n    pity: { pullsSinceTop: last.pullsSinceTop },\n    booster: { extensionId: last.extensionId, count: last.boosterCount }\n  }\n}];"
       }
     },
     {
@@ -515,7 +555,7 @@
         192
       ],
       "parameters": {
-        "jsCode": "const cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver\n}));\nconst draw = $('Draw Cards').first().json;\nreturn [{ json: { cards, dryRun: true, pity: { pullsSinceTop: draw.pullsSinceTop }, booster: { extensionId: draw.extensionId, count: draw.newBoosterCount } } }];"
+        "jsCode": "const cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver,\n  serialNumber: i.json.serialNumber,\n  maxSerial: i.json.maxSerial\n}));\nconst draw = $('Draw Cards').first().json;\nreturn [{ json: { cards, dryRun: true, pity: { pullsSinceTop: draw.pullsSinceTop }, booster: { extensionId: draw.extensionId, count: draw.newBoosterCount } } }];"
       }
     },
     {
@@ -1040,6 +1080,28 @@
       ]
     },
     "Get Config Table": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Config Table -> Get All Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Config Table -> Get All Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get All Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Pulls": {
       "main": [
         [
           {

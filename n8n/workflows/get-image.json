@@ -71,7 +71,16 @@
     {
       "parameters": {
         "respondWith": "binary",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Cache-Control",
+                "value": "public, max-age=31536000, immutable"
+              }
+            ]
+          }
+        }
       },
       "id": "5a7709c7-0577-495c-8150-5cc728c6b556",
       "name": "Respond",

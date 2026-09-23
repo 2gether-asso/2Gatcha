@@ -51,11 +51,46 @@
       <h2>&#127920; Roue de la fortune</h2>
       <p class="lead" style="font-size:0.85rem;">Un tirage gratuit par jour : poussières d'étoile, parfois un booster.</p>
       <div class="wheel-widget">
-        <span class="wheel-icon" id="wheel-icon" aria-hidden="true">&#127920;</span>
+        <span class="wheel-icon" aria-hidden="true">&#127920;</span>
         <div class="wheel-status">
           <div id="wheel-status-text">Chargement...</div>
           <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
         </div>
+      </div>
+    </div>
+
+    <div id="wheel-modal-overlay" class="card-modal-overlay" hidden>
+      <div class="wheel-modal">
+        <div class="wheel-container">
+          <div class="wheel-pointer" aria-hidden="true">&#9660;</div>
+          <svg id="wheel-svg" class="wheel-svg" viewBox="0 0 200 200" role="img" aria-label="Roue de la fortune">
+            <g id="wheel-group">
+              <!-- 8 cases, alternant poussiere/booster/poussiere+ ; les tailles
+                   ne sont pas egales - chaque type garde au total exactement
+                   la meme probabilite qu'avant (70/20/10%), juste repartie sur
+                   plusieurs cases pour l'effet visuel d'une vraie roue. -->
+              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 100,10 A 90,90 0 0,1 189.5,90.6 Z" />
+              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 189.5,90.6 A 90,90 0 0,1 189.5,109.4 Z" />
+              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 189.5,109.4 A 90,90 0 0,1 166.9,160.2 Z" />
+              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 166.9,160.2 A 90,90 0 0,1 47.1,172.8 Z" />
+              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 47.1,172.8 A 90,90 0 0,1 33.1,160.2 Z" />
+              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 33.1,160.2 A 90,90 0 0,1 10.5,109.4 Z" />
+              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 10.5,109.4 A 90,90 0 0,1 81.3,12.0 Z" />
+              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 81.3,12.0 A 90,90 0 0,1 100,10 Z" />
+              <text x="141.5" y="57.9" class="wheel-icon-label">&#10024;</text>
+              <text x="162" y="104" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
+              <text x="156.6" y="129.2" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
+              <text x="106.5" y="165.7" class="wheel-icon-label">&#10024;</text>
+              <text x="58.5" y="150.1" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
+              <text x="43.4" y="129.2" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
+              <text x="49.8" y="67.6" class="wheel-icon-label">&#10024;</text>
+              <text x="93.5" y="42.3" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
+            </g>
+            <circle cx="100" cy="100" r="12" class="wheel-hub" />
+          </svg>
+        </div>
+        <div id="wheel-modal-result" class="wheel-modal-result"></div>
+        <button type="button" id="wheel-modal-close-btn" class="btn" style="display:none;">Fermer</button>
       </div>
     </div>
 
@@ -139,6 +174,8 @@
     }
 
     if (Session.isLoggedIn()) {
+      prefetchAllCardImages();
+
       const panel = document.getElementById("activity-panel");
       panel.style.display = "block";
       API.getRecentPulls().then((res) => {
@@ -227,11 +264,12 @@
         document.getElementById("achievements-grid").innerHTML = `<div class="empty-state">Impossible de charger les succès.</div>`;
       });
 
-      // Roue de la fortune quotidienne.
+      // Roue de la fortune quotidienne : une vraie roue (SVG) qui tourne et
+      // s'arrete precisement sur le lot renvoye par le serveur, puis attend
+      // un clic explicite pour se fermer (pas d'auto-fermeture).
       const wheelPanel = document.getElementById("wheel-panel");
       const wheelStatusText = document.getElementById("wheel-status-text");
       const wheelSpinBtn = document.getElementById("wheel-spin-btn");
-      const wheelIcon = document.getElementById("wheel-icon");
       wheelPanel.style.display = "block";
       API.getDailyWheelStatus(Session.userId).then((res) => {
         if (res.canSpin) {
@@ -243,27 +281,83 @@
       }).catch(() => {
         wheelStatusText.textContent = "Impossible de charger la roue pour l'instant.";
       });
+
+      // 8 cases (depuis le haut, sens horaire), alternant poussiere/booster/
+      // poussiere+ dans l'ordre exact des <path> dessines dans le SVG. Les
+      // tailles ne sont pas egales : chaque TYPE garde au total exactement
+      // la meme probabilite qu'avant (70/20/10%), juste repartie sur
+      // plusieurs cases pour l'effet visuel d'une vraie roue a 8 secteurs.
+      const WHEEL_SEGMENTS = [
+        { type: "small", start: 0, end: 84 },
+        { type: "booster", start: 84, end: 96 },
+        { type: "big", start: 96, end: 132 },
+        { type: "small", start: 132, end: 216 },
+        { type: "booster", start: 216, end: 228 },
+        { type: "big", start: 228, end: 264 },
+        { type: "small", start: 264, end: 348 },
+        { type: "booster", start: 348, end: 360 }
+      ];
+      const wheelOverlay = document.getElementById("wheel-modal-overlay");
+      const wheelGroup = document.getElementById("wheel-group");
+      const wheelResultEl = document.getElementById("wheel-modal-result");
+      const wheelCloseBtn = document.getElementById("wheel-modal-close-btn");
+
+      function spinWheelTo(tier) {
+        // Plusieurs cases partagent le meme type : on en tire une au hasard
+        // parmi celles-la pour ne pas toujours s'arreter sur la meme case.
+        const matches = WHEEL_SEGMENTS.filter((s) => s.type === tier);
+        const seg = matches[Math.floor(Math.random() * matches.length)] || WHEEL_SEGMENTS[0];
+        const mid = (seg.start + seg.end) / 2;
+        const halfWidth = (seg.end - seg.start) / 2;
+        const margin = Math.min(2, halfWidth * 0.3);
+        const jitter = (Math.random() - 0.5) * 2 * (halfWidth - margin);
+        const targetMid = mid + jitter;
+        // Pour amener ce point sous le pointeur (fixe, en haut), on tourne
+        // la roue de l'angle complementaire, plus plusieurs tours complets
+        // pour l'effet visuel.
+        const baseRotation = (360 - targetMid + 360) % 360;
+        const finalRotation = 5 * 360 + baseRotation;
+        // Repart de 0 a chaque ouverture (un seul spin par chargement de page).
+        wheelGroup.style.transform = "rotate(0deg)";
+        void wheelGroup.offsetWidth;
+        wheelGroup.style.transform = `rotate(${finalRotation}deg)`;
+      }
+
       wheelSpinBtn.addEventListener("click", async () => {
         wheelSpinBtn.disabled = true;
-        wheelIcon.classList.add("spinning");
+        wheelResultEl.textContent = "";
+        wheelCloseBtn.style.display = "none";
+        wheelOverlay.hidden = false;
+        syncScrollLock();
+        Sfx.click();
+
         try {
           const res = await API.spinDailyWheel(Session.userId);
-          setTimeout(() => {
-            wheelIcon.classList.remove("spinning");
-            wheelSpinBtn.style.display = "none";
+          spinWheelTo(res.prize.tier);
+          wheelGroup.addEventListener("transitionend", function onSpun() {
+            wheelGroup.removeEventListener("transitionend", onSpun);
             const prizeLabel = res.prize.type === "booster"
               ? `+${res.prize.amount} booster${res.prize.amount > 1 ? "s" : ""} !`
               : `+${res.prize.amount} poussières d'étoile !`;
-            wheelStatusText.textContent = `Gagné : ${prizeLabel} Reviens demain.`;
-            Toast.success(`Roue de la fortune : ${prizeLabel}`);
+            wheelResultEl.textContent = `Gagné : ${prizeLabel}`;
+            wheelCloseBtn.style.display = "inline-flex";
+            Sfx.reveal(res.prize.type === "booster" ? "legendaire" : "rare");
             if (typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } });
+            wheelStatusText.textContent = `Gagné aujourd'hui : ${prizeLabel} Reviens demain.`;
+            wheelSpinBtn.style.display = "none";
             loadHeaderBoosterBadge();
-          }, 700);
+          }, { once: true });
         } catch (e) {
-          wheelIcon.classList.remove("spinning");
+          wheelOverlay.hidden = true;
+          syncScrollLock();
           wheelSpinBtn.disabled = false;
           Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : "Erreur. (" + e.message + ")");
         }
+      });
+
+      wheelCloseBtn.addEventListener("click", () => {
+        wheelOverlay.hidden = true;
+        syncScrollLock();
       });
     }
 

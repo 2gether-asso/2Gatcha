@@ -34,6 +34,10 @@
             </div>
           </label>
           <label>
+            Exemplaire a donner
+            <select id="offered-pull-select" required></select>
+          </label>
+          <label>
             Pseudo du joueur cible
             <select id="target-select" required></select>
           </label>
@@ -41,7 +45,7 @@
             Carte demandee (laisse sur "Aucune" pour un don)
             <div class="card-preview-row">
               <img id="requested-card-preview" class="card-preview-thumb" alt="" />
-              <select id="requested-card-select"></select>
+              <select id="requested-card-select"><option value="">Choisis d'abord un joueur cible</option></select>
             </div>
           </label>
           <button type="submit">Proposer l'échange</button>

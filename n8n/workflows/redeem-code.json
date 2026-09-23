@@ -163,7 +163,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst codesRows = $('Get Event Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptionsRows = $('Get Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!config.code) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nconst normalized = config.code.toLowerCase();\nconst codeRow = codesRows.find((c) => (c.Code || '').toString().trim().toLowerCase() === normalized);\n\nif (!codeRow) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nif (codeRow.Active === false) {\n  return [{ json: { ok: false, error: 'code_inactive' } }];\n}\nconst now = Math.floor(Date.now() / 1000);\nif (codeRow.ExpiresAt && now > codeRow.ExpiresAt) {\n  return [{ json: { ok: false, error: 'code_expired' } }];\n}\n\nconst codeRedemptions = redemptionsRows.filter((r) => refId(r.Code) === codeRow.id);\nif (codeRedemptions.some((r) => refId(r.User) === config.userId)) {\n  return [{ json: { ok: false, error: 'already_redeemed' } }];\n}\nif (codeRow.MaxRedemptions && codeRedemptions.length >= codeRow.MaxRedemptions) {\n  return [{ json: { ok: false, error: 'code_exhausted' } }];\n}\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) {\n  return [{ json: { ok: false, error: 'unknown_user' } }];\n}\n\nconst quantity = codeRow.Quantity || 1;\nconst batchId = `code-${codeRow.Code}-${Date.now()}`;\n\nif (codeRow.RewardType === 'card') {\n  const card = cardsRows.find((c) => c.id === refId(codeRow.CardId));\n  if (!card) {\n    return [{ json: { ok: false, error: 'code_misconfigured' } }];\n  }\n  const rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\n  const rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\n  const items = [];\n  for (let i = 0; i < quantity; i++) {\n    items.push({\n      json: {\n        ok: true,\n        kind: 'card',\n        docId: config.docId,\n        codeRowId: codeRow.id,\n        userId: config.userId,\n        obtainedAt: now,\n        batchId,\n        cardId: card.id,\n        isFirstEver: !card.FirstObtainedBy,\n        name: card.Name,\n        artist: card.Artist,\n        description: card.Description,\n        imageId: firstAttachment(card.Image),\n        rarity\n      }\n    });\n  }\n  return items;\n}\n\nreturn [{\n  json: {\n    ok: true,\n    kind: 'booster',\n    docId: config.docId,\n    codeRowId: codeRow.id,\n    userId: config.userId,\n    quantity,\n    newBoosterCount: (user.BoosterCount || 0) + quantity\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst codesRows = $('Get Event Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptionsRows = $('Get Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst allPulls = $('Get All Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!config.code) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nconst normalized = config.code.toLowerCase();\nconst codeRow = codesRows.find((c) => (c.Code || '').toString().trim().toLowerCase() === normalized);\n\nif (!codeRow) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nif (codeRow.Active === false) {\n  return [{ json: { ok: false, error: 'code_inactive' } }];\n}\nconst now = Math.floor(Date.now() / 1000);\nif (codeRow.ExpiresAt && now > codeRow.ExpiresAt) {\n  return [{ json: { ok: false, error: 'code_expired' } }];\n}\n\nconst codeRedemptions = redemptionsRows.filter((r) => refId(r.Code) === codeRow.id);\nif (codeRedemptions.some((r) => refId(r.User) === config.userId)) {\n  return [{ json: { ok: false, error: 'already_redeemed' } }];\n}\nif (codeRow.MaxRedemptions && codeRedemptions.length >= codeRow.MaxRedemptions) {\n  return [{ json: { ok: false, error: 'code_exhausted' } }];\n}\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) {\n  return [{ json: { ok: false, error: 'unknown_user' } }];\n}\n\nconst quantity = codeRow.Quantity || 1;\nconst batchId = `code-${codeRow.Code}-${Date.now()}`;\n\nif (codeRow.RewardType === 'card') {\n  const card = cardsRows.find((c) => c.id === refId(codeRow.CardId));\n  if (!card) {\n    return [{ json: { ok: false, error: 'code_misconfigured' } }];\n  }\n  const rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\n  const rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\n  // Limite d'exemplaires 'dans la nature' (Cards.MaxSerial, 100 par defaut).\n  const existingCount = allPulls.filter((p) => refId(p.Card) === card.id).length;\n  const maxSerial = card.MaxSerial || 100;\n  if (existingCount + quantity > maxSerial) {\n    return [{ json: { ok: false, error: 'sold_out' } }];\n  }\n\n  const items = [];\n  for (let i = 0; i < quantity; i++) {\n    items.push({\n      json: {\n        ok: true,\n        kind: 'card',\n        docId: config.docId,\n        codeRowId: codeRow.id,\n        userId: config.userId,\n        obtainedAt: now,\n        batchId,\n        cardId: card.id,\n        isFirstEver: !card.FirstObtainedBy,\n        name: card.Name,\n        artist: card.Artist,\n        description: card.Description,\n        imageId: firstAttachment(card.Image),\n        rarity,\n        serialNumber: existingCount + i + 1,\n        maxSerial\n      }\n    });\n  }\n  return items;\n}\n\nreturn [{\n  json: {\n    ok: true,\n    kind: 'booster',\n    docId: config.docId,\n    codeRowId: codeRow.id,\n    userId: config.userId,\n    quantity,\n    newBoosterCount: (user.BoosterCount || 0) + quantity\n  }\n}];"
       }
     },
     {
@@ -276,6 +276,10 @@
             {
               "fieldId": "BatchId",
               "fieldValue": "={{ $json.batchId }}"
+            },
+            {
+              "fieldId": "SerialNumber",
+              "fieldValue": "={{ $json.serialNumber }}"
             }
           ]
         }
@@ -298,7 +302,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const cards = $('Validate & Prepare').all().map((i) => i.json).map((c) => ({\n  cardId: c.cardId,\n  name: c.name,\n  artist: c.artist,\n  description: c.description,\n  imageId: c.imageId,\n  rarity: c.rarity,\n  isFirstEver: !!c.isFirstEver\n}));\nconst first = $('Validate & Prepare').first().json;\nreturn [{ json: { kind: 'card', codeRowId: first.codeRowId, userId: first.userId, docId: first.docId, cards } }];"
+        "jsCode": "const cards = $('Validate & Prepare').all().map((i) => i.json).map((c) => ({\n  cardId: c.cardId,\n  name: c.name,\n  artist: c.artist,\n  description: c.description,\n  imageId: c.imageId,\n  rarity: c.rarity,\n  isFirstEver: !!c.isFirstEver,\n  serialNumber: c.serialNumber,\n  maxSerial: c.maxSerial\n}));\nconst first = $('Validate & Prepare').first().json;\nreturn [{ json: { kind: 'card', codeRowId: first.codeRowId, userId: first.userId, docId: first.docId, cards } }];"
       }
     },
     {
@@ -628,6 +632,44 @@
         },
         "options": {}
       }
+    },
+    {
+      "id": "sync-users-allpulls-redeem",
+      "name": "Sync Get Users -> Get All Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1080,
+        740
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-all-pulls-redeem",
+      "name": "Get All Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1000,
+        740
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -701,7 +743,7 @@
       "main": [
         [
           {
-            "node": "Validate & Prepare",
+            "node": "Sync Get Users -> Get All Pulls",
             "type": "main",
             "index": 0
           }
@@ -897,6 +939,28 @@
           }
         ],
         []
+      ]
+    },
+    "Sync Get Users -> Get All Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get All Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Pulls": {
+      "main": [
+        [
+          {
+            "node": "Validate & Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

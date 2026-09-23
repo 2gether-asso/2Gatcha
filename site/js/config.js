@@ -39,7 +39,8 @@ window.APP_CONFIG = {
     quests: "/quests",                // POST { userId } -> { quests, completedCount, rewardClaimed, justClaimedReward }
     adminReset: "/admin-reset",       // POST { discordId, confirm: 'RESET-V1' } -> { reset: true, counts }
     dailyWheel: "/daily-wheel",       // POST { userId, action: 'status'|'spin' } -> { canSpin } | { prize, newStardust, newBoosterCount }
-    altarSacrifice: "/altar-sacrifice", // POST { userId, rarityKey } -> { success, card?, isFirstEver? } | { error }
-    achievements: "/achievements"     // GET ?userId=... -> { achievements: [{key,icon,name,description,unlocked,progress,goal}], unlockedCount, totalCount }
+    altarSacrifice: "/altar-sacrifice", // POST { userId, cardIds: [id,id,id] } -> { success, card?, isFirstEver? } | { error }
+    achievements: "/achievements",    // GET ?userId=... -> { achievements: [{key,icon,name,description,unlocked,progress,goal}], unlockedCount, totalCount }
+    pullLog: "/pull-log"              // GET ?userId=... -> { log: [{cardId,cardName,imageId,rarity,extension,source,obtainedAt}], total }
   }
 };

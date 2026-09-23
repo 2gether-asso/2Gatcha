@@ -65,6 +65,7 @@ son propre compteur de pity.
 | Active      | Bool                   | si `false`, la carte n'est plus tirable     |
 | FirstObtainedBy | Reference -> Users | vide tant que personne ne l'a obtenue ; rempli une seule fois, par le premier tirage/reclamation qui la sort (`open-pack.json`, `redeem-code.json`) |
 | FirstObtainedAt | DateTime           | date du premier obtention (epoch secondes) |
+| MaxSerial   | Numeric               | limite d'exemplaires "dans la nature" pour cette carte, tous joueurs confondus (defaut 100 si vide/0, applique cote code par `card.MaxSerial \|\| 100`). Une fois la limite atteinte, la carte n'est plus obtenable par aucun moyen (booster, craft, code, autel) : chaque workflow qui cree une ligne `Pulls` l'exclut de son pool de tirage et renvoie l'erreur `sold_out` si on tente quand meme de l'obtenir |
 
 ## 4. Users
 
@@ -104,13 +105,25 @@ creant/detruisant des exemplaires.
 | Card        | Reference -> Cards     |                                             |
 | ObtainedAt  | DateTime               |                                             |
 | BatchId     | Text                   | regroupe les cartes d'un meme pack ouvert ou d'un meme code reclame |
+| SerialNumber | Numeric               | numero de l'exemplaire pour cette carte, tous joueurs confondus (1er exemplaire jamais tire = 1, etc.) ; calcule au moment de la creation de la ligne comme `(nombre de lignes Pulls existantes pour cette carte) + 1`, jamais recalcule ensuite. Sert a l'affichage "#004/100" cote front et a la limite `Cards.MaxSerial` |
 
 La "collection" d'un utilisateur = toutes les lignes `Pulls` ou `User` = lui,
 regroupees par `Card` pour avoir un compteur (x2, x3...). C'est deja ce que
 fait `get-collection.json` (`cards` = catalogue, `owned` = compteur par
-carte) ; le front (`collection.js`) affiche un badge `xN`, pas une carte
-repetee N fois. L'extension et la rarete d'une carte se retrouvent via
-`Cards`, pas la peine de les dupliquer sur `Pulls`.
+carte, avec `owned[].serialNumbers` = la liste des numeros de serie possedes
+pour cette carte) ; le front (`collection.js`) affiche un badge `xN` (et les
+numeros de serie), pas une carte repetee N fois. L'extension et la rarete
+d'une carte se retrouvent via `Cards`, pas la peine de les dupliquer sur
+`Pulls`.
+
+**Limite d'exemplaires (`Cards.MaxSerial`)** : chaque workflow qui cree une
+ligne `Pulls` (`open-pack.json`, `craft.json`, `redeem-code.json`,
+`altar-sacrifice.json`) compte d'abord le nombre de lignes `Pulls`
+existantes pour la carte visee (tous joueurs), exclut du pool de tirage
+toute carte qui a deja atteint sa limite, et renvoie l'erreur `sold_out`
+(ou, pour l'autel, retire simplement la carte du pool de la rarete
+superieure - `no_target_card` si plus aucune carte n'y est disponible)
+si la carte demandee explicitement (craft, code) est epuisee.
 
 ## 6. Config
 
@@ -186,26 +199,42 @@ meme code par un meme utilisateur et a compter les usages face a
 ## 9. Trades
 
 Un echange cible entre deux utilisateurs : `FromUser` propose sa carte
-`OfferedCard` contre la carte `RequestedCard` de `ToUser`. `ToUser` accepte
-ou refuse. Une carte promo (`Cards.IsPromo = true`) ne peut etre ni proposee
-ni demandee : `trade.json` refuse la creation avec l'erreur
-`promo_not_tradeable`.
+`OfferedCard` contre la carte `RequestedCard` de `ToUser`. `ToUser` accepte,
+refuse, ou repond par une contre-proposition. Une carte promo
+(`Cards.IsPromo = true`) ne peut etre ni proposee ni demandee : `trade.json`
+refuse la creation avec l'erreur `promo_not_tradeable`.
 
 | Colonne         | Type                  | Notes                                  |
 |------------------|------------------------|------------------------------------------|
 | FromUser         | Reference -> Users      | initiateur de l'echange                 |
 | ToUser           | Reference -> Users      | destinataire, doit accepter/refuser     |
 | OfferedCard      | Reference -> Cards      | carte proposee par `FromUser`           |
-| RequestedCard    | Reference -> Cards      | carte demandee en retour a `ToUser`     |
-| Status           | Text                    | `pending`, `accepted`, `declined`, `cancelled` |
+| OfferedPull      | Reference -> Pulls      | exemplaire PRECIS (numero de serie) que `FromUser` met dans l'echange, choisi des la creation - plus un exemplaire pris au hasard parmi ses doublons |
+| RequestedCard    | Reference -> Cards      | carte demandee en retour a `ToUser` (vide = don, sans contrepartie) |
+| RequestedPull    | Reference -> Pulls      | exemplaire PRECIS que `ToUser` donne en retour, choisi seulement au moment ou il accepte (vide tant que l'echange est `pending`, et pour un don) |
+| CounterOf        | Reference -> Trades     | rempli seulement si cet echange est une contre-proposition : pointe vers l'echange d'origine que `ToUser` a refuse en l'etat |
+| Status           | Text                    | `pending`, `accepted`, `declined`, `cancelled`, `countered` (l'echange d'origine passe a `countered` des qu'une contre-proposition est envoyee - il n'est plus actionnable, seule la contre-proposition l'est) |
 | CreatedAt        | DateTime                | |
-| RespondedAt      | DateTime                | rempli quand `ToUser` repond ou que `FromUser` annule |
+| RespondedAt      | DateTime                | rempli quand `ToUser` repond, que `FromUser` annule, ou que l'echange est remplace par une contre-proposition |
 
-A l'acceptation (`trade.json`, action `respond`), le workflow revalide que
-les deux parties possedent toujours la carte concernee (le stock peut avoir
-change depuis la creation de l'offre), puis reassigne le champ `User` d'une
-ligne `Pulls` de chaque cote (pas de creation/suppression de ligne : un
-exemplaire change juste de proprietaire).
+A la creation (`trade.json`, action `create` ou `counter`), le proposeur
+choisit lui-meme quel exemplaire precis de sa carte il met dans l'echange
+(`offeredPullId` dans la requete, valide contre ses propres `Pulls`) - stocke
+dans `OfferedPull`. A l'acceptation (action `respond`, `accept: true`), le
+workflow revalide que `OfferedPull` appartient toujours a `FromUser` (il a pu
+partir dans un AUTRE echange accepte entre-temps), et `ToUser` choisit a son
+tour quel exemplaire precis il donne en retour (`requestedPullId` dans la
+requete, obligatoire des qu'il y a une contrepartie - erreur
+`pull_not_chosen` sinon) ; le workflow reassigne alors le champ `User` de ces
+deux lignes `Pulls` (pas de creation/suppression de ligne : un exemplaire
+change juste de proprietaire).
+
+**Contre-proposition** (action `counter`, meme forme que `create` mais avec
+`originalTradeId` a la place de `toPseudo` - la cible est deduite de
+l'echange d'origine) : reserve a `ToUser` de l'echange d'origine, seulement
+si celui-ci est encore `pending`. Cree un nouvel echange (roles inverses,
+`CounterOf` renseigne) et bascule l'echange d'origine sur `Status =
+'countered'` dans la meme operation.
 
 ## 10. BoosterInventory
 

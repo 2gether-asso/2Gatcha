@@ -1,9 +1,11 @@
 // Logique de la page d'échanges.
 // Contrat n8n "trade" (POST { userId, action, ... }) :
-// - action=create { toPseudo, offeredCardId, requestedCardId } -> { tradeId, status }
+// - action=create { toPseudo, offeredCardId, offeredPullId, requestedCardId } -> { tradeId, status }
+// - action=counter { originalTradeId, offeredCardId, offeredPullId, requestedCardId } -> { tradeId, status }
 // - action=list -> { trades: [{ tradeId, direction, fromPseudo, toPseudo,
-//     offeredCard: {id,name}, requestedCard: {id,name}, status, createdAt, respondedAt }] }
-// - action=respond { tradeId, accept } -> { tradeId, status }
+//     offeredCard: {id,name}, offeredSerial, requestedCard: {id,name}, requestedSerial,
+//     status, createdAt, respondedAt, counterOfTradeId }] }
+// - action=respond { tradeId, accept, requestedPullId } -> { tradeId, status }
 // - action=cancel { tradeId } -> { tradeId, status }
 
 const TRADE_ERROR_MESSAGES = {
@@ -14,19 +16,29 @@ const TRADE_ERROR_MESSAGES = {
   not_your_trade: "Cet échange ne te concerne pas.",
   trade_not_pending: "Cet échange n'est plus en attente.",
   cards_no_longer_available: "Une des deux cartes n'est plus disponible (deja echangee ailleurs).",
-  promo_not_tradeable: "Les cartes promo ne sont pas echangeables."
+  promo_not_tradeable: "Les cartes promo ne sont pas echangeables.",
+  pull_not_chosen: "Choisis quel exemplaire tu veux donner."
 };
 
 const STATUS_LABELS = {
   pending: "En attente",
   accepted: "Accepte",
   declined: "Refuse",
-  cancelled: "Annule"
+  cancelled: "Annule",
+  countered: "Remplace par une contre-proposition"
 };
+
+function formatSerial(serial, maxSerial) {
+  if (serial == null) return "";
+  return ` (#${String(serial).padStart(3, "0")}${maxSerial ? "/" + maxSerial : ""})`;
+}
 
 let myOwnedCards = [];
 let allCards = [];
 let cardById = new Map();
+let myOwnedCountByCard = new Map();
+let ownedCopiesByCard = new Map();
+let maxSerialByCard = new Map();
 let allTradesCache = [];
 let historySearch = "";
 let bulkCancelMode = false;
@@ -50,22 +62,23 @@ async function loadFormOptions() {
     API.listUsers()
   ]);
 
-  const ownedMap = new Map((collection.owned || []).map((o) => [o.cardId, o]));
+  myOwnedCountByCard = new Map((collection.owned || []).map((o) => [o.cardId, o.count]));
+  // Chaque exemplaire individuel (pullId + numero de serie) possede par le
+  // joueur, pour choisir PRECISEMENT quelle carte donner (pas juste "une
+  // carte au hasard parmi les doublons").
+  ownedCopiesByCard = new Map((collection.owned || []).map((o) => [o.cardId, o.copies || []]));
+  maxSerialByCard = new Map((collection.cards || []).map((c) => [c.cardId, c.maxSerial || 100]));
+
   allCards = (cardsRes.cards || []).filter((c) => !c.isPromo);
-  myOwnedCards = allCards.filter((c) => ownedMap.has(c.cardId));
+  myOwnedCards = allCards.filter((c) => myOwnedCountByCard.has(c.cardId));
   // Utilise pour retrouver l'image/rarete d'une carte dans l'historique des
   // echanges (l'API ne renvoie que {id, name} par carte impliquee).
   cardById = new Map((cardsRes.cards || []).map((c) => [c.cardId, c]));
 
   const offeredSelect = document.getElementById("offered-card-select");
   offeredSelect.innerHTML = myOwnedCards
-    .map((c) => `<option value="${c.cardId}">${c.name} (x${ownedMap.get(c.cardId).count})</option>`)
+    .map((c) => `<option value="${c.cardId}">${c.name} (x${myOwnedCountByCard.get(c.cardId)})</option>`)
     .join("") || `<option value="">Aucune carte possédée</option>`;
-
-  const requestedSelect = document.getElementById("requested-card-select");
-  requestedSelect.innerHTML = `<option value="">Aucune (don)</option>` + allCards
-    .map((c) => `<option value="${c.cardId}">${c.name}</option>`)
-    .join("");
 
   const targetSelect = document.getElementById("target-select");
   const users = (usersRes.users || []).filter((u) => String(u.userId) !== String(Session.userId));
@@ -74,7 +87,50 @@ async function loadFormOptions() {
     .join("") || `<option value="">Aucun autre joueur</option>`;
 
   updateCardPreview("offered-card-select", "offered-card-preview");
+  updateOfferedPullOptions();
+  await updateRequestedCardOptionsForTarget(targetSelect.value);
+}
+
+// La carte demandee ne peut porter que sur ce que le joueur cible possede
+// reellement (pas de sens de demander une carte qu'il n'a pas) : le combo
+// est repeuple a chaque changement de cible via son profil public.
+async function updateRequestedCardOptionsForTarget(pseudo) {
+  const select = document.getElementById("requested-card-select");
+  if (!select) return;
+  if (!pseudo) {
+    select.innerHTML = `<option value="">Choisis d'abord un joueur cible</option>`;
+    if (select._fancyRefresh) select._fancyRefresh();
+    updateCardPreview("requested-card-select", "requested-card-preview");
+    return;
+  }
+  select.innerHTML = `<option value="">Chargement...</option>`;
+  if (select._fancyRefresh) select._fancyRefresh();
+  try {
+    const profile = await API.getPublicProfile(pseudo);
+    const options = (profile.cards || []).filter((c) => !c.isPromo);
+    select.innerHTML = `<option value="">Aucune (don)</option>` + options
+      .map((c) => `<option value="${c.cardId}">${c.name} (x${c.count})</option>`)
+      .join("");
+  } catch (e) {
+    select.innerHTML = `<option value="">Aucune (don)</option>`;
+  }
+  if (select._fancyRefresh) select._fancyRefresh();
   updateCardPreview("requested-card-select", "requested-card-preview");
+}
+
+// Idem cote "carte a offrir" : une fois la carte choisie, il faut aussi
+// choisir PRECISEMENT quel exemplaire (numero de serie) on met dans
+// l'echange, plutot qu'un exemplaire pris au hasard parmi les doublons.
+function updateOfferedPullOptions() {
+  const select = document.getElementById("offered-pull-select");
+  if (!select) return;
+  const cardId = Number(document.getElementById("offered-card-select").value);
+  const copies = ownedCopiesByCard.get(cardId) || [];
+  const maxSerial = maxSerialByCard.get(cardId) || 100;
+  select.innerHTML = copies.length
+    ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`).join("")
+    : `<option value="">Aucun exemplaire</option>`;
+  if (select._fancyRefresh) select._fancyRefresh();
 }
 
 function updateCardPreview(selectId, previewId) {
@@ -101,6 +157,7 @@ function renderTradeCard(trade) {
     if (trade.direction === "incoming") {
       actions = `
         <button class="btn-secondary accept-btn" data-id="${trade.tradeId}">Accepter</button>
+        <button class="btn-ghost counter-btn" data-id="${trade.tradeId}">Contre-proposer</button>
         <button class="btn-ghost decline-btn" data-id="${trade.tradeId}">Refuser</button>
       `;
     } else if (!bulkCancelMode) {
@@ -109,7 +166,7 @@ function renderTradeCard(trade) {
   }
 
   const requestPart = trade.requestedCard
-    ? `contre <strong>${trade.requestedCard.name}</strong> a <strong>${trade.toPseudo}</strong>`
+    ? `contre <strong>${trade.requestedCard.name}</strong>${formatSerial(trade.requestedSerial)} a <strong>${trade.toPseudo}</strong>`
     : `en cadeau a <strong>${trade.toPseudo}</strong> (aucune contrepartie)`;
 
   // Petites vignettes des cartes concernees : un mur de texte pur ne
@@ -132,7 +189,8 @@ function renderTradeCard(trade) {
       ${thumb(trade.requestedCard, !trade.requestedCard)}
     </div>
     <div class="trade-info">
-      <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong> ${requestPart}</div>
+      ${trade.counterOfTradeId ? `<div class="trade-counter-tag">&#128260; Contre-proposition (echange #${trade.counterOfTradeId})</div>` : ""}
+      <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong>${formatSerial(trade.offeredSerial)} ${requestPart}</div>
       <span class="trade-status ${statusClass}">${STATUS_LABELS[trade.status] || trade.status}</span>
     </div>
     <div class="trade-actions">${actions}</div>
@@ -140,6 +198,7 @@ function renderTradeCard(trade) {
 
   el.querySelectorAll(".accept-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, true)));
   el.querySelectorAll(".decline-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, false)));
+  el.querySelectorAll(".counter-btn").forEach((b) => b.addEventListener("click", () => counterPropose(b.dataset.id)));
   el.querySelectorAll(".cancel-btn").forEach((b) => b.addEventListener("click", () => cancel(b.dataset.id)));
   el.querySelectorAll("[data-bulk-trade-id]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
@@ -245,10 +304,152 @@ async function loadTrades() {
   }
 }
 
+// Accepter un echange avec contrepartie ne se fait plus d'un simple clic :
+// celui qui accepte doit choisir LUI-MEME quel exemplaire (numero de serie)
+// de la carte demandee il donne en retour. Les dons (sans contrepartie)
+// restent instantanes, il n'y a rien a choisir.
+function openAcceptModal(trade) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "card-modal-overlay confirm-overlay";
+    const copies = ownedCopiesByCard.get(trade.requestedCard.id) || [];
+    const maxSerial = maxSerialByCard.get(trade.requestedCard.id) || 100;
+    const options = copies
+      .map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`)
+      .join("");
+    overlay.innerHTML = `
+      <div class="confirm-box">
+        <div class="confirm-title">Accepter l'échange ?</div>
+        <div class="confirm-message">
+          Tu vas donner <strong>${trade.requestedCard.name}</strong> a <strong>${trade.fromPseudo}</strong>.<br />
+          Choisis quel exemplaire donner :
+        </div>
+        <select id="accept-pull-select" style="width:100%;margin:10px 0;">${options || `<option value="">Aucun exemplaire disponible</option>`}</select>
+        <div class="confirm-actions">
+          <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
+          <button type="button" class="confirm-ok" ${copies.length ? "" : "disabled"}>Confirmer</button>
+        </div>
+      </div>
+    `;
+    const finish = (result) => { overlay.remove(); syncScrollLock(); resolve(result); };
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
+    overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
+    overlay.querySelector(".confirm-ok").addEventListener("click", () => {
+      const pullId = Number(overlay.querySelector("#accept-pull-select").value);
+      finish(pullId || null);
+    });
+    document.body.appendChild(overlay);
+    syncScrollLock();
+    enhanceSelect(overlay.querySelector("#accept-pull-select"));
+  });
+}
+
+// Mini-formulaire de contre-proposition : reprend les memes choix que la
+// creation d'un echange (ma carte + mon exemplaire + carte demandee, filtree
+// aux cartes que l'autre joueur possede reellement), mais dans une modale et
+// avec la cible fixee (le proposeur de l'echange d'origine).
+async function openCounterModal(trade) {
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay confirm-overlay";
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="confirm-title">Contre-proposition a ${trade.fromPseudo}</div>
+      <div class="confirm-message" style="text-align:left;">
+        <label style="display:block;margin-bottom:10px;">
+          Ma carte a offrir
+          <select id="counter-offered-card-select" style="width:100%;"></select>
+        </label>
+        <label style="display:block;margin-bottom:10px;">
+          Exemplaire a donner
+          <select id="counter-offered-pull-select" style="width:100%;"></select>
+        </label>
+        <label style="display:block;">
+          Carte demandee a ${trade.fromPseudo} (laisse sur "Aucune" pour un don)
+          <select id="counter-requested-card-select" style="width:100%;"><option value="">Chargement...</option></select>
+        </label>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
+        <button type="button" class="confirm-ok">Envoyer</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  syncScrollLock();
+
+  const offeredSelect = overlay.querySelector("#counter-offered-card-select");
+  const pullSelect = overlay.querySelector("#counter-offered-pull-select");
+  const requestedSelect = overlay.querySelector("#counter-requested-card-select");
+
+  offeredSelect.innerHTML = myOwnedCards
+    .map((c) => `<option value="${c.cardId}" ${trade.requestedCard && c.cardId === trade.requestedCard.id ? "selected" : ""}>${c.name} (x${myOwnedCountByCard.get(c.cardId)})</option>`)
+    .join("") || `<option value="">Aucune carte possédée</option>`;
+
+  function refreshPullOptions() {
+    const cardId = Number(offeredSelect.value);
+    const copies = ownedCopiesByCard.get(cardId) || [];
+    const maxSerial = maxSerialByCard.get(cardId) || 100;
+    pullSelect.innerHTML = copies.length
+      ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`).join("")
+      : `<option value="">Aucun exemplaire</option>`;
+    if (pullSelect._fancyRefresh) pullSelect._fancyRefresh();
+  }
+  offeredSelect.addEventListener("change", refreshPullOptions);
+  refreshPullOptions();
+
+  API.getPublicProfile(trade.fromPseudo).then((profile) => {
+    const options = (profile.cards || []).filter((c) => !c.isPromo);
+    requestedSelect.innerHTML = `<option value="">Aucune (don)</option>` + options
+      .map((c) => `<option value="${c.cardId}" ${c.cardId === trade.offeredCard.id ? "selected" : ""}>${c.name} (x${c.count})</option>`)
+      .join("");
+    if (requestedSelect._fancyRefresh) requestedSelect._fancyRefresh();
+  }).catch(() => {
+    requestedSelect.innerHTML = `<option value="">Aucune (don)</option>`;
+    if (requestedSelect._fancyRefresh) requestedSelect._fancyRefresh();
+  });
+
+  enhanceSelect(offeredSelect);
+  enhanceSelect(pullSelect);
+  enhanceSelect(requestedSelect);
+
+  return new Promise((resolve) => {
+    const finish = (result) => { overlay.remove(); syncScrollLock(); resolve(result); };
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
+    overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
+    overlay.querySelector(".confirm-ok").addEventListener("click", () => {
+      const offeredCardId = Number(offeredSelect.value);
+      const offeredPullId = Number(pullSelect.value);
+      const requestedRaw = requestedSelect.value;
+      if (!offeredCardId || !offeredPullId) { Toast.error("Choisis une carte et un exemplaire a offrir."); return; }
+      finish({ offeredCardId, offeredPullId, requestedCardId: requestedRaw ? Number(requestedRaw) : null });
+    });
+  });
+}
+
 async function respond(tradeId, accept) {
+  const trade = allTradesCache.find((t) => String(t.tradeId) === String(tradeId));
+  let requestedPullId = null;
+  if (accept && trade && trade.requestedCard) {
+    requestedPullId = await openAcceptModal(trade);
+    if (!requestedPullId) return;
+  }
   try {
-    await API.respondTrade(Session.userId, Number(tradeId), accept);
+    await API.respondTrade(Session.userId, Number(tradeId), accept, requestedPullId);
     Toast.success(accept ? "Échange accepte !" : "Échange refuse.");
+    loadTrades();
+  } catch (e) {
+    Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
+async function counterPropose(tradeId) {
+  const trade = allTradesCache.find((t) => String(t.tradeId) === String(tradeId));
+  if (!trade) return;
+  const result = await openCounterModal(trade);
+  if (!result) return;
+  try {
+    await API.counterTrade(Session.userId, Number(tradeId), result.offeredCardId, result.offeredPullId, result.requestedCardId);
+    Toast.success("Contre-proposition envoyée !");
     loadTrades();
   } catch (e) {
     Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
@@ -345,9 +546,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   loadTrades();
 
-  document.getElementById("offered-card-select").addEventListener("change", () => updateCardPreview("offered-card-select", "offered-card-preview"));
+  document.getElementById("offered-card-select").addEventListener("change", () => {
+    updateCardPreview("offered-card-select", "offered-card-preview");
+    updateOfferedPullOptions();
+  });
   document.getElementById("requested-card-select").addEventListener("change", () => updateCardPreview("requested-card-select", "requested-card-preview"));
+  document.getElementById("target-select").addEventListener("change", (e) => updateRequestedCardOptionsForTarget(e.target.value));
   enhanceSelect(document.getElementById("offered-card-select"));
+  enhanceSelect(document.getElementById("offered-pull-select"));
   enhanceSelect(document.getElementById("requested-card-select"));
   enhanceSelect(document.getElementById("target-select"));
 
@@ -357,13 +563,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("create-trade-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const offeredCardId = Number(document.getElementById("offered-card-select").value);
+    const offeredPullId = Number(document.getElementById("offered-pull-select").value);
     const requestedRaw = document.getElementById("requested-card-select").value;
     const requestedCardId = requestedRaw ? Number(requestedRaw) : null;
     const toPseudo = document.getElementById("target-select").value;
-    if (!offeredCardId || !toPseudo) return;
+    if (!offeredCardId || !offeredPullId || !toPseudo) return;
 
     try {
-      await API.createTrade(Session.userId, toPseudo, offeredCardId, requestedCardId);
+      await API.createTrade(Session.userId, toPseudo, offeredCardId, offeredPullId, requestedCardId);
       Toast.success("Échange propose !");
       loadTrades();
     } catch (err) {

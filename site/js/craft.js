@@ -13,7 +13,8 @@ const CRAFT_ERRORS = {
   card_not_found: "Carte introuvable.",
   promo_not_craftable: "Cette carte promo ne peut pas etre craftee.",
   card_inactive: "Cette carte n'est plus disponible.",
-  insufficient_dust: "Pas assez de poussières d'etoile."
+  insufficient_dust: "Pas assez de poussières d'etoile.",
+  sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
 
 let stardust = 0;
@@ -73,8 +74,12 @@ function setActiveTab(tab) {
   if (tab === "altar") renderAltarTiers();
 }
 
-// Autel de sacrifice : 3 exemplaires non-promo d'une rarete -> tentative
-// (50%) d'obtenir une carte aleatoire de la rarete immediatement superieure.
+// Autel de sacrifice : le joueur choisit lui-meme, parmi ses doublons (au
+// moins 2 exemplaires, un seul jamais sacrifiable), les 3 cartes a offrir
+// pour tenter (50%) d'obtenir une carte aleatoire de la rarete superieure.
+let altarSelection = new Map(); // cardId -> nombre d'exemplaires selectionnes
+let altarActiveTier = null; // cle de rarete dont le picker est ouvert
+
 function renderAltarTiers() {
   const el = document.getElementById("altar-tiers");
   const rarityByKey = new Map();
@@ -86,60 +91,170 @@ function renderAltarTiers() {
   });
   const rarities = [...rarityByKey.values()].sort((a, b) => a.sortOrder - b.sortOrder);
 
-  // Quantite possedee (toutes cartes confondues) par rarete, pour savoir
-  // combien d'exemplaires "matiere premiere" sont disponibles.
-  const ownedCountByRarity = new Map();
-  allCards.forEach((c) => {
-    if (c.isPromo || !c.rarity?.key) return;
-    const owned = ownedMap.get(c.cardId);
-    if (!owned) return;
-    ownedCountByRarity.set(c.rarity.key, (ownedCountByRarity.get(c.rarity.key) || 0) + owned.count);
-  });
-
   el.innerHTML = rarities.map((r, i) => {
     const next = rarities[i + 1];
-    const owned = ownedCountByRarity.get(r.key) || 0;
-    const canSacrifice = next && owned >= 3;
+    if (!next) {
+      return `
+        <div class="altar-tier">
+          <div class="altar-tier-path">
+            <span class="altar-tier-badge" style="border-color:${r.colorHex};color:${rarityTextColor(r.colorHex)};">${r.name}</span>
+            <span class="altar-tier-maxed">Rareté maximale</span>
+          </div>
+        </div>
+      `;
+    }
+
+    const duplicates = allCards.filter((c) => !c.isPromo && c.rarity?.key === r.key && (ownedMap.get(c.cardId)?.count || 0) >= 2);
+    const isOpen = altarActiveTier === r.key;
+    const selectedTotal = isOpen ? [...altarSelection.values()].reduce((a, b) => a + b, 0) : 0;
+
     return `
       <div class="altar-tier">
         <div class="altar-tier-path">
           <span class="altar-tier-badge" style="border-color:${r.colorHex};color:${rarityTextColor(r.colorHex)};">${r.name}</span>
           <span class="altar-tier-arrow" aria-hidden="true">&#8594;</span>
-          ${next
-            ? `<span class="altar-tier-badge" style="border-color:${next.colorHex};color:${rarityTextColor(next.colorHex)};">${next.name}</span>`
-            : `<span class="altar-tier-maxed">Rareté maximale</span>`}
+          <span class="altar-tier-badge" style="border-color:${next.colorHex};color:${rarityTextColor(next.colorHex)};">${next.name}</span>
         </div>
-        <div class="altar-tier-info">${owned} exemplaire${owned > 1 ? "s" : ""} de ${r.name} disponible${owned > 1 ? "s" : ""}</div>
-        ${next ? `<button type="button" class="btn-danger altar-sacrifice-btn" data-rarity-key="${r.key}" data-rarity-name="${r.name}" data-next-name="${next.name}" ${canSacrifice ? "" : "disabled"}>&#128293; Sacrifier 3 ${r.name.toLowerCase()}</button>` : ""}
+        ${!duplicates.length ? `
+          <div class="altar-tier-info">Pas encore de doublon de ${r.name.toLowerCase()} à sacrifier (garde toujours au moins 1 exemplaire de chaque carte).</div>
+        ` : !isOpen ? `
+          <button type="button" class="btn-secondary altar-open-btn" data-rarity-key="${r.key}">Choisir mes cartes à sacrifier</button>
+        ` : `
+          <div class="altar-picker">
+            <div class="altar-picker-list">
+              ${duplicates.map((c) => {
+                const owned = ownedMap.get(c.cardId);
+                const max = owned.count - 1;
+                const picked = altarSelection.get(c.cardId) || 0;
+                const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
+                return `
+                  <div class="altar-picker-row">
+                    <img src="${imgSrc}" alt="" loading="lazy" />
+                    <div class="altar-picker-name">${c.name} <span class="altar-picker-owned">×${owned.count}</span></div>
+                    <div class="altar-picker-stepper">
+                      <button type="button" class="altar-step-btn" data-card-id="${c.cardId}" data-delta="-1" ${picked <= 0 ? "disabled" : ""} aria-label="Retirer un exemplaire">&minus;</button>
+                      <span class="altar-step-count">${picked}</span>
+                      <button type="button" class="altar-step-btn" data-card-id="${c.cardId}" data-delta="1" ${picked >= max ? "disabled" : ""} aria-label="Ajouter un exemplaire">+</button>
+                    </div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+            <div class="altar-picker-footer">
+              <span>${selectedTotal} / 3 sélectionnée${selectedTotal > 1 ? "s" : ""}</span>
+              <button type="button" class="btn-ghost altar-cancel-btn">Annuler</button>
+              <button type="button" class="btn-danger altar-confirm-btn" ${selectedTotal === 3 ? "" : "disabled"}>&#128293; Sacrifier</button>
+            </div>
+          </div>
+        `}
       </div>
     `;
   }).join("");
 
-  el.querySelectorAll(".altar-sacrifice-btn").forEach((btn) => {
-    btn.addEventListener("click", () => sacrificeAtAltar(btn.dataset.rarityKey, btn.dataset.rarityName, btn.dataset.nextName));
+  el.querySelectorAll(".altar-open-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      altarSelection = new Map();
+      altarActiveTier = btn.dataset.rarityKey;
+      renderAltarTiers();
+    });
+  });
+  el.querySelectorAll(".altar-cancel-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      altarActiveTier = null;
+      altarSelection = new Map();
+      renderAltarTiers();
+    });
+  });
+  el.querySelectorAll(".altar-step-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const cardId = Number(btn.dataset.cardId);
+      const next = (altarSelection.get(cardId) || 0) + Number(btn.dataset.delta);
+      if (next <= 0) altarSelection.delete(cardId); else altarSelection.set(cardId, next);
+      renderAltarTiers();
+    });
+  });
+  el.querySelectorAll(".altar-confirm-btn").forEach((btn) => {
+    btn.addEventListener("click", sacrificeAtAltar);
   });
 }
 
-async function sacrificeAtAltar(rarityKey, rarityName, nextName) {
+async function sacrificeAtAltar() {
+  const cardIds = [];
+  altarSelection.forEach((count, cardId) => { for (let i = 0; i < count; i++) cardIds.push(cardId); });
+  if (cardIds.length !== 3) return;
+
+  const names = cardIds.map((id) => allCards.find((c) => c.cardId === id)?.name || "?").join(", ");
   const ok = await Confirm.show(
-    `Sacrifier <strong>3 cartes ${rarityName}</strong> (au hasard parmi tes exemplaires de cette rareté) pour tenter d'obtenir ` +
-    `une carte <strong>${nextName}</strong> aléatoire ? <br><br>50% de réussite. En cas d'échec, les 3 cartes sont perdues définitivement.`,
+    `Sacrifier <strong>${names}</strong> pour tenter d'obtenir une carte aléatoire de la rareté supérieure ? ` +
+    `<br><br>50% de réussite. En cas d'échec, ces 3 cartes sont perdues définitivement.`,
     { title: "Sacrifice à l'autel ?", confirmText: "Sacrifier", dangerous: true }
   );
   if (!ok) return;
 
   try {
-    const res = await API.altarSacrifice(Session.userId, rarityKey);
-    if (res.success) {
-      Toast.success(`Succès ! ${res.card.name} obtenue.` + (res.isFirstEver ? " Première obtention du serveur !" : ""));
-      if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
-    } else {
-      Toast.error("Échec du sacrifice : les 3 cartes sont perdues.");
-    }
+    const res = await API.altarSacrifice(Session.userId, cardIds);
+    altarActiveTier = null;
+    altarSelection = new Map();
     await reload();
     setActiveTab("altar");
+    showAltarResultModal(res);
   } catch (e) {
-    Toast.error(e.code === "not_enough_cards" ? "Plus assez d'exemplaires de cette rareté." : "Erreur. (" + e.message + ")");
+    const messages = {
+      not_enough_duplicates: "Plus assez de doublons pour cette sélection.",
+      mixed_rarity: "Les 3 cartes doivent être de la même rareté.",
+      invalid_selection: "Sélection invalide.",
+      no_target_card: "Toutes les cartes de la rareté supérieure sont épuisées."
+    };
+    Toast.error(messages[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
+// Resultat du sacrifice en modale plutot qu'en toast : le joueur doit
+// cliquer explicitement pour la fermer, jamais de disparition automatique
+// (meme principe que la roue de la fortune).
+function showAltarResultModal(res) {
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay confirm-overlay";
+  document.body.appendChild(overlay);
+
+  let bodyHtml;
+  if (res.success) {
+    const card = res.card;
+    const color = card.rarity?.colorHex || "#9aa0b4";
+    const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+    bodyHtml = `
+      <div class="confirm-title">&#128293; Sacrifice réussi !</div>
+      <img src="${imgSrc}" alt="${card.name}" class="altar-result-img" style="box-shadow:0 0 24px ${color}88;" />
+      <div class="confirm-message">
+        <strong>${card.name}</strong> obtenue !<br />
+        <span class="rarity-badge" style="margin-top:8px;background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${card.rarity?.name || "Commune"}</span>
+        ${res.isFirstEver ? `<div class="first-obtainer-badge" style="margin-top:10px;">&#127942; Première obtention du serveur !</div>` : ""}
+      </div>
+    `;
+  } else {
+    bodyHtml = `
+      <div class="confirm-title">&#128165; Sacrifice échoué</div>
+      <div class="confirm-message">Les 3 cartes sacrifiées sont perdues définitivement. Retente ta chance quand tu veux.</div>
+    `;
+  }
+
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      ${bodyHtml}
+      <div class="confirm-actions">
+        <button type="button" class="altar-result-close-btn">Fermer</button>
+      </div>
+    </div>
+  `;
+
+  function close() { overlay.remove(); syncScrollLock(); }
+  overlay.querySelector(".altar-result-close-btn").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  syncScrollLock();
+
+  if (res.success) {
+    if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+    Sfx.reveal(res.card.rarity?.key);
   }
 }
 
@@ -150,7 +265,7 @@ function craftCardTile(card, mode) {
     const dust = card.rarity?.disenchantValue || 0;
     const checked = bulkSelected.has(card.cardId);
     return `
-      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}">
+      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
         ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
         <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
         <div class="card-info">
@@ -165,7 +280,7 @@ function craftCardTile(card, mode) {
   const cost = card.rarity?.craftCost || 0;
   const canAfford = stardust >= cost;
   return `
-    <div class="craft-card ${canAfford ? "" : "unavailable"}" data-card-id="${card.cardId}">
+    <div class="craft-card ${canAfford ? "" : "unavailable"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
       <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
       <div class="card-info">
         <div class="card-name">${card.name}</div>

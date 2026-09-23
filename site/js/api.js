@@ -164,24 +164,32 @@ const API = {
     return this.post("dailyWheel", { userId, action: "spin" });
   },
 
-  altarSacrifice(userId, rarityKey) {
-    return this.post("altarSacrifice", { userId, rarityKey });
+  altarSacrifice(userId, cardIds) {
+    return this.post("altarSacrifice", { userId, cardIds });
   },
 
   getAchievements(userId) {
     return this.get("achievements", { userId });
   },
 
-  createTrade(userId, toPseudo, offeredCardId, requestedCardId) {
-    return this.post("trade", { userId, action: "create", toPseudo, offeredCardId, requestedCardId });
+  getPullLog(userId) {
+    return this.get("pullLog", { userId });
+  },
+
+  createTrade(userId, toPseudo, offeredCardId, offeredPullId, requestedCardId) {
+    return this.post("trade", { userId, action: "create", toPseudo, offeredCardId, offeredPullId, requestedCardId });
+  },
+
+  counterTrade(userId, originalTradeId, offeredCardId, offeredPullId, requestedCardId) {
+    return this.post("trade", { userId, action: "counter", originalTradeId, offeredCardId, offeredPullId, requestedCardId });
   },
 
   listTrades(userId) {
     return this.post("trade", { userId, action: "list" });
   },
 
-  respondTrade(userId, tradeId, accept) {
-    return this.post("trade", { userId, action: "respond", tradeId, accept });
+  respondTrade(userId, tradeId, accept, requestedPullId) {
+    return this.post("trade", { userId, action: "respond", tradeId, accept, requestedPullId });
   },
 
   cancelTrade(userId, tradeId) {

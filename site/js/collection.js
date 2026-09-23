@@ -162,7 +162,7 @@ function showCardModal(cardId, navList) {
     const disenchantValue = craftCostByCard.get(card.cardId)?.disenchantValue;
     const isFirstObtainer = card.firstObtainedBy && card.firstObtainedBy === Session.pseudo;
     overlay.innerHTML = `
-      <div class="card-modal ${direction ? "slide-" + direction : ""}">
+      <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
         ${navList.length > 1 ? `<button class="card-modal-nav prev" aria-label="Carte precedente">&#10094;</button>` : ""}
         ${navList.length > 1 ? `<button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
@@ -174,6 +174,7 @@ function showCardModal(cardId, navList) {
             ${card.rarity?.name || "Commune"}
           </span>
           ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
+          ${owned && owned.serialNumbers?.length ? `<div class="serial-badge">${owned.serialNumbers.map((n) => `#${String(n).padStart(3, "0")}`).join(", ")} / ${card.maxSerial || 100}</div>` : ""}
           ${card.description ? `<p class="card-modal-description">${card.description}</p>` : ""}
           ${card.firstObtainedBy ? `
             <div class="first-obtainer-badge">

@@ -445,15 +445,57 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 
 /* Roue de la fortune quotidienne (accueil). */
 .wheel-widget { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
-.wheel-icon { font-size: 2.4rem; line-height: 1; transition: transform 0.15s ease; }
-.wheel-icon.spinning { animation: wheelSpin 0.7s cubic-bezier(.2,.9,.3,1); }
-@keyframes wheelSpin {
-  from { transform: rotate(0deg) scale(1); }
-  60% { transform: rotate(620deg) scale(1.15); }
-  to { transform: rotate(720deg) scale(1); }
-}
+.wheel-icon { font-size: 2.4rem; line-height: 1; }
 .wheel-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 #wheel-status-text { color: var(--text-dim); font-size: 0.9rem; }
+
+/* Modale de la roue : une vraie roue SVG qui tourne et s'arrete pile sur le
+   lot renvoye par le serveur (voir spinWheelTo(), index.html), fermeture
+   uniquement par clic explicite du joueur (jamais automatique). */
+.wheel-modal {
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  width: min(360px, 92vw);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.7);
+}
+.wheel-container { position: relative; width: min(280px, 70vw); aspect-ratio: 1; }
+.wheel-pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.8rem;
+  color: var(--accent-2);
+  z-index: 2;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+}
+.wheel-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.5)); }
+#wheel-group { transform-origin: 100px 100px; transition: transform 4s cubic-bezier(.17,.67,.12,1); }
+.wheel-seg { stroke: var(--bg-void); stroke-width: 2; }
+.wheel-seg-small { fill: var(--accent); }
+.wheel-seg-big { fill: var(--accent-2); }
+.wheel-seg-booster { fill: var(--rarity-legendaire); }
+.wheel-icon-label { text-anchor: middle; font-size: 15px; }
+.wheel-icon-label-big { font-size: 18px; }
+.wheel-icon-label-tiny { font-size: 9px; }
+.wheel-hub { fill: var(--bg-panel-solid); stroke: var(--border); stroke-width: 3; }
+.wheel-modal-result {
+  min-height: 1.5em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
 /* Succes / achievements (accueil). */
 .achievements-grid {
@@ -872,6 +914,29 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 
 .card-name { font-size: 0.86rem; font-weight: 700; font-family: var(--font-display); }
+
+/* Traitement typographique dedie aux raretes fortes : dorure animee pour
+   legendaire, neon pour epique - sur toute carte affichant data-rarity
+   (grille, pile de reveal, modale, profil), pas de JS supplementaire. */
+[data-rarity="legendaire"] .card-name,
+[data-rarity="legendaire"] .card-modal-name,
+[data-rarity="legendaire"] .pull-log-name {
+  background: linear-gradient(120deg, #f5a524, #ffe9b8, #f5a524);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: legendaryNameShimmer 3s linear infinite;
+}
+@keyframes legendaryNameShimmer {
+  to { background-position: -200% center; }
+}
+[data-rarity="epique"] .card-name,
+[data-rarity="epique"] .card-modal-name,
+[data-rarity="epique"] .pull-log-name {
+  color: #d8b4fe;
+  text-shadow: 0 0 10px rgba(168,85,247,0.7);
+}
 .card-artist { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
 
 .rarity-badge {
@@ -969,6 +1034,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   font-size: 0.7rem;
   color: var(--text-dim);
   font-weight: 600;
+}
+
+.serial-badge {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
 }
 
 .card-quick-action {
@@ -1203,9 +1275,23 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .trade-card[data-status="accepted"] { border-left-color: #4ade80; }
 .trade-card[data-status="declined"],
 .trade-card[data-status="cancelled"] { border-left-color: #fb7185; }
+.trade-card[data-status="countered"] { border-left-color: #fbbf24; }
 
 .trade-info { font-size: 0.92rem; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
-.trade-actions { display: flex; gap: 10px; }
+.trade-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.trade-counter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  background: rgba(251,191,36,0.16);
+  border: 1px solid #fbbf24;
+  color: var(--text);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
 
 /* Vignettes carte offerte -> carte demandee : remplace le mur de texte pur
    par un visuel rapide a scanner, dans l'esprit "carte a carte" du site. */
@@ -1245,6 +1331,45 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .trade-status-accepted { color: #4ade80; }
 .trade-status-declined,
 .trade-status-cancelled { color: #fb7185; }
+
+/* --- Journal d'ouvertures --- */
+.pull-log-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.pull-log-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.pull-log-row img { width: 40px; height: 53px; object-fit: cover; border-radius: 6px; border: 2px solid; flex-shrink: 0; }
+.pull-log-info { flex: 1; min-width: 0; }
+.pull-log-name { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; }
+.pull-log-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.pull-log-source { font-size: 1.2rem; flex-shrink: 0; }
+.pull-log-time { color: var(--text-dim); font-size: 0.76rem; flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Graphique "tirages au fil du temps" : barres CSS simples (une seule
+   serie, une seule teinte) plutot qu'une lib de charts pour un usage aussi
+   modeste. */
+.timeline-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 120px;
+  margin: 12px 0 20px;
+  padding: 8px;
+  background: var(--bg-panel-2);
+  border-radius: 10px;
+}
+.timeline-bar-col { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
+.timeline-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+}
 
 /* --- Tableau admin --- */
 .admin-table {
@@ -1683,10 +1808,21 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 .rarity-progress-row .rp-label { color: var(--text-dim); font-weight: 700; font-family: var(--font-display); }
 .rarity-progress-row .rp-track {
+  position: relative;
   height: 7px;
   border-radius: 999px;
   background: var(--bg-panel-2);
   overflow: hidden;
+}
+/* Repere de reference (ex: taux theorique) superpose sur la barre, plutot
+   qu'une deuxieme serie de couleur - voir renderPullLuckChart(). */
+.rp-target-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
 }
 .rarity-progress-row .rp-fill {
   display: block;
@@ -1712,6 +1848,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   opacity: 0;
   animation: modalFadeIn 0.2s ease forwards;
 }
+/* Les modales creees dynamiquement (collection, echanges...) sont retirees
+   du DOM plutot que masquees, mais la modale de la roue est un element
+   statique de la page, bascule via l'attribut hidden - sans cette regle,
+   le display:flex ci-dessus l'emporterait sur le display:none par defaut
+   de [hidden] (une regle d'auteur bat toujours la feuille de style navigateur). */
+.card-modal-overlay[hidden] { display: none; }
 @keyframes modalFadeIn { to { opacity: 1; } }
 .card-modal {
   width: min(360px, 100%);
@@ -1777,6 +1919,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 }
 .confirm-title { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; margin-bottom: 8px; }
 .confirm-message { color: var(--text-dim); font-size: 0.92rem; line-height: 1.5; }
+.altar-result-img { width: 140px; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; margin: 12px auto; display: block; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
 .btn-danger {
@@ -2115,6 +2258,50 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .altar-tier-arrow { color: var(--text-dim); font-size: 1.1rem; }
 .altar-tier-maxed { color: var(--text-dim); font-size: 0.85rem; font-style: italic; }
 .altar-tier-info { color: var(--text-dim); font-size: 0.82rem; margin: 10px 0; }
+.altar-open-btn { margin-top: 12px; }
+
+.altar-picker { margin-top: 14px; }
+.altar-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.altar-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+.altar-picker-row img { width: 36px; height: 48px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+.altar-picker-name { flex: 1; font-size: 0.85rem; min-width: 0; }
+.altar-picker-owned { color: var(--text-dim); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+.altar-picker-stepper { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.altar-step-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.altar-step-count { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
+.altar-picker-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.altar-picker-footer .btn-ghost { margin-left: auto; }
 .craft-toolbar .filters { margin: 0; }
 .checkbox-inline {
   display: flex;

@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// A adapter une seule fois : ID du document Grist.\nconst body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    action: (body.action || '').toString(),\n    userId: Number(body.userId),\n    toPseudo: (body.toPseudo || '').toString().trim(),\n    offeredCardId: Number(body.offeredCardId),\n    requestedCardId: Number(body.requestedCardId),\n    tradeId: Number(body.tradeId),\n    accept: body.accept === true || body.accept === 'true'\n  }\n}];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist.\nconst body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    action: (body.action || '').toString(),\n    userId: Number(body.userId),\n    toPseudo: (body.toPseudo || '').toString().trim(),\n    offeredCardId: Number(body.offeredCardId),\n    offeredPullId: body.offeredPullId != null ? Number(body.offeredPullId) : null,\n    requestedCardId: Number(body.requestedCardId),\n    requestedPullId: body.requestedPullId != null ? Number(body.requestedPullId) : null,\n    tradeId: Number(body.tradeId),\n    originalTradeId: body.originalTradeId != null ? Number(body.originalTradeId) : null,\n    accept: body.accept === true || body.accept === 'true'\n  }\n}];"
       }
     },
     {
@@ -56,9 +56,17 @@
                 "type": "string",
                 "operation": "equals"
               }
+            },
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "counter",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
-          "combinator": "and"
+          "combinator": "or"
         },
         "options": {}
       }
@@ -184,7 +192,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Create Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Create Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Create Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst toUser = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.toPseudo.toLowerCase());\nif (!toUser) {\n  return [{ json: { ok: false, error: 'user_not_found' } }];\n}\nif (toUser.id === cfg.userId) {\n  return [{ json: { ok: false, error: 'cannot_trade_self' } }];\n}\n\nconst isGift = !cfg.requestedCardId;\nconst offeredCard = cards.find((c) => c.id === cfg.offeredCardId);\nconst requestedCard = isGift ? null : cards.find((c) => c.id === cfg.requestedCardId);\nif ((offeredCard && offeredCard.IsPromo) || (requestedCard && requestedCard.IsPromo)) {\n  return [{ json: { ok: false, error: 'promo_not_tradeable' } }];\n}\n\nconst owns = pulls.some((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.offeredCardId);\nif (!owns) {\n  return [{ json: { ok: false, error: 'card_not_owned' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    fromUserId: cfg.userId,\n    toUserId: toUser.id,\n    offeredCardId: cfg.offeredCardId,\n    requestedCardId: isGift ? null : cfg.requestedCardId,\n    createdAt: Math.floor(Date.now() / 1000)\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Create Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Create Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Create Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst trades = $('Create Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\n\n// Une contre-proposition (action='counter') cible automatiquement l'auteur\n// de l'echange d'origine (le pseudo cible n'a pas de sens ici, l'echange\n// d'origine dit deja qui est l'autre joueur).\nconst isCounter = cfg.action === 'counter';\nlet toUserId;\nlet counterOfTradeId = null;\nif (isCounter) {\n  const original = trades.find((t) => t.id === cfg.originalTradeId);\n  if (!original) return [{ json: { ok: false, error: 'trade_not_found' } }];\n  if (refId(original.ToUser) !== cfg.userId) return [{ json: { ok: false, error: 'not_your_trade' } }];\n  if (original.Status !== 'pending') return [{ json: { ok: false, error: 'trade_not_pending' } }];\n  toUserId = refId(original.FromUser);\n  counterOfTradeId = original.id;\n} else {\n  const toUser = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.toPseudo.toLowerCase());\n  if (!toUser) {\n    return [{ json: { ok: false, error: 'user_not_found' } }];\n  }\n  toUserId = toUser.id;\n}\nif (toUserId === cfg.userId) {\n  return [{ json: { ok: false, error: 'cannot_trade_self' } }];\n}\n\nconst isGift = !cfg.requestedCardId;\nconst offeredCard = cards.find((c) => c.id === cfg.offeredCardId);\nconst requestedCard = isGift ? null : cards.find((c) => c.id === cfg.requestedCardId);\nif ((offeredCard && offeredCard.IsPromo) || (requestedCard && requestedCard.IsPromo)) {\n  return [{ json: { ok: false, error: 'promo_not_tradeable' } }];\n}\n\n// L'utilisateur choisit precisement QUEL exemplaire (numero de serie) de sa\n// carte il met dans l'echange, pas juste \"une carte au hasard parmi ses\n// doublons\".\nconst offeredPull = pulls.find((p) => p.id === cfg.offeredPullId && refId(p.User) === cfg.userId && refId(p.Card) === cfg.offeredCardId);\nif (!offeredPull) {\n  return [{ json: { ok: false, error: 'card_not_owned' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    fromUserId: cfg.userId,\n    toUserId,\n    offeredCardId: cfg.offeredCardId,\n    offeredPullId: offeredPull.id,\n    requestedCardId: isGift ? null : cfg.requestedCardId,\n    counterOfTradeId,\n    createdAt: Math.floor(Date.now() / 1000)\n  }\n}];"
       }
     },
     {
@@ -247,8 +255,16 @@
               "fieldValue": "={{ $json.offeredCardId }}"
             },
             {
+              "fieldId": "OfferedPull",
+              "fieldValue": "={{ $json.offeredPullId }}"
+            },
+            {
               "fieldId": "RequestedCard",
               "fieldValue": "={{ $json.requestedCardId }}"
+            },
+            {
+              "fieldId": "CounterOf",
+              "fieldValue": "={{ $json.counterOfTradeId }}"
             },
             {
               "fieldId": "Status",
@@ -257,6 +273,72 @@
             {
               "fieldId": "CreatedAt",
               "fieldValue": "={{ $json.createdAt }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-is-counter",
+      "name": "If Is Counter",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -660,
+        60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !!$('Prepare Trade').first().json.counterOfTradeId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "mark-original-countered",
+      "name": "Mark Original Trade Countered",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Prepare Trade').first().json.docId }}",
+        "tableId": "Trades",
+        "rowId": "={{ $('Prepare Trade').first().json.counterOfTradeId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "Status",
+              "fieldValue": "countered"
+            },
+            {
+              "fieldId": "RespondedAt",
+              "fieldValue": "={{ $('Prepare Trade').first().json.createdAt }}"
             }
           ]
         }
@@ -279,7 +361,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const created = $input.first().json;\nreturn [{ json: { tradeId: created.id, status: created.Status } }];"
+        "jsCode": "const created = $('Create Trade').first().json;\nreturn [{ json: { tradeId: created.id, status: created.Status } }];"
       }
     },
     {
@@ -387,6 +469,44 @@
       }
     },
     {
+      "id": "barrier-list-cards-pulls",
+      "name": "Sync List Get Cards -> List Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1220,
+        740
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "list-get-pulls",
+      "name": "List Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1180,
+        740
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
       "id": "build-trade-list",
       "name": "Build Trade List",
       "type": "n8n-nodes-base.code",
@@ -397,7 +517,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('List Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('List Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('List Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst userById = {};\nusers.forEach((u) => { userById[u.id] = u.Pseudo; });\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c.Name; });\n\nconst mine = trades.filter((t) => refId(t.FromUser) === cfg.userId || refId(t.ToUser) === cfg.userId);\nconst list = mine.map((t) => {\n  const requestedId = refId(t.RequestedCard);\n  return {\n    tradeId: t.id,\n    direction: refId(t.FromUser) === cfg.userId ? 'outgoing' : 'incoming',\n    fromPseudo: userById[refId(t.FromUser)] || '?',\n    toPseudo: userById[refId(t.ToUser)] || '?',\n    offeredCard: { id: refId(t.OfferedCard), name: cardById[refId(t.OfferedCard)] || '?' },\n    requestedCard: requestedId ? { id: requestedId, name: cardById[requestedId] || '?' } : null,\n    status: t.Status,\n    createdAt: t.CreatedAt,\n    respondedAt: t.RespondedAt || null\n  };\n}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { trades: list } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('List Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('List Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('List Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('List Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst userById = {};\nusers.forEach((u) => { userById[u.id] = u.Pseudo; });\nconst cardById = {};\ncards.forEach((c) => { cardById[c.id] = c.Name; });\nconst pullById = {};\npulls.forEach((p) => { pullById[p.id] = p; });\n\nconst mine = trades.filter((t) => refId(t.FromUser) === cfg.userId || refId(t.ToUser) === cfg.userId);\nconst list = mine.map((t) => {\n  const requestedId = refId(t.RequestedCard);\n  const offeredPull = pullById[refId(t.OfferedPull)];\n  const requestedPull = pullById[refId(t.RequestedPull)];\n  return {\n    tradeId: t.id,\n    direction: refId(t.FromUser) === cfg.userId ? 'outgoing' : 'incoming',\n    fromPseudo: userById[refId(t.FromUser)] || '?',\n    toPseudo: userById[refId(t.ToUser)] || '?',\n    offeredCard: { id: refId(t.OfferedCard), name: cardById[refId(t.OfferedCard)] || '?' },\n    offeredSerial: offeredPull && offeredPull.SerialNumber != null ? offeredPull.SerialNumber : null,\n    requestedCard: requestedId ? { id: requestedId, name: cardById[requestedId] || '?' } : null,\n    requestedSerial: requestedPull && requestedPull.SerialNumber != null ? requestedPull.SerialNumber : null,\n    status: t.Status,\n    createdAt: t.CreatedAt,\n    respondedAt: t.RespondedAt || null,\n    counterOfTradeId: refId(t.CounterOf) || null\n  };\n}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));\n\nreturn [{ json: { trades: list } }];"
       }
     },
     {
@@ -450,7 +570,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('Respond Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst trade = trades.find((t) => t.id === cfg.tradeId);\n\nif (!trade) {\n  return [{ json: { ok: false, error: 'trade_not_found' } }];\n}\nif (refId(trade.ToUser) !== cfg.userId) {\n  return [{ json: { ok: false, error: 'not_your_trade' } }];\n}\nif (trade.Status !== 'pending') {\n  return [{ json: { ok: false, error: 'trade_not_pending' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    tradeId: trade.id,\n    fromUserId: refId(trade.FromUser),\n    toUserId: refId(trade.ToUser),\n    offeredCardId: refId(trade.OfferedCard),\n    requestedCardId: refId(trade.RequestedCard),\n    accept: cfg.accept\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst trades = $('Respond Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst trade = trades.find((t) => t.id === cfg.tradeId);\n\nif (!trade) {\n  return [{ json: { ok: false, error: 'trade_not_found' } }];\n}\nif (refId(trade.ToUser) !== cfg.userId) {\n  return [{ json: { ok: false, error: 'not_your_trade' } }];\n}\nif (trade.Status !== 'pending') {\n  return [{ json: { ok: false, error: 'trade_not_pending' } }];\n}\n\nconst requestedCardId = refId(trade.RequestedCard);\n// Contrepartie (hors don) : celui qui accepte choisit LUI-MEME quel\n// exemplaire (numero de serie) de la carte demandee il donne en retour.\nif (cfg.accept && requestedCardId && !cfg.requestedPullId) {\n  return [{ json: { ok: false, error: 'pull_not_chosen' } }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    docId: cfg.docId,\n    tradeId: trade.id,\n    fromUserId: refId(trade.FromUser),\n    toUserId: refId(trade.ToUser),\n    offeredCardId: refId(trade.OfferedCard),\n    offeredPullId: refId(trade.OfferedPull),\n    requestedCardId,\n    requestedPullId: cfg.requestedPullId || null,\n    accept: cfg.accept\n  }\n}];"
       }
     },
     {
@@ -567,7 +687,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst t = $('Find Trade To Respond').first().json;\nconst pulls = $input.all().map((i) => i.json).filter((r) => r.id != null);\nconst isGift = !t.requestedCardId;\nconst pullFrom = pulls.find((p) => refId(p.User) === t.fromUserId && refId(p.Card) === t.offeredCardId);\nconst pullTo = isGift ? null : pulls.find((p) => refId(p.User) === t.toUserId && refId(p.Card) === t.requestedCardId);\nif (!pullFrom || (!isGift && !pullTo)) {\n  return [{ json: { ok: false, error: 'cards_no_longer_available' } }];\n}\nreturn [{\n  json: {\n    ok: true,\n    isGift,\n    docId: t.docId,\n    tradeId: t.tradeId,\n    pullFromId: pullFrom.id,\n    pullToId: pullTo ? pullTo.id : null,\n    toUserId: t.toUserId,\n    fromUserId: t.fromUserId,\n    respondedAt: Math.floor(Date.now() / 1000)\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst t = $('Find Trade To Respond').first().json;\nconst pulls = $input.all().map((i) => i.json).filter((r) => r.id != null);\nconst isGift = !t.requestedCardId;\n// L'exemplaire offert a ete fixe des la creation de l'echange (numero de\n// serie choisi par le proposeur) : on revalide juste qu'il appartient\n// toujours au proposeur (il a pu partir dans un AUTRE echange accepte\n// entre-temps).\nconst pullFrom = pulls.find((p) => p.id === t.offeredPullId && refId(p.User) === t.fromUserId);\n// L'exemplaire rendu en retour est choisi maintenant, par celui qui accepte.\nconst pullTo = isGift ? null : pulls.find((p) => p.id === t.requestedPullId && refId(p.User) === t.toUserId && refId(p.Card) === t.requestedCardId);\nif (!pullFrom || (!isGift && !pullTo)) {\n  return [{ json: { ok: false, error: 'cards_no_longer_available' } }];\n}\nreturn [{\n  json: {\n    ok: true,\n    isGift,\n    docId: t.docId,\n    tradeId: t.tradeId,\n    pullFromId: pullFrom.id,\n    pullToId: pullTo ? pullTo.id : null,\n    toUserId: t.toUserId,\n    fromUserId: t.fromUserId,\n    respondedAt: Math.floor(Date.now() / 1000)\n  }\n}];"
       }
     },
     {
@@ -997,6 +1117,44 @@
       }
     },
     {
+      "id": "barrier-create-cards-trades",
+      "name": "Sync Create Get Cards -> Create Get Trades",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1300,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "create-get-trades",
+      "name": "Create Get Trades",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1260,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Trades",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
       "id": "if-not-gift",
       "name": "If Not Gift",
       "type": "n8n-nodes-base.if",
@@ -1380,12 +1538,41 @@
       "main": [
         [
           {
-            "node": "Format Created Trade",
+            "node": "If Is Counter",
             "type": "main",
             "index": 0
           },
           {
             "node": "Quest Trade: Get Daily Quests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Is Counter": {
+      "main": [
+        [
+          {
+            "node": "Mark Original Trade Countered",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Created Trade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Original Trade Countered": {
+      "main": [
+        [
+          {
+            "node": "Format Created Trade",
             "type": "main",
             "index": 0
           }
@@ -1444,6 +1631,28 @@
       ]
     },
     "List Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync List Get Cards -> List Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync List Get Cards -> List Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "List Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Get Pulls": {
       "main": [
         [
           {
@@ -1721,6 +1930,28 @@
       ]
     },
     "Create Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Create Get Cards -> Create Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Create Get Cards -> Create Get Trades": {
+      "main": [
+        [
+          {
+            "node": "Create Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Get Trades": {
       "main": [
         [
           {

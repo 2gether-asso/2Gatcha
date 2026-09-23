@@ -12,7 +12,8 @@ const ERROR_MESSAGES = {
   already_redeemed: "Tu as deja réclame ce code.",
   code_exhausted: "Ce code a atteint son nombre maximum d'utilisations.",
   unknown_user: "Utilisateur introuvable, reconnecte-toi.",
-  code_misconfigured: "Ce code est mal configure, previens un admin."
+  code_misconfigured: "Ce code est mal configure, previens un admin.",
+  sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
 
 function buildCardEl(card, index) {

@@ -60,15 +60,6 @@ function buildCardBackEl(cardBackImageId, rarityKey, colorHex) {
   return back;
 }
 
-// Vitesse d'enchainement entre deux cartes : lue en direct sur le select,
-// utilisee aussi bien au tap manuel qu'en mode "Tout révéler" (avant, seul
-// le mode auto en tenait compte, donc changer le select ne faisait rien
-// quand on tapait les cartes une a une soi-meme).
-function getRevealDelay() {
-  const sel = document.getElementById("reveal-speed-select");
-  return Number(sel?.value) || 950;
-}
-
 function buildCardEl(card, index, cardBackImageId) {
   const wrap = document.createElement("div");
   wrap.className = "card";
@@ -103,15 +94,20 @@ function buildCardEl(card, index, cardBackImageId) {
   wrap.appendChild(inner);
 
   // Pile de cartes : seule la carte "active" (au sommet, voir layoutStack)
-  // reagit au clic. On avance automatiquement vers la suivante une fois
-  // l'effet de reveal joue, plutot que de tout montrer d'un coup.
+  // reagit au clic. Premier tap : revele la carte, qui reste affichee tant
+  // qu'on ne re-tape pas dessus. Deuxieme tap (carte deja revelee) : fait
+  // avancer la pile vers la suivante - plus d'avancement automatique, il
+  // faut un clic explicite pour que la carte parte dans la collection.
   const flip = () => {
-    if (wrap.classList.contains("revealed") || wrap.dataset.active !== "true") return;
-    wrap.classList.add("revealed");
-    Sfx.flip();
-    setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
-    celebrateRarity(card.rarity?.key, wrap, color);
-    setTimeout(advanceStack, getRevealDelay());
+    if (wrap.dataset.active !== "true") return;
+    if (!wrap.classList.contains("revealed")) {
+      wrap.classList.add("revealed");
+      Sfx.flip();
+      setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
+      celebrateRarity(card.rarity?.key, wrap, color);
+      return;
+    }
+    advanceStack();
   };
   wrap.addEventListener("click", flip);
   wrap._flip = flip;
@@ -460,19 +456,52 @@ function crossfadeModalBackground(imgUrl) {
 function attachPackTilt(pack) {
   if (pack._tiltAttached) return;
   pack._tiltAttached = true;
-  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-  pack.addEventListener("mousemove", (e) => {
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    pack.addEventListener("mousemove", (e) => {
+      if (pack.classList.contains("charging") || pack.classList.contains("tearing")) return;
+      const rect = pack.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width - 0.5;
+      const py = (e.clientY - rect.top) / rect.height - 0.5;
+      pack.style.setProperty("--pack-ry", `${px * 14}deg`);
+      pack.style.setProperty("--pack-rx", `${py * -14}deg`);
+    });
+    pack.addEventListener("mouseleave", () => {
+      pack.style.setProperty("--pack-rx", "0deg");
+      pack.style.setProperty("--pack-ry", "0deg");
+    });
+    return;
+  }
+  // Sur tactile, pas de suivi du doigt (voir collection.js : le touchmove
+  // pendant un scroll causait du lag). Le pack n'est en revanche pas dans
+  // une grille qui scroll - l'inclinaison du telephone (gyroscope) donne le
+  // meme effet sans ce probleme, puisqu'elle ne depend d'aucun geste tactile.
+  attachPackGyroTilt(pack);
+}
+
+function attachPackGyroTilt(pack) {
+  if (typeof DeviceOrientationEvent === "undefined") return;
+
+  function onOrientation(e) {
     if (pack.classList.contains("charging") || pack.classList.contains("tearing")) return;
-    const rect = pack.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    pack.style.setProperty("--pack-ry", `${px * 14}deg`);
-    pack.style.setProperty("--pack-rx", `${py * -14}deg`);
-  });
-  pack.addEventListener("mouseleave", () => {
-    pack.style.setProperty("--pack-rx", "0deg");
-    pack.style.setProperty("--pack-ry", "0deg");
-  });
+    const beta = Math.max(-30, Math.min(30, e.beta || 0));
+    const gamma = Math.max(-30, Math.min(30, e.gamma || 0));
+    pack.style.setProperty("--pack-ry", `${(gamma / 30) * 14}deg`);
+    pack.style.setProperty("--pack-rx", `${(-beta / 30) * 14}deg`);
+  }
+
+  // iOS 13+ exige une autorisation explicite qui ne peut etre demandee que
+  // suite a un geste utilisateur direct - on la demande donc au premier
+  // toucher du pack plutot qu'au chargement de la page.
+  if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    pack.addEventListener("touchstart", function requestOnce() {
+      pack.removeEventListener("touchstart", requestOnce);
+      DeviceOrientationEvent.requestPermission().then((state) => {
+        if (state === "granted") window.addEventListener("deviceorientation", onOrientation);
+      }).catch(() => {});
+    }, { once: true, passive: true });
+  } else {
+    window.addEventListener("deviceorientation", onOrientation);
+  }
 }
 
 // Poussière ambiante flottante dans la modale d'ouverture (distincte de la
@@ -660,8 +689,6 @@ function openModalFor(extensionId) {
   if (progressEl) progressEl.textContent = "";
   const oldRevealAll = document.getElementById("reveal-all-btn");
   if (oldRevealAll) oldRevealAll.remove();
-  const speedSelectEl = document.getElementById("reveal-speed-select");
-  if (speedSelectEl) speedSelectEl.style.display = "none";
   pack.classList.remove("locked", "charging", "tearing");
   pack.style.visibility = "visible";
 
@@ -815,9 +842,7 @@ async function startOpening(ext) {
     });
     layoutStack();
 
-    const speedSelect = document.getElementById("reveal-speed-select");
     if (allCards.length) {
-      if (speedSelect) speedSelect.style.display = "inline-block";
       const revealAllBtn = document.createElement("button");
       revealAllBtn.id = "reveal-all-btn";
       revealAllBtn.className = "btn-secondary";
@@ -825,13 +850,17 @@ async function startOpening(ext) {
       revealAllBtn.addEventListener("click", () => {
         // Meme en pile, on ne peut révéler qu'une carte a la fois (chacune
         // doit passer au sommet pour reagir au clic) : on enchaine les
-        // reveals automatiquement, au rythme choisi dans reveal-speed-select.
+        // deux taps (reveler puis avancer) de chaque carte a un rythme fixe.
         revealAllBtn.disabled = true;
+        const AUTO_REVEAL_DELAY = 900;
         const playNext = () => {
           const active = stackCardEls[stackIndex];
           if (!active) return;
           active._flip();
-          setTimeout(playNext, getRevealDelay());
+          setTimeout(() => {
+            active._flip();
+            setTimeout(playNext, 150);
+          }, AUTO_REVEAL_DELAY);
         };
         playNext();
       });

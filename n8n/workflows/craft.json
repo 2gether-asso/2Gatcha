@@ -143,7 +143,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst card = cardsRows.find((c) => c.id === config.cardId);\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_craftable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) return [{ json: { ok: false, error: 'unknown_user' } }];\n\nconst rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\nconst craftCost = rarityRow ? (rarityRow.CraftCost || 0) : 0;\nconst stardust = user.StardustCount || 0;\nif (stardust < craftCost) return [{ json: { ok: false, error: 'insufficient_dust' } }];\n\nconst now = Math.floor(Date.now() / 1000);\nconst rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\nreturn [{\n  json: {\n    ok: true,\n    docId: config.docId,\n    userId: config.userId,\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity,\n    obtainedAt: now,\n    batchId: `craft-${config.userId}-${Date.now()}`,\n    craftCost,\n    newStardust: stardust - craftCost\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst allPulls = $('Get All Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst card = cardsRows.find((c) => c.id === config.cardId);\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_craftable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\n// Limite d'exemplaires 'dans la nature' (Cards.MaxSerial, 100 par defaut) :\n// une fois atteinte, la carte n'est plus obtenable par aucun moyen.\nconst existingCount = allPulls.filter((p) => refId(p.Card) === card.id).length;\nconst maxSerial = card.MaxSerial || 100;\nif (existingCount >= maxSerial) return [{ json: { ok: false, error: 'sold_out' } }];\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) return [{ json: { ok: false, error: 'unknown_user' } }];\n\nconst rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\nconst craftCost = rarityRow ? (rarityRow.CraftCost || 0) : 0;\nconst stardust = user.StardustCount || 0;\nif (stardust < craftCost) return [{ json: { ok: false, error: 'insufficient_dust' } }];\n\nconst now = Math.floor(Date.now() / 1000);\nconst rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\nreturn [{\n  json: {\n    ok: true,\n    docId: config.docId,\n    userId: config.userId,\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity,\n    obtainedAt: now,\n    batchId: `craft-${config.userId}-${Date.now()}`,\n    craftCost,\n    newStardust: stardust - craftCost,\n    serialNumber: existingCount + 1,\n    maxSerial\n  }\n}];"
       }
     },
     {
@@ -225,6 +225,10 @@
             {
               "fieldId": "BatchId",
               "fieldValue": "={{ $json.batchId }}"
+            },
+            {
+              "fieldId": "SerialNumber",
+              "fieldValue": "={{ $json.serialNumber }}"
             }
           ]
         }
@@ -278,7 +282,7 @@
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { crafted: true, card: { cardId: $('Validate & Prepare').first().json.cardId, name: $('Validate & Prepare').first().json.name, artist: $('Validate & Prepare').first().json.artist, description: $('Validate & Prepare').first().json.description, imageId: $('Validate & Prepare').first().json.imageId, rarity: $('Validate & Prepare').first().json.rarity }, craftCost: $('Validate & Prepare').first().json.craftCost, newStardust: $('Validate & Prepare').first().json.newStardust } }}",
+        "responseBody": "={{ { crafted: true, card: { cardId: $('Validate & Prepare').first().json.cardId, name: $('Validate & Prepare').first().json.name, artist: $('Validate & Prepare').first().json.artist, description: $('Validate & Prepare').first().json.description, imageId: $('Validate & Prepare').first().json.imageId, rarity: $('Validate & Prepare').first().json.rarity, serialNumber: $('Validate & Prepare').first().json.serialNumber, maxSerial: $('Validate & Prepare').first().json.maxSerial }, craftCost: $('Validate & Prepare').first().json.craftCost, newStardust: $('Validate & Prepare').first().json.newStardust } }}",
         "options": {}
       }
     },
@@ -537,6 +541,44 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "sync-users-allpulls",
+      "name": "Sync Get Users -> Get All Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -350,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-all-pulls-craft",
+      "name": "Get All Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -300,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -610,7 +652,7 @@
       "main": [
         [
           {
-            "node": "Validate & Prepare",
+            "node": "Sync Get Users -> Get All Pulls",
             "type": "main",
             "index": 0
           }
@@ -752,6 +794,28 @@
         [
           {
             "node": "Quest Craft: Grant Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get All Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get All Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Pulls": {
+      "main": [
+        [
+          {
+            "node": "Validate & Prepare",
             "type": "main",
             "index": 0
           }
