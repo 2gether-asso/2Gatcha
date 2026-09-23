@@ -43,8 +43,28 @@
 
     <div class="panel" id="quests-panel" style="display:none;margin-top:24px;">
       <h2>&#127919; Quêtes du jour</h2>
-      <p class="lead" style="font-size:0.85rem;">Complète 2 des 4 quêtes aujourd'hui pour recevoir un booster gratuit.</p>
+      <p class="lead" style="font-size:0.85rem;">Complète 2 des 4 quêtes aujourd'hui pour recevoir 2 boosters gratuits.</p>
       <div id="quests-list" class="quests-list"></div>
+    </div>
+
+    <div class="panel" id="wheel-panel" style="display:none;margin-top:24px;">
+      <h2>&#127920; Roue de la fortune</h2>
+      <p class="lead" style="font-size:0.85rem;">Un tirage gratuit par jour : poussières d'étoile, parfois un booster.</p>
+      <div class="wheel-widget">
+        <span class="wheel-icon" id="wheel-icon" aria-hidden="true">&#127920;</span>
+        <div class="wheel-status">
+          <div id="wheel-status-text">Chargement...</div>
+          <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="achievements-panel" style="display:none;margin-top:24px;">
+      <div class="actions" style="margin-top:0;align-items:center;">
+        <h2 style="flex:1;margin:0;">&#127942; Succès</h2>
+        <span id="achievements-count" class="community-counter"></span>
+      </div>
+      <div id="achievements-grid" class="achievements-grid"></div>
     </div>
 
     <div class="panel" id="activity-panel" style="display:none;margin-top:24px;">
@@ -174,15 +194,76 @@
           `;
         }).join("") + `
           <div class="quest-reward ${res.rewardClaimed ? "claimed" : ""}">
-            ${res.rewardClaimed ? "&#127183; Booster gratuit débloqué aujourd'hui !" : `${res.completedCount || 0} / 2 pour débloquer 1 booster gratuit`}
+            ${res.rewardClaimed ? "&#127183; 2 boosters gratuits débloqués aujourd'hui !" : `${res.completedCount || 0} / 2 pour débloquer 2 boosters gratuits`}
           </div>
         `;
         if (res.justClaimedReward) {
-          Toast.success("Quêtes du jour : booster gratuit débloqué !");
+          Toast.success("Quêtes du jour : 2 boosters gratuits débloqués !");
           if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
         }
       }).catch(() => {
         document.getElementById("quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
+      });
+
+      // Succes / achievements.
+      const achievementsPanel = document.getElementById("achievements-panel");
+      achievementsPanel.style.display = "block";
+      API.getAchievements(Session.userId).then((res) => {
+        document.getElementById("achievements-count").textContent = `${res.unlockedCount} / ${res.totalCount} débloqués`;
+        document.getElementById("achievements-grid").innerHTML = (res.achievements || []).map((a) => `
+          <div class="achievement-tile ${a.unlocked ? "unlocked" : ""}">
+            <span class="achievement-icon">${a.icon}</span>
+            <div class="achievement-info">
+              <div class="achievement-name">${a.name}</div>
+              <div class="achievement-desc">${a.description}</div>
+              ${!a.unlocked ? `
+                <div class="achievement-progress-track"><div class="achievement-progress-fill" style="width:${Math.round((a.progress / a.goal) * 100)}%;"></div></div>
+                <div class="achievement-progress-label">${a.progress} / ${a.goal}</div>
+              ` : `<div class="achievement-progress-label">&#9989; Débloqué</div>`}
+            </div>
+          </div>
+        `).join("");
+      }).catch(() => {
+        document.getElementById("achievements-grid").innerHTML = `<div class="empty-state">Impossible de charger les succès.</div>`;
+      });
+
+      // Roue de la fortune quotidienne.
+      const wheelPanel = document.getElementById("wheel-panel");
+      const wheelStatusText = document.getElementById("wheel-status-text");
+      const wheelSpinBtn = document.getElementById("wheel-spin-btn");
+      const wheelIcon = document.getElementById("wheel-icon");
+      wheelPanel.style.display = "block";
+      API.getDailyWheelStatus(Session.userId).then((res) => {
+        if (res.canSpin) {
+          wheelStatusText.textContent = "Ton tirage du jour est disponible !";
+          wheelSpinBtn.style.display = "inline-flex";
+        } else {
+          wheelStatusText.textContent = "Reviens demain pour un nouveau tirage.";
+        }
+      }).catch(() => {
+        wheelStatusText.textContent = "Impossible de charger la roue pour l'instant.";
+      });
+      wheelSpinBtn.addEventListener("click", async () => {
+        wheelSpinBtn.disabled = true;
+        wheelIcon.classList.add("spinning");
+        try {
+          const res = await API.spinDailyWheel(Session.userId);
+          setTimeout(() => {
+            wheelIcon.classList.remove("spinning");
+            wheelSpinBtn.style.display = "none";
+            const prizeLabel = res.prize.type === "booster"
+              ? `+${res.prize.amount} booster${res.prize.amount > 1 ? "s" : ""} !`
+              : `+${res.prize.amount} poussières d'étoile !`;
+            wheelStatusText.textContent = `Gagné : ${prizeLabel} Reviens demain.`;
+            Toast.success(`Roue de la fortune : ${prizeLabel}`);
+            if (typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } });
+            loadHeaderBoosterBadge();
+          }, 700);
+        } catch (e) {
+          wheelIcon.classList.remove("spinning");
+          wheelSpinBtn.disabled = false;
+          Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : "Erreur. (" + e.message + ")");
+        }
       });
     }
 

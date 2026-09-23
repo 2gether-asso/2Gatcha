@@ -27,7 +27,7 @@ let craftRarityFilter = "all";
 let hideOwned = false;
 
 function normalize(str) {
-  return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function renderCraftFilters() {
@@ -59,11 +59,88 @@ function setActiveTab(tab) {
   document.getElementById("tab-disenchant-btn").setAttribute("aria-selected", String(tab === "disenchant"));
   document.getElementById("tab-craft-btn").classList.toggle("active", tab === "craft");
   document.getElementById("tab-craft-btn").setAttribute("aria-selected", String(tab === "craft"));
+  document.getElementById("tab-altar-btn").classList.toggle("active", tab === "altar");
+  document.getElementById("tab-altar-btn").setAttribute("aria-selected", String(tab === "altar"));
   document.getElementById("disenchant-pane").style.display = tab === "disenchant" ? "block" : "none";
   document.getElementById("craft-pane").style.display = tab === "craft" ? "block" : "none";
+  document.getElementById("altar-pane").style.display = tab === "altar" ? "block" : "none";
   document.getElementById("hide-owned-label").style.display = tab === "craft" ? "flex" : "none";
+  // La barre de recherche/filtres ne concerne pas l'autel (pas une grille de
+  // cartes a trier, juste des paliers de rarete).
+  document.querySelector(".craft-toolbar").style.display = tab === "altar" ? "none" : "flex";
   document.getElementById("craft-search-input").placeholder =
     tab === "disenchant" ? "Rechercher parmi mes cartes..." : "Rechercher une carte à crafter...";
+  if (tab === "altar") renderAltarTiers();
+}
+
+// Autel de sacrifice : 3 exemplaires non-promo d'une rarete -> tentative
+// (50%) d'obtenir une carte aleatoire de la rarete immediatement superieure.
+function renderAltarTiers() {
+  const el = document.getElementById("altar-tiers");
+  const rarityByKey = new Map();
+  allCards.forEach((c) => {
+    if (c.isPromo || !c.rarity?.key) return;
+    if (!rarityByKey.has(c.rarity.key)) {
+      rarityByKey.set(c.rarity.key, { key: c.rarity.key, name: c.rarity.name || c.rarity.key, colorHex: c.rarity.colorHex, sortOrder: c.rarity.sortOrder ?? 999 });
+    }
+  });
+  const rarities = [...rarityByKey.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Quantite possedee (toutes cartes confondues) par rarete, pour savoir
+  // combien d'exemplaires "matiere premiere" sont disponibles.
+  const ownedCountByRarity = new Map();
+  allCards.forEach((c) => {
+    if (c.isPromo || !c.rarity?.key) return;
+    const owned = ownedMap.get(c.cardId);
+    if (!owned) return;
+    ownedCountByRarity.set(c.rarity.key, (ownedCountByRarity.get(c.rarity.key) || 0) + owned.count);
+  });
+
+  el.innerHTML = rarities.map((r, i) => {
+    const next = rarities[i + 1];
+    const owned = ownedCountByRarity.get(r.key) || 0;
+    const canSacrifice = next && owned >= 3;
+    return `
+      <div class="altar-tier">
+        <div class="altar-tier-path">
+          <span class="altar-tier-badge" style="border-color:${r.colorHex};color:${rarityTextColor(r.colorHex)};">${r.name}</span>
+          <span class="altar-tier-arrow" aria-hidden="true">&#8594;</span>
+          ${next
+            ? `<span class="altar-tier-badge" style="border-color:${next.colorHex};color:${rarityTextColor(next.colorHex)};">${next.name}</span>`
+            : `<span class="altar-tier-maxed">Rareté maximale</span>`}
+        </div>
+        <div class="altar-tier-info">${owned} exemplaire${owned > 1 ? "s" : ""} de ${r.name} disponible${owned > 1 ? "s" : ""}</div>
+        ${next ? `<button type="button" class="btn-danger altar-sacrifice-btn" data-rarity-key="${r.key}" data-rarity-name="${r.name}" data-next-name="${next.name}" ${canSacrifice ? "" : "disabled"}>&#128293; Sacrifier 3 ${r.name.toLowerCase()}</button>` : ""}
+      </div>
+    `;
+  }).join("");
+
+  el.querySelectorAll(".altar-sacrifice-btn").forEach((btn) => {
+    btn.addEventListener("click", () => sacrificeAtAltar(btn.dataset.rarityKey, btn.dataset.rarityName, btn.dataset.nextName));
+  });
+}
+
+async function sacrificeAtAltar(rarityKey, rarityName, nextName) {
+  const ok = await Confirm.show(
+    `Sacrifier <strong>3 cartes ${rarityName}</strong> (au hasard parmi tes exemplaires de cette rareté) pour tenter d'obtenir ` +
+    `une carte <strong>${nextName}</strong> aléatoire ? <br><br>50% de réussite. En cas d'échec, les 3 cartes sont perdues définitivement.`,
+    { title: "Sacrifice à l'autel ?", confirmText: "Sacrifier", dangerous: true }
+  );
+  if (!ok) return;
+
+  try {
+    const res = await API.altarSacrifice(Session.userId, rarityKey);
+    if (res.success) {
+      Toast.success(`Succès ! ${res.card.name} obtenue.` + (res.isFirstEver ? " Première obtention du serveur !" : ""));
+      if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+    } else {
+      Toast.error("Échec du sacrifice : les 3 cartes sont perdues.");
+    }
+    await reload();
+    setActiveTab("altar");
+  } catch (e) {
+    Toast.error(e.code === "not_enough_cards" ? "Plus assez d'exemplaires de cette rareté." : "Erreur. (" + e.message + ")");
+  }
 }
 
 function craftCardTile(card, mode) {
@@ -293,6 +370,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("tab-disenchant-btn").addEventListener("click", () => setActiveTab("disenchant"));
   document.getElementById("tab-craft-btn").addEventListener("click", () => setActiveTab("craft"));
+  document.getElementById("tab-altar-btn").addEventListener("click", () => setActiveTab("altar"));
 
   let craftSearchTimer = null;
   document.getElementById("craft-search-input").addEventListener("input", (e) => {

@@ -443,6 +443,52 @@ h2 { font-size: 1.3rem; color: var(--text); font-weight: 700; }
 .quest-reward.claimed { background: linear-gradient(135deg, rgba(74,222,128,0.2), rgba(34,211,238,0.12)); border-color: rgba(74,222,128,0.4); }
 p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 
+/* Roue de la fortune quotidienne (accueil). */
+.wheel-widget { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+.wheel-icon { font-size: 2.4rem; line-height: 1; transition: transform 0.15s ease; }
+.wheel-icon.spinning { animation: wheelSpin 0.7s cubic-bezier(.2,.9,.3,1); }
+@keyframes wheelSpin {
+  from { transform: rotate(0deg) scale(1); }
+  60% { transform: rotate(620deg) scale(1.15); }
+  to { transform: rotate(720deg) scale(1); }
+}
+.wheel-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+#wheel-status-text { color: var(--text-dim); font-size: 0.9rem; }
+
+/* Succes / achievements (accueil). */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.achievement-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 12px 14px;
+  opacity: 0.55;
+  filter: grayscale(0.6);
+}
+.achievement-tile.unlocked { opacity: 1; filter: none; border-color: rgba(245,165,36,0.4); }
+.achievement-icon { font-size: 1.8rem; flex-shrink: 0; }
+.achievement-info { flex: 1; min-width: 0; }
+.achievement-name { font-family: var(--font-display); font-weight: 700; font-size: 0.88rem; }
+.achievement-desc { color: var(--text-dim); font-size: 0.74rem; margin-top: 2px; }
+.achievement-progress-track {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg-panel-solid);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.achievement-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.achievement-progress-label { font-size: 0.7rem; color: var(--text-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.achievement-tile.unlocked .achievement-progress-label { color: var(--rarity-legendaire); font-weight: 700; }
+
 input[type="text"] {
   background: var(--bg-panel-2);
   border: 1px solid var(--border-soft);
@@ -1081,6 +1127,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   margin: 18px 0;
   overflow: hidden;
 }
+.admin-section.danger-zone { border-color: rgba(251,113,133,0.5); }
+.admin-section.danger-zone summary h2 { color: var(--danger); }
 .admin-section summary {
   list-style: none;
   cursor: pointer;
@@ -2045,6 +2093,28 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   margin-bottom: 16px;
 }
 .craft-toolbar input[type="text"] { min-width: 200px; flex: 1; }
+
+/* Autel de sacrifice (onglet craft.html). */
+.altar-tiers { display: flex; flex-direction: column; gap: 14px; }
+.altar-tier {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.altar-tier-path { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.altar-tier-badge {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid;
+  background: var(--bg-panel-solid);
+}
+.altar-tier-arrow { color: var(--text-dim); font-size: 1.1rem; }
+.altar-tier-maxed { color: var(--text-dim); font-size: 0.85rem; font-style: italic; }
+.altar-tier-info { color: var(--text-dim); font-size: 0.82rem; margin: 10px 0; }
 .craft-toolbar .filters { margin: 0; }
 .checkbox-inline {
   display: flex;

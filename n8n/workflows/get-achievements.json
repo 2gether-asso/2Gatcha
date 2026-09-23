@@ -1,0 +1,436 @@
+{
+  "name": "2Gatcha - get-achievements",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1800,
+        400
+      ],
+      "webhookId": "e3f4a5b6-achievements-00-000000000000",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "achievements",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1580,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// A adapter une seule fois : ID du document Grist.\nconst userId = Number($input.first().json.query.userId);\nreturn [{ json: { docId: 'cRP1WgZQv7KmwmVrUbuEF8', userId } }];"
+      }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-users",
+      "name": "Sync Get Users -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1250,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1140,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-pulls",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1030,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-cards",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -810,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-rarities",
+      "name": "Sync Get Rarities -> Get Trades",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -590,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-trades",
+      "name": "Get Trades",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Trades",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-trades",
+      "name": "Sync Get Trades -> Get Extensions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -370,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-extensions",
+      "name": "Get Extensions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "compute-achievements",
+      "name": "Compute Achievements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === cfg.userId);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null && r.Active !== false);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst trades = $('Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensions = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst user = users.find((u) => u.id === cfg.userId);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\n\nconst ownedCardIds = new Set(pulls.map((p) => refId(p.Card)));\nconst uniqueOwned = ownedCardIds.size;\n\nconst legendaryUniqueOwned = [...ownedCardIds].filter((cid) => {\n  const c = cardById[cid];\n  const rarity = c ? rarityById[refId(c.Rarity)] : null;\n  return rarity && rarity.Key === 'legendaire';\n}).length;\n\nconst acceptedTrades = trades.filter((t) => t.Status === 'accepted' && (refId(t.FromUser) === cfg.userId || refId(t.ToUser) === cfg.userId)).length;\nconst craftedCount = pulls.filter((p) => (p.BatchId || '').toString().startsWith('craft-')).length;\n\nconst extProgress = {};\ncards.forEach((c) => {\n  const extId = refId(c.Extension);\n  if (extId == null) return;\n  if (!extProgress[extId]) extProgress[extId] = { total: 0, owned: 0 };\n  extProgress[extId].total++;\n  if (ownedCardIds.has(c.id)) extProgress[extId].owned++;\n});\nconst hasCompleteSet = Object.values(extProgress).some((p) => p.total > 0 && p.owned === p.total);\nconst isFullCollection = cards.length > 0 && uniqueOwned === cards.length;\n\nconst totalPulls = (user && user.TotalPulls) || 0;\n\nfunction tier(value, thresholds, keyPrefix, label, icon) {\n  return thresholds.map((t, i) => ({\n    key: keyPrefix + (i + 1),\n    icon,\n    name: label + ' ' + ['I', 'II', 'III', 'IV', 'V'][i],\n    description: t.desc,\n    unlocked: value >= t.value,\n    progress: Math.min(value, t.value),\n    goal: t.value\n  }));\n}\n\nconst achievements = [\n  { key: 'first-pull', icon: '\\u{1F3B4}', name: 'Premier tirage', description: 'Ouvrir ton tout premier booster.', unlocked: totalPulls >= 1, progress: Math.min(totalPulls, 1), goal: 1 },\n  ...tier(uniqueOwned, [\n    { value: 10, desc: 'Posseder 10 cartes uniques.' },\n    { value: 25, desc: 'Posseder 25 cartes uniques.' },\n    { value: 50, desc: 'Posseder 50 cartes uniques.' }\n  ], 'collector-', 'Collectionneur', '\\u{1F4DA}'),\n  { key: 'legend-hunter', icon: '\\u{1F31F}', name: 'Chasseur de legendes', description: 'Posseder au moins 1 carte legendaire.', unlocked: legendaryUniqueOwned >= 1, progress: Math.min(legendaryUniqueOwned, 1), goal: 1 },\n  { key: 'legend-king', icon: '\\u{1F451}', name: 'Roi des legendes', description: 'Posseder au moins 5 cartes legendaires differentes.', unlocked: legendaryUniqueOwned >= 5, progress: Math.min(legendaryUniqueOwned, 5), goal: 5 },\n  { key: 'trader', icon: '\\u{1F91D}', name: 'Negociant', description: 'Conclure 5 echanges.', unlocked: acceptedTrades >= 5, progress: Math.min(acceptedTrades, 5), goal: 5 },\n  { key: 'trader-big', icon: '\\u{1F4B0}', name: 'Grand negociant', description: 'Conclure 25 echanges.', unlocked: acceptedTrades >= 25, progress: Math.min(acceptedTrades, 25), goal: 25 },\n  { key: 'alchemist', icon: '\\u2728', name: 'Alchimiste', description: 'Crafter 10 cartes.', unlocked: craftedCount >= 10, progress: Math.min(craftedCount, 10), goal: 10 },\n  { key: 'complete-set', icon: '\\u{1F3C6}', name: 'Set complet', description: 'Completer une extension a 100%.', unlocked: hasCompleteSet, progress: hasCompleteSet ? 1 : 0, goal: 1 },\n  { key: 'full-collection', icon: '\\u{1F451}', name: 'Collection complete', description: 'Posseder 100% du catalogue.', unlocked: isFullCollection, progress: isFullCollection ? 1 : 0, goal: 1 }\n];\n\nreturn [{ json: { achievements, unlockedCount: achievements.filter((a) => a.unlocked).length, totalCount: achievements.length } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        180,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users -> Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Rarities -> Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Trades": {
+      "main": [
+        [
+          {
+            "node": "Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Trades": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Trades -> Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Trades -> Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Compute Achievements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Achievements": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

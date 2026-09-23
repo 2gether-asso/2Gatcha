@@ -78,6 +78,7 @@ son propre compteur de pity.
 | TotalPulls            | Numeric   | defaut 0, compteur global (toutes extensions confondues) |
 | StardustCount         | Numeric   | defaut 0, monnaie de craft/decraft (voir plus bas), globale (pas par extension) |
 | BoosterCount          | Numeric   | defaut 0, solde **generique** de boosters (voir "Economie des boosters" plus bas) |
+| LastWheelSpinDate     | Text      | vide par defaut ; `AAAA-MM-JJ` (fuseau Paris) du dernier tirage a la roue de la fortune quotidienne (`daily-wheel.json`) - permet un seul tirage par jour |
 
 `BoosterCount` est un stock unique, commun a toutes les extensions : un code
 d'evenement de type `booster` ajoute des points generiques (`+N`, sans
@@ -248,6 +249,28 @@ workflows.
 
 Une carte promo n'est ni decraftable ni craftable : elle reste exclusivement
 obtenable via un code d'evenement (`EventCodes`, `RewardType=card`).
+
+---
+
+## Roue de la fortune quotidienne
+
+`daily-wheel.json` (POST `/daily-wheel` `{ userId, action: 'status'|'spin' }`).
+Un seul tirage par jour et par joueur, base sur `Users.LastWheelSpinDate`
+(fuseau Paris, meme logique que `DailyQuests`). Lots ("mix prudent", pas de
+carte directe pour ne jamais court-circuiter les raretes fortes) :
+- 70% : petite quantite de poussieres d'etoile (10-25)
+- 20% : grosse quantite de poussieres d'etoile (50-100)
+- 10% : 1 booster generique
+
+## Autel de sacrifice
+
+`altar-sacrifice.json` (POST `/altar-sacrifice` `{ userId, rarityKey }`).
+Sacrifie 3 cartes non-promo de la rarete choisie (n'importe lesquelles,
+supprimees definitivement des `Pulls` du joueur) pour tenter d'obtenir une
+carte aleatoire non-promo de la rarete immediatement superieure (par
+`Rarities.SortOrder`). 50% de reussite quel que soit le palier ; en cas
+d'echec, les 3 cartes sont perdues sans contrepartie. Indisponible depuis la
+rarete la plus haute (pas de palier au-dessus).
 
 ---
 

@@ -36,6 +36,10 @@ window.APP_CONFIG = {
     recentPulls: "/recent-pulls",     // GET -> { pulls: [{pseudo,cardName,imageId,rarity,obtainedAt}] }
     publicProfile: "/public-profile", // GET ?pseudo=... -> { pseudo, totalPulls, uniqueCards, cards }
     wishlist: "/wishlist",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { wishlist }
-    quests: "/quests"                 // POST { userId } -> { quests, completedCount, rewardClaimed, justClaimedReward }
+    quests: "/quests",                // POST { userId } -> { quests, completedCount, rewardClaimed, justClaimedReward }
+    adminReset: "/admin-reset",       // POST { discordId, confirm: 'RESET-V1' } -> { reset: true, counts }
+    dailyWheel: "/daily-wheel",       // POST { userId, action: 'status'|'spin' } -> { canSpin } | { prize, newStardust, newBoosterCount }
+    altarSacrifice: "/altar-sacrifice", // POST { userId, rarityKey } -> { success, card?, isFirstEver? } | { error }
+    achievements: "/achievements"     // GET ?userId=... -> { achievements: [{key,icon,name,description,unlocked,progress,goal}], unlockedCount, totalCount }
   }
 };

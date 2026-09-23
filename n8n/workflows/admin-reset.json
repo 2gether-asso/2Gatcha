@@ -1,0 +1,1047 @@
+{
+  "name": "2Gatcha - admin-reset",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2400,
+        500
+      ],
+      "webhookId": "b8f2a1e4-reset-v1-0000-000000000000",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-reset",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2180,
+        500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (meme liste que admin-codes.json).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  isAdmin: adminDiscordIds.includes(discordId),\n  confirm: (body.confirm || '').toString()\n} }];"
+      }
+    },
+    {
+      "id": "if-admin",
+      "name": "If Admin",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1960,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isAdmin }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-forbidden",
+      "name": "Respond Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1740,
+        640
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'forbidden' } }}",
+        "options": {
+          "responseCode": 403
+        }
+      }
+    },
+    {
+      "id": "if-confirm",
+      "name": "If Confirm Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1740,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.confirm }}",
+              "rightValue": "RESET-V1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-confirm-required",
+      "name": "Respond Confirm Required",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1520,
+        540
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'confirmation_required', message: 'Tape exactement RESET-V1 pour confirmer.' } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1300,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-pulls",
+      "name": "Sync Get Pulls -> Get Trades",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1190,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-trades",
+      "name": "Get Trades",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1080,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Trades",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-trades",
+      "name": "Sync Get Trades -> Get Daily Quests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -970,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-daily-quests",
+      "name": "Get Daily Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -860,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "DailyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-daily-quests",
+      "name": "Sync Get Daily Quests -> Get Code Redemptions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -750,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-code-redemptions",
+      "name": "Get Code Redemptions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "CodeRedemptions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-code-redemptions",
+      "name": "Sync Get Code Redemptions -> Get Booster Inventory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -530,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-booster-inventory",
+      "name": "Get Booster Inventory",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "BoosterInventory",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-booster-inventory",
+      "name": "Sync Get Booster Inventory -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -310,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-get-users",
+      "name": "Sync Get Users -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -90,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        20,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "alwaysOutputData": true,
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "build-reset-plan",
+      "name": "Build Reset Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst trades = $('Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst quests = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptions = $('Get Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\nconst inventory = $('Get Booster Inventory').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsWithFirst = cards.filter((c) => !!refId(c.FirstObtainedBy) || !!c.FirstObtainedAt);\n\nreturn [{ json: {\n  docId: cfg.docId,\n  pullIds: pulls.map((p) => p.id),\n  tradeIds: trades.map((t) => t.id),\n  questIds: quests.map((q) => q.id),\n  redemptionIds: redemptions.map((r) => r.id),\n  inventoryIds: inventory.map((r) => r.id),\n  userIds: users.map((u) => u.id),\n  cardIdsToReset: cardsWithFirst.map((c) => c.id),\n  counts: {\n    pulls: pulls.length,\n    trades: trades.length,\n    quests: quests.length,\n    redemptions: redemptions.length,\n    boosterInventory: inventory.length,\n    users: users.length,\n    cardsReset: cardsWithFirst.length\n  }\n} }];"
+      }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn [{ json: { reset: true, counts: plan.counts } }];"
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        680,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "expand-pulls",
+      "name": "Expand Pulls To Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.pullIds || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-pull",
+      "name": "Delete Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        680,
+        520
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "expand-trades",
+      "name": "Expand Trades To Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        660
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.tradeIds || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-trade",
+      "name": "Delete Trade",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        680,
+        660
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Trades",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "expand-quests",
+      "name": "Expand Quests To Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        800
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.questIds || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-quest",
+      "name": "Delete Quest",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        680,
+        800
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "DailyQuests",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "expand-redemptions",
+      "name": "Expand Redemptions To Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        940
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.redemptionIds || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-redemption",
+      "name": "Delete Redemption",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        680,
+        940
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "CodeRedemptions",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "expand-inventory",
+      "name": "Expand Booster Inventory To Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1080
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.inventoryIds || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-inventory",
+      "name": "Delete Booster Inventory Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1080
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "BoosterInventory",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "expand-users",
+      "name": "Expand Users To Reset",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.userIds || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "update-user-reset",
+      "name": "Reset User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1220
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "TotalPulls",
+              "fieldValue": "=0"
+            },
+            {
+              "fieldId": "StardustCount",
+              "fieldValue": "=0"
+            },
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "=0"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "expand-cards",
+      "name": "Expand Cards To Reset",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        1360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.cardIdsToReset || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "update-card-reset",
+      "name": "Reset Card First Obtained",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1360
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Cards",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "FirstObtainedBy",
+              "fieldValue": "=0"
+            },
+            {
+              "fieldId": "FirstObtainedAt",
+              "fieldValue": "=null"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "If Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Admin": {
+      "main": [
+        [
+          {
+            "node": "If Confirm Valid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Forbidden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Confirm Valid": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Confirm Required",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Trades": {
+      "main": [
+        [
+          {
+            "node": "Get Trades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Trades": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Trades -> Get Daily Quests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Trades -> Get Daily Quests": {
+      "main": [
+        [
+          {
+            "node": "Get Daily Quests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Daily Quests": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Daily Quests -> Get Code Redemptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Daily Quests -> Get Code Redemptions": {
+      "main": [
+        [
+          {
+            "node": "Get Code Redemptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Code Redemptions": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Code Redemptions -> Get Booster Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Code Redemptions -> Get Booster Inventory": {
+      "main": [
+        [
+          {
+            "node": "Get Booster Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booster Inventory": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Booster Inventory -> Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Booster Inventory -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Build Reset Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Reset Plan": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Expand Pulls To Delete",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Expand Trades To Delete",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Expand Quests To Delete",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Expand Redemptions To Delete",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Expand Booster Inventory To Delete",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Expand Users To Reset",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Expand Cards To Reset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Pulls To Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Trades To Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Trade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Quests To Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Quest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Redemptions To Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Redemption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Booster Inventory To Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Booster Inventory Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Users To Reset": {
+      "main": [
+        [
+          {
+            "node": "Reset User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Cards To Reset": {
+      "main": [
+        [
+          {
+            "node": "Reset Card First Obtained",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

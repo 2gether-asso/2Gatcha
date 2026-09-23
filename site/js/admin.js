@@ -362,4 +362,44 @@ document.addEventListener("DOMContentLoaded", async () => {
       Toast.error("Impossible de créer le code. (" + err.message + ")");
     }
   });
+
+  document.getElementById("reset-v1-btn").addEventListener("click", resetV1);
 });
+
+// Reinitialisation de fin de beta : double confirmation deliberement lourde
+// (dialogue + saisie exacte du mot-cle) pour une action irreversible et a
+// gros rayon d'action - un simple clic ne doit jamais suffire a la declencher.
+async function resetV1() {
+  const ok = await Confirm.show(
+    "Ceci va <strong>supprimer definitivement</strong> tous les tirages, échanges, " +
+    "quêtes du jour et redemptions de codes, et remettre a zero le solde de boosters/poussières " +
+    "et le compteur de pity de chaque joueur. Les comptes Discord et le catalogue de cartes restent intacts.<br><br>" +
+    "Cette action est irréversible.",
+    { title: "Réinitialiser pour la V1 ?", confirmText: "Continuer", dangerous: true }
+  );
+  if (!ok) return;
+
+  const typed = window.prompt('Tape exactement RESET-V1 pour confirmer definitivement :');
+  if (typed !== "RESET-V1") {
+    if (typed !== null) Toast.error("Confirmation incorrecte, réinitialisation annulée.");
+    return;
+  }
+
+  const btn = document.getElementById("reset-v1-btn");
+  btn.disabled = true;
+  btn.textContent = "Réinitialisation en cours...";
+  try {
+    const res = await API.adminResetV1(Session.discordId, typed);
+    const c = res.counts || {};
+    Toast.success(
+      `Réinitialisé : ${c.pulls || 0} tirages, ${c.trades || 0} échanges, ${c.quests || 0} quêtes, ` +
+      `${c.redemptions || 0} redemptions, ${c.boosterInventory || 0} compteurs de pity, ` +
+      `${c.users || 0} comptes remis a zéro.`
+    );
+  } catch (e) {
+    Toast.error("Échec de la réinitialisation. (" + e.message + ")");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "&#128465;&#65039; Réinitialiser pour la V1";
+  }
+}

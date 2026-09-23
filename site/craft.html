@@ -41,6 +41,7 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" id="tab-disenchant-btn" role="tab" aria-selected="true">&#9851; Décrafter</button>
           <button type="button" class="tab" id="tab-craft-btn" role="tab" aria-selected="false">&#10024; Crafter</button>
+          <button type="button" class="tab" id="tab-altar-btn" role="tab" aria-selected="false">&#128293; Autel</button>
         </div>
 
         <div class="craft-toolbar">
@@ -69,6 +70,15 @@
           <p class="lead" style="font-size:0.85rem;">Triées par cout croissant ; les cartes que tu peux te permettre dès maintenant sont en avant.</p>
           <div id="craft-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
           <div id="craft-grid" class="craft-grid"></div>
+        </div>
+
+        <div id="altar-pane" style="display:none;">
+          <p class="lead" style="font-size:0.85rem;">
+            Sacrifie 3 exemplaires non-promo d'une rareté pour tenter d'obtenir une carte
+            aléatoire de la rareté supérieure. 50% de réussite ; en cas d'échec, les cartes
+            sacrifiées sont perdues.
+          </p>
+          <div id="altar-tiers" class="altar-tiers"></div>
         </div>
       </div>
     </div>

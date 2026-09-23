@@ -1,0 +1,590 @@
+{
+  "name": "2Gatcha - altar-sacrifice",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2000,
+        400
+      ],
+      "webhookId": "d2e3f4a5-altar-sac-0000-000000000000",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "altar-sacrifice",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1780,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  rarityKey: (body.rarityKey || '').toString()\n} }];"
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1560,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-pulls-cards",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1450,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1340,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-cards-rarities",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1230,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -1120,
+        400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "compute-sacrifice",
+      "name": "Compute Sacrifice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === cfg.userId);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\n\nconst sourceRarity = rarities.find((r) => r.Key === cfg.rarityKey);\nif (!sourceRarity) return [{ json: { ok: false, error: 'invalid_rarity' } }];\n\n// Rareté immediatement au-dessus (par SortOrder), pas de palier au-dessus de\n// la plus haute rareté existante.\nconst higher = rarities\n  .filter((r) => (r.SortOrder || 0) > (sourceRarity.SortOrder || 0))\n  .sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))[0];\nif (!higher) return [{ json: { ok: false, error: 'no_higher_tier' } }];\n\n// N'importe quelles 3 cartes non-promo de cette rarete (pas forcement la\n// meme carte repetee) : ce sont des \"matieres premieres\", pas des exemplaires\n// precis.\nconst eligiblePulls = pulls.filter((p) => {\n  const card = cardById[refId(p.Card)];\n  return card && !card.IsPromo && refId(card.Rarity) === sourceRarity.id;\n});\nif (eligiblePulls.length < 3) return [{ json: { ok: false, error: 'not_enough_cards' } }];\n\nconst pullIdsToDelete = eligiblePulls.slice(0, 3).map((p) => p.id);\n\n// 50% de reussite, quelle que soit la rareté de depart (annonce faite au\n// joueur) - meme risque a chaque palier.\nconst success = Math.random() < 0.5;\n\nlet newCard = null;\nif (success) {\n  const candidates = cards.filter((c) => c.Active !== false && !c.IsPromo && refId(c.Rarity) === higher.id);\n  if (!candidates.length) return [{ json: { ok: false, error: 'no_target_card' } }];\n  const picked = candidates[Math.floor(Math.random() * candidates.length)];\n  newCard = {\n    cardId: picked.id,\n    name: picked.Name,\n    isFirstEver: !refId(picked.FirstObtainedBy)\n  };\n}\n\nreturn [{ json: {\n  ok: true,\n  docId: cfg.docId,\n  userId: cfg.userId,\n  pullIdsToDelete,\n  success,\n  newCardId: newCard ? newCard.cardId : null,\n  isFirstEver: newCard ? newCard.isFirstEver : false\n} }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        560
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "expand-sacrificed",
+      "name": "Expand Sacrificed Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r = $('Compute Sacrifice').first().json;\nreturn (r.pullIdsToDelete || []).map((id) => ({ json: { docId: r.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-sacrificed",
+      "name": "Delete Sacrificed Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        240
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-success",
+      "name": "If Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-new-pull",
+      "name": "Create New Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        380
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Compute Sacrifice').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $('Compute Sacrifice').first().json.userId }}"
+            },
+            {
+              "fieldId": "Card",
+              "fieldValue": "={{ $('Compute Sacrifice').first().json.newCardId }}"
+            },
+            {
+              "fieldId": "ObtainedAt",
+              "fieldValue": "={{ Math.floor(Date.now() / 1000) }}"
+            },
+            {
+              "fieldId": "BatchId",
+              "fieldValue": "={{ 'altar-' + $('Compute Sacrifice').first().json.userId + '-' + Date.now() }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-first-ever",
+      "name": "If First Ever",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Compute Sacrifice').first().json.isFirstEver }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-card-first",
+      "name": "Update Card First Obtained",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Compute Sacrifice').first().json.docId }}",
+        "tableId": "Cards",
+        "rowId": "={{ $('Compute Sacrifice').first().json.newCardId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "FirstObtainedBy",
+              "fieldValue": "={{ $('Compute Sacrifice').first().json.userId }}"
+            },
+            {
+              "fieldId": "FirstObtainedAt",
+              "fieldValue": "={{ Math.floor(Date.now() / 1000) }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r = $('Compute Sacrifice').first().json;\nif (!r.success) return [{ json: { success: false } }];\nconst cards = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((rr) => rr.id != null);\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst card = cards.find((c) => c.id === r.newCardId);\nconst rarity = card ? rarities.find((rr) => rr.id === refId(card.Rarity)) : null;\nreturn [{ json: {\n  success: true,\n  isFirstEver: r.isFirstEver,\n  card: card ? {\n    cardId: card.id, name: card.Name, artist: card.Artist,\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null\n  } : null\n} }];"
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Compute Sacrifice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Sacrifice": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Ok": {
+      "main": [
+        [
+          {
+            "node": "Expand Sacrificed Pulls",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Sacrificed Pulls": {
+      "main": [
+        [
+          {
+            "node": "Delete Sacrificed Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Success": {
+      "main": [
+        [
+          {
+            "node": "Create New Pull",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Pull": {
+      "main": [
+        [
+          {
+            "node": "If First Ever",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If First Ever": {
+      "main": [
+        [
+          {
+            "node": "Update Card First Obtained",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

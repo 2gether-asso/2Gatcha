@@ -152,6 +152,26 @@ const API = {
     return this.post("adminCodes", { discordId, action: "stats" });
   },
 
+  adminResetV1(discordId, confirm) {
+    return this.post("adminReset", { discordId, confirm });
+  },
+
+  getDailyWheelStatus(userId) {
+    return this.post("dailyWheel", { userId, action: "status" });
+  },
+
+  spinDailyWheel(userId) {
+    return this.post("dailyWheel", { userId, action: "spin" });
+  },
+
+  altarSacrifice(userId, rarityKey) {
+    return this.post("altarSacrifice", { userId, rarityKey });
+  },
+
+  getAchievements(userId) {
+    return this.get("achievements", { userId });
+  },
+
   createTrade(userId, toPseudo, offeredCardId, requestedCardId) {
     return this.post("trade", { userId, action: "create", toPseudo, offeredCardId, requestedCardId });
   },
