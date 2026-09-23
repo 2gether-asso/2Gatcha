@@ -25,10 +25,22 @@
         <div class="profile-header">
           <img id="profile-avatar" class="profile-avatar" alt="" style="display:none;" />
           <div class="profile-identity">
-            <h1 id="profile-title" class="profile-name"></h1>
+            <div class="profile-name-row">
+              <h1 id="profile-title" class="profile-name"></h1>
+              <span id="profile-level-badge" class="level-badge" style="display:none;"></span>
+            </div>
             <p id="profile-member-since" class="profile-meta"></p>
           </div>
           <div id="profile-complete-badge" class="reward-banner" style="display:none;">&#127942; Collection complète !</div>
+        </div>
+
+        <div id="profile-sets-zone" style="display:none;">
+          <div id="profile-sets-badges" class="set-badge-row"></div>
+        </div>
+
+        <div id="profile-showcase-zone" style="display:none;">
+          <h2 style="margin-top:24px;">&#127914; Vitrine</h2>
+          <div id="profile-showcase-grid" class="showcase-grid"></div>
         </div>
 
         <div id="profile-stats" class="stats-grid"></div>
@@ -74,6 +86,39 @@
             `Membre depuis ${d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
         }
         if (res.isComplete) document.getElementById("profile-complete-badge").style.display = "block";
+
+        if (res.level) {
+          const levelBadge = document.getElementById("profile-level-badge");
+          levelBadge.textContent = `Niv. ${res.level}`;
+          levelBadge.style.display = "inline-flex";
+        }
+
+        // Sets completes (bonus de sets complets) : un badge par extension
+        // entierement collectionnee, affiche publiquement sur le profil.
+        const completedSets = res.completedSets || [];
+        if (completedSets.length) {
+          document.getElementById("profile-sets-zone").style.display = "block";
+          document.getElementById("profile-sets-badges").innerHTML = completedSets.map((s) => `
+            <span class="set-badge" title="Set complet">&#127942; ${s.name}</span>
+          `).join("");
+        }
+
+        // Vitrine : les 3-5 cartes que ce joueur a choisi de mettre en avant
+        // (purement cosmetique, distinct de la collection complete plus bas).
+        const showcase = res.showcase || [];
+        if (showcase.length) {
+          document.getElementById("profile-showcase-zone").style.display = "block";
+          document.getElementById("profile-showcase-grid").innerHTML = showcase.map((c) => {
+            const color = c.rarity?.colorHex || "#9aa0b4";
+            const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
+            return `
+              <div class="showcase-card" style="border-color:${color};">
+                <img src="${imgSrc}" alt="${c.name}" loading="lazy" />
+                <div class="showcase-card-name">${c.name}</div>
+              </div>
+            `;
+          }).join("");
+        }
         document.getElementById("profile-stats").innerHTML = `
           <div class="stat-tile"><div class="stat-value">${res.uniqueCards}${res.totalCards ? ` / ${res.totalCards}` : ""}</div><div class="stat-label">Cartes uniques</div></div>
           <div class="stat-tile"><div class="stat-value">${res.totalPulls}</div><div class="stat-label">Tirages au total</div></div>

@@ -67,7 +67,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nif (!user) return [{ json: { ok: false, error: 'user_not_found' } }];\n\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === \"number\") return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst alreadySpun = toDateStr(user.LastWheelSpinDate) === cfg.today;\n\nif (cfg.action === 'status') {\n  return [{ json: { ok: true, docId: cfg.docId, userId: cfg.userId, canSpin: !alreadySpun, shouldUpdate: false } }];\n}\n\nif (alreadySpun) return [{ json: { ok: false, error: 'already_spun' } }];\n\n// Mix prudent : surtout de la poussiere, rarement un booster, jamais de\n// carte directe (pas de raccourci vers les raretes fortes via la roue).\nconst roll = Math.random();\nlet prize;\nif (roll < 0.70) prize = { type: 'stardust', amount: 10 + Math.floor(Math.random() * 16), tier: 'small' };\nelse if (roll < 0.90) prize = { type: 'stardust', amount: 50 + Math.floor(Math.random() * 51), tier: 'big' };\nelse prize = { type: 'booster', amount: 1, tier: 'booster' };\n\nconst newStardust = (user.StardustCount || 0) + (prize.type === 'stardust' ? prize.amount : 0);\nconst newBoosterCount = (user.BoosterCount || 0) + (prize.type === 'booster' ? prize.amount : 0);\n\nreturn [{ json: {\n  ok: true, docId: cfg.docId, userId: cfg.userId, today: cfg.today,\n  shouldUpdate: true, canSpin: false, prize, newStardust, newBoosterCount\n} }];"
+        "jsCode": "const cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nif (!user) return [{ json: { ok: false, error: 'user_not_found' } }];\n\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === \"number\") return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst alreadySpun = toDateStr(user.LastWheelSpinDate) === cfg.today;\n\nif (cfg.action === 'status') {\n  return [{ json: { ok: true, docId: cfg.docId, userId: cfg.userId, canSpin: !alreadySpun, shouldUpdate: false } }];\n}\n\nif (alreadySpun) return [{ json: { ok: false, error: 'already_spun' } }];\n\n// Mix prudent : surtout de la poussiere, rarement un booster, jamais de\n// carte directe (pas de raccourci vers les raretes fortes via la roue).\nconst roll = Math.random();\nlet prize;\nif (roll < 0.70) prize = { type: 'stardust', amount: 10 + Math.floor(Math.random() * 16), tier: 'small' };\nelse if (roll < 0.90) prize = { type: 'stardust', amount: 50 + Math.floor(Math.random() * 51), tier: 'big' };\nelse prize = { type: 'booster', amount: 1, tier: 'booster' };\n\nconst newStardust = (user.StardustCount || 0) + (prize.type === 'stardust' ? prize.amount : 0);\n\n// Niveaux de profil : XP gagnee en tournant la roue, +1 booster bonus par\n// niveau franchi (en plus du lot de la roue elle-meme).\nfunction levelForXp(xp) { return 1 + Math.floor((xp || 0) / 100); }\nconst XP_PER_WHEEL_SPIN = 5;\nconst newXp = (user.XP || 0) + XP_PER_WHEEL_SPIN;\nconst levelsGained = levelForXp(newXp) - levelForXp(user.XP || 0);\nconst newBoosterCount = (user.BoosterCount || 0) + (prize.type === 'booster' ? prize.amount : 0) + levelsGained;\n\nreturn [{ json: {\n  ok: true, docId: cfg.docId, userId: cfg.userId, today: cfg.today,\n  shouldUpdate: true, canSpin: false, prize, newStardust, newBoosterCount, newXp\n} }];"
       }
     },
     {
@@ -177,6 +177,10 @@
             {
               "fieldId": "LastWheelSpinDate",
               "fieldValue": "={{ $('Compute Result').first().json.today }}"
+            },
+            {
+              "fieldId": "XP",
+              "fieldValue": "={{ $('Compute Result').first().json.newXp }}"
             }
           ]
         }
@@ -199,7 +203,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const r = $('Compute Result').first().json;\nif (r.prize) return [{ json: { canSpin: false, prize: r.prize, newStardust: r.newStardust, newBoosterCount: r.newBoosterCount } }];\nreturn [{ json: { canSpin: r.canSpin } }];"
+        "jsCode": "function levelForXp(xp) { return 1 + Math.floor((xp || 0) / 100); }\nconst r = $('Compute Result').first().json;\nif (r.prize) return [{ json: { canSpin: false, prize: r.prize, newStardust: r.newStardust, newBoosterCount: r.newBoosterCount, xp: { total: r.newXp, level: levelForXp(r.newXp) } } }];\nreturn [{ json: { canSpin: r.canSpin } }];"
       }
     },
     {

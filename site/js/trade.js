@@ -436,6 +436,9 @@ async function respond(tradeId, accept) {
   try {
     await API.respondTrade(Session.userId, Number(tradeId), accept, requestedPullId);
     Toast.success(accept ? "Échange accepte !" : "Échange refuse.");
+    // Un echange accepte accorde de l'XP (niveaux de profil) aux deux
+    // parties : rafraichit le badge de niveau dans le header.
+    if (accept) loadHeaderBoosterBadge();
     loadTrades();
   } catch (e) {
     Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));

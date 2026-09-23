@@ -41,6 +41,20 @@
 
     </div>
 
+    <div class="panel" id="pass-panel" style="display:none;margin-top:24px;">
+      <div class="actions" style="margin-top:0;align-items:center;">
+        <h2 style="flex:1;margin:0;">&#127942; Progression</h2>
+        <span id="pass-level-label" class="level-badge"></span>
+      </div>
+      <div class="pass-track">
+        <div class="pass-track-bar"><div id="pass-track-fill" class="pass-track-fill"></div></div>
+        <div class="pass-track-labels">
+          <span id="pass-xp-label"></span>
+          <span>Prochaine récompense : &#127183; +1 booster</span>
+        </div>
+      </div>
+    </div>
+
     <div class="panel" id="quests-panel" style="display:none;margin-top:24px;">
       <h2>&#127919; Quêtes du jour</h2>
       <p class="lead" style="font-size:0.85rem;">Complète 2 des 4 quêtes aujourd'hui pour recevoir 2 boosters gratuits.</p>
@@ -175,6 +189,20 @@
 
     if (Session.isLoggedIn()) {
       prefetchAllCardImages();
+
+      // Pass de combat (free) : barre de progression vers le prochain
+      // niveau, reprend l'XP deja calculee par booster-status (pas d'appel
+      // supplementaire). La recompense reste fixe (+1 booster/niveau, voir
+      // grist/SCHEMA.md) - pas encore de recompenses variees par palier.
+      const passPanel = document.getElementById("pass-panel");
+      passPanel.style.display = "block";
+      API.getBoosterStatus(Session.userId).then((res) => {
+        if (!res.xp) return;
+        document.getElementById("pass-level-label").textContent = `Niv. ${res.xp.level}`;
+        document.getElementById("pass-xp-label").textContent = `${res.xp.xpIntoLevel} / ${res.xp.xpForNextLevel} XP`;
+        const pct = res.xp.xpForNextLevel ? Math.round((res.xp.xpIntoLevel / res.xp.xpForNextLevel) * 100) : 0;
+        document.getElementById("pass-track-fill").style.width = pct + "%";
+      }).catch(() => { passPanel.style.display = "none"; });
 
       const panel = document.getElementById("activity-panel");
       panel.style.display = "block";

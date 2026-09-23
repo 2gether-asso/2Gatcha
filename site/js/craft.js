@@ -16,6 +16,26 @@ const CRAFT_ERRORS = {
   insufficient_dust: "Pas assez de poussières d'etoile.",
   sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
+const FINISH_ERRORS = {
+  card_not_found: "Carte introuvable.",
+  promo_not_upgradable: "Cette carte promo ne peut pas être fusionnée.",
+  card_inactive: "Cette carte n'est plus disponible.",
+  invalid_finish: "Cette finition ne peut pas être fusionnée davantage.",
+  not_enough_duplicates: "Il te faut 5 exemplaires identiques pour fusionner.",
+  sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
+};
+
+// Echelle de finitions, du plus commun au plus prestigieux (voir
+// grist/SCHEMA.md et foil-upgrade.json - meme ordre des deux cotes).
+const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
+const FINISH_LABELS = {
+  normal: "Normal",
+  holo: "Holographique",
+  gold: "Doré",
+  ghost: "Ghost Rare",
+  diamond: "Diamant",
+  rainbow: "Arc-en-ciel"
+};
 
 let stardust = 0;
 let ownedMap = new Map();
@@ -62,16 +82,20 @@ function setActiveTab(tab) {
   document.getElementById("tab-craft-btn").setAttribute("aria-selected", String(tab === "craft"));
   document.getElementById("tab-altar-btn").classList.toggle("active", tab === "altar");
   document.getElementById("tab-altar-btn").setAttribute("aria-selected", String(tab === "altar"));
+  document.getElementById("tab-finish-btn").classList.toggle("active", tab === "finish");
+  document.getElementById("tab-finish-btn").setAttribute("aria-selected", String(tab === "finish"));
   document.getElementById("disenchant-pane").style.display = tab === "disenchant" ? "block" : "none";
   document.getElementById("craft-pane").style.display = tab === "craft" ? "block" : "none";
   document.getElementById("altar-pane").style.display = tab === "altar" ? "block" : "none";
+  document.getElementById("finish-pane").style.display = tab === "finish" ? "block" : "none";
   document.getElementById("hide-owned-label").style.display = tab === "craft" ? "flex" : "none";
-  // La barre de recherche/filtres ne concerne pas l'autel (pas une grille de
-  // cartes a trier, juste des paliers de rarete).
-  document.querySelector(".craft-toolbar").style.display = tab === "altar" ? "none" : "flex";
+  // La barre de recherche/filtres ne concerne ni l'autel ni les finitions
+  // (pas des grilles de cartes a trier, juste des paliers/fusions).
+  document.querySelector(".craft-toolbar").style.display = (tab === "altar" || tab === "finish") ? "none" : "flex";
   document.getElementById("craft-search-input").placeholder =
     tab === "disenchant" ? "Rechercher parmi mes cartes..." : "Rechercher une carte à crafter...";
   if (tab === "altar") renderAltarTiers();
+  if (tab === "finish") renderFinishTiers();
 }
 
 // Autel de sacrifice : le joueur choisit lui-meme, parmi ses doublons (au
@@ -255,6 +279,75 @@ function showAltarResultModal(res) {
   if (res.success) {
     if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
     Sfx.reveal(res.card.rarity?.key);
+  }
+}
+
+// Finitions : fusionner 5 exemplaires identiques (meme carte, meme
+// finition) en 1 exemplaire de la finition superieure. Deterministe (pas de
+// hasard, contrairement a l'autel) - on liste directement toutes les
+// fusions possibles plutot qu'un picker, puisqu'il n'y a rien a choisir
+// (n'importe lesquels des 5 exemplaires identiques font l'affaire).
+function renderFinishTiers() {
+  const el = document.getElementById("finish-tiers");
+  const upgrades = [];
+  ownedMap.forEach((owned, cardId) => {
+    const card = allCards.find((c) => c.cardId === cardId);
+    if (!card || card.isPromo) return;
+    const counts = owned.finishCounts || {};
+    for (let i = 0; i < FINISH_ORDER.length - 1; i++) {
+      const from = FINISH_ORDER[i];
+      if ((counts[from] || 0) >= 5) {
+        upgrades.push({ card, fromFinish: from, toFinish: FINISH_ORDER[i + 1], available: counts[from] });
+      }
+    }
+  });
+
+  if (!upgrades.length) {
+    el.innerHTML = `<div class="empty-state">Aucune fusion possible pour l'instant : il te faut 5 exemplaires identiques (même carte, même finition) d'un coup.</div>`;
+    return;
+  }
+
+  el.innerHTML = upgrades.map((u) => {
+    const imgSrc = API.imageUrl(u.card.imageId) || PLACEHOLDER_IMG;
+    return `
+      <div class="finish-upgrade-row">
+        <img src="${imgSrc}" alt="${u.card.name}" loading="lazy" />
+        <div class="finish-upgrade-info">
+          <div class="finish-upgrade-name">${u.card.name}</div>
+          <div class="finish-upgrade-path">
+            <span class="finish-tag" data-finish="${u.fromFinish}">${FINISH_LABELS[u.fromFinish]}</span>
+            <span aria-hidden="true">&#8594;</span>
+            <span class="finish-tag" data-finish="${u.toFinish}">${FINISH_LABELS[u.toFinish]}</span>
+          </div>
+          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (5 requis)</div>
+        </div>
+        <button type="button" class="btn-secondary finish-upgrade-btn" data-card-id="${u.card.cardId}" data-from-finish="${u.fromFinish}">Fusionner</button>
+      </div>
+    `;
+  }).join("");
+
+  el.querySelectorAll(".finish-upgrade-btn").forEach((btn) => {
+    btn.addEventListener("click", () => upgradeFinish(Number(btn.dataset.cardId), btn.dataset.fromFinish));
+  });
+}
+
+async function upgradeFinish(cardId, fromFinish) {
+  const card = allCards.find((c) => c.cardId === cardId);
+  const toFinish = FINISH_ORDER[FINISH_ORDER.indexOf(fromFinish) + 1];
+  const ok = await Confirm.show(
+    `Fusionner 5 exemplaires <strong>${FINISH_LABELS[fromFinish]}</strong> de <strong>${card?.name || "cette carte"}</strong> en 1 exemplaire <strong>${FINISH_LABELS[toFinish]}</strong> ? ` +
+    `Les 5 exemplaires sacrifiés sont perdus définitivement.`,
+    { title: "Fusionner ces cartes ?", confirmText: "Fusionner", dangerous: true }
+  );
+  if (!ok) return;
+  try {
+    const res = await API.foilUpgrade(Session.userId, cardId, fromFinish);
+    Toast.success(`${card?.name || "Carte"} passe en ${FINISH_LABELS[res.toFinish]} !`);
+    if (typeof confetti === "function") confetti({ particleCount: 130, spread: 100, origin: { y: 0.5 } });
+    await reload();
+    setActiveTab("finish");
+  } catch (e) {
+    Toast.error(FINISH_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }
 
@@ -460,6 +553,9 @@ async function reload() {
     document.getElementById("stardust-amount").textContent = stardust;
     allCards = cardsRes.cards || [];
     ownedMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o]));
+    // Craft/decraft/autel accordent de l'XP (niveaux de profil) : rafraichit
+    // le badge de niveau dans le header, pas seulement le solde de cette page.
+    loadHeaderBoosterBadge();
 
     renderCraftFilters();
     renderDisenchantGrid();
@@ -486,6 +582,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-disenchant-btn").addEventListener("click", () => setActiveTab("disenchant"));
   document.getElementById("tab-craft-btn").addEventListener("click", () => setActiveTab("craft"));
   document.getElementById("tab-altar-btn").addEventListener("click", () => setActiveTab("altar"));
+  document.getElementById("tab-finish-btn").addEventListener("click", () => setActiveTab("finish"));
 
   let craftSearchTimer = null;
   document.getElementById("craft-search-input").addEventListener("input", (e) => {

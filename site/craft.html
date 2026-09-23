@@ -42,6 +42,7 @@
           <button type="button" class="tab active" id="tab-disenchant-btn" role="tab" aria-selected="true">&#9851; Décrafter</button>
           <button type="button" class="tab" id="tab-craft-btn" role="tab" aria-selected="false">&#10024; Crafter</button>
           <button type="button" class="tab" id="tab-altar-btn" role="tab" aria-selected="false">&#128293; Autel</button>
+          <button type="button" class="tab" id="tab-finish-btn" role="tab" aria-selected="false">&#127752; Finitions</button>
         </div>
 
         <div class="craft-toolbar">
@@ -79,6 +80,15 @@
             sacrifiées sont perdues.
           </p>
           <div id="altar-tiers" class="altar-tiers"></div>
+        </div>
+
+        <div id="finish-pane" style="display:none;">
+          <p class="lead" style="font-size:0.85rem;">
+            Fusionne 5 exemplaires identiques (même carte, même finition) pour obtenir 1
+            exemplaire de la finition supérieure : Normal &rarr; Holographique &rarr; Doré
+            &rarr; Ghost Rare &rarr; Diamant &rarr; Arc-en-ciel. Toujours garanti, pas de hasard.
+          </p>
+          <div id="finish-tiers" class="finish-tiers"></div>
         </div>
       </div>
     </div>

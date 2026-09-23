@@ -690,6 +690,7 @@ function renderHeader() {
           <div class="user-menu" id="user-menu">
             <button type="button" class="user-menu-trigger" id="user-menu-trigger">
               ${avatar}
+              <span id="header-level-badge" class="level-badge" style="display:none;" title="Niveau de profil"></span>
               <span id="header-pseudo">${Session.pseudo}</span>
               <span class="caret">&#9660;</span>
             </button>
@@ -766,9 +767,27 @@ function renderHeader() {
   `);
 }
 
+// Detecte un passage de niveau depuis la derniere fois qu'on a affiche le
+// badge (compare a la valeur vue precedemment, gardee par joueur car
+// Session.userId peut changer sur le meme navigateur). Purement cosmetique :
+// une detection ratee (cache efface, premiere visite) ne fait que sauter la
+// petite fete, jamais une erreur visible.
+const LEVEL_SEEN_KEY = "2gatcha_level_seen_" + Session.userId;
+function celebrateLevelUpIfNeeded(newLevel) {
+  if (!newLevel) return;
+  let prevLevel = null;
+  try { prevLevel = Number(localStorage.getItem(LEVEL_SEEN_KEY)) || null; } catch (e) {}
+  if (prevLevel && newLevel > prevLevel) {
+    Toast.success(`Niveau ${newLevel} atteint !`);
+    if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+  }
+  try { localStorage.setItem(LEVEL_SEEN_KEY, String(newLevel)); } catch (e) {}
+}
+
 async function loadHeaderBoosterBadge() {
   const badge = document.getElementById("header-booster-badge");
   const dustBadge = document.getElementById("header-stardust-badge");
+  const levelBadge = document.getElementById("header-level-badge");
   if (!badge) return;
   try {
     const status = await API.getBoosterStatus(Session.userId);
@@ -786,6 +805,13 @@ async function loadHeaderBoosterBadge() {
         dustEl = dustBadge.querySelector(".count");
       }
       bumpNumber(dustEl, status.stardust || 0);
+    }
+
+    if (levelBadge && status.xp) {
+      levelBadge.textContent = `Niv. ${status.xp.level}`;
+      levelBadge.title = `Niveau ${status.xp.level} — ${status.xp.xpIntoLevel}/${status.xp.xpForNextLevel} XP vers le niveau suivant`;
+      levelBadge.style.display = "inline-flex";
+      celebrateLevelUpIfNeeded(status.xp.level);
     }
   } catch (e) {
     badge.innerHTML = `<span class="icon">&#127183;</span><span>?</span>`;

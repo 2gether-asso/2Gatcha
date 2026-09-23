@@ -41,6 +41,8 @@ window.APP_CONFIG = {
     dailyWheel: "/daily-wheel",       // POST { userId, action: 'status'|'spin' } -> { canSpin } | { prize, newStardust, newBoosterCount }
     altarSacrifice: "/altar-sacrifice", // POST { userId, cardIds: [id,id,id] } -> { success, card?, isFirstEver? } | { error }
     achievements: "/achievements",    // GET ?userId=... -> { achievements: [{key,icon,name,description,unlocked,progress,goal}], unlockedCount, totalCount }
-    pullLog: "/pull-log"              // GET ?userId=... -> { log: [{cardId,cardName,imageId,rarity,extension,source,obtainedAt}], total }
+    pullLog: "/pull-log",             // GET ?userId=... -> { log: [{cardId,cardName,imageId,rarity,extension,source,obtainedAt}], total }
+    showcase: "/showcase",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { showcase } (max 5 cartes, affichees sur le profil public)
+    foilUpgrade: "/foil-upgrade"       // POST { userId, cardId, fromFinish } -> { upgraded, cardId, fromFinish, toFinish, serialNumber, maxSerial } | { error }
   }
 };

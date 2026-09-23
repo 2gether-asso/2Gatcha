@@ -229,7 +229,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.pseudo.toLowerCase());\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === user.id);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\n\nconst countByCard = {};\npulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n\nconst owned = Object.entries(countByCard).map(([cid, count]) => {\n  const card = cardById[Number(cid)];\n  if (!card) return null;\n  const rarity = rarityById[refId(card.Rarity)];\n  return {\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    imageId: firstAttachment(card.Image),\n    isPromo: card.IsPromo === true,\n    count,\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null\n  };\n}).filter(Boolean).sort((a, b) => (a.rarity?.sortOrder || 0) - (b.rarity?.sortOrder || 0));\n\nfunction refId2(v) { return Array.isArray(v) ? v[1] : v; }\nconst wishlistRows = $('Get Wishlist').all().map((i) => i.json).filter((r) => r.id != null && refId2(r.User) === user.id && !countByCard[refId2(r.Card)]);\nconst wishlist = wishlistRows.map((r) => {\n  const c = cardById[refId2(r.Card)];\n  if (!c) return null;\n  const rarity = rarityById[refId2(c.Rarity)];\n  return { cardId: c.id, name: c.Name, imageId: firstAttachment(c.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null };\n}).filter(Boolean);\n\nreturn [{ json: {\n  pseudo: user.Pseudo,\n  discordAvatar: user.DiscordAvatar || null,\n  totalPulls: user.TotalPulls || 0,\n  uniqueCards: owned.length,\n  totalCards: cards.length,\n  isComplete: cards.length > 0 && owned.length === cards.length,\n  memberSince: user.CreatedAt || null,\n  cards: owned,\n  wishlist\n} }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => (u.Pseudo || '').toString().trim().toLowerCase() === cfg.pseudo.toLowerCase());\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === user.id);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\n\nconst countByCard = {};\npulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n\nconst owned = Object.entries(countByCard).map(([cid, count]) => {\n  const card = cardById[Number(cid)];\n  if (!card) return null;\n  const rarity = rarityById[refId(card.Rarity)];\n  return {\n    cardId: card.id,\n    name: card.Name,\n    artist: card.Artist,\n    imageId: firstAttachment(card.Image),\n    isPromo: card.IsPromo === true,\n    count,\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null\n  };\n}).filter(Boolean).sort((a, b) => (a.rarity?.sortOrder || 0) - (b.rarity?.sortOrder || 0));\n\nfunction refId2(v) { return Array.isArray(v) ? v[1] : v; }\nconst wishlistRows = $('Get Wishlist').all().map((i) => i.json).filter((r) => r.id != null && refId2(r.User) === user.id && !countByCard[refId2(r.Card)]);\nconst wishlist = wishlistRows.map((r) => {\n  const c = cardById[refId2(r.Card)];\n  if (!c) return null;\n  const rarity = rarityById[refId2(c.Rarity)];\n  return { cardId: c.id, name: c.Name, imageId: firstAttachment(c.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null };\n}).filter(Boolean);\n\n// Vitrine (3-5 cartes favorites choisies par le joueur) : on ne montre que\n// celles qu'il possede TOUJOURS (une carte echangee depuis reste dans la\n// table ProfileShowcase mais disparait de l'affichage public).\nconst showcaseRows = $('Get Showcase').all().map((i) => i.json).filter((r) => r.id != null && refId2(r.User) === user.id && countByCard[refId2(r.Card)]).sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0));\nconst showcase = showcaseRows.map((r) => {\n  const c = cardById[refId2(r.Card)];\n  if (!c) return null;\n  const rarity = rarityById[refId2(c.Rarity)];\n  return { cardId: c.id, name: c.Name, artist: c.Artist, imageId: firstAttachment(c.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null };\n}).filter(Boolean);\n\n// Badges de sets completes (bonus de sets complets) : une extension pour\n// laquelle ce joueur possede TOUTES les cartes actives.\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensionById = {}; extensionsRows.forEach((e) => { extensionById[e.id] = e; });\nconst extProgress = {};\ncards.forEach((c) => {\n  const extId = refId2(c.Extension);\n  if (extId == null) return;\n  if (!extProgress[extId]) extProgress[extId] = { total: 0, owned: 0 };\n  extProgress[extId].total++;\n  if (countByCard[c.id]) extProgress[extId].owned++;\n});\nconst completedSets = Object.entries(extProgress)\n  .filter(([, p]) => p.total > 0 && p.owned === p.total)\n  .map(([extId]) => extensionById[Number(extId)])\n  .filter(Boolean)\n  .sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))\n  .map((e) => ({ extensionId: e.id, name: e.Name, key: e.Key }));\n\n// Niveaux de profil : jamais stocke, toujours recalcule depuis Users.XP.\nconst xp = user.XP || 0;\nconst level = 1 + Math.floor(xp / 100);\n\nreturn [{ json: {\n  pseudo: user.Pseudo,\n  discordAvatar: user.DiscordAvatar || null,\n  totalPulls: user.TotalPulls || 0,\n  uniqueCards: owned.length,\n  totalCards: cards.length,\n  isComplete: cards.length > 0 && owned.length === cards.length,\n  memberSince: user.CreatedAt || null,\n  cards: owned,\n  wishlist,\n  showcase,\n  completedSets,\n  level\n} }];"
       }
     },
     {
@@ -275,6 +275,82 @@
         "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
         "tableId": "Wishlist",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-wishlist-showcase",
+      "name": "Sync Get Wishlist -> Get Showcase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-showcase-profile",
+      "name": "Get Showcase",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        820,
+        340
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "ProfileShowcase",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-showcase-extensions",
+      "name": "Sync Get Showcase -> Get Extensions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-extensions-profile",
+      "name": "Get Extensions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1060,
+        340
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Extensions",
         "returnAll": true,
         "additionalOptions": {}
       },
@@ -427,6 +503,50 @@
       ]
     },
     "Get Wishlist": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Wishlist -> Get Showcase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Wishlist -> Get Showcase": {
+      "main": [
+        [
+          {
+            "node": "Get Showcase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Showcase": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Showcase -> Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Showcase -> Get Extensions": {
+      "main": [
+        [
+          {
+            "node": "Get Extensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Extensions": {
       "main": [
         [
           {

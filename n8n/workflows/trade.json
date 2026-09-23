@@ -722,6 +722,44 @@
       }
     },
     {
+      "id": "get-users-for-xp",
+      "name": "Get Users For XP",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        330,
+        630
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-users-for-xp-reassign",
+      "name": "Sync Get Users For XP -> Reassign Offered Pull",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        385,
+        630
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
       "id": "reassign-offered-pull",
       "name": "Reassign Offered Pull",
       "type": "n8n-nodes-base.grist",
@@ -732,15 +770,15 @@
       ],
       "parameters": {
         "operation": "update",
-        "docId": "={{ $json.docId }}",
+        "docId": "={{ $('Pick Pulls To Swap').first().json.docId }}",
         "tableId": "Pulls",
-        "rowId": "={{ $json.pullFromId }}",
+        "rowId": "={{ $('Pick Pulls To Swap').first().json.pullFromId }}",
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
             {
               "fieldId": "User",
-              "fieldValue": "={{ $json.toUserId }}"
+              "fieldValue": "={{ $('Pick Pulls To Swap').first().json.toUserId }}"
             }
           ]
         }
@@ -819,17 +857,101 @@
       }
     },
     {
+      "id": "compute-trade-xp",
+      "name": "Compute Trade XP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        630
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const t = $('Pick Pulls To Swap').first().json;\nconst users = $('Get Users For XP').all().map((i) => i.json).filter((r) => r.id != null);\nconst fromUser = users.find((u) => u.id === t.fromUserId);\nconst toUser = users.find((u) => u.id === t.toUserId);\n\n// Niveaux de profil : XP gagnee par les DEUX parties d'un echange accepte,\n// +1 booster bonus chacun par niveau franchi.\nfunction levelForXp(xp) { return 1 + Math.floor((xp || 0) / 100); }\nconst XP_PER_TRADE = 5;\nfunction computeReward(user) {\n  const oldXp = (user && user.XP) || 0;\n  const newXp = oldXp + XP_PER_TRADE;\n  const levelsGained = levelForXp(newXp) - levelForXp(oldXp);\n  const newBoosterCount = ((user && user.BoosterCount) || 0) + levelsGained;\n  return { newXp, newBoosterCount };\n}\nconst fromReward = computeReward(fromUser);\nconst toReward = computeReward(toUser);\n\nreturn [{ json: {\n  docId: t.docId,\n  fromUserId: t.fromUserId,\n  toUserId: t.toUserId,\n  fromNewXp: fromReward.newXp,\n  fromNewBoosterCount: fromReward.newBoosterCount,\n  toNewXp: toReward.newXp,\n  toNewBoosterCount: toReward.newBoosterCount\n} }];"
+      }
+    },
+    {
+      "id": "update-fromuser-xp",
+      "name": "Update FromUser XP",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        550
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.fromUserId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "XP",
+              "fieldValue": "={{ $json.fromNewXp }}"
+            },
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $json.fromNewBoosterCount }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "update-touser-xp",
+      "name": "Update ToUser XP",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        550
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Compute Trade XP').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Compute Trade XP').first().json.toUserId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "XP",
+              "fieldValue": "={{ $('Compute Trade XP').first().json.toNewXp }}"
+            },
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $('Compute Trade XP').first().json.toNewBoosterCount }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
       "id": "respond-trade-accepted",
       "name": "Respond Trade Accepted",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1100,
+        1340,
         630
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { tradeId: $json.id, status: 'accepted' } }}",
+        "responseBody": "={{ { tradeId: $('Mark Trade Accepted').first().json.id, status: 'accepted', xp: { total: $('Compute Trade XP').first().json.toNewXp, level: Math.floor(($('Compute Trade XP').first().json.toNewXp || 0) / 100) + 1 } } }}",
         "options": {}
       }
     },
@@ -1776,7 +1898,7 @@
       "main": [
         [
           {
-            "node": "Reassign Offered Pull",
+            "node": "Get Users For XP",
             "type": "main",
             "index": 0
           }
@@ -1784,6 +1906,28 @@
         [
           {
             "node": "Respond Cards Unavailable Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users For XP": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users For XP -> Reassign Offered Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users For XP -> Reassign Offered Pull": {
+      "main": [
+        [
+          {
+            "node": "Reassign Offered Pull",
             "type": "main",
             "index": 0
           }
@@ -1813,6 +1957,39 @@
       ]
     },
     "Mark Trade Accepted": {
+      "main": [
+        [
+          {
+            "node": "Compute Trade XP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Trade XP": {
+      "main": [
+        [
+          {
+            "node": "Update FromUser XP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update FromUser XP": {
+      "main": [
+        [
+          {
+            "node": "Update ToUser XP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update ToUser XP": {
       "main": [
         [
           {

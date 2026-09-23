@@ -1,10 +1,10 @@
 # Schema Grist - 2Gatcha
 
-Un seul document Grist avec 11 tables. Cree-les dans cet ordre (les references
+Un seul document Grist avec 12 tables. Cree-les dans cet ordre (les references
 ont besoin que la table ciblee existe deja) :
 `Rarities` -> `Extensions` -> `Cards` -> `Users` -> `Pulls` -> `Config` ->
 `EventCodes` -> `CodeRedemptions` -> `Trades` -> `BoosterInventory` ->
-`Wishlist`.
+`Wishlist` -> `ProfileShowcase`.
 
 ## 1. Rarities
 
@@ -80,6 +80,20 @@ son propre compteur de pity.
 | StardustCount         | Numeric   | defaut 0, monnaie de craft/decraft (voir plus bas), globale (pas par extension) |
 | BoosterCount          | Numeric   | defaut 0, solde **generique** de boosters (voir "Economie des boosters" plus bas) |
 | LastWheelSpinDate     | Text      | vide par defaut ; `AAAA-MM-JJ` (fuseau Paris) du dernier tirage a la roue de la fortune quotidienne (`daily-wheel.json`) - permet un seul tirage par jour |
+| XP                    | Numeric   | defaut 0, experience cumulee (niveaux de profil, voir plus bas) |
+
+**Niveaux de profil** : purement cosmetique/motivant, base sur `Users.XP`
+(cumulatif, jamais retire). Le niveau n'est **pas** stocke - il se calcule a
+la volee partout ou il est affiche/utilise : `niveau = 1 + floor(XP / 100)`
+(100 XP par niveau, palier fixe). Chaque franchissement de niveau accorde
+automatiquement **+1 booster generique** (`Users.BoosterCount`), calcule en
+comparant le niveau avant/apres le gain d'XP au moment de l'action (peut
+accorder plusieurs boosters d'un coup si un gros gain d'XP fait sauter
+plusieurs paliers). Sources d'XP actuelles : ouvrir un booster (+10,
+`open-pack.json`), crafter une carte (+5, `craft.json`), tourner la roue
+quotidienne (+5, `daily-wheel.json`), tenter un sacrifice a l'autel (+5,
+que ca reussisse ou non, `altar-sacrifice.json`), conclure un echange (+5
+**pour chacune des deux parties**, `trade.json`).
 
 `BoosterCount` est un stock unique, commun a toutes les extensions : un code
 d'evenement de type `booster` ajoute des points generiques (`+N`, sans
@@ -106,15 +120,36 @@ creant/detruisant des exemplaires.
 | ObtainedAt  | DateTime               |                                             |
 | BatchId     | Text                   | regroupe les cartes d'un meme pack ouvert ou d'un meme code reclame |
 | SerialNumber | Numeric               | numero de l'exemplaire pour cette carte, tous joueurs confondus (1er exemplaire jamais tire = 1, etc.) ; calcule au moment de la creation de la ligne comme `(nombre de lignes Pulls existantes pour cette carte) + 1`, jamais recalcule ensuite. Sert a l'affichage "#004/100" cote front et a la limite `Cards.MaxSerial` |
+| Finish       | Text                   | finition de cet exemplaire precis : `normal` (ou vide - traite comme `normal` partout, voir plus bas), `holo`, `gold`, `ghost`, `diamond`, `rainbow`, dans cet ordre croissant de prestige. Purement cosmetique, aucun effet sur le gameplay (rarete/valeur de craft inchangees). Voir "Finitions" plus bas |
 
 La "collection" d'un utilisateur = toutes les lignes `Pulls` ou `User` = lui,
 regroupees par `Card` pour avoir un compteur (x2, x3...). C'est deja ce que
 fait `get-collection.json` (`cards` = catalogue, `owned` = compteur par
 carte, avec `owned[].serialNumbers` = la liste des numeros de serie possedes
-pour cette carte) ; le front (`collection.js`) affiche un badge `xN` (et les
-numeros de serie), pas une carte repetee N fois. L'extension et la rarete
-d'une carte se retrouvent via `Cards`, pas la peine de les dupliquer sur
-`Pulls`.
+et `owned[].finishCounts` = le nombre d'exemplaires par finition, ex.
+`{normal: 3, holo: 1}`) ; le front (`collection.js`) affiche un badge `xN`
+(et les numeros de serie), pas une carte repetee N fois. L'extension et la
+rarete d'une carte se retrouvent via `Cards`, pas la peine de les dupliquer
+sur `Pulls`.
+
+## Finitions (foil upgrade)
+
+`foil-upgrade.json` (POST `/foil-upgrade` `{ userId, cardId, fromFinish }`) :
+fusionne **5 exemplaires identiques** (meme carte, meme `Finish`) en **1
+seul** exemplaire de la finition immediatement superieure, selon l'echelle
+fixe `normal -> holo -> gold -> ghost -> diamond -> rainbow` (definie cote
+code dans `foil-upgrade.json` et dupliquee dans `craft.js`/`collection.js` -
+si tu changes l'ordre, il faut le changer aux trois endroits). Contrairement
+a l'autel de sacrifice, **deterministe** : pas de hasard, la fusion reussit
+toujours si les 5 exemplaires sont reunis. Les 5 exemplaires sacrifies sont
+supprimes de `Pulls` ; un nouvel exemplaire est cree a la finition
+superieure, avec un nouveau `SerialNumber` (meme compteur global que les
+tirages/craft normaux - une carte fusionnee "consomme" donc une place sous
+`Cards.MaxSerial` comme n'importe quel autre nouvel exemplaire). Une carte
+promo ne peut pas etre fusionnee (`promo_not_upgradable`). Le front
+(`craft.html`, onglet "Finitions") liste directement toutes les fusions
+possibles pour le joueur (aucun palier de rarete a choisir, contrairement a
+l'autel : n'importe lesquels des 5 exemplaires identiques font l'affaire).
 
 **Limite d'exemplaires (`Cards.MaxSerial`)** : chaque workflow qui cree une
 ligne `Pulls` (`open-pack.json`, `craft.json`, `redeem-code.json`,
@@ -163,6 +198,25 @@ avec les autres membres (visible sur le profil/dans l'outil d'echange).
 |---------|----------------------|-------|
 | User    | Reference -> Users   | |
 | Card    | Reference -> Cards   | |
+
+## ProfileShowcase
+
+Jusqu'a 5 cartes qu'un joueur choisit de mettre en avant sur son profil
+public (`profile.html`) - purement cosmetique, aucun effet sur le gameplay.
+Gere par `showcase.json` (POST `/showcase` `{ userId, action: 'add'|'remove'|'list', cardId }`),
+expose publiquement via `get-public-profile.json` (`showcase: [...]`, dans
+l'ordre `SortOrder`). Ajouter une carte non possedee echoue avec
+`card_not_owned` ; ajouter une 6e carte echoue avec `showcase_full` ; ajouter
+une carte deja presente ou retirer une carte absente est un no-op (comme
+`Wishlist`). Une carte affichee qui est ensuite echangee/perdue disparait de
+l'affichage public (mais reste dans la table) sans que le joueur ait besoin
+de nettoyer sa vitrine lui-meme.
+
+| Colonne   | Type                | Notes                                       |
+|-----------|----------------------|----------------------------------------------|
+| User      | Reference -> Users   |                                                |
+| Card      | Reference -> Cards   |                                                |
+| SortOrder | Numeric              | ordre d'affichage (ordre d'ajout : le premier ajoute a `SortOrder = 0`, etc.) |
 
 ## DailyQuests
 

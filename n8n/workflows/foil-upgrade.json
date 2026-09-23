@@ -1,0 +1,434 @@
+{
+  "name": "2Gatcha - foil-upgrade",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        400
+      ],
+      "webhookId": "d4e5f6a7-foil-upg-0000-000000000000",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "foil-upgrade",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1380,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  cardId: Number(body.cardId),\n  fromFinish: (body.fromFinish || 'normal').toString()\n} }];"
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1160,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -840,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "compute-upgrade",
+      "name": "Compute Upgrade",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst allPulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === cfg.cardId);\n\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_upgradable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\n// Echelle de finitions fixe, du plus commun au plus prestigieux. Chaque\n// palier consomme 5 exemplaires IDENTIQUES (meme carte, meme finition) pour\n// en produire 1 seul de la finition suivante - deterministe, pas de RNG\n// (contrairement a l'autel de sacrifice).\nconst FINISH_ORDER = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];\nconst fromIndex = FINISH_ORDER.indexOf(cfg.fromFinish);\nif (fromIndex === -1 || fromIndex === FINISH_ORDER.length - 1) {\n  return [{ json: { ok: false, error: 'invalid_finish' } }];\n}\nconst toFinish = FINISH_ORDER[fromIndex + 1];\n\nfunction finishOf(p) { return p.Finish || 'normal'; }\nconst myPulls = allPulls.filter((p) => refId(p.User) === cfg.userId);\nconst matching = myPulls.filter((p) => refId(p.Card) === cfg.cardId && finishOf(p) === cfg.fromFinish);\nif (matching.length < 5) {\n  return [{ json: { ok: false, error: 'not_enough_duplicates' } }];\n}\n\n// Limite d'exemplaires 'dans la nature' (Cards.MaxSerial, 100 par defaut) :\n// la carte fusionnee est un nouvel exemplaire, elle compte dans le meme\n// compteur global que les tirages/craft normaux, tous finitions confondues.\nconst existingCount = allPulls.filter((p) => refId(p.Card) === cfg.cardId).length;\nconst maxSerial = card.MaxSerial || 100;\nif (existingCount >= maxSerial) {\n  return [{ json: { ok: false, error: 'sold_out' } }];\n}\n\nconst pullIdsToDelete = matching.slice(0, 5).map((p) => p.id);\n\nreturn [{ json: {\n  ok: true,\n  docId: cfg.docId,\n  userId: cfg.userId,\n  cardId: cfg.cardId,\n  pullIdsToDelete,\n  fromFinish: cfg.fromFinish,\n  toFinish,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `foil-${cfg.userId}-${Date.now()}`,\n  serialNumber: existingCount + 1,\n  maxSerial\n} }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        560
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "expand-sacrificed",
+      "name": "Expand Sacrificed Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r = $('Compute Upgrade').first().json;\nreturn (r.pullIdsToDelete || []).map((id) => ({ json: { docId: r.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-sacrificed",
+      "name": "Delete Sacrificed Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        260
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-delete-create",
+      "name": "Sync Delete Sacrificed -> Create Upgraded",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "create-upgraded-pull",
+      "name": "Create Upgraded Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        360,
+        260
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Compute Upgrade').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $('Compute Upgrade').first().json.userId }}"
+            },
+            {
+              "fieldId": "Card",
+              "fieldValue": "={{ $('Compute Upgrade').first().json.cardId }}"
+            },
+            {
+              "fieldId": "ObtainedAt",
+              "fieldValue": "={{ $('Compute Upgrade').first().json.obtainedAt }}"
+            },
+            {
+              "fieldId": "BatchId",
+              "fieldValue": "={{ $('Compute Upgrade').first().json.batchId }}"
+            },
+            {
+              "fieldId": "Finish",
+              "fieldValue": "={{ $('Compute Upgrade').first().json.toFinish }}"
+            },
+            {
+              "fieldId": "SerialNumber",
+              "fieldValue": "={{ $('Compute Upgrade').first().json.serialNumber }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r = $('Compute Upgrade').first().json;\nreturn [{ json: {\n  upgraded: true,\n  cardId: r.cardId,\n  fromFinish: r.fromFinish,\n  toFinish: r.toFinish,\n  serialNumber: r.serialNumber,\n  maxSerial: r.maxSerial\n} }];"
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        760,
+        260
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Compute Upgrade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Upgrade": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Ok": {
+      "main": [
+        [
+          {
+            "node": "Expand Sacrificed Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Sacrificed Pulls": {
+      "main": [
+        [
+          {
+            "node": "Delete Sacrificed Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Sacrificed Pull": {
+      "main": [
+        [
+          {
+            "node": "Sync Delete Sacrificed -> Create Upgraded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Delete Sacrificed -> Create Upgraded": {
+      "main": [
+        [
+          {
+            "node": "Create Upgraded Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Upgraded Pull": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

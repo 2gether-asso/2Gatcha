@@ -236,6 +236,22 @@ const API = {
     return this.post("wishlist", { userId, action: "remove", cardId });
   },
 
+  listShowcase(userId) {
+    return this.post("showcase", { userId, action: "list" });
+  },
+
+  addToShowcase(userId, cardId) {
+    return this.post("showcase", { userId, action: "add", cardId });
+  },
+
+  removeFromShowcase(userId, cardId) {
+    return this.post("showcase", { userId, action: "remove", cardId });
+  },
+
+  foilUpgrade(userId, cardId, fromFinish) {
+    return this.post("foilUpgrade", { userId, cardId, fromFinish });
+  },
+
   getQuestStatus(userId) {
     return this.post("quests", { userId });
   }

@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// A adapter une seule fois : ID du document Grist, webhook Discord (optionnel).\nconst discordWebhookUrl = 'CHANGE-MOI-DISCORD-WEBHOOK-URL';\nconst body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    code: (body.code || '').toString().trim(),\n    discordWebhookUrl\n  }\n}];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist, webhook Discord (optionnel).\nconst discordWebhookUrl = 'https://discord.com/api/webhooks/1551618475179511940/BsIPFGMDe0jiylrnEGTluRaPCP3zEi2tEWangoaZHgT_uShe2Zyy4dgTIRkLRjQ1cxZW';\nconst body = $input.first().json.body || {};\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    code: (body.code || '').toString().trim(),\n    discordWebhookUrl\n  }\n}];"
       }
     },
     {
@@ -575,7 +575,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const config = $('Set Config').first().json;\nconst final = $('Finalize Card').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === final.userId);\nconst legendaryCards = (final.cards || []).filter((c) => c.rarity && c.rarity.key === 'legendaire');\nconst shouldNotify = legendaryCards.length > 0 && !!config.discordWebhookUrl && !config.discordWebhookUrl.startsWith('CHANGE-MOI');\nconst names = legendaryCards.map((c) => c.name).join(', ');\nreturn [{ json: {\n  shouldNotify,\n  webhookUrl: config.discordWebhookUrl,\n  content: `\\u{1F31F} **${(user && user.Pseudo) || 'Un joueur'}** vient d'obtenir une carte legendaire (code) : **${names}** !`\n} }];"
+        "jsCode": "const config = $('Set Config').first().json;\nconst final = $('Finalize Card').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === final.userId);\nconst pseudo = (user && user.Pseudo) || 'Un joueur';\nconst discordMention = user && user.DiscordId ? `<@${user.DiscordId}>` : `**${pseudo}**`;\nfunction hexToInt(hex) { return parseInt((hex || '9aa0b4').replace('#', ''), 16) || 0x9aa0b4; }\n\nconst legendary = (final.cards || []).filter((c) => c.rarity && c.rarity.key === 'legendaire');\nconst epic = (final.cards || []).filter((c) => c.rarity && c.rarity.key === 'epique');\n\nlet content = '';\nlet embeds = [];\nif (legendary.length) {\n  content = `\\u{1F31F} ${discordMention} vient de decrocher une carte legendaire (code) !`;\n  embeds = [{ color: hexToInt(legendary[0].rarity.colorHex), title: '\\u{1F451} ' + legendary.map((c) => c.name).join(', '), description: `Rarete : **${legendary[0].rarity.name}**` }];\n} else if (epic.length) {\n  content = `\\u2728 **${pseudo}** vient d'obtenir une carte epique (code).`;\n  embeds = [{ color: hexToInt(epic[0].rarity.colorHex), title: epic.map((c) => c.name).join(', '), description: `Rarete : **${epic[0].rarity.name}**` }];\n}\n\nconst shouldNotify = (legendary.length > 0 || epic.length > 0) && !!config.discordWebhookUrl && !config.discordWebhookUrl.startsWith('CHANGE-MOI');\n\nreturn [{ json: { shouldNotify, webhookUrl: config.discordWebhookUrl, content, embeds } }];"
       }
     },
     {
@@ -622,14 +622,9 @@
         "method": "POST",
         "url": "={{ $json.webhookUrl }}",
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "content",
-              "value": "={{ $json.content }}"
-            }
-          ]
-        },
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.content, embeds: $json.embeds }) }}",
         "options": {}
       }
     },

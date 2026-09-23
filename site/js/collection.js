@@ -11,6 +11,19 @@
 const NEW_BADGE_WINDOW_SECONDS = 24 * 3600;
 const FAVORITES_KEY = "2gatcha_favorites";
 
+// Echelle de finitions (voir grist/SCHEMA.md, meme ordre que foil-upgrade.json
+// et craft.js). Une vignette affiche toujours la MEILLEURE finition possedee
+// pour cette carte (un collectionneur montre sa plus belle version).
+const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
+const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+function bestFinish(finishCounts) {
+  if (!finishCounts) return "normal";
+  for (let i = FINISH_ORDER.length - 1; i >= 0; i--) {
+    if (finishCounts[FINISH_ORDER[i]] > 0) return FINISH_ORDER[i];
+  }
+  return "normal";
+}
+
 // Messages d'erreur dupliques depuis craft.js/trade.js (meme convention que
 // les branches n8n paralleles du projet : duplication ciblee plutot qu'un
 // import partage, pour garder chaque page autonome).
@@ -61,6 +74,12 @@ let stardustBalance = 0;
 // rapidement l'etat au rendu, tenu a jour de maniere optimiste apres chaque
 // action (pas besoin d'attendre un aller-retour serveur pour se mettre a jour).
 let wishlistSet = new Set();
+// Vitrine (max 5 cartes possedees, affichees sur le profil public) et,
+// pour chaque carte, la liste de ses exemplaires individuels (pullId +
+// numero de serie) - necessaire pour choisir precisement quel exemplaire
+// offrir dans l'echange rapide (openQuickTrade).
+let showcaseSet = new Set();
+let ownedCopiesByCard = new Map();
 let activeFilter = "all";
 let searchQuery = "";
 // Tri/vue memorises d'une visite a l'autre : pas de raison de refaire le
@@ -114,7 +133,10 @@ function renderFilters(rarities) {
   });
 }
 
-// Effet de bascule 3D qui suit le curseur ou le doigt.
+// Effet de bascule 3D qui suit le curseur ou le doigt. Pose aussi --shine-x/
+// --shine-y (position brute du curseur, en %) : utilise par les finitions
+// holo/diamant/arc-en-ciel pour un reflet qui suit reellement la souris,
+// pas juste l'inclinaison de la carte.
 function attachTilt(el) {
   const update = (clientX, clientY) => {
     const rect = el.getBoundingClientRect();
@@ -122,10 +144,14 @@ function attachTilt(el) {
     const py = (clientY - rect.top) / rect.height - 0.5;
     el.style.setProperty("--ry", `${px * 16}deg`);
     el.style.setProperty("--rx", `${py * -16}deg`);
+    el.style.setProperty("--shine-x", `${(px + 0.5) * 100}%`);
+    el.style.setProperty("--shine-y", `${(py + 0.5) * 100}%`);
   };
   const reset = () => {
     el.style.setProperty("--rx", `0deg`);
     el.style.setProperty("--ry", `0deg`);
+    el.style.setProperty("--shine-x", `50%`);
+    el.style.setProperty("--shine-y", `50%`);
     el.style.willChange = "auto";
   };
   // will-change seulement pendant l'interaction : le poser en permanence en
@@ -161,8 +187,9 @@ function showCardModal(cardId, navList) {
     // seul chemin pour agir sur une carte dans ce mode.
     const disenchantValue = craftCostByCard.get(card.cardId)?.disenchantValue;
     const isFirstObtainer = card.firstObtainedBy && card.firstObtainedBy === Session.pseudo;
+    const finish = owned ? bestFinish(owned.finishCounts) : "normal";
     overlay.innerHTML = `
-      <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}">
+      <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
         ${navList.length > 1 ? `<button class="card-modal-nav prev" aria-label="Carte precedente">&#10094;</button>` : ""}
         ${navList.length > 1 ? `<button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
@@ -173,6 +200,7 @@ function showCardModal(cardId, navList) {
           <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
             ${card.rarity?.name || "Commune"}
           </span>
+          ${owned && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;display:inline-flex;margin-left:6px;">${FINISH_LABELS[finish]}</span>` : ""}
           ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
           ${owned && owned.serialNumbers?.length ? `<div class="serial-badge">${owned.serialNumbers.map((n) => `#${String(n).padStart(3, "0")}`).join(", ")} / ${card.maxSerial || 100}</div>` : ""}
           ${card.description ? `<p class="card-modal-description">${card.description}</p>` : ""}
@@ -199,6 +227,7 @@ function showCardModal(cardId, navList) {
     if (modalDisenchantBtn) modalDisenchantBtn.addEventListener("click", () => { close(); disenchantCardQuick(card.cardId); });
     const modalTradeBtn = overlay.querySelector(".modal-trade-btn");
     if (modalTradeBtn) modalTradeBtn.addEventListener("click", () => { close(); openQuickTrade(card.cardId); });
+    if (finish !== "normal") attachTilt(overlay.querySelector(".card-modal"));
   }
 
   function go(delta) {
@@ -280,10 +309,13 @@ function cardTileHtml(card, now) {
   const craftable = locked && !card.isPromo && craftCost != null && stardustBalance >= craftCost;
   const canQuickAct = !locked && !card.isPromo;
   const inWishlist = locked && wishlistSet.has(card.cardId);
+  const inShowcase = !locked && showcaseSet.has(card.cardId);
+  const finish = owned ? bestFinish(owned.finishCounts) : "normal";
 
   return `
-    <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
+    <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" data-finish="${finish}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
       ${isNew ? '<span class="new-badge">New</span>' : ""}
+      ${!locked && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
       ${!locked ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
       ${locked ? `<button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>` : ""}
       <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" />
@@ -298,6 +330,7 @@ function cardTileHtml(card, now) {
           <div class="quick-actions-row">
             ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" title="Décrafter contre ${disenchantValue} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
             <button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>
+            <button type="button" class="card-quick-action quick-showcase-btn ${inShowcase ? "active" : ""}" data-card-id="${card.cardId}" title="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}" aria-label="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}">&#128444;</button>
           </div>
         ` : ""}
       </div>
@@ -363,9 +396,9 @@ async function disenchantCardQuick(cardId) {
 async function openQuickTrade(cardId) {
   const card = allCardsCache.find((c) => c.cardId === cardId);
   if (!card) return;
-  let usersRes, cardsRes;
+  let usersRes;
   try {
-    [usersRes, cardsRes] = await Promise.all([API.listUsers(), API.getCards()]);
+    usersRes = await API.listUsers();
   } catch (e) {
     Toast.error("Impossible de charger la liste des joueurs.");
     return;
@@ -373,17 +406,26 @@ async function openQuickTrade(cardId) {
   const others = (usersRes.users || []).filter((u) => String(u.userId) !== String(Session.userId));
   if (!others.length) { Toast.info("Aucun autre joueur a qui proposer un échange pour l'instant."); return; }
 
+  const copies = ownedCopiesByCard.get(cardId) || [];
+  const maxSerial = allCardsCache.find((c) => c.cardId === cardId)?.maxSerial || 100;
+  const pullOptions = copies
+    .map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`)
+    .join("");
+
   const overlay = document.createElement("div");
   overlay.className = "card-modal-overlay confirm-overlay";
   overlay.innerHTML = `
     <div class="confirm-box quick-trade-box">
       <div class="confirm-title">Échanger ${card.name}</div>
       <div class="quick-trade-form">
+        <label>Exemplaire a donner
+          <select id="qt-pull">${pullOptions || `<option value="">Aucun exemplaire</option>`}</select>
+        </label>
         <label>À qui ?
           <select id="qt-target"></select>
         </label>
         <label>Contre quelle carte ? (optionnel)
-          <select id="qt-requested"><option value="">Aucune (don)</option></select>
+          <select id="qt-requested"><option value="">Choisis d'abord un joueur cible</option></select>
         </label>
       </div>
       <div class="confirm-actions">
@@ -395,12 +437,31 @@ async function openQuickTrade(cardId) {
   document.body.appendChild(overlay);
   syncScrollLock();
 
+  const pullSelect = overlay.querySelector("#qt-pull");
   const targetSelect = overlay.querySelector("#qt-target");
   targetSelect.innerHTML = others.map((u) => `<option value="${u.pseudo}">${u.pseudo}</option>`).join("");
   const requestedSelect = overlay.querySelector("#qt-requested");
-  requestedSelect.innerHTML += (cardsRes.cards || [])
-    .filter((c) => !c.isPromo)
-    .map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
+
+  // La carte demandee ne peut porter que sur ce que la cible possede
+  // reellement (meme regle que le formulaire d'echange complet).
+  async function refreshRequestedOptions() {
+    const pseudo = targetSelect.value;
+    if (!pseudo) { requestedSelect.innerHTML = `<option value="">Choisis d'abord un joueur cible</option>`; if (requestedSelect._fancyRefresh) requestedSelect._fancyRefresh(); return; }
+    requestedSelect.innerHTML = `<option value="">Chargement...</option>`;
+    if (requestedSelect._fancyRefresh) requestedSelect._fancyRefresh();
+    try {
+      const profile = await API.getPublicProfile(pseudo);
+      const options = (profile.cards || []).filter((c) => !c.isPromo);
+      requestedSelect.innerHTML = `<option value="">Aucune (don)</option>` + options.map((c) => `<option value="${c.cardId}">${c.name} (x${c.count})</option>`).join("");
+    } catch (e) {
+      requestedSelect.innerHTML = `<option value="">Aucune (don)</option>`;
+    }
+    if (requestedSelect._fancyRefresh) requestedSelect._fancyRefresh();
+  }
+  targetSelect.addEventListener("change", refreshRequestedOptions);
+  refreshRequestedOptions();
+
+  enhanceSelect(pullSelect);
   enhanceSelect(targetSelect);
   enhanceSelect(requestedSelect);
 
@@ -409,9 +470,11 @@ async function openQuickTrade(cardId) {
   overlay.querySelector(".qt-cancel").addEventListener("click", close);
   overlay.querySelector(".qt-submit").addEventListener("click", async () => {
     const toPseudo = targetSelect.value;
+    const offeredPullId = Number(pullSelect.value);
     const requestedCardId = requestedSelect.value ? Number(requestedSelect.value) : null;
+    if (!offeredPullId) { Toast.error("Aucun exemplaire disponible a offrir."); return; }
     try {
-      await API.createTrade(Session.userId, toPseudo, cardId, requestedCardId);
+      await API.createTrade(Session.userId, toPseudo, cardId, offeredPullId, requestedCardId);
       Toast.success(`Échange proposé à ${toPseudo}.`);
       close();
     } catch (e) {
@@ -440,6 +503,31 @@ async function toggleWishlist(cardId, btn) {
     btn.setAttribute("aria-label", btn.title);
   } catch (e) {
     Toast.error("Erreur. (" + e.message + ")");
+  }
+}
+
+const SHOWCASE_ERRORS_LOCAL = {
+  card_not_owned: "Tu ne possèdes pas cette carte.",
+  showcase_full: "Ta vitrine est déjà pleine (5 cartes max) : retire-en une avant d'en ajouter une nouvelle."
+};
+
+async function toggleShowcase(cardId, btn) {
+  const wasIn = showcaseSet.has(cardId);
+  try {
+    if (wasIn) {
+      await API.removeFromShowcase(Session.userId, cardId);
+      showcaseSet.delete(cardId);
+      Toast.info("Retiree de ta vitrine.");
+    } else {
+      await API.addToShowcase(Session.userId, cardId);
+      showcaseSet.add(cardId);
+      Toast.success("Ajoutee a ta vitrine !");
+    }
+    btn.classList.toggle("active", !wasIn);
+    btn.title = !wasIn ? "Retirer de ma vitrine" : "Ajouter a ma vitrine";
+    btn.setAttribute("aria-label", btn.title);
+  } catch (e) {
+    Toast.error(SHOWCASE_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }
 
@@ -643,6 +731,9 @@ function renderGrid() {
   container.querySelectorAll(".quick-trade-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); openQuickTrade(Number(btn.dataset.cardId)); });
   });
+  container.querySelectorAll(".quick-showcase-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleShowcase(Number(btn.dataset.cardId), btn); });
+  });
 }
 
 async function loadCollection() {
@@ -651,13 +742,14 @@ async function loadCollection() {
   zone.style.display = "none";
 
   const OFFLINE_CACHE_KEY = "2gatcha_offline_collection_" + Session.userId;
-  let res, statusRes, cardsRes, wishlistRes, isOffline = false;
+  let res, statusRes, cardsRes, wishlistRes, showcaseRes, isOffline = false;
   try {
-    [res, statusRes, cardsRes, wishlistRes] = await Promise.all([
+    [res, statusRes, cardsRes, wishlistRes, showcaseRes] = await Promise.all([
       API.getCollection(Session.userId),
       API.getBoosterStatus(Session.userId).catch(() => ({ stardust: 0 })),
       API.getCards().catch(() => ({ cards: [] })),
-      API.listWishlist(Session.userId).catch(() => ({ wishlist: [] }))
+      API.listWishlist(Session.userId).catch(() => ({ wishlist: [] })),
+      API.listShowcase(Session.userId).catch(() => ({ showcase: [] }))
     ]);
     // Sauvegarde pour un affichage hors-ligne basique si le prochain
     // chargement echoue (reseau coupe) : mieux qu'un ecran d'erreur vide.
@@ -670,6 +762,7 @@ async function loadCollection() {
       statusRes = { stardust: 0 };
       cardsRes = { cards: [] };
       wishlistRes = { wishlist: [] };
+      showcaseRes = { showcase: [] };
       isOffline = true;
       Toast.info("Mode hors-ligne : dernière collection connue affichée (peut-être obsolète).");
     } else {
@@ -682,9 +775,11 @@ async function loadCollection() {
   try {
     allCardsCache = res.cards || [];
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
+    ownedCopiesByCard = new Map((res.owned || []).map((o) => [o.cardId, o.copies || []]));
     stardustBalance = statusRes.stardust || 0;
     craftCostByCard = new Map((cardsRes.cards || []).map((c) => [c.cardId, c.rarity]));
     wishlistSet = new Set((wishlistRes.wishlist || []).map((w) => w.cardId));
+    showcaseSet = new Set((showcaseRes.showcase || []).map((s) => s.cardId));
 
     const stats = res.stats || { owned: ownedMap.size, total: allCardsCache.length };
     document.getElementById("progress-label").textContent =

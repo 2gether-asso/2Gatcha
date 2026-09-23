@@ -1074,6 +1074,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   padding: 0;
 }
 .quick-actions-row .card-quick-action:hover { color: var(--text); border-color: var(--border); background: rgba(255,255,255,0.06); }
+.quick-showcase-btn.active { color: var(--accent-2); border-color: var(--accent-2); }
 
 /* ========================================================================
    Groupes d'extension repliables (collection) : le compteur N/X vit dans le
@@ -1833,6 +1834,34 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .rarity-progress-row .rp-count { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
 
 /* ========================================================================
+   Pass de combat (barre de progression XP, page d'accueil)
+   ======================================================================== */
+.pass-track { margin-top: 10px; }
+.pass-track-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg-panel-2);
+  overflow: hidden;
+}
+.pass-track-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.6s ease;
+  width: 0%;
+}
+.pass-track-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========================================================================
    Modal plein ecran (zoom carte)
    ======================================================================== */
 .card-modal-overlay {
@@ -2260,6 +2289,135 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .altar-tier-info { color: var(--text-dim); font-size: 0.82rem; margin: 10px 0; }
 .altar-open-btn { margin-top: 12px; }
 
+/* ========================================================================
+   Finitions (foil upgrade) : fusionner des doublons identiques en une
+   version plus prestigieuse. Onglet "Finitions" (craft.html).
+   ======================================================================== */
+.finish-tiers { display: flex; flex-direction: column; gap: 12px; }
+.finish-upgrade-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 12px 16px;
+}
+.finish-upgrade-row img { width: 52px; height: 68px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.finish-upgrade-info { flex: 1; min-width: 0; }
+.finish-upgrade-name { font-weight: 700; font-family: var(--font-display); }
+.finish-upgrade-path { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 0.85rem; }
+.finish-upgrade-count { color: var(--text-dim); font-size: 0.78rem; }
+
+/* Une pastille par finition : couleur/degrade identifiant chaque palier,
+   reutilisee a la fois dans le picker de fusion et sur les vignettes de
+   collection (.finish-indicator). */
+.finish-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+.finish-tag[data-finish="holo"] { border-color: #a78bfa; color: #c4b5fd; }
+.finish-tag[data-finish="gold"] { border-color: #d4af37; color: #f5d76e; }
+.finish-tag[data-finish="ghost"] { border-color: #94a3b8; color: #cbd5e1; }
+.finish-tag[data-finish="diamond"] { border-color: #7dd3fc; color: #bae6fd; }
+.finish-tag[data-finish="rainbow"] { border-color: #ff6ec7; color: #ff9ecf; }
+
+.finish-indicator {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+}
+.finish-indicator[data-finish="holo"] { border-color: #a78bfa; color: #c4b5fd; }
+.finish-indicator[data-finish="gold"] { border-color: #d4af37; color: #f5d76e; }
+.finish-indicator[data-finish="ghost"] { border-color: #94a3b8; color: #e2e8f0; }
+.finish-indicator[data-finish="diamond"] { border-color: #7dd3fc; color: #e0f7ff; }
+.finish-indicator[data-finish="rainbow"] { border-color: #ff6ec7; color: #ffd6ec; }
+
+/* Effet visuel applique directement sur la vignette/la modale, par-dessus
+   l'image (voir .collection-card { position:relative; overflow:hidden } et
+   .card-modal ci-dessous) : un halo qui suit le curseur (--shine-x/--shine-y,
+   poses par attachTilt() dans collection.js), plus une bordure/lueur propre
+   a chaque palier. mix-blend-mode + opacite faible : la carte reste lisible,
+   l'effet est une texture en plus, jamais un filtre qui masque l'oeuvre. */
+.card-modal { position: relative; }
+.collection-card[data-finish]:not([data-finish="normal"])::after,
+.card-modal[data-finish]:not([data-finish="normal"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.collection-card[data-finish="holo"],
+.card-modal[data-finish="holo"] { border-color: #a78bfa !important; }
+.collection-card[data-finish="holo"]::after,
+.card-modal[data-finish="holo"]::after {
+  background: radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(196,181,253,0.55), rgba(103,232,249,0.3) 40%, transparent 70%);
+  mix-blend-mode: screen;
+}
+
+.collection-card[data-finish="gold"],
+.card-modal[data-finish="gold"] { border-color: #d4af37 !important; box-shadow: 0 0 16px rgba(212,175,55,0.35); }
+.collection-card[data-finish="gold"]::after,
+.card-modal[data-finish="gold"]::after {
+  background: linear-gradient(135deg, rgba(255,223,120,0.4), transparent 60%);
+  mix-blend-mode: overlay;
+}
+
+.collection-card[data-finish="ghost"] img,
+.card-modal[data-finish="ghost"] img { filter: saturate(0.55) brightness(1.1); }
+.collection-card[data-finish="ghost"],
+.card-modal[data-finish="ghost"] { border-color: #94a3b8 !important; }
+.collection-card[data-finish="ghost"]::after,
+.card-modal[data-finish="ghost"]::after {
+  background: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(148,163,184,0.08));
+  mix-blend-mode: screen;
+}
+
+.collection-card[data-finish="diamond"],
+.card-modal[data-finish="diamond"] { border-color: #7dd3fc !important; box-shadow: 0 0 18px rgba(125,211,252,0.45); }
+.collection-card[data-finish="diamond"]::after,
+.card-modal[data-finish="diamond"]::after {
+  background: radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(255,255,255,0.85), rgba(125,211,252,0.35) 30%, transparent 65%);
+  mix-blend-mode: screen;
+}
+
+.collection-card[data-finish="rainbow"],
+.card-modal[data-finish="rainbow"] { border-color: #ff6ec7 !important; box-shadow: 0 0 20px rgba(255,110,199,0.4); }
+.collection-card[data-finish="rainbow"]::after,
+.card-modal[data-finish="rainbow"]::after {
+  background: linear-gradient(120deg, #ff6ec7, #ffd76e, #7dd3fc, #a78bfa, #ff6ec7);
+  background-size: 300% 300%;
+  opacity: 0.4;
+  mix-blend-mode: color-dodge;
+  animation: finish-rainbow-shift 4s linear infinite;
+}
+@keyframes finish-rainbow-shift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .collection-card[data-finish="rainbow"]::after,
+  .card-modal[data-finish="rainbow"]::after { animation: none; }
+}
+
 .altar-picker { margin-top: 14px; }
 .altar-picker-list {
   display: flex;
@@ -2666,6 +2824,24 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 }
 .profile-meta { color: var(--text-dim); font-size: 0.85rem; margin: 4px 0 0; }
 
+.profile-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Niveaux de profil : pastille discrete, jamais un chiffre isole sans
+   contexte - toujours "Niv. X" pour rester lisible hors contexte (partage,
+   capture d'ecran). */
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #0d0f1a;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* Mini-grille des cartes recherchees (wishlist) sur le profil public : plus
    petite que la grille de collection, juste de quoi reperer une carte. */
 .wishlist-mini-grid {
@@ -2690,6 +2866,50 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+/* Vitrine de profil : jusqu'a 5 cartes choisies par le joueur, mises en
+   avant en plus grand que la mini-grille de wishlist - c'est la premiere
+   chose qu'un visiteur doit remarquer sur le profil, avant la collection
+   complete plus bas. */
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 14px;
+  margin: 12px 0 4px;
+}
+.showcase-card {
+  border-radius: 12px;
+  border: 2px solid var(--border-soft);
+  overflow: hidden;
+  background: var(--bg-panel-2);
+  box-shadow: 0 10px 26px -14px rgba(139, 92, 246, 0.55);
+}
+.showcase-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+.showcase-card-name {
+  padding: 6px 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Badges de sets complets (bonus de sets complets) : une pastille doree par
+   extension entierement collectionnee, affichee sous l'en-tete de profil. */
+.set-badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.set-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(245,165,36,0.22), rgba(255,209,102,0.14));
+  border: 1px solid var(--rarity-legendaire);
+  color: var(--text);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 /* ========================================================================
