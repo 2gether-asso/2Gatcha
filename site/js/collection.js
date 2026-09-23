@@ -16,6 +16,28 @@ const FAVORITES_KEY = "2gatcha_favorites";
 // pour cette carte (un collectionneur montre sa plus belle version).
 const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
 const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+// Pochettes de cartes (sleeves) : verrouillees/deverrouillees selon le
+// niveau de profil (Users.XP). Si la pochette choisie precedemment devient
+// injoignable (ne devrait pas arriver, le niveau ne redescend jamais), on
+// revient silencieusement au style par defaut plutot que de rester bloque
+// sur un etat incoherent.
+function refreshSleeveLocks(level) {
+  const prefs = loadPrefs();
+  let currentIsLocked = false;
+  document.querySelectorAll(".sleeve-swatch").forEach((sw) => {
+    const required = Number(sw.dataset.level) || 1;
+    const locked = level < required;
+    sw.classList.toggle("locked", locked);
+    sw.title = locked ? `Débloqué au niveau ${required}` : "";
+    if (locked && sw.dataset.sleeve === (prefs.sleeve || "")) currentIsLocked = true;
+  });
+  if (currentIsLocked) {
+    delete document.body.dataset.sleeve;
+    savePrefs({ sleeve: "" });
+    document.querySelectorAll(".sleeve-swatch").forEach((s) => s.classList.toggle("active", !s.dataset.sleeve));
+  }
+}
+
 function bestFinish(finishCounts) {
   if (!finishCounts) return "normal";
   for (let i = FINISH_ORDER.length - 1; i >= 0; i--) {
@@ -80,6 +102,7 @@ let wishlistSet = new Set();
 // offrir dans l'echange rapide (openQuickTrade).
 let showcaseSet = new Set();
 let ownedCopiesByCard = new Map();
+let currentPlayerLevel = 1;
 let activeFilter = "all";
 let searchQuery = "";
 // Tri/vue memorises d'une visite a l'autre : pas de raison de refaire le
@@ -367,7 +390,7 @@ async function craftCardQuick(cardId) {
   }
 }
 
-async function disenchantCardQuick(cardId) {
+async function disenchantCardQuick(cardId, btn) {
   const card = allCardsCache.find((c) => c.cardId === cardId);
   const info = craftCostByCard.get(cardId);
   const dust = info?.disenchantValue || 0;
@@ -380,6 +403,7 @@ async function disenchantCardQuick(cardId) {
   try {
     const res = await API.disenchantCard(Session.userId, cardId);
     Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
+    await playDustDissolve(btn ? btn.closest(".collection-card") : null);
     stardustBalance = res.newStardust ?? (stardustBalance + dust);
     const owned = ownedMap.get(cardId);
     if (owned) {
@@ -512,6 +536,10 @@ const SHOWCASE_ERRORS_LOCAL = {
 };
 
 async function toggleShowcase(cardId, btn) {
+  if (currentPlayerLevel < FEATURE_UNLOCK_LEVEL.showcase) {
+    Toast.info(`${FEATURE_LABELS.showcase} se débloque au niveau ${FEATURE_UNLOCK_LEVEL.showcase} (tu es niveau ${currentPlayerLevel}).`);
+    return;
+  }
   const wasIn = showcaseSet.has(cardId);
   try {
     if (wasIn) {
@@ -726,7 +754,7 @@ function renderGrid() {
     btn.addEventListener("click", (e) => { e.stopPropagation(); craftCardQuick(Number(btn.dataset.cardId)); });
   });
   container.querySelectorAll(".quick-disenchant-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => { e.stopPropagation(); disenchantCardQuick(Number(btn.dataset.cardId)); });
+    btn.addEventListener("click", (e) => { e.stopPropagation(); disenchantCardQuick(Number(btn.dataset.cardId), btn); });
   });
   container.querySelectorAll(".quick-trade-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); openQuickTrade(Number(btn.dataset.cardId)); });
@@ -777,6 +805,12 @@ async function loadCollection() {
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
     ownedCopiesByCard = new Map((res.owned || []).map((o) => [o.cardId, o.copies || []]));
     stardustBalance = statusRes.stardust || 0;
+    // Pochettes de cartes (sleeves) et vitrine : debloquees par niveau de
+    // profil, on ne connait le vrai niveau qu'une fois booster-status
+    // charge ici.
+    currentPlayerLevel = statusRes.xp?.level || 1;
+    knownProfileLevel = currentPlayerLevel;
+    refreshSleeveLocks(currentPlayerLevel);
     craftCostByCard = new Map((cardsRes.cards || []).map((c) => [c.cardId, c.rarity]));
     wishlistSet = new Set((wishlistRes.wishlist || []).map((w) => w.cardId));
     showcaseSet = new Set((showcaseRes.showcase || []).map((s) => s.cardId));
@@ -839,6 +873,44 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.classList.add("hide-stats");
     applyStatsToggleLabel(true);
   }
+  // Classeur personnalisable : couleur d'accent du classeur (halo au survol,
+  // bordures actives...), purement visuelle et propre a ce navigateur.
+  if (prefs.binderAccent) {
+    document.documentElement.style.setProperty("--binder-accent", prefs.binderAccent);
+    document.querySelectorAll(".binder-swatch").forEach((sw) => {
+      sw.classList.toggle("active", sw.dataset.accent === prefs.binderAccent);
+    });
+  }
+  document.querySelectorAll(".binder-swatch").forEach((sw) => {
+    sw.addEventListener("click", () => {
+      const accent = sw.dataset.accent;
+      if (accent) document.documentElement.style.setProperty("--binder-accent", accent);
+      else document.documentElement.style.removeProperty("--binder-accent");
+      savePrefs({ binderAccent: accent });
+      document.querySelectorAll(".binder-swatch").forEach((s) => s.classList.toggle("active", s === sw));
+    });
+  });
+
+  // Pochettes de cartes (sleeves) : appliquees tout de suite depuis le
+  // cache local ; refreshSleeveLocks() (appele une fois le vrai niveau
+  // connu, dans loadCollection) verrouille celles pas encore debloquees.
+  if (prefs.sleeve) {
+    document.body.dataset.sleeve = prefs.sleeve;
+    document.querySelectorAll(".sleeve-swatch").forEach((s) => s.classList.toggle("active", s.dataset.sleeve === prefs.sleeve));
+  }
+  document.querySelectorAll(".sleeve-swatch").forEach((sw) => {
+    sw.addEventListener("click", () => {
+      if (sw.classList.contains("locked")) {
+        Toast.info(`Pochette débloquée au niveau ${sw.dataset.level}.`);
+        return;
+      }
+      const sleeve = sw.dataset.sleeve;
+      if (sleeve) document.body.dataset.sleeve = sleeve;
+      else delete document.body.dataset.sleeve;
+      savePrefs({ sleeve });
+      document.querySelectorAll(".sleeve-swatch").forEach((s) => s.classList.toggle("active", s === sw));
+    });
+  });
 
   loadCollection();
 
@@ -906,7 +978,9 @@ document.addEventListener("DOMContentLoaded", () => {
     favoritesOnly = false;
     artistFilter = "";
     document.body.classList.remove("dense-view", "cinema-mode", "hide-stats");
-    savePrefs({ sortMode, missingOnly, denseView: false, hideStats: false });
+    document.documentElement.style.removeProperty("--binder-accent");
+    document.querySelectorAll(".binder-swatch").forEach((s) => s.classList.toggle("active", !s.dataset.accent));
+    savePrefs({ sortMode, missingOnly, denseView: false, hideStats: false, binderAccent: "" });
 
     document.getElementById("search-input").value = "";
     document.getElementById("sort-select").value = sortMode;

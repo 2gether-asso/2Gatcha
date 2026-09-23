@@ -252,6 +252,10 @@ const API = {
     return this.post("foilUpgrade", { userId, cardId, fromFinish });
   },
 
+  unlockSecret(userId) {
+    return this.post("unlockSecret", { userId });
+  },
+
   getQuestStatus(userId) {
     return this.post("quests", { userId });
   }

@@ -58,6 +58,23 @@
           <button type="button" class="btn-ghost" id="reset-filters-btn">Réinitialiser</button>
         </div>
 
+        <div class="binder-accent-row" id="binder-accent-row" title="Personnalise la couleur d'accent de ton classeur">
+          <span class="binder-accent-label">Classeur :</span>
+          <button type="button" class="binder-swatch active" data-accent="" style="--swatch-color:#8b5cf6;" aria-label="Accent violet (défaut)"></button>
+          <button type="button" class="binder-swatch" data-accent="#22d3ee" style="--swatch-color:#22d3ee;" aria-label="Accent cyan"></button>
+          <button type="button" class="binder-swatch" data-accent="#f472b6" style="--swatch-color:#f472b6;" aria-label="Accent rose"></button>
+          <button type="button" class="binder-swatch" data-accent="#4ade80" style="--swatch-color:#4ade80;" aria-label="Accent vert"></button>
+          <button type="button" class="binder-swatch" data-accent="#f5a524" style="--swatch-color:#f5a524;" aria-label="Accent doré"></button>
+        </div>
+
+        <div class="sleeve-row" id="sleeve-row" title="Pochettes de cartes : débloquées en montant de niveau">
+          <span class="binder-accent-label">Pochettes :</span>
+          <button type="button" class="sleeve-swatch active" data-sleeve="" data-level="1">Défaut</button>
+          <button type="button" class="sleeve-swatch" data-sleeve="neon" data-level="4">Néon</button>
+          <button type="button" class="sleeve-swatch" data-sleeve="vintage" data-level="6">Vintage</button>
+          <button type="button" class="sleeve-swatch" data-sleeve="carbone" data-level="10">Carbone</button>
+        </div>
+
         <div id="collection-grid"></div>
       </div>
     </div>

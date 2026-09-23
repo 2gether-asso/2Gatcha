@@ -540,6 +540,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("guest-warning").style.display = "block";
     return;
   }
+
+  const level = await fetchMyLevel();
+  if (level < FEATURE_UNLOCK_LEVEL.trade) {
+    const zone = document.getElementById("trade-zone");
+    zone.style.display = "block";
+    renderFeatureLockedMessage(zone, "trade", level);
+    return;
+  }
+
   document.getElementById("trade-zone").style.display = "block";
 
   try {

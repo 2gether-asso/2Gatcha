@@ -57,6 +57,44 @@
       }
     },
     {
+      "id": "barrier-quests-users",
+      "name": "Sync Get Daily Quests -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1060,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-users-quests",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1020,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
       "id": "compute-quest-update",
       "name": "Compute Quest Update",
       "type": "n8n-nodes-base.code",
@@ -67,7 +105,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === cfg.userId && toDateStr(r.Date) === cfg.today);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\n// Le simple fait de consulter ses quetes du jour compte comme \"se connecter\".\nflags.LoginDone = true;\n\nconst completedCount = ['LoginDone', 'CraftDone', 'TradeDone', 'OpenBoosterDone'].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 2 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId: cfg.docId, userId: cfg.userId, today: cfg.today, rowId: row ? row.id : null, exists: !!row, completedCount, shouldGrantReward, ...flags } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === cfg.userId && toDateStr(r.Date) === cfg.today);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\n// Le simple fait de consulter ses quetes du jour compte comme \"se connecter\".\nflags.LoginDone = true;\n\nconst completedCount = ['LoginDone', 'CraftDone', 'TradeDone', 'OpenBoosterDone'].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 2 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\n// Serie de connexion : seule la PREMIERE consultation des quetes du jour\n// (donc pas de ligne DailyQuests pour aujourd'hui avant cet appel) fait\n// avancer la serie - sinon rafraichir la page 10 fois ferait avancer la\n// serie 10 fois. Recompenses de plus en plus rares au fil de la\n// semaine/mois (paliers fixes, pas de config admin pour l'instant).\nconst isFirstLoginToday = !row;\nlet newStreak = user ? (user.LoginStreak || 0) : 0;\nlet streakBonus = 0;\nif (isFirstLoginToday) {\n  function addDaysUTC(dateStr, delta) {\n    const d = new Date(dateStr + 'T00:00:00Z');\n    d.setUTCDate(d.getUTCDate() + delta);\n    return d.toISOString().slice(0, 10);\n  }\n  const yesterday = addDaysUTC(cfg.today, -1);\n  const lastLogin = user ? user.LastLoginDate : null;\n  if (lastLogin === yesterday) newStreak = (user.LoginStreak || 0) + 1;\n  else if (lastLogin === cfg.today) newStreak = user.LoginStreak || 0;\n  else newStreak = 1;\n\n  if (newStreak === 3) streakBonus = 1;\n  else if (newStreak === 7) streakBonus = 2;\n  else if (newStreak === 14) streakBonus = 3;\n  else if (newStreak >= 30 && newStreak % 30 === 0) streakBonus = 5;\n}\n\n// Un seul cumul, une seule ecriture Users plus bas (voir Update User) :\n// jamais deux updates paralleles sur BoosterCount dans la meme execution,\n// qui s'ecraseraient l'un l'autre (chacun partirait de la meme valeur de\n// depart sans voir l'ecriture de l'autre).\nconst questBonusBoosters = shouldGrantReward ? 2 : 0;\nconst totalBonusBoosters = questBonusBoosters + streakBonus;\nconst newBoosterCount = (user ? (user.BoosterCount || 0) : 0) + totalBonusBoosters;\nconst needsUserUpdate = isFirstLoginToday || shouldGrantReward;\n\nreturn [{ json: { docId: cfg.docId, userId: cfg.userId, today: cfg.today, rowId: row ? row.id : null, exists: !!row, completedCount, shouldGrantReward, newStreak, streakBonus, isFirstLoginToday, needsUserUpdate, newBoosterCount, ...flags } }];"
       }
     },
     {
@@ -203,8 +241,8 @@
       }
     },
     {
-      "id": "if-should-grant",
-      "name": "If Should Grant Reward",
+      "id": "if-needs-user-update",
+      "name": "If Needs User Update",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -220,7 +258,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $('Compute Quest Update').first().json.shouldGrantReward }}",
+              "leftValue": "={{ $('Compute Quest Update').first().json.needsUserUpdate }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -234,36 +272,12 @@
       }
     },
     {
-      "id": "get-user-for-reward",
-      "name": "Get User For Reward",
-      "type": "n8n-nodes-base.grist",
-      "typeVersion": 1,
-      "alwaysOutputData": true,
-      "position": [
-        -220,
-        320
-      ],
-      "parameters": {
-        "operation": "getAll",
-        "docId": "={{ $('Compute Quest Update').first().json.docId }}",
-        "tableId": "Users",
-        "returnAll": true,
-        "additionalOptions": {}
-      },
-      "credentials": {
-        "gristApi": {
-          "id": "Yoc8FS9lCXpWBRrk",
-          "name": "Grist account"
-        }
-      }
-    },
-    {
-      "id": "grant-booster",
-      "name": "Grant Booster",
+      "id": "update-user-quests",
+      "name": "Update User",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "position": [
-        -40,
+        -160,
         320
       ],
       "parameters": {
@@ -276,7 +290,15 @@
           "properties": [
             {
               "fieldId": "BoosterCount",
-              "fieldValue": "={{ ($('Get User For Reward').all().map(i => i.json).find(u => u.id === $('Compute Quest Update').first().json.userId).BoosterCount || 0) + 2 }}"
+              "fieldValue": "={{ $('Compute Quest Update').first().json.newBoosterCount }}"
+            },
+            {
+              "fieldId": "LoginStreak",
+              "fieldValue": "={{ $('Compute Quest Update').first().json.newStreak }}"
+            },
+            {
+              "fieldId": "LastLoginDate",
+              "fieldValue": "={{ $('Compute Quest Update').first().json.today }}"
             }
           ]
         }
@@ -299,7 +321,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const q = $('Compute Quest Update').first().json;\nreturn [{ json: {\n  quests: {\n    login: q.LoginDone,\n    craft: q.CraftDone,\n    trade: q.TradeDone,\n    openBooster: q.OpenBoosterDone\n  },\n  completedCount: q.completedCount,\n  rewardClaimed: q.RewardClaimed,\n  justClaimedReward: q.shouldGrantReward\n} }];"
+        "jsCode": "const q = $('Compute Quest Update').first().json;\nreturn [{ json: {\n  quests: {\n    login: q.LoginDone,\n    craft: q.CraftDone,\n    trade: q.TradeDone,\n    openBooster: q.OpenBoosterDone\n  },\n  completedCount: q.completedCount,\n  rewardClaimed: q.RewardClaimed,\n  justClaimedReward: q.shouldGrantReward,\n  streak: { current: q.newStreak, bonusBoosters: q.streakBonus, isNewToday: q.isFirstLoginToday }\n} }];"
       }
     },
     {
@@ -345,6 +367,28 @@
       "main": [
         [
           {
+            "node": "Sync Get Daily Quests -> Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Daily Quests -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
             "node": "Compute Quest Update",
             "type": "main",
             "index": 0
@@ -385,7 +429,7 @@
       "main": [
         [
           {
-            "node": "If Should Grant Reward",
+            "node": "If Needs User Update",
             "type": "main",
             "index": 0
           }
@@ -396,18 +440,18 @@
       "main": [
         [
           {
-            "node": "If Should Grant Reward",
+            "node": "If Needs User Update",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If Should Grant Reward": {
+    "If Needs User Update": {
       "main": [
         [
           {
-            "node": "Get User For Reward",
+            "node": "Update User",
             "type": "main",
             "index": 0
           }
@@ -421,18 +465,7 @@
         ]
       ]
     },
-    "Get User For Reward": {
-      "main": [
-        [
-          {
-            "node": "Grant Booster",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Grant Booster": {
+    "Update User": {
       "main": [
         [
           {

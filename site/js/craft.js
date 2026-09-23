@@ -74,7 +74,24 @@ function renderCraftFilters() {
   });
 }
 
+// Onglets qui debloquent progressivement avec le niveau (voir main.js,
+// FEATURE_UNLOCK_LEVEL) : Decraft reste toujours disponible, c'est la porte
+// d'entree vers Craft.
+function applyFeatureLocks() {
+  ["craft", "altar", "finish"].forEach((key) => {
+    const btn = document.getElementById(`tab-${key}-btn`);
+    if (!btn) return;
+    const locked = knownProfileLevel < FEATURE_UNLOCK_LEVEL[key];
+    btn.classList.toggle("locked", locked);
+    btn.title = locked ? `Débloqué au niveau ${FEATURE_UNLOCK_LEVEL[key]}` : "";
+  });
+}
+
 function setActiveTab(tab) {
+  if (FEATURE_UNLOCK_LEVEL[tab] && knownProfileLevel < FEATURE_UNLOCK_LEVEL[tab]) {
+    Toast.info(`${FEATURE_LABELS[tab]} se débloque au niveau ${FEATURE_UNLOCK_LEVEL[tab]} (tu es niveau ${knownProfileLevel}).`);
+    return;
+  }
   activeTab = tab;
   document.getElementById("tab-disenchant-btn").classList.toggle("active", tab === "disenchant");
   document.getElementById("tab-disenchant-btn").setAttribute("aria-selected", String(tab === "disenchant"));
@@ -427,7 +444,7 @@ function renderDisenchantGrid() {
     ? disenchantable.map((c) => craftCardTile(c, "disenchant")).join("")
     : `<div class="empty-state">Aucune carte decraftable ne correspond.</div>`;
   grid.querySelectorAll(".disenchant-btn").forEach((btn) => {
-    btn.addEventListener("click", () => disenchant(Number(btn.dataset.cardId)));
+    btn.addEventListener("click", () => disenchant(Number(btn.dataset.cardId), btn));
   });
   grid.querySelectorAll("[data-bulk-id]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
@@ -503,7 +520,7 @@ function renderCraftGrid() {
   });
 }
 
-async function disenchant(cardId) {
+async function disenchant(cardId, btn) {
   const card = allCards.find((c) => c.cardId === cardId);
   const dust = card?.rarity?.disenchantValue || 0;
   const ok = await Confirm.show(
@@ -515,6 +532,7 @@ async function disenchant(cardId) {
   try {
     const res = await API.disenchantCard(Session.userId, cardId);
     Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
+    await playDustDissolve(btn ? btn.closest(".craft-card") : null);
     await reload();
   } catch (e) {
     Toast.error(DISENCHANT_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
@@ -554,8 +572,11 @@ async function reload() {
     allCards = cardsRes.cards || [];
     ownedMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o]));
     // Craft/decraft/autel accordent de l'XP (niveaux de profil) : rafraichit
-    // le badge de niveau dans le header, pas seulement le solde de cette page.
+    // le badge de niveau dans le header, et deverrouille immediatement un
+    // onglet si ce craft/decraft vient de faire passer un palier de niveau.
     loadHeaderBoosterBadge();
+    if (status.xp) knownProfileLevel = status.xp.level;
+    applyFeatureLocks();
 
     renderCraftFilters();
     renderDisenchantGrid();
@@ -570,12 +591,14 @@ async function reload() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
     return;
   }
   document.getElementById("craft-zone").style.display = "block";
+  await fetchMyLevel();
+  applyFeatureLocks();
   setActiveTab("disenchant");
   reload();
 

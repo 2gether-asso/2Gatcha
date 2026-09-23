@@ -43,6 +43,7 @@ window.APP_CONFIG = {
     achievements: "/achievements",    // GET ?userId=... -> { achievements: [{key,icon,name,description,unlocked,progress,goal}], unlockedCount, totalCount }
     pullLog: "/pull-log",             // GET ?userId=... -> { log: [{cardId,cardName,imageId,rarity,extension,source,obtainedAt}], total }
     showcase: "/showcase",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { showcase } (max 5 cartes, affichees sur le profil public)
-    foilUpgrade: "/foil-upgrade"       // POST { userId, cardId, fromFinish } -> { upgraded, cardId, fromFinish, toFinish, serialNumber, maxSerial } | { error }
+    foilUpgrade: "/foil-upgrade",      // POST { userId, cardId, fromFinish } -> { upgraded, cardId, fromFinish, toFinish, serialNumber, maxSerial } | { error }
+    unlockSecret: "/unlock-secret"     // POST { userId } -> { unlocked, card, serialNumber, maxSerial } | { error: 'no_secret_available' }
   }
 };

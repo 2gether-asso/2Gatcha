@@ -1,3 +1,85 @@
+// ---------------------------------------------------------------------------
+// Themes de couleur : purement cosmetique, debloques par niveau de profil
+// (voir Users.XP). Applique via [data-theme] sur <html>, qui redefinit les
+// variables de :root (voir style.css) - aucune regle ailleurs dans la
+// feuille de style n'a besoin d'etre touchee, tout passe deja par var(...).
+// Sauvegarde/lecture en localStorage uniquement (preference d'affichage
+// pure, jamais lue par le serveur).
+// ---------------------------------------------------------------------------
+const THEME_ORDER = ["default", "monochrome", "sepia", "cyberpunk"];
+const THEME_LABELS = { default: "Nébuleuse (défaut)", monochrome: "Monochrome", sepia: "Sépia", cyberpunk: "Cyberpunk" };
+const THEME_UNLOCK_LEVEL = { default: 1, monochrome: 3, sepia: 5, cyberpunk: 8 };
+let knownProfileLevel = 1;
+
+// ---------------------------------------------------------------------------
+// Progression par niveaux : au-dela du simple booster bonus, les premiers
+// niveaux debloquent de nouveaux systemes de jeu, un a la fois, plutot que
+// de tout donner d'un coup a l'inscription (aide aussi a l'onboarding - un
+// nouveau joueur n'est pas noye sous 6 pages/onglets des le premier jour).
+// Decraft reste toujours disponible (c'est la porte d'entree vers Craft).
+// ---------------------------------------------------------------------------
+const FEATURE_UNLOCK_LEVEL = { craft: 2, trade: 3, altar: 4, finish: 5, showcase: 6 };
+const FEATURE_LABELS = { craft: "Crafter des cartes", trade: "Les échanges", altar: "L'autel de sacrifice", finish: "Les finitions (fusion de cartes)", showcase: "La vitrine de profil" };
+
+// Toujours une requete fraiche (pas le cache de knownProfileLevel, qui peut
+// etre perime/pas encore charge selon la page et l'ordre d'execution) :
+// c'est un appel leger deja utilise partout (booster-status), pas cher a
+// refaire au chargement d'une page qui a besoin de verifier un niveau.
+async function fetchMyLevel() {
+  try {
+    const res = await API.getBoosterStatus(Session.userId);
+    knownProfileLevel = res.xp?.level || 1;
+  } catch (e) { /* reste sur la derniere valeur connue */ }
+  return knownProfileLevel;
+}
+
+// Message plein-panneau reutilisable pour une page/section entiere
+// verrouillee (contrairement a un simple toast, pour un onglet individuel -
+// voir craft.js/collection.js).
+function renderFeatureLockedMessage(container, featureKey, level) {
+  const required = FEATURE_UNLOCK_LEVEL[featureKey] || 1;
+  container.innerHTML = `
+    <div class="empty-state feature-locked">
+      &#128274; <strong>${FEATURE_LABELS[featureKey] || "Cette fonctionnalité"}</strong> se débloque au niveau ${required}.
+      Tu es actuellement niveau ${level}. Continue à ouvrir des boosters, crafter et échanger pour monter de niveau !
+    </div>
+  `;
+}
+
+function applyTheme(theme) {
+  if (theme === "default") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  try { localStorage.setItem("2gatcha_theme", theme); } catch (e) {}
+}
+
+// Applique immediatement le theme sauvegarde, avant meme DOMContentLoaded,
+// pour limiter le flash du theme par defaut au chargement.
+(function initTheme() {
+  try {
+    const saved = localStorage.getItem("2gatcha_theme");
+    if (saved && saved !== "default") document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) {}
+})();
+
+// Un simple bouton qui fait defiler les themes debloques (pas de picker
+// dedie) : plus rapide a decouvrir, et le niveau requis est annonce des
+// qu'on tombe sur un theme encore verrouille.
+function cycleTheme() {
+  let current = "default";
+  try { current = localStorage.getItem("2gatcha_theme") || "default"; } catch (e) {}
+  let idx = THEME_ORDER.indexOf(current);
+  for (let i = 0; i < THEME_ORDER.length; i++) {
+    idx = (idx + 1) % THEME_ORDER.length;
+    const candidate = THEME_ORDER[idx];
+    if (THEME_UNLOCK_LEVEL[candidate] <= knownProfileLevel) {
+      applyTheme(candidate);
+      Toast.info(`Thème : ${THEME_LABELS[candidate]}`);
+      return;
+    }
+  }
+  Toast.info(`Prochain thème débloqué au niveau ${Math.min(...Object.values(THEME_UNLOCK_LEVEL).filter((l) => l > knownProfileLevel))}.`);
+}
+
 // Image grise affichee quand une carte n'a pas (encore) d'image en piece jointe.
 const PLACEHOLDER_IMG =
   "data:image/svg+xml;utf8," +
@@ -483,6 +565,21 @@ function spawnRarityBurst(key, colorHex, originEl) {
   }
 }
 
+// Dissolution "poussiere d'etoile" a la destruction d'une carte (decraft) :
+// reutilise le meme systeme de particules que les reveals (spawnRarityBurst,
+// teinte poussiere plutot que couleur de rarete), plus une brève animation
+// de la vignette elle-meme (retrecit + se floute) avant que la grille ne se
+// rafraichisse. Attend la fin de l'animation pour laisser le temps au joueur
+// de la voir avant que reload() ne remplace le DOM.
+function playDustDissolve(el) {
+  return new Promise((resolve) => {
+    if (!el) { resolve(); return; }
+    spawnRarityBurst("rare", "#c9b8ff", el);
+    el.classList.add("dust-dissolve");
+    setTimeout(resolve, 380);
+  });
+}
+
 // Echap ferme la modal la plus recente ouverte (zoom carte, ouverture de
 // booster si elle n'est pas en train de jouer une animation bloquante).
 document.addEventListener("keydown", (e) => {
@@ -499,6 +596,42 @@ document.addEventListener("keydown", (e) => {
     syncScrollLock();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Easter egg : le code Konami (haut haut bas bas gauche droite gauche droite
+// B A) débloque une carte secrète (Cards.IsSecret), n'importe ou sur le
+// site. Purement cache, aucun indice visuel - c'est le principe.
+// ---------------------------------------------------------------------------
+const KONAMI_CODE = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+let konamiProgress = 0;
+document.addEventListener("keydown", (e) => {
+  if (!Session.isLoggedIn()) return;
+  const expected = KONAMI_CODE[konamiProgress];
+  const matches = expected.length === 1 ? e.key.toLowerCase() === expected : e.key === expected;
+  if (matches) {
+    konamiProgress++;
+    if (konamiProgress === KONAMI_CODE.length) {
+      konamiProgress = 0;
+      triggerSecretUnlock();
+    }
+  } else {
+    konamiProgress = e.key === KONAMI_CODE[0] ? 1 : 0;
+  }
+});
+
+async function triggerSecretUnlock() {
+  try {
+    const res = await API.unlockSecret(Session.userId);
+    if (res.unlocked) {
+      Toast.success(`Carte secrète débloquée : ${res.card.name} !`);
+      if (typeof confetti === "function") confetti({ particleCount: 200, spread: 160, origin: { y: 0.5 } });
+      spawnRarityBurst("legendaire", "#f5a524", null);
+      Sfx.reveal("legendaire");
+    }
+  } catch (e) {
+    Toast.info(e.code === "no_secret_available" ? "Tu as déjà tout trouvé ici..." : "Rien de spécial ne s'est passé.");
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Verrouillage du scroll de la page pendant qu'une modale plein écran est
@@ -699,6 +832,7 @@ function renderHeader() {
               <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}">&#128100; Voir mon profil</a>
               <button id="copy-profile-link-btn" type="button">&#128279; Copier le lien de mon profil</button>
               <button id="mute-toggle-btn" type="button">${Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif"}</button>
+              <button id="theme-cycle-btn" type="button">&#127912; Changer de thème</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button">&#10162; Déconnexion</button>
             </div>
@@ -719,6 +853,7 @@ function renderHeader() {
       e.target.innerHTML = Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif";
       if (!Sfx.muted) Sfx.click();
     });
+    document.getElementById("theme-cycle-btn").addEventListener("click", cycleTheme);
     document.getElementById("copy-profile-link-btn").addEventListener("click", async () => {
       const url = window.location.origin + window.location.pathname.replace(/[^/]*$/, "") +
         "profile.html?pseudo=" + encodeURIComponent(Session.pseudo || "");
@@ -807,6 +942,7 @@ async function loadHeaderBoosterBadge() {
       bumpNumber(dustEl, status.stardust || 0);
     }
 
+    if (status.xp) knownProfileLevel = status.xp.level;
     if (levelBadge && status.xp) {
       levelBadge.textContent = `Niv. ${status.xp.level}`;
       levelBadge.title = `Niveau ${status.xp.level} — ${status.xp.xpIntoLevel}/${status.xp.xpForNextLevel} XP vers le niveau suivant`;

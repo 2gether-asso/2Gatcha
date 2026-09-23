@@ -683,6 +683,11 @@ function openModalFor(extensionId) {
   const hint = document.getElementById("booster-hint");
 
   grid.innerHTML = "";
+  // Chaque nouvelle session repart en pile (mode par defaut) - "Tout
+  // révéler" peut la basculer en ligne (voir startOpening), a remettre a
+  // zero avant le prochain booster.
+  grid.classList.remove("row-reveal");
+  grid.classList.add("stacked");
   stackCardEls = [];
   stackIndex = 0;
   const progressEl = document.getElementById("stack-progress");
@@ -848,21 +853,30 @@ async function startOpening(ext) {
       revealAllBtn.className = "btn-secondary";
       revealAllBtn.textContent = "Tout révéler";
       revealAllBtn.addEventListener("click", () => {
-        // Meme en pile, on ne peut révéler qu'une carte a la fois (chacune
-        // doit passer au sommet pour reagir au clic) : on enchaine les
-        // deux taps (reveler puis avancer) de chaque carte a un rythme fixe.
+        // "Tout révéler" bascule la pile en ligne : les cartes se posent
+        // cote a cote (mise en page normale de .reveal-grid, plus de pile)
+        // et se retournent toutes ensemble (léger décalage de quelques ms
+        // entre chacune pour que les sons/effets ne se chevauchent pas
+        // completement), au lieu de l'ancien enchainement carte par carte.
         revealAllBtn.disabled = true;
-        const AUTO_REVEAL_DELAY = 900;
-        const playNext = () => {
-          const active = stackCardEls[stackIndex];
-          if (!active) return;
-          active._flip();
-          setTimeout(() => {
-            active._flip();
-            setTimeout(playNext, 150);
-          }, AUTO_REVEAL_DELAY);
-        };
-        playNext();
+        grid.classList.remove("stacked");
+        grid.classList.add("row-reveal");
+        const progress = document.getElementById("stack-progress");
+        if (progress) progress.textContent = "";
+        // Si le joueur avait deja retourne quelques cartes a la main avant
+        // de cliquer "Tout révéler", elles portent .discarded (envolees sur
+        // le cote, invisibles) : on les remet dans le rang avec les autres.
+        stackCardEls.forEach((el) => {
+          el.classList.remove("discarded");
+          el.style.transform = "";
+          el.dataset.active = "true";
+        });
+        stackCardEls.forEach((el, i) => {
+          if (el.classList.contains("revealed")) return;
+          setTimeout(() => el._flip(), i * 90);
+        });
+        stackIndex = stackCardEls.length;
+        setTimeout(onAllRevealed, stackCardEls.length * 90 + 500);
       });
       grid.after(revealAllBtn);
     } else {
