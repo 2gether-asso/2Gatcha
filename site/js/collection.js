@@ -38,6 +38,20 @@ function refreshSleeveLocks(level) {
   }
 }
 
+// Applique la couleur d'accent choisie a --accent/--accent-2 (au lieu d'une
+// variable a part que presque rien n'utilisait) : boutons actifs, barre de
+// progression, halos au survol suivent tous var(--accent) deja partout dans
+// la feuille de style, donc le changement se voit vraiment.
+function applyBinderAccent(hex) {
+  if (hex) {
+    document.documentElement.style.setProperty("--accent", hex);
+    document.documentElement.style.setProperty("--accent-2", lightenColor(hex, 0.35));
+  } else {
+    document.documentElement.style.removeProperty("--accent");
+    document.documentElement.style.removeProperty("--accent-2");
+  }
+}
+
 function bestFinish(finishCounts) {
   if (!finishCounts) return "normal";
   for (let i = FINISH_ORDER.length - 1; i >= 0; i--) {
@@ -873,10 +887,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.classList.add("hide-stats");
     applyStatsToggleLabel(true);
   }
-  // Classeur personnalisable : couleur d'accent du classeur (halo au survol,
-  // bordures actives...), purement visuelle et propre a ce navigateur.
+  // Classeur personnalisable : la couleur choisie redefinit --accent/--accent-2
+  // eux-memes (pas une variable a part peu utilisee) - ca retente vraiment
+  // les boutons actifs, la barre de progression, les halos, partout sur
+  // cette page. Un simple halo au survol etait invisible en pratique
+  // (retour utilisateur), d'ou ce choix plus radical.
   if (prefs.binderAccent) {
-    document.documentElement.style.setProperty("--binder-accent", prefs.binderAccent);
+    applyBinderAccent(prefs.binderAccent);
     document.querySelectorAll(".binder-swatch").forEach((sw) => {
       sw.classList.toggle("active", sw.dataset.accent === prefs.binderAccent);
     });
@@ -884,8 +901,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".binder-swatch").forEach((sw) => {
     sw.addEventListener("click", () => {
       const accent = sw.dataset.accent;
-      if (accent) document.documentElement.style.setProperty("--binder-accent", accent);
-      else document.documentElement.style.removeProperty("--binder-accent");
+      applyBinderAccent(accent);
       savePrefs({ binderAccent: accent });
       document.querySelectorAll(".binder-swatch").forEach((s) => s.classList.toggle("active", s === sw));
     });
