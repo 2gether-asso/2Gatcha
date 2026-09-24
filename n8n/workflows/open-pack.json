@@ -291,7 +291,7 @@
         192
       ],
       "parameters": {
-        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst status = $('Compute Booster Status').first().json;\nlet pullsSinceTop = status.pullsSinceTop;\nlet totalPulls = status.totalPulls;\n\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active && refId(c.Extension) === config.extensionId && c.IsPromo !== true);\nconst configRows = $('Get Config Table').all().map((i) => i.json).filter((r) => r.id != null);\nconst allPulls = $('Get All Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!cardsRows.length) {\n  throw new Error('Aucune carte tirable pour cette extension (verifie Active/Extension/IsPromo dans Grist)');\n}\n\n// Compteur d'exemplaires 'dans la nature' par carte (Cards.MaxSerial, 100 par\n// defaut), incremente au fil du tirage pour gerer le cas ou la meme carte\n// sort plusieurs fois dans le meme booster.\nconst countByCard = {};\nallPulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\nfunction isAvailable(c) { return (countByCard[c.id] || 0) < (c.MaxSerial || 100); }\n\nlet availableCardsRows = cardsRows.filter(isAvailable);\nif (!availableCardsRows.length) {\n  throw new Error(\"Toutes les cartes de cette extension sont epuisees (limite d'exemplaires atteinte)\");\n}\n\nconst cardsByRarity = {};\nfor (const c of availableCardsRows) {\n  const rId = refId(c.Rarity);\n  if (!cardsByRarity[rId]) cardsByRarity[rId] = [];\n  cardsByRarity[rId].push(c);\n}\n\nlet pityThreshold = Infinity;\nlet topRarityId = null;\nif (configRows.length) {\n  pityThreshold = configRows[0].PityThreshold || Infinity;\n  topRarityId = refId(configRows[0].TopRarity);\n}\n\nfunction weightedPick() {\n  const total = raritiesRows.reduce((s, r) => s + (r.Weight || 0), 0);\n  let roll = Math.random() * total;\n  for (const r of raritiesRows) {\n    roll -= (r.Weight || 0);\n    if (roll <= 0) return r;\n  }\n  return raritiesRows[raritiesRows.length - 1];\n}\n\nconst batchId = `${config.userId}-${Date.now()}`;\nconst nowEpoch = Math.floor(Date.now() / 1000);\nconst drawn = [];\n\nfor (let i = 0; i < config.boosterSize; i++) {\n  pullsSinceTop++;\n  let rarity;\n  if (pullsSinceTop >= pityThreshold && topRarityId) {\n    rarity = raritiesRows.find((r) => r.id === topRarityId) || weightedPick();\n  } else {\n    rarity = weightedPick();\n  }\n  if (rarity.id === topRarityId) pullsSinceTop = 0;\n\n  // Cartes de la rarete tiree qui ne sont pas epuisees ; a defaut, n'importe\n  // quelle carte encore disponible de l'extension (pool de secours).\n  const pool = (cardsByRarity[rarity.id] && cardsByRarity[rarity.id].length) ? cardsByRarity[rarity.id] : availableCardsRows;\n  if (!pool.length) {\n    throw new Error('Plus aucune carte disponible dans cette extension pendant le tirage.');\n  }\n  const card = pool[Math.floor(Math.random() * pool.length)];\n  // La carte piochee peut venir du pool de secours (aucune carte pour la\n  // rarete tiree dans cette extension) : on affiche toujours la VRAIE\n  // rarete de la carte, jamais la rarete tiree.\n  const cardRarity = raritiesRows.find((r) => r.id === refId(card.Rarity)) || rarity;\n\n  const serialNumber = (countByCard[card.id] || 0) + 1;\n  const maxSerial = card.MaxSerial || 100;\n  countByCard[card.id] = serialNumber;\n  // La carte peut atteindre sa limite pendant ce meme booster : on la retire\n  // des pools pour le reste du tirage.\n  if (serialNumber >= maxSerial) {\n    availableCardsRows = availableCardsRows.filter((c) => c.id !== card.id);\n    if (cardsByRarity[cardRarity.id]) {\n      cardsByRarity[cardRarity.id] = cardsByRarity[cardRarity.id].filter((c) => c.id !== card.id);\n    }\n  }\n\n  drawn.push({\n    isFirstEver: !card.FirstObtainedBy,\n    userId: config.userId,\n    extensionId: config.extensionId,\n    inventoryId: status.inventoryId,\n    inventoryExists: status.inventoryExists,\n    cardId: card.id,\n    obtainedAt: nowEpoch,\n    batchId,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity: { id: cardRarity.id, name: cardRarity.Name, key: cardRarity.Key, colorHex: cardRarity.ColorHex },\n    serialNumber,\n    maxSerial\n  });\n}\n\ntotalPulls += config.boosterSize;\n\n// Niveaux de profil : XP gagnee en ouvrant un booster, +1 booster bonus par\n// niveau franchi (peut en franchir plusieurs d'un coup si un gros lot d'XP\n// venait a etre accorde ailleurs).\nfunction levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst XP_PER_BOOSTER_OPEN = 10;\nconst newXp = (status.xp || 0) + XP_PER_BOOSTER_OPEN;\nconst levelsGained = levelForXp(newXp) - levelForXp(status.xp || 0);\nconst newBoosterCount = status.boosterCount - 1 + levelsGained;\n\nreturn drawn.map((d) => ({ json: { ...d, pullsSinceTop, totalPulls, newBoosterCount, newXp, levelsGained } }));"
+        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst status = $('Compute Booster Status').first().json;\nlet pullsSinceTop = status.pullsSinceTop;\nlet totalPulls = status.totalPulls;\n\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active && refId(c.Extension) === config.extensionId && c.IsPromo !== true);\nconst configRows = $('Get Config Table').all().map((i) => i.json).filter((r) => r.id != null);\nconst allPulls = $('Get All Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst finishRows = $('Get Finishes').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!cardsRows.length) {\n  throw new Error('Aucune carte tirable pour cette extension (verifie Active/Extension/IsPromo dans Grist)');\n}\n\n// Compteur d'exemplaires 'dans la nature' par carte (Cards.MaxSerial, 100 par\n// defaut), incremente au fil du tirage pour gerer le cas ou la meme carte\n// sort plusieurs fois dans le meme booster.\nconst countByCard = {};\nallPulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\nfunction isAvailable(c) { return (countByCard[c.id] || 0) < (c.MaxSerial || 100); }\n\nlet availableCardsRows = cardsRows.filter(isAvailable);\nif (!availableCardsRows.length) {\n  throw new Error(\"Toutes les cartes de cette extension sont epuisees (limite d'exemplaires atteinte)\");\n}\n\nconst cardsByRarity = {};\nfor (const c of availableCardsRows) {\n  const rId = refId(c.Rarity);\n  if (!cardsByRarity[rId]) cardsByRarity[rId] = [];\n  cardsByRarity[rId].push(c);\n}\n\nlet pityThreshold = Infinity;\nlet topRarityId = null;\nif (configRows.length) {\n  pityThreshold = configRows[0].PityThreshold || Infinity;\n  topRarityId = refId(configRows[0].TopRarity);\n}\n\n// Deuxieme tirage independant du tirage de rarete : la carte piochee a\n// une chance d'avoir une finition speciale (holo/gold/ghost/diamond/\n// rainbow) plutot que 'normal'. 90% de rester normale, les 10% restants se\n// repartissent entre les finitions selon Finishes.DropWeight (holo la plus\n// commune, rainbow la plus rare - coherent avec l'echelle de fusion de\n// craft.js/foil-upgrade.json).\nconst SPECIAL_FINISH_CHANCE = 0.10;\nconst specialFinishes = finishRows.filter((f) => f.Key !== 'normal' && (f.DropWeight || 0) > 0);\nconst specialWeightTotal = specialFinishes.reduce((s, f) => s + (f.DropWeight || 0), 0);\nfunction rollFinish() {\n  if (!specialFinishes.length || Math.random() >= SPECIAL_FINISH_CHANCE) return 'normal';\n  let roll = Math.random() * specialWeightTotal;\n  for (const f of specialFinishes) {\n    roll -= (f.DropWeight || 0);\n    if (roll <= 0) return f.Key;\n  }\n  return specialFinishes[specialFinishes.length - 1].Key;\n}\n\nfunction weightedPick() {\n  const total = raritiesRows.reduce((s, r) => s + (r.Weight || 0), 0);\n  let roll = Math.random() * total;\n  for (const r of raritiesRows) {\n    roll -= (r.Weight || 0);\n    if (roll <= 0) return r;\n  }\n  return raritiesRows[raritiesRows.length - 1];\n}\n\nconst batchId = `${config.userId}-${Date.now()}`;\nconst nowEpoch = Math.floor(Date.now() / 1000);\nconst drawn = [];\n\nfor (let i = 0; i < config.boosterSize; i++) {\n  pullsSinceTop++;\n  let rarity;\n  if (pullsSinceTop >= pityThreshold && topRarityId) {\n    rarity = raritiesRows.find((r) => r.id === topRarityId) || weightedPick();\n  } else {\n    rarity = weightedPick();\n  }\n  if (rarity.id === topRarityId) pullsSinceTop = 0;\n\n  // Cartes de la rarete tiree qui ne sont pas epuisees ; a defaut, n'importe\n  // quelle carte encore disponible de l'extension (pool de secours).\n  const pool = (cardsByRarity[rarity.id] && cardsByRarity[rarity.id].length) ? cardsByRarity[rarity.id] : availableCardsRows;\n  if (!pool.length) {\n    throw new Error('Plus aucune carte disponible dans cette extension pendant le tirage.');\n  }\n  const card = pool[Math.floor(Math.random() * pool.length)];\n  // La carte piochee peut venir du pool de secours (aucune carte pour la\n  // rarete tiree dans cette extension) : on affiche toujours la VRAIE\n  // rarete de la carte, jamais la rarete tiree.\n  const cardRarity = raritiesRows.find((r) => r.id === refId(card.Rarity)) || rarity;\n\n  const serialNumber = (countByCard[card.id] || 0) + 1;\n  const maxSerial = card.MaxSerial || 100;\n  countByCard[card.id] = serialNumber;\n  // La carte peut atteindre sa limite pendant ce meme booster : on la retire\n  // des pools pour le reste du tirage.\n  if (serialNumber >= maxSerial) {\n    availableCardsRows = availableCardsRows.filter((c) => c.id !== card.id);\n    if (cardsByRarity[cardRarity.id]) {\n      cardsByRarity[cardRarity.id] = cardsByRarity[cardRarity.id].filter((c) => c.id !== card.id);\n    }\n  }\n\n  drawn.push({\n    isFirstEver: !card.FirstObtainedBy,\n    userId: config.userId,\n    extensionId: config.extensionId,\n    inventoryId: status.inventoryId,\n    inventoryExists: status.inventoryExists,\n    cardId: card.id,\n    obtainedAt: nowEpoch,\n    batchId,\n    name: card.Name,\n    artist: card.Artist,\n    description: card.Description,\n    imageId: firstAttachment(card.Image),\n    rarity: { id: cardRarity.id, name: cardRarity.Name, key: cardRarity.Key, colorHex: cardRarity.ColorHex },\n    serialNumber,\n    maxSerial,\n    finish: rollFinish()\n  });\n}\n\ntotalPulls += config.boosterSize;\n\n// Niveaux de profil : XP gagnee en ouvrant un booster, +1 booster bonus par\n// niveau franchi (peut en franchir plusieurs d'un coup si un gros lot d'XP\n// venait a etre accorde ailleurs).\nfunction levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst XP_PER_BOOSTER_OPEN = 10;\nconst newXp = (status.xp || 0) + XP_PER_BOOSTER_OPEN;\nconst levelsGained = levelForXp(newXp) - levelForXp(status.xp || 0);\nconst newBoosterCount = status.boosterCount - 1 + levelsGained;\n\nreturn drawn.map((d) => ({ json: { ...d, pullsSinceTop, totalPulls, newBoosterCount, newXp, levelsGained } }));"
       }
     },
     {
@@ -328,6 +328,10 @@
             {
               "fieldId": "SerialNumber",
               "fieldValue": "={{ $json.serialNumber }}"
+            },
+            {
+              "fieldId": "Finish",
+              "fieldValue": "={{ $json.finish }}"
             }
           ]
         }
@@ -430,7 +434,7 @@
         192
       ],
       "parameters": {
-        "jsCode": "function levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver,\n  serialNumber: i.json.serialNumber,\n  maxSerial: i.json.maxSerial\n}));\nconst last = $('Finalize').first().json;\nreturn [{\n  json: {\n    cards,\n    pity: { pullsSinceTop: last.pullsSinceTop },\n    booster: { extensionId: last.extensionId, count: last.boosterCount },\n    xp: { total: last.xp, level: levelForXp(last.xp), leveledUp: (last.levelsGained || 0) > 0 }\n  }\n}];"
+        "jsCode": "function levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver,\n  serialNumber: i.json.serialNumber,\n  maxSerial: i.json.maxSerial,\n  finish: i.json.finish || 'normal'\n}));\nconst last = $('Finalize').first().json;\nreturn [{\n  json: {\n    cards,\n    pity: { pullsSinceTop: last.pullsSinceTop },\n    booster: { extensionId: last.extensionId, count: last.boosterCount },\n    xp: { total: last.xp, level: levelForXp(last.xp), leveledUp: (last.levelsGained || 0) > 0 }\n  }\n}];"
       }
     },
     {
@@ -947,6 +951,314 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-get",
+      "name": "Quest Weekly OpenBooster: Get Weekly Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        400,
+        1200
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "WeeklyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-compute",
+      "name": "Quest Weekly OpenBooster: Compute Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        1200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nfunction mondayOf(dateStr) {\n  const d = new Date(dateStr + 'T00:00:00Z');\n  const day = d.getUTCDay();\n  const diff = day === 0 ? 6 : day - 1;\n  d.setUTCDate(d.getUTCDate() - diff);\n  return d.toISOString().slice(0, 10);\n}\nconst docId = $('Set Config').first().json.docId;\nconst userId = $('Finalize').first().json.userId;\nconst todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());\nconst weekStart = mondayOf(todayParis);\nconst rows = $('Quest Weekly OpenBooster: Get Weekly Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === userId && toDateStr(r.WeekStart) === weekStart);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\nflags.OpenBoosterDone = true;\n\nconst completedCount = [\"LoginDone\",\"CraftDone\",\"TradeDone\",\"OpenBoosterDone\"].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 3 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId, userId, weekStart, rowId: row ? row.id : null, exists: !!row, shouldGrantReward, ...flags } }];"
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-if-exists",
+      "name": "Quest Weekly OpenBooster: If Row Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        1200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-update",
+      "name": "Quest Weekly OpenBooster: Update Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        1120
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "WeeklyQuests",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-create",
+      "name": "Quest Weekly OpenBooster: Create Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        1280
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "WeeklyQuests",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "WeekStart",
+              "fieldValue": "={{ $json.weekStart }}"
+            },
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-if-grant",
+      "name": "Quest Weekly OpenBooster: If Should Grant",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        1200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Quest Weekly OpenBooster: Compute Update').first().json.shouldGrantReward }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-get-user",
+      "name": "Quest Weekly OpenBooster: Get User For Reward",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1200,
+        1120
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Quest Weekly OpenBooster: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-barrier",
+      "name": "Sync Quest Weekly OpenBooster: Get User -> Grant",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1120
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklyopenbooster-grant",
+      "name": "Quest Weekly OpenBooster: Grant Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        1120
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Quest Weekly OpenBooster: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Quest Weekly OpenBooster: Compute Update').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ ($('Quest Weekly OpenBooster: Get User For Reward').all().map(i => i.json).find(u => u.id === $('Quest Weekly OpenBooster: Compute Update').first().json.userId).BoosterCount || 0) + 5 }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-pulls-finishes",
+      "name": "Sync Get All Pulls -> Get Finishes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        908,
+        332
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-finishes-openpack",
+      "name": "Get Finishes",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        998,
+        332
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Finishes",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -1104,7 +1416,7 @@
       "main": [
         [
           {
-            "node": "Draw Cards",
+            "node": "Sync Get All Pulls -> Get Finishes",
             "type": "main",
             "index": 0
           }
@@ -1170,6 +1482,11 @@
           },
           {
             "node": "Quest OpenBooster: Get Daily Quests",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Quest Weekly OpenBooster: Get Weekly Quests",
             "type": "main",
             "index": 0
           }
@@ -1364,6 +1681,124 @@
         [
           {
             "node": "Quest OpenBooster: Grant Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly OpenBooster: Get Weekly Quests": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly OpenBooster: Compute Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly OpenBooster: Compute Update": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly OpenBooster: If Row Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly OpenBooster: If Row Exists": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly OpenBooster: Update Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quest Weekly OpenBooster: Create Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly OpenBooster: Update Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly OpenBooster: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly OpenBooster: Create Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly OpenBooster: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly OpenBooster: If Should Grant": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly OpenBooster: Get User For Reward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Quest Weekly OpenBooster: Get User For Reward": {
+      "main": [
+        [
+          {
+            "node": "Sync Quest Weekly OpenBooster: Get User -> Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Quest Weekly OpenBooster: Get User -> Grant": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly OpenBooster: Grant Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get All Pulls -> Get Finishes": {
+      "main": [
+        [
+          {
+            "node": "Get Finishes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Finishes": {
+      "main": [
+        [
+          {
+            "node": "Draw Cards",
             "type": "main",
             "index": 0
           }

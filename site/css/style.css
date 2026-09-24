@@ -471,6 +471,20 @@ h2 { font-size: 1.3rem; color: var(--text); font-weight: 700; }
   text-align: center;
 }
 .quest-reward.claimed { background: linear-gradient(135deg, rgba(74,222,128,0.2), rgba(34,211,238,0.12)); border-color: rgba(74,222,128,0.4); }
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(251,146,60,0.22), rgba(239,68,68,0.16));
+  border: 1px solid rgba(251,146,60,0.4);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #fdba74;
+  white-space: nowrap;
+}
 p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 
 /* Roue de la fortune quotidienne (accueil). */
@@ -2473,6 +2487,22 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .finish-tag[data-finish="diamond"] { border-color: #7dd3fc; color: #bae6fd; }
 .finish-tag[data-finish="rainbow"] { border-color: #ff6ec7; color: #ff9ecf; }
 
+/* Meme pastille, echelle de qualite (Abime -> Use -> Bon etat -> Parfait etat). */
+.quality-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+.quality-tag[data-quality="damaged"] { border-color: #b45309; color: #fbbf24; }
+.quality-tag[data-quality="worn"] { border-color: #a16207; color: #eab308; }
+.quality-tag[data-quality="good"] { border-color: #4ade80; color: #86efac; }
+.quality-tag[data-quality="mint"] { border-color: #22d3ee; color: #a5f3fc; }
+
 .finish-indicator {
   position: absolute;
   bottom: 8px;
@@ -2691,6 +2721,38 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .disenchant-btn { background: linear-gradient(135deg, #6d28d9, var(--accent-3)); }
 .craft-card.unavailable { opacity: 0.5; filter: grayscale(0.6); }
 .craft-card.unavailable img { filter: grayscale(0.4); }
+
+/* Selecteur de quantite +/- (craft/decraft) */
+.qty-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.qty-stepper .qty-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.qty-stepper .qty-btn:hover:not(:disabled) { border-color: var(--accent-2); color: var(--accent-2); }
+.qty-stepper .qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.qty-stepper .qty-value {
+  min-width: 24px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
 
 /* Decraft en masse */
 .craft-card { position: relative; }

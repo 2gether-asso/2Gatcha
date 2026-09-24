@@ -1562,6 +1562,276 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-get",
+      "name": "Quest Weekly Trade: Get Weekly Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        400,
+        1200
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Prepare Trade').first().json.docId }}",
+        "tableId": "WeeklyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-compute",
+      "name": "Quest Weekly Trade: Compute Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        1200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nfunction mondayOf(dateStr) {\n  const d = new Date(dateStr + 'T00:00:00Z');\n  const day = d.getUTCDay();\n  const diff = day === 0 ? 6 : day - 1;\n  d.setUTCDate(d.getUTCDate() - diff);\n  return d.toISOString().slice(0, 10);\n}\nconst docId = $('Prepare Trade').first().json.docId;\nconst userId = $('Prepare Trade').first().json.fromUserId;\nconst todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());\nconst weekStart = mondayOf(todayParis);\nconst rows = $('Quest Weekly Trade: Get Weekly Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === userId && toDateStr(r.WeekStart) === weekStart);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\nflags.TradeDone = true;\n\nconst completedCount = [\"LoginDone\",\"CraftDone\",\"TradeDone\",\"OpenBoosterDone\"].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 3 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId, userId, weekStart, rowId: row ? row.id : null, exists: !!row, shouldGrantReward, ...flags } }];"
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-if-exists",
+      "name": "Quest Weekly Trade: If Row Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        1200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-update",
+      "name": "Quest Weekly Trade: Update Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        1120
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "WeeklyQuests",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-create",
+      "name": "Quest Weekly Trade: Create Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        880,
+        1280
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "WeeklyQuests",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "WeekStart",
+              "fieldValue": "={{ $json.weekStart }}"
+            },
+            {
+              "fieldId": "LoginDone",
+              "fieldValue": "={{ $json.LoginDone }}"
+            },
+            {
+              "fieldId": "CraftDone",
+              "fieldValue": "={{ $json.CraftDone }}"
+            },
+            {
+              "fieldId": "TradeDone",
+              "fieldValue": "={{ $json.TradeDone }}"
+            },
+            {
+              "fieldId": "OpenBoosterDone",
+              "fieldValue": "={{ $json.OpenBoosterDone }}"
+            },
+            {
+              "fieldId": "RewardClaimed",
+              "fieldValue": "={{ $json.RewardClaimed }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-if-grant",
+      "name": "Quest Weekly Trade: If Should Grant",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        1200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Quest Weekly Trade: Compute Update').first().json.shouldGrantReward }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-get-user",
+      "name": "Quest Weekly Trade: Get User For Reward",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1200,
+        1120
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Quest Weekly Trade: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-barrier",
+      "name": "Sync Quest Weekly Trade: Get User -> Grant",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1120
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "quest-weekly-questweeklytrade-grant",
+      "name": "Quest Weekly Trade: Grant Booster",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        1120
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Quest Weekly Trade: Compute Update').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Quest Weekly Trade: Compute Update').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ ($('Quest Weekly Trade: Get User For Reward').all().map(i => i.json).find(u => u.id === $('Quest Weekly Trade: Compute Update').first().json.userId).BoosterCount || 0) + 5 }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -1666,6 +1936,11 @@
           },
           {
             "node": "Quest Trade: Get Daily Quests",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Quest Weekly Trade: Get Weekly Quests",
             "type": "main",
             "index": 0
           }
@@ -2236,6 +2511,102 @@
         [
           {
             "node": "Quest Trade: Grant Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly Trade: Get Weekly Quests": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly Trade: Compute Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly Trade: Compute Update": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly Trade: If Row Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly Trade: If Row Exists": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly Trade: Update Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quest Weekly Trade: Create Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly Trade: Update Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly Trade: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly Trade: Create Row": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly Trade: If Should Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quest Weekly Trade: If Should Grant": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly Trade: Get User For Reward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Quest Weekly Trade: Get User For Reward": {
+      "main": [
+        [
+          {
+            "node": "Sync Quest Weekly Trade: Get User -> Grant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Quest Weekly Trade: Get User -> Grant": {
+      "main": [
+        [
+          {
+            "node": "Quest Weekly Trade: Grant Booster",
             "type": "main",
             "index": 0
           }

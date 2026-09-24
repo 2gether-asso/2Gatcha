@@ -24,6 +24,14 @@ const FINISH_ERRORS = {
   not_enough_duplicates: "Il te faut 5 exemplaires identiques pour fusionner.",
   sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
+const QUALITY_ERRORS = {
+  card_not_found: "Carte introuvable.",
+  promo_not_repairable: "Cette carte promo ne peut pas être restaurée.",
+  card_inactive: "Cette carte n'est plus disponible.",
+  invalid_quality: "Cette qualité ne peut pas être restaurée davantage.",
+  not_enough_duplicates: "Il te faut 3 exemplaires identiques pour restaurer.",
+  sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
+};
 
 // Echelle de finitions, du plus commun au plus prestigieux (voir
 // grist/SCHEMA.md et foil-upgrade.json - meme ordre des deux cotes).
@@ -37,6 +45,16 @@ const FINISH_LABELS = {
   rainbow: "Arc-en-ciel"
 };
 
+// Echelle de qualite, du plus abime au plus parfait (voir grist/SCHEMA.md et
+// card-quality-repair.json - meme ordre des deux cotes).
+const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
+const QUALITY_LABELS = {
+  damaged: "Abîmé",
+  worn: "Usé",
+  good: "Bon état",
+  mint: "Parfait état"
+};
+
 let stardust = 0;
 let ownedMap = new Map();
 let allCards = [];
@@ -44,6 +62,8 @@ let bulkSelectMode = false;
 let bulkSelected = new Set();
 let craftBulkSelectMode = false;
 let craftBulkSelected = new Set();
+let disenchantQty = new Map();
+let craftQty = new Map();
 let activeTab = "disenchant";
 let craftSearchQuery = "";
 let craftRarityFilter = "all";
@@ -80,7 +100,7 @@ function renderCraftFilters() {
 // FEATURE_UNLOCK_LEVEL) : Decraft reste toujours disponible, c'est la porte
 // d'entree vers Craft.
 function applyFeatureLocks() {
-  ["craft", "altar", "finish"].forEach((key) => {
+  ["craft", "altar", "finish", "quality"].forEach((key) => {
     const btn = document.getElementById(`tab-${key}-btn`);
     if (!btn) return;
     const locked = knownProfileLevel < FEATURE_UNLOCK_LEVEL[key];
@@ -103,18 +123,22 @@ function setActiveTab(tab) {
   document.getElementById("tab-altar-btn").setAttribute("aria-selected", String(tab === "altar"));
   document.getElementById("tab-finish-btn").classList.toggle("active", tab === "finish");
   document.getElementById("tab-finish-btn").setAttribute("aria-selected", String(tab === "finish"));
+  document.getElementById("tab-quality-btn").classList.toggle("active", tab === "quality");
+  document.getElementById("tab-quality-btn").setAttribute("aria-selected", String(tab === "quality"));
   document.getElementById("disenchant-pane").style.display = tab === "disenchant" ? "block" : "none";
   document.getElementById("craft-pane").style.display = tab === "craft" ? "block" : "none";
   document.getElementById("altar-pane").style.display = tab === "altar" ? "block" : "none";
   document.getElementById("finish-pane").style.display = tab === "finish" ? "block" : "none";
+  document.getElementById("quality-pane").style.display = tab === "quality" ? "block" : "none";
   document.getElementById("hide-owned-label").style.display = tab === "craft" ? "flex" : "none";
-  // La barre de recherche/filtres ne concerne ni l'autel ni les finitions
-  // (pas des grilles de cartes a trier, juste des paliers/fusions).
-  document.querySelector(".craft-toolbar").style.display = (tab === "altar" || tab === "finish") ? "none" : "flex";
+  // La barre de recherche/filtres ne concerne ni l'autel ni les finitions/
+  // qualite (pas des grilles de cartes a trier, juste des paliers/fusions).
+  document.querySelector(".craft-toolbar").style.display = (tab === "altar" || tab === "finish" || tab === "quality") ? "none" : "flex";
   document.getElementById("craft-search-input").placeholder =
     tab === "disenchant" ? "Rechercher parmi mes cartes..." : "Rechercher une carte à crafter...";
   if (tab === "altar") renderAltarTiers();
   if (tab === "finish") renderFinishTiers();
+  if (tab === "quality") renderQualityTiers();
 }
 
 // Autel de sacrifice : le joueur choisit lui-meme, parmi ses doublons (au
@@ -370,12 +394,79 @@ async function upgradeFinish(cardId, fromFinish) {
   }
 }
 
+function renderQualityTiers() {
+  const el = document.getElementById("quality-tiers");
+  const repairs = [];
+  ownedMap.forEach((owned, cardId) => {
+    const card = allCards.find((c) => c.cardId === cardId);
+    if (!card || card.isPromo) return;
+    const counts = owned.qualityCounts || {};
+    for (let i = 0; i < QUALITY_ORDER.length - 1; i++) {
+      const from = QUALITY_ORDER[i];
+      if ((counts[from] || 0) >= 3) {
+        repairs.push({ card, fromQuality: from, toQuality: QUALITY_ORDER[i + 1], available: counts[from] });
+      }
+    }
+  });
+
+  if (!repairs.length) {
+    el.innerHTML = `<div class="empty-state">Aucune restauration possible pour l'instant : il te faut 3 exemplaires identiques (même carte, même qualité) d'un coup.</div>`;
+    return;
+  }
+
+  el.innerHTML = repairs.map((u) => {
+    const imgSrc = API.imageUrl(u.card.imageId) || PLACEHOLDER_IMG;
+    return `
+      <div class="finish-upgrade-row">
+        <img src="${imgSrc}" alt="${u.card.name}" loading="lazy" />
+        <div class="finish-upgrade-info">
+          <div class="finish-upgrade-name">${u.card.name}</div>
+          <div class="finish-upgrade-path">
+            <span class="quality-tag" data-quality="${u.fromQuality}">${QUALITY_LABELS[u.fromQuality]}</span>
+            <span aria-hidden="true">&#8594;</span>
+            <span class="quality-tag" data-quality="${u.toQuality}">${QUALITY_LABELS[u.toQuality]}</span>
+          </div>
+          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (3 requis)</div>
+        </div>
+        <button type="button" class="btn-secondary quality-repair-btn" data-card-id="${u.card.cardId}" data-from-quality="${u.fromQuality}">Restaurer</button>
+      </div>
+    `;
+  }).join("");
+
+  el.querySelectorAll(".quality-repair-btn").forEach((btn) => {
+    btn.addEventListener("click", () => repairQuality(Number(btn.dataset.cardId), btn.dataset.fromQuality));
+  });
+}
+
+async function repairQuality(cardId, fromQuality) {
+  const card = allCards.find((c) => c.cardId === cardId);
+  const toQuality = QUALITY_ORDER[QUALITY_ORDER.indexOf(fromQuality) + 1];
+  const ok = await Confirm.show(
+    `Restaurer 3 exemplaires <strong>${QUALITY_LABELS[fromQuality]}</strong> de <strong>${card?.name || "cette carte"}</strong> en 1 exemplaire <strong>${QUALITY_LABELS[toQuality]}</strong> ? ` +
+    `Les 3 exemplaires consommés sont perdus définitivement.`,
+    { title: "Restaurer ces cartes ?", confirmText: "Restaurer", dangerous: true }
+  );
+  if (!ok) return;
+  try {
+    const res = await API.repairCardQuality(Session.userId, cardId, fromQuality);
+    Toast.success(`${card?.name || "Carte"} passe en ${QUALITY_LABELS[res.toQuality]} !`);
+    if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+    await reload();
+    setActiveTab("quality");
+  } catch (e) {
+    Toast.error(QUALITY_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
 function craftCardTile(card, mode) {
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   if (mode === "disenchant") {
     const owned = ownedMap.get(card.cardId);
     const dust = card.rarity?.disenchantValue || 0;
     const checked = bulkSelected.has(card.cardId);
+    const maxQty = owned?.count || 1;
+    const qty = Math.min(Math.max(disenchantQty.get(card.cardId) || 1, 1), maxQty);
+    const showStepper = !bulkSelectMode && maxQty > 1;
     return `
       <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
         ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
@@ -384,7 +475,14 @@ function craftCardTile(card, mode) {
           <div class="card-name">${card.name}</div>
           <div class="owned-count">Possède x${owned.count}</div>
           <div class="craft-cost">+${dust} poussières</div>
-          <button class="disenchant-btn" data-card-id="${card.cardId}" ${bulkSelectMode ? "disabled" : ""}>Decrafter</button>
+          ${showStepper ? `
+            <div class="qty-stepper">
+              <button type="button" class="qty-btn" data-qty-action="minus" data-mode="disenchant" data-card-id="${card.cardId}" ${qty <= 1 ? "disabled" : ""}>&minus;</button>
+              <span class="qty-value" data-qty-display="disenchant" data-card-id="${card.cardId}">${qty}</span>
+              <button type="button" class="qty-btn" data-qty-action="plus" data-mode="disenchant" data-card-id="${card.cardId}" ${qty >= maxQty ? "disabled" : ""}>+</button>
+            </div>
+          ` : ""}
+          <button class="disenchant-btn" data-card-id="${card.cardId}" ${bulkSelectMode ? "disabled" : ""}>${qty > 1 ? `Decrafter x${qty}` : "Decrafter"}</button>
         </div>
       </div>
     `;
@@ -392,6 +490,9 @@ function craftCardTile(card, mode) {
   const cost = card.rarity?.craftCost || 0;
   const canAfford = stardust >= cost;
   const craftChecked = craftBulkSelected.has(card.cardId);
+  const maxCraftQty = cost > 0 ? Math.floor(stardust / cost) : 1;
+  const craftQtyVal = Math.min(Math.max(craftQty.get(card.cardId) || 1, 1), Math.max(maxCraftQty, 1));
+  const showCraftStepper = !craftBulkSelectMode && canAfford && maxCraftQty > 1;
   return `
     <div class="craft-card ${canAfford ? "" : "unavailable"} ${craftBulkSelectMode ? "bulk-mode" : ""} ${craftChecked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
       ${craftBulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-craft-bulk-id="${card.cardId}" ${craftChecked ? "checked" : ""} ${canAfford ? "" : "disabled"} /></label>` : ""}
@@ -399,10 +500,43 @@ function craftCardTile(card, mode) {
       <div class="card-info">
         <div class="card-name">${card.name}</div>
         <div class="craft-cost">${cost} poussières</div>
-        <button class="craft-btn" data-card-id="${card.cardId}" ${canAfford && !craftBulkSelectMode ? "" : "disabled"}>Crafter</button>
+        ${showCraftStepper ? `
+          <div class="qty-stepper">
+            <button type="button" class="qty-btn" data-qty-action="minus" data-mode="craft" data-card-id="${card.cardId}" ${craftQtyVal <= 1 ? "disabled" : ""}>&minus;</button>
+            <span class="qty-value" data-qty-display="craft" data-card-id="${card.cardId}">${craftQtyVal}</span>
+            <button type="button" class="qty-btn" data-qty-action="plus" data-mode="craft" data-card-id="${card.cardId}" ${craftQtyVal >= maxCraftQty ? "disabled" : ""}>+</button>
+          </div>
+        ` : ""}
+        <button class="craft-btn" data-card-id="${card.cardId}" ${canAfford && !craftBulkSelectMode ? "" : "disabled"}>${craftQtyVal > 1 ? `Crafter x${craftQtyVal}` : "Crafter"}</button>
       </div>
     </div>
   `;
+}
+
+function adjustQty(mode, cardId, delta) {
+  const map = mode === "craft" ? craftQty : disenchantQty;
+  const card = allCards.find((c) => c.cardId === cardId);
+  let max = 1;
+  if (mode === "craft") {
+    const cost = card?.rarity?.craftCost || 0;
+    max = cost > 0 ? Math.floor(stardust / cost) : 1;
+  } else {
+    max = ownedMap.get(cardId)?.count || 1;
+  }
+  max = Math.max(max, 1);
+  const current = map.get(cardId) || 1;
+  const next = Math.min(Math.max(current + delta, 1), max);
+  map.set(cardId, next);
+  const tile = document.querySelector(`.craft-card[data-card-id="${cardId}"]`);
+  if (!tile) return;
+  const span = tile.querySelector(`[data-qty-display="${mode}"]`);
+  if (span) span.textContent = next;
+  const actionBtn = tile.querySelector(mode === "craft" ? ".craft-btn" : ".disenchant-btn");
+  if (actionBtn) actionBtn.textContent = next > 1 ? `${mode === "craft" ? "Crafter" : "Decrafter"} x${next}` : (mode === "craft" ? "Crafter" : "Decrafter");
+  const minusBtn = tile.querySelector(`[data-qty-action="minus"][data-mode="${mode}"]`);
+  const plusBtn = tile.querySelector(`[data-qty-action="plus"][data-mode="${mode}"]`);
+  if (minusBtn) minusBtn.disabled = next <= 1;
+  if (plusBtn) plusBtn.disabled = next >= max;
 }
 
 // Suivi via ?cardId=... (lien direct depuis la collection) : met la carte
@@ -457,6 +591,9 @@ function renderDisenchantGrid() {
   grid.querySelectorAll(".disenchant-btn").forEach((btn) => {
     btn.addEventListener("click", () => disenchant(Number(btn.dataset.cardId), btn));
   });
+  grid.querySelectorAll('[data-qty-action][data-mode="disenchant"]').forEach((btn) => {
+    btn.addEventListener("click", () => adjustQty("disenchant", Number(btn.dataset.cardId), btn.dataset.qtyAction === "plus" ? 1 : -1));
+  });
   grid.querySelectorAll("[data-bulk-id]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
       const id = Number(cb.dataset.bulkId);
@@ -485,21 +622,23 @@ function updateBulkBar() {
 async function bulkDisenchant() {
   const ids = [...bulkSelected];
   if (!ids.length) return;
-  const dust = ids.reduce((sum, id) => sum + (allCards.find((c) => c.cardId === id)?.rarity?.disenchantValue || 0), 0);
+  const minDust = ids.reduce((sum, id) => sum + (allCards.find((c) => c.cardId === id)?.rarity?.disenchantValue || 0), 0);
   const ok = await Confirm.show(
-    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>+${dust} poussières d'étoile</strong> ? ` +
-    `Solde : ${stardust} &rarr; <strong>${stardust + dust}</strong>. Cette action est irréversible.`,
+    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>au moins +${minDust} poussières d'étoile</strong> (plus si des finitions spéciales sont consommées) ? ` +
+    `Solde : ${stardust} &rarr; <strong>${stardust + minDust}</strong> ou plus. Cette action est irréversible.`,
     { title: "Décrafter la sélection ?", confirmText: "Décrafter tout", dangerous: true }
   );
   if (!ok) return;
   let successCount = 0;
+  let totalDustGained = 0;
   for (const id of ids) {
     try {
-      await API.disenchantCard(Session.userId, id);
+      const res = await API.disenchantCard(Session.userId, id);
+      totalDustGained += res.dustGained || 0;
       successCount++;
     } catch (e) { /* on continue avec les suivantes */ }
   }
-  Toast.success(`${successCount} carte${successCount > 1 ? "s" : ""} décraftée${successCount > 1 ? "s" : ""}.`);
+  Toast.success(`${successCount} carte${successCount > 1 ? "s" : ""} décraftée${successCount > 1 ? "s" : ""} (+${totalDustGained} poussières).`);
   bulkSelected.clear();
   bulkSelectMode = false;
   document.getElementById("bulk-select-toggle").classList.remove("active");
@@ -528,6 +667,9 @@ function renderCraftGrid() {
     : `<div class="empty-state">Aucune carte craftable ne correspond.</div>`;
   grid.querySelectorAll(".craft-btn").forEach((btn) => {
     btn.addEventListener("click", () => craftCard(Number(btn.dataset.cardId)));
+  });
+  grid.querySelectorAll('[data-qty-action][data-mode="craft"]').forEach((btn) => {
+    btn.addEventListener("click", () => adjustQty("craft", Number(btn.dataset.cardId), btn.dataset.qtyAction === "plus" ? 1 : -1));
   });
   grid.querySelectorAll("[data-craft-bulk-id]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
@@ -586,40 +728,84 @@ async function bulkCraft() {
 
 async function disenchant(cardId, btn) {
   const card = allCards.find((c) => c.cardId === cardId);
-  const dust = card?.rarity?.disenchantValue || 0;
+  const owned = ownedMap.get(cardId)?.count || 1;
+  const qty = Math.min(Math.max(disenchantQty.get(cardId) || 1, 1), owned);
+  // Valeur MINIMALE garantie (exemplaires normaux) : le decraft consomme
+  // toujours la finition la moins prestigieuse en premier, donc le vrai
+  // total peut etre plus eleve si un exemplaire special (holo/gold/...) est
+  // consomme en cours de route - voir grist/SCHEMA.md, section Finishes.
+  const dustEach = card?.rarity?.disenchantValue || 0;
+  const minTotalDust = dustEach * qty;
   const ok = await Confirm.show(
-    `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
-    `Solde : ${stardust} &rarr; <strong>${stardust + dust}</strong>. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
-    { title: "Décrafter cette carte ?", confirmText: "Décrafter", dangerous: true }
+    qty > 1
+      ? `Décrafter <strong>${qty}x ${card?.name || "cette carte"}</strong> contre <strong>au moins +${minTotalDust} poussières d'étoile</strong> au total (plus si une finition spéciale est consommée) ? ` +
+        `Solde : ${stardust} &rarr; <strong>${stardust + minTotalDust}</strong> ou plus. Cette action est irréversible.`
+      : `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>au moins ${minTotalDust} poussières d'étoile</strong> (plus si c'est une finition spéciale) ? ` +
+        `Solde : ${stardust} &rarr; <strong>${stardust + minTotalDust}</strong> ou plus. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+    { title: "Décrafter cette carte ?", confirmText: qty > 1 ? `Décrafter x${qty}` : "Décrafter", dangerous: true }
   );
   if (!ok) return;
-  try {
-    const res = await API.disenchantCard(Session.userId, cardId);
-    Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
-    await playDustDissolve(btn ? btn.closest(".craft-card") : null);
-    await reload();
-  } catch (e) {
-    Toast.error(DISENCHANT_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+  let successCount = 0;
+  let totalDustGained = 0;
+  let lastError = null;
+  for (let i = 0; i < qty; i++) {
+    try {
+      const res = await API.disenchantCard(Session.userId, cardId);
+      totalDustGained += res.dustGained || 0;
+      successCount++;
+    } catch (e) {
+      lastError = e;
+      break;
+    }
   }
+  if (successCount === 0) {
+    Toast.error(DISENCHANT_ERRORS[lastError?.code] || ("Erreur. (" + lastError?.message + ")"));
+    return;
+  }
+  Toast.success(successCount > 1
+    ? `+${totalDustGained} poussières (${successCount}x ${card?.name})`
+    : `+${totalDustGained} poussières (${card?.name})`);
+  disenchantQty.delete(cardId);
+  await playDustDissolve(btn ? btn.closest(".craft-card") : null);
+  await reload();
 }
 
 async function craftCard(cardId) {
   const card = allCards.find((c) => c.cardId === cardId);
   const cost = card?.rarity?.craftCost || 0;
+  const maxAffordable = cost > 0 ? Math.floor(stardust / cost) : 1;
+  const qty = Math.min(Math.max(craftQty.get(cardId) || 1, 1), Math.max(maxAffordable, 1));
+  const totalCost = cost * qty;
   const ok = await Confirm.show(
-    `Crafter <strong>${card?.name || "cette carte"}</strong> pour <strong>${cost} poussières d'étoile</strong> ? ` +
-    `Solde : ${stardust} &rarr; <strong>${stardust - cost}</strong>.`,
-    { title: "Crafter cette carte ?", confirmText: "Crafter" }
+    qty > 1
+      ? `Crafter <strong>${qty}x ${card?.name || "cette carte"}</strong> pour <strong>${totalCost} poussières d'étoile</strong> au total ? ` +
+        `Solde : ${stardust} &rarr; <strong>${stardust - totalCost}</strong>.`
+      : `Crafter <strong>${card?.name || "cette carte"}</strong> pour <strong>${totalCost} poussières d'étoile</strong> ? ` +
+        `Solde : ${stardust} &rarr; <strong>${stardust - totalCost}</strong>.`,
+    { title: "Crafter cette carte ?", confirmText: qty > 1 ? `Crafter x${qty}` : "Crafter" }
   );
   if (!ok) return;
-  try {
-    const res = await API.craftCard(Session.userId, cardId);
-    Toast.success(`${res.card.name} craftee !`);
-    if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
-    await reload();
-  } catch (e) {
-    Toast.error(CRAFT_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+  let successCount = 0;
+  let lastError = null;
+  let lastCardName = card?.name;
+  for (let i = 0; i < qty; i++) {
+    try {
+      const res = await API.craftCard(Session.userId, cardId);
+      lastCardName = res.card.name;
+      successCount++;
+    } catch (e) {
+      lastError = e;
+      break;
+    }
   }
+  if (successCount === 0) {
+    Toast.error(CRAFT_ERRORS[lastError?.code] || ("Erreur. (" + lastError?.message + ")"));
+    return;
+  }
+  Toast.success(successCount > 1 ? `${successCount}x ${lastCardName} craftées !` : `${lastCardName} craftee !`);
+  if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+  craftQty.delete(cardId);
+  await reload();
 }
 
 async function reload() {
@@ -670,6 +856,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-craft-btn").addEventListener("click", () => setActiveTab("craft"));
   document.getElementById("tab-altar-btn").addEventListener("click", () => setActiveTab("altar"));
   document.getElementById("tab-finish-btn").addEventListener("click", () => setActiveTab("finish"));
+  document.getElementById("tab-quality-btn").addEventListener("click", () => setActiveTab("quality"));
 
   document.getElementById("craft-bulk-select-toggle").addEventListener("click", (e) => {
     craftBulkSelectMode = !craftBulkSelectMode;

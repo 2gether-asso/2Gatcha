@@ -18,8 +18,8 @@ let knownProfileLevel = 1;
 // nouveau joueur n'est pas noye sous 6 pages/onglets des le premier jour).
 // Decraft reste toujours disponible (c'est la porte d'entree vers Craft).
 // ---------------------------------------------------------------------------
-const FEATURE_UNLOCK_LEVEL = { craft: 2, trade: 3, altar: 4, finish: 5, showcase: 6 };
-const FEATURE_LABELS = { craft: "Crafter des cartes", trade: "Les échanges", altar: "L'autel de sacrifice", finish: "Les finitions (fusion de cartes)", showcase: "La vitrine de profil" };
+const FEATURE_UNLOCK_LEVEL = { craft: 2, trade: 3, altar: 4, quality: 4, finish: 5, showcase: 6 };
+const FEATURE_LABELS = { craft: "Crafter des cartes", trade: "Les échanges", altar: "L'autel de sacrifice", quality: "La restauration de cartes usées", finish: "Les finitions (fusion de cartes)", showcase: "La vitrine de profil" };
 
 // Toujours une requete fraiche (pas le cache de knownProfileLevel, qui peut
 // etre perime/pas encore charge selon la page et l'ordre d'execution) :

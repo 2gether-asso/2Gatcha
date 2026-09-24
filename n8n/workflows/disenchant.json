@@ -31,6 +31,12 @@
     },
     { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }, "id": "barrier-3", "name": "Sync Get Pulls -> Get Users", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-260, 300] },
     {
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Finishes", "returnAll": true, "additionalOptions": {} },
+      "id": "get-finishes", "name": "Get Finishes", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-190, 460],
+      "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }, "id": "barrier-4", "name": "Sync Get Finishes -> Get Users", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-160, 300] },
+    {
       "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
       "id": "get-users", "name": "Get Users", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-120, 300],
       "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
@@ -38,7 +44,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst config = $('Set Config').first().json;\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst pullsRows = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst card = cardsRows.find((c) => c.id === config.cardId);\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_disenchantable' } }];\n\nconst pull = pullsRows.find((p) => refId(p.User) === config.userId && refId(p.Card) === config.cardId);\nif (!pull) return [{ json: { ok: false, error: 'card_not_owned' } }];\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) return [{ json: { ok: false, error: 'unknown_user' } }];\n\nconst rarity = raritiesRows.find((r) => r.id === refId(card.Rarity));\nconst dustGained = rarity ? (rarity.DisenchantValue || 0) : 0;\nconst newStardust = (user.StardustCount || 0) + dustGained;\n\nreturn [{\n  json: {\n    ok: true,\n    docId: config.docId,\n    userId: config.userId,\n    pullRowId: pull.id,\n    cardName: card.Name,\n    dustGained,\n    newStardust\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst config = $('Set Config').first().json;\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst pullsRows = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst finishRows = $('Get Finishes').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst card = cardsRows.find((c) => c.id === config.cardId);\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_disenchantable' } }];\n\nconst FINISH_ORDER = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];\nfunction finishOf(p) { return p.Finish || 'normal'; }\n// Decrafte toujours l'exemplaire de la finition la MOINS prestigieuse en\n// premier (jamais un holo/gold/... par erreur s'il reste au moins un\n// exemplaire normal) : protege les joueurs d'une destruction accidentelle\n// d'une carte rare quand plusieurs finitions du meme doublon coexistent.\nconst myMatchingPulls = pullsRows.filter((p) => refId(p.User) === config.userId && refId(p.Card) === config.cardId);\nif (!myMatchingPulls.length) return [{ json: { ok: false, error: 'card_not_owned' } }];\nconst pull = [...myMatchingPulls].sort((a, b) => FINISH_ORDER.indexOf(finishOf(a)) - FINISH_ORDER.indexOf(finishOf(b)))[0];\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) return [{ json: { ok: false, error: 'unknown_user' } }];\n\nconst rarity = raritiesRows.find((r) => r.id === refId(card.Rarity));\nconst pullFinish = finishOf(pull);\nconst finishRow = finishRows.find((f) => f.Key === pullFinish);\nconst finishMultiplier = finishRow ? (finishRow.DisenchantMultiplier || 1) : 1;\nconst dustGained = Math.round((rarity ? (rarity.DisenchantValue || 0) : 0) * finishMultiplier);\nconst newStardust = (user.StardustCount || 0) + dustGained;\n\nreturn [{\n  json: {\n    ok: true,\n    docId: config.docId,\n    userId: config.userId,\n    pullRowId: pull.id,\n    cardName: card.Name,\n    finish: pullFinish,\n    dustGained,\n    newStardust\n  }\n}];"
       },
       "id": "validate", "name": "Validate & Prepare", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [20, 300]
     },
@@ -82,7 +88,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { disenchanted: true, cardName: $('Validate & Prepare').first().json.cardName, dustGained: $('Validate & Prepare').first().json.dustGained, newStardust: $('Validate & Prepare').first().json.newStardust } }}",
+        "responseBody": "={{ { disenchanted: true, cardName: $('Validate & Prepare').first().json.cardName, finish: $('Validate & Prepare').first().json.finish, dustGained: $('Validate & Prepare').first().json.dustGained, newStardust: $('Validate & Prepare').first().json.newStardust } }}",
         "options": {}
       },
       "id": "respond-ok", "name": "Respond OK", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [900, 180]
@@ -96,7 +102,9 @@
     "Get Rarities": { "main": [[{ "node": "Sync Get Rarities -> Get Pulls", "type": "main", "index": 0 }]] },
     "Sync Get Rarities -> Get Pulls": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
     "Get Pulls": { "main": [[{ "node": "Sync Get Pulls -> Get Users", "type": "main", "index": 0 }]] },
-    "Sync Get Pulls -> Get Users": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
+    "Sync Get Pulls -> Get Users": { "main": [[{ "node": "Get Finishes", "type": "main", "index": 0 }]] },
+    "Get Finishes": { "main": [[{ "node": "Sync Get Finishes -> Get Users", "type": "main", "index": 0 }]] },
+    "Sync Get Finishes -> Get Users": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
     "Get Users": { "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]] },
     "Validate & Prepare": { "main": [[{ "node": "If Valid", "type": "main", "index": 0 }]] },
     "If Valid": {

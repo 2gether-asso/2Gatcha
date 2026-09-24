@@ -1,10 +1,12 @@
 # Schema Grist - 2Gatcha
 
-Un seul document Grist avec 12 tables. Cree-les dans cet ordre (les references
-ont besoin que la table ciblee existe deja) :
-`Rarities` -> `Extensions` -> `Cards` -> `Users` -> `Pulls` -> `Config` ->
-`EventCodes` -> `CodeRedemptions` -> `Trades` -> `BoosterInventory` ->
-`Wishlist` -> `ProfileShowcase`.
+Un seul document Grist avec 12 tables de base, plus plusieurs tables
+ajoutees au fil de l'eau (voir plus bas : `Finishes`, `DailyQuests`,
+`WeeklyQuests`...). Cree-les dans cet ordre (les references ont besoin que
+la table ciblee existe deja) :
+`Rarities` -> `Finishes` -> `Extensions` -> `Cards` -> `Users` -> `Pulls` ->
+`Config` -> `EventCodes` -> `CodeRedemptions` -> `Trades` ->
+`BoosterInventory` -> `Wishlist` -> `ProfileShowcase`.
 
 ## 1. Rarities
 
@@ -36,6 +38,46 @@ carte au hasard de l'extension (`open-pack.json`) : verifie que chaque
 extension a au moins une carte par rarete utilisee, sinon la ponderation n'a
 plus d'effet visible.
 
+## Finishes
+
+Table de reference pour les finitions cosmetiques (voir "Finitions" plus
+bas) - orthogonale a la rarete : n'importe quelle carte, de n'importe quelle
+rarete, peut sortir avec n'importe quelle finition. Utilisee par
+`open-pack.json` (tirage naturel) et `disenchant.json` (valeur de decraft).
+
+| Colonne              | Type    | Notes                                                     |
+|-----------------------|---------|-------------------------------------------------------------|
+| Key                   | Text    | `normal`, `holo`, `gold`, `ghost`, `diamond`, `rainbow` (meme echelle que `Pulls.Finish`) |
+| Name                  | Text    | libelle affiche, ex "Holographique"                         |
+| DropWeight            | Numeric | poids relatif **parmi les finitions speciales uniquement** (ignore pour `normal` - voir le tirage a deux niveaux ci-dessous) |
+| DisenchantMultiplier  | Numeric | multiplie `Rarities.DisenchantValue` quand on decrafte un exemplaire de cette finition (`normal` = 1) |
+
+Valeurs de depart suggerees (ajustables directement dans Grist, sans toucher
+au code) :
+
+| Key      | Name            | DropWeight | DisenchantMultiplier |
+|----------|-----------------|------------|------------------------|
+| normal   | Normal          | -          | 1                      |
+| holo     | Holographique   | 50         | 1.5                    |
+| gold     | Dore            | 25         | 2                      |
+| ghost    | Ghost Rare      | 13         | 3                      |
+| diamond  | Diamant         | 8          | 5                      |
+| rainbow  | Arc-en-ciel     | 4          | 8                      |
+
+**Tirage a deux niveaux** (`open-pack.json`, fonction `rollFinish()` dans le
+node `Draw Cards`) : une fois la carte tiree (rarete puis carte precise,
+logique inchangee), un **second tirage independant** decide sa finition -
+"le jeu a decide qu'on avait tire telle carte, puis il retire pour savoir si
+elle a un modificateur". 90% de chance de rester `normal` ; les 10% restants
+se repartissent entre les finitions speciales au prorata de leur
+`DropWeight` (holo la plus commune des speciales, rainbow la plus rare -
+coherent avec l'echelle de fusion `FINISH_ORDER` de `foil-upgrade.json`/
+`craft.js`). Les 10%/poids ci-dessus sont un point de depart raisonnable, pas
+une valeur figee : modifie les `DropWeight` dans Grist pour retunner sans
+redeployer de workflow. Ce tirage ne s'applique qu'aux boosters reels
+(`open-pack.json`) - pas a `craft.json` (toujours `normal`), ni aux codes
+d'evenement, ni a l'autel.
+
 ## 2. Extensions
 
 Un "set" de boosters (ex: "Saison 1", "Halloween 2026"). Chaque extension a
@@ -61,6 +103,7 @@ son propre compteur de pity.
 | Rarity      | Reference -> Rarities | quelle rarete                               |
 | Extension   | Reference -> Extensions | a quelle extension appartient la carte (utilisee pour le tirage normal) |
 | IsPromo     | Bool                  | si `true`, exclue du tirage normal des boosters : obtenable uniquement via un code d'evenement (`EventCodes`, `RewardType=card`). Une carte promo n'est **ni decraftable, ni craftable, ni echangeable** (`disenchant.json`, `craft.json` et `trade.json` la refusent) |
+| IsSecret    | Bool                  | sous-ensemble des cartes promo, reservees a l'easter egg Konami code (voir "Cartes secretes" plus bas). Doit toujours etre pose avec `IsPromo=true` en meme temps : les cartes secretes profitent de l'exclusion tirage/craft/echange deja geree par `IsPromo`, `IsSecret` ne fait que les rendre eligibles a `unlock-secret.json` |
 | Image       | Attachments            | l'image de la carte, uploadee dans Grist    |
 | Active      | Bool                   | si `false`, la carte n'est plus tirable     |
 | FirstObtainedBy | Reference -> Users | vide tant que personne ne l'a obtenue ; rempli une seule fois, par le premier tirage/reclamation qui la sort (`open-pack.json`, `redeem-code.json`) |
@@ -124,7 +167,8 @@ creant/detruisant des exemplaires.
 | ObtainedAt  | DateTime               |                                             |
 | BatchId     | Text                   | regroupe les cartes d'un meme pack ouvert ou d'un meme code reclame |
 | SerialNumber | Numeric               | numero de l'exemplaire pour cette carte, tous joueurs confondus (1er exemplaire jamais tire = 1, etc.) ; calcule au moment de la creation de la ligne comme `(nombre de lignes Pulls existantes pour cette carte) + 1`, jamais recalcule ensuite. Sert a l'affichage "#004/100" cote front et a la limite `Cards.MaxSerial` |
-| Finish       | Text                   | finition de cet exemplaire precis : `normal` (ou vide - traite comme `normal` partout, voir plus bas), `holo`, `gold`, `ghost`, `diamond`, `rainbow`, dans cet ordre croissant de prestige. Purement cosmetique, aucun effet sur le gameplay (rarete/valeur de craft inchangees). Voir "Finitions" plus bas |
+| Finish       | Text                   | finition de cet exemplaire precis : `normal` (ou vide - traite comme `normal` partout, voir plus bas), `holo`, `gold`, `ghost`, `diamond`, `rainbow`, dans cet ordre croissant de prestige. Cosmetique, mais influence la valeur de decraft (voir `Finishes` plus haut et "Craft / decraft" plus bas). Voir "Finitions" plus bas |
+| Quality      | Text                   | qualite de cet exemplaire precis : `damaged` (ou vide - traite comme `damaged` partout), `worn`, `good`, `mint`, dans cet ordre croissant. Purement cosmetique, aucun effet sur le gameplay. Voir "Restauration de cartes usees" plus bas |
 
 La "collection" d'un utilisateur = toutes les lignes `Pulls` ou `User` = lui,
 regroupees par `Card` pour avoir un compteur (x2, x3...). C'est deja ce que
@@ -154,6 +198,28 @@ promo ne peut pas etre fusionnee (`promo_not_upgradable`). Le front
 (`craft.html`, onglet "Finitions") liste directement toutes les fusions
 possibles pour le joueur (aucun palier de rarete a choisir, contrairement a
 l'autel : n'importe lesquels des 5 exemplaires identiques font l'affaire).
+
+Une finition speciale peut aussi sortir **naturellement** d'un booster reel
+(pas seulement via fusion) : voir "Tirage a deux niveaux" dans la section
+`Finishes` plus haut.
+
+## Restauration de cartes usees (Qualite)
+
+`card-quality-repair.json` (POST `/card-quality-repair` `{ userId, cardId,
+fromQuality }`) : meme principe que les Finitions, mais sur l'echelle
+`Pulls.Quality` et avec un ratio plus court. Fusionne **3 exemplaires
+identiques** (meme carte, meme `Quality`) en **1 seul** exemplaire de la
+qualite immediatement superieure, selon l'echelle fixe `damaged -> worn ->
+good -> mint` (definie cote code dans `card-quality-repair.json`, a
+dupliquer cote front si un onglet "Qualite" est ajoute a `craft.html`, sur
+le modele de l'onglet "Finitions"). Deterministe, pas de hasard. Les 3
+exemplaires consommes sont supprimes de `Pulls` ; un nouvel exemplaire est
+cree a la qualite superieure avec un nouveau `SerialNumber` (meme compteur
+global, meme limite `Cards.MaxSerial`). Une carte promo ne peut pas etre
+restauree (`promo_not_repairable`). Contrairement aux Finitions, la Qualite
+n'a **pas** de tirage naturel a l'ouverture d'un booster - toutes les cartes
+sont tirees `damaged` par defaut, seule la fusion de doublons fait progresser
+la qualite.
 
 **Limite d'exemplaires (`Cards.MaxSerial`)** : chaque workflow qui cree une
 ligne `Pulls` (`open-pack.json`, `craft.json`, `redeem-code.json`,
@@ -242,6 +308,29 @@ booster reel, pas en mode test admin).
 | OpenBoosterDone   | Bool                  | vrai apres l'ouverture d'un booster reel    |
 | RewardClaimed     | Bool                  | passe a `true` des que 2 quetes sur 4 sont vraies le meme jour ; `Users.BoosterCount` recoit alors +1 automatiquement |
 
+## WeeklyQuests
+
+Une ligne par couple (User, semaine). 4 quetes hebdomadaires fixes (memes
+actions que `DailyQuests` mais comptees sur toute la semaine) ; en completer
+3 sur 4 accorde automatiquement 5 boosters gratuits (une seule fois par
+semaine, voir `RewardClaimed`). Semaine = lundi-dimanche, fuseau
+Europe/Paris (`WeekStart` = date du lundi, format `AAAA-MM-JJ`). Cree/mise a
+jour par `weekly-quests.json` (quete "se connecter", au premier chargement
+de la page qui consulte les quetes de la semaine) et par les memes branches
+additionnelles que `DailyQuests` dans `craft.json`, `trade.json` et
+`open-pack.json` (chacune coche la quete du jour ET celle de la semaine dans
+la meme requete).
+
+| Colonne          | Type                | Notes                                    |
+|-------------------|----------------------|---------------------------------------------|
+| User              | Reference -> Users   |                                              |
+| WeekStart         | Text                  | lundi de la semaine, format `AAAA-MM-JJ` (Europe/Paris) - pas un DateTime, meme logique que `DailyQuests.Date` |
+| LoginDone         | Bool                  | vrai des qu'un jour de la semaine a ete consulte |
+| CraftDone         | Bool                  | vrai apres au moins un craft reussi dans la semaine |
+| TradeDone         | Bool                  | vrai apres au moins une proposition d'echange dans la semaine |
+| OpenBoosterDone   | Bool                  | vrai apres au moins une ouverture de booster reel dans la semaine |
+| RewardClaimed     | Bool                  | passe a `true` des que 3 quetes sur 4 sont vraies la meme semaine ; `Users.BoosterCount` recoit alors +5 automatiquement |
+
 ## 8. CodeRedemptions
 
 Une ligne par reclamation reussie. Sert a bloquer la double reclamation d'un
@@ -328,7 +417,11 @@ workflows.
   l'utilisateur possede au moins un exemplaire de la carte (`Pulls`) et
   qu'elle n'est **pas** promo, **supprime une ligne `Pulls`** correspondante
   (l'exemplaire est detruit, pas reassigne comme pour un echange) et credite
-  `Users.StardustCount` de `Rarities.DisenchantValue` de sa rarete.
+  `Users.StardustCount` de `Rarities.DisenchantValue * Finishes.DisenchantMultiplier`
+  (arrondi) de sa rarete/finition. Si le joueur possede plusieurs exemplaires
+  de finitions differentes pour la meme carte, l'exemplaire `normal` (ou le
+  moins prestigieux disponible) est **toujours** decrafte en premier - jamais
+  un holo/gold/... par erreur tant qu'il reste un exemplaire moins special.
 - `craft.json` (POST `/craft` `{ userId, cardId }`) : verifie que la carte
   est active et non-promo, que `Users.StardustCount >= Rarities.CraftCost`
   de sa rarete, debite le cout et **cree une ligne `Pulls`** (comme un
@@ -348,6 +441,18 @@ carte directe pour ne jamais court-circuiter les raretes fortes) :
 - 70% : petite quantite de poussieres d'etoile (10-25)
 - 20% : grosse quantite de poussieres d'etoile (50-100)
 - 10% : 1 booster generique
+
+## Cartes secretes (easter egg Konami code)
+
+`unlock-secret.json` (POST `/unlock-secret` `{ userId }`), declenche par un
+listener Konami-code site-wide dans `main.js`. Tire une carte au hasard
+parmi celles marquees `Cards.IsSecret = true` (qui doivent aussi avoir
+`IsPromo = true` - voir plus haut) et non epuisees (`MaxSerial`), cree une
+ligne `Pulls` (`BatchId` prefixe `secret-`) exactement comme un tirage
+normal. Repond `{ error: 'no_secret_available' }` (400) si aucune carte
+`IsSecret` n'existe encore ou si toutes sont epuisees - **il faut qu'un
+admin cree/flague au moins une carte `IsSecret=true` + `IsPromo=true` dans
+Grist pour que l'easter egg puisse jamais donner quelque chose**.
 
 ## Autel de sacrifice
 

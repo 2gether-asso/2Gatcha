@@ -1,0 +1,434 @@
+{
+  "name": "2Gatcha - card-quality-repair",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        400
+      ],
+      "webhookId": "a1b2c3d4-quality-0000-000000000000",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "card-quality-repair",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1380,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  cardId: Number(body.cardId),\n  fromQuality: (body.fromQuality || 'damaged').toString()\n} }];"
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1160,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -840,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "compute-repair",
+      "name": "Compute Repair",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst allPulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === cfg.cardId);\n\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_repairable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\n// Echelle de qualite fixe, du plus abime au plus parfait. Chaque palier\n// consomme 3 exemplaires IDENTIQUES (meme carte, meme qualite) pour en\n// produire 1 seul de la qualite suivante - deterministe, pas de RNG (meme\n// principe que la fusion de finitions, juste une echelle plus courte).\nconst QUALITY_ORDER = ['damaged', 'worn', 'good', 'mint'];\nconst fromIndex = QUALITY_ORDER.indexOf(cfg.fromQuality);\nif (fromIndex === -1 || fromIndex === QUALITY_ORDER.length - 1) {\n  return [{ json: { ok: false, error: 'invalid_quality' } }];\n}\nconst toQuality = QUALITY_ORDER[fromIndex + 1];\n\nfunction qualityOf(p) { return p.Quality || 'damaged'; }\nconst myPulls = allPulls.filter((p) => refId(p.User) === cfg.userId);\nconst matching = myPulls.filter((p) => refId(p.Card) === cfg.cardId && qualityOf(p) === cfg.fromQuality);\nif (matching.length < 3) {\n  return [{ json: { ok: false, error: 'not_enough_duplicates' } }];\n}\n\n// Limite d'exemplaires 'dans la nature' (Cards.MaxSerial, 100 par defaut) :\n// la carte restauree est un nouvel exemplaire, elle compte dans le meme\n// compteur global que les tirages/craft/finitions normaux.\nconst existingCount = allPulls.filter((p) => refId(p.Card) === cfg.cardId).length;\nconst maxSerial = card.MaxSerial || 100;\nif (existingCount >= maxSerial) {\n  return [{ json: { ok: false, error: 'sold_out' } }];\n}\n\nconst pullIdsToDelete = matching.slice(0, 3).map((p) => p.id);\n\nreturn [{ json: {\n  ok: true,\n  docId: cfg.docId,\n  userId: cfg.userId,\n  cardId: cfg.cardId,\n  pullIdsToDelete,\n  fromQuality: cfg.fromQuality,\n  toQuality,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `quality-${cfg.userId}-${Date.now()}`,\n  serialNumber: existingCount + 1,\n  maxSerial\n} }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        560
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "expand-consumed",
+      "name": "Expand Consumed Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r = $('Compute Repair').first().json;\nreturn (r.pullIdsToDelete || []).map((id) => ({ json: { docId: r.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-consumed",
+      "name": "Delete Consumed Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        260
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-delete-create",
+      "name": "Sync Delete Consumed -> Create Repaired",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "create-repaired-pull",
+      "name": "Create Repaired Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        360,
+        260
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Compute Repair').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $('Compute Repair').first().json.userId }}"
+            },
+            {
+              "fieldId": "Card",
+              "fieldValue": "={{ $('Compute Repair').first().json.cardId }}"
+            },
+            {
+              "fieldId": "ObtainedAt",
+              "fieldValue": "={{ $('Compute Repair').first().json.obtainedAt }}"
+            },
+            {
+              "fieldId": "BatchId",
+              "fieldValue": "={{ $('Compute Repair').first().json.batchId }}"
+            },
+            {
+              "fieldId": "Quality",
+              "fieldValue": "={{ $('Compute Repair').first().json.toQuality }}"
+            },
+            {
+              "fieldId": "SerialNumber",
+              "fieldValue": "={{ $('Compute Repair').first().json.serialNumber }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r = $('Compute Repair').first().json;\nreturn [{ json: {\n  repaired: true,\n  cardId: r.cardId,\n  fromQuality: r.fromQuality,\n  toQuality: r.toQuality,\n  serialNumber: r.serialNumber,\n  maxSerial: r.maxSerial\n} }];"
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        760,
+        260
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Compute Repair",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Repair": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Ok": {
+      "main": [
+        [
+          {
+            "node": "Expand Consumed Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Consumed Pulls": {
+      "main": [
+        [
+          {
+            "node": "Delete Consumed Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Consumed Pull": {
+      "main": [
+        [
+          {
+            "node": "Sync Delete Consumed -> Create Repaired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Delete Consumed -> Create Repaired": {
+      "main": [
+        [
+          {
+            "node": "Create Repaired Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Repaired Pull": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

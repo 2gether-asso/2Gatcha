@@ -252,11 +252,19 @@ const API = {
     return this.post("foilUpgrade", { userId, cardId, fromFinish });
   },
 
+  repairCardQuality(userId, cardId, fromQuality) {
+    return this.post("cardQualityRepair", { userId, cardId, fromQuality });
+  },
+
   unlockSecret(userId) {
     return this.post("unlockSecret", { userId });
   },
 
   getQuestStatus(userId) {
     return this.post("quests", { userId });
+  },
+
+  getWeeklyQuestStatus(userId) {
+    return this.post("weeklyQuests", { userId });
   }
 };
