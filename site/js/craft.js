@@ -42,6 +42,8 @@ let ownedMap = new Map();
 let allCards = [];
 let bulkSelectMode = false;
 let bulkSelected = new Set();
+let craftBulkSelectMode = false;
+let craftBulkSelected = new Set();
 let activeTab = "disenchant";
 let craftSearchQuery = "";
 let craftRarityFilter = "all";
@@ -389,13 +391,15 @@ function craftCardTile(card, mode) {
   }
   const cost = card.rarity?.craftCost || 0;
   const canAfford = stardust >= cost;
+  const craftChecked = craftBulkSelected.has(card.cardId);
   return `
-    <div class="craft-card ${canAfford ? "" : "unavailable"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
+    <div class="craft-card ${canAfford ? "" : "unavailable"} ${craftBulkSelectMode ? "bulk-mode" : ""} ${craftChecked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
+      ${craftBulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-craft-bulk-id="${card.cardId}" ${craftChecked ? "checked" : ""} ${canAfford ? "" : "disabled"} /></label>` : ""}
       <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
       <div class="card-info">
         <div class="card-name">${card.name}</div>
         <div class="craft-cost">${cost} poussières</div>
-        <button class="craft-btn" data-card-id="${card.cardId}" ${canAfford ? "" : "disabled"}>Crafter</button>
+        <button class="craft-btn" data-card-id="${card.cardId}" ${canAfford && !craftBulkSelectMode ? "" : "disabled"}>Crafter</button>
       </div>
     </div>
   `;
@@ -437,9 +441,16 @@ function renderDisenchantGrid() {
     const q = normalize(craftSearchQuery);
     disenchantable = disenchantable.filter((c) => normalize(c.name).includes(q));
   }
-  // Les plus rentables a decrafter en premier : ca aide a decider par ou
-  // commencer quand on a beaucoup de doublons a ecouler.
-  disenchantable = [...disenchantable].sort((a, b) => (b.rarity?.disenchantValue || 0) - (a.rarity?.disenchantValue || 0));
+  // Les plus gros doublons d'abord (le plus a ecouler), puis les plus
+  // rentables a valeur de doublon egale : c'est plus utile pour decider par
+  // ou commencer que le seul rendement en poussieres (une legendaire dont
+  // on a 1 seul exemplaire ne doit pas passer avant 6 communes en trop).
+  disenchantable = [...disenchantable].sort((a, b) => {
+    const countA = ownedMap.get(a.cardId)?.count || 0;
+    const countB = ownedMap.get(b.cardId)?.count || 0;
+    if (countB !== countA) return countB - countA;
+    return (b.rarity?.disenchantValue || 0) - (a.rarity?.disenchantValue || 0);
+  });
   grid.innerHTML = disenchantable.length
     ? disenchantable.map((c) => craftCardTile(c, "disenchant")).join("")
     : `<div class="empty-state">Aucune carte decraftable ne correspond.</div>`;
@@ -518,6 +529,59 @@ function renderCraftGrid() {
   grid.querySelectorAll(".craft-btn").forEach((btn) => {
     btn.addEventListener("click", () => craftCard(Number(btn.dataset.cardId)));
   });
+  grid.querySelectorAll("[data-craft-bulk-id]").forEach((cb) => {
+    cb.addEventListener("change", (e) => {
+      const id = Number(cb.dataset.craftBulkId);
+      if (e.target.checked) craftBulkSelected.add(id); else craftBulkSelected.delete(id);
+      cb.closest(".craft-card").classList.toggle("selected", e.target.checked);
+      updateBulkCraftBar();
+    });
+  });
+}
+
+function updateBulkCraftBar() {
+  const bar = document.getElementById("bulk-craft-bar");
+  if (!craftBulkSelectMode || craftBulkSelected.size === 0) {
+    bar.style.display = "none";
+    return;
+  }
+  const cost = [...craftBulkSelected].reduce((sum, id) => {
+    const card = allCards.find((c) => c.cardId === id);
+    return sum + (card?.rarity?.craftCost || 0);
+  }, 0);
+  bar.style.display = "flex";
+  const canAffordAll = cost <= stardust;
+  document.getElementById("bulk-craft-summary").textContent =
+    `${craftBulkSelected.size} carte${craftBulkSelected.size > 1 ? "s" : ""} sélectionnée${craftBulkSelected.size > 1 ? "s" : ""} · ${cost} poussières` +
+    (canAffordAll ? "" : ` (solde insuffisant : ${stardust})`);
+  const btn = document.getElementById("bulk-craft-btn");
+  btn.disabled = !canAffordAll;
+}
+
+async function bulkCraft() {
+  const ids = [...craftBulkSelected];
+  if (!ids.length) return;
+  const cost = ids.reduce((sum, id) => sum + (allCards.find((c) => c.cardId === id)?.rarity?.craftCost || 0), 0);
+  if (cost > stardust) return;
+  const ok = await Confirm.show(
+    `Crafter ces <strong>${ids.length} cartes</strong> pour <strong>${cost} poussières d'étoile</strong> au total ? ` +
+    `Solde : ${stardust} &rarr; <strong>${stardust - cost}</strong>.`,
+    { title: "Crafter la sélection ?", confirmText: "Crafter tout" }
+  );
+  if (!ok) return;
+  let successCount = 0;
+  for (const id of ids) {
+    try {
+      await API.craftCard(Session.userId, id);
+      successCount++;
+    } catch (e) { /* on continue avec les suivantes */ }
+  }
+  if (typeof confetti === "function" && successCount) confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+  Toast.success(`${successCount} carte${successCount > 1 ? "s" : ""} craftée${successCount > 1 ? "s" : ""}.`);
+  craftBulkSelected.clear();
+  craftBulkSelectMode = false;
+  document.getElementById("craft-bulk-select-toggle").classList.remove("active");
+  await reload();
 }
 
 async function disenchant(cardId, btn) {
@@ -606,6 +670,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-craft-btn").addEventListener("click", () => setActiveTab("craft"));
   document.getElementById("tab-altar-btn").addEventListener("click", () => setActiveTab("altar"));
   document.getElementById("tab-finish-btn").addEventListener("click", () => setActiveTab("finish"));
+
+  document.getElementById("craft-bulk-select-toggle").addEventListener("click", (e) => {
+    craftBulkSelectMode = !craftBulkSelectMode;
+    craftBulkSelected.clear();
+    e.target.classList.toggle("active", craftBulkSelectMode);
+    updateBulkCraftBar();
+    renderCraftGrid();
+  });
+  document.getElementById("bulk-craft-btn").addEventListener("click", bulkCraft);
 
   let craftSearchTimer = null;
   document.getElementById("craft-search-input").addEventListener("input", (e) => {

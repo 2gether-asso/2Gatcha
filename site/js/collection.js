@@ -994,7 +994,7 @@ document.addEventListener("DOMContentLoaded", () => {
     favoritesOnly = false;
     artistFilter = "";
     document.body.classList.remove("dense-view", "cinema-mode", "hide-stats");
-    document.documentElement.style.removeProperty("--binder-accent");
+    applyBinderAccent(null);
     document.querySelectorAll(".binder-swatch").forEach((s) => s.classList.toggle("active", !s.dataset.accent));
     savePrefs({ sortMode, missingOnly, denseView: false, hideStats: false, binderAccent: "" });
 

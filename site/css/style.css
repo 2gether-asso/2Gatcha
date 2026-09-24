@@ -2496,10 +2496,11 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 
 /* Effet visuel applique directement sur la vignette/la modale, par-dessus
    l'image (voir .collection-card { position:relative; overflow:hidden } et
-   .card-modal ci-dessous) : un halo qui suit le curseur (--shine-x/--shine-y,
-   poses par attachTilt() dans collection.js), plus une bordure/lueur propre
-   a chaque palier. mix-blend-mode + opacite faible : la carte reste lisible,
-   l'effet est une texture en plus, jamais un filtre qui masque l'oeuvre. */
+   .card-modal ci-dessous) : un vrai filtre de couleur SUR l'image (pas
+   juste un calque par-dessus) + une texture/un halo marques par palier.
+   Volontairement plus appuye que la v1 (retour utilisateur : "a peine
+   visible") - l'oeuvre reste identifiable, mais la finition doit sauter
+   aux yeux au premier coup d'oeil, pas seulement au survol. */
 .card-modal { position: relative; }
 .collection-card[data-finish]:not([data-finish="normal"])::after,
 .card-modal[data-finish]:not([data-finish="normal"])::after {
@@ -2510,47 +2511,75 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   z-index: 1;
 }
 
+.collection-card[data-finish="holo"] img,
+.card-modal[data-finish="holo"] img { filter: saturate(1.5) contrast(1.08) brightness(1.03); }
 .collection-card[data-finish="holo"],
-.card-modal[data-finish="holo"] { border-color: #a78bfa !important; }
+.card-modal[data-finish="holo"] { border-color: #a78bfa !important; border-width: 2px; box-shadow: 0 0 14px rgba(167,139,250,0.5); }
 .collection-card[data-finish="holo"]::after,
 .card-modal[data-finish="holo"]::after {
-  background: radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(196,181,253,0.55), rgba(103,232,249,0.3) 40%, transparent 70%);
+  background:
+    radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(196,181,253,0.75), rgba(103,232,249,0.5) 40%, transparent 70%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.16) 0 4px, transparent 4px 14px, rgba(103,232,249,0.14) 14px 18px, transparent 18px 28px);
   mix-blend-mode: screen;
+  animation: finish-holo-shift 3.5s ease-in-out infinite;
+}
+@keyframes finish-holo-shift {
+  0%, 100% { background-position: 0 0, 0 0; }
+  50% { background-position: 0 0, 40px 0; }
 }
 
+.collection-card[data-finish="gold"] img,
+.card-modal[data-finish="gold"] img { filter: sepia(0.6) saturate(2.1) brightness(1.04) hue-rotate(-8deg); }
 .collection-card[data-finish="gold"],
-.card-modal[data-finish="gold"] { border-color: #d4af37 !important; box-shadow: 0 0 16px rgba(212,175,55,0.35); }
+.card-modal[data-finish="gold"] { border-color: #d4af37 !important; border-width: 2px; box-shadow: 0 0 18px rgba(212,175,55,0.55); }
 .collection-card[data-finish="gold"]::after,
 .card-modal[data-finish="gold"]::after {
-  background: linear-gradient(135deg, rgba(255,223,120,0.4), transparent 60%);
+  background:
+    linear-gradient(135deg, rgba(255,223,120,0.5), transparent 55%),
+    repeating-radial-gradient(circle at 20% 15%, rgba(255,235,180,0.22) 0 2px, transparent 2px 9px);
   mix-blend-mode: overlay;
 }
 
 .collection-card[data-finish="ghost"] img,
-.card-modal[data-finish="ghost"] img { filter: saturate(0.55) brightness(1.1); }
+.card-modal[data-finish="ghost"] img { filter: grayscale(0.55) brightness(1.25) contrast(0.82); opacity: 0.88; }
 .collection-card[data-finish="ghost"],
-.card-modal[data-finish="ghost"] { border-color: #94a3b8 !important; }
+.card-modal[data-finish="ghost"] { border-color: #94a3b8 !important; border-width: 2px; box-shadow: 0 0 16px rgba(148,163,184,0.5); }
 .collection-card[data-finish="ghost"]::after,
 .card-modal[data-finish="ghost"]::after {
-  background: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(148,163,184,0.08));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.35), rgba(148,163,184,0.18)),
+    repeating-radial-gradient(circle at 70% 60%, rgba(255,255,255,0.08) 0 3px, transparent 3px 10px);
   mix-blend-mode: screen;
+  animation: finish-ghost-breathe 3s ease-in-out infinite;
+}
+@keyframes finish-ghost-breathe {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
 }
 
+.collection-card[data-finish="diamond"] img,
+.card-modal[data-finish="diamond"] img { filter: contrast(1.22) brightness(1.12) saturate(0.85); }
 .collection-card[data-finish="diamond"],
-.card-modal[data-finish="diamond"] { border-color: #7dd3fc !important; box-shadow: 0 0 18px rgba(125,211,252,0.45); }
+.card-modal[data-finish="diamond"] { border-color: #7dd3fc !important; border-width: 2px; box-shadow: 0 0 20px rgba(125,211,252,0.6); }
 .collection-card[data-finish="diamond"]::after,
 .card-modal[data-finish="diamond"]::after {
-  background: radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(255,255,255,0.85), rgba(125,211,252,0.35) 30%, transparent 65%);
+  background:
+    radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(255,255,255,0.9), rgba(125,211,252,0.5) 30%, transparent 65%),
+    repeating-linear-gradient(60deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 12px),
+    repeating-linear-gradient(-60deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 12px);
   mix-blend-mode: screen;
 }
 
+.collection-card[data-finish="rainbow"] img,
+.card-modal[data-finish="rainbow"] img { filter: saturate(1.6) contrast(1.12); }
 .collection-card[data-finish="rainbow"],
-.card-modal[data-finish="rainbow"] { border-color: #ff6ec7 !important; box-shadow: 0 0 20px rgba(255,110,199,0.4); }
+.card-modal[data-finish="rainbow"] { border-color: #ff6ec7 !important; border-width: 2px; box-shadow: 0 0 24px rgba(255,110,199,0.55); }
 .collection-card[data-finish="rainbow"]::after,
 .card-modal[data-finish="rainbow"]::after {
-  background: linear-gradient(120deg, #ff6ec7, #ffd76e, #7dd3fc, #a78bfa, #ff6ec7);
-  background-size: 300% 300%;
-  opacity: 0.4;
+  background:
+    repeating-linear-gradient(115deg, #ff6ec7 0 8%, #ffd76e 8% 16%, #7dd3fc 16% 24%, #a78bfa 24% 32%, #ff6ec7 32% 40%);
+  background-size: 250% 250%;
+  opacity: 0.55;
   mix-blend-mode: color-dodge;
   animation: finish-rainbow-shift 4s linear infinite;
 }
@@ -2560,7 +2589,11 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 @media (prefers-reduced-motion: reduce) {
   .collection-card[data-finish="rainbow"]::after,
-  .card-modal[data-finish="rainbow"]::after { animation: none; }
+  .card-modal[data-finish="rainbow"]::after,
+  .collection-card[data-finish="holo"]::after,
+  .card-modal[data-finish="holo"]::after,
+  .collection-card[data-finish="ghost"]::after,
+  .card-modal[data-finish="ghost"]::after { animation: none; }
 }
 
 /* Dissolution "poussiere d'etoile" a la destruction d'une carte (voir

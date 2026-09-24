@@ -56,7 +56,7 @@
 
         <div id="disenchant-pane">
           <div class="actions" style="margin-top:0;align-items:center;">
-            <p class="lead" style="flex:1;margin:0;font-size:0.85rem;">Triées par poussières rapportées, les plus rentables d'abord.</p>
+            <p class="lead" style="flex:1;margin:0;font-size:0.85rem;">Triées par nombre de doublons, les plus gros stocks d'abord.</p>
             <button type="button" class="btn-ghost" id="bulk-select-toggle">Sélection multiple</button>
           </div>
           <div id="bulk-disenchant-bar" class="bulk-action-bar" style="display:none;">
@@ -68,7 +68,14 @@
         </div>
 
         <div id="craft-pane" style="display:none;">
-          <p class="lead" style="font-size:0.85rem;">Triées par cout croissant ; les cartes que tu peux te permettre dès maintenant sont en avant.</p>
+          <div class="actions" style="margin-top:0;align-items:center;">
+            <p class="lead" style="flex:1;margin:0;font-size:0.85rem;">Triées par cout croissant ; les cartes que tu peux te permettre dès maintenant sont en avant.</p>
+            <button type="button" class="btn-ghost" id="craft-bulk-select-toggle">Sélection multiple</button>
+          </div>
+          <div id="bulk-craft-bar" class="bulk-action-bar" style="display:none;">
+            <span id="bulk-craft-summary"></span>
+            <button type="button" class="btn-secondary" id="bulk-craft-btn">Crafter la sélection</button>
+          </div>
           <div id="craft-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
           <div id="craft-grid" class="craft-grid"></div>
         </div>

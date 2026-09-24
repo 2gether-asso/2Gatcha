@@ -867,7 +867,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const t = $('Pick Pulls To Swap').first().json;\nconst users = $('Get Users For XP').all().map((i) => i.json).filter((r) => r.id != null);\nconst fromUser = users.find((u) => u.id === t.fromUserId);\nconst toUser = users.find((u) => u.id === t.toUserId);\n\n// Niveaux de profil : XP gagnee par les DEUX parties d'un echange accepte,\n// +1 booster bonus chacun par niveau franchi.\nfunction levelForXp(xp) { return 1 + Math.floor((xp || 0) / 100); }\nconst XP_PER_TRADE = 5;\nfunction computeReward(user) {\n  const oldXp = (user && user.XP) || 0;\n  const newXp = oldXp + XP_PER_TRADE;\n  const levelsGained = levelForXp(newXp) - levelForXp(oldXp);\n  const newBoosterCount = ((user && user.BoosterCount) || 0) + levelsGained;\n  return { newXp, newBoosterCount };\n}\nconst fromReward = computeReward(fromUser);\nconst toReward = computeReward(toUser);\n\nreturn [{ json: {\n  docId: t.docId,\n  fromUserId: t.fromUserId,\n  toUserId: t.toUserId,\n  fromNewXp: fromReward.newXp,\n  fromNewBoosterCount: fromReward.newBoosterCount,\n  toNewXp: toReward.newXp,\n  toNewBoosterCount: toReward.newBoosterCount\n} }];"
+        "jsCode": "const t = $('Pick Pulls To Swap').first().json;\nconst users = $('Get Users For XP').all().map((i) => i.json).filter((r) => r.id != null);\nconst fromUser = users.find((u) => u.id === t.fromUserId);\nconst toUser = users.find((u) => u.id === t.toUserId);\n\n// Niveaux de profil : XP gagnee par les DEUX parties d'un echange accepte,\n// +1 booster bonus chacun par niveau franchi.\nfunction levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst XP_PER_TRADE = 5;\nfunction computeReward(user) {\n  const oldXp = (user && user.XP) || 0;\n  const newXp = oldXp + XP_PER_TRADE;\n  const levelsGained = levelForXp(newXp) - levelForXp(oldXp);\n  const newBoosterCount = ((user && user.BoosterCount) || 0) + levelsGained;\n  return { newXp, newBoosterCount };\n}\nconst fromReward = computeReward(fromUser);\nconst toReward = computeReward(toUser);\n\nreturn [{ json: {\n  docId: t.docId,\n  fromUserId: t.fromUserId,\n  toUserId: t.toUserId,\n  fromNewXp: fromReward.newXp,\n  fromNewBoosterCount: fromReward.newBoosterCount,\n  toNewXp: toReward.newXp,\n  toNewBoosterCount: toReward.newBoosterCount\n} }];"
       }
     },
     {
@@ -951,7 +951,7 @@
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { tradeId: $('Mark Trade Accepted').first().json.id, status: 'accepted', xp: { total: $('Compute Trade XP').first().json.toNewXp, level: Math.floor(($('Compute Trade XP').first().json.toNewXp || 0) / 100) + 1 } } }}",
+        "responseBody": "={{ { tradeId: $('Mark Trade Accepted').first().json.id, status: 'accepted', xp: { total: $('Compute Trade XP').first().json.toNewXp, level: Math.floor((25 + Math.sqrt(625 + 100 * ($('Compute Trade XP').first().json.toNewXp || 0))) / 50) } } }}",
         "options": {}
       }
     },

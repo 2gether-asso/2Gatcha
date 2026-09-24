@@ -84,11 +84,15 @@ son propre compteur de pity.
 
 **Niveaux de profil** : purement cosmetique/motivant, base sur `Users.XP`
 (cumulatif, jamais retire). Le niveau n'est **pas** stocke - il se calcule a
-la volee partout ou il est affiche/utilise : `niveau = 1 + floor(XP / 100)`
-(100 XP par niveau, palier fixe). Chaque franchissement de niveau accorde
-automatiquement **+1 booster generique** (`Users.BoosterCount`), calcule en
-comparant le niveau avant/apres le gain d'XP au moment de l'action (peut
-accorder plusieurs boosters d'un coup si un gros gain d'XP fait sauter
+la volee partout ou il est affiche/utilise. Palier **croissant** : passer du
+niveau `n` au niveau `n+1` coute `50*n` XP (50 pour le niveau 1, 100 pour le
+niveau 2, 150 pour le niveau 3, etc. - `niveau n+1 = niveau n + 50`), donc le
+cumul d'XP pour ETRE au niveau `L` vaut `25*L*(L-1)`. Formule inverse
+utilisee partout (racine positive de `25*L^2 - 25*L - XP = 0`) :
+`niveau = floor((25 + sqrt(625 + 100*XP)) / 50)`. Chaque franchissement de
+niveau accorde automatiquement **+1 booster generique** (`Users.BoosterCount`),
+calcule en comparant le niveau avant/apres le gain d'XP au moment de l'action
+(peut accorder plusieurs boosters d'un coup si un gros gain d'XP fait sauter
 plusieurs paliers). Sources d'XP actuelles : ouvrir un booster (+10,
 `open-pack.json`), crafter une carte (+5, `craft.json`), tourner la roue
 quotidienne (+5, `daily-wheel.json`), tenter un sacrifice a l'autel (+5,
