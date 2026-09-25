@@ -623,7 +623,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nfunction mondayOf(dateStr) {\n  const d = new Date(dateStr + 'T00:00:00Z');\n  const day = d.getUTCDay();\n  const diff = day === 0 ? 6 : day - 1;\n  d.setUTCDate(d.getUTCDate() - diff);\n  return d.toISOString().slice(0, 10);\n}\nconst docId = $('Validate & Prepare').first().json.docId;\nconst userId = $('Validate & Prepare').first().json.userId;\nconst todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());\nconst weekStart = mondayOf(todayParis);\nconst rows = $('Quest Weekly Craft: Get Weekly Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === userId && toDateStr(r.WeekStart) === weekStart);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\nflags.CraftDone = true;\n\nconst completedCount = [\"LoginDone\",\"CraftDone\",\"TradeDone\",\"OpenBoosterDone\"].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 3 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\nreturn [{ json: { docId, userId, weekStart, rowId: row ? row.id : null, exists: !!row, shouldGrantReward, ...flags } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nfunction mondayOf(dateStr) {\n  const d = new Date(dateStr + 'T00:00:00Z');\n  const day = d.getUTCDay();\n  const diff = day === 0 ? 6 : day - 1;\n  d.setUTCDate(d.getUTCDate() - diff);\n  return d.toISOString().slice(0, 10);\n}\nconst docId = $('Validate & Prepare').first().json.docId;\nconst userId = $('Validate & Prepare').first().json.userId;\nconst todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());\nconst weekStart = mondayOf(todayParis);\nconst TARGET = 5;\nconst rows = $('Quest Weekly Craft: Get Weekly Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === userId && toDateStr(r.WeekStart) === weekStart);\n\nconst counts = { LoginCount: 0, CraftCount: 0, TradeCount: 0, OpenBoosterCount: 0 };\nlet lastLoginCountedDate = null;\nlet rewardClaimed = false;\nif (row) {\n  counts.LoginCount = row.LoginCount || 0;\n  counts.CraftCount = row.CraftCount || 0;\n  counts.TradeCount = row.TradeCount || 0;\n  counts.OpenBoosterCount = row.OpenBoosterCount || 0;\n  lastLoginCountedDate = row.LastLoginCountedDate || null;\n  rewardClaimed = !!row.RewardClaimed;\n}\ncounts.CraftCount += 1;\n\nconst completedCount = Object.values(counts).filter((c) => c >= TARGET).length;\nconst shouldGrantReward = completedCount >= 3 && !rewardClaimed;\nif (shouldGrantReward) rewardClaimed = true;\n\nreturn [{ json: { docId, userId, weekStart, rowId: row ? row.id : null, exists: !!row, shouldGrantReward, rewardClaimed, lastLoginCountedDate, ...counts } }];"
       }
     },
     {
@@ -675,24 +675,28 @@
         "fieldsToSend": {
           "properties": [
             {
-              "fieldId": "LoginDone",
-              "fieldValue": "={{ $json.LoginDone }}"
+              "fieldId": "LoginCount",
+              "fieldValue": "={{ $json.LoginCount }}"
             },
             {
-              "fieldId": "CraftDone",
-              "fieldValue": "={{ $json.CraftDone }}"
+              "fieldId": "CraftCount",
+              "fieldValue": "={{ $json.CraftCount }}"
             },
             {
-              "fieldId": "TradeDone",
-              "fieldValue": "={{ $json.TradeDone }}"
+              "fieldId": "TradeCount",
+              "fieldValue": "={{ $json.TradeCount }}"
             },
             {
-              "fieldId": "OpenBoosterDone",
-              "fieldValue": "={{ $json.OpenBoosterDone }}"
+              "fieldId": "OpenBoosterCount",
+              "fieldValue": "={{ $json.OpenBoosterCount }}"
+            },
+            {
+              "fieldId": "LastLoginCountedDate",
+              "fieldValue": "={{ $json.lastLoginCountedDate }}"
             },
             {
               "fieldId": "RewardClaimed",
-              "fieldValue": "={{ $json.RewardClaimed }}"
+              "fieldValue": "={{ $json.rewardClaimed }}"
             }
           ]
         }
@@ -729,24 +733,28 @@
               "fieldValue": "={{ $json.weekStart }}"
             },
             {
-              "fieldId": "LoginDone",
-              "fieldValue": "={{ $json.LoginDone }}"
+              "fieldId": "LoginCount",
+              "fieldValue": "={{ $json.LoginCount }}"
             },
             {
-              "fieldId": "CraftDone",
-              "fieldValue": "={{ $json.CraftDone }}"
+              "fieldId": "CraftCount",
+              "fieldValue": "={{ $json.CraftCount }}"
             },
             {
-              "fieldId": "TradeDone",
-              "fieldValue": "={{ $json.TradeDone }}"
+              "fieldId": "TradeCount",
+              "fieldValue": "={{ $json.TradeCount }}"
             },
             {
-              "fieldId": "OpenBoosterDone",
-              "fieldValue": "={{ $json.OpenBoosterDone }}"
+              "fieldId": "OpenBoosterCount",
+              "fieldValue": "={{ $json.OpenBoosterCount }}"
+            },
+            {
+              "fieldId": "LastLoginCountedDate",
+              "fieldValue": "={{ $json.lastLoginCountedDate }}"
             },
             {
               "fieldId": "RewardClaimed",
-              "fieldValue": "={{ $json.RewardClaimed }}"
+              "fieldValue": "={{ $json.rewardClaimed }}"
             }
           ]
         }

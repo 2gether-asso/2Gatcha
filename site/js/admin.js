@@ -260,6 +260,73 @@ async function loadExtensionsAdmin() {
   });
 }
 
+// -----------------------------------------------------------------------
+// Boss communautaire
+// -----------------------------------------------------------------------
+async function loadBossAdmin() {
+  const el = document.getElementById("boss-admin-current");
+  try {
+    const res = await API.getBossStatus(Session.userId);
+    el.innerHTML = res.active
+      ? `<strong>${res.bossName}</strong> — ${res.currentHp} / ${res.maxHp} PV (récompense : ${res.rewardBoosters} boosters)`
+      : `Aucun boss actif pour l'instant.`;
+  } catch (e) {
+    el.textContent = "Impossible de charger l'état du boss.";
+  }
+}
+
+// -----------------------------------------------------------------------
+// Marché noir
+// -----------------------------------------------------------------------
+function populateMarketCardSelect() {
+  const select = document.getElementById("market-card-select");
+  select.innerHTML = cardsCatalog
+    .map((c) => `<option value="${c.cardId}">${c.name}${c.isPromo ? " (promo)" : ""}</option>`)
+    .join("");
+}
+
+function updateMarketCardPreview() {
+  const preview = document.getElementById("market-card-preview");
+  const select = document.getElementById("market-card-select");
+  const card = cardsCatalog.find((c) => String(c.cardId) === select.value);
+  preview.src = (card && API.imageUrl(card.imageId)) || PLACEHOLDER_IMG;
+  preview.style.display = "block";
+}
+
+async function loadMarketAdmin() {
+  const el = document.getElementById("market-admin-list");
+  try {
+    const res = await API.listBlackMarket(Session.userId);
+    const offers = res.offers || [];
+    el.innerHTML = offers.length ? offers.map((o) => `
+      <div class="codes-calendar-day">
+        <div class="day-label">${o.card.name}</div>
+        <div class="day-codes">
+          <div class="day-code-row">
+            <span>${o.cost} poussières · ${o.remaining != null ? `${o.remaining} restant(s)` : "illimité"}</span>
+          </div>
+        </div>
+      </div>
+    `).join("") : `<div class="empty-state">Aucune offre active pour l'instant.</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state">Impossible de charger les offres.</div>`;
+  }
+}
+
+// -----------------------------------------------------------------------
+// Bingo
+// -----------------------------------------------------------------------
+function populateBingoCardSelects() {
+  const container = document.getElementById("bingo-card-selects");
+  const options = cardsCatalog.map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
+  container.innerHTML = Array.from({ length: 9 }, (_, i) => `
+    <label>
+      Case ${i + 1}
+      <select class="bingo-cell-select" data-index="${i}">${options}</select>
+    </label>
+  `).join("");
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
@@ -272,6 +339,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadStats();
     loadConfig();
     loadExtensionsAdmin();
+    loadBossAdmin();
+    populateMarketCardSelect();
+    updateMarketCardPreview();
+    loadMarketAdmin();
+    populateBingoCardSelects();
     document.getElementById("admin-zone").style.display = "block";
   } catch (e) {
     if (e.code === "forbidden") {
@@ -360,6 +432,59 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadCodes();
     } catch (err) {
       Toast.error("Impossible de créer le code. (" + err.message + ")");
+    }
+  });
+
+  document.getElementById("market-card-select").addEventListener("change", updateMarketCardPreview);
+
+  document.getElementById("create-boss-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await API.adminCreateBoss(Session.discordId, {
+        bossName: document.getElementById("boss-name-input").value.trim(),
+        maxHp: Number(document.getElementById("boss-maxhp-input").value) || 0,
+        rewardBoosters: Number(document.getElementById("boss-reward-input").value) || 0
+      });
+      Toast.success("Boss lancé !");
+      document.getElementById("create-boss-form").reset();
+      loadBossAdmin();
+    } catch (err) {
+      Toast.error("Impossible de lancer le boss. (" + err.message + ")");
+    }
+  });
+
+  document.getElementById("create-market-offer-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await API.adminCreateMarketOffer(Session.discordId, {
+        cardId: Number(document.getElementById("market-card-select").value),
+        cost: Number(document.getElementById("market-cost-input").value) || 0,
+        expiresInHours: Number(document.getElementById("market-expires-input").value) || 24,
+        maxPurchases: Number(document.getElementById("market-max-purchases-input").value) || 0
+      });
+      Toast.success("Offre créée !");
+      loadMarketAdmin();
+    } catch (err) {
+      Toast.error("Impossible de créer l'offre. (" + err.message + ")");
+    }
+  });
+
+  document.getElementById("create-bingo-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const cardIds = [...document.querySelectorAll(".bingo-cell-select")].map((s) => Number(s.value));
+    if (new Set(cardIds).size !== 9) {
+      Toast.error("Choisis 9 cartes différentes.");
+      return;
+    }
+    try {
+      await API.adminSetBingoGrid(Session.discordId, {
+        month: document.getElementById("bingo-month-input").value.trim() || undefined,
+        cardIds,
+        rewardBoosters: Number(document.getElementById("bingo-reward-input").value) || 0
+      });
+      Toast.success("Grille de bingo enregistrée !");
+    } catch (err) {
+      Toast.error("Impossible d'enregistrer la grille. (" + err.message + ")");
     }
   });
 

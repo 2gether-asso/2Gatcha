@@ -6,7 +6,7 @@
   <title>2Gatcha - Collection d'art de l'asso</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -41,44 +41,46 @@
 
     </div>
 
-    <div class="panel" id="pass-panel" style="display:none;margin-top:24px;">
-      <div class="actions" style="margin-top:0;align-items:center;">
-        <h2 style="flex:1;margin:0;">&#127942; Progression</h2>
-        <span id="pass-level-label" class="level-badge"></span>
-      </div>
-      <div class="pass-track">
-        <div class="pass-track-bar"><div id="pass-track-fill" class="pass-track-fill"></div></div>
-        <div class="pass-track-labels">
-          <span id="pass-xp-label"></span>
-          <span>Prochaine récompense : &#127183; +1 booster</span>
+    <div class="home-grid">
+      <div class="panel" id="pass-panel" style="display:none;">
+        <div class="actions" style="margin-top:0;align-items:center;">
+          <h2 style="flex:1;margin:0;">&#127942; Progression</h2>
+          <span id="pass-level-label" class="level-badge"></span>
+        </div>
+        <div class="pass-track">
+          <div class="pass-track-bar"><div id="pass-track-fill" class="pass-track-fill"></div></div>
+          <div class="pass-track-labels">
+            <span id="pass-xp-label"></span>
+            <span>Prochaine récompense : &#127183; +1 booster</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="panel" id="quests-panel" style="display:none;margin-top:24px;">
-      <div class="actions" style="margin-top:0;align-items:center;">
-        <h2 style="flex:1;margin:0;">&#127919; Quêtes du jour</h2>
-        <span id="quest-streak-badge" class="streak-badge" style="display:none;"></span>
-      </div>
-      <p class="lead" style="font-size:0.85rem;">Complète 2 des 4 quêtes aujourd'hui pour recevoir 2 boosters gratuits.</p>
-      <div id="quests-list" class="quests-list"></div>
-    </div>
-
-    <div class="panel" id="weekly-quests-panel" style="display:none;margin-top:24px;">
-      <h2>&#128197; Quêtes de la semaine</h2>
-      <p class="lead" style="font-size:0.85rem;">Complète 3 des 4 quêtes cette semaine (lundi &rarr; dimanche) pour recevoir 5 boosters gratuits.</p>
-      <div id="weekly-quests-list" class="quests-list"></div>
-    </div>
-
-    <div class="panel" id="wheel-panel" style="display:none;margin-top:24px;">
-      <h2>&#127920; Roue de la fortune</h2>
-      <p class="lead" style="font-size:0.85rem;">Un tirage gratuit par jour : poussières d'étoile, parfois un booster.</p>
-      <div class="wheel-widget">
-        <span class="wheel-icon" aria-hidden="true">&#127920;</span>
-        <div class="wheel-status">
-          <div id="wheel-status-text">Chargement...</div>
-          <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
+      <div class="panel" id="wheel-panel" style="display:none;">
+        <h2>&#127920; Roue de la fortune</h2>
+        <p class="lead" style="font-size:0.85rem;">Un tirage gratuit par jour : poussières d'étoile, parfois un booster.</p>
+        <div class="wheel-widget">
+          <span class="wheel-icon" aria-hidden="true">&#127920;</span>
+          <div class="wheel-status">
+            <div id="wheel-status-text">Chargement...</div>
+            <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
+          </div>
         </div>
+      </div>
+
+      <div class="panel" id="quests-panel" style="display:none;">
+        <div class="actions" style="margin-top:0;align-items:center;">
+          <h2 style="flex:1;margin:0;">&#127919; Quêtes du jour</h2>
+          <span id="quest-streak-badge" class="streak-badge" style="display:none;"></span>
+        </div>
+        <p class="lead" style="font-size:0.85rem;">Complète 2 des 4 quêtes aujourd'hui pour recevoir 2 boosters gratuits.</p>
+        <div id="quests-list" class="quests-list"></div>
+      </div>
+
+      <div class="panel" id="weekly-quests-panel" style="display:none;">
+        <h2>&#128197; Quêtes de la semaine</h2>
+        <p class="lead" style="font-size:0.85rem;">Complète 3 des 4 quêtes cette semaine (lundi &rarr; dimanche) pour recevoir 5 boosters gratuits.</p>
+        <div id="weekly-quests-list" class="quests-list"></div>
       </div>
     </div>
 
@@ -295,12 +297,17 @@
       API.getWeeklyQuestStatus(Session.userId).then((res) => {
         const list = document.getElementById("weekly-quests-list");
         const quests = res.quests || {};
+        const target = res.target || 5;
         list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
-          const done = !!quests[key];
+          const count = Math.min(quests[key] || 0, target);
+          const done = count >= target;
+          const pct = Math.round((count / target) * 100);
           return `
-            <div class="quest-row ${done ? "done" : ""}">
+            <div class="quest-row weekly ${done ? "done" : ""}">
               <span class="quest-icon">${done ? "&#9989;" : meta.icon}</span>
               <span class="quest-label">${meta.label}</span>
+              <span class="quest-count">${count} / ${target}</span>
+              <span class="quest-mini-track"><span class="quest-mini-fill" style="width:${pct}%;"></span></span>
             </div>
           `;
         }).join("") + `

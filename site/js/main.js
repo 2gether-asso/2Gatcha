@@ -729,10 +729,15 @@ function renderBottomNav() {
     document.body.appendChild(el);
   }
   const page = currentPage();
+  // Icones seules (label en sr-only) : avec 8-9 destinations possibles
+  // (Communaute/Jeux ajoutes cette session), les libelles textuels se
+  // chevauchaient sur mobile (chaque <a> ne pouvait pas retrecir sous la
+  // largeur de son mot le plus long). Les icones emoji restent assez
+  // parlantes seules, et aria-label garde le nom accessible.
   el.innerHTML = visibleNavItems().map((item) => `
-    <a href="${item.href}" class="${item.href === page ? "active" : ""}" data-badge-key="${item.badgeKey || ""}">
+    <a href="${item.href}" class="${item.href === page ? "active" : ""}" data-badge-key="${item.badgeKey || ""}" aria-label="${item.label}">
       <span class="bn-icon">${item.icon}</span>
-      <span>${item.label}</span>
+      <span class="sr-only">${item.label}</span>
     </a>
   `).join("");
 }
@@ -1069,7 +1074,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   window.addEventListener("resize", scheduleHeaderSync);
   window.addEventListener("orientationchange", scheduleHeaderSync);
-  // Les polices web (Sora/Inter) peuvent legerement changer la hauteur du
+  // Les polices web (Bungee/Inter) peuvent legerement changer la hauteur du
   // header une fois chargees : on recale une fois qu'elles sont pretes.
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderOffset);
 });

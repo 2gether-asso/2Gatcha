@@ -16,6 +16,8 @@ const FAVORITES_KEY = "2gatcha_favorites";
 // pour cette carte (un collectionneur montre sa plus belle version).
 const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
 const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
+const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
 // Pochettes de cartes (sleeves) : verrouillees/deverrouillees selon le
 // niveau de profil (Users.XP). Si la pochette choisie precedemment devient
 // injoignable (ne devrait pas arriver, le niveau ne redescend jamais), on
@@ -58,6 +60,18 @@ function bestFinish(finishCounts) {
     if (finishCounts[FINISH_ORDER[i]] > 0) return FINISH_ORDER[i];
   }
   return "normal";
+}
+
+// Contrairement a bestFinish (on montre le plus prestigieux), on montre ici
+// le PIRE etat possede : une carte abimee doit se voir et donner envie
+// d'aller la restaurer (onglet Qualite de craft.html), pas rester cachee
+// derriere un exemplaire plus propre du meme doublon.
+function worstQuality(qualityCounts) {
+  if (!qualityCounts) return "mint";
+  for (let i = 0; i < QUALITY_ORDER.length; i++) {
+    if (qualityCounts[QUALITY_ORDER[i]] > 0) return QUALITY_ORDER[i];
+  }
+  return "mint";
 }
 
 // Messages d'erreur dupliques depuis craft.js/trade.js (meme convention que
@@ -125,6 +139,10 @@ let sortMode = prefs.sortMode || "extension";
 let missingOnly = !!prefs.missingOnly;
 let favoritesOnly = false;
 let artistFilter = "";
+// Selection multiple pour decrafter en masse (meme pattern que craft.js) :
+// un Set d'ids de cartes, actif seulement quand bulkSelectMode est vrai.
+let bulkSelectMode = false;
+let bulkSelected = new Set();
 
 // Favoris : purement locaux (par appareil), pas de backend necessaire.
 function loadFavorites() {
@@ -225,12 +243,13 @@ function showCardModal(cardId, navList) {
     const disenchantValue = craftCostByCard.get(card.cardId)?.disenchantValue;
     const isFirstObtainer = card.firstObtainedBy && card.firstObtainedBy === Session.pseudo;
     const finish = owned ? bestFinish(owned.finishCounts) : "normal";
+    const quality = owned ? worstQuality(owned.qualityCounts) : "mint";
     overlay.innerHTML = `
-      <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}">
+      <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
         ${navList.length > 1 ? `<button class="card-modal-nav prev" aria-label="Carte precedente">&#10094;</button>` : ""}
         ${navList.length > 1 ? `<button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
-        <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+        <div class="card-art"><img src="${imgSrc}" alt="${card.name}" loading="lazy" /></div>
         <div class="card-modal-body">
           <div class="card-modal-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
           <div class="card-modal-artist">${card.artist || ""}${card.extension ? " &middot; " + card.extension.name : ""}</div>
@@ -238,6 +257,7 @@ function showCardModal(cardId, navList) {
             ${card.rarity?.name || "Commune"}
           </span>
           ${owned && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;display:inline-flex;margin-left:6px;">${FINISH_LABELS[finish]}</span>` : ""}
+          ${owned && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;display:inline-flex;margin-left:6px;">${QUALITY_LABELS[quality]}</span>` : ""}
           ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
           ${owned && owned.serialNumbers?.length ? `<div class="serial-badge">${owned.serialNumbers.map((n) => `#${String(n).padStart(3, "0")}`).join(", ")} / ${card.maxSerial || 100}</div>` : ""}
           ${card.description ? `<p class="card-modal-description">${card.description}</p>` : ""}
@@ -348,14 +368,19 @@ function cardTileHtml(card, now) {
   const inWishlist = locked && wishlistSet.has(card.cardId);
   const inShowcase = !locked && showcaseSet.has(card.cardId);
   const finish = owned ? bestFinish(owned.finishCounts) : "normal";
+  const quality = owned ? worstQuality(owned.qualityCounts) : "mint";
+  const bulkEligible = canQuickAct && disenchantValue != null;
+  const bulkChecked = bulkEligible && bulkSelected.has(card.cardId);
 
   return `
-    <div class="collection-card ${locked ? "locked" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" data-finish="${finish}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
+    <div class="collection-card ${locked ? "locked" : ""} ${bulkSelectMode && bulkEligible ? "bulk-mode" : ""} ${bulkChecked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
       ${isNew ? '<span class="new-badge">New</span>' : ""}
       ${!locked && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
-      ${!locked ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
+      ${!locked && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+      ${bulkSelectMode && bulkEligible ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${bulkChecked ? "checked" : ""} /></label>` : ""}
+      ${!locked && !(bulkSelectMode && bulkEligible) ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
       ${locked ? `<button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>` : ""}
-      <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" />
+      <div class="card-art"><img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" /></div>
       <div class="card-info">
         <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
@@ -737,6 +762,15 @@ function renderGrid() {
     el.addEventListener("click", (e) => {
       if (e.target.closest(".fav-btn, .card-quick-action")) return;
       const cardId = Number(el.dataset.cardId);
+      // En mode selection multiple, un clic n'importe ou sur la vignette
+      // (pas seulement sur la case) bascule la selection au lieu d'ouvrir
+      // la modale - plus pratique pour selectionner beaucoup de cartes vite.
+      if (bulkSelectMode && el.classList.contains("bulk-mode")) {
+        if (e.target.closest(".bulk-checkbox")) return;
+        const cb = el.querySelector("[data-bulk-id]");
+        if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event("change")); }
+        return;
+      }
       showCardModal(cardId, visibleOwnedIds);
     });
     // Cartes cliquables au clavier (tabindex+role="button" poses dans
@@ -776,6 +810,63 @@ function renderGrid() {
   container.querySelectorAll(".quick-showcase-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); toggleShowcase(Number(btn.dataset.cardId), btn); });
   });
+  container.querySelectorAll("[data-bulk-id]").forEach((cb) => {
+    cb.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const id = Number(cb.dataset.bulkId);
+      if (e.target.checked) bulkSelected.add(id); else bulkSelected.delete(id);
+      cb.closest(".collection-card").classList.toggle("selected", e.target.checked);
+      updateBulkBar();
+    });
+    cb.addEventListener("click", (e) => e.stopPropagation());
+  });
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById("bulk-disenchant-bar");
+  if (!bar) return;
+  if (!bulkSelectMode || bulkSelected.size === 0) {
+    bar.style.display = "none";
+    return;
+  }
+  const dust = [...bulkSelected].reduce((sum, id) => sum + (craftCostByCard.get(id)?.disenchantValue || 0), 0);
+  bar.style.display = "flex";
+  document.getElementById("bulk-disenchant-summary").textContent =
+    `${bulkSelected.size} carte${bulkSelected.size > 1 ? "s" : ""} sélectionnée${bulkSelected.size > 1 ? "s" : ""} · +${dust} poussières`;
+}
+
+async function bulkDisenchant() {
+  const ids = [...bulkSelected];
+  if (!ids.length) return;
+  const minDust = ids.reduce((sum, id) => sum + (craftCostByCard.get(id)?.disenchantValue || 0), 0);
+  const ok = await Confirm.show(
+    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>au moins +${minDust} poussières d'étoile</strong> (plus si des finitions spéciales sont consommées) ? ` +
+    `Un seul exemplaire de chaque carte sera détruit. Cette action est irréversible.`,
+    { title: "Décrafter la sélection ?", confirmText: "Décrafter tout", dangerous: true }
+  );
+  if (!ok) return;
+  let successCount = 0;
+  let totalDustGained = 0;
+  for (const id of ids) {
+    try {
+      const res = await API.disenchantCard(Session.userId, id);
+      totalDustGained += res.dustGained || 0;
+      successCount++;
+      const owned = ownedMap.get(id);
+      if (owned) {
+        if (owned.count > 1) owned.count--;
+        else ownedMap.delete(id);
+      }
+    } catch (e) { /* on continue avec les suivantes */ }
+  }
+  stardustBalance += totalDustGained;
+  Toast.success(`${successCount} carte${successCount > 1 ? "s" : ""} décraftée${successCount > 1 ? "s" : ""} (+${totalDustGained} poussières).`);
+  bulkSelected.clear();
+  bulkSelectMode = false;
+  document.getElementById("bulk-select-toggle").classList.remove("active");
+  renderStatsAndMilestone();
+  renderGrid();
 }
 
 async function loadCollection() {
@@ -1017,4 +1108,11 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("cinema-toggle").classList.remove("active");
     }
   });
+  document.getElementById("bulk-select-toggle").addEventListener("click", (e) => {
+    bulkSelectMode = !bulkSelectMode;
+    bulkSelected.clear();
+    e.target.classList.toggle("active", bulkSelectMode);
+    renderGrid();
+  });
+  document.getElementById("bulk-disenchant-btn").addEventListener("click", bulkDisenchant);
 });

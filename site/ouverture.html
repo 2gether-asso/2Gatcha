@@ -6,7 +6,7 @@
   <title>Ouvrir un booster - 2Gatcha</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -18,7 +18,8 @@
 
   <main id="main-content">
     <div class="panel">
-      <h1>Ouverture de booster</h1>
+      <span class="hero-eyebrow">&#127915; Machine à capsules</span>
+      <h1 class="hero-title">Ouverture de <span class="hero-highlight">booster</span></h1>
       <p class="lead">Un booster contient 5 cartes. Les boosters s'obtiennent uniquement en réclamant un code d'événement. Tape sur un pack pour l'ouvrir.</p>
 
       <div id="guest-warning" style="display:none;">
@@ -32,11 +33,11 @@
           <span class="psb-spark psb-spark-3">&#10022;</span>
           <span class="psb-spark psb-spark-4">&#10023;</span>
         </div>
-        <div class="actions" style="margin-top:0;align-items:center;">
-          <p id="booster-count-label" class="stock-label" style="margin:0;flex:1;"></p>
+        <div class="actions" style="margin-top:0;align-items:center;flex-wrap:wrap;">
+          <p id="booster-count-label" class="credit-counter" style="margin:0;flex:1;"></p>
           <a href="pull-log.html" class="btn-ghost">&#128220; Mon journal d'ouvertures</a>
         </div>
-        <div class="extension-picker" id="extension-picker" style="margin-top:16px;"></div>
+        <div class="extension-picker" id="extension-picker" style="margin-top:20px;"></div>
       </div>
     </div>
   </main>

@@ -309,8 +309,8 @@ const API = {
   getDigStatus(userId) {
     return this.post("dig", { userId, action: "status" });
   },
-  dig(userId) {
-    return this.post("dig", { userId, action: "dig" });
+  dig(userId, tileIndex) {
+    return this.post("dig", { userId, action: "dig", tileIndex });
   },
 
   getBingoStatus(userId) {
@@ -318,5 +318,15 @@ const API = {
   },
   claimBingo(userId) {
     return this.post("bingo", { userId, action: "claim" });
+  },
+
+  adminCreateBoss(discordId, params) {
+    return this.post("communityBoss", { discordId, action: "adminCreate", ...params });
+  },
+  adminCreateMarketOffer(discordId, params) {
+    return this.post("blackMarket", { discordId, action: "adminCreate", ...params });
+  },
+  adminSetBingoGrid(discordId, params) {
+    return this.post("bingo", { discordId, action: "adminSetGrid", ...params });
   }
 };

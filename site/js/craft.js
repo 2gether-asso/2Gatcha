@@ -55,6 +55,17 @@ const QUALITY_LABELS = {
   mint: "Parfait état"
 };
 
+// Le pire etat possede en priorite (comme collection.js) : une vignette de
+// decraft doit signaler une carte abimee, pas la cacher derriere un
+// exemplaire plus propre du meme doublon.
+function worstQuality(qualityCounts) {
+  if (!qualityCounts) return "mint";
+  for (let i = 0; i < QUALITY_ORDER.length; i++) {
+    if (qualityCounts[QUALITY_ORDER[i]] > 0) return QUALITY_ORDER[i];
+  }
+  return "mint";
+}
+
 let stardust = 0;
 let ownedMap = new Map();
 let allCards = [];
@@ -467,10 +478,12 @@ function craftCardTile(card, mode) {
     const maxQty = owned?.count || 1;
     const qty = Math.min(Math.max(disenchantQty.get(card.cardId) || 1, 1), maxQty);
     const showStepper = !bulkSelectMode && maxQty > 1;
+    const quality = worstQuality(owned?.qualityCounts);
     return `
-      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
+      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-quality="${quality}">
         ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
-        <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+        <div class="card-art"><img src="${imgSrc}" alt="${card.name}" loading="lazy" /></div>
+        ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
         <div class="card-info">
           <div class="card-name">${card.name}</div>
           <div class="owned-count">Possède x${owned.count}</div>

@@ -17,12 +17,24 @@ function formatDuration(seconds) {
 }
 
 // -----------------------------------------------------------------------
-// Fouille
+// Fouille : grille de 16 tuiles a creuser. Certains tresors sont etales sur
+// plusieurs tuiles (voir grist/SCHEMA.md) - une tuile "partielle" le signale
+// discretement (une fissure de plus, pas la position exacte des autres
+// tuiles du meme tresor) sans jamais reveler ce qui est cache ailleurs.
 // -----------------------------------------------------------------------
+let digEnergy = 0;
+let digMaxEnergy = 5;
+let digBusy = false;
+
+const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#128142;", booster: "&#127183;", card: "&#127942;" };
+
 async function loadDig() {
   try {
     const res = await API.getDigStatus(Session.userId);
-    renderDigEnergy(res.energy, res.maxEnergy, res.secondsUntilNext);
+    digEnergy = res.energy;
+    digMaxEnergy = res.maxEnergy || 5;
+    renderDigEnergy(res.energy, digMaxEnergy, res.secondsUntilNext);
+    renderDigBoard(res.tiles || []);
   } catch (e) {
     document.getElementById("dig-status-text").textContent = "Impossible de charger l'énergie.";
   }
@@ -33,39 +45,67 @@ function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
     <span class="dig-pip ${i < energy ? "filled" : ""}"></span>
   `).join("");
   const statusText = document.getElementById("dig-status-text");
-  const digBtn = document.getElementById("dig-btn");
   if (energy > 0) {
-    statusText.textContent = `${energy} / ${maxEnergy} énergie`;
-    digBtn.style.display = "inline-flex";
+    statusText.textContent = `${energy} / ${maxEnergy} énergie — chaque tuile en coûte 1`;
   } else {
-    statusText.textContent = `Énergie épuisée — prochaine dans ${formatDuration(secondsUntilNext || 1800)}`;
-    digBtn.style.display = "none";
+    statusText.textContent = `Énergie épuisée — prochaine dans ${formatDuration(secondsUntilNext || 60)}`;
   }
 }
 
-async function doDig() {
-  const digBtn = document.getElementById("dig-btn");
-  digBtn.disabled = true;
+function digTileContent(tile) {
+  if (!tile.dug) return { cls: "", html: "" };
+  if (!tile.treasure) return { cls: "dug empty", html: "" };
+  if (tile.treasure.done) return { cls: "dug revealed", html: DIG_REWARD_ICON[tile.treasure.reward] || "&#10024;" };
+  return { cls: "dug partial", html: `<span class="dig-crack">&#9889;</span><span class="dig-remaining">-${tile.treasure.remaining}</span>` };
+}
+
+function renderDigBoard(tiles) {
+  const board = document.getElementById("dig-board");
+  board.innerHTML = tiles.map((t, i) => {
+    const { cls, html } = digTileContent(t);
+    const disabled = t.dug || digEnergy < 1 || digBusy;
+    return `<button type="button" class="dig-tile ${cls}" data-tile-index="${i}" ${disabled ? "disabled" : ""} aria-label="${t.dug ? "Tuile creusée" : "Creuser cette tuile"}">${html}</button>`;
+  }).join("");
+  board.querySelectorAll(".dig-tile:not([disabled])").forEach((btn) => {
+    btn.addEventListener("click", () => doDig(Number(btn.dataset.tileIndex)));
+  });
+}
+
+async function doDig(tileIndex) {
+  if (digBusy || digEnergy < 1) return;
+  digBusy = true;
+  const resultEl = document.getElementById("dig-result");
   try {
-    const res = await API.dig(Session.userId);
-    const resultEl = document.getElementById("dig-result");
+    const res = await API.dig(Session.userId, tileIndex);
+    digEnergy = res.newEnergy;
+    renderDigEnergy(res.newEnergy, digMaxEnergy, null);
+    renderDigBoard(res.tiles || []);
+
     resultEl.style.display = "block";
-    if (res.outcome === "nothing") {
-      resultEl.innerHTML = `&#128269; Rien trouvé cette fois.`;
+    if (res.outcome === "partial") {
+      resultEl.innerHTML = `&#9889; Un objet se cache ici, mais il faut creuser encore <strong>${res.remaining}</strong> tuile${res.remaining > 1 ? "s" : ""} pour le libérer.`;
+    } else if (res.outcome === "nothing") {
+      resultEl.innerHTML = `&#128269; Rien trouvé sous cette tuile.`;
     } else if (res.outcome === "dust") {
-      resultEl.innerHTML = `&#10024; +${res.dustGained} poussières d'étoile !`;
+      resultEl.innerHTML = `&#10024; Trésor libéré : +${res.dustGained} poussières d'étoile !`;
     } else if (res.outcome === "booster") {
-      resultEl.innerHTML = `&#127183; +1 booster !`;
+      resultEl.innerHTML = `&#127183; Trésor libéré : +1 booster !`;
       if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
     } else if (res.outcome === "card") {
-      resultEl.innerHTML = `&#127942; Tu as trouvé <strong>${res.card.name}</strong> !`;
+      resultEl.innerHTML = `&#127942; Trésor libéré : tu as trouvé <strong>${res.card.name}</strong> !`;
       if (typeof confetti === "function") confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
     }
-    await loadDig();
+
+    if (res.boardCleared) {
+      setTimeout(() => {
+        Toast.info("Plateau entièrement fouillé — un nouveau vient d'apparaître !");
+        loadDig();
+      }, 1400);
+    }
   } catch (e) {
-    Toast.error(e.code === "no_energy" ? "Plus assez d'énergie." : ("Erreur. (" + e.message + ")"));
+    Toast.error(e.code === "no_energy" ? "Plus assez d'énergie." : e.code === "tile_already_dug" ? "Cette tuile est déjà creusée." : ("Erreur. (" + e.message + ")"));
   } finally {
-    digBtn.disabled = false;
+    digBusy = false;
   }
 }
 
@@ -129,7 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   document.getElementById("tab-dig-btn").addEventListener("click", () => setActiveTab("dig"));
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));
-  document.getElementById("dig-btn").addEventListener("click", doDig);
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
   document.getElementById("dig-pane").style.display = "block";
   loadDig();

@@ -11,6 +11,8 @@
 // L'ouverture se fait dans un modal plein écran (#pack-modal-overlay), pas
 // inline dans la page : la page ne montre que le choix du pack a ouvrir.
 
+const FINISH_LABELS = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+
 let isBusy = false;
 let skipToken = null;
 let extensionsCache = [];
@@ -77,10 +79,20 @@ function buildCardEl(card, index, cardBackImageId) {
     : card.isNewToPlayer
       ? `<span class="new-badge">Nouvelle !</span>`
       : `<span class="dupe-badge">×${card.ownedCountAfter}</span>`;
+  // Un vrai tirage part TOUJOURS en qualite "Abime" (aucun mecanisme de
+  // qualite naturelle a l'ouverture, voir grist/SCHEMA.md) : l'annoncer des
+  // le reveal evite la mauvaise surprise en collection plus tard. La
+  // finition, elle, est un vrai tirage a 10% (voir open-pack.json) - les
+  // deux se voient d'un coup d'oeil, pas seulement au survol.
+  const finish = card.finish || "normal";
+  const finishBadge = finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish] || finish}</span>` : "";
+  const qualityBadge = `<span class="quality-indicator" data-quality="damaged">Abîmé</span>`;
   const front = document.createElement("div");
   front.className = "card-face card-front";
   front.innerHTML = `
     ${dupeBadge}
+    ${finishBadge}
+    ${qualityBadge}
     <img src="${imgSrc}" alt="${card.name}" />
     <div class="card-info">
       <div class="card-name">${card.name}</div>
@@ -253,7 +265,7 @@ async function shareBestPull() {
       loadImageCORS(API.imageUrl(best.imageId) || PLACEHOLDER_IMG),
       ...others.map((c) => loadImageCORS(API.imageUrl(c.imageId) || PLACEHOLDER_IMG).catch(() => null))
     ]);
-    // Les polices web (Sora/Inter) doivent etre chargees AVANT de dessiner
+    // Les polices web (Bungee/Inter) doivent etre chargees AVANT de dessiner
     // du texte sur le canvas, sinon le navigateur rend avec une police de
     // secours generique (c'etait l'une des causes du rendu "cheap" precedent).
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
@@ -283,7 +295,7 @@ async function shareBestPull() {
     }
 
     // Wordmark degrade (meme esprit que .brand en CSS).
-    ctx.font = "800 46px Sora, sans-serif";
+    ctx.font = "400 46px Bungee, sans-serif";
     const wmGrad = ctx.createLinearGradient(W / 2 - 150, 0, W / 2 + 150, 0);
     wmGrad.addColorStop(0, "#8b5cf6");
     wmGrad.addColorStop(1, "#22d3ee");
@@ -330,11 +342,11 @@ async function shareBestPull() {
 
     // Nom + pastille de rarete (meme habillage que .rarity-badge en CSS).
     ctx.fillStyle = "#f5f5fc";
-    ctx.font = "800 48px Sora, sans-serif";
+    ctx.font = "400 48px Bungee, sans-serif";
     ctx.fillText(best.name || "Carte", W / 2, cardY + cardH + 66);
 
     const rarityLabel = (best.rarity?.name || "Commune").toUpperCase();
-    ctx.font = "800 26px Sora, sans-serif";
+    ctx.font = "400 26px Bungee, sans-serif";
     const pillW = ctx.measureText(rarityLabel).width + 74;
     const pillX = (W - pillW) / 2, pillY = cardY + cardH + 92, pillH = 48;
     roundRectPath(ctx, pillX, pillY, pillW, pillH, pillH / 2);
@@ -530,7 +542,7 @@ function stopAmbientParticles() {
 function renderBoosterCountLabel() {
   const el = document.getElementById("booster-count-label");
   if (!el) return;
-  el.textContent = `${boosterCount} booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}`;
+  el.innerHTML = `<span class="credit-value">${boosterCount}</span> booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}`;
 }
 
 function renderExtensionPicker() {
@@ -905,7 +917,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("guest-warning").style.display = "block";
     return;
   }
-  document.getElementById("booster-zone").style.display = "flex";
+  document.getElementById("booster-zone").style.display = "block";
 
   const overlay = document.getElementById("pack-modal-overlay");
   document.getElementById("pack-modal-close").addEventListener("click", closeModal);

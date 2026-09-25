@@ -126,7 +126,8 @@ son propre compteur de pity.
 | XP                    | Numeric   | defaut 0, experience cumulee (niveaux de profil, voir plus bas) |
 | SelectedBadge         | Text      | vide par defaut ; `Key` du badge cosmetique affiche sur le profil (voir "Badges" plus bas) - doit correspondre a un badge que le joueur possede (`UserBadges`) |
 | DigEnergy             | Numeric   | defaut 5 (plein), energie du mini-jeu de fouille (voir "Mini-jeu de fouille" plus bas) |
-| LastDigEnergyAt       | DateTime  | epoch secondes, dernier instant ou l'energie de fouille a ete lue/consommee - sert de base au calcul de regeneration |
+| LastDigEnergyAt       | DateTime  | epoch secondes, dernier instant ou l'energie de fouille a ete lue/consommee - sert de base au calcul de regeneration (+1/minute) |
+| DigBoardState         | Text      | vide par defaut ; **nouvelle colonne a creer** - JSON du plateau de tuiles courant du mini-jeu de fouille (voir "Mini-jeu de fouille" plus bas) |
 
 **Niveaux de profil** : purement cosmetique/motivant, base sur `Users.XP`
 (cumulatif, jamais retire). Le niveau n'est **pas** stocke - il se calcule a
@@ -323,26 +324,31 @@ booster reel, pas en mode test admin).
 
 ## WeeklyQuests
 
-Une ligne par couple (User, semaine). 4 quetes hebdomadaires fixes (memes
-actions que `DailyQuests` mais comptees sur toute la semaine) ; en completer
-3 sur 4 accorde automatiquement 5 boosters gratuits (une seule fois par
-semaine, voir `RewardClaimed`). Semaine = lundi-dimanche, fuseau
+Une ligne par couple (User, semaine). 4 quetes hebdomadaires fixes, mais
+**a base de compteurs (0-5), pas de simples cases a cocher** comme
+`DailyQuests` - chaque quete demande **5 occurrences** de l'action dans la
+semaine (5 connexions un jour different, 5 crafts, 5 echanges proposes, 5
+boosters ouverts), pas juste une seule fois. En completer 3 des 4 (chaque
+compteur atteint 5) accorde automatiquement 5 boosters gratuits (une seule
+fois par semaine, voir `RewardClaimed`). Semaine = lundi-dimanche, fuseau
 Europe/Paris (`WeekStart` = date du lundi, format `AAAA-MM-JJ`). Cree/mise a
-jour par `weekly-quests.json` (quete "se connecter", au premier chargement
-de la page qui consulte les quetes de la semaine) et par les memes branches
+jour par `weekly-quests.json` (increment de connexion, au premier
+chargement de la page qui consulte les quetes de la semaine CE JOUR-LA
+uniquement - voir `LastLoginCountedDate`) et par les memes branches
 additionnelles que `DailyQuests` dans `craft.json`, `trade.json` et
-`open-pack.json` (chacune coche la quete du jour ET celle de la semaine dans
-la meme requete).
+`open-pack.json` (chacune incremente son propre compteur EN PLUS de cocher
+la quete du jour correspondante, dans la meme requete).
 
-| Colonne          | Type                | Notes                                    |
-|-------------------|----------------------|---------------------------------------------|
-| User              | Reference -> Users   |                                              |
-| WeekStart         | Text                  | lundi de la semaine, format `AAAA-MM-JJ` (Europe/Paris) - pas un DateTime, meme logique que `DailyQuests.Date` |
-| LoginDone         | Bool                  | vrai des qu'un jour de la semaine a ete consulte |
-| CraftDone         | Bool                  | vrai apres au moins un craft reussi dans la semaine |
-| TradeDone         | Bool                  | vrai apres au moins une proposition d'echange dans la semaine |
-| OpenBoosterDone   | Bool                  | vrai apres au moins une ouverture de booster reel dans la semaine |
-| RewardClaimed     | Bool                  | passe a `true` des que 3 quetes sur 4 sont vraies la meme semaine ; `Users.BoosterCount` recoit alors +5 automatiquement |
+| Colonne              | Type                | Notes                                    |
+|-----------------------|----------------------|---------------------------------------------|
+| User                  | Reference -> Users   |                                              |
+| WeekStart             | Text                  | lundi de la semaine, format `AAAA-MM-JJ` (Europe/Paris) - pas un DateTime, meme logique que `DailyQuests.Date` |
+| LoginCount            | Numeric               | nombre de JOURS DIFFERENTS ou les quetes de la semaine ont ete consultees (voir `LastLoginCountedDate` pour le garde-fou anti-doublon), objectif 5 |
+| CraftCount            | Numeric               | nombre de crafts reussis cette semaine, objectif 5 (chaque craft compte, pas de limite a 1/jour) |
+| TradeCount            | Numeric               | nombre de propositions d'echange creees cette semaine, objectif 5 |
+| OpenBoosterCount      | Numeric               | nombre de boosters reels ouverts cette semaine, objectif 5 |
+| LastLoginCountedDate  | Text                  | `AAAA-MM-JJ` (Europe/Paris) du dernier jour ou `LoginCount` a ete incremente - empeche de compter 5 fois la meme journee en rafraichissant la page |
+| RewardClaimed         | Bool                  | passe a `true` des que 3 des 4 compteurs ci-dessus atteignent 5 la meme semaine ; `Users.BoosterCount` recoit alors +5 automatiquement |
 
 ## 8. CodeRedemptions
 
@@ -596,18 +602,45 @@ discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }`) :
 
 ## Mini-jeu de fouille
 
-Energie qui se regenere seule, une fouille par point d'energie, gain
-generalement modeste.
+Vrai mini-jeu de tuiles a creuser (pas un simple tirage a l'aveugle) : une
+grille de 16 tuiles caches des tresors invisibles, certains etales sur
+plusieurs tuiles - il faut alors creuser TOUTES ses tuiles pour liberer
+l'objet (ex: la carte, la recompense la plus rare, est repartie sur 4
+tuiles). Energie qui se regenere seule, 1 tuile creusee par point d'energie.
 
-`dig.json` (POST `/dig` `{ userId, action: 'status'|'dig' }`) - base sur
-`Users.DigEnergy`/`Users.LastDigEnergyAt` (voir table `Users` plus haut) :
-regeneration **+1 toutes les 30 min, plafond 5**, calculee a la volee a
-chaque appel (pas de tache planifiee). `dig` coute 1 energie et tire un
-resultat : 60% rien, 25% un peu de poussiere (5-15), 10% une bonne poignee
-(20-40), 4% un booster generique, **1% une carte de la rarete la plus
-commune** (jamais un jackpot - "un vieux doublon retrouve", pas une carte
-rare). Si aucune carte commune n'est disponible (toutes epuisees), degrade
-silencieusement vers de la poussiere plutot que d'echouer l'action.
+`Users.DigBoardState` (Text, **nouvelle colonne a creer**) : JSON serialise
+de l'etat du plateau courant du joueur -
+`{ tiles: [{ t: <index tresor|null>, d: <bool creusee> }, ...16], treasures:
+[{ cells, dug, reward, done }, ...] }`. Genere a la premiere visite (ou si
+l'etat est absent/corrompu) et regenere automatiquement des que les 16
+tuiles sont creusees. Jamais renvoye tel quel au client : `dig.json` n'expose
+que la projection publique (tuile creusee ou non ; si creusee et liee a un
+tresor, son etat `done`/`remaining`) pour ne jamais reveler a l'avance quelles
+tuiles caches encore quelque chose.
+
+Repartition des tresors sur le plateau de 16 tuiles a chaque generation
+(le reste, 5 tuiles, ne cache rien) :
+
+| Tuiles necessaires | Recompense | Quantite de tresors |
+|---------------------|------------|----------------------|
+| 4                   | 1 carte de la rarete la plus commune | 1 |
+| 2                   | 1 booster generique | 1 |
+| 2                   | grosse poussiere (25-50) | 1 |
+| 1                   | petite poussiere (5-15) | 3 |
+
+`dig.json` (POST `/dig` `{ userId, action: 'status'|'dig', tileIndex? }`) -
+base sur `Users.DigEnergy`/`Users.LastDigEnergyAt` (voir table `Users` plus
+haut) : regeneration **+1 toutes les minutes, plafond 5**, calculee a la
+volee a chaque appel (pas de tache planifiee). `dig` coute 1 energie, exige
+une `tileIndex` (0-15) pas encore creusee, et renvoie soit `nothing` (tuile
+vide), soit `partial` (tuile liee a un tresor pas encore complet - le nombre
+de tuiles restantes est renvoye, mais pas leur position), soit le
+resultat final (`dust`/`booster`/`card`) quand la derniere tuile d'un tresor
+est creusee. Carte du tresor "4 tuiles" toujours de la rarete la plus
+commune (jamais un jackpot - "un vieux doublon retrouve", pas une carte
+rare) ; si aucune carte commune n'est disponible (toutes epuisees), degrade
+silencieusement vers de la poussiere plutot que d'echouer l'action (les 4
+tuiles restent liberees).
 
 ## Bingo de collection
 
