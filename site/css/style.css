@@ -399,6 +399,47 @@ h1 { font-size: 2rem; margin-top: 0; font-weight: 800; }
 }
 h2 { font-size: 1.3rem; color: var(--text); font-weight: 700; }
 
+/* Vitrine "derniere carte obtenue" dans le heros de l'accueil : rend la
+   page d'accueil plus vivante (vraie illustration de carte, pas juste des
+   stats/boutons) sans deplacer le focus des CTA principaux - une seule
+   ligne discrete sous les boutons d'action. */
+.last-card-showcase {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 10px 16px 10px 10px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  max-width: 460px;
+}
+.last-card-showcase:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-2);
+}
+.last-card-showcase img {
+  width: 46px;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.last-card-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.last-card-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+.last-card-name {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.last-card-showcase .rarity-badge { align-self: flex-start; font-size: 0.66rem; padding: 2px 8px; }
+.last-card-arrow { color: var(--text-dim); font-size: 1.3rem; flex-shrink: 0; }
+
 /* ========================================================================
    Menu deroulant stylise (enhanceSelect(), main.js) : remplace le <select>
    natif du navigateur par une interface a la charte du site, en gardant le
@@ -566,6 +607,17 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 .wheel-icon { font-size: 2.4rem; line-height: 1; }
 .wheel-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 #wheel-status-text { color: var(--text-dim); font-size: 0.9rem; }
+.wheel-prizes-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.wheel-prize-chip {
+  font-size: 0.72rem;
+  font-family: var(--font-display);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+.wheel-prize-chip.wheel-prize-rare { border-color: var(--accent-2); color: var(--accent-2); }
 
 /* Mini-jeu de fouille : meme squelette que .wheel-widget. */
 .dig-widget { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
@@ -2117,6 +2169,17 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 @keyframes skeletonShine {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
+}
+/* Meme effet directement en fond d'un <img> le temps qu'il charge (au lieu
+   d'un rectangle plein qui donne l'impression que l'image a casse) - le
+   PNG une fois charge est opaque et recouvre entierement ce fond, donc ca
+   ne se voit plus une fois l'image arrivee. Utilise pour le pot commun du
+   coffre de guilde, dont les images (souvent jamais affichees ailleurs
+   dans la session) peuvent mettre plusieurs secondes a charger. */
+#chest-card-grid img {
+  background: linear-gradient(90deg, var(--bg-panel-2) 25%, var(--bg-panel-solid) 37%, var(--bg-panel-2) 63%);
+  background-size: 400% 100%;
+  animation: skeletonShine 1.4s ease infinite;
 }
 
 /* ========================================================================

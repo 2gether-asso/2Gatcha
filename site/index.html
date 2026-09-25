@@ -37,6 +37,16 @@
           <a class="btn btn-secondary" href="redeem.html">Réclamer un code</a>
           <a class="btn btn-secondary" href="trade.html">Échanges</a>
         </div>
+
+        <a id="last-card-showcase" class="last-card-showcase" href="collection.html" style="display:none;">
+          <img id="last-card-img" src="" alt="" loading="lazy" />
+          <div class="last-card-info">
+            <span class="last-card-label">Dernière carte obtenue</span>
+            <span id="last-card-name" class="last-card-name"></span>
+            <span id="last-card-rarity" class="rarity-badge"></span>
+          </div>
+          <span class="last-card-arrow" aria-hidden="true">&#8250;</span>
+        </a>
       </div>
 
     </div>
@@ -65,6 +75,11 @@
             <div id="wheel-status-text">Chargement...</div>
             <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
           </div>
+        </div>
+        <div class="wheel-prizes-preview">
+          <span class="wheel-prize-chip">&#10024; Poussières</span>
+          <span class="wheel-prize-chip">&#128142; Grosse poussière</span>
+          <span class="wheel-prize-chip wheel-prize-rare">&#127183; Booster</span>
         </div>
       </div>
 
@@ -220,6 +235,24 @@
       API.getRecentPulls().then((res) => {
         allRecentPulls = res.pulls || [];
         renderActivityFeed("");
+
+        // Vitrine "derniere carte obtenue" dans le heros : reutilise le fil
+        // d'activite globale deja charge (deja trie du plus recent au plus
+        // ancien), filtre sur son propre pseudo - pas d'appel supplementaire.
+        const myLastPull = allRecentPulls.find((p) => p.pseudo === Session.pseudo);
+        if (myLastPull) {
+          const showcase = document.getElementById("last-card-showcase");
+          const color = myLastPull.rarity?.colorHex || "#9aa0b4";
+          document.getElementById("last-card-img").src = API.imageUrl(myLastPull.imageId) || PLACEHOLDER_IMG;
+          document.getElementById("last-card-img").alt = myLastPull.cardName;
+          document.getElementById("last-card-name").textContent = myLastPull.cardName;
+          const rarityEl = document.getElementById("last-card-rarity");
+          rarityEl.textContent = myLastPull.rarity?.name || "Commune";
+          rarityEl.style.background = color + "22";
+          rarityEl.style.color = rarityTextColor(color);
+          rarityEl.style.border = "1px solid " + color;
+          showcase.style.display = "flex";
+        }
 
         const extKeys = new Map();
         allRecentPulls.forEach((p) => { if (p.extension) extKeys.set(p.extension.key, p.extension.name); });
