@@ -12,6 +12,7 @@
 // inline dans la page : la page ne montre que le choix du pack a ouvrir.
 
 const FINISH_LABELS = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
 
 let isBusy = false;
 let skipToken = null;
@@ -79,14 +80,13 @@ function buildCardEl(card, index, cardBackImageId) {
     : card.isNewToPlayer
       ? `<span class="new-badge">Nouvelle !</span>`
       : `<span class="dupe-badge">×${card.ownedCountAfter}</span>`;
-  // Un vrai tirage part TOUJOURS en qualite "Abime" (aucun mecanisme de
-  // qualite naturelle a l'ouverture, voir grist/SCHEMA.md) : l'annoncer des
-  // le reveal evite la mauvaise surprise en collection plus tard. La
-  // finition, elle, est un vrai tirage a 10% (voir open-pack.json) - les
-  // deux se voient d'un coup d'oeil, pas seulement au survol.
+  // Finition ET qualite sont chacune un vrai tirage independant a 10% de
+  // sortir mieux que la base (voir open-pack.json) - les deux se voient
+  // d'un coup d'oeil des le reveal, pas seulement au survol.
   const finish = card.finish || "normal";
   const finishBadge = finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish] || finish}</span>` : "";
-  const qualityBadge = `<span class="quality-indicator" data-quality="damaged">Abîmé</span>`;
+  const quality = card.quality || "damaged";
+  const qualityBadge = `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality] || quality}</span>`;
   const front = document.createElement("div");
   front.className = "card-face card-front";
   front.innerHTML = `

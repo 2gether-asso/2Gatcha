@@ -6,8 +6,16 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-2000, 400],
-      "parameters": { "httpMethod": "POST", "path": "community-boss", "responseMode": "responseNode", "options": {} },
+      "position": [
+        -2000,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "community-boss",
+        "responseMode": "responseNode",
+        "options": {}
+      },
       "webhookId": "d1e2f3a4-boss-0000-000000000000"
     },
     {
@@ -15,7 +23,10 @@
       "name": "Set Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1780, 400],
+      "position": [
+        -1780,
+        400
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst body = $input.first().json.body || {};\nconst discordId = (body.discordId || '').toString();\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  cardId: Number(body.cardId),\n  discordId,\n  isAdmin: adminDiscordIds.includes(discordId),\n  bossName: (body.bossName || '').toString(),\n  maxHp: Number(body.maxHp) || 0,\n  rewardBoosters: Number(body.rewardBoosters) || 0\n} }];"
@@ -27,17 +38,37 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-1560, 400],
-      "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "CommunityBoss", "returnAll": true, "additionalOptions": {} },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -1560,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "CommunityBoss",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-1",
       "name": "Sync Get Community Boss -> Get Boss Contributions",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1400, 400],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -1400,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-boss-contributions",
@@ -45,17 +76,37 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-1240, 400],
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "BossContributions", "returnAll": true, "additionalOptions": {} },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -1240,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "BossContributions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-2",
       "name": "Sync Get Boss Contributions -> Get Pulls",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1080, 400],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -1080,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-pulls",
@@ -63,17 +114,37 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-920, 400],
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -920,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-3",
       "name": "Sync Get Pulls -> Get Cards",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-760, 400],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -760,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-cards",
@@ -81,17 +152,37 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-600, 400],
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -600,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-4",
       "name": "Sync Get Cards -> Get Rarities",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-440, 400],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -440,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-rarities",
@@ -99,17 +190,37 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-280, 400],
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Rarities", "returnAll": true, "additionalOptions": {} },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        -280,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-5",
       "name": "Sync Get Rarities -> Get Users",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-120, 400],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -120,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-users",
@@ -117,19 +228,36 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [40, 400],
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        40,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "dispatch",
       "name": "Dispatch Action",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 400],
+      "position": [
+        220,
+        400
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst bosses = $('Get Community Boss').all().map((i) => i.json).filter((r) => r.id != null);\nconst contributions = $('Get Boss Contributions').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst activeBoss = bosses.find((b) => b.Active === true);\n\nfunction bossPublicState(boss) {\n  if (!boss) return { active: false };\n  return { active: true, bossId: boss.id, bossName: boss.BossName, maxHp: boss.MaxHp, currentHp: boss.CurrentHp, rewardBoosters: boss.RewardBoosters };\n}\n\nif (cfg.action === 'attack') {\n  if (!activeBoss) return [{ json: { ...cfg, ok: false, error: 'no_active_boss' } }];\n  const card = cards.find((c) => c.id === cfg.cardId);\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  if (card.IsPromo) return [{ json: { ...cfg, ok: false, error: 'promo_not_donatable' } }];\n  const pull = pulls.find((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.cardId);\n  if (!pull) return [{ json: { ...cfg, ok: false, error: 'card_not_owned' } }];\n  const rarity = rarities.find((r) => r.id === refId(card.Rarity));\n  const damage = (rarity ? rarity.DisenchantValue : 0) || 1;\n  const newCurrentHp = Math.max(0, (activeBoss.CurrentHp || 0) - damage);\n  const defeated = newCurrentHp <= 0;\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'attack',\n    bossId: activeBoss.id, bossName: activeBoss.BossName, rewardBoosters: activeBoss.RewardBoosters || 0,\n    pullRowIdToDelete: pull.id, damage, newCurrentHp, defeated\n  } }];\n}\n\nif (cfg.action === 'adminCreate') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  if (!cfg.bossName || !cfg.maxHp) return [{ json: { ...cfg, ok: false, error: 'missing_fields' } }];\n  const previousActiveIds = bosses.filter((b) => b.Active === true).map((b) => b.id);\n  return [{ json: { ...cfg, ok: true, mutation: 'adminCreate', previousActiveIds } }];\n}\n\n// action === 'status' (ou toute autre valeur) : etat courant, sans mutation.\nconst myContribution = activeBoss\n  ? contributions.filter((c) => refId(c.User) === cfg.userId && refId(c.Boss) === activeBoss.id).reduce((s, c) => s + (c.Damage || 0), 0)\n  : 0;\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', ...bossPublicState(activeBoss), myContribution } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst bosses = $('Get Community Boss').all().map((i) => i.json).filter((r) => r.id != null);\nconst contributions = $('Get Boss Contributions').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst activeBoss = bosses.find((b) => !!b.Active);\n\nfunction bossPublicState(boss) {\n  if (!boss) return { active: false };\n  return { active: true, bossId: boss.id, bossName: boss.BossName, maxHp: boss.MaxHp, currentHp: boss.CurrentHp, rewardBoosters: boss.RewardBoosters };\n}\n\nif (cfg.action === 'attack') {\n  if (!activeBoss) return [{ json: { ...cfg, ok: false, error: 'no_active_boss' } }];\n  const card = cards.find((c) => c.id === cfg.cardId);\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  if (card.IsPromo) return [{ json: { ...cfg, ok: false, error: 'promo_not_donatable' } }];\n  const pull = pulls.find((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.cardId);\n  if (!pull) return [{ json: { ...cfg, ok: false, error: 'card_not_owned' } }];\n  const rarity = rarities.find((r) => r.id === refId(card.Rarity));\n  const damage = (rarity ? rarity.DisenchantValue : 0) || 1;\n  const newCurrentHp = Math.max(0, (activeBoss.CurrentHp || 0) - damage);\n  const defeated = newCurrentHp <= 0;\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'attack',\n    bossId: activeBoss.id, bossName: activeBoss.BossName, rewardBoosters: activeBoss.RewardBoosters || 0,\n    pullRowIdToDelete: pull.id, damage, newCurrentHp, defeated\n  } }];\n}\n\nif (cfg.action === 'adminCreate') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  if (!cfg.bossName || !cfg.maxHp) return [{ json: { ...cfg, ok: false, error: 'missing_fields' } }];\n  const previousActiveIds = bosses.filter((b) => !!b.Active).map((b) => b.id);\n  return [{ json: { ...cfg, ok: true, mutation: 'adminCreate', previousActiveIds } }];\n}\n\n// action === 'status' (ou toute autre valeur) : etat courant, sans mutation.\nconst myContribution = activeBoss\n  ? contributions.filter((c) => refId(c.User) === cfg.userId && refId(c.Boss) === activeBoss.id).reduce((s, c) => s + (c.Damage || 0), 0)\n  : 0;\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', ...bossPublicState(activeBoss), myContribution } }];"
       }
     },
     {
@@ -137,11 +265,27 @@
       "name": "If Ok",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [420, 400],
+      "position": [
+        420,
+        400
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{ "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -152,19 +296,44 @@
       "name": "Respond Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [620, 700],
-      "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }
+      "position": [
+        620,
+        700
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
     },
     {
       "id": "if-mutation-attack",
       "name": "If Mutation Is Attack",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [620, 260],
+      "position": [
+        620,
+        260
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "attack", "operator": { "type": "string", "operation": "equals" } }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mutation }}",
+              "rightValue": "attack",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -175,24 +344,46 @@
       "name": "Delete Donated Pull",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [820, 100],
-      "parameters": { "operation": "delete", "docId": "={{ $json.docId }}", "tableId": "Pulls", "rowId": "={{ $json.pullRowIdToDelete }}" },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "position": [
+        820,
+        100
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $json.pullRowIdToDelete }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-attack-1",
       "name": "Sync Delete Pull -> Create Contribution",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 100],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        1000,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "create-boss-contribution",
       "name": "Create Boss Contribution",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [1180, 100],
+      "position": [
+        1180,
+        100
+      ],
       "parameters": {
         "operation": "create",
         "docId": "={{ $('Dispatch Action').first().json.docId }}",
@@ -200,29 +391,55 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "User", "fieldValue": "={{ $('Dispatch Action').first().json.userId }}" },
-            { "fieldId": "Boss", "fieldValue": "={{ $('Dispatch Action').first().json.bossId }}" },
-            { "fieldId": "Damage", "fieldValue": "={{ $('Dispatch Action').first().json.damage }}" },
-            { "fieldId": "Timestamp", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" }
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $('Dispatch Action').first().json.userId }}"
+            },
+            {
+              "fieldId": "Boss",
+              "fieldValue": "={{ $('Dispatch Action').first().json.bossId }}"
+            },
+            {
+              "fieldId": "Damage",
+              "fieldValue": "={{ $('Dispatch Action').first().json.damage }}"
+            },
+            {
+              "fieldId": "Timestamp",
+              "fieldValue": "={{ Math.floor(Date.now() / 1000) }}"
+            }
           ]
         }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-attack-2",
       "name": "Sync Create Contribution -> Update Boss Hp",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1360, 100],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        1360,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "update-boss-hp",
       "name": "Update Boss Hp",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [1540, 100],
+      "position": [
+        1540,
+        100
+      ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $('Dispatch Action').first().json.docId }}",
@@ -231,23 +448,50 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "CurrentHp", "fieldValue": "={{ $('Dispatch Action').first().json.newCurrentHp }}" },
-            { "fieldId": "Active", "fieldValue": "={{ !$('Dispatch Action').first().json.defeated }}" }
+            {
+              "fieldId": "CurrentHp",
+              "fieldValue": "={{ $('Dispatch Action').first().json.newCurrentHp }}"
+            },
+            {
+              "fieldId": "Active",
+              "fieldValue": "={{ !$('Dispatch Action').first().json.defeated }}"
+            }
           ]
         }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "if-defeated",
       "name": "If Defeated",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1720, 100],
+      "position": [
+        1720,
+        100
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{ "leftValue": "={{ $('Dispatch Action').first().json.defeated }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Dispatch Action').first().json.defeated }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -258,7 +502,10 @@
       "name": "Expand Contributors For Reward",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1900, -40],
+      "position": [
+        1900,
+        -40
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst d = $('Dispatch Action').first().json;\nconst contributions = $('Get Boss Contributions').all().map((i) => i.json).filter((r) => r.id != null && refId(r.Boss) === d.bossId);\n// La contribution qui vient d'etre creee dans ce meme appel n'est pas\n// encore dans 'Get Boss Contributions' (recuperee avant la mutation) : on\n// l'ajoute manuellement pour que l'attaquant du coup fatal soit lui aussi\n// recompense.\nconst contributorIds = new Set(contributions.map((c) => refId(c.User)));\ncontributorIds.add(d.userId);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nreturn [...contributorIds].map((uid) => {\n  const user = users.find((u) => u.id === uid);\n  return { json: { docId: d.docId, userId: uid, newBoosterCount: (user ? (user.BoosterCount || 0) : 0) + (d.rewardBoosters || 0) } };\n});"
@@ -269,23 +516,41 @@
       "name": "Grant Booster To Contributor",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [2080, -40],
+      "position": [
+        2080,
+        -40
+      ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $json.docId }}",
         "tableId": "Users",
         "rowId": "={{ $json.userId }}",
         "dataToSend": "defineInNode",
-        "fieldsToSend": { "properties": [{ "fieldId": "BoosterCount", "fieldValue": "={{ $json.newBoosterCount }}" }] }
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $json.newBoosterCount }}"
+            }
+          ]
+        }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "format-attack-response",
       "name": "Format Attack Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2260, 100],
+      "position": [
+        2260,
+        100
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const d = $('Dispatch Action').first().json;\nreturn [{ json: {\n  attacked: true,\n  damage: d.damage,\n  newCurrentHp: d.newCurrentHp,\n  defeated: d.defeated,\n  bossName: d.bossName,\n  rewardBoosters: d.defeated ? d.rewardBoosters : undefined\n} }];"
@@ -296,11 +561,27 @@
       "name": "If Mutation Is AdminCreate",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [620, 460],
+      "position": [
+        620,
+        460
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "adminCreate", "operator": { "type": "string", "operation": "equals" } }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mutation }}",
+              "rightValue": "adminCreate",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -311,7 +592,10 @@
       "name": "Expand Previous Active Bosses",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [820, 560],
+      "position": [
+        820,
+        560
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const d = $('Dispatch Action').first().json;\nreturn (d.previousActiveIds || []).map((id) => ({ json: { docId: d.docId, rowId: id } }));"
@@ -322,31 +606,55 @@
       "name": "Deactivate Previous Boss",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [1000, 560],
+      "position": [
+        1000,
+        560
+      ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $json.docId }}",
         "tableId": "CommunityBoss",
         "rowId": "={{ $json.rowId }}",
         "dataToSend": "defineInNode",
-        "fieldsToSend": { "properties": [{ "fieldId": "Active", "fieldValue": "={{ false }}" }] }
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "Active",
+              "fieldValue": "={{ false }}"
+            }
+          ]
+        }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "barrier-admin-1",
       "name": "Sync Deactivate -> Create Boss",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1180, 560],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        1180,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "create-community-boss",
       "name": "Create Community Boss",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [1360, 560],
+      "position": [
+        1360,
+        560
+      ],
       "parameters": {
         "operation": "create",
         "docId": "={{ $('Dispatch Action').first().json.docId }}",
@@ -354,22 +662,45 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "BossName", "fieldValue": "={{ $('Dispatch Action').first().json.bossName }}" },
-            { "fieldId": "MaxHp", "fieldValue": "={{ $('Dispatch Action').first().json.maxHp }}" },
-            { "fieldId": "CurrentHp", "fieldValue": "={{ $('Dispatch Action').first().json.maxHp }}" },
-            { "fieldId": "RewardBoosters", "fieldValue": "={{ $('Dispatch Action').first().json.rewardBoosters }}" },
-            { "fieldId": "Active", "fieldValue": "={{ true }}" }
+            {
+              "fieldId": "BossName",
+              "fieldValue": "={{ $('Dispatch Action').first().json.bossName }}"
+            },
+            {
+              "fieldId": "MaxHp",
+              "fieldValue": "={{ $('Dispatch Action').first().json.maxHp }}"
+            },
+            {
+              "fieldId": "CurrentHp",
+              "fieldValue": "={{ $('Dispatch Action').first().json.maxHp }}"
+            },
+            {
+              "fieldId": "RewardBoosters",
+              "fieldValue": "={{ $('Dispatch Action').first().json.rewardBoosters }}"
+            },
+            {
+              "fieldId": "Active",
+              "fieldValue": "={{ true }}"
+            }
           ]
         }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "format-admin-response",
       "name": "Format Admin Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1540, 560],
+      "position": [
+        1540,
+        560
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const created = $input.first().json;\nreturn [{ json: { created: true, bossName: created.BossName, maxHp: created.MaxHp, rewardBoosters: created.RewardBoosters } }];"
@@ -380,7 +711,10 @@
       "name": "Format Status Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [620, 100],
+      "position": [
+        620,
+        100
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const d = $('Dispatch Action').first().json;\nif (!d.active) return [{ json: { active: false } }];\nreturn [{ json: {\n  active: true,\n  bossName: d.bossName,\n  maxHp: d.maxHp,\n  currentHp: d.currentHp,\n  rewardBoosters: d.rewardBoosters,\n  myContribution: d.myContribution\n} }];"
@@ -391,64 +725,395 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1720, 400],
-      "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }
+      "position": [
+        1720,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
-    "Set Config": { "main": [[{ "node": "Get Community Boss", "type": "main", "index": 0 }]] },
-    "Get Community Boss": { "main": [[{ "node": "Sync Get Community Boss -> Get Boss Contributions", "type": "main", "index": 0 }]] },
-    "Sync Get Community Boss -> Get Boss Contributions": { "main": [[{ "node": "Get Boss Contributions", "type": "main", "index": 0 }]] },
-    "Get Boss Contributions": { "main": [[{ "node": "Sync Get Boss Contributions -> Get Pulls", "type": "main", "index": 0 }]] },
-    "Sync Get Boss Contributions -> Get Pulls": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
-    "Get Pulls": { "main": [[{ "node": "Sync Get Pulls -> Get Cards", "type": "main", "index": 0 }]] },
-    "Sync Get Pulls -> Get Cards": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
-    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Rarities", "type": "main", "index": 0 }]] },
-    "Sync Get Cards -> Get Rarities": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
-    "Get Rarities": { "main": [[{ "node": "Sync Get Rarities -> Get Users", "type": "main", "index": 0 }]] },
-    "Sync Get Rarities -> Get Users": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
-    "Get Users": { "main": [[{ "node": "Dispatch Action", "type": "main", "index": 0 }]] },
-    "Dispatch Action": { "main": [[{ "node": "If Ok", "type": "main", "index": 0 }]] },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Community Boss",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Community Boss": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Community Boss -> Get Boss Contributions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Community Boss -> Get Boss Contributions": {
+      "main": [
+        [
+          {
+            "node": "Get Boss Contributions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Boss Contributions": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Boss Contributions -> Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Boss Contributions -> Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Rarities -> Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Action": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Ok": {
       "main": [
-        [{ "node": "If Mutation Is Attack", "type": "main", "index": 0 }],
-        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "If Mutation Is Attack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "If Mutation Is Attack": {
       "main": [
-        [{ "node": "Delete Donated Pull", "type": "main", "index": 0 }],
-        [{ "node": "If Mutation Is AdminCreate", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Delete Donated Pull",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Mutation Is AdminCreate",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Delete Donated Pull": { "main": [[{ "node": "Sync Delete Pull -> Create Contribution", "type": "main", "index": 0 }]] },
-    "Sync Delete Pull -> Create Contribution": { "main": [[{ "node": "Create Boss Contribution", "type": "main", "index": 0 }]] },
-    "Create Boss Contribution": { "main": [[{ "node": "Sync Create Contribution -> Update Boss Hp", "type": "main", "index": 0 }]] },
-    "Sync Create Contribution -> Update Boss Hp": { "main": [[{ "node": "Update Boss Hp", "type": "main", "index": 0 }]] },
-    "Update Boss Hp": { "main": [[{ "node": "If Defeated", "type": "main", "index": 0 }]] },
+    "Delete Donated Pull": {
+      "main": [
+        [
+          {
+            "node": "Sync Delete Pull -> Create Contribution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Delete Pull -> Create Contribution": {
+      "main": [
+        [
+          {
+            "node": "Create Boss Contribution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Boss Contribution": {
+      "main": [
+        [
+          {
+            "node": "Sync Create Contribution -> Update Boss Hp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Create Contribution -> Update Boss Hp": {
+      "main": [
+        [
+          {
+            "node": "Update Boss Hp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Boss Hp": {
+      "main": [
+        [
+          {
+            "node": "If Defeated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Defeated": {
       "main": [
-        [{ "node": "Expand Contributors For Reward", "type": "main", "index": 0 }],
-        [{ "node": "Format Attack Response", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Expand Contributors For Reward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Attack Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Expand Contributors For Reward": { "main": [[{ "node": "Grant Booster To Contributor", "type": "main", "index": 0 }]] },
-    "Grant Booster To Contributor": { "main": [[{ "node": "Format Attack Response", "type": "main", "index": 0 }]] },
-    "Format Attack Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Expand Contributors For Reward": {
+      "main": [
+        [
+          {
+            "node": "Grant Booster To Contributor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grant Booster To Contributor": {
+      "main": [
+        [
+          {
+            "node": "Format Attack Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Attack Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Mutation Is AdminCreate": {
       "main": [
-        [{ "node": "Expand Previous Active Bosses", "type": "main", "index": 0 }],
-        [{ "node": "Format Status Response", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Expand Previous Active Bosses",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Community Boss",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Status Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Expand Previous Active Bosses": { "main": [[{ "node": "Deactivate Previous Boss", "type": "main", "index": 0 }]] },
-    "Deactivate Previous Boss": { "main": [[{ "node": "Sync Deactivate -> Create Boss", "type": "main", "index": 0 }]] },
-    "Sync Deactivate -> Create Boss": { "main": [[{ "node": "Create Community Boss", "type": "main", "index": 0 }]] },
-    "Create Community Boss": { "main": [[{ "node": "Format Admin Response", "type": "main", "index": 0 }]] },
-    "Format Admin Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
-    "Format Status Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Expand Previous Active Bosses": {
+      "main": [
+        [
+          {
+            "node": "Deactivate Previous Boss",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deactivate Previous Boss": {
+      "main": [
+        [
+          {
+            "node": "Sync Deactivate -> Create Boss",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Community Boss": {
+      "main": [
+        [
+          {
+            "node": "Format Admin Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Admin Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Status Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

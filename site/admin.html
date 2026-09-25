@@ -112,6 +112,9 @@
             <h3 class="balance-subheading">Finitions (foil)</h3>
             <div id="balance-finishes-table" class="balance-table"></div>
 
+            <h3 class="balance-subheading">Qualités (état des cartes)</h3>
+            <div id="balance-qualities-table" class="balance-table"></div>
+
             <h3 class="balance-subheading">Autres réglages</h3>
             <form id="config-form" class="admin-form">
               <label>
@@ -149,6 +152,10 @@
               <label>
                 Quêtes de la semaine : occurrences requises par quête
                 <input type="number" id="weekly-target-input" min="1" />
+              </label>
+              <label>
+                Restauration : doublons identiques requis par palier
+                <input type="number" id="quality-repair-cost-input" min="1" />
               </label>
               <button type="submit">Enregistrer</button>
             </form>

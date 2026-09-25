@@ -1613,7 +1613,8 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 .balance-row:last-child { border-bottom: none; }
 #balance-rarities-table .balance-row { grid-template-columns: minmax(90px,1.3fr) repeat(3, minmax(70px,1fr)) minmax(90px,auto); }
-#balance-finishes-table .balance-row { grid-template-columns: minmax(90px,1.3fr) repeat(2, minmax(80px,1fr)) minmax(90px,auto); }
+#balance-finishes-table .balance-row,
+#balance-qualities-table .balance-row { grid-template-columns: minmax(90px,1.3fr) repeat(2, minmax(80px,1fr)) minmax(90px,auto); }
 .balance-row.balance-head { background: var(--bg-panel-2); font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
 .balance-row-label { font-weight: 700; font-family: var(--font-display); font-size: 0.85rem; }
 .balance-row input[type="number"] {
@@ -1629,7 +1630,8 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .balance-save-btn { font-size: 0.78rem; padding: 7px 10px; }
 @media (max-width: 640px) {
   #balance-rarities-table .balance-row,
-  #balance-finishes-table .balance-row { grid-template-columns: 1fr 1fr; }
+  #balance-finishes-table .balance-row,
+  #balance-qualities-table .balance-row { grid-template-columns: 1fr 1fr; }
   .balance-row.balance-head { display: none; }
   .balance-row-label { grid-column: 1 / -1; }
   .balance-save-btn { grid-column: 1 / -1; }

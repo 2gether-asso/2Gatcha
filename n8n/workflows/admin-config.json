@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Memes ID admin que admin-codes.json / admin-extensions.json.\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    pityThreshold: body.pityThreshold,\n    topRarityKey: body.topRarityKey,\n    digMaxEnergy: body.digMaxEnergy,\n    digRegenSeconds: body.digRegenSeconds,\n    dailyQuestThreshold: body.dailyQuestThreshold,\n    dailyQuestRewardBoosters: body.dailyQuestRewardBoosters,\n    weeklyQuestThreshold: body.weeklyQuestThreshold,\n    weeklyQuestRewardBoosters: body.weeklyQuestRewardBoosters,\n    weeklyQuestTarget: body.weeklyQuestTarget,\n    rarityId: body.rarityId,\n    weight: body.weight,\n    disenchantValue: body.disenchantValue,\n    craftCost: body.craftCost,\n    finishId: body.finishId,\n    dropWeight: body.dropWeight,\n    disenchantMultiplier: body.disenchantMultiplier\n  }\n}];\n"
+        "jsCode": "// Memes ID admin que admin-codes.json / admin-extensions.json.\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\n\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    action: (body.action || '').toString(),\n    pityThreshold: body.pityThreshold,\n    topRarityKey: body.topRarityKey,\n    digMaxEnergy: body.digMaxEnergy,\n    digRegenSeconds: body.digRegenSeconds,\n    dailyQuestThreshold: body.dailyQuestThreshold,\n    dailyQuestRewardBoosters: body.dailyQuestRewardBoosters,\n    weeklyQuestThreshold: body.weeklyQuestThreshold,\n    weeklyQuestRewardBoosters: body.weeklyQuestRewardBoosters,\n    weeklyQuestTarget: body.weeklyQuestTarget,\n    qualityRepairCost: body.qualityRepairCost,\n    rarityId: body.rarityId,\n    weight: body.weight,\n    disenchantValue: body.disenchantValue,\n    craftCost: body.craftCost,\n    finishId: body.finishId,\n    qualityId: body.qualityId,\n    dropWeight: body.dropWeight,\n    disenchantMultiplier: body.disenchantMultiplier\n  }\n}];\n"
       }
     },
     {
@@ -184,7 +184,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst config = $('Set Config').first().json;\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\nif (!configRow) throw new Error('Table Config vide : ajoute une ligne de parametres dans Grist.');\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n\nfunction numOr(current, incoming, min) {\n  if (incoming == null || incoming === '') return current;\n  const n = Number(incoming);\n  if (!Number.isFinite(n) || (min != null && n < min)) throw new Error('Valeur invalide: ' + incoming);\n  return n;\n}\n\nlet pityThreshold = configRow.PityThreshold || 0;\nif (config.pityThreshold != null && config.pityThreshold !== '') {\n  const n = Number(config.pityThreshold);\n  if (!Number.isFinite(n) || n < 1) throw new Error('pityThreshold invalide.');\n  pityThreshold = n;\n}\n\nlet topRarityId = refId(configRow.TopRarity);\nif (config.topRarityKey) {\n  const rarity = rarities.find((r) => r.Key === config.topRarityKey);\n  if (!rarity) throw new Error('Rarete inconnue: ' + config.topRarityKey);\n  topRarityId = rarity.id;\n}\n\nconst digMaxEnergy = numOr(configRow.DigMaxEnergy || 5, config.digMaxEnergy, 1);\nconst digRegenSeconds = numOr(configRow.DigRegenSeconds || 60, config.digRegenSeconds, 5);\nconst dailyQuestThreshold = numOr(configRow.DailyQuestThreshold || 2, config.dailyQuestThreshold, 1);\nconst dailyQuestRewardBoosters = numOr(configRow.DailyQuestRewardBoosters || 2, config.dailyQuestRewardBoosters, 0);\nconst weeklyQuestThreshold = numOr(configRow.WeeklyQuestThreshold || 3, config.weeklyQuestThreshold, 1);\nconst weeklyQuestRewardBoosters = numOr(configRow.WeeklyQuestRewardBoosters || 5, config.weeklyQuestRewardBoosters, 0);\nconst weeklyQuestTarget = numOr(configRow.WeeklyQuestTarget || 5, config.weeklyQuestTarget, 1);\n\nreturn [{ json: {\n  rowId: configRow.id, pityThreshold, topRarityId,\n  digMaxEnergy, digRegenSeconds,\n  dailyQuestThreshold, dailyQuestRewardBoosters,\n  weeklyQuestThreshold, weeklyQuestRewardBoosters, weeklyQuestTarget\n} }];\n"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst config = $('Set Config').first().json;\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\nif (!configRow) throw new Error('Table Config vide : ajoute une ligne de parametres dans Grist.');\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n\nfunction numOr(current, incoming, min) {\n  if (incoming == null || incoming === '') return current;\n  const n = Number(incoming);\n  if (!Number.isFinite(n) || (min != null && n < min)) throw new Error('Valeur invalide: ' + incoming);\n  return n;\n}\n\nlet pityThreshold = configRow.PityThreshold || 0;\nif (config.pityThreshold != null && config.pityThreshold !== '') {\n  const n = Number(config.pityThreshold);\n  if (!Number.isFinite(n) || n < 1) throw new Error('pityThreshold invalide.');\n  pityThreshold = n;\n}\n\nlet topRarityId = refId(configRow.TopRarity);\nif (config.topRarityKey) {\n  const rarity = rarities.find((r) => r.Key === config.topRarityKey);\n  if (!rarity) throw new Error('Rarete inconnue: ' + config.topRarityKey);\n  topRarityId = rarity.id;\n}\n\nconst digMaxEnergy = numOr(configRow.DigMaxEnergy || 5, config.digMaxEnergy, 1);\nconst digRegenSeconds = numOr(configRow.DigRegenSeconds || 60, config.digRegenSeconds, 5);\nconst dailyQuestThreshold = numOr(configRow.DailyQuestThreshold || 2, config.dailyQuestThreshold, 1);\nconst dailyQuestRewardBoosters = numOr(configRow.DailyQuestRewardBoosters || 2, config.dailyQuestRewardBoosters, 0);\nconst weeklyQuestThreshold = numOr(configRow.WeeklyQuestThreshold || 3, config.weeklyQuestThreshold, 1);\nconst weeklyQuestRewardBoosters = numOr(configRow.WeeklyQuestRewardBoosters || 5, config.weeklyQuestRewardBoosters, 0);\nconst weeklyQuestTarget = numOr(configRow.WeeklyQuestTarget || 5, config.weeklyQuestTarget, 1);\nconst qualityRepairCost = numOr(configRow.QualityRepairCost || 3, config.qualityRepairCost, 1);\n\nreturn [{ json: {\n  rowId: configRow.id, pityThreshold, topRarityId,\n  digMaxEnergy, digRegenSeconds,\n  dailyQuestThreshold, dailyQuestRewardBoosters,\n  weeklyQuestThreshold, weeklyQuestRewardBoosters, weeklyQuestTarget,\n  qualityRepairCost\n} }];\n"
       }
     },
     {
@@ -239,6 +239,10 @@
             {
               "fieldId": "WeeklyQuestTarget",
               "fieldValue": "={{ $json.weeklyQuestTarget }}"
+            },
+            {
+              "fieldId": "QualityRepairCost",
+              "fieldValue": "={{ $json.qualityRepairCost }}"
             }
           ]
         }
@@ -261,7 +265,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst action = cfg.action;\n\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst finishes = $('Get Finishes').all().map((i) => i.json).filter((r) => r.id != null);\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\nif (!configRow) throw new Error('Table Config vide.');\n\nlet pityThreshold = configRow.PityThreshold || 0;\nlet topRarityId = refId(configRow.TopRarity);\nlet digMaxEnergy = configRow.DigMaxEnergy || 5;\nlet digRegenSeconds = configRow.DigRegenSeconds || 60;\nlet dailyQuestThreshold = configRow.DailyQuestThreshold || 2;\nlet dailyQuestRewardBoosters = configRow.DailyQuestRewardBoosters || 2;\nlet weeklyQuestThreshold = configRow.WeeklyQuestThreshold || 3;\nlet weeklyQuestRewardBoosters = configRow.WeeklyQuestRewardBoosters || 5;\nlet weeklyQuestTarget = configRow.WeeklyQuestTarget || 5;\n\nif (action === 'set') {\n  const built = $('Build Update').first().json;\n  pityThreshold = built.pityThreshold;\n  topRarityId = built.topRarityId;\n  digMaxEnergy = built.digMaxEnergy;\n  digRegenSeconds = built.digRegenSeconds;\n  dailyQuestThreshold = built.dailyQuestThreshold;\n  dailyQuestRewardBoosters = built.dailyQuestRewardBoosters;\n  weeklyQuestThreshold = built.weeklyQuestThreshold;\n  weeklyQuestRewardBoosters = built.weeklyQuestRewardBoosters;\n  weeklyQuestTarget = built.weeklyQuestTarget;\n}\n\nlet raritiesOut = rarities;\nif (action === 'updateRarity') {\n  const built = $('Build Rarity Update').first().json;\n  raritiesOut = rarities.map((r) => r.id === built.rowId ? { ...r, Weight: built.weight, DisenchantValue: built.disenchantValue, CraftCost: built.craftCost } : r);\n}\n\nlet finishesOut = finishes;\nif (action === 'updateFinish') {\n  const built = $('Build Finish Update').first().json;\n  finishesOut = finishes.map((f) => f.id === built.rowId ? { ...f, DropWeight: built.dropWeight, DisenchantMultiplier: built.disenchantMultiplier } : f);\n}\n\nconst topRarity = rarities.find((r) => r.id === topRarityId);\n\nreturn [{ json: {\n  pityThreshold,\n  topRarity: topRarity ? { id: topRarity.id, key: topRarity.Key, name: topRarity.Name } : null,\n  digMaxEnergy, digRegenSeconds,\n  dailyQuestThreshold, dailyQuestRewardBoosters,\n  weeklyQuestThreshold, weeklyQuestRewardBoosters, weeklyQuestTarget,\n  rarities: raritiesOut.sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0)).map((r) => ({ id: r.id, key: r.Key, name: r.Name, weight: r.Weight || 0, disenchantValue: r.DisenchantValue || 0, craftCost: r.CraftCost || 0 })),\n  finishes: finishesOut.map((f) => ({ id: f.id, key: f.Key, name: f.Name, dropWeight: f.DropWeight || 0, disenchantMultiplier: f.DisenchantMultiplier != null ? f.DisenchantMultiplier : 1 }))\n} }];\n"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst action = cfg.action;\n\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst finishes = $('Get Finishes').all().map((i) => i.json).filter((r) => r.id != null);\nconst qualities = $('Get Qualities').all().map((i) => i.json).filter((r) => r.id != null);\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\nif (!configRow) throw new Error('Table Config vide.');\n\nlet pityThreshold = configRow.PityThreshold || 0;\nlet topRarityId = refId(configRow.TopRarity);\nlet digMaxEnergy = configRow.DigMaxEnergy || 5;\nlet digRegenSeconds = configRow.DigRegenSeconds || 60;\nlet dailyQuestThreshold = configRow.DailyQuestThreshold || 2;\nlet dailyQuestRewardBoosters = configRow.DailyQuestRewardBoosters || 2;\nlet weeklyQuestThreshold = configRow.WeeklyQuestThreshold || 3;\nlet weeklyQuestRewardBoosters = configRow.WeeklyQuestRewardBoosters || 5;\nlet weeklyQuestTarget = configRow.WeeklyQuestTarget || 5;\nlet qualityRepairCost = configRow.QualityRepairCost || 3;\n\nif (action === 'set') {\n  const built = $('Build Update').first().json;\n  pityThreshold = built.pityThreshold;\n  topRarityId = built.topRarityId;\n  digMaxEnergy = built.digMaxEnergy;\n  digRegenSeconds = built.digRegenSeconds;\n  dailyQuestThreshold = built.dailyQuestThreshold;\n  dailyQuestRewardBoosters = built.dailyQuestRewardBoosters;\n  weeklyQuestThreshold = built.weeklyQuestThreshold;\n  weeklyQuestRewardBoosters = built.weeklyQuestRewardBoosters;\n  weeklyQuestTarget = built.weeklyQuestTarget;\n  qualityRepairCost = built.qualityRepairCost;\n}\n\nlet raritiesOut = rarities;\nif (action === 'updateRarity') {\n  const built = $('Build Rarity Update').first().json;\n  raritiesOut = rarities.map((r) => r.id === built.rowId ? { ...r, Weight: built.weight, DisenchantValue: built.disenchantValue, CraftCost: built.craftCost } : r);\n}\n\nlet finishesOut = finishes;\nif (action === 'updateFinish') {\n  const built = $('Build Finish Update').first().json;\n  finishesOut = finishes.map((f) => f.id === built.rowId ? { ...f, DropWeight: built.dropWeight, DisenchantMultiplier: built.disenchantMultiplier } : f);\n}\n\nlet qualitiesOut = qualities;\nif (action === 'updateQuality') {\n  const built = $('Build Quality Update').first().json;\n  qualitiesOut = qualities.map((q) => q.id === built.rowId ? { ...q, DropWeight: built.dropWeight, DisenchantMultiplier: built.disenchantMultiplier } : q);\n}\n\nconst topRarity = rarities.find((r) => r.id === topRarityId);\n\nreturn [{ json: {\n  pityThreshold,\n  topRarity: topRarity ? { id: topRarity.id, key: topRarity.Key, name: topRarity.Name } : null,\n  digMaxEnergy, digRegenSeconds,\n  dailyQuestThreshold, dailyQuestRewardBoosters,\n  weeklyQuestThreshold, weeklyQuestRewardBoosters, weeklyQuestTarget,\n  qualityRepairCost,\n  rarities: raritiesOut.sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0)).map((r) => ({ id: r.id, key: r.Key, name: r.Name, weight: r.Weight || 0, disenchantValue: r.DisenchantValue || 0, craftCost: r.CraftCost || 0 })),\n  finishes: finishesOut.map((f) => ({ id: f.id, key: f.Key, name: f.Name, dropWeight: f.DropWeight || 0, disenchantMultiplier: f.DisenchantMultiplier != null ? f.DisenchantMultiplier : 1 })),\n  qualities: qualitiesOut.map((q) => ({ id: q.id, key: q.Key, name: q.Name, dropWeight: q.DropWeight || 0, disenchantMultiplier: q.DisenchantMultiplier != null ? q.DisenchantMultiplier : 1 }))\n} }];\n"
       }
     },
     {
@@ -480,6 +484,124 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "barrier-finishes-qualities",
+      "name": "Sync Get Finishes -> Get Qualities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -710,
+        540
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-qualities-adminconfig",
+      "name": "Get Qualities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -620,
+        540
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Qualities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-action-update-quality",
+      "name": "If Action Is UpdateQuality",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        700
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Set Config').first().json.action }}",
+              "rightValue": "updateQuality",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "build-quality-update",
+      "name": "Build Quality Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        660
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const config = $('Set Config').first().json;\nconst qualities = $('Get Qualities').all().map((i) => i.json).filter((r) => r.id != null);\nconst qualityId = Number(config.qualityId);\nconst quality = qualities.find((q) => q.id === qualityId);\nif (!quality) throw new Error('Qualite introuvable: ' + config.qualityId);\n\nfunction numOr(current, incoming, min) {\n  if (incoming == null || incoming === '') return current;\n  const n = Number(incoming);\n  if (!Number.isFinite(n) || (min != null && n < min)) throw new Error('Valeur invalide: ' + incoming);\n  return n;\n}\n\nconst dropWeight = numOr(quality.DropWeight || 0, config.dropWeight, 0);\nconst disenchantMultiplier = numOr(quality.DisenchantMultiplier != null ? quality.DisenchantMultiplier : 1, config.disenchantMultiplier, 0);\n\nreturn [{ json: { rowId: qualityId, dropWeight, disenchantMultiplier } }];\n"
+      }
+    },
+    {
+      "id": "update-quality",
+      "name": "Update Quality",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        100,
+        660
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Qualities",
+        "rowId": "={{ $json.rowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "DropWeight",
+              "fieldValue": "={{ $json.dropWeight }}"
+            },
+            {
+              "fieldId": "DisenchantMultiplier",
+              "fieldValue": "={{ $json.disenchantMultiplier }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -622,7 +744,7 @@
       "main": [
         [
           {
-            "node": "If Action Is Set",
+            "node": "Sync Get Finishes -> Get Qualities",
             "type": "main",
             "index": 0
           }
@@ -680,7 +802,7 @@
         ],
         [
           {
-            "node": "Format Response",
+            "node": "If Action Is UpdateQuality",
             "type": "main",
             "index": 0
           }
@@ -699,6 +821,68 @@
       ]
     },
     "Update Finish": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Finishes -> Get Qualities": {
+      "main": [
+        [
+          {
+            "node": "Get Qualities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Qualities": {
+      "main": [
+        [
+          {
+            "node": "If Action Is Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Action Is UpdateQuality": {
+      "main": [
+        [
+          {
+            "node": "Build Quality Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Quality Update": {
+      "main": [
+        [
+          {
+            "node": "Update Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Quality": {
       "main": [
         [
           {

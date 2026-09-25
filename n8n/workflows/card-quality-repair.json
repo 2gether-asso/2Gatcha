@@ -105,7 +105,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst allPulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === cfg.cardId);\n\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_repairable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\n// Echelle de qualite fixe, du plus abime au plus parfait. Chaque palier\n// consomme 3 exemplaires IDENTIQUES (meme carte, meme qualite) pour en\n// produire 1 seul de la qualite suivante - deterministe, pas de RNG (meme\n// principe que la fusion de finitions, juste une echelle plus courte).\nconst QUALITY_ORDER = ['damaged', 'worn', 'good', 'mint'];\nconst fromIndex = QUALITY_ORDER.indexOf(cfg.fromQuality);\nif (fromIndex === -1 || fromIndex === QUALITY_ORDER.length - 1) {\n  return [{ json: { ok: false, error: 'invalid_quality' } }];\n}\nconst toQuality = QUALITY_ORDER[fromIndex + 1];\n\nfunction qualityOf(p) { return p.Quality || 'damaged'; }\nconst myPulls = allPulls.filter((p) => refId(p.User) === cfg.userId);\nconst matching = myPulls.filter((p) => refId(p.Card) === cfg.cardId && qualityOf(p) === cfg.fromQuality);\nif (matching.length < 3) {\n  return [{ json: { ok: false, error: 'not_enough_duplicates' } }];\n}\n\n// Limite d'exemplaires 'dans la nature' (Cards.MaxSerial, 100 par defaut) :\n// la carte restauree est un nouvel exemplaire, elle compte dans le meme\n// compteur global que les tirages/craft/finitions normaux.\nconst existingCount = allPulls.filter((p) => refId(p.Card) === cfg.cardId).length;\nconst maxSerial = card.MaxSerial || 100;\nif (existingCount >= maxSerial) {\n  return [{ json: { ok: false, error: 'sold_out' } }];\n}\n\nconst pullIdsToDelete = matching.slice(0, 3).map((p) => p.id);\n\nreturn [{ json: {\n  ok: true,\n  docId: cfg.docId,\n  userId: cfg.userId,\n  cardId: cfg.cardId,\n  pullIdsToDelete,\n  fromQuality: cfg.fromQuality,\n  toQuality,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `quality-${cfg.userId}-${Date.now()}`,\n  serialNumber: existingCount + 1,\n  maxSerial\n} }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst allPulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === cfg.cardId);\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\nconst REQUIRED_COUNT = (configRow && configRow.QualityRepairCost) || 3;\n\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_repairable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\n// Echelle de qualite fixe, du plus abime au plus parfait. Chaque palier\n// consomme REQUIRED_COUNT exemplaires IDENTIQUES (meme carte, meme qualite,\n// reglable dans Equilibrage du jeu - defaut 3) pour en produire 1 seul de\n// la qualite suivante - deterministe, pas de RNG (meme principe que la\n// fusion de finitions, juste une echelle plus courte).\nconst QUALITY_ORDER = ['damaged', 'worn', 'good', 'mint'];\nconst fromIndex = QUALITY_ORDER.indexOf(cfg.fromQuality);\nif (fromIndex === -1 || fromIndex === QUALITY_ORDER.length - 1) {\n  return [{ json: { ok: false, error: 'invalid_quality' } }];\n}\nconst toQuality = QUALITY_ORDER[fromIndex + 1];\n\nfunction qualityOf(p) { return p.Quality || 'damaged'; }\nconst myPulls = allPulls.filter((p) => refId(p.User) === cfg.userId);\nconst matching = myPulls.filter((p) => refId(p.Card) === cfg.cardId && qualityOf(p) === cfg.fromQuality);\nif (matching.length < REQUIRED_COUNT) {\n  return [{ json: { ok: false, error: 'not_enough_duplicates' } }];\n}\n\n// Limite d'exemplaires 'dans la nature' (Cards.MaxSerial, 100 par defaut) :\n// la carte restauree est un nouvel exemplaire, elle compte dans le meme\n// suivi de numeros que les tirages/craft/finitions normaux. On suit QUELS\n// numeros sont utilises (pas juste un compteur) pour reattribuer le plus\n// petit numero libre - un exemplaire decrafte/defausse libere vraiment son\n// numero pour une future restauration.\nconst usedSerials = new Set();\nallPulls.forEach((p) => { if (refId(p.Card) === cfg.cardId && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\nconst maxSerial = card.MaxSerial || 100;\nif (usedSerials.size >= maxSerial) {\n  return [{ json: { ok: false, error: 'sold_out' } }];\n}\nlet serialNumber = null;\nfor (let n = 1; n <= maxSerial; n++) { if (!usedSerials.has(n)) { serialNumber = n; break; } }\n\nconst pullIdsToDelete = matching.slice(0, REQUIRED_COUNT).map((p) => p.id);\n\nreturn [{ json: {\n  ok: true,\n  docId: cfg.docId,\n  userId: cfg.userId,\n  cardId: cfg.cardId,\n  pullIdsToDelete,\n  fromQuality: cfg.fromQuality,\n  toQuality,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `quality-${cfg.userId}-${Date.now()}`,\n  serialNumber,\n  maxSerial\n} }];\n"
       }
     },
     {
@@ -284,6 +284,44 @@
         "responseBody": "={{ $json }}",
         "options": {}
       }
+    },
+    {
+      "id": "barrier-cards-config",
+      "name": "Sync Get Cards -> Get Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-config-quality-repair",
+      "name": "Get Config",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -680,
+        460
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Config",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -335,7 +373,7 @@
       "main": [
         [
           {
-            "node": "Compute Repair",
+            "node": "Sync Get Cards -> Get Config",
             "type": "main",
             "index": 0
           }
@@ -420,6 +458,28 @@
         [
           {
             "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Config": {
+      "main": [
+        [
+          {
+            "node": "Get Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Config": {
+      "main": [
+        [
+          {
+            "node": "Compute Repair",
             "type": "main",
             "index": 0
           }

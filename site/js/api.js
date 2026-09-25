@@ -212,6 +212,10 @@ const API = {
     return this.post("adminConfig", { discordId, action: "updateFinish", finishId, ...params });
   },
 
+  adminUpdateQuality(discordId, qualityId, params) {
+    return this.post("adminConfig", { discordId, action: "updateQuality", qualityId, ...params });
+  },
+
   adminCreateExtension(discordId, params) {
     return this.post("adminExtensions", { discordId, action: "create", ...params });
   },

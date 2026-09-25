@@ -82,6 +82,7 @@ async function doDig(tileIndex) {
   try {
     const res = await API.dig(Session.userId, tileIndex);
     digEnergy = res.newEnergy;
+    digBusy = false;
     renderDigEnergy(res.newEnergy, digMaxEnergy, null);
     renderDigBoard(res.tiles || []);
 

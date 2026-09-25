@@ -1,9 +1,9 @@
 # Schema Grist - 2Gatcha
 
 Un seul document Grist avec 12 tables de base, plus plusieurs tables
-ajoutees au fil de l'eau (voir plus bas : `Finishes`, `DailyQuests`,
-`WeeklyQuests`...). Cree-les dans cet ordre (les references ont besoin que
-la table ciblee existe deja) :
+ajoutees au fil de l'eau (voir plus bas : `Finishes`, `Qualities`,
+`DailyQuests`, `WeeklyQuests`...). Cree-les dans cet ordre (les references
+ont besoin que la table ciblee existe deja) :
 `Rarities` -> `Finishes` -> `Extensions` -> `Cards` -> `Users` -> `Pulls` ->
 `Config` -> `EventCodes` -> `CodeRedemptions` -> `Trades` ->
 `BoosterInventory` -> `Wishlist` -> `ProfileShowcase`.
@@ -83,6 +83,38 @@ une valeur figee : modifie les `DropWeight` dans Grist pour retunner sans
 redeployer de workflow. Ce tirage ne s'applique qu'aux boosters reels
 (`open-pack.json`) - pas a `craft.json` (toujours `normal`), ni aux codes
 d'evenement, ni a l'autel.
+
+## Qualities
+
+**Nouvelle table.** Exact miroir de `Finishes`, mais pour l'etat physique de
+la carte (voir "Restauration de cartes usees" plus bas) - meme mecanique de
+tirage a deux niveaux, meme influence sur le decraft, juste une echelle
+differente (`damaged` joue le role de `normal` : le tirage naturel majoritaire).
+
+| Colonne              | Type    | Notes                                                     |
+|-----------------------|---------|-------------------------------------------------------------|
+| Key                   | Text    | `damaged`, `worn`, `good`, `mint` (meme echelle que `Pulls.Quality`) |
+| Name                  | Text    | libelle affiche, ex "Usé"                                    |
+| DropWeight            | Numeric | poids relatif **parmi worn/good/mint uniquement** (ignore pour `damaged`) |
+| DisenchantMultiplier  | Numeric | multiplie `Rarities.DisenchantValue` (et se cumule avec `Finishes.DisenchantMultiplier` si l'exemplaire a aussi une finition speciale) quand on decrafte un exemplaire de cette qualite (`damaged` = 1) |
+
+Valeurs de depart suggerees, ajustables directement dans Grist OU depuis
+`admin.html` (section "Équilibrage du jeu", tableau "Qualités") via
+`admin-config.json` (action `updateQuality`) :
+
+| Key      | Name          | DropWeight | DisenchantMultiplier |
+|----------|---------------|------------|------------------------|
+| damaged  | Abîmé         | -          | 1                      |
+| worn     | Usé           | 60         | 1.2                    |
+| good     | Bon état      | 30         | 1.5                    |
+| mint     | Parfait état  | 10         | 2                      |
+
+**Tirage a deux niveaux** (`open-pack.json`, fonction `rollQuality()` dans le
+node `Draw Cards`) : exactement le meme mecanisme que `rollFinish()`
+ci-dessus, avec sa propre chance fixe de 10% et ses propres poids. Ce
+tirage ne s'applique qu'aux boosters reels, pas a `craft.json`/codes/autel/
+restauration (qui produisent toujours `damaged`, coherent avec `Finish` qui
+y reste toujours `normal`).
 
 ## 2. Extensions
 
@@ -176,9 +208,9 @@ creant/detruisant des exemplaires.
 | Card        | Reference -> Cards     |                                             |
 | ObtainedAt  | DateTime               |                                             |
 | BatchId     | Text                   | regroupe les cartes d'un meme pack ouvert ou d'un meme code reclame |
-| SerialNumber | Numeric               | numero de l'exemplaire pour cette carte, tous joueurs confondus (1er exemplaire jamais tire = 1, etc.) ; calcule au moment de la creation de la ligne comme `(nombre de lignes Pulls existantes pour cette carte) + 1`, jamais recalcule ensuite. Sert a l'affichage "#004/100" cote front et a la limite `Cards.MaxSerial` |
+| SerialNumber | Numeric               | numero de l'exemplaire pour cette carte, tous joueurs confondus (1er exemplaire jamais tire = 1, etc.), **unique parmi les exemplaires actuellement en circulation** de cette carte. Attribue au moment de la creation de la ligne comme le plus petit numero dans `[1, Cards.MaxSerial]` qui n'est PAS deja porte par une ligne `Pulls` existante de cette carte (jamais un simple compteur incremental) - un exemplaire decrafte/consomme/defausse (donc sa ligne `Pulls` supprimee) libere reellement son numero pour un futur tirage/craft/code/restauration/fouille. Sert a l'affichage "#004/100" cote front et a la limite `Cards.MaxSerial` |
 | Finish       | Text                   | finition de cet exemplaire precis : `normal` (ou vide - traite comme `normal` partout, voir plus bas), `holo`, `gold`, `ghost`, `diamond`, `rainbow`, dans cet ordre croissant de prestige. Cosmetique, mais influence la valeur de decraft (voir `Finishes` plus haut et "Craft / decraft" plus bas). Voir "Finitions" plus bas |
-| Quality      | Text                   | qualite de cet exemplaire precis : `damaged` (ou vide - traite comme `damaged` partout), `worn`, `good`, `mint`, dans cet ordre croissant. Purement cosmetique, aucun effet sur le gameplay. Voir "Restauration de cartes usees" plus bas |
+| Quality      | Text                   | qualite de cet exemplaire precis : `damaged` (ou vide - traite comme `damaged` partout), `worn`, `good`, `mint`, dans cet ordre croissant. Meme principe que `Finish` : tirage naturel possible a l'ouverture ET influence la valeur de decraft (voir `Qualities` plus haut et "Restauration de cartes usees" plus bas) |
 
 La "collection" d'un utilisateur = toutes les lignes `Pulls` ou `User` = lui,
 regroupees par `Card` pour avoir un compteur (x2, x3...). C'est deja ce que
@@ -216,29 +248,36 @@ Une finition speciale peut aussi sortir **naturellement** d'un booster reel
 ## Restauration de cartes usees (Qualite)
 
 `card-quality-repair.json` (POST `/card-quality-repair` `{ userId, cardId,
-fromQuality }`) : meme principe que les Finitions, mais sur l'echelle
-`Pulls.Quality` et avec un ratio plus court. Fusionne **3 exemplaires
-identiques** (meme carte, meme `Quality`) en **1 seul** exemplaire de la
-qualite immediatement superieure, selon l'echelle fixe `damaged -> worn ->
-good -> mint` (definie cote code dans `card-quality-repair.json`, a
-dupliquer cote front si un onglet "Qualite" est ajoute a `craft.html`, sur
-le modele de l'onglet "Finitions"). Deterministe, pas de hasard. Les 3
-exemplaires consommes sont supprimes de `Pulls` ; un nouvel exemplaire est
-cree a la qualite superieure avec un nouveau `SerialNumber` (meme compteur
-global, meme limite `Cards.MaxSerial`). Une carte promo ne peut pas etre
-restauree (`promo_not_repairable`). Contrairement aux Finitions, la Qualite
-n'a **pas** de tirage naturel a l'ouverture d'un booster - toutes les cartes
-sont tirees `damaged` par defaut, seule la fusion de doublons fait progresser
-la qualite.
+fromQuality }`) : meme principe que les Finitions, sur l'echelle
+`Pulls.Quality`. Fusionne **`Config.QualityRepairCost` exemplaires
+identiques** (meme carte, meme `Quality`, defaut **3** si la colonne est
+vide - reglable dans `admin.html` -> "Équilibrage du jeu", plus besoin de
+toucher au code) en **1 seul** exemplaire de la qualite immediatement
+superieure, selon l'echelle fixe `damaged -> worn -> good -> mint` (fixe
+cote code, ce n'est QUE le nombre d'exemplaires requis qui est reglable).
+Deterministe, pas de hasard. Les exemplaires consommes sont supprimes de
+`Pulls` ; un nouvel exemplaire est cree a la qualite superieure avec un
+nouveau `SerialNumber` (voir "Limite d'exemplaires" ci-dessous). Une carte
+promo ne peut pas etre restauree (`promo_not_repairable`).
+
+Comme les Finitions, la Qualite a maintenant un tirage naturel a
+l'ouverture d'un booster (voir `Qualities` plus haut) - la restauration par
+fusion reste le seul moyen de progresser en dehors des boosters (craft/
+codes/autel produisent toujours `damaged`, jamais un tirage naturel).
 
 **Limite d'exemplaires (`Cards.MaxSerial`)** : chaque workflow qui cree une
 ligne `Pulls` (`open-pack.json`, `craft.json`, `redeem-code.json`,
-`altar-sacrifice.json`) compte d'abord le nombre de lignes `Pulls`
-existantes pour la carte visee (tous joueurs), exclut du pool de tirage
-toute carte qui a deja atteint sa limite, et renvoie l'erreur `sold_out`
-(ou, pour l'autel, retire simplement la carte du pool de la rarete
-superieure - `no_target_card` si plus aucune carte n'y est disponible)
-si la carte demandee explicitement (craft, code) est epuisee.
+`altar-sacrifice.json`, `card-quality-repair.json`, le tresor "carte" de
+`dig.json`) suit precisement QUELS numeros de serie sont deja utilises pour
+la carte visee (tous joueurs, `Set` construit depuis `Pulls.SerialNumber`) -
+jamais un simple compteur de lignes. Le nouvel exemplaire recoit le plus
+PETIT numero libre dans `[1, MaxSerial]` : si un exemplaire est decrafte/
+consomme (fusion de finition ou de qualite)/sacrifie a l'autel/perdu au
+coffre de guilde, son numero redevient immediatement disponible pour un
+futur tirage plutot que de rester "brule" derriere un compteur qui ne
+redescend jamais. Une carte est epuisee (`sold_out`, ou pour l'autel/la
+fouille elle est simplement retiree du pool - `no_target_card` si plus rien
+n'y est disponible) quand le nombre de numeros utilises atteint `MaxSerial`.
 
 ## 6. Config
 
@@ -258,6 +297,7 @@ du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
 | WeeklyQuestThreshold         | Numeric                | **nouvelle colonne** - defaut 3 si vide ; nb de quetes de la semaine (sur 4) a completer pour la recompense |
 | WeeklyQuestRewardBoosters    | Numeric                | **nouvelle colonne** - defaut 5 si vide ; boosters gagnes en completant les quetes de la semaine |
 | WeeklyQuestTarget            | Numeric                | **nouvelle colonne** - defaut 5 si vide ; occurrences requises par quete de la semaine (ex: 5 connexions) |
+| QualityRepairCost            | Numeric                | **nouvelle colonne** - defaut 3 si vide ; nombre d'exemplaires identiques requis par palier de restauration de qualite (voir "Restauration de cartes usees" plus bas) |
 
 Toutes les colonnes `Numeric` ci-dessus tolerent une cellule vide dans Grist
 (chaque workflow qui les lit retombe sur la valeur par defaut listee) - pas
@@ -455,11 +495,13 @@ workflows.
   l'utilisateur possede au moins un exemplaire de la carte (`Pulls`) et
   qu'elle n'est **pas** promo, **supprime une ligne `Pulls`** correspondante
   (l'exemplaire est detruit, pas reassigne comme pour un echange) et credite
-  `Users.StardustCount` de `Rarities.DisenchantValue * Finishes.DisenchantMultiplier`
-  (arrondi) de sa rarete/finition. Si le joueur possede plusieurs exemplaires
-  de finitions differentes pour la meme carte, l'exemplaire `normal` (ou le
-  moins prestigieux disponible) est **toujours** decrafte en premier - jamais
-  un holo/gold/... par erreur tant qu'il reste un exemplaire moins special.
+  `Users.StardustCount` de `Rarities.DisenchantValue * Finishes.DisenchantMultiplier
+  * Qualities.DisenchantMultiplier` (arrondi) de sa rarete/finition/qualite.
+  Si le joueur possede plusieurs exemplaires pour la meme carte, l'exemplaire
+  le moins prestigieux est **toujours** decrafte en premier - trie d'abord
+  par finition (jamais un holo/gold/... par erreur tant qu'il reste un
+  exemplaire `normal`), puis par qualite parmi les doublons de meme finition
+  (jamais un `mint` par erreur tant qu'il reste un exemplaire moins abime).
 - `craft.json` (POST `/craft` `{ userId, cardId }`) : verifie que la carte
   est active et non-promo, que `Users.StardustCount >= Rarities.CraftCost`
   de sa rarete, debite le cout et **cree une ligne `Pulls`** (comme un
@@ -717,6 +759,31 @@ Grist encode les colonnes de type liste sous la forme `["L", id1, id2, ...]`
 : `"L"` est un marqueur, pas une valeur. Toutes les fonctions `refId`/
 `firstAttachment` des workflows de ce projet gèrent deja ce cas ; reprends
 le meme code si tu ajoutes un node qui lit ce genre de colonne.
+
+**A l'ECRITURE aussi** : envoyer un tableau JS brut (`[4, 5, 6]`) pour une
+colonne Reference List fait echouer l'appel Grist avec `Invalid payload`
+(`CardIds[0] is not a GristObjCode`) - il faut le meme marqueur en sortie :
+`['L', 4, 5, 6]`. Bug reel rencontre dans `bingo.json` (`adminSetGrid`
+renvoyait 500) : construis toujours la valeur a ecrire avec ce marqueur
+plutot que le tableau brut utilise pour la logique JS interne.
+
+## Colonnes booleennes (Toggle) : jamais de `=== true` / `!== true`
+
+Selon la table, l'API Grist peut renvoyer un Toggle sous forme de nombre
+(`1`/`0`/`undefined`) plutot que de vrai booleen JS - `1 === true` vaut
+`false` en JavaScript. Un test d'egalite stricte contre `true`/`false` sur
+une colonne lue depuis Grist est donc **silencieusement faux** des que la
+valeur arrive en `1`/`0` (aucune erreur, juste un mauvais resultat).
+Bugs reels rencontres et corriges pour cette raison : `CommunityBoss.Active`
+(`community-boss.json` - un boss nouvellement cree n'apparaissait jamais
+comme actif), `GuildChestDeposits.Claimed` (`guild-chest.json` - un
+exemplaire deja pioche restait dans le pot commun), `Cards.IsPromo`
+(`open-pack.json`/`get-public-profile.json`), `Cards.IsSecret`
+(`unlock-secret.json`). **Toujours utiliser un test de verite JS**
+(`!!valeur` pour "est vrai", `!valeur` pour "est faux/absent") plutot que
+`=== true`/`!== true`/`=== false`/`!== false` sur une colonne Grist -
+reserve l'egalite stricte aux valeurs deja calculees cote code (jamais
+lues telles quelles depuis une ligne Grist).
 
 ## Chainer des appels Grist dans un workflow (piege n8n)
 

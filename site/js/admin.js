@@ -215,6 +215,7 @@ function updateRewardPreview() {
 // --- Équilibrage du jeu (pity, raretés, finitions, quêtes, fouille) ---
 let balanceRaritiesCache = [];
 let balanceFinishesCache = [];
+let balanceQualitiesCache = [];
 
 async function loadConfig() {
   const res = await API.adminGetConfig(Session.discordId);
@@ -230,11 +231,14 @@ async function loadConfig() {
   document.getElementById("weekly-threshold-input").value = res.weeklyQuestThreshold || 3;
   document.getElementById("weekly-reward-input").value = res.weeklyQuestRewardBoosters != null ? res.weeklyQuestRewardBoosters : 5;
   document.getElementById("weekly-target-input").value = res.weeklyQuestTarget || 5;
+  document.getElementById("quality-repair-cost-input").value = res.qualityRepairCost || 3;
 
   balanceRaritiesCache = res.rarities || [];
   balanceFinishesCache = res.finishes || [];
+  balanceQualitiesCache = res.qualities || [];
   renderBalanceRarities();
   renderBalanceFinishes();
+  renderBalanceQualities();
 }
 
 function renderBalanceRarities() {
@@ -266,6 +270,22 @@ function renderBalanceFinishes() {
       <input type="number" min="0" step="0.1" data-field="dropWeight" value="${f.dropWeight}" />
       <input type="number" min="0" step="0.1" data-field="disenchantMultiplier" value="${f.disenchantMultiplier}" />
       <button type="button" class="btn-ghost balance-save-btn" data-id="${f.id}">Enregistrer</button>
+    </div>
+  `).join("");
+}
+
+function renderBalanceQualities() {
+  const el = document.getElementById("balance-qualities-table");
+  el.innerHTML = `
+    <div class="balance-row balance-head">
+      <span>Qualité</span><span>Poids (parmi les meilleures)</span><span>Multiplicateur décraft</span><span></span>
+    </div>
+  ` + balanceQualitiesCache.filter((q) => q.key !== "damaged").map((q) => `
+    <div class="balance-row" data-quality-id="${q.id}">
+      <span class="balance-row-label">${q.name}</span>
+      <input type="number" min="0" step="0.1" data-field="dropWeight" value="${q.dropWeight}" />
+      <input type="number" min="0" step="0.1" data-field="disenchantMultiplier" value="${q.disenchantMultiplier}" />
+      <button type="button" class="btn-ghost balance-save-btn" data-id="${q.id}">Enregistrer</button>
     </div>
   `).join("");
 }
@@ -414,7 +434,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         dailyQuestRewardBoosters: document.getElementById("daily-reward-input").value,
         weeklyQuestThreshold: Number(document.getElementById("weekly-threshold-input").value) || undefined,
         weeklyQuestRewardBoosters: document.getElementById("weekly-reward-input").value,
-        weeklyQuestTarget: Number(document.getElementById("weekly-target-input").value) || undefined
+        weeklyQuestTarget: Number(document.getElementById("weekly-target-input").value) || undefined,
+        qualityRepairCost: Number(document.getElementById("quality-repair-cost-input").value) || undefined
       });
       Toast.success("Paramètres enregistrés.");
     } catch (e) {
@@ -454,6 +475,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         disenchantMultiplier: row.querySelector('[data-field="disenchantMultiplier"]').value
       });
       Toast.success("Finition mise à jour.");
+    } catch (err) {
+      Toast.error("Impossible d'enregistrer. (" + err.message + ")");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("balance-qualities-table").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".balance-save-btn");
+    if (!btn) return;
+    const row = btn.closest(".balance-row");
+    const qualityId = Number(btn.dataset.id);
+    btn.disabled = true;
+    try {
+      await API.adminUpdateQuality(Session.discordId, qualityId, {
+        dropWeight: row.querySelector('[data-field="dropWeight"]').value,
+        disenchantMultiplier: row.querySelector('[data-field="disenchantMultiplier"]').value
+      });
+      Toast.success("Qualité mise à jour.");
     } catch (err) {
       Toast.error("Impossible d'enregistrer. (" + err.message + ")");
     } finally {
