@@ -1,0 +1,581 @@
+{
+  "name": "2Gatcha - badges",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "badges",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "b1a2c3d4-badges-0000-000000000000"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1380,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  badgeKey: (body.badgeKey || '').toString()\n} }];"
+      }
+    },
+    {
+      "id": "get-badge-catalog",
+      "name": "Get Badge Catalog",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1160,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "BadgeCatalog",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Badge Catalog -> Get User Badges",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-user-badges",
+      "name": "Get User Badges",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -840,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "UserBadges",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get User Badges -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-users-badges",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -520,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "dispatch",
+      "name": "Dispatch Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -340,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst catalog = $('Get Badge Catalog').all().map((i) => i.json).filter((r) => r.id != null);\nconst myBadges = $('Get User Badges').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === cfg.userId);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nconst ownedKeys = new Set(myBadges.map((b) => b.BadgeKey));\n\nif (cfg.action === 'buy') {\n  const badge = catalog.find((b) => b.Key === cfg.badgeKey);\n  if (!badge) return [{ json: { ...cfg, ok: false, error: 'badge_not_found' } }];\n  if (ownedKeys.has(cfg.badgeKey)) return [{ json: { ...cfg, ok: true, mutation: 'none' } }];\n  const cost = badge.DustCost || 0;\n  if ((user.StardustCount || 0) < cost) return [{ json: { ...cfg, ok: false, error: 'insufficient_dust' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'buy', cost, newStardust: (user.StardustCount || 0) - cost } }];\n}\nif (cfg.action === 'select') {\n  const badge = catalog.find((b) => b.Key === cfg.badgeKey);\n  if (!badge) return [{ json: { ...cfg, ok: false, error: 'badge_not_found' } }];\n  if (!ownedKeys.has(cfg.badgeKey)) return [{ json: { ...cfg, ok: false, error: 'badge_not_owned' } }];\n  if (user.SelectedBadge === cfg.badgeKey) return [{ json: { ...cfg, ok: true, mutation: 'none' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'select' } }];\n}\n// action === 'list' (ou toute autre valeur) : aucune mutation.\nreturn [{ json: { ...cfg, ok: true, mutation: 'none' } }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        60,
+        560
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "if-mutation-buy",
+      "name": "If Mutation Is Buy",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        60,
+        180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mutation }}",
+              "rightValue": "buy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-user-badge",
+      "name": "Create User Badge",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        280,
+        60
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "UserBadges",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "BadgeKey",
+              "fieldValue": "={{ $json.badgeKey }}"
+            },
+            {
+              "fieldId": "UnlockedAt",
+              "fieldValue": "={{ Math.floor(Date.now() / 1000) }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "update-user-stardust",
+      "name": "Update User Stardust",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        500,
+        60
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Dispatch Action').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "StardustCount",
+              "fieldValue": "={{ $('Dispatch Action').first().json.newStardust }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "if-mutation-select",
+      "name": "If Mutation Is Select",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        280,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mutation }}",
+              "rightValue": "select",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-user-selected-badge",
+      "name": "Update User Selected Badge",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        500,
+        260
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "SelectedBadge",
+              "fieldValue": "={{ $json.badgeKey }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-list",
+      "name": "Format List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\n// Icon peut etre soit un simple texte (emoji) soit une piece jointe Grist\n// (image uploadee) selon comment la colonne a ete remplie - on gere les deux.\nfunction iconTextOf(v) { return Array.isArray(v) ? null : (v || null); }\nfunction iconImageOf(v) { return Array.isArray(v) ? firstAttachment(v) : null; }\nconst cfg = $('Dispatch Action').first().json;\nconst catalog = $('Get Badge Catalog').all().map((i) => i.json).filter((r) => r.id != null);\nlet ownedKeys = new Set($('Get User Badges').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === cfg.userId).map((b) => b.BadgeKey));\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nlet selectedBadge = (users.find((u) => u.id === cfg.userId) || {}).SelectedBadge || null;\n\n// Simule la mutation en memoire (comme showcase.json) pour que la reponse\n// reflete l'etat REEL juste apres l'action, sans un second aller-retour Grist.\nif (cfg.mutation === 'buy') ownedKeys.add(cfg.badgeKey);\nif (cfg.mutation === 'select') selectedBadge = cfg.badgeKey;\n\nconst badges = catalog.map((b) => ({\n  key: b.Key,\n  name: b.Name,\n  description: b.Description,\n  icon: iconTextOf(b.Icon),\n  iconImageId: iconImageOf(b.Icon),\n  dustCost: b.DustCost || 0,\n  owned: ownedKeys.has(b.Key),\n  selected: selectedBadge === b.Key\n})).sort((a, b) => a.dustCost - b.dustCost);\n\nreturn [{ json: { badges, selectedBadge, newStardust: cfg.mutation === 'buy' ? cfg.newStardust : undefined } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Badge Catalog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Badge Catalog": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Badge Catalog -> Get User Badges",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Badge Catalog -> Get User Badges": {
+      "main": [
+        [
+          {
+            "node": "Get User Badges",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Badges": {
+      "main": [
+        [
+          {
+            "node": "Sync Get User Badges -> Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get User Badges -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Action": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Ok": {
+      "main": [
+        [
+          {
+            "node": "If Mutation Is Buy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Mutation Is Buy": {
+      "main": [
+        [
+          {
+            "node": "Create User Badge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Mutation Is Select",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create User Badge": {
+      "main": [
+        [
+          {
+            "node": "Update User Stardust",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User Stardust": {
+      "main": [
+        [
+          {
+            "node": "Format List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Mutation Is Select": {
+      "main": [
+        [
+          {
+            "node": "Update User Selected Badge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User Selected Badge": {
+      "main": [
+        [
+          {
+            "node": "Format List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format List": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

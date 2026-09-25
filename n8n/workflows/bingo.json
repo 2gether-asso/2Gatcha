@@ -1,0 +1,376 @@
+{
+  "name": "2Gatcha - bingo",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1800, 400],
+      "parameters": { "httpMethod": "POST", "path": "bingo", "responseMode": "responseNode", "options": {} },
+      "webhookId": "b1c2d3e4-bingo-0000-000000000000"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1580, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst body = $input.first().json.body || {};\nconst discordId = (body.discordId || '').toString();\nconst month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()).slice(0, 7);\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  discordId,\n  isAdmin: adminDiscordIds.includes(discordId),\n  month: (body.month || month).toString(),\n  currentMonth: month,\n  cardIds: Array.isArray(body.cardIds) ? body.cardIds.map(Number).filter((n) => Number.isFinite(n)) : [],\n  rewardBoosters: Number(body.rewardBoosters) || 0\n} }];"
+      }
+    },
+    {
+      "id": "get-bingo-grids",
+      "name": "Get Bingo Grids",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-1360, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "BingoGrids", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Grids -> Get Claims",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1200, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-bingo-claims",
+      "name": "Get Bingo Claims",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-1040, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "BingoClaims", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Claims -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-880, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-720, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-3",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-400, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-4",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-80, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Rarities", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-5",
+      "name": "Sync Get Rarities -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [240, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "dispatch",
+      "name": "Dispatch Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction refIdList(v) { if (!Array.isArray(v)) return []; return v[0] === 'L' ? v.slice(1) : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst cfg = $('Set Config').first().json;\nconst grids = $('Get Bingo Grids').all().map((i) => i.json).filter((r) => r.id != null);\nconst claims = $('Get Bingo Claims').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && refId(r.User) === cfg.userId);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nconst ownedCardIds = new Set(pulls.map((p) => refId(p.Card)));\n\nif (cfg.action === 'adminSetGrid') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  if (cfg.cardIds.length !== 9) return [{ json: { ...cfg, ok: false, error: 'grid_needs_9_cards' } }];\n  const existing = grids.find((g) => g.Month === cfg.month);\n  return [{ json: { ...cfg, ok: true, mutation: 'adminSetGrid', gridExists: !!existing, existingRowId: existing ? existing.id : null } }];\n}\n\nconst grid = grids.find((g) => g.Month === cfg.currentMonth);\nif (!grid) {\n  if (cfg.action === 'claim') return [{ json: { ...cfg, ok: false, error: 'no_grid_this_month' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'none', hasGrid: false } }];\n}\nconst gridCardIds = refIdList(grid.CardIds);\nconst cells = gridCardIds.map((cid) => {\n  const card = cardById[cid];\n  if (!card) return null;\n  const rarity = rarityById[refId(card.Rarity)];\n  return { cardId: card.id, name: card.Name, imageId: firstAttachment(card.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null, owned: ownedCardIds.has(cid) };\n}).filter(Boolean);\nconst allOwned = cells.length === 9 && cells.every((c) => c.owned);\nconst alreadyClaimed = claims.some((c) => refId(c.User) === cfg.userId && c.Month === cfg.currentMonth);\n\nif (cfg.action === 'claim') {\n  if (!allOwned) return [{ json: { ...cfg, ok: false, error: 'grid_not_complete' } }];\n  if (alreadyClaimed) return [{ json: { ...cfg, ok: false, error: 'already_claimed' } }];\n  const user = users.find((u) => u.id === cfg.userId);\n  return [{ json: { ...cfg, ok: true, mutation: 'claim', rewardBoosters: grid.RewardBoosters || 0, newBoosterCount: (user ? (user.BoosterCount || 0) : 0) + (grid.RewardBoosters || 0) } }];\n}\n\n// action === 'status' (ou toute autre valeur) : aucune mutation.\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', hasGrid: true, month: cfg.currentMonth, cells, allOwned, claimed: alreadyClaimed } }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [620, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [820, 700],
+      "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }
+    },
+    {
+      "id": "if-mutation-claim",
+      "name": "If Mutation Is Claim",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [820, 260],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "claim", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-bingo-claim",
+      "name": "Create Bingo Claim",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1020, 60],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "BingoClaims",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "User", "fieldValue": "={{ $json.userId }}" },
+            { "fieldId": "Month", "fieldValue": "={{ $json.currentMonth }}" },
+            { "fieldId": "ClaimedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-claim-1",
+      "name": "Sync Create Claim -> Update User",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 60],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "update-user-boosters",
+      "name": "Update User Boosters",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1380, 60],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Dispatch Action').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": { "properties": [{ "fieldId": "BoosterCount", "fieldValue": "={{ $('Dispatch Action').first().json.newBoosterCount }}" }] }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-claim-response",
+      "name": "Format Claim Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 60],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "const d = $('Dispatch Action').first().json;\nreturn [{ json: { claimed: true, rewardBoosters: d.rewardBoosters } }];" }
+    },
+    {
+      "id": "if-mutation-admin-set-grid",
+      "name": "If Mutation Is AdminSetGrid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1020, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "adminSetGrid", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "if-grid-exists",
+      "name": "If Grid Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1220, 260],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.gridExists }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-bingo-grid",
+      "name": "Update Bingo Grid",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1420, 140],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "BingoGrids",
+        "rowId": "={{ $json.existingRowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "CardIds", "fieldValue": "={{ $json.cardIds }}" },
+            { "fieldId": "RewardBoosters", "fieldValue": "={{ $json.rewardBoosters }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "create-bingo-grid",
+      "name": "Create Bingo Grid",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1420, 340],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "BingoGrids",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "Month", "fieldValue": "={{ $json.month }}" },
+            { "fieldId": "CardIds", "fieldValue": "={{ $json.cardIds }}" },
+            { "fieldId": "RewardBoosters", "fieldValue": "={{ $json.rewardBoosters }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-admin-response",
+      "name": "Format Admin Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1620, 240],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: { saved: true } }];" }
+    },
+    {
+      "id": "format-status-response",
+      "name": "Format Status Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1220, 460],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $('Dispatch Action').first().json;\nif (!d.hasGrid) return [{ json: { hasGrid: false } }];\nreturn [{ json: { hasGrid: true, month: d.month, cells: d.cells, allOwned: d.allOwned, claimed: d.claimed } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1820, 400],
+      "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Get Bingo Grids", "type": "main", "index": 0 }]] },
+    "Get Bingo Grids": { "main": [[{ "node": "Sync Get Grids -> Get Claims", "type": "main", "index": 0 }]] },
+    "Sync Get Grids -> Get Claims": { "main": [[{ "node": "Get Bingo Claims", "type": "main", "index": 0 }]] },
+    "Get Bingo Claims": { "main": [[{ "node": "Sync Get Claims -> Get Pulls", "type": "main", "index": 0 }]] },
+    "Sync Get Claims -> Get Pulls": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
+    "Get Pulls": { "main": [[{ "node": "Sync Get Pulls -> Get Cards", "type": "main", "index": 0 }]] },
+    "Sync Get Pulls -> Get Cards": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
+    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Rarities", "type": "main", "index": 0 }]] },
+    "Sync Get Cards -> Get Rarities": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
+    "Get Rarities": { "main": [[{ "node": "Sync Get Rarities -> Get Users", "type": "main", "index": 0 }]] },
+    "Sync Get Rarities -> Get Users": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
+    "Get Users": { "main": [[{ "node": "Dispatch Action", "type": "main", "index": 0 }]] },
+    "Dispatch Action": { "main": [[{ "node": "If Ok", "type": "main", "index": 0 }]] },
+    "If Ok": {
+      "main": [
+        [{ "node": "If Mutation Is Claim", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Mutation Is Claim": {
+      "main": [
+        [{ "node": "Create Bingo Claim", "type": "main", "index": 0 }],
+        [{ "node": "If Mutation Is AdminSetGrid", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Bingo Claim": { "main": [[{ "node": "Sync Create Claim -> Update User", "type": "main", "index": 0 }]] },
+    "Sync Create Claim -> Update User": { "main": [[{ "node": "Update User Boosters", "type": "main", "index": 0 }]] },
+    "Update User Boosters": { "main": [[{ "node": "Format Claim Response", "type": "main", "index": 0 }]] },
+    "Format Claim Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "If Mutation Is AdminSetGrid": {
+      "main": [
+        [{ "node": "If Grid Exists", "type": "main", "index": 0 }],
+        [{ "node": "Format Status Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Grid Exists": {
+      "main": [
+        [{ "node": "Update Bingo Grid", "type": "main", "index": 0 }],
+        [{ "node": "Create Bingo Grid", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Bingo Grid": { "main": [[{ "node": "Format Admin Response", "type": "main", "index": 0 }]] },
+    "Create Bingo Grid": { "main": [[{ "node": "Format Admin Response", "type": "main", "index": 0 }]] },
+    "Format Admin Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Format Status Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

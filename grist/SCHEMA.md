@@ -124,6 +124,9 @@ son propre compteur de pity.
 | BoosterCount          | Numeric   | defaut 0, solde **generique** de boosters (voir "Economie des boosters" plus bas) |
 | LastWheelSpinDate     | Text      | vide par defaut ; `AAAA-MM-JJ` (fuseau Paris) du dernier tirage a la roue de la fortune quotidienne (`daily-wheel.json`) - permet un seul tirage par jour |
 | XP                    | Numeric   | defaut 0, experience cumulee (niveaux de profil, voir plus bas) |
+| SelectedBadge         | Text      | vide par defaut ; `Key` du badge cosmetique affiche sur le profil (voir "Badges" plus bas) - doit correspondre a un badge que le joueur possede (`UserBadges`) |
+| DigEnergy             | Numeric   | defaut 5 (plein), energie du mini-jeu de fouille (voir "Mini-jeu de fouille" plus bas) |
+| LastDigEnergyAt       | DateTime  | epoch secondes, dernier instant ou l'energie de fouille a ete lue/consommee - sert de base au calcul de regeneration |
 
 **Niveaux de profil** : purement cosmetique/motivant, base sur `Users.XP`
 (cumulatif, jamais retire). Le niveau n'est **pas** stocke - il se calcule a
@@ -258,6 +261,16 @@ aux participants pendant sa duree de validite.
 | Active           | Bool                    | permet a l'admin de desactiver un code avant son expiration |
 | CreatedAt        | DateTime                | |
 | CreatedBy        | Text                    | DiscordId de l'admin qui a cree le code |
+| StartsAt         | DateTime                | epoch secondes, optionnel ; vide = deja visible/actif des sa creation. Sert uniquement au calendrier public (voir "Calendrier evenementiel" plus bas) - n'empeche PAS la reclamation du code avant cette date, c'est juste une info d'affichage |
+
+## Calendrier evenementiel
+
+`get-event-calendar.json` (GET `/event-calendar`, public, sans authentification) :
+expose les evenements `EventCodes` actifs et pas encore expires, **jamais le
+`Code` lui-meme** (reste secret, distribue oralement/a l'ecran) - seulement
+`{label, startsAt, expiresAt, isLive}` (`isLive` = vrai si `startsAt` est
+deja passe ou vide). Sert a afficher "prochainement" / "en cours" sur une
+page publique, sans jamais reveler comment reclamer la recompense.
 
 ## Wishlist
 
@@ -465,6 +478,161 @@ d'echec, les 3 cartes sont perdues sans contrepartie. Indisponible depuis la
 rarete la plus haute (pas de palier au-dessus).
 
 ---
+
+## Badges
+
+Cosmetique pur, achete avec des poussieres d'etoile (meme monnaie que
+craft/decraft), affiche sur le profil (public et prive).
+
+| Table         | Colonne     | Type                    | Notes |
+|----------------|-------------|--------------------------|-------|
+| BadgeCatalog   | Key         | Text                     | slug unique, ex `pionnier` |
+| BadgeCatalog   | Name        | Text                     | libelle affiche |
+| BadgeCatalog   | Description | Text                     | phrase courte |
+| BadgeCatalog   | Icon        | Text                     | emoji ou code Unicode affiche a cote du pseudo |
+| BadgeCatalog   | DustCost    | Numeric                  | cout d'achat en poussieres d'etoile |
+| UserBadges     | User        | Reference -> Users       | |
+| UserBadges     | BadgeKey    | Text                     | `Key` du badge debloque (pas une Reference - simple correspondance par slug, comme `Pulls.Finish`) |
+| UserBadges     | UnlockedAt  | DateTime                 | |
+
+`badges.json` (POST `/badges` `{ userId, action: 'list'|'buy'|'select', badgeKey? }`) :
+- `buy` : debite `DustCost`, cree une ligne `UserBadges` ; **idempotent** si
+  deja possede (pas de recharge, repond simplement le succes).
+- `select` : pose `Users.SelectedBadge` - echoue avec `badge_not_owned` si le
+  joueur ne possede pas ce badge.
+- `list` : catalogue complet avec `owned`/`selected` par badge.
+Le badge selectionne est expose publiquement par `get-public-profile.json`
+(`selectedBadge: { key, name, icon } | null`), a afficher a cote du pseudo
+partout ou il apparait (comme `level`).
+**Le joueur doit ajouter des lignes `BadgeCatalog` a la main dans Grist** -
+le workflow ne fait que lire/vendre un catalogue existant, il ne peut pas en
+inventer le contenu.
+
+## Boss communautaire (fusion Donations + Boss)
+
+Feature fusionnee sur demande explicite : au lieu d'un simple compteur de
+dons ("Donations au Grand 2GETHER") ET d'un boss separe ("Boss
+communautaire"), **une seule mecanique** - donner une carte, c'est attaquer
+le boss commun. `CommunityChest` (ancienne table de dons) est **desormais
+superflue/inutilisee** par ce design ; laisse en l'etat dans Grist (pas
+supprimee automatiquement), a nettoyer a la main si tu veux.
+
+| Table              | Colonne         | Type                       | Notes |
+|---------------------|-----------------|-----------------------------|-------|
+| CommunityBoss       | BossName        | Text                       | |
+| CommunityBoss       | MaxHp           | Numeric                    | |
+| CommunityBoss       | CurrentHp       | Numeric                    | decrementee a chaque attaque |
+| CommunityBoss       | RewardBoosters  | Numeric                    | boosters accordes a CHAQUE contributeur quand le boss tombe a 0 |
+| CommunityBoss       | Active          | Bool                       | un seul boss actif a la fois ; passe a `false` des qu'il est vaincu |
+| BossContributions   | User            | Reference -> Users         | |
+| BossContributions   | Boss            | Reference -> CommunityBoss | **colonne a ajouter si absente** - indispensable pour ne recompenser que les contributeurs du bon cycle de boss, pas ceux d'un boss precedent |
+| BossContributions   | Damage          | Numeric                    | degats infliges par cette attaque (= `Rarities.DisenchantValue` de la carte donnee, reutilise comme proxy de valeur - pas de nouvelle colonne) |
+| BossContributions   | Timestamp       | DateTime                   | |
+
+`community-boss.json` (POST `/community-boss` `{ userId, action, cardId?,
+discordId?, bossName?, maxHp?, rewardBoosters? }`) :
+- `status` : etat du boss actif (`active`, `bossName`, `maxHp`, `currentHp`,
+  `rewardBoosters`) + `myContribution` (degats cumules du joueur sur ce
+  cycle). `{ active: false }` si aucun boss actif.
+- `attack` : donne UNE carte non-promo possedee (`cardId`) - **supprime la
+  ligne `Pulls` correspondante** (irreversible, comme un decraft), inflige
+  `Rarities.DisenchantValue` de degats. Si `CurrentHp` tombe a 0 : `Active`
+  passe a `false` et **chaque contributeur distinct de ce cycle** (table
+  `BossContributions` filtree par `Boss`) recoit `+RewardBoosters` sur son
+  `Users.BoosterCount` (boucle, meme pattern que `altar-sacrifice.json`).
+- `adminCreate` (reserve aux `adminDiscordIds` codes en dur, meme liste que
+  `admin-codes.json`) : desactive tout boss encore actif puis en cree un
+  nouveau (`CurrentHp = MaxHp`, `Active = true`).
+
+## Coffre de guilde mystere
+
+Un doublon donne rejoint un pot commun ; n'importe quel autre joueur peut en
+piocher un au hasard, une fois par jour.
+
+| Table              | Colonne      | Type                  | Notes |
+|---------------------|--------------|------------------------|-------|
+| GuildChestDeposits  | User         | Reference -> Users     | qui a depose |
+| GuildChestDeposits  | CardId       | Reference -> Cards     | |
+| GuildChestDeposits  | SerialNumber | Numeric                | **colonne a ajouter si absente** - le numero de serie ORIGINAL de l'exemplaire depose, restaure a l'identique quand quelqu'un le pioche (sinon la pioche creerait un nouvel exemplaire au-dela de `Cards.MaxSerial`, ce qui gonflerait artificiellement le compteur mondial) |
+| GuildChestDeposits  | DepositedAt  | DateTime               | |
+| GuildChestDeposits  | Claimed      | Bool                   | passe a `true` des qu'un autre joueur le pioche |
+| GuildChestClaims    | User         | Reference -> Users     | |
+| GuildChestClaims    | Date         | Text                   | `AAAA-MM-JJ` (fuseau Paris) - un seul tirage par jour et par joueur, meme logique que `DailyQuests.Date` |
+
+`guild-chest.json` (POST `/guild-chest` `{ userId, action, cardId? }`) :
+- `status` : `poolSize` (depots non reclames d'AUTRES joueurs) +
+  `alreadyDrawnToday`.
+- `deposit` : donne une carte non-promo possedee - **supprime la ligne
+  `Pulls`** (comme un decraft, irreversible) et cree une ligne
+  `GuildChestDeposits` (`Claimed: false`).
+- `draw` : refuse si deja tire aujourd'hui (`already_drawn_today`) ou si le
+  pot est vide/uniquement rempli par le joueur lui-meme (`chest_empty`).
+  Choisit un depot au hasard parmi ceux d'AUTRES joueurs, le marque
+  `Claimed: true`, **recree une ligne `Pulls`** pour le tireur avec le MEME
+  `SerialNumber` que l'exemplaire depose (voir note colonne ci-dessus).
+
+## Marche noir ephemere
+
+Offres limitees dans le temps, en nombre d'exemplaires, contre poussieres
+d'etoile.
+
+| Table             | Colonne       | Type                | Notes |
+|--------------------|---------------|----------------------|-------|
+| BlackMarketOffers  | CardId        | Reference -> Cards   | |
+| BlackMarketOffers  | Cost          | Numeric               | en poussieres d'etoile |
+| BlackMarketOffers  | ExpiresAt     | DateTime              | epoch secondes |
+| BlackMarketOffers  | Active        | Bool                  | |
+| BlackMarketOffers  | MaxPurchases  | Numeric               | 0/vide = illimite (dans la limite de `Cards.MaxSerial`) |
+
+`black-market.json` (POST `/black-market` `{ userId, action, offerId?,
+discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }`) :
+- `list` : offres actives, non expirees et pas epuisees. Le nombre deja
+  achete est compte via le prefixe `Pulls.BatchId` = `market-<offerId>-...`
+  (pas de colonne compteur separee - meme principe que `open-pack.json`).
+- `buy` : debite `Cost`, cree une ligne `Pulls` (respecte aussi
+  `Cards.MaxSerial` comme n'importe quel autre gain de carte).
+- `adminCreate` (reserve admin, meme liste `adminDiscordIds`) : cree une
+  offre.
+
+## Mini-jeu de fouille
+
+Energie qui se regenere seule, une fouille par point d'energie, gain
+generalement modeste.
+
+`dig.json` (POST `/dig` `{ userId, action: 'status'|'dig' }`) - base sur
+`Users.DigEnergy`/`Users.LastDigEnergyAt` (voir table `Users` plus haut) :
+regeneration **+1 toutes les 30 min, plafond 5**, calculee a la volee a
+chaque appel (pas de tache planifiee). `dig` coute 1 energie et tire un
+resultat : 60% rien, 25% un peu de poussiere (5-15), 10% une bonne poignee
+(20-40), 4% un booster generique, **1% une carte de la rarete la plus
+commune** (jamais un jackpot - "un vieux doublon retrouve", pas une carte
+rare). Si aucune carte commune n'est disponible (toutes epuisees), degrade
+silencieusement vers de la poussiere plutot que d'echouer l'action.
+
+## Bingo de collection
+
+Une grille de 9 cartes par mois (definie par un admin), recompense unique
+quand les 9 sont possedees.
+
+| Table       | Colonne        | Type                    | Notes |
+|--------------|----------------|--------------------------|-------|
+| BingoGrids  | Month          | Text                    | `AAAA-MM` (fuseau Paris) |
+| BingoGrids  | CardIds        | Reference List -> Cards | exactement 9 cartes |
+| BingoGrids  | RewardBoosters | Numeric                  | |
+| BingoClaims | User           | Reference -> Users       | **nouvelle table, a creer** - evite de recompenser deux fois la meme grille |
+| BingoClaims | Month          | Text                    | `AAAA-MM` |
+| BingoClaims | ClaimedAt      | DateTime                | |
+
+`bingo.json` (POST `/bingo` `{ userId, action, discordId?, month?,
+cardIds?, rewardBoosters? }`) :
+- `status` : grille du mois courant + `owned` par case (calcule a la volee
+  depuis `Pulls`, jamais persiste - meme principe que `get-achievements.json`) +
+  `allOwned` + `claimed`. `{ hasGrid: false }` si aucune grille ce mois-ci.
+- `claim` : refuse si grille incomplete (`grid_not_complete`) ou deja
+  reclamee (`already_claimed`) ; sinon cree `BingoClaims` et accorde
+  `RewardBoosters`.
+- `adminSetGrid` (reserve admin, meme liste `adminDiscordIds`) : cree ou
+  remplace la grille d'un mois (`cardIds` doit contenir exactement 9 ids).
 
 ## Images (pieces jointes)
 

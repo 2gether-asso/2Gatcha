@@ -704,6 +704,8 @@ const NAV_ITEMS = [
   { href: "craft.html", label: "Craft", icon: "&#10024;", auth: true },
   { href: "redeem.html", label: "Code", icon: "&#127915;", auth: true },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
+  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true },
+  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true },
   { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
 ];
 

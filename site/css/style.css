@@ -493,6 +493,24 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 .wheel-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 #wheel-status-text { color: var(--text-dim); font-size: 0.9rem; }
 
+/* Mini-jeu de fouille : meme squelette que .wheel-widget. */
+.dig-widget { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+.dig-icon { font-size: 2.4rem; line-height: 1; }
+.dig-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+#dig-status-text { color: var(--text-dim); font-size: 0.9rem; }
+.dig-energy-bar { display: flex; gap: 6px; }
+.dig-pip { width: 22px; height: 14px; border-radius: 4px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.dig-pip.filled { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: var(--accent-2); }
+.dig-result { margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); font-weight: 700; font-family: var(--font-display); text-align: center; }
+
+/* Grille de bingo 3x3. */
+.bingo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; max-width: 480px; margin-left: auto; margin-right: auto; }
+.bingo-cell { position: relative; border-radius: 10px; border: 2px solid transparent; background: var(--bg-panel-2); overflow: hidden; opacity: 0.55; }
+.bingo-cell.owned { opacity: 1; }
+.bingo-cell img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+.bingo-cell-name { padding: 6px 8px; font-size: 0.72rem; text-align: center; }
+.bingo-cell-check { position: absolute; top: 6px; right: 6px; font-size: 1.1rem; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
+
 /* Modale de la roue : une vraie roue SVG qui tourne et s'arrete pile sur le
    lot renvoye par le serveur (voir spinWheelTo(), index.html), fermeture
    uniquement par clic explicite du joueur (jamais automatique). */
@@ -560,6 +578,33 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
   filter: grayscale(0.6);
 }
 .achievement-tile.unlocked { opacity: 1; filter: none; border-color: rgba(245,165,36,0.4); }
+
+/* Boutique de badges cosmetiques (page profil, "Mes badges"). */
+.badge-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.badge-shop-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 16px 12px;
+}
+.badge-shop-tile.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-2); }
+.badge-shop-tile:not(.owned) { opacity: 0.7; }
+.badge-shop-icon { font-size: 2rem; line-height: 1; }
+.badge-icon-img { width: 28px; height: 28px; object-fit: contain; vertical-align: middle; border-radius: 6px; }
+.badge-shop-name { font-family: var(--font-display); font-weight: 700; font-size: 0.86rem; }
+.badge-shop-desc { color: var(--text-dim); font-size: 0.72rem; }
+.badge-shop-status { font-size: 0.76rem; font-weight: 700; color: var(--accent-2); }
+.badge-shop-tile button { width: 100%; padding: 6px; font-size: 0.78rem; }
 .achievement-icon { font-size: 1.8rem; flex-shrink: 0; }
 .achievement-info { flex: 1; min-width: 0; }
 .achievement-name { font-family: var(--font-display); font-weight: 700; font-size: 0.88rem; }
@@ -1981,6 +2026,34 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   margin-top: 6px;
   font-size: 0.78rem;
   color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Barre de PV du boss communautaire (meme squelette que .pass-track). */
+.hp-track { margin-top: 12px; }
+.hp-track-bar {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--bg-panel-2);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+.hp-track-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ef4444, #f59e0b);
+  transition: width 0.6s ease;
+  width: 0%;
+}
+.hp-track-labels {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 

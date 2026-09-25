@@ -1,0 +1,65 @@
+{
+  "name": "2Gatcha - get-event-calendar",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1200, 300],
+      "parameters": { "httpMethod": "GET", "path": "event-calendar", "responseMode": "responseNode", "options": {} },
+      "webhookId": "c1d2e3f4-eventcal-0000-000000000000"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-980, 300],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: { docId: 'cRP1WgZQv7KmwmVrUbuEF8' } }];" }
+    },
+    {
+      "id": "get-event-codes",
+      "name": "Get Event Codes",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-760, 300],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "EventCodes",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-540, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now = Math.floor(Date.now() / 1000);\nconst codes = $input.all().map((i) => i.json).filter((r) => r.id != null);\n\n// Fenetre publique uniquement (jamais le Code lui-meme) : les evenements\n// actifs et pas encore expires, qu'ils aient deja demarre ou pas.\nconst events = codes\n  .filter((c) => c.Active !== false && (!c.ExpiresAt || now < c.ExpiresAt))\n  .map((c) => ({\n    label: c.Label || 'Evenement',\n    startsAt: c.StartsAt || null,\n    expiresAt: c.ExpiresAt || null,\n    isLive: !c.StartsAt || now >= c.StartsAt\n  }))\n  .sort((a, b) => (a.startsAt || 0) - (b.startsAt || 0));\n\nreturn [{ json: { events } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-320, 300],
+      "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Get Event Codes", "type": "main", "index": 0 }]] },
+    "Get Event Codes": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] },
+    "Format Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

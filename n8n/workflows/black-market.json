@@ -1,0 +1,317 @@
+{
+  "name": "2Gatcha - black-market",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1800, 400],
+      "parameters": { "httpMethod": "POST", "path": "black-market", "responseMode": "responseNode", "options": {} },
+      "webhookId": "f1a2b3c4-blackmarket-0000-000000000000"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1580, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst body = $input.first().json.body || {};\nconst discordId = (body.discordId || '').toString();\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  offerId: Number(body.offerId),\n  discordId,\n  isAdmin: adminDiscordIds.includes(discordId),\n  cardId: Number(body.cardId),\n  cost: Number(body.cost) || 0,\n  expiresInHours: Number(body.expiresInHours) || 24,\n  maxPurchases: Number(body.maxPurchases) || 0\n} }];"
+      }
+    },
+    {
+      "id": "get-offers",
+      "name": "Get Black Market Offers",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-1360, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "BlackMarketOffers", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Offers -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1200, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-1040, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-880, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-720, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-3",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-400, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Rarities", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-4",
+      "name": "Sync Get Rarities -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-80, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "dispatch",
+      "name": "Dispatch Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [120, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst cfg = $('Set Config').first().json;\nconst now = Math.floor(Date.now() / 1000);\nconst offersRows = $('Get Black Market Offers').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\n\nfunction purchasesFor(offerId) {\n  const prefix = `market-${offerId}-`;\n  return pulls.filter((p) => (p.BatchId || '').toString().startsWith(prefix)).length;\n}\n\nif (cfg.action === 'buy') {\n  const offer = offersRows.find((o) => o.id === cfg.offerId);\n  if (!offer) return [{ json: { ...cfg, ok: false, error: 'offer_not_found' } }];\n  if (offer.Active === false) return [{ json: { ...cfg, ok: false, error: 'offer_inactive' } }];\n  if (offer.ExpiresAt && now > offer.ExpiresAt) return [{ json: { ...cfg, ok: false, error: 'offer_expired' } }];\n  const used = purchasesFor(offer.id);\n  if (offer.MaxPurchases && used >= offer.MaxPurchases) return [{ json: { ...cfg, ok: false, error: 'offer_exhausted' } }];\n  const user = users.find((u) => u.id === cfg.userId);\n  const cost = offer.Cost || 0;\n  if (!user || (user.StardustCount || 0) < cost) return [{ json: { ...cfg, ok: false, error: 'insufficient_dust' } }];\n  const cardId = refId(offer.CardId);\n  const card = cardById[cardId];\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  const existingCount = pulls.filter((p) => refId(p.Card) === cardId).length;\n  const maxSerial = card.MaxSerial || 100;\n  if (existingCount >= maxSerial) return [{ json: { ...cfg, ok: false, error: 'sold_out' } }];\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'buy',\n    offerRowId: offer.id, cardId, cost, newStardust: (user.StardustCount || 0) - cost,\n    batchId: `market-${offer.id}-${cfg.userId}-${Date.now()}`,\n    serialNumber: existingCount + 1, maxSerial\n  } }];\n}\n\nif (cfg.action === 'adminCreate') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  const card = cardById[cfg.cardId];\n  if (!card || !cfg.cost) return [{ json: { ...cfg, ok: false, error: 'missing_fields' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'adminCreate', expiresAt: now + cfg.expiresInHours * 3600 } }];\n}\n\n// action === 'list' (ou toute autre valeur) : aucune mutation.\nconst list = offersRows\n  .filter((o) => o.Active !== false && (!o.ExpiresAt || now < o.ExpiresAt))\n  .map((o) => {\n    const cardId = refId(o.CardId);\n    const card = cardById[cardId];\n    const rarity = card ? rarityById[refId(card.Rarity)] : null;\n    const used = purchasesFor(o.id);\n    const remaining = o.MaxPurchases ? Math.max(0, o.MaxPurchases - used) : null;\n    return card ? {\n      offerId: o.id, cost: o.Cost || 0, expiresAt: o.ExpiresAt || null, remaining,\n      card: { cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null }\n    } : null;\n  }).filter((o) => o && (o.remaining === null || o.remaining > 0));\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', offers: list } }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [320, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [520, 700],
+      "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }
+    },
+    {
+      "id": "if-mutation-buy",
+      "name": "If Mutation Is Buy",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [520, 260],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "buy", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-user-stardust",
+      "name": "Update User Stardust",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [720, 60],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": { "properties": [{ "fieldId": "StardustCount", "fieldValue": "={{ $json.newStardust }}" }] }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-buy-1",
+      "name": "Sync Update Stardust -> Create Pull",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 60],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "create-market-pull",
+      "name": "Create Market Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1080, 60],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "User", "fieldValue": "={{ $('Dispatch Action').first().json.userId }}" },
+            { "fieldId": "Card", "fieldValue": "={{ $('Dispatch Action').first().json.cardId }}" },
+            { "fieldId": "ObtainedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" },
+            { "fieldId": "BatchId", "fieldValue": "={{ $('Dispatch Action').first().json.batchId }}" },
+            { "fieldId": "SerialNumber", "fieldValue": "={{ $('Dispatch Action').first().json.serialNumber }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-buy-response",
+      "name": "Format Buy Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1260, 60],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $('Dispatch Action').first().json;\nconst cards = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null);\nconst card = cards.find((c) => c.id === d.cardId);\nreturn [{ json: { bought: true, cardName: card ? card.Name : null, newStardust: d.newStardust } }];"
+      }
+    },
+    {
+      "id": "if-mutation-admin-create",
+      "name": "If Mutation Is AdminCreate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "adminCreate", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-black-market-offer",
+      "name": "Create Black Market Offer",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [920, 260],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "BlackMarketOffers",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "CardId", "fieldValue": "={{ $json.cardId }}" },
+            { "fieldId": "Cost", "fieldValue": "={{ $json.cost }}" },
+            { "fieldId": "ExpiresAt", "fieldValue": "={{ $json.expiresAt }}" },
+            { "fieldId": "Active", "fieldValue": "={{ true }}" },
+            { "fieldId": "MaxPurchases", "fieldValue": "={{ $json.maxPurchases }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-admin-response",
+      "name": "Format Admin Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 260],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "const created = $input.first().json;\nreturn [{ json: { created: true, offerId: created.id, cardId: created.CardId, cost: created.Cost, expiresAt: created.ExpiresAt } }];" }
+    },
+    {
+      "id": "format-list-response",
+      "name": "Format List Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 540],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: { offers: $('Dispatch Action').first().json.offers } }];" }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1460, 400],
+      "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Get Black Market Offers", "type": "main", "index": 0 }]] },
+    "Get Black Market Offers": { "main": [[{ "node": "Sync Get Offers -> Get Pulls", "type": "main", "index": 0 }]] },
+    "Sync Get Offers -> Get Pulls": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
+    "Get Pulls": { "main": [[{ "node": "Sync Get Pulls -> Get Cards", "type": "main", "index": 0 }]] },
+    "Sync Get Pulls -> Get Cards": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
+    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Rarities", "type": "main", "index": 0 }]] },
+    "Sync Get Cards -> Get Rarities": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
+    "Get Rarities": { "main": [[{ "node": "Sync Get Rarities -> Get Users", "type": "main", "index": 0 }]] },
+    "Sync Get Rarities -> Get Users": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
+    "Get Users": { "main": [[{ "node": "Dispatch Action", "type": "main", "index": 0 }]] },
+    "Dispatch Action": { "main": [[{ "node": "If Ok", "type": "main", "index": 0 }]] },
+    "If Ok": {
+      "main": [
+        [{ "node": "If Mutation Is Buy", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Mutation Is Buy": {
+      "main": [
+        [{ "node": "Update User Stardust", "type": "main", "index": 0 }],
+        [{ "node": "If Mutation Is AdminCreate", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update User Stardust": { "main": [[{ "node": "Sync Update Stardust -> Create Pull", "type": "main", "index": 0 }]] },
+    "Sync Update Stardust -> Create Pull": { "main": [[{ "node": "Create Market Pull", "type": "main", "index": 0 }]] },
+    "Create Market Pull": { "main": [[{ "node": "Format Buy Response", "type": "main", "index": 0 }]] },
+    "Format Buy Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "If Mutation Is AdminCreate": {
+      "main": [
+        [{ "node": "Create Black Market Offer", "type": "main", "index": 0 }],
+        [{ "node": "Format List Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Black Market Offer": { "main": [[{ "node": "Format Admin Response", "type": "main", "index": 0 }]] },
+    "Format Admin Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Format List Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

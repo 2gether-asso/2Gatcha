@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Communauté - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
+  <header id="site-header"></header>
+
+  <main id="main-content">
+    <div class="panel">
+      <h1>&#127758; Communauté</h1>
+      <p class="lead">
+        Ce qu'on construit ensemble : évènements en cours, boss commun à
+        affaiblir, coffre de guilde et marché noir éphémère.
+      </p>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" id="tab-calendar-btn" role="tab" aria-selected="true">&#128197; Calendrier</button>
+        <button type="button" class="tab" id="tab-boss-btn" role="tab" aria-selected="false">&#128128; Boss</button>
+        <button type="button" class="tab" id="tab-chest-btn" role="tab" aria-selected="false">&#127873; Coffre de guilde</button>
+        <button type="button" class="tab" id="tab-market-btn" role="tab" aria-selected="false">&#127761; Marché noir</button>
+      </div>
+
+      <div id="calendar-pane">
+        <p class="lead" style="font-size:0.85rem;">Les évènements à venir ou en cours (l'asso distribue les codes oralement/à l'écran).</p>
+        <div id="calendar-loading" class="loading-row"><div class="spinner"></div></div>
+        <div id="calendar-list" class="quests-list"></div>
+      </div>
+
+      <div id="boss-pane" style="display:none;">
+        <div id="boss-guest-warning" style="display:none;">
+          <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+        </div>
+        <div id="boss-zone" style="display:none;">
+          <div id="boss-no-active" class="empty-state" style="display:none;">Aucun boss actif pour l'instant. Reviens plus tard !</div>
+          <div id="boss-active-zone" style="display:none;">
+            <div class="actions" style="margin-top:0;align-items:center;">
+              <h2 id="boss-name" style="flex:1;margin:0;"></h2>
+              <span id="boss-my-contribution" class="community-counter"></span>
+            </div>
+            <div class="hp-track">
+              <div class="hp-track-bar"><div id="boss-hp-fill" class="hp-track-fill"></div></div>
+              <div class="hp-track-labels"><span id="boss-hp-label"></span></div>
+            </div>
+            <p class="lead" style="font-size:0.85rem;">Donne une carte non-promo (doublon de préférence) pour l'attaquer : elle sera détruite et infligera des dégâts selon sa rareté.</p>
+            <div class="craft-toolbar">
+              <input type="text" id="boss-search-input" placeholder="Rechercher une carte à donner..." autocomplete="off" aria-label="Rechercher une carte" />
+            </div>
+            <div id="boss-card-grid" class="craft-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="chest-pane" style="display:none;">
+        <div id="chest-guest-warning" style="display:none;">
+          <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+        </div>
+        <div id="chest-zone" style="display:none;">
+          <div class="wheel-widget">
+            <span class="wheel-icon" aria-hidden="true">&#127873;</span>
+            <div class="wheel-status">
+              <div id="chest-status-text">Chargement...</div>
+              <button type="button" class="btn" id="chest-draw-btn" style="display:none;">Piocher aujourd'hui</button>
+            </div>
+          </div>
+          <p class="lead" style="font-size:0.85rem;margin-top:16px;">Donne un doublon non-promo au pot commun, ou pioche-en un au hasard (une fois par jour).</p>
+          <div class="craft-toolbar">
+            <input type="text" id="chest-search-input" placeholder="Rechercher une carte à déposer..." autocomplete="off" aria-label="Rechercher une carte" />
+          </div>
+          <div id="chest-card-grid" class="craft-grid"></div>
+        </div>
+      </div>
+
+      <div id="market-pane" style="display:none;">
+        <div id="market-guest-warning" style="display:none;">
+          <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+        </div>
+        <div id="market-zone" style="display:none;">
+          <p class="lead" style="font-size:0.85rem;">Offres limitées dans le temps et en quantité, contre poussières d'étoile.</p>
+          <div id="market-loading" class="loading-row"><div class="spinner"></div></div>
+          <div id="market-grid" class="craft-grid"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/communaute.js"></script>
+</body>
+</html>

@@ -46,6 +46,13 @@ window.APP_CONFIG = {
     foilUpgrade: "/foil-upgrade",      // POST { userId, cardId, fromFinish } -> { upgraded, cardId, fromFinish, toFinish, serialNumber, maxSerial } | { error }
     unlockSecret: "/unlock-secret",    // POST { userId } -> { unlocked, card, serialNumber, maxSerial } | { error: 'no_secret_available' }
     weeklyQuests: "/weekly-quests",    // POST { userId } -> { weekStart, quests, completedCount, rewardClaimed, justClaimedReward }
-    cardQualityRepair: "/card-quality-repair" // POST { userId, cardId, fromQuality } -> { repaired, cardId, fromQuality, toQuality, serialNumber, maxSerial } | { error }
+    cardQualityRepair: "/card-quality-repair", // POST { userId, cardId, fromQuality } -> { repaired, cardId, fromQuality, toQuality, serialNumber, maxSerial } | { error }
+    badges: "/badges",                 // POST { userId, action: 'list'|'buy'|'select', badgeKey? } -> { badges, selectedBadge, newStardust? } | { error }
+    eventCalendar: "/event-calendar",  // GET -> { events: [{ label, startsAt, expiresAt, isLive }] }
+    communityBoss: "/community-boss",  // POST { userId, action: 'status'|'attack'|'adminCreate', cardId?, discordId?, bossName?, maxHp?, rewardBoosters? }
+    guildChest: "/guild-chest",        // POST { userId, action: 'status'|'deposit'|'draw', cardId? }
+    blackMarket: "/black-market",      // POST { userId, action: 'list'|'buy'|'adminCreate', offerId?, discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }
+    dig: "/dig",                       // POST { userId, action: 'status'|'dig' }
+    bingo: "/bingo"                    // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
   }
 };

@@ -1,0 +1,265 @@
+{
+  "name": "2Gatcha - dig",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1600, 400],
+      "parameters": { "httpMethod": "POST", "path": "dig", "responseMode": "responseNode", "options": {} },
+      "webhookId": "a1b2c3d4-dig-0000-000000000000"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1400, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: { docId: 'cRP1WgZQv7KmwmVrUbuEF8', userId: Number(body.userId), action: (body.action || '').toString() } }];"
+      }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-1180, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "Users", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Users -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1020, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-860, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-700, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-540, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-3",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-380, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-220, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Rarities", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "dispatch",
+      "name": "Dispatch Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-40, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nif (!user) return [{ json: { ...cfg, ok: false, error: 'unknown_user' } }];\n\nconst MAX_ENERGY = 5;\nconst REGEN_SECONDS = 30 * 60;\nconst now = Math.floor(Date.now() / 1000);\nconst storedEnergy = user.DigEnergy != null ? user.DigEnergy : MAX_ENERGY;\nconst lastAt = user.LastDigEnergyAt || now;\nlet currentEnergy = storedEnergy;\nlet secondsUntilNext = null;\nif (storedEnergy < MAX_ENERGY) {\n  const elapsed = Math.max(0, now - lastAt);\n  const gained = Math.floor(elapsed / REGEN_SECONDS);\n  currentEnergy = Math.min(MAX_ENERGY, storedEnergy + gained);\n  if (currentEnergy < MAX_ENERGY) secondsUntilNext = REGEN_SECONDS - (elapsed % REGEN_SECONDS);\n}\n\nif (cfg.action === 'dig') {\n  if (currentEnergy < 1) return [{ json: { ...cfg, ok: false, error: 'no_energy' } }];\n  const newEnergy = currentEnergy - 1;\n\n  // Table de resultats : tres majoritairement rien ou un peu de poussiere,\n  // tres rarement une carte (toujours de la rarete la plus commune - un\n  // 'doublon perdu retrouve', pas un jackpot).\n  const roll = Math.random();\n  let outcome, dustGained = 0, boosterGranted = false;\n  if (roll < 0.60) outcome = 'nothing';\n  else if (roll < 0.85) { outcome = 'dust'; dustGained = 5 + Math.floor(Math.random() * 11); }\n  else if (roll < 0.95) { outcome = 'dust'; dustGained = 20 + Math.floor(Math.random() * 21); }\n  else if (roll < 0.99) { outcome = 'booster'; boosterGranted = true; }\n  else outcome = 'card';\n\n  let cardId = null, serialNumber = null, maxSerial = null, cardName = null;\n  if (outcome === 'card') {\n    const pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n    const cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n    const rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n    const countByCard = {};\n    pulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n    const commonRarity = rarities.filter((r) => r.SortOrder != null).sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))[0];\n    const candidates = cards.filter((c) => c.Active !== false && !c.IsPromo && commonRarity && refId(c.Rarity) === commonRarity.id && (countByCard[c.id] || 0) < (c.MaxSerial || 100));\n    if (candidates.length) {\n      const picked = candidates[Math.floor(Math.random() * candidates.length)];\n      cardId = picked.id;\n      cardName = picked.Name;\n      maxSerial = picked.MaxSerial || 100;\n      serialNumber = (countByCard[picked.id] || 0) + 1;\n    } else {\n      // Aucune carte commune disponible (toutes epuisees) : on degrade\n      // silencieusement vers de la poussiere plutot que de faire echouer le\n      // fouille (le joueur a quand meme depense son energie).\n      outcome = 'dust';\n      dustGained = 15;\n    }\n  }\n\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'dig',\n    newEnergy, outcome, dustGained, boosterGranted,\n    newStardust: (user.StardustCount || 0) + dustGained,\n    newBoosterCount: (user.BoosterCount || 0) + (boosterGranted ? 1 : 0),\n    cardId, cardName, serialNumber, maxSerial\n  } }];\n}\n\n// action === 'status' (ou toute autre valeur) : aucune mutation, lecture seule.\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', energy: currentEnergy, maxEnergy: MAX_ENERGY, secondsUntilNext } }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [160, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [360, 620],
+      "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }
+    },
+    {
+      "id": "if-mutation-dig",
+      "name": "If Mutation Is Dig",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [360, 260],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "dig", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-user-dig",
+      "name": "Update User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [560, 140],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "DigEnergy", "fieldValue": "={{ $json.newEnergy }}" },
+            { "fieldId": "LastDigEnergyAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" },
+            { "fieldId": "StardustCount", "fieldValue": "={{ $json.newStardust }}" },
+            { "fieldId": "BoosterCount", "fieldValue": "={{ $json.newBoosterCount }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "if-outcome-card",
+      "name": "If Outcome Is Card",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 140],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $('Dispatch Action').first().json.outcome }}", "rightValue": "card", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-dig-pull",
+      "name": "Create Dig Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [960, 20],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "User", "fieldValue": "={{ $('Dispatch Action').first().json.userId }}" },
+            { "fieldId": "Card", "fieldValue": "={{ $('Dispatch Action').first().json.cardId }}" },
+            { "fieldId": "ObtainedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" },
+            { "fieldId": "BatchId", "fieldValue": "={{ 'dig-' + $('Dispatch Action').first().json.userId + '-' + Date.now() }}" },
+            { "fieldId": "SerialNumber", "fieldValue": "={{ $('Dispatch Action').first().json.serialNumber }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-dig-response",
+      "name": "Format Dig Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1140, 140],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $('Dispatch Action').first().json;\nreturn [{ json: {\n  dug: true,\n  outcome: d.outcome,\n  dustGained: d.dustGained || 0,\n  boosterGranted: d.boosterGranted || false,\n  card: d.outcome === 'card' ? { cardId: d.cardId, name: d.cardName, serialNumber: d.serialNumber, maxSerial: d.maxSerial } : null,\n  newEnergy: d.newEnergy\n} }];"
+      }
+    },
+    {
+      "id": "format-status-response",
+      "name": "Format Status Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 460],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $('Dispatch Action').first().json;\nreturn [{ json: { energy: d.energy, maxEnergy: d.maxEnergy, secondsUntilNext: d.secondsUntilNext } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 300],
+      "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
+    "Get Users": { "main": [[{ "node": "Sync Get Users -> Get Pulls", "type": "main", "index": 0 }]] },
+    "Sync Get Users -> Get Pulls": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
+    "Get Pulls": { "main": [[{ "node": "Sync Get Pulls -> Get Cards", "type": "main", "index": 0 }]] },
+    "Sync Get Pulls -> Get Cards": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
+    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Rarities", "type": "main", "index": 0 }]] },
+    "Sync Get Cards -> Get Rarities": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
+    "Get Rarities": { "main": [[{ "node": "Dispatch Action", "type": "main", "index": 0 }]] },
+    "Dispatch Action": { "main": [[{ "node": "If Ok", "type": "main", "index": 0 }]] },
+    "If Ok": {
+      "main": [
+        [{ "node": "If Mutation Is Dig", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Mutation Is Dig": {
+      "main": [
+        [{ "node": "Update User", "type": "main", "index": 0 }],
+        [{ "node": "Format Status Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update User": { "main": [[{ "node": "If Outcome Is Card", "type": "main", "index": 0 }]] },
+    "If Outcome Is Card": {
+      "main": [
+        [{ "node": "Create Dig Pull", "type": "main", "index": 0 }],
+        [{ "node": "Format Dig Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Dig Pull": { "main": [[{ "node": "Format Dig Response", "type": "main", "index": 0 }]] },
+    "Format Dig Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Format Status Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

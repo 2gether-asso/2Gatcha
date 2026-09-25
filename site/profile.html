@@ -28,6 +28,7 @@
             <div class="profile-name-row">
               <h1 id="profile-title" class="profile-name"></h1>
               <span id="profile-level-badge" class="level-badge" style="display:none;"></span>
+              <span id="profile-selected-badge" class="level-badge" style="display:none;"></span>
             </div>
             <p id="profile-member-since" class="profile-meta"></p>
           </div>
@@ -36,6 +37,12 @@
 
         <div id="profile-sets-zone" style="display:none;">
           <div id="profile-sets-badges" class="set-badge-row"></div>
+        </div>
+
+        <div id="my-badges-zone" style="display:none;margin-top:24px;">
+          <h2>&#127941; Mes badges</h2>
+          <p class="lead" style="font-size:0.8rem;">Cosmétique pur, acheté avec des poussières d'étoile.</p>
+          <div id="my-badges-grid" class="badge-shop-grid"></div>
         </div>
 
         <div id="profile-showcase-zone" style="display:none;">
@@ -63,6 +70,58 @@
   <script src="js/api.js"></script>
   <script src="js/main.js"></script>
   <script>
+    const BADGE_ERRORS = {
+      badge_not_found: "Badge introuvable.",
+      insufficient_dust: "Pas assez de poussières d'étoile.",
+      badge_not_owned: "Tu ne possèdes pas encore ce badge."
+    };
+
+    async function loadMyBadges() {
+      const zone = document.getElementById("my-badges-zone");
+      const grid = document.getElementById("my-badges-grid");
+      try {
+        const res = await API.listBadges(Session.userId);
+        const badges = res.badges || [];
+        zone.style.display = badges.length ? "block" : "none";
+        grid.innerHTML = badges.map((b) => `
+          <div class="badge-shop-tile ${b.owned ? "owned" : ""} ${b.selected ? "selected" : ""}">
+            <span class="badge-shop-icon">${b.iconImageId ? `<img src="${API.imageUrl(b.iconImageId)}" alt="" class="badge-icon-img" />` : (b.icon || "&#127941;")}</span>
+            <div class="badge-shop-name">${b.name}</div>
+            <div class="badge-shop-desc">${b.description || ""}</div>
+            ${b.selected
+              ? `<span class="badge-shop-status">Équipé</span>`
+              : b.owned
+                ? `<button type="button" class="btn-secondary badge-select-btn" data-key="${b.key}">Équiper</button>`
+                : `<button type="button" class="btn-secondary badge-buy-btn" data-key="${b.key}">Acheter (${b.dustCost})</button>`}
+          </div>
+        `).join("");
+        grid.querySelectorAll(".badge-buy-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await API.buyBadge(Session.userId, btn.dataset.key);
+              Toast.success("Badge débloqué !");
+              await loadMyBadges();
+            } catch (e) {
+              Toast.error(BADGE_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+            }
+          });
+        });
+        grid.querySelectorAll(".badge-select-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await API.selectBadge(Session.userId, btn.dataset.key);
+              Toast.success("Badge équipé !");
+              await loadMyBadges();
+            } catch (e) {
+              Toast.error(BADGE_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+            }
+          });
+        });
+      } catch (e) {
+        zone.style.display = "none";
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
       const pseudo = new URLSearchParams(window.location.search).get("pseudo");
       const loading = document.getElementById("profile-loading");
@@ -91,6 +150,20 @@
           const levelBadge = document.getElementById("profile-level-badge");
           levelBadge.textContent = `Niv. ${res.level}`;
           levelBadge.style.display = "inline-flex";
+        }
+        if (res.selectedBadge) {
+          const badgeEl = document.getElementById("profile-selected-badge");
+          const iconHtml = res.selectedBadge.iconImageId
+            ? `<img src="${API.imageUrl(res.selectedBadge.iconImageId)}" alt="" class="badge-icon-img" />`
+            : (res.selectedBadge.icon || "&#127941;");
+          badgeEl.innerHTML = `${iconHtml} ${res.selectedBadge.name}`;
+          badgeEl.style.display = "inline-flex";
+        }
+
+        // "Mes badges" : uniquement sur SON PROPRE profil (achat/selection).
+        // Le badge selectionne, lui, est deja affiche plus haut pour tout le monde.
+        if (Session.isLoggedIn() && Session.pseudo && pseudo.toLowerCase() === Session.pseudo.toLowerCase()) {
+          loadMyBadges();
         }
 
         // Sets completes (bonus de sets complets) : un badge par extension

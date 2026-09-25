@@ -266,5 +266,57 @@ const API = {
 
   getWeeklyQuestStatus(userId) {
     return this.post("weeklyQuests", { userId });
+  },
+
+  listBadges(userId) {
+    return this.post("badges", { userId, action: "list" });
+  },
+  buyBadge(userId, badgeKey) {
+    return this.post("badges", { userId, action: "buy", badgeKey });
+  },
+  selectBadge(userId, badgeKey) {
+    return this.post("badges", { userId, action: "select", badgeKey });
+  },
+
+  getEventCalendar() {
+    return this.get("eventCalendar");
+  },
+
+  getBossStatus(userId) {
+    return this.post("communityBoss", { userId, action: "status" });
+  },
+  attackBoss(userId, cardId) {
+    return this.post("communityBoss", { userId, action: "attack", cardId });
+  },
+
+  getGuildChestStatus(userId) {
+    return this.post("guildChest", { userId, action: "status" });
+  },
+  depositGuildChest(userId, cardId) {
+    return this.post("guildChest", { userId, action: "deposit", cardId });
+  },
+  drawGuildChest(userId) {
+    return this.post("guildChest", { userId, action: "draw" });
+  },
+
+  listBlackMarket(userId) {
+    return this.post("blackMarket", { userId, action: "list" });
+  },
+  buyBlackMarket(userId, offerId) {
+    return this.post("blackMarket", { userId, action: "buy", offerId });
+  },
+
+  getDigStatus(userId) {
+    return this.post("dig", { userId, action: "status" });
+  },
+  dig(userId) {
+    return this.post("dig", { userId, action: "dig" });
+  },
+
+  getBingoStatus(userId) {
+    return this.post("bingo", { userId, action: "status" });
+  },
+  claimBingo(userId) {
+    return this.post("bingo", { userId, action: "claim" });
   }
 };

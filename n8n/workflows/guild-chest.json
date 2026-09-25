@@ -1,0 +1,369 @@
+{
+  "name": "2Gatcha - guild-chest",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-2000, 400],
+      "parameters": { "httpMethod": "POST", "path": "guild-chest", "responseMode": "responseNode", "options": {} },
+      "webhookId": "e1f2a3b4-guildchest-0000-000000000000"
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1780, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  cardId: Number(body.cardId),\n  today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date())\n} }];"
+      }
+    },
+    {
+      "id": "get-deposits",
+      "name": "Get Guild Chest Deposits",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-1560, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $json.docId }}", "tableId": "GuildChestDeposits", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Deposits -> Get Claims",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1400, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-claims",
+      "name": "Get Guild Chest Claims",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-1240, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "GuildChestClaims", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Claims -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1080, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-920, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-3",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-760, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-600, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Cards", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-4",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-440, 400],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [-280, 400],
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Rarities", "returnAll": true, "additionalOptions": {} },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "dispatch",
+      "name": "Dispatch Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst deposits = $('Get Guild Chest Deposits').all().map((i) => i.json).filter((r) => r.id != null);\nconst claims = $('Get Guild Chest Claims').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst alreadyDrawnToday = claims.some((c) => refId(c.User) === cfg.userId && c.Date === cfg.today);\n\nif (cfg.action === 'deposit') {\n  const card = cards.find((c) => c.id === cfg.cardId);\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  if (card.IsPromo) return [{ json: { ...cfg, ok: false, error: 'promo_not_donatable' } }];\n  const pull = pulls.find((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.cardId);\n  if (!pull) return [{ json: { ...cfg, ok: false, error: 'card_not_owned' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'deposit', pullRowIdToDelete: pull.id, serialNumber: pull.SerialNumber } }];\n}\n\nif (cfg.action === 'draw') {\n  if (alreadyDrawnToday) return [{ json: { ...cfg, ok: false, error: 'already_drawn_today' } }];\n  const candidates = deposits.filter((d) => d.Claimed !== true && refId(d.User) !== cfg.userId);\n  if (!candidates.length) return [{ json: { ...cfg, ok: false, error: 'chest_empty' } }];\n  const picked = candidates[Math.floor(Math.random() * candidates.length)];\n  return [{ json: { ...cfg, ok: true, mutation: 'draw', depositRowId: picked.id, drawnCardId: refId(picked.CardId), drawnSerialNumber: picked.SerialNumber } }];\n}\n\n// action === 'status' (ou toute autre valeur) : aucune mutation.\nconst poolSize = deposits.filter((d) => d.Claimed !== true && refId(d.User) !== cfg.userId).length;\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', poolSize, alreadyDrawnToday } }];"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [140, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [340, 700],
+      "parameters": { "respondWith": "json", "responseBody": "={{ { error: $json.error } }}", "options": { "responseCode": 400 } }
+    },
+    {
+      "id": "if-mutation-deposit",
+      "name": "If Mutation Is Deposit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [340, 260],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "deposit", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "delete-deposited-pull",
+      "name": "Delete Deposited Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [540, 60],
+      "parameters": { "operation": "delete", "docId": "={{ $json.docId }}", "tableId": "Pulls", "rowId": "={{ $json.pullRowIdToDelete }}" },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-deposit-1",
+      "name": "Sync Delete Pull -> Create Deposit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 60],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "create-guild-chest-deposit",
+      "name": "Create Guild Chest Deposit",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [900, 60],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "GuildChestDeposits",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "User", "fieldValue": "={{ $('Dispatch Action').first().json.userId }}" },
+            { "fieldId": "CardId", "fieldValue": "={{ $('Dispatch Action').first().json.cardId }}" },
+            { "fieldId": "SerialNumber", "fieldValue": "={{ $('Dispatch Action').first().json.serialNumber }}" },
+            { "fieldId": "DepositedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" },
+            { "fieldId": "Claimed", "fieldValue": "={{ false }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-deposit-response",
+      "name": "Format Deposit Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 60],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: { deposited: true } }];" }
+    },
+    {
+      "id": "if-mutation-draw",
+      "name": "If Mutation Is Draw",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "leftValue": "={{ $json.mutation }}", "rightValue": "draw", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "mark-deposit-claimed",
+      "name": "Mark Deposit Claimed",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [740, 260],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "GuildChestDeposits",
+        "rowId": "={{ $json.depositRowId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": { "properties": [{ "fieldId": "Claimed", "fieldValue": "={{ true }}" }] }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-draw-1",
+      "name": "Sync Mark Claimed -> Create New Pull",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 260],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "create-drawn-pull",
+      "name": "Create Drawn Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1100, 260],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "User", "fieldValue": "={{ $('Dispatch Action').first().json.userId }}" },
+            { "fieldId": "Card", "fieldValue": "={{ $('Dispatch Action').first().json.drawnCardId }}" },
+            { "fieldId": "ObtainedAt", "fieldValue": "={{ Math.floor(Date.now() / 1000) }}" },
+            { "fieldId": "BatchId", "fieldValue": "={{ 'guildchest-' + $('Dispatch Action').first().json.userId + '-' + Date.now() }}" },
+            { "fieldId": "SerialNumber", "fieldValue": "={{ $('Dispatch Action').first().json.drawnSerialNumber }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-draw-2",
+      "name": "Sync Create Pull -> Create Claim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1280, 260],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "create-guild-chest-claim",
+      "name": "Create Guild Chest Claim",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1460, 260],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "GuildChestClaims",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            { "fieldId": "User", "fieldValue": "={{ $('Dispatch Action').first().json.userId }}" },
+            { "fieldId": "Date", "fieldValue": "={{ $('Dispatch Action').first().json.today }}" }
+          ]
+        }
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "format-draw-response",
+      "name": "Format Draw Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 260],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst d = $('Dispatch Action').first().json;\nconst cards = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === d.drawnCardId);\nconst rarity = card ? rarities.find((r) => r.id === refId(card.Rarity)) : null;\nreturn [{ json: {\n  drawn: true,\n  card: card ? {\n    cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image),\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null,\n    serialNumber: d.drawnSerialNumber\n  } : null\n} }];"
+      }
+    },
+    {
+      "id": "format-status-response",
+      "name": "Format Status Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 460],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $('Dispatch Action').first().json;\nreturn [{ json: { poolSize: d.poolSize, alreadyDrawnToday: d.alreadyDrawnToday } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1460, 460],
+      "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Get Guild Chest Deposits", "type": "main", "index": 0 }]] },
+    "Get Guild Chest Deposits": { "main": [[{ "node": "Sync Get Deposits -> Get Claims", "type": "main", "index": 0 }]] },
+    "Sync Get Deposits -> Get Claims": { "main": [[{ "node": "Get Guild Chest Claims", "type": "main", "index": 0 }]] },
+    "Get Guild Chest Claims": { "main": [[{ "node": "Sync Get Claims -> Get Pulls", "type": "main", "index": 0 }]] },
+    "Sync Get Claims -> Get Pulls": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
+    "Get Pulls": { "main": [[{ "node": "Sync Get Pulls -> Get Cards", "type": "main", "index": 0 }]] },
+    "Sync Get Pulls -> Get Cards": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
+    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Rarities", "type": "main", "index": 0 }]] },
+    "Sync Get Cards -> Get Rarities": { "main": [[{ "node": "Get Rarities", "type": "main", "index": 0 }]] },
+    "Get Rarities": { "main": [[{ "node": "Dispatch Action", "type": "main", "index": 0 }]] },
+    "Dispatch Action": { "main": [[{ "node": "If Ok", "type": "main", "index": 0 }]] },
+    "If Ok": {
+      "main": [
+        [{ "node": "If Mutation Is Deposit", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Mutation Is Deposit": {
+      "main": [
+        [{ "node": "Delete Deposited Pull", "type": "main", "index": 0 }],
+        [{ "node": "If Mutation Is Draw", "type": "main", "index": 0 }]
+      ]
+    },
+    "Delete Deposited Pull": { "main": [[{ "node": "Sync Delete Pull -> Create Deposit", "type": "main", "index": 0 }]] },
+    "Sync Delete Pull -> Create Deposit": { "main": [[{ "node": "Create Guild Chest Deposit", "type": "main", "index": 0 }]] },
+    "Create Guild Chest Deposit": { "main": [[{ "node": "Format Deposit Response", "type": "main", "index": 0 }]] },
+    "Format Deposit Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "If Mutation Is Draw": {
+      "main": [
+        [{ "node": "Mark Deposit Claimed", "type": "main", "index": 0 }],
+        [{ "node": "Format Status Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Deposit Claimed": { "main": [[{ "node": "Sync Mark Claimed -> Create New Pull", "type": "main", "index": 0 }]] },
+    "Sync Mark Claimed -> Create New Pull": { "main": [[{ "node": "Create Drawn Pull", "type": "main", "index": 0 }]] },
+    "Create Drawn Pull": { "main": [[{ "node": "Sync Create Pull -> Create Claim", "type": "main", "index": 0 }]] },
+    "Sync Create Pull -> Create Claim": { "main": [[{ "node": "Create Guild Chest Claim", "type": "main", "index": 0 }]] },
+    "Create Guild Chest Claim": { "main": [[{ "node": "Format Draw Response", "type": "main", "index": 0 }]] },
+    "Format Draw Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Format Status Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
