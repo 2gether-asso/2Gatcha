@@ -181,7 +181,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nif (!user) return [{ json: { ...cfg, ok: false, error: 'unknown_user' } }];\n\nconst MAX_ENERGY = 5;\nconst REGEN_SECONDS = 60;\nconst BOARD_SIZE = 16;\n// Empreintes de tresors : la plupart tiennent sur 1 tuile, mais certaines\n// (surtout la carte, la plus rare) sont etalees sur plusieurs tuiles - il\n// faut alors creuser TOUTES ses tuiles pour liberer l'objet.\nconst TREASURE_SHAPES = [\n  { cells: 4, reward: 'card' },\n  { cells: 2, reward: 'booster' },\n  { cells: 2, reward: 'bigDust' },\n  { cells: 1, reward: 'smallDust' },\n  { cells: 1, reward: 'smallDust' },\n  { cells: 1, reward: 'smallDust' }\n];\n\nfunction generateBoard() {\n  const order = Array.from({ length: BOARD_SIZE }, (_, i) => i);\n  for (let i = order.length - 1; i > 0; i--) {\n    const j = Math.floor(Math.random() * (i + 1));\n    const tmp = order[i]; order[i] = order[j]; order[j] = tmp;\n  }\n  const tiles = Array.from({ length: BOARD_SIZE }, () => ({ t: null, d: false }));\n  const treasures = [];\n  let cursor = 0;\n  TREASURE_SHAPES.forEach((shape) => {\n    const treasureIndex = treasures.length;\n    treasures.push({ cells: shape.cells, dug: 0, reward: shape.reward, done: false });\n    for (let i = 0; i < shape.cells; i++) {\n      tiles[order[cursor]].t = treasureIndex;\n      cursor++;\n    }\n  });\n  return { tiles, treasures };\n}\n\nconst now = Math.floor(Date.now() / 1000);\nconst storedEnergy = user.DigEnergy != null ? user.DigEnergy : MAX_ENERGY;\nconst lastAt = user.LastDigEnergyAt || now;\nlet currentEnergy = storedEnergy;\nlet secondsUntilNext = null;\nif (storedEnergy < MAX_ENERGY) {\n  const elapsed = Math.max(0, now - lastAt);\n  const gained = Math.floor(elapsed / REGEN_SECONDS);\n  currentEnergy = Math.min(MAX_ENERGY, storedEnergy + gained);\n  if (currentEnergy < MAX_ENERGY) secondsUntilNext = REGEN_SECONDS - (elapsed % REGEN_SECONDS);\n}\n\nlet board = null;\ntry { board = user.DigBoardState ? JSON.parse(user.DigBoardState) : null; } catch (e) { board = null; }\nlet boardDirty = false;\nif (!board || !Array.isArray(board.tiles) || board.tiles.length !== BOARD_SIZE || !Array.isArray(board.treasures)) {\n  board = generateBoard();\n  boardDirty = true;\n}\n\nif (cfg.action === 'dig') {\n  if (currentEnergy < 1) return [{ json: { ...cfg, ok: false, error: 'no_energy' } }];\n  const tileIndex = Number(cfg.tileIndex);\n  if (!Number.isInteger(tileIndex) || tileIndex < 0 || tileIndex >= BOARD_SIZE) {\n    return [{ json: { ...cfg, ok: false, error: 'invalid_tile' } }];\n  }\n  const tile = board.tiles[tileIndex];\n  if (tile.d) return [{ json: { ...cfg, ok: false, error: 'tile_already_dug' } }];\n\n  const newEnergy = currentEnergy - 1;\n  tile.d = true;\n\n  let outcome = 'nothing', dustGained = 0, boosterGranted = false, revealed = false, remaining = 0;\n  let cardId = null, serialNumber = null, maxSerial = null, cardName = null;\n\n  if (tile.t != null) {\n    const treasure = board.treasures[tile.t];\n    treasure.dug++;\n    if (treasure.dug >= treasure.cells) {\n      treasure.done = true;\n      revealed = true;\n      if (treasure.reward === 'smallDust') { outcome = 'dust'; dustGained = 5 + Math.floor(Math.random() * 11); }\n      else if (treasure.reward === 'bigDust') { outcome = 'dust'; dustGained = 25 + Math.floor(Math.random() * 26); }\n      else if (treasure.reward === 'booster') { outcome = 'booster'; boosterGranted = true; }\n      else if (treasure.reward === 'card') {\n        const pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n        const cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n        const rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n        const countByCard = {};\n        pulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n        const commonRarity = rarities.filter((r) => r.SortOrder != null).sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))[0];\n        const candidates = cards.filter((c) => c.Active !== false && !c.IsPromo && commonRarity && refId(c.Rarity) === commonRarity.id && (countByCard[c.id] || 0) < (c.MaxSerial || 100));\n        if (candidates.length) {\n          const picked = candidates[Math.floor(Math.random() * candidates.length)];\n          cardId = picked.id;\n          cardName = picked.Name;\n          maxSerial = picked.MaxSerial || 100;\n          serialNumber = (countByCard[picked.id] || 0) + 1;\n          outcome = 'card';\n        } else {\n          // Aucune carte commune disponible (toutes epuisees) : on degrade\n          // silencieusement vers de la poussiere plutot que de faire echouer\n          // la fouille (le joueur a quand meme depense son energie et libere\n          // les 4 tuiles).\n          outcome = 'dust';\n          dustGained = 30;\n        }\n      }\n    } else {\n      outcome = 'partial';\n      remaining = treasure.cells - treasure.dug;\n    }\n  }\n\n  // Plateau entierement fouille : on prepare tout de suite un nouveau\n  // plateau pour la prochaine visite plutot que de laisser un ecran vide.\n  const boardCleared = board.tiles.every((t) => t.d);\n  const finalBoard = boardCleared ? generateBoard() : board;\n\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'dig', boardDirty: true,\n    newEnergy, outcome, dustGained, boosterGranted, revealed, remaining, tileIndex, boardCleared,\n    board: JSON.stringify(finalBoard),\n    revealBoard: JSON.stringify(board),\n    newStardust: (user.StardustCount || 0) + dustGained,\n    newBoosterCount: (user.BoosterCount || 0) + (boosterGranted ? 1 : 0),\n    cardId, cardName, serialNumber, maxSerial\n  } }];\n}\n\n// action === 'status' (ou toute autre valeur) : lecture seule pour l'energie,\n// mais persiste un plateau tout juste genere (premiere visite du joueur, ou\n// etat corrompu) pour qu'il reste stable au prochain appel.\nreturn [{ json: {\n  ...cfg, ok: true, mutation: 'none', boardDirty,\n  energy: currentEnergy, maxEnergy: MAX_ENERGY, secondsUntilNext,\n  board: JSON.stringify(board),\n  revealBoard: JSON.stringify(board)\n} }];\n"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nif (!user) return [{ json: { ...cfg, ok: false, error: 'unknown_user' } }];\n\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\nconst MAX_ENERGY = (configRow && configRow.DigMaxEnergy) || 5;\nconst REGEN_SECONDS = (configRow && configRow.DigRegenSeconds) || 60;\nconst BOARD_SIZE = 16;\n// Empreintes de tresors : la plupart tiennent sur 1 tuile, mais certaines\n// (surtout la carte, la plus rare) sont etalees sur plusieurs tuiles - il\n// faut alors creuser TOUTES ses tuiles pour liberer l'objet.\nconst TREASURE_SHAPES = [\n  { cells: 4, reward: 'card' },\n  { cells: 2, reward: 'booster' },\n  { cells: 2, reward: 'bigDust' },\n  { cells: 1, reward: 'smallDust' },\n  { cells: 1, reward: 'smallDust' },\n  { cells: 1, reward: 'smallDust' }\n];\n\nfunction generateBoard() {\n  const order = Array.from({ length: BOARD_SIZE }, (_, i) => i);\n  for (let i = order.length - 1; i > 0; i--) {\n    const j = Math.floor(Math.random() * (i + 1));\n    const tmp = order[i]; order[i] = order[j]; order[j] = tmp;\n  }\n  const tiles = Array.from({ length: BOARD_SIZE }, () => ({ t: null, d: false }));\n  const treasures = [];\n  let cursor = 0;\n  TREASURE_SHAPES.forEach((shape) => {\n    const treasureIndex = treasures.length;\n    treasures.push({ cells: shape.cells, dug: 0, reward: shape.reward, done: false });\n    for (let i = 0; i < shape.cells; i++) {\n      tiles[order[cursor]].t = treasureIndex;\n      cursor++;\n    }\n  });\n  return { tiles, treasures };\n}\n\nconst now = Math.floor(Date.now() / 1000);\nconst storedEnergy = user.DigEnergy != null ? user.DigEnergy : MAX_ENERGY;\nconst lastAt = user.LastDigEnergyAt || now;\nlet currentEnergy = storedEnergy;\nlet secondsUntilNext = null;\nif (storedEnergy < MAX_ENERGY) {\n  const elapsed = Math.max(0, now - lastAt);\n  const gained = Math.floor(elapsed / REGEN_SECONDS);\n  currentEnergy = Math.min(MAX_ENERGY, storedEnergy + gained);\n  if (currentEnergy < MAX_ENERGY) secondsUntilNext = REGEN_SECONDS - (elapsed % REGEN_SECONDS);\n}\n\nlet board = null;\ntry { board = user.DigBoardState ? JSON.parse(user.DigBoardState) : null; } catch (e) { board = null; }\nlet boardDirty = false;\nif (!board || !Array.isArray(board.tiles) || board.tiles.length !== BOARD_SIZE || !Array.isArray(board.treasures)) {\n  board = generateBoard();\n  boardDirty = true;\n}\n\nif (cfg.action === 'dig') {\n  if (currentEnergy < 1) return [{ json: { ...cfg, ok: false, error: 'no_energy' } }];\n  const tileIndex = Number(cfg.tileIndex);\n  if (!Number.isInteger(tileIndex) || tileIndex < 0 || tileIndex >= BOARD_SIZE) {\n    return [{ json: { ...cfg, ok: false, error: 'invalid_tile' } }];\n  }\n  const tile = board.tiles[tileIndex];\n  if (tile.d) return [{ json: { ...cfg, ok: false, error: 'tile_already_dug' } }];\n\n  const newEnergy = currentEnergy - 1;\n  tile.d = true;\n\n  let outcome = 'nothing', dustGained = 0, boosterGranted = false, revealed = false, remaining = 0;\n  let cardId = null, serialNumber = null, maxSerial = null, cardName = null;\n\n  if (tile.t != null) {\n    const treasure = board.treasures[tile.t];\n    treasure.dug++;\n    if (treasure.dug >= treasure.cells) {\n      treasure.done = true;\n      revealed = true;\n      if (treasure.reward === 'smallDust') { outcome = 'dust'; dustGained = 5 + Math.floor(Math.random() * 11); }\n      else if (treasure.reward === 'bigDust') { outcome = 'dust'; dustGained = 25 + Math.floor(Math.random() * 26); }\n      else if (treasure.reward === 'booster') { outcome = 'booster'; boosterGranted = true; }\n      else if (treasure.reward === 'card') {\n        const pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n        const cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n        const rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\n        const countByCard = {};\n        pulls.forEach((p) => { const cid = refId(p.Card); countByCard[cid] = (countByCard[cid] || 0) + 1; });\n        const commonRarity = rarities.filter((r) => r.SortOrder != null).sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0))[0];\n        const candidates = cards.filter((c) => c.Active !== false && !c.IsPromo && commonRarity && refId(c.Rarity) === commonRarity.id && (countByCard[c.id] || 0) < (c.MaxSerial || 100));\n        if (candidates.length) {\n          const picked = candidates[Math.floor(Math.random() * candidates.length)];\n          cardId = picked.id;\n          cardName = picked.Name;\n          maxSerial = picked.MaxSerial || 100;\n          serialNumber = (countByCard[picked.id] || 0) + 1;\n          outcome = 'card';\n        } else {\n          // Aucune carte commune disponible (toutes epuisees) : on degrade\n          // silencieusement vers de la poussiere plutot que de faire echouer\n          // la fouille (le joueur a quand meme depense son energie et libere\n          // les 4 tuiles).\n          outcome = 'dust';\n          dustGained = 30;\n        }\n      }\n    } else {\n      outcome = 'partial';\n      remaining = treasure.cells - treasure.dug;\n    }\n  }\n\n  // Plateau entierement fouille : on prepare tout de suite un nouveau\n  // plateau pour la prochaine visite plutot que de laisser un ecran vide.\n  const boardCleared = board.tiles.every((t) => t.d);\n  const finalBoard = boardCleared ? generateBoard() : board;\n\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'dig', boardDirty: true,\n    newEnergy, outcome, dustGained, boosterGranted, revealed, remaining, tileIndex, boardCleared,\n    board: JSON.stringify(finalBoard),\n    revealBoard: JSON.stringify(board),\n    newStardust: (user.StardustCount || 0) + dustGained,\n    newBoosterCount: (user.BoosterCount || 0) + (boosterGranted ? 1 : 0),\n    cardId, cardName, serialNumber, maxSerial\n  } }];\n}\n\n// action === 'status' (ou toute autre valeur) : lecture seule pour l'energie,\n// mais persiste un plateau tout juste genere (premiere visite du joueur, ou\n// etat corrompu) pour qu'il reste stable au prochain appel.\nreturn [{ json: {\n  ...cfg, ok: true, mutation: 'none', boardDirty,\n  energy: currentEnergy, maxEnergy: MAX_ENERGY, secondsUntilNext, regenSeconds: REGEN_SECONDS,\n  board: JSON.stringify(board),\n  revealBoard: JSON.stringify(board)\n} }];\n"
       }
     },
     {
@@ -412,7 +412,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const d = $('Dispatch Action').first().json;\nconst board = JSON.parse(d.revealBoard);\nconst tiles = board.tiles.map((t) => {\n  if (!t.d) return { dug: false };\n  if (t.t == null) return { dug: true, treasure: null };\n  const tr = board.treasures[t.t];\n  return { dug: true, treasure: tr.done ? { reward: tr.reward, done: true } : { done: false, remaining: tr.cells - tr.dug } };\n});\nreturn [{ json: { energy: d.energy, maxEnergy: d.maxEnergy, secondsUntilNext: d.secondsUntilNext, tiles } }];\n"
+        "jsCode": "const d = $('Dispatch Action').first().json;\nconst board = JSON.parse(d.revealBoard);\nconst tiles = board.tiles.map((t) => {\n  if (!t.d) return { dug: false };\n  if (t.t == null) return { dug: true, treasure: null };\n  const tr = board.treasures[t.t];\n  return { dug: true, treasure: tr.done ? { reward: tr.reward, done: true } : { done: false, remaining: tr.cells - tr.dug } };\n});\nreturn [{ json: { energy: d.energy, maxEnergy: d.maxEnergy, secondsUntilNext: d.secondsUntilNext, regenSeconds: d.regenSeconds, tiles } }];\n"
       }
     },
     {
@@ -484,6 +484,44 @@
             }
           ]
         }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-rarities-config",
+      "name": "Sync Get Rarities -> Get Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-config",
+      "name": "Get Config",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -60,
+        400
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Config",
+        "returnAll": true,
+        "additionalOptions": {}
       },
       "credentials": {
         "gristApi": {
@@ -586,7 +624,7 @@
       "main": [
         [
           {
-            "node": "Dispatch Action",
+            "node": "Sync Get Rarities -> Get Config",
             "type": "main",
             "index": 0
           }
@@ -725,6 +763,28 @@
         [
           {
             "node": "Format Status Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Config": {
+      "main": [
+        [
+          {
+            "node": "Get Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Config": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Action",
             "type": "main",
             "index": 0
           }

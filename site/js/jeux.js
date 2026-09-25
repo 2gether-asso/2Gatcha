@@ -35,6 +35,10 @@ async function loadDig() {
     digMaxEnergy = res.maxEnergy || 5;
     renderDigEnergy(res.energy, digMaxEnergy, res.secondsUntilNext);
     renderDigBoard(res.tiles || []);
+    const regenSeconds = res.regenSeconds || 60;
+    const regenLabel = regenSeconds < 60 ? `${regenSeconds}s` : regenSeconds === 60 ? "minute" : `${Math.round(regenSeconds / 60)} min`;
+    document.getElementById("dig-intro").textContent =
+      `Creuse les tuiles pour trouver des trésors cachés — certains sont étalés sur plusieurs tuiles, il faut toutes les creuser pour libérer l'objet. Chaque tuile coûte 1 point d'énergie (régénère +1 chaque ${regenLabel}, jusqu'à ${digMaxEnergy}).`;
   } catch (e) {
     document.getElementById("dig-status-text").textContent = "Impossible de charger l'énergie.";
   }

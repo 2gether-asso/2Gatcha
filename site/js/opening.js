@@ -91,9 +91,11 @@ function buildCardEl(card, index, cardBackImageId) {
   front.className = "card-face card-front";
   front.innerHTML = `
     ${dupeBadge}
-    ${finishBadge}
-    ${qualityBadge}
-    <img src="${imgSrc}" alt="${card.name}" />
+    <div class="card-art">
+      <img src="${imgSrc}" alt="${card.name}" />
+      ${finishBadge}
+      ${qualityBadge}
+    </div>
     <div class="card-info">
       <div class="card-name">${card.name}</div>
       <div class="card-artist">${card.artist || ""}</div>

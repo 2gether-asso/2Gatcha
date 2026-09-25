@@ -482,8 +482,10 @@ function craftCardTile(card, mode) {
     return `
       <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-quality="${quality}">
         ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
-        <div class="card-art"><img src="${imgSrc}" alt="${card.name}" loading="lazy" /></div>
-        ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+        <div class="card-art">
+          <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+          ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+        </div>
         <div class="card-info">
           <div class="card-name">${card.name}</div>
           <div class="owned-count">Possède x${owned.count}</div>

@@ -212,7 +212,10 @@ function updateRewardPreview() {
   preview.textContent = `Aperçu : ${text}`;
 }
 
-// --- Paramètres du gacha (pity/rareté garantie) ---
+// --- Équilibrage du jeu (pity, raretés, finitions, quêtes, fouille) ---
+let balanceRaritiesCache = [];
+let balanceFinishesCache = [];
+
 async function loadConfig() {
   const res = await API.adminGetConfig(Session.discordId);
   const raritySelect = document.getElementById("top-rarity-select");
@@ -220,6 +223,51 @@ async function loadConfig() {
     .map((r) => `<option value="${r.key}" ${res.topRarity && res.topRarity.key === r.key ? "selected" : ""}>${r.name}</option>`)
     .join("");
   document.getElementById("pity-threshold-input").value = res.pityThreshold || "";
+  document.getElementById("dig-max-energy-input").value = res.digMaxEnergy || 5;
+  document.getElementById("dig-regen-seconds-input").value = res.digRegenSeconds || 60;
+  document.getElementById("daily-threshold-input").value = res.dailyQuestThreshold || 2;
+  document.getElementById("daily-reward-input").value = res.dailyQuestRewardBoosters != null ? res.dailyQuestRewardBoosters : 2;
+  document.getElementById("weekly-threshold-input").value = res.weeklyQuestThreshold || 3;
+  document.getElementById("weekly-reward-input").value = res.weeklyQuestRewardBoosters != null ? res.weeklyQuestRewardBoosters : 5;
+  document.getElementById("weekly-target-input").value = res.weeklyQuestTarget || 5;
+
+  balanceRaritiesCache = res.rarities || [];
+  balanceFinishesCache = res.finishes || [];
+  renderBalanceRarities();
+  renderBalanceFinishes();
+}
+
+function renderBalanceRarities() {
+  const el = document.getElementById("balance-rarities-table");
+  el.innerHTML = `
+    <div class="balance-row balance-head">
+      <span>Rareté</span><span>Poids de tirage</span><span>Décraft (poussières)</span><span>Craft (poussières)</span><span></span>
+    </div>
+  ` + balanceRaritiesCache.map((r) => `
+    <div class="balance-row" data-rarity-id="${r.id}">
+      <span class="balance-row-label">${r.name}</span>
+      <input type="number" min="0" step="0.1" data-field="weight" value="${r.weight}" />
+      <input type="number" min="0" data-field="disenchantValue" value="${r.disenchantValue}" />
+      <input type="number" min="0" data-field="craftCost" value="${r.craftCost}" />
+      <button type="button" class="btn-ghost balance-save-btn" data-id="${r.id}">Enregistrer</button>
+    </div>
+  `).join("");
+}
+
+function renderBalanceFinishes() {
+  const el = document.getElementById("balance-finishes-table");
+  el.innerHTML = `
+    <div class="balance-row balance-head">
+      <span>Finition</span><span>Poids (parmi les spéciales)</span><span>Multiplicateur décraft</span><span></span>
+    </div>
+  ` + balanceFinishesCache.filter((f) => f.key !== "normal").map((f) => `
+    <div class="balance-row" data-finish-id="${f.id}">
+      <span class="balance-row-label">${f.name}</span>
+      <input type="number" min="0" step="0.1" data-field="dropWeight" value="${f.dropWeight}" />
+      <input type="number" min="0" step="0.1" data-field="disenchantMultiplier" value="${f.disenchantMultiplier}" />
+      <button type="button" class="btn-ghost balance-save-btn" data-id="${f.id}">Enregistrer</button>
+    </div>
+  `).join("");
 }
 
 // --- Gestion des extensions ---
@@ -359,11 +407,57 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       await API.adminSetConfig(Session.discordId, {
         pityThreshold: Number(document.getElementById("pity-threshold-input").value) || undefined,
-        topRarityKey: document.getElementById("top-rarity-select").value
+        topRarityKey: document.getElementById("top-rarity-select").value,
+        digMaxEnergy: Number(document.getElementById("dig-max-energy-input").value) || undefined,
+        digRegenSeconds: Number(document.getElementById("dig-regen-seconds-input").value) || undefined,
+        dailyQuestThreshold: Number(document.getElementById("daily-threshold-input").value) || undefined,
+        dailyQuestRewardBoosters: document.getElementById("daily-reward-input").value,
+        weeklyQuestThreshold: Number(document.getElementById("weekly-threshold-input").value) || undefined,
+        weeklyQuestRewardBoosters: document.getElementById("weekly-reward-input").value,
+        weeklyQuestTarget: Number(document.getElementById("weekly-target-input").value) || undefined
       });
-      Toast.success("Paramètres enregistres.");
+      Toast.success("Paramètres enregistrés.");
     } catch (e) {
       Toast.error("Impossible d'enregistrer. (" + e.message + ")");
+    }
+  });
+
+  document.getElementById("balance-rarities-table").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".balance-save-btn");
+    if (!btn) return;
+    const row = btn.closest(".balance-row");
+    const rarityId = Number(btn.dataset.id);
+    btn.disabled = true;
+    try {
+      await API.adminUpdateRarity(Session.discordId, rarityId, {
+        weight: row.querySelector('[data-field="weight"]').value,
+        disenchantValue: row.querySelector('[data-field="disenchantValue"]').value,
+        craftCost: row.querySelector('[data-field="craftCost"]').value
+      });
+      Toast.success("Rareté mise à jour.");
+    } catch (err) {
+      Toast.error("Impossible d'enregistrer. (" + err.message + ")");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("balance-finishes-table").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".balance-save-btn");
+    if (!btn) return;
+    const row = btn.closest(".balance-row");
+    const finishId = Number(btn.dataset.id);
+    btn.disabled = true;
+    try {
+      await API.adminUpdateFinish(Session.discordId, finishId, {
+        dropWeight: row.querySelector('[data-field="dropWeight"]').value,
+        disenchantMultiplier: row.querySelector('[data-field="disenchantMultiplier"]').value
+      });
+      Toast.success("Finition mise à jour.");
+    } catch (err) {
+      Toast.error("Impossible d'enregistrer. (" + err.message + ")");
+    } finally {
+      btn.disabled = false;
     }
   });
 

@@ -375,12 +375,14 @@ function cardTileHtml(card, now) {
   return `
     <div class="collection-card ${locked ? "locked" : ""} ${bulkSelectMode && bulkEligible ? "bulk-mode" : ""} ${bulkChecked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
       ${isNew ? '<span class="new-badge">New</span>' : ""}
-      ${!locked && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
-      ${!locked && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
       ${bulkSelectMode && bulkEligible ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${bulkChecked ? "checked" : ""} /></label>` : ""}
       ${!locked && !(bulkSelectMode && bulkEligible) ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
       ${locked ? `<button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>` : ""}
-      <div class="card-art"><img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" /></div>
+      <div class="card-art">
+        <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" />
+        ${!locked && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
+        ${!locked && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+      </div>
       <div class="card-info">
         <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">

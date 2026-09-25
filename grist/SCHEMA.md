@@ -31,6 +31,11 @@ decraft, pour que la conversion directe ne soit jamais interessante) :
 | Epique      | epique      | 7      | #a855f7  | 3         | 100             | 400       |
 | Legendaire  | legendaire  | 1      | #f59e0b  | 4         | 400             | 1600      |
 
+`Weight`/`DisenchantValue`/`CraftCost` sont editables depuis `admin.html`
+(section "Équilibrage du jeu", tableau "Raretés") via `admin-config.json`
+(action `updateRarity`) - pas besoin d'ouvrir Grist pour un simple
+ajustement de taux/cout.
+
 **Important** : ces poids ne s'expriment que sur les cartes qui existent
 reellement dans l'extension ouverte. S'il n'y a aucune carte d'une rarete
 donnee dans une extension, un tirage qui obtient cette rarete retombe sur une
@@ -52,8 +57,9 @@ rarete, peut sortir avec n'importe quelle finition. Utilisee par
 | DropWeight            | Numeric | poids relatif **parmi les finitions speciales uniquement** (ignore pour `normal` - voir le tirage a deux niveaux ci-dessous) |
 | DisenchantMultiplier  | Numeric | multiplie `Rarities.DisenchantValue` quand on decrafte un exemplaire de cette finition (`normal` = 1) |
 
-Valeurs de depart suggerees (ajustables directement dans Grist, sans toucher
-au code) :
+Valeurs de depart suggerees, ajustables directement dans Grist OU depuis
+`admin.html` (section "Équilibrage du jeu", tableau "Finitions") via
+`admin-config.json` (action `updateFinish`) - sans toucher au code :
 
 | Key      | Name            | DropWeight | DisenchantMultiplier |
 |----------|-----------------|------------|------------------------|
@@ -238,12 +244,25 @@ si la carte demandee explicitement (craft, code) est epuisee.
 
 Une seule ligne, parametres globaux du gacha (communs a toutes les
 extensions ; seul le compteur de progression vers la pity est par extension,
-voir `BoosterInventory`).
+voir `BoosterInventory`). Editable depuis `admin.html` (section "Équilibrage
+du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
 
-| Colonne         | Type                  | Notes                                  |
-|------------------|------------------------|------------------------------------------|
-| PityThreshold    | Numeric                 | nb de tirages sans legendaire avant garantie (ex: 40) |
-| TopRarity        | Reference -> Rarities   | la rarete garantie par la pity (ex: Legendaire) |
+| Colonne                     | Type                  | Notes                                  |
+|------------------------------|------------------------|------------------------------------------|
+| PityThreshold                | Numeric                | nb de tirages sans legendaire avant garantie (ex: 40) |
+| TopRarity                    | Reference -> Rarities  | la rarete garantie par la pity (ex: Legendaire) |
+| DigMaxEnergy                 | Numeric                | **nouvelle colonne** - defaut 5 si vide ; energie max du mini-jeu de fouille |
+| DigRegenSeconds              | Numeric                | **nouvelle colonne** - defaut 60 si vide ; secondes pour regagner 1 point d'energie de fouille |
+| DailyQuestThreshold          | Numeric                | **nouvelle colonne** - defaut 2 si vide ; nb de quetes du jour (sur 4) a completer pour la recompense |
+| DailyQuestRewardBoosters     | Numeric                | **nouvelle colonne** - defaut 2 si vide ; boosters gagnes en completant les quetes du jour |
+| WeeklyQuestThreshold         | Numeric                | **nouvelle colonne** - defaut 3 si vide ; nb de quetes de la semaine (sur 4) a completer pour la recompense |
+| WeeklyQuestRewardBoosters    | Numeric                | **nouvelle colonne** - defaut 5 si vide ; boosters gagnes en completant les quetes de la semaine |
+| WeeklyQuestTarget            | Numeric                | **nouvelle colonne** - defaut 5 si vide ; occurrences requises par quete de la semaine (ex: 5 connexions) |
+
+Toutes les colonnes `Numeric` ci-dessus tolerent une cellule vide dans Grist
+(chaque workflow qui les lit retombe sur la valeur par defaut listee) - pas
+besoin de remplir la ligne existante avant de deployer, seulement d'ajouter
+les colonnes.
 
 ## 7. EventCodes
 

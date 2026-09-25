@@ -105,7 +105,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === cfg.userId && toDateStr(r.Date) === cfg.today);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\n// Le simple fait de consulter ses quetes du jour compte comme \"se connecter\".\nflags.LoginDone = true;\n\nconst completedCount = ['LoginDone', 'CraftDone', 'TradeDone', 'OpenBoosterDone'].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= 2 && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\n// Serie de connexion : seule la PREMIERE consultation des quetes du jour\n// (donc pas de ligne DailyQuests pour aujourd'hui avant cet appel) fait\n// avancer la serie - sinon rafraichir la page 10 fois ferait avancer la\n// serie 10 fois. Recompenses de plus en plus rares au fil de la\n// semaine/mois (paliers fixes, pas de config admin pour l'instant).\nconst isFirstLoginToday = !row;\nlet newStreak = user ? (user.LoginStreak || 0) : 0;\nlet streakBonus = 0;\nif (isFirstLoginToday) {\n  function addDaysUTC(dateStr, delta) {\n    const d = new Date(dateStr + 'T00:00:00Z');\n    d.setUTCDate(d.getUTCDate() + delta);\n    return d.toISOString().slice(0, 10);\n  }\n  const yesterday = addDaysUTC(cfg.today, -1);\n  const lastLogin = user ? user.LastLoginDate : null;\n  if (lastLogin === yesterday) newStreak = (user.LoginStreak || 0) + 1;\n  else if (lastLogin === cfg.today) newStreak = user.LoginStreak || 0;\n  else newStreak = 1;\n\n  if (newStreak === 3) streakBonus = 1;\n  else if (newStreak === 7) streakBonus = 2;\n  else if (newStreak === 14) streakBonus = 3;\n  else if (newStreak >= 30 && newStreak % 30 === 0) streakBonus = 5;\n}\n\n// Un seul cumul, une seule ecriture Users plus bas (voir Update User) :\n// jamais deux updates paralleles sur BoosterCount dans la meme execution,\n// qui s'ecraseraient l'un l'autre (chacun partirait de la meme valeur de\n// depart sans voir l'ecriture de l'autre).\nconst questBonusBoosters = shouldGrantReward ? 2 : 0;\nconst totalBonusBoosters = questBonusBoosters + streakBonus;\nconst newBoosterCount = (user ? (user.BoosterCount || 0) : 0) + totalBonusBoosters;\nconst needsUserUpdate = isFirstLoginToday || shouldGrantReward;\n\nreturn [{ json: { docId: cfg.docId, userId: cfg.userId, today: cfg.today, rowId: row ? row.id : null, exists: !!row, completedCount, shouldGrantReward, newStreak, streakBonus, isFirstLoginToday, needsUserUpdate, newBoosterCount, ...flags } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === cfg.userId && toDateStr(r.Date) === cfg.today);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\nconst THRESHOLD = (configRow && configRow.DailyQuestThreshold) || 2;\nconst REWARD_BOOSTERS = (configRow && configRow.DailyQuestRewardBoosters) != null ? configRow.DailyQuestRewardBoosters : 2;\n\nconst flags = { LoginDone: false, CraftDone: false, TradeDone: false, OpenBoosterDone: false, RewardClaimed: false };\nif (row) {\n  flags.LoginDone = !!row.LoginDone;\n  flags.CraftDone = !!row.CraftDone;\n  flags.TradeDone = !!row.TradeDone;\n  flags.OpenBoosterDone = !!row.OpenBoosterDone;\n  flags.RewardClaimed = !!row.RewardClaimed;\n}\n// Le simple fait de consulter ses quetes du jour compte comme \"se connecter\".\nflags.LoginDone = true;\n\nconst completedCount = ['LoginDone', 'CraftDone', 'TradeDone', 'OpenBoosterDone'].filter((k) => flags[k]).length;\nconst shouldGrantReward = completedCount >= THRESHOLD && !flags.RewardClaimed;\nif (shouldGrantReward) flags.RewardClaimed = true;\n\n// Serie de connexion : seule la PREMIERE consultation des quetes du jour\n// (donc pas de ligne DailyQuests pour aujourd'hui avant cet appel) fait\n// avancer la serie - sinon rafraichir la page 10 fois ferait avancer la\n// serie 10 fois. Recompenses de plus en plus rares au fil de la\n// semaine/mois (paliers fixes, pas de config admin pour l'instant).\nconst isFirstLoginToday = !row;\nlet newStreak = user ? (user.LoginStreak || 0) : 0;\nlet streakBonus = 0;\nif (isFirstLoginToday) {\n  function addDaysUTC(dateStr, delta) {\n    const d = new Date(dateStr + 'T00:00:00Z');\n    d.setUTCDate(d.getUTCDate() + delta);\n    return d.toISOString().slice(0, 10);\n  }\n  const yesterday = addDaysUTC(cfg.today, -1);\n  const lastLogin = user ? user.LastLoginDate : null;\n  if (lastLogin === yesterday) newStreak = (user.LoginStreak || 0) + 1;\n  else if (lastLogin === cfg.today) newStreak = user.LoginStreak || 0;\n  else newStreak = 1;\n\n  if (newStreak === 3) streakBonus = 1;\n  else if (newStreak === 7) streakBonus = 2;\n  else if (newStreak === 14) streakBonus = 3;\n  else if (newStreak >= 30 && newStreak % 30 === 0) streakBonus = 5;\n}\n\n// Un seul cumul, une seule ecriture Users plus bas (voir Update User) :\n// jamais deux updates paralleles sur BoosterCount dans la meme execution,\n// qui s'ecraseraient l'un l'autre (chacun partirait de la meme valeur de\n// depart sans voir l'ecriture de l'autre).\nconst questBonusBoosters = shouldGrantReward ? REWARD_BOOSTERS : 0;\nconst totalBonusBoosters = questBonusBoosters + streakBonus;\nconst newBoosterCount = (user ? (user.BoosterCount || 0) : 0) + totalBonusBoosters;\nconst needsUserUpdate = isFirstLoginToday || shouldGrantReward;\n\nreturn [{ json: { docId: cfg.docId, userId: cfg.userId, today: cfg.today, rowId: row ? row.id : null, exists: !!row, completedCount, threshold: THRESHOLD, rewardBoosters: REWARD_BOOSTERS, shouldGrantReward, newStreak, streakBonus, isFirstLoginToday, needsUserUpdate, newBoosterCount, ...flags } }];"
       }
     },
     {
@@ -321,7 +321,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const q = $('Compute Quest Update').first().json;\nreturn [{ json: {\n  quests: {\n    login: q.LoginDone,\n    craft: q.CraftDone,\n    trade: q.TradeDone,\n    openBooster: q.OpenBoosterDone\n  },\n  completedCount: q.completedCount,\n  rewardClaimed: q.RewardClaimed,\n  justClaimedReward: q.shouldGrantReward,\n  streak: { current: q.newStreak, bonusBoosters: q.streakBonus, isNewToday: q.isFirstLoginToday }\n} }];"
+        "jsCode": "const q = $('Compute Quest Update').first().json;\nreturn [{ json: {\n  quests: {\n    login: q.LoginDone,\n    craft: q.CraftDone,\n    trade: q.TradeDone,\n    openBooster: q.OpenBoosterDone\n  },\n  completedCount: q.completedCount,\n  threshold: q.threshold,\n  rewardBoosters: q.rewardBoosters,\n  rewardClaimed: q.RewardClaimed,\n  justClaimedReward: q.shouldGrantReward,\n  streak: { current: q.newStreak, bonusBoosters: q.streakBonus, isNewToday: q.isFirstLoginToday }\n} }];\n"
       }
     },
     {
@@ -337,6 +337,44 @@
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
+      }
+    },
+    {
+      "id": "barrier-users-config",
+      "name": "Sync Get Users -> Get Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-config",
+      "name": "Get Config",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -360,
+        500
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Config",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
       }
     }
   ],
@@ -389,7 +427,7 @@
       "main": [
         [
           {
-            "node": "Compute Quest Update",
+            "node": "Sync Get Users -> Get Config",
             "type": "main",
             "index": 0
           }
@@ -481,6 +519,28 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Config": {
+      "main": [
+        [
+          {
+            "node": "Get Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Config": {
+      "main": [
+        [
+          {
+            "node": "Compute Quest Update",
             "type": "main",
             "index": 0
           }

@@ -204,6 +204,14 @@ const API = {
     return this.post("adminConfig", { discordId, action: "set", ...params });
   },
 
+  adminUpdateRarity(discordId, rarityId, params) {
+    return this.post("adminConfig", { discordId, action: "updateRarity", rarityId, ...params });
+  },
+
+  adminUpdateFinish(discordId, finishId, params) {
+    return this.post("adminConfig", { discordId, action: "updateFinish", finishId, ...params });
+  },
+
   adminCreateExtension(discordId, params) {
     return this.post("adminExtensions", { discordId, action: "create", ...params });
   },

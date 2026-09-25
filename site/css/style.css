@@ -1142,9 +1142,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   position: relative;
 }
 
+.card-front .card-art { width: 100%; height: 76%; }
 .card-front img {
   width: 100%;
-  height: 76%;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
@@ -1597,6 +1598,42 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   font-family: var(--font-body);
 }
 .trade-form button, .admin-form button { grid-column: -2 / -1; }
+
+/* Tableaux d'equilibrage (raretes/finitions) : chaque ligne editable en
+   place, un bouton Enregistrer dedie (pas de formulaire global qui
+   soumettrait tout d'un coup - chaque rangee est sa propre unite de
+   sauvegarde, cote serveur comme cote UI). */
+.balance-table { margin-bottom: 8px; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
+.balance-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.balance-row:last-child { border-bottom: none; }
+#balance-rarities-table .balance-row { grid-template-columns: minmax(90px,1.3fr) repeat(3, minmax(70px,1fr)) minmax(90px,auto); }
+#balance-finishes-table .balance-row { grid-template-columns: minmax(90px,1.3fr) repeat(2, minmax(80px,1fr)) minmax(90px,auto); }
+.balance-row.balance-head { background: var(--bg-panel-2); font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+.balance-row-label { font-weight: 700; font-family: var(--font-display); font-size: 0.85rem; }
+.balance-row input[type="number"] {
+  width: 100%;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: var(--font-body);
+}
+.balance-save-btn { font-size: 0.78rem; padding: 7px 10px; }
+@media (max-width: 640px) {
+  #balance-rarities-table .balance-row,
+  #balance-finishes-table .balance-row { grid-template-columns: 1fr 1fr; }
+  .balance-row.balance-head { display: none; }
+  .balance-row-label { grid-column: 1 / -1; }
+  .balance-save-btn { grid-column: 1 / -1; }
+}
 
 /* --- Liste d'echanges --- */
 .trade-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }

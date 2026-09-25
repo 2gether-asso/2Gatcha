@@ -98,8 +98,21 @@
         </details>
 
         <details class="admin-section">
-          <summary><h2>&#9881;&#65039; Paramètres du gacha</h2></summary>
+          <summary><h2>&#9878;&#65039; Équilibrage du jeu</h2></summary>
           <div class="admin-section-body">
+            <p class="lead" style="font-size:0.85rem;">
+              Ajuste les taux de drop et les valeurs d'équilibrage directement ici
+              (équivalent à éditer les tables Grist correspondantes) - effet immédiat,
+              sans redéploiement.
+            </p>
+
+            <h3 class="balance-subheading">Raretés</h3>
+            <div id="balance-rarities-table" class="balance-table"></div>
+
+            <h3 class="balance-subheading">Finitions (foil)</h3>
+            <div id="balance-finishes-table" class="balance-table"></div>
+
+            <h3 class="balance-subheading">Autres réglages</h3>
             <form id="config-form" class="admin-form">
               <label>
                 Pity (nb de tirages sans la rareté garantie)
@@ -108,6 +121,34 @@
               <label>
                 Rareté garantie par la pity
                 <select id="top-rarity-select"></select>
+              </label>
+              <label>
+                Fouille : énergie maximum
+                <input type="number" id="dig-max-energy-input" min="1" />
+              </label>
+              <label>
+                Fouille : régénération (secondes par point)
+                <input type="number" id="dig-regen-seconds-input" min="5" />
+              </label>
+              <label>
+                Quêtes du jour : seuil de réussite (sur 4)
+                <input type="number" id="daily-threshold-input" min="1" max="4" />
+              </label>
+              <label>
+                Quêtes du jour : récompense (boosters)
+                <input type="number" id="daily-reward-input" min="0" />
+              </label>
+              <label>
+                Quêtes de la semaine : seuil de réussite (sur 4)
+                <input type="number" id="weekly-threshold-input" min="1" max="4" />
+              </label>
+              <label>
+                Quêtes de la semaine : récompense (boosters)
+                <input type="number" id="weekly-reward-input" min="0" />
+              </label>
+              <label>
+                Quêtes de la semaine : occurrences requises par quête
+                <input type="number" id="weekly-target-input" min="1" />
               </label>
               <button type="submit">Enregistrer</button>
             </form>

@@ -73,13 +73,13 @@
           <h2 style="flex:1;margin:0;">&#127919; Quêtes du jour</h2>
           <span id="quest-streak-badge" class="streak-badge" style="display:none;"></span>
         </div>
-        <p class="lead" style="font-size:0.85rem;">Complète 2 des 4 quêtes aujourd'hui pour recevoir 2 boosters gratuits.</p>
+        <p class="lead" style="font-size:0.85rem;" id="quests-intro">Chargement...</p>
         <div id="quests-list" class="quests-list"></div>
       </div>
 
       <div class="panel" id="weekly-quests-panel" style="display:none;">
         <h2>&#128197; Quêtes de la semaine</h2>
-        <p class="lead" style="font-size:0.85rem;">Complète 3 des 4 quêtes cette semaine (lundi &rarr; dimanche) pour recevoir 5 boosters gratuits.</p>
+        <p class="lead" style="font-size:0.85rem;" id="weekly-quests-intro">Chargement...</p>
         <div id="weekly-quests-list" class="quests-list"></div>
       </div>
     </div>
@@ -260,6 +260,10 @@
       API.getQuestStatus(Session.userId).then((res) => {
         const list = document.getElementById("quests-list");
         const quests = res.quests || {};
+        const threshold = res.threshold || 2;
+        const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 2;
+        document.getElementById("quests-intro").textContent =
+          `Complète ${threshold} des 4 quêtes aujourd'hui pour recevoir ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}.`;
         list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
           const done = !!quests[key];
           return `
@@ -270,11 +274,11 @@
           `;
         }).join("") + `
           <div class="quest-reward ${res.rewardClaimed ? "claimed" : ""}">
-            ${res.rewardClaimed ? "&#127183; 2 boosters gratuits débloqués aujourd'hui !" : `${res.completedCount || 0} / 2 pour débloquer 2 boosters gratuits`}
+            ${res.rewardClaimed ? `&#127183; ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} aujourd'hui !` : `${res.completedCount || 0} / ${threshold} pour débloquer ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}`}
           </div>
         `;
         if (res.justClaimedReward) {
-          Toast.success("Quêtes du jour : 2 boosters gratuits débloqués !");
+          Toast.success(`Quêtes du jour : ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} !`);
           if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
         }
         const streak = res.streak;
@@ -298,6 +302,10 @@
         const list = document.getElementById("weekly-quests-list");
         const quests = res.quests || {};
         const target = res.target || 5;
+        const threshold = res.threshold || 3;
+        const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 5;
+        document.getElementById("weekly-quests-intro").innerHTML =
+          `Complète ${threshold} des 4 quêtes cette semaine (lundi &rarr; dimanche) pour recevoir ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}.`;
         list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
           const count = Math.min(quests[key] || 0, target);
           const done = count >= target;
@@ -312,11 +320,11 @@
           `;
         }).join("") + `
           <div class="quest-reward ${res.rewardClaimed ? "claimed" : ""}">
-            ${res.rewardClaimed ? "&#127183; 5 boosters gratuits débloqués cette semaine !" : `${res.completedCount || 0} / 3 pour débloquer 5 boosters gratuits`}
+            ${res.rewardClaimed ? `&#127183; ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} cette semaine !` : `${res.completedCount || 0} / ${threshold} pour débloquer ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}`}
           </div>
         `;
         if (res.justClaimedReward) {
-          Toast.success("Quêtes de la semaine : 5 boosters gratuits débloqués !");
+          Toast.success(`Quêtes de la semaine : ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} !`);
           if (typeof confetti === "function") confetti({ particleCount: 140, spread: 100, origin: { y: 0.5 } });
         }
       }).catch(() => {

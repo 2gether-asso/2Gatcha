@@ -105,7 +105,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Weekly Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === cfg.userId && toDateStr(r.WeekStart) === cfg.weekStart);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\n\nconst TARGET = 5;\nconst counts = { LoginCount: 0, CraftCount: 0, TradeCount: 0, OpenBoosterCount: 0 };\nlet lastLoginCountedDate = null;\nlet rewardClaimed = false;\nif (row) {\n  counts.LoginCount = row.LoginCount || 0;\n  counts.CraftCount = row.CraftCount || 0;\n  counts.TradeCount = row.TradeCount || 0;\n  counts.OpenBoosterCount = row.OpenBoosterCount || 0;\n  lastLoginCountedDate = row.LastLoginCountedDate || null;\n  rewardClaimed = !!row.RewardClaimed;\n}\n// Une connexion ne compte qu'une fois par jour calendaire (sinon rafraichir\n// la page 10 fois completerait la quete de connexion instantanement).\nconst todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());\nif (lastLoginCountedDate !== todayParis) {\n  counts.LoginCount += 1;\n  lastLoginCountedDate = todayParis;\n}\n\nconst completedCount = Object.values(counts).filter((c) => c >= TARGET).length;\nconst shouldGrantReward = completedCount >= 3 && !rewardClaimed;\nif (shouldGrantReward) rewardClaimed = true;\n\nconst newBoosterCount = (user ? (user.BoosterCount || 0) : 0) + (shouldGrantReward ? 5 : 0);\n\nreturn [{ json: { docId: cfg.docId, userId: cfg.userId, weekStart: cfg.weekStart, rowId: row ? row.id : null, exists: !!row, completedCount, shouldGrantReward, newBoosterCount, rewardClaimed, lastLoginCountedDate, target: TARGET, ...counts } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toDateStr(v) { if (v == null) return null; if (typeof v === 'number') return new Date(v * 1000).toISOString().slice(0, 10); return String(v).slice(0, 10); }\nconst cfg = $('Set Config').first().json;\nconst rows = $('Get Weekly Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst row = rows.find((r) => refId(r.User) === cfg.userId && toDateStr(r.WeekStart) === cfg.weekStart);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nconst configRow = $('Get Config').all().map((i) => i.json).find((r) => r.id != null);\n\nconst TARGET = (configRow && configRow.WeeklyQuestTarget) || 5;\nconst THRESHOLD = (configRow && configRow.WeeklyQuestThreshold) || 3;\nconst REWARD_BOOSTERS = (configRow && configRow.WeeklyQuestRewardBoosters) != null ? configRow.WeeklyQuestRewardBoosters : 5;\nconst counts = { LoginCount: 0, CraftCount: 0, TradeCount: 0, OpenBoosterCount: 0 };\nlet lastLoginCountedDate = null;\nlet rewardClaimed = false;\nif (row) {\n  counts.LoginCount = row.LoginCount || 0;\n  counts.CraftCount = row.CraftCount || 0;\n  counts.TradeCount = row.TradeCount || 0;\n  counts.OpenBoosterCount = row.OpenBoosterCount || 0;\n  lastLoginCountedDate = row.LastLoginCountedDate || null;\n  rewardClaimed = !!row.RewardClaimed;\n}\n// Une connexion ne compte qu'une fois par jour calendaire (sinon rafraichir\n// la page 10 fois completerait la quete de connexion instantanement).\nconst todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());\nif (lastLoginCountedDate !== todayParis) {\n  counts.LoginCount += 1;\n  lastLoginCountedDate = todayParis;\n}\n\nconst completedCount = Object.values(counts).filter((c) => c >= TARGET).length;\nconst shouldGrantReward = completedCount >= THRESHOLD && !rewardClaimed;\nif (shouldGrantReward) rewardClaimed = true;\n\nconst newBoosterCount = (user ? (user.BoosterCount || 0) : 0) + (shouldGrantReward ? REWARD_BOOSTERS : 0);\n\nreturn [{ json: { docId: cfg.docId, userId: cfg.userId, weekStart: cfg.weekStart, rowId: row ? row.id : null, exists: !!row, completedCount, threshold: THRESHOLD, rewardBoosters: REWARD_BOOSTERS, shouldGrantReward, newBoosterCount, rewardClaimed, lastLoginCountedDate, target: TARGET, ...counts } }];"
       }
     },
     {
@@ -321,7 +321,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const q = $('Compute Quest Update').first().json;\nreturn [{ json: {\n  weekStart: q.weekStart,\n  target: q.target,\n  quests: {\n    login: q.LoginCount,\n    craft: q.CraftCount,\n    trade: q.TradeCount,\n    openBooster: q.OpenBoosterCount\n  },\n  completedCount: q.completedCount,\n  rewardClaimed: q.rewardClaimed,\n  justClaimedReward: q.shouldGrantReward\n} }];"
+        "jsCode": "const q = $('Compute Quest Update').first().json;\nreturn [{ json: {\n  weekStart: q.weekStart,\n  target: q.target,\n  quests: {\n    login: q.LoginCount,\n    craft: q.CraftCount,\n    trade: q.TradeCount,\n    openBooster: q.OpenBoosterCount\n  },\n  completedCount: q.completedCount,\n  threshold: q.threshold,\n  rewardBoosters: q.rewardBoosters,\n  rewardClaimed: q.rewardClaimed,\n  justClaimedReward: q.shouldGrantReward\n} }];"
       }
     },
     {
@@ -337,6 +337,44 @@
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
+      }
+    },
+    {
+      "id": "barrier-users-config",
+      "name": "Sync Get Users -> Get Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-config",
+      "name": "Get Config",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -360,
+        500
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Config",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
       }
     }
   ],
@@ -389,7 +427,7 @@
       "main": [
         [
           {
-            "node": "Compute Quest Update",
+            "node": "Sync Get Users -> Get Config",
             "type": "main",
             "index": 0
           }
@@ -481,6 +519,28 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Config": {
+      "main": [
+        [
+          {
+            "node": "Get Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Config": {
+      "main": [
+        [
+          {
+            "node": "Compute Quest Update",
             "type": "main",
             "index": 0
           }
