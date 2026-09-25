@@ -111,8 +111,8 @@ const API = {
     return this.post("openPack", { userId, extensionId });
   },
 
-  disenchantCard(userId, cardId) {
-    return this.post("disenchant", { userId, cardId });
+  disenchantCard(userId, cardId, finish, quality) {
+    return this.post("disenchant", { userId, cardId, finish, quality });
   },
 
   craftCard(userId, cardId) {
@@ -152,8 +152,12 @@ const API = {
     return this.post("adminCodes", { discordId, action: "stats" });
   },
 
-  adminResetV1(discordId, confirm) {
-    return this.post("adminReset", { discordId, confirm });
+  adminResetV1(discordId, confirm, targetPseudo) {
+    return this.post("adminReset", { discordId, confirm, targetPseudo });
+  },
+
+  getSiteBanner() {
+    return this.get("siteBanner");
   },
 
   getDailyWheelStatus(userId) {

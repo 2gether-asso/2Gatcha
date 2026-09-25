@@ -232,6 +232,9 @@ async function loadConfig() {
   document.getElementById("weekly-reward-input").value = res.weeklyQuestRewardBoosters != null ? res.weeklyQuestRewardBoosters : 5;
   document.getElementById("weekly-target-input").value = res.weeklyQuestTarget || 5;
   document.getElementById("quality-repair-cost-input").value = res.qualityRepairCost || 3;
+  document.getElementById("banner-enabled-input").checked = !!res.bannerEnabled;
+  document.getElementById("banner-type-select").value = res.bannerType || "info";
+  document.getElementById("banner-message-input").value = res.bannerMessage || "";
 
   balanceRaritiesCache = res.rarities || [];
   balanceFinishesCache = res.finishes || [];
@@ -278,9 +281,9 @@ function renderBalanceQualities() {
   const el = document.getElementById("balance-qualities-table");
   el.innerHTML = `
     <div class="balance-row balance-head">
-      <span>Qualité</span><span>Poids (parmi les meilleures)</span><span>Multiplicateur décraft</span><span></span>
+      <span>Qualité</span><span>Poids de tirage</span><span>Multiplicateur décraft</span><span></span>
     </div>
-  ` + balanceQualitiesCache.filter((q) => q.key !== "damaged").map((q) => `
+  ` + balanceQualitiesCache.map((q) => `
     <div class="balance-row" data-quality-id="${q.id}">
       <span class="balance-row-label">${q.name}</span>
       <input type="number" min="0" step="0.1" data-field="dropWeight" value="${q.dropWeight}" />
@@ -441,6 +444,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (e) {
       Toast.error("Impossible d'enregistrer. (" + e.message + ")");
     }
+  });
+
+  document.getElementById("banner-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await API.adminSetConfig(Session.discordId, {
+        bannerEnabled: document.getElementById("banner-enabled-input").checked,
+        bannerType: document.getElementById("banner-type-select").value,
+        bannerMessage: document.getElementById("banner-message-input").value.trim()
+      });
+      Toast.success("Bandeau enregistré.");
+    } catch (err) {
+      Toast.error("Impossible d'enregistrer le bandeau. (" + err.message + ")");
+    }
+  });
+
+  const resetScopeUser = document.getElementById("reset-scope-user");
+  const resetTargetPseudo = document.getElementById("reset-target-pseudo");
+  document.querySelectorAll('input[name="reset-scope"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      resetTargetPseudo.style.display = resetScopeUser.checked ? "block" : "none";
+    });
   });
 
   document.getElementById("balance-rarities-table").addEventListener("click", async (e) => {
@@ -625,16 +650,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("reset-v1-btn").addEventListener("click", resetV1);
 });
 
-// Reinitialisation de fin de beta : double confirmation deliberement lourde
-// (dialogue + saisie exacte du mot-cle) pour une action irreversible et a
-// gros rayon d'action - un simple clic ne doit jamais suffire a la declencher.
+// Reinitialisation de fin de beta (ou d'un seul joueur) : double
+// confirmation deliberement lourde (dialogue + saisie exacte du mot-cle)
+// pour une action irreversible et potentiellement a gros rayon d'action -
+// un simple clic ne doit jamais suffire a la declencher.
 async function resetV1() {
+  const isUserScoped = document.getElementById("reset-scope-user").checked;
+  const targetPseudo = document.getElementById("reset-target-pseudo").value.trim();
+  if (isUserScoped && !targetPseudo) {
+    Toast.error("Indique le pseudo du joueur à réinitialiser.");
+    return;
+  }
+
   const ok = await Confirm.show(
-    "Ceci va <strong>supprimer definitivement</strong> tous les tirages, échanges, " +
-    "quêtes du jour et redemptions de codes, et remettre a zero le solde de boosters/poussières " +
-    "et le compteur de pity de chaque joueur. Les comptes Discord et le catalogue de cartes restent intacts.<br><br>" +
-    "Cette action est irréversible.",
-    { title: "Réinitialiser pour la V1 ?", confirmText: "Continuer", dangerous: true }
+    isUserScoped
+      ? `Ceci va <strong>supprimer definitivement</strong> les tirages, échanges, quêtes et redemptions ` +
+        `de <strong>${targetPseudo}</strong> uniquement, et remettre a zero son solde de boosters/poussières ` +
+        `et son compteur de pity. Les autres joueurs ne sont pas affectés.<br><br>Cette action est irréversible.`
+      : "Ceci va <strong>supprimer definitivement</strong> les tirages, échanges, " +
+        "quêtes et redemptions de codes de <strong>TOUS les joueurs</strong>, et remettre a zero le solde de " +
+        "boosters/poussières et le compteur de pity de chacun. Les comptes Discord et le catalogue de cartes restent intacts.<br><br>" +
+        "Cette action est irréversible.",
+    { title: isUserScoped ? `Réinitialiser ${targetPseudo} ?` : "Réinitialiser pour la V1 ?", confirmText: "Continuer", dangerous: true }
   );
   if (!ok) return;
 
@@ -648,17 +685,18 @@ async function resetV1() {
   btn.disabled = true;
   btn.textContent = "Réinitialisation en cours...";
   try {
-    const res = await API.adminResetV1(Session.discordId, typed);
+    const res = await API.adminResetV1(Session.discordId, typed, isUserScoped ? targetPseudo : undefined);
     const c = res.counts || {};
     Toast.success(
-      `Réinitialisé : ${c.pulls || 0} tirages, ${c.trades || 0} échanges, ${c.quests || 0} quêtes, ` +
+      `Réinitialisé${res.scope === "user" ? " (" + res.targetPseudo + ")" : ""} : ${c.pulls || 0} tirages, ${c.trades || 0} échanges, ` +
+      `${c.quests || 0} quêtes du jour, ${c.weeklyQuests || 0} quêtes de la semaine, ` +
       `${c.redemptions || 0} redemptions, ${c.boosterInventory || 0} compteurs de pity, ` +
-      `${c.users || 0} comptes remis a zéro.`
+      `${c.users || 0} compte(s) remis a zéro.`
     );
   } catch (e) {
-    Toast.error("Échec de la réinitialisation. (" + e.message + ")");
+    Toast.error(e.code === "user_not_found" ? "Pseudo introuvable." : "Échec de la réinitialisation. (" + e.message + ")");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = "&#128465;&#65039; Réinitialiser pour la V1";
+    btn.innerHTML = "&#128465;&#65039; Réinitialiser";
   }
 }

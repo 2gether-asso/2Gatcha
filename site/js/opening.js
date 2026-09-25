@@ -67,6 +67,11 @@ function buildCardEl(card, index, cardBackImageId) {
   const wrap = document.createElement("div");
   wrap.className = "card";
   wrap.dataset.rarity = card.rarity?.key || "commune";
+  // Meme attributs que .collection-card/.card-modal : la carte reveleee doit
+  // montrer le meme traitement visuel marque (bordure/degrade/filtre) qu'une
+  // finition/qualite speciale affichee ailleurs, pas juste un petit badge.
+  wrap.dataset.finish = card.finish || "normal";
+  wrap.dataset.quality = card.quality || "damaged";
 
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;

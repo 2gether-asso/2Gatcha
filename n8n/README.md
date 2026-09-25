@@ -22,7 +22,8 @@ les tables, et un node HTTP Request dedie uniquement pour servir les images
 | `trade.json`               | POST    | `/webhook/trade`             | echanges cibles entre deux joueurs (cartes non-promo uniquement) |
 | `disenchant.json`          | POST    | `/webhook/disenchant`        | detruit un exemplaire d'une carte non-promo contre des poussieres d'etoile |
 | `craft.json`               | POST    | `/webhook/craft`             | depense des poussieres d'etoile pour obtenir une carte non-promo precise |
-| `admin-reset.json`         | POST    | `/webhook/admin-reset`       | **reserve aux admins, irreversible** : supprime tirages/echanges/quetes/redemptions/pity, remet a zero le solde de chaque joueur - a lancer une seule fois, au passage bete -> V1 |
+| `admin-reset.json`         | POST    | `/webhook/admin-reset`       | **reserve aux admins, irreversible** : supprime tirages/echanges/quetes hebdo/quotidiennes/redemptions/inventaire booster/pity - soit pour tout le monde (`targetPseudo` vide), soit pour un seul joueur cible (`targetPseudo` rempli, resolu contre `Users.Pseudo`) |
+| `get-site-banner.json`     | GET     | `/webhook/site-banner`       | endpoint public (sans auth) qui lit `Config.BannerEnabled/BannerType/BannerMessage` pour le bandeau en haut du site |
 
 Ces chemins correspondent a ceux deja configures dans `site/js/config.js`.
 

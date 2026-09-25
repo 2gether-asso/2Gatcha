@@ -899,14 +899,31 @@ function renderHeader() {
     `;
   }
 
-  // Banniere beta : ajoutee en enfant du header (pas un element separe) pour
-  // que sa hauteur soit automatiquement comptee dans --header-h
-  // (syncHeaderOffset) sans code special. A retirer au lancement de la V1.
-  el.insertAdjacentHTML("afterbegin", `
-    <div class="beta-banner">
-      &#128679; <strong>Version bêta</strong> — toutes les données (cartes, boosters, échanges) seront réinitialisées au lancement de la V1.
-    </div>
-  `);
+}
+
+// Banniere du site : configurable depuis admin.html (activee/desactivee,
+// type info/maintenance, message) au lieu d'etre figee dans le code -
+// ajoutee en enfant du header (pas un element separe) pour que sa hauteur
+// soit automatiquement comptee dans --header-h une fois syncHeaderOffset()
+// rappele. Silencieusement absente si l'appel echoue ou si elle est
+// desactivee : jamais bloquant pour le reste de la page.
+async function loadSiteBanner() {
+  const el = document.getElementById("site-header");
+  if (!el) return;
+  try {
+    const res = await API.getSiteBanner();
+    if (!res.enabled || !res.message) return;
+    const isMaintenance = res.type === "maintenance";
+    const icon = isMaintenance ? "&#128679;" : "&#8505;&#65039;";
+    el.insertAdjacentHTML("afterbegin", `
+      <div class="beta-banner ${isMaintenance ? "banner-maintenance" : "banner-info"}">
+        ${icon} ${res.message}
+      </div>
+    `);
+    syncHeaderOffset();
+  } catch (e) {
+    // Purement cosmetique : un echec ne doit jamais empecher la navigation.
+  }
 }
 
 // Detecte un passage de niveau depuis la derniere fois qu'on a affiche le
@@ -1063,6 +1080,7 @@ async function prefetchAllCardImages() {
 document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
   syncHeaderOffset();
+  loadSiteBanner();
   initHeaderShrink();
   initBackToTop();
 

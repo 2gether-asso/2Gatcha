@@ -227,6 +227,15 @@ header#site-header {
   line-height: 1.4;
 }
 .beta-banner strong { color: #fde68a; }
+/* .beta-banner tout court reste le style "maintenance" (ambre, deja utilise
+   pour l'avertissement beta) - .banner-info est une variante plus neutre
+   pour une simple annonce, pas une mise en garde. */
+.beta-banner.banner-info {
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-2) 35%, transparent);
+  color: var(--accent-2);
+}
+.beta-banner.banner-info strong { color: var(--text); }
 
 .header-inner {
   max-width: 1300px;
@@ -1598,6 +1607,16 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 .admin-section.danger-zone { border-color: rgba(251,113,133,0.5); }
 .admin-section.danger-zone summary h2 { color: var(--danger); }
+.reset-scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 14px 0; }
+.reset-scope-row #reset-target-pseudo {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+}
 .admin-section summary {
   list-style: none;
   cursor: pointer;
@@ -2374,19 +2393,66 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
 }
 @keyframes modalPopIn { to { transform: scale(1) translateY(0); } }
-.card-modal .card-art { border-radius: 20px 20px 0 0; }
+/* Accent de rarete a l'echelle de la modale (meme logique que les vignettes
+   de la grille, mais un anneau + halo plus genereux, adaptes a un format
+   4x plus grand qu'une vignette). */
+.card-modal[data-rarity="rare"] { border-color: rgba(59,130,246,0.6); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(59,130,246,0.4), 0 0 30px rgba(59,130,246,0.22); }
+.card-modal[data-rarity="epique"] { border-color: rgba(168,85,247,0.65); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(168,85,247,0.45), 0 0 34px rgba(168,85,247,0.28); }
+.card-modal[data-rarity="legendaire"] { border-color: var(--rarity-legendaire); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(245,165,36,0.5), 0 0 40px rgba(245,165,36,0.32); }
+.card-modal .card-art { border-radius: 20px 20px 0 0; position: relative; }
 .card-modal img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
 .card-modal .card-modal-body { padding: 18px 20px 22px; }
-.card-modal .card-modal-name { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; }
+.card-modal .card-modal-name { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; }
 .card-modal .card-modal-artist { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px; }
+.card-modal-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.card-modal-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
 .card-modal-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .card-modal-description {
   color: var(--text-dim);
   font-size: 0.88rem;
+  font-style: italic;
   line-height: 1.5;
-  margin: 12px 0 0;
+  margin: 14px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--border-soft);
+  background: rgba(255,255,255,0.03);
+  border-radius: 0 8px 8px 0;
   white-space: pre-line;
 }
+/* Fleches de navigation : sur l'image plutot que sur toute la modale, pour
+   rester au bon endroit quelle que soit la hauteur du panneau d'info en
+   dessous - meme cercle "verre depoli" que le bouton de fermeture, pas le
+   style bouton primaire par defaut (voir "button, .btn" plus haut). */
+.card-modal-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(10,10,20,0.55);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: white;
+  font-size: 0.9rem;
+  box-shadow: none;
+  z-index: 2;
+}
+.card-modal-nav:hover { background: rgba(10,10,20,0.8); transform: translateY(-50%) scale(1.06); }
+.card-modal-nav.prev { left: 10px; }
+.card-modal-nav.next { right: 10px; }
+.card-modal-nav::before { content: none; }
 .first-obtainer-badge {
   display: flex;
   align-items: center;
@@ -2403,15 +2469,20 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   position: absolute;
   top: 14px; right: 14px;
   width: 34px; height: 34px;
+  padding: 0;
   border-radius: 50%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(10,10,20,0.55);
+  backdrop-filter: blur(4px);
   color: white;
-  border: none;
+  border: 1px solid rgba(255,255,255,0.22);
   font-size: 1.1rem;
+  box-shadow: none;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  z-index: 1;
+  z-index: 2;
 }
+.card-modal-close:hover { background: rgba(10,10,20,0.8); }
+.card-modal-close::before { content: none; }
 
 /* ========================================================================
    Confirmation stylisee (remplace window.confirm)
@@ -3080,6 +3151,30 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 @keyframes finish-rainbow-shift {
   0% { background-position: 0% 50%; }
   100% { background-position: 100% 50%; }
+}
+
+/* Degrade de fond qui reagit lui aussi a la finition (en plus du filtre sur
+   l'image et du contour ci-dessus), directement SOUS l'image (sur le panneau
+   d'info, pas sur tout le contenant) : reste visible quelle que soit la
+   hauteur totale de la carte (l'image occuperait sinon la quasi-totalite
+   d'un degrade calcule sur tout le contenant). Applique partout ou une carte
+   finie s'affiche (collection, modale, onglet decraft de craft.html, reveal
+   de pack). */
+.collection-card[data-finish]:not([data-finish="normal"]) .card-info,
+.card-modal[data-finish]:not([data-finish="normal"]) .card-modal-body,
+.craft-card[data-finish]:not([data-finish="normal"]) .card-info,
+.card[data-finish]:not([data-finish="normal"]) .card-info {
+  background: linear-gradient(180deg, var(--finish-glow, transparent) 0%, transparent 85%);
+}
+.collection-card[data-finish="holo"], .card-modal[data-finish="holo"], .craft-card[data-finish="holo"], .card[data-finish="holo"] { --finish-glow: rgba(167, 139, 250, 0.45); }
+.collection-card[data-finish="gold"], .card-modal[data-finish="gold"], .craft-card[data-finish="gold"], .card[data-finish="gold"] { --finish-glow: rgba(212, 175, 55, 0.45); }
+.collection-card[data-finish="ghost"], .card-modal[data-finish="ghost"], .craft-card[data-finish="ghost"], .card[data-finish="ghost"] { --finish-glow: rgba(148, 163, 184, 0.45); }
+.collection-card[data-finish="diamond"], .card-modal[data-finish="diamond"], .craft-card[data-finish="diamond"], .card[data-finish="diamond"] { --finish-glow: rgba(125, 211, 252, 0.45); }
+.collection-card[data-finish="rainbow"] .card-info,
+.card-modal[data-finish="rainbow"] .card-modal-body,
+.craft-card[data-finish="rainbow"] .card-info,
+.card[data-finish="rainbow"] .card-info {
+  background: linear-gradient(90deg, rgba(255,110,199,0.35), rgba(255,215,110,0.3), rgba(125,211,252,0.3), rgba(167,139,250,0.35));
 }
 @media (prefers-reduced-motion: reduce) {
   .collection-card[data-finish="rainbow"] .card-art::after,

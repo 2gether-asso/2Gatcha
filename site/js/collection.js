@@ -54,24 +54,31 @@ function applyBinderAccent(hex) {
   }
 }
 
-function bestFinish(finishCounts) {
-  if (!finishCounts) return "normal";
-  for (let i = FINISH_ORDER.length - 1; i >= 0; i--) {
-    if (finishCounts[FINISH_ORDER[i]] > 0) return FINISH_ORDER[i];
-  }
-  return "normal";
-}
-
-// Contrairement a bestFinish (on montre le plus prestigieux), on montre ici
-// le PIRE etat possede : une carte abimee doit se voir et donner envie
-// d'aller la restaurer (onglet Qualite de craft.html), pas rester cachee
-// derriere un exemplaire plus propre du meme doublon.
-function worstQuality(qualityCounts) {
-  if (!qualityCounts) return "mint";
-  for (let i = 0; i < QUALITY_ORDER.length; i++) {
-    if (qualityCounts[QUALITY_ORDER[i]] > 0) return QUALITY_ORDER[i];
-  }
-  return "mint";
+// Regroupe les exemplaires possedes d'une carte par VARIANTE EXACTE
+// (finition + qualite) : une meme carte peut desormais afficher plusieurs
+// vignettes distinctes au lieu d'une seule vignette agregee "meilleure
+// finition / pire qualite" - necessaire pour que le decraft (voir
+// disenchantCardQuick) cible precisement la bonne vignette au lieu de
+// risquer de consommer une variante differente de celle affichee.
+// Triees du MOINS prestigieux au PLUS prestigieux (meme ordre que le
+// decraft automatique cote n8n quand aucune variante n'est precisee) : la
+// 1ere vignette d'une carte est toujours celle qui partirait en premier.
+function buildVariants(owned) {
+  if (!owned || !owned.copies || !owned.copies.length) return [];
+  const map = new Map();
+  owned.copies.forEach((c) => {
+    const finish = c.finish || "normal";
+    const quality = c.quality || "damaged";
+    const key = finish + "::" + quality;
+    if (!map.has(key)) map.set(key, { finish, quality, count: 0, serialNumbers: [] });
+    const v = map.get(key);
+    v.count++;
+    if (c.serialNumber != null) v.serialNumbers.push(c.serialNumber);
+  });
+  return [...map.values()].sort((a, b) =>
+    (FINISH_ORDER.indexOf(a.finish) - FINISH_ORDER.indexOf(b.finish)) ||
+    (QUALITY_ORDER.indexOf(a.quality) - QUALITY_ORDER.indexOf(b.quality))
+  );
 }
 
 // Messages d'erreur dupliques depuis craft.js/trade.js (meme convention que
@@ -220,21 +227,32 @@ function attachTilt(el) {
   // par le doigt, ce qui causait le lag observe sur portable.
 }
 
-// navList = tableau ordonne des cardId actuellement affiches (dans l'ordre
-// visible de la grille) : permet de naviguer a la carte precedente/suivante
-// sans fermer la modale, au clavier (fleches) ou au doigt (swipe).
-function showCardModal(cardId, navList) {
+// navList = tableau ordonne de cles de navigation ("cardId::finish::quality"
+// pour une variante possedee, "cardId::" pour une carte non possedee)
+// actuellement affichees dans l'ordre visible de la grille : permet de
+// naviguer a la vignette precedente/suivante sans fermer la modale, au
+// clavier (fleches) ou au doigt (swipe).
+function parseNavKey(navKey) {
+  const [cardIdStr, finish, quality] = navKey.split("::");
+  return { cardId: Number(cardIdStr), finish: finish || null, quality: quality || null };
+}
+function copiesForVariant(owned, finish, quality) {
+  return (owned?.copies || []).filter((c) => (c.finish || "normal") === finish && (c.quality || "damaged") === quality);
+}
+function showCardModal(navKey, navList) {
   const overlay = document.createElement("div");
   overlay.className = "card-modal-overlay";
   document.body.appendChild(overlay);
 
-  let index = Math.max(0, navList.indexOf(cardId));
+  let index = Math.max(0, navList.indexOf(navKey));
 
   function renderAt(newIndex, direction) {
     index = newIndex;
-    const card = allCardsCache.find((c) => c.cardId === navList[index]);
+    const { cardId, finish: variantFinish, quality: variantQuality } = parseNavKey(navList[index]);
+    const card = allCardsCache.find((c) => c.cardId === cardId);
     if (!card) return;
     const owned = ownedMap.get(card.cardId);
+    const variantCopies = owned ? copiesForVariant(owned, variantFinish || "normal", variantQuality || "damaged") : [];
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
     const color = card.rarity?.colorHex || "#9aa0b4";
     // Actions rapides aussi ici : en vue dense, les boutons ne tiennent pas
@@ -242,24 +260,33 @@ function showCardModal(cardId, navList) {
     // seul chemin pour agir sur une carte dans ce mode.
     const disenchantValue = craftCostByCard.get(card.cardId)?.disenchantValue;
     const isFirstObtainer = card.firstObtainedBy && card.firstObtainedBy === Session.pseudo;
-    const finish = owned ? bestFinish(owned.finishCounts) : "normal";
-    const quality = owned ? worstQuality(owned.qualityCounts) : "mint";
+    const finish = owned ? (variantFinish || "normal") : "normal";
+    const quality = owned ? (variantQuality || "damaged") : "mint";
+    const serials = variantCopies.map((c) => c.serialNumber).filter((n) => n != null).sort((a, b) => a - b);
     overlay.innerHTML = `
       <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
-        ${navList.length > 1 ? `<button class="card-modal-nav prev" aria-label="Carte precedente">&#10094;</button>` : ""}
-        ${navList.length > 1 ? `<button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
-        <div class="card-art"><img src="${imgSrc}" alt="${card.name}" loading="lazy" /></div>
+        <div class="card-art">
+          <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+          ${navList.length > 1 ? `<button class="card-modal-nav prev" aria-label="Carte precedente">&#10094;</button>` : ""}
+          ${navList.length > 1 ? `<button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
+        </div>
         <div class="card-modal-body">
           <div class="card-modal-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
           <div class="card-modal-artist">${card.artist || ""}${card.extension ? " &middot; " + card.extension.name : ""}</div>
-          <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
-            ${card.rarity?.name || "Commune"}
-          </span>
-          ${owned && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;display:inline-flex;margin-left:6px;">${FINISH_LABELS[finish]}</span>` : ""}
-          ${owned && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;display:inline-flex;margin-left:6px;">${QUALITY_LABELS[quality]}</span>` : ""}
-          ${owned ? `<div class="count-badge" style="margin-top:8px;">Possédée x${owned.count}</div>` : ""}
-          ${owned && owned.serialNumbers?.length ? `<div class="serial-badge">${owned.serialNumbers.map((n) => `#${String(n).padStart(3, "0")}`).join(", ")} / ${card.maxSerial || 100}</div>` : ""}
+          <div class="card-modal-badges">
+            <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
+              ${card.rarity?.name || "Commune"}
+            </span>
+            ${owned && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;">${FINISH_LABELS[finish]}</span>` : ""}
+            ${owned && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;">${QUALITY_LABELS[quality]}</span>` : ""}
+          </div>
+          ${owned ? `
+            <div class="card-modal-stats">
+              <span>Possédée &times;${variantCopies.length}</span>
+              ${serials.length ? `<span>${serials.map((n) => `#${String(n).padStart(3, "0")}`).join(", ")} / ${card.maxSerial || 100}</span>` : ""}
+            </div>
+          ` : ""}
           ${card.description ? `<p class="card-modal-description">${card.description}</p>` : ""}
           ${card.firstObtainedBy ? `
             <div class="first-obtainer-badge">
@@ -281,7 +308,7 @@ function showCardModal(cardId, navList) {
     if (prevBtn) prevBtn.addEventListener("click", () => go(-1));
     if (nextBtn) nextBtn.addEventListener("click", () => go(1));
     const modalDisenchantBtn = overlay.querySelector(".modal-disenchant-btn");
-    if (modalDisenchantBtn) modalDisenchantBtn.addEventListener("click", () => { close(); disenchantCardQuick(card.cardId); });
+    if (modalDisenchantBtn) modalDisenchantBtn.addEventListener("click", () => { close(); disenchantCardQuick(card.cardId, finish, quality); });
     const modalTradeBtn = overlay.querySelector(".modal-trade-btn");
     if (modalTradeBtn) modalTradeBtn.addEventListener("click", () => { close(); openQuickTrade(card.cardId); });
     if (finish !== "normal") attachTilt(overlay.querySelector(".card-modal"));
@@ -348,58 +375,82 @@ function renderRarityProgress() {
   }).join("");
 }
 
+// Renvoie un TABLEAU de vignettes HTML : une seule vignette verrouillee pour
+// une carte non possedee, sinon UNE VIGNETTE PAR VARIANTE (finition+qualite)
+// reellement possedee (voir buildVariants) - une meme carte peut donc
+// apparaitre plusieurs fois dans la grille si elle existe en plusieurs
+// variantes distinctes, chacune avec son propre compteur xN et ses propres
+// actions rapides (le decraft d'une vignette cible EXACTEMENT sa variante).
 function cardTileHtml(card, now) {
   const owned = ownedMap.get(card.cardId);
-  const locked = !owned;
-  const isNew = !!(owned && owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(card.cardId));
-  const isFav = favorites.has(card.cardId);
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
-
-  // Carte manquante mais a portee de poussieres : le signaler directement
-  // sur la vignette, avec une action de craft immediate (plus besoin de
-  // changer de page pour la carte la plus courante : combler un trou de
-  // collection depuis la collection elle-meme).
   const info = craftCostByCard.get(card.cardId);
   const craftCost = info?.craftCost;
   const disenchantValue = info?.disenchantValue;
-  const craftable = locked && !card.isPromo && craftCost != null && stardustBalance >= craftCost;
-  const canQuickAct = !locked && !card.isPromo;
-  const inWishlist = locked && wishlistSet.has(card.cardId);
-  const inShowcase = !locked && showcaseSet.has(card.cardId);
-  const finish = owned ? bestFinish(owned.finishCounts) : "normal";
-  const quality = owned ? worstQuality(owned.qualityCounts) : "mint";
-  const bulkEligible = canQuickAct && disenchantValue != null;
-  const bulkChecked = bulkEligible && bulkSelected.has(card.cardId);
 
-  return `
-    <div class="collection-card ${locked ? "locked" : ""} ${bulkSelectMode && bulkEligible ? "bulk-mode" : ""} ${bulkChecked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="${!locked && card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}" ${!locked ? 'tabindex="0" role="button" aria-label="Voir la carte ' + card.name.replace(/"/g, "&quot;") + '"' : ""}>
-      ${isNew ? '<span class="new-badge">New</span>' : ""}
-      ${bulkSelectMode && bulkEligible ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${bulkChecked ? "checked" : ""} /></label>` : ""}
-      ${!locked && !(bulkSelectMode && bulkEligible) ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
-      ${locked ? `<button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>` : ""}
-      <div class="card-art">
-        <img src="${imgSrc}" alt="${locked ? "Carte non découverte" : card.name}" loading="lazy" />
-        ${!locked && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
-        ${!locked && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+  if (!owned) {
+    // Carte manquante mais a portee de poussieres : le signaler directement
+    // sur la vignette, avec une action de craft immediate (plus besoin de
+    // changer de page pour la carte la plus courante : combler un trou de
+    // collection depuis la collection elle-meme).
+    const craftable = !card.isPromo && craftCost != null && stardustBalance >= craftCost;
+    const inWishlist = wishlistSet.has(card.cardId);
+    return [`
+      <div class="collection-card locked" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="0" data-finish="normal" data-quality="mint">
+        <button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>
+        <div class="card-art">
+          <img src="${imgSrc}" alt="Carte non découverte" loading="lazy" />
+        </div>
+        <div class="card-info">
+          <div class="card-name">???</div>
+          <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
+            ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
+          </span>
+          ${craftable ? `<button type="button" class="card-quick-action quick-craft-btn" data-card-id="${card.cardId}">&#10024; Crafter (${craftCost})</button>` : ""}
+        </div>
       </div>
-      <div class="card-info">
-        <div class="card-name">${locked ? "???" : card.name}${!locked && card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
-        <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
-          ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
-        </span>
-        ${owned ? `<div class="count-badge">x${owned.count}</div>` : ""}
-        ${craftable ? `<button type="button" class="card-quick-action quick-craft-btn" data-card-id="${card.cardId}">&#10024; Crafter (${craftCost})</button>` : ""}
-        ${canQuickAct ? `
-          <div class="quick-actions-row">
-            ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" title="Décrafter contre ${disenchantValue} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
-            <button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>
-            <button type="button" class="card-quick-action quick-showcase-btn ${inShowcase ? "active" : ""}" data-card-id="${card.cardId}" title="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}" aria-label="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}">&#128444;</button>
-          </div>
-        ` : ""}
+    `];
+  }
+
+  const isFav = favorites.has(card.cardId);
+  const inShowcase = showcaseSet.has(card.cardId);
+  const canQuickAct = !card.isPromo;
+  const bulkEligible = canQuickAct && disenchantValue != null;
+  const isNew = !!(owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(card.cardId));
+  const variants = buildVariants(owned);
+
+  return variants.map((variant, i) => {
+    const { finish, quality, count } = variant;
+    const navKey = `${card.cardId}::${finish}::${quality}`;
+    const bulkChecked = bulkEligible && bulkSelected.has(navKey);
+    return `
+      <div class="collection-card ${bulkSelectMode && bulkEligible ? "bulk-mode" : ""} ${bulkChecked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}" tabindex="0" role="button" aria-label="Voir la carte ${card.name.replace(/"/g, "&quot;")}">
+        ${isNew && i === 0 ? '<span class="new-badge">New</span>' : ""}
+        ${bulkSelectMode && bulkEligible ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-key="${navKey}" ${bulkChecked ? "checked" : ""} /></label>` : ""}
+        ${!(bulkSelectMode && bulkEligible) ? `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>` : ""}
+        <div class="card-art">
+          <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+          ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
+          ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+        </div>
+        <div class="card-info">
+          <div class="card-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
+          <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
+            ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
+          </span>
+          <div class="count-badge">x${count}</div>
+          ${canQuickAct ? `
+            <div class="quick-actions-row">
+              ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" data-finish="${finish}" data-quality="${quality}" title="Décrafter contre ${disenchantValue} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
+              <button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>
+              <button type="button" class="card-quick-action quick-showcase-btn ${inShowcase ? "active" : ""}" data-card-id="${card.cardId}" title="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}" aria-label="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}">&#128444;</button>
+            </div>
+          ` : ""}
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  });
 }
 
 // Actions rapides directement depuis la collection : eviter d'avoir a
@@ -431,23 +482,35 @@ async function craftCardQuick(cardId) {
   }
 }
 
-async function disenchantCardQuick(cardId, btn) {
+// finish/quality (optionnels) : precisent EXACTEMENT quelle variante
+// decrafter (vignette cliquee), pour ne jamais consommer une variante
+// differente de celle affichee - voir disenchant.json "Validate & Prepare".
+// Sans ces parametres (appel depuis un contexte ne connaissant pas la
+// variante), le backend retombe sur son choix par defaut (le moins
+// prestigieux en premier).
+async function disenchantCardQuick(cardId, finish, quality, btn) {
   const card = allCardsCache.find((c) => c.cardId === cardId);
   const info = craftCostByCard.get(cardId);
   const dust = info?.disenchantValue || 0;
+  const variantLabel = finish && finish !== "normal" ? ` (${FINISH_LABELS[finish]}${quality && quality !== "mint" ? ", " + QUALITY_LABELS[quality] : ""})` : "";
   const ok = await Confirm.show(
-    `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
+    `Décrafter <strong>${card?.name || "cette carte"}${variantLabel}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
     `Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
     { title: "Décrafter cette carte ?", confirmText: "Décrafter", dangerous: true }
   );
   if (!ok) return;
   try {
-    const res = await API.disenchantCard(Session.userId, cardId);
+    const res = await API.disenchantCard(Session.userId, cardId, finish, quality);
     Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
     await playDustDissolve(btn ? btn.closest(".collection-card") : null);
     stardustBalance = res.newStardust ?? (stardustBalance + dust);
     const owned = ownedMap.get(cardId);
     if (owned) {
+      const consumedFinish = res.finish || finish || "normal";
+      const consumedQuality = res.quality || quality || "damaged";
+      const copies = owned.copies || [];
+      const idx = copies.findIndex((c) => (c.finish || "normal") === consumedFinish && (c.quality || "damaged") === consumedQuality);
+      if (idx !== -1) copies.splice(idx, 1);
       if (owned.count > 1) owned.count--;
       else ownedMap.delete(cardId);
     }
@@ -742,7 +805,7 @@ function renderGrid() {
             <span class="ext-heading-count">${ownedCount}/${total}</span>
           </h2>
         ` : ""}
-        <div class="collection-grid ${isDense ? "dense" : ""}">${group.cards.map((c) => cardTileHtml(c, now)).join("")}</div>
+        <div class="collection-grid ${isDense ? "dense" : ""}">${group.cards.flatMap((c) => cardTileHtml(c, now)).join("")}</div>
       </div>
     `;
   }).join("");
@@ -758,22 +821,21 @@ function renderGrid() {
     });
   });
 
-  const visibleOwnedIds = [...container.querySelectorAll(".collection-card:not(.locked)")].map((el) => Number(el.dataset.cardId));
+  const visibleNavKeys = [...container.querySelectorAll(".collection-card:not(.locked)")].map((el) => el.dataset.navKey);
   container.querySelectorAll(".collection-card:not(.locked)").forEach((el) => {
     attachTilt(el);
     el.addEventListener("click", (e) => {
       if (e.target.closest(".fav-btn, .card-quick-action")) return;
-      const cardId = Number(el.dataset.cardId);
       // En mode selection multiple, un clic n'importe ou sur la vignette
       // (pas seulement sur la case) bascule la selection au lieu d'ouvrir
       // la modale - plus pratique pour selectionner beaucoup de cartes vite.
       if (bulkSelectMode && el.classList.contains("bulk-mode")) {
         if (e.target.closest(".bulk-checkbox")) return;
-        const cb = el.querySelector("[data-bulk-id]");
+        const cb = el.querySelector("[data-bulk-key]");
         if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event("change")); }
         return;
       }
-      showCardModal(cardId, visibleOwnedIds);
+      showCardModal(el.dataset.navKey, visibleNavKeys);
     });
     // Cartes cliquables au clavier (tabindex+role="button" poses dans
     // cardTileHtml) : Entree/Espace equivalent au clic, pour ne pas
@@ -781,7 +843,7 @@ function renderGrid() {
     el.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
-      showCardModal(Number(el.dataset.cardId), visibleOwnedIds);
+      showCardModal(el.dataset.navKey, visibleNavKeys);
     });
   });
 
@@ -804,7 +866,7 @@ function renderGrid() {
     btn.addEventListener("click", (e) => { e.stopPropagation(); craftCardQuick(Number(btn.dataset.cardId)); });
   });
   container.querySelectorAll(".quick-disenchant-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => { e.stopPropagation(); disenchantCardQuick(Number(btn.dataset.cardId), btn); });
+    btn.addEventListener("click", (e) => { e.stopPropagation(); disenchantCardQuick(Number(btn.dataset.cardId), btn.dataset.finish, btn.dataset.quality, btn); });
   });
   container.querySelectorAll(".quick-trade-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); openQuickTrade(Number(btn.dataset.cardId)); });
@@ -812,11 +874,11 @@ function renderGrid() {
   container.querySelectorAll(".quick-showcase-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); toggleShowcase(Number(btn.dataset.cardId), btn); });
   });
-  container.querySelectorAll("[data-bulk-id]").forEach((cb) => {
+  container.querySelectorAll("[data-bulk-key]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
       e.stopPropagation();
-      const id = Number(cb.dataset.bulkId);
-      if (e.target.checked) bulkSelected.add(id); else bulkSelected.delete(id);
+      const key = cb.dataset.bulkKey;
+      if (e.target.checked) bulkSelected.add(key); else bulkSelected.delete(key);
       cb.closest(".collection-card").classList.toggle("selected", e.target.checked);
       updateBulkBar();
     });
@@ -832,33 +894,39 @@ function updateBulkBar() {
     bar.style.display = "none";
     return;
   }
-  const dust = [...bulkSelected].reduce((sum, id) => sum + (craftCostByCard.get(id)?.disenchantValue || 0), 0);
+  const dust = [...bulkSelected].reduce((sum, key) => sum + (craftCostByCard.get(parseNavKey(key).cardId)?.disenchantValue || 0), 0);
   bar.style.display = "flex";
   document.getElementById("bulk-disenchant-summary").textContent =
     `${bulkSelected.size} carte${bulkSelected.size > 1 ? "s" : ""} sélectionnée${bulkSelected.size > 1 ? "s" : ""} · +${dust} poussières`;
 }
 
 async function bulkDisenchant() {
-  const ids = [...bulkSelected];
-  if (!ids.length) return;
-  const minDust = ids.reduce((sum, id) => sum + (craftCostByCard.get(id)?.disenchantValue || 0), 0);
+  const keys = [...bulkSelected];
+  if (!keys.length) return;
+  const minDust = keys.reduce((sum, key) => sum + (craftCostByCard.get(parseNavKey(key).cardId)?.disenchantValue || 0), 0);
   const ok = await Confirm.show(
-    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>au moins +${minDust} poussières d'étoile</strong> (plus si des finitions spéciales sont consommées) ? ` +
-    `Un seul exemplaire de chaque carte sera détruit. Cette action est irréversible.`,
+    `Décrafter ces <strong>${keys.length} cartes</strong> pour <strong>au moins +${minDust} poussières d'étoile</strong> (plus si des finitions spéciales sont consommées) ? ` +
+    `Un seul exemplaire de chaque variante sélectionnée sera détruit. Cette action est irréversible.`,
     { title: "Décrafter la sélection ?", confirmText: "Décrafter tout", dangerous: true }
   );
   if (!ok) return;
   let successCount = 0;
   let totalDustGained = 0;
-  for (const id of ids) {
+  for (const key of keys) {
+    const { cardId, finish, quality } = parseNavKey(key);
     try {
-      const res = await API.disenchantCard(Session.userId, id);
+      const res = await API.disenchantCard(Session.userId, cardId, finish, quality);
       totalDustGained += res.dustGained || 0;
       successCount++;
-      const owned = ownedMap.get(id);
+      const owned = ownedMap.get(cardId);
       if (owned) {
+        const consumedFinish = res.finish || finish || "normal";
+        const consumedQuality = res.quality || quality || "damaged";
+        const copies = owned.copies || [];
+        const idx = copies.findIndex((c) => (c.finish || "normal") === consumedFinish && (c.quality || "damaged") === consumedQuality);
+        if (idx !== -1) copies.splice(idx, 1);
         if (owned.count > 1) owned.count--;
-        else ownedMap.delete(id);
+        else ownedMap.delete(cardId);
       }
     } catch (e) { /* on continue avec les suivantes */ }
   }

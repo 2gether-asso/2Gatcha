@@ -55,6 +55,19 @@ const QUALITY_LABELS = {
   mint: "Parfait état"
 };
 
+// La vignette de decraft agrege tous les exemplaires d'une carte (contrairement
+// a la collection, qui affiche desormais une pile distincte par variante) :
+// elle doit donc montrer la variante que le decraft consommera VRAIMENT en
+// premier si aucune variante n'est precisee (voir disenchant.json), c'est a
+// dire la moins prestigieuse - finition la plus basse en priorite, qualite la
+// plus basse ensuite.
+function worstFinish(finishCounts) {
+  if (!finishCounts) return "normal";
+  for (let i = 0; i < FINISH_ORDER.length; i++) {
+    if (finishCounts[FINISH_ORDER[i]] > 0) return FINISH_ORDER[i];
+  }
+  return "normal";
+}
 // Le pire etat possede en priorite (comme collection.js) : une vignette de
 // decraft doit signaler une carte abimee, pas la cacher derriere un
 // exemplaire plus propre du meme doublon.
@@ -479,11 +492,13 @@ function craftCardTile(card, mode) {
     const qty = Math.min(Math.max(disenchantQty.get(card.cardId) || 1, 1), maxQty);
     const showStepper = !bulkSelectMode && maxQty > 1;
     const quality = worstQuality(owned?.qualityCounts);
+    const finish = worstFinish(owned?.finishCounts);
     return `
-      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-quality="${quality}">
+      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
         ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
         <div class="card-art">
           <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+          ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
           ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
         </div>
         <div class="card-info">

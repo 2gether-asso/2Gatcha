@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (meme liste que admin-codes.json).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  isAdmin: adminDiscordIds.includes(discordId),\n  confirm: (body.confirm || '').toString()\n} }];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist + ID(s) Discord autorises\n// a administrer les codes (meme liste que admin-codes.json).\nconst body = $input.first().json.body || {};\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordId = (body.discordId || '').toString();\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  isAdmin: adminDiscordIds.includes(discordId),\n  confirm: (body.confirm || '').toString(),\n  targetPseudo: (body.targetPseudo || '').toString().trim()\n} }];\n"
       }
     },
     {
@@ -391,7 +391,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst trades = $('Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst quests = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptions = $('Get Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\nconst inventory = $('Get Booster Inventory').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsWithFirst = cards.filter((c) => !!refId(c.FirstObtainedBy) || !!c.FirstObtainedAt);\n\nreturn [{ json: {\n  docId: cfg.docId,\n  pullIds: pulls.map((p) => p.id),\n  tradeIds: trades.map((t) => t.id),\n  questIds: quests.map((q) => q.id),\n  redemptionIds: redemptions.map((r) => r.id),\n  inventoryIds: inventory.map((r) => r.id),\n  userIds: users.map((u) => u.id),\n  cardIdsToReset: cardsWithFirst.map((c) => c.id),\n  counts: {\n    pulls: pulls.length,\n    trades: trades.length,\n    quests: quests.length,\n    redemptions: redemptions.length,\n    boosterInventory: inventory.length,\n    users: users.length,\n    cardsReset: cardsWithFirst.length\n  }\n} }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst trades = $('Get Trades').all().map((i) => i.json).filter((r) => r.id != null);\nconst quests = $('Get Daily Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst weeklyQuests = $('Get Weekly Quests').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptions = $('Get Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\nconst inventory = $('Get Booster Inventory').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\n// Reinitialisation ciblee sur UN joueur (pseudo donne) plutot que tout le\n// monde : meme plan de suppression, juste filtre sur ce seul userId. Pseudo\n// introuvable -> erreur explicite plutot qu'un reset silencieux de personne.\nlet targetUserId = null;\nif (cfg.targetPseudo) {\n  const target = users.find((u) => (u.Pseudo || '').toLowerCase() === cfg.targetPseudo.toLowerCase());\n  if (!target) throw new Error('user_not_found');\n  targetUserId = target.id;\n}\nconst scoped = targetUserId != null;\n\nconst scopedPulls = scoped ? pulls.filter((p) => refId(p.User) === targetUserId) : pulls;\nconst scopedTrades = scoped ? trades.filter((t) => refId(t.FromUser) === targetUserId || refId(t.ToUser) === targetUserId) : trades;\nconst scopedQuests = scoped ? quests.filter((q) => refId(q.User) === targetUserId) : quests;\nconst scopedWeeklyQuests = scoped ? weeklyQuests.filter((q) => refId(q.User) === targetUserId) : weeklyQuests;\nconst scopedRedemptions = scoped ? redemptions.filter((r) => refId(r.User) === targetUserId) : redemptions;\nconst scopedInventory = scoped ? inventory.filter((r) => refId(r.User) === targetUserId) : inventory;\nconst scopedUsers = scoped ? users.filter((u) => u.id === targetUserId) : users;\n// Une carte dont CE joueur etait le premier obtenteur perd ce statut si on\n// efface ses tirages - mais on ne touche pas au FirstObtainedBy des autres.\nconst cardsWithFirst = cards.filter((c) => !!refId(c.FirstObtainedBy) || !!c.FirstObtainedAt);\nconst scopedCards = scoped ? cardsWithFirst.filter((c) => refId(c.FirstObtainedBy) === targetUserId) : cardsWithFirst;\n\nreturn [{ json: {\n  docId: cfg.docId,\n  scope: scoped ? 'user' : 'all',\n  targetPseudo: scoped ? cfg.targetPseudo : null,\n  pullIds: scopedPulls.map((p) => p.id),\n  tradeIds: scopedTrades.map((t) => t.id),\n  questIds: scopedQuests.map((q) => q.id),\n  weeklyQuestIds: scopedWeeklyQuests.map((q) => q.id),\n  redemptionIds: scopedRedemptions.map((r) => r.id),\n  inventoryIds: scopedInventory.map((r) => r.id),\n  userIds: scopedUsers.map((u) => u.id),\n  cardIdsToReset: scopedCards.map((c) => c.id),\n  counts: {\n    pulls: scopedPulls.length,\n    trades: scopedTrades.length,\n    quests: scopedQuests.length,\n    weeklyQuests: scopedWeeklyQuests.length,\n    redemptions: scopedRedemptions.length,\n    boosterInventory: scopedInventory.length,\n    users: scopedUsers.length,\n    cardsReset: scopedCards.length\n  }\n} }];\n"
       }
     },
     {
@@ -405,7 +405,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn [{ json: { reset: true, counts: plan.counts } }];"
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn [{ json: { reset: true, scope: plan.scope, targetPseudo: plan.targetPseudo, counts: plan.counts } }];\n"
       }
     },
     {
@@ -704,6 +704,80 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "barrier-dailyquests-weeklyquests",
+      "name": "Sync Get Daily Quests -> Get Weekly Quests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -770,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-weekly-quests-reset",
+      "name": "Get Weekly Quests",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -680,
+        340
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "WeeklyQuests",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "expand-weeklyquests-to-delete",
+      "name": "Expand Weekly Quests To Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -820,
+        760
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const plan = $('Build Reset Plan').first().json;\nreturn (plan.weeklyQuestIds || []).map((id) => ({ json: { docId: plan.docId, rowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-weekly-quest",
+      "name": "Delete Weekly Quest",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        760
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "WeeklyQuests",
+        "rowId": "={{ $json.rowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -813,7 +887,7 @@
       "main": [
         [
           {
-            "node": "Sync Get Daily Quests -> Get Code Redemptions",
+            "node": "Sync Get Daily Quests -> Get Weekly Quests",
             "type": "main",
             "index": 0
           }
@@ -950,6 +1024,11 @@
             "node": "Expand Cards To Reset",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Expand Weekly Quests To Delete",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1036,6 +1115,39 @@
         [
           {
             "node": "Reset Card First Obtained",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Daily Quests -> Get Weekly Quests": {
+      "main": [
+        [
+          {
+            "node": "Get Weekly Quests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weekly Quests": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Daily Quests -> Get Code Redemptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Weekly Quests To Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Weekly Quest",
             "type": "main",
             "index": 0
           }

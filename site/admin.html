@@ -274,18 +274,58 @@
           </div>
         </details>
 
+        <details class="admin-section">
+          <summary><h2>&#128226; Bandeau du site</h2></summary>
+          <div class="admin-section-body">
+            <p class="lead" style="font-size:0.85rem;">
+              Message affiché en haut de toutes les pages (comme l'avertissement
+              bêta actuel). Vide et désactivé par défaut - remplis un message et
+              active-le pour l'afficher, aucun redéploiement nécessaire.
+            </p>
+            <form id="banner-form" class="admin-form">
+              <label class="checkbox-inline" style="align-self:end;">
+                <input type="checkbox" id="banner-enabled-input" />
+                Afficher le bandeau
+              </label>
+              <label>
+                Type
+                <select id="banner-type-select">
+                  <option value="info">Info (bleu, neutre)</option>
+                  <option value="maintenance">Maintenance (ambre, alerte)</option>
+                </select>
+              </label>
+              <label style="grid-column:1/-1;">
+                Message
+                <input type="text" id="banner-message-input" maxlength="200" placeholder="ex: Maintenance prévue ce soir de 22h à 23h." />
+              </label>
+              <button type="submit">Enregistrer le bandeau</button>
+            </form>
+          </div>
+        </details>
+
         <details class="admin-section danger-zone">
           <summary><h2>&#9888;&#65039; Zone dangereuse</h2></summary>
           <div class="admin-section-body">
             <p class="lead" style="font-size:0.85rem;">
-              Réinitialisation de fin de bêta : supprime définitivement tous les
-              tirages, échanges, quêtes du jour et redemptions de codes, et remet
-              à zéro le solde de boosters/poussières et le compteur de pity de
-              chaque joueur. Les comptes Discord, le catalogue de cartes et les
-              codes événement existants ne sont pas touchés.
+              Réinitialisation de fin de bêta : supprime définitivement les
+              tirages, échanges, quêtes (jour et semaine) et redemptions de codes,
+              et remet à zéro le solde de boosters/poussières et le compteur de
+              pity. Les comptes Discord, le catalogue de cartes et les codes
+              événement existants ne sont pas touchés.
               <strong>Action irréversible.</strong>
             </p>
-            <button type="button" class="btn-danger" id="reset-v1-btn">&#128465;&#65039; Réinitialiser pour la V1</button>
+            <div class="reset-scope-row">
+              <label class="checkbox-inline">
+                <input type="radio" name="reset-scope" id="reset-scope-all" value="all" checked />
+                Tout le monde
+              </label>
+              <label class="checkbox-inline">
+                <input type="radio" name="reset-scope" id="reset-scope-user" value="user" />
+                Un joueur précis
+              </label>
+              <input type="text" id="reset-target-pseudo" placeholder="Pseudo du joueur" style="display:none;" />
+            </div>
+            <button type="button" class="btn-danger" id="reset-v1-btn">&#128465;&#65039; Réinitialiser</button>
           </div>
         </details>
 

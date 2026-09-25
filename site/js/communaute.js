@@ -13,6 +13,7 @@ const CHEST_ERRORS = {
   promo_not_donatable: "Cette carte promo ne peut pas être donnée.",
   card_not_owned: "Tu ne possèdes pas cette carte.",
   already_drawn_today: "Tu as déjà pioché aujourd'hui, reviens demain.",
+  already_deposited_today: "Tu as déjà déposé une carte aujourd'hui, reviens demain.",
   chest_empty: "Le coffre est vide pour l'instant, reviens plus tard."
 };
 const MARKET_ERRORS = {
@@ -29,6 +30,7 @@ let ownedMap = new Map();
 let activeTab = "calendar";
 let bossSearchQuery = "";
 let chestSearchQuery = "";
+let chestAlreadyDepositedToday = false;
 
 function normalize(str) {
   return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -177,6 +179,10 @@ async function loadChest() {
     } else {
       drawBtn.style.display = res.poolSize > 0 ? "inline-flex" : "none";
     }
+    chestAlreadyDepositedToday = !!res.alreadyDepositedToday;
+    document.getElementById("chest-deposit-limit-msg").style.display = chestAlreadyDepositedToday ? "block" : "none";
+    document.getElementById("chest-card-grid").style.display = chestAlreadyDepositedToday ? "none" : "";
+    document.getElementById("chest-search-input").style.display = chestAlreadyDepositedToday ? "none" : "";
     renderChestGrid();
   } catch (e) {
     Toast.error("Impossible de charger le coffre.");

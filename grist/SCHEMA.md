@@ -86,35 +86,41 @@ d'evenement, ni a l'autel.
 
 ## Qualities
 
-**Nouvelle table.** Exact miroir de `Finishes`, mais pour l'etat physique de
-la carte (voir "Restauration de cartes usees" plus bas) - meme mecanique de
-tirage a deux niveaux, meme influence sur le decraft, juste une echelle
-differente (`damaged` joue le role de `normal` : le tirage naturel majoritaire).
+**Nouvelle table.** Contrairement a `Finishes` (tirage a DEUX niveaux : 90%
+`normal` fixe, puis un second tirage pondere parmi les speciales), Qualities
+utilise un tirage a **UN SEUL niveau, pondere sur les 4 paliers** - il n'y a
+pas de palier "par defaut" fixe cote code, c'est la repartition des
+`DropWeight` qui decide. La configuration suggeree ci-dessous fait de
+`good` le palier dominant (la plupart des cartes sortent en "Bon etat"),
+avec une chance de mieux tomber (`mint`) et un risque de moins bien tomber
+(`worn`/`damaged`) - a l'inverse de l'ancienne version ou `damaged` etait
+le palier dominant.
 
 | Colonne              | Type    | Notes                                                     |
 |-----------------------|---------|-------------------------------------------------------------|
 | Key                   | Text    | `damaged`, `worn`, `good`, `mint` (meme echelle que `Pulls.Quality`) |
 | Name                  | Text    | libelle affiche, ex "Usé"                                    |
-| DropWeight            | Numeric | poids relatif **parmi worn/good/mint uniquement** (ignore pour `damaged`) |
+| DropWeight            | Numeric | poids relatif de tirage **sur les 4 paliers cette fois (y compris `damaged`)** |
 | DisenchantMultiplier  | Numeric | multiplie `Rarities.DisenchantValue` (et se cumule avec `Finishes.DisenchantMultiplier` si l'exemplaire a aussi une finition speciale) quand on decrafte un exemplaire de cette qualite (`damaged` = 1) |
 
-Valeurs de depart suggerees, ajustables directement dans Grist OU depuis
-`admin.html` (section "Équilibrage du jeu", tableau "Qualités") via
-`admin-config.json` (action `updateQuality`) :
+Valeurs de depart suggerees (`good` largement majoritaire), ajustables
+directement dans Grist OU depuis `admin.html` (section "Équilibrage du
+jeu", tableau "Qualités") via `admin-config.json` (action `updateQuality`) :
 
 | Key      | Name          | DropWeight | DisenchantMultiplier |
 |----------|---------------|------------|------------------------|
-| damaged  | Abîmé         | -          | 1                      |
-| worn     | Usé           | 60         | 1.2                    |
-| good     | Bon état      | 30         | 1.5                    |
+| damaged  | Abîmé         | 8          | 1                      |
+| worn     | Usé           | 17         | 1.2                    |
+| good     | Bon état      | 65         | 1.5                    |
 | mint     | Parfait état  | 10         | 2                      |
 
-**Tirage a deux niveaux** (`open-pack.json`, fonction `rollQuality()` dans le
-node `Draw Cards`) : exactement le meme mecanisme que `rollFinish()`
-ci-dessus, avec sa propre chance fixe de 10% et ses propres poids. Ce
-tirage ne s'applique qu'aux boosters reels, pas a `craft.json`/codes/autel/
-restauration (qui produisent toujours `damaged`, coherent avec `Finish` qui
-y reste toujours `normal`).
+**Tirage** (`open-pack.json`, fonction `rollQuality()` dans le node `Draw
+Cards`) : un seul tirage pondere sur les 4 lignes de `Qualities` dont le
+`DropWeight` est renseigne (retombe sur `good` si la table est vide/mal
+configuree). Ce tirage ne s'applique qu'aux boosters reels, pas a
+`craft.json`/codes/autel/restauration (qui produisent toujours `damaged`
+par omission du champ, coherent avec `Finish` qui y reste toujours
+`normal`).
 
 ## 2. Extensions
 
@@ -298,11 +304,28 @@ du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
 | WeeklyQuestRewardBoosters    | Numeric                | **nouvelle colonne** - defaut 5 si vide ; boosters gagnes en completant les quetes de la semaine |
 | WeeklyQuestTarget            | Numeric                | **nouvelle colonne** - defaut 5 si vide ; occurrences requises par quete de la semaine (ex: 5 connexions) |
 | QualityRepairCost            | Numeric                | **nouvelle colonne** - defaut 3 si vide ; nombre d'exemplaires identiques requis par palier de restauration de qualite (voir "Restauration de cartes usees" plus bas) |
+| BannerEnabled                | Bool                    | **nouvelle colonne** - defaut false/vide ; affiche ou non le bandeau du site (voir "Bandeau du site" plus bas) |
+| BannerType                   | Text                    | **nouvelle colonne** - `info` ou `maintenance` (defaut `info` si vide) ; change juste la couleur/l'icone cote front |
+| BannerMessage                | Text                    | **nouvelle colonne** - texte affiche dans le bandeau ; bandeau invisible si vide meme si `BannerEnabled` est coche |
 
 Toutes les colonnes `Numeric` ci-dessus tolerent une cellule vide dans Grist
 (chaque workflow qui les lit retombe sur la valeur par defaut listee) - pas
 besoin de remplir la ligne existante avant de deployer, seulement d'ajouter
 les colonnes.
+
+## Bandeau du site
+
+Remplace l'ancien bandeau "Version bêta" fige en dur dans `main.js` : lu
+depuis `Config` (voir ci-dessus), editable dans `admin.html` (section
+"Bandeau du site") via `admin-config.json` (memes actions `get`/`set` que le
+reste de l'equilibrage - pas un workflow separe pour l'edition). **Une seule
+petite difference** : la LECTURE publique (executee sur CHAQUE page, par
+tous les visiteurs y compris non connectes) passe par un workflow dedie et
+tres leger, `get-site-banner.json` (GET `/site-banner`, sans authentification
+- ne renvoie que `{ enabled, type, message }`, jamais le reste de `Config`)
+plutot que par `admin-config.json` qui est gate admin. `main.js`
+(`loadSiteBanner()`) l'appelle a chaque chargement de page et insere le
+bandeau seulement si `enabled` est vrai ET `message` non vide.
 
 ## 7. EventCodes
 

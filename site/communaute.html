@@ -68,10 +68,11 @@
             <span class="wheel-icon" aria-hidden="true">&#127873;</span>
             <div class="wheel-status">
               <div id="chest-status-text">Chargement...</div>
-              <button type="button" class="btn" id="chest-draw-btn" style="display:none;">Piocher aujourd'hui</button>
+              <button type="button" class="btn" id="chest-draw-btn" style="display:none;">Piocher une carte</button>
             </div>
           </div>
-          <p class="lead" style="font-size:0.85rem;margin-top:16px;">Donne un doublon non-promo au pot commun, ou pioche-en un au hasard (une fois par jour).</p>
+          <p class="lead" style="font-size:0.85rem;margin-top:16px;">Donne un doublon non-promo au pot commun, ou pioche-en un au hasard - chaque action est limitée à une fois par jour.</p>
+          <div id="chest-deposit-limit-msg" class="empty-state" style="display:none;">Tu as déjà déposé une carte aujourd'hui, reviens demain.</div>
           <div class="craft-toolbar">
             <input type="text" id="chest-search-input" placeholder="Rechercher une carte à déposer..." autocomplete="off" aria-label="Rechercher une carte" />
           </div>
