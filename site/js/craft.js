@@ -79,6 +79,18 @@ function worstQuality(qualityCounts) {
   return "mint";
 }
 
+// { finishKey: multiplier } / { qualityKey: multiplier }, renvoyes par
+// get-cards.json - le vrai montant applique par disenchant.json est TOUJOURS
+// la valeur de base de la rarete multipliee par ces deux facteurs (voir meme
+// commentaire dans collection.js).
+let finishMultipliers = {};
+let qualityMultipliers = {};
+function estimateDust(baseValue, finish, quality) {
+  const fm = finishMultipliers[finish] != null ? finishMultipliers[finish] : 1;
+  const qm = qualityMultipliers[quality] != null ? qualityMultipliers[quality] : 1;
+  return Math.round((baseValue || 0) * fm * qm);
+}
+
 let stardust = 0;
 let ownedMap = new Map();
 let allCards = [];
@@ -486,13 +498,17 @@ function craftCardTile(card, mode) {
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   if (mode === "disenchant") {
     const owned = ownedMap.get(card.cardId);
-    const dust = card.rarity?.disenchantValue || 0;
     const checked = bulkSelected.has(card.cardId);
     const maxQty = owned?.count || 1;
     const qty = Math.min(Math.max(disenchantQty.get(card.cardId) || 1, 1), maxQty);
     const showStepper = !bulkSelectMode && maxQty > 1;
     const quality = worstQuality(owned?.qualityCounts);
     const finish = worstFinish(owned?.finishCounts);
+    // Montant exact pour LE PROCHAIN exemplaire decrafte (le moins prestigieux
+    // possede, voir worstFinish/worstQuality) - au-dela de qty=1, un decraft
+    // en masse peut ensuite entamer une variante plus prestigieuse, d'ou le
+    // "au moins" dans la confirmation (disenchant()) plutot qu'un total exact.
+    const dust = estimateDust(card.rarity?.disenchantValue || 0, finish, quality);
     return `
       <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
         ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
@@ -640,9 +656,12 @@ function updateBulkBar() {
     bar.style.display = "none";
     return;
   }
+  // Le decraft en masse ne consomme qu'UN SEUL exemplaire par carte (le
+  // moins prestigieux possede) : le total est donc calculable exactement.
   const dust = [...bulkSelected].reduce((sum, id) => {
     const card = allCards.find((c) => c.cardId === id);
-    return sum + (card?.rarity?.disenchantValue || 0);
+    const owned = ownedMap.get(id);
+    return sum + estimateDust(card?.rarity?.disenchantValue || 0, worstFinish(owned?.finishCounts), worstQuality(owned?.qualityCounts));
   }, 0);
   bar.style.display = "flex";
   document.getElementById("bulk-disenchant-summary").textContent =
@@ -652,10 +671,14 @@ function updateBulkBar() {
 async function bulkDisenchant() {
   const ids = [...bulkSelected];
   if (!ids.length) return;
-  const minDust = ids.reduce((sum, id) => sum + (allCards.find((c) => c.cardId === id)?.rarity?.disenchantValue || 0), 0);
+  const totalDust = ids.reduce((sum, id) => {
+    const card = allCards.find((c) => c.cardId === id);
+    const owned = ownedMap.get(id);
+    return sum + estimateDust(card?.rarity?.disenchantValue || 0, worstFinish(owned?.finishCounts), worstQuality(owned?.qualityCounts));
+  }, 0);
   const ok = await Confirm.show(
-    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>au moins +${minDust} poussières d'étoile</strong> (plus si des finitions spéciales sont consommées) ? ` +
-    `Solde : ${stardust} &rarr; <strong>${stardust + minDust}</strong> ou plus. Cette action est irréversible.`,
+    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>+${totalDust} poussières d'étoile</strong> ? ` +
+    `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible.`,
     { title: "Décrafter la sélection ?", confirmText: "Décrafter tout", dangerous: true }
   );
   if (!ok) return;
@@ -758,20 +781,25 @@ async function bulkCraft() {
 
 async function disenchant(cardId, btn) {
   const card = allCards.find((c) => c.cardId === cardId);
-  const owned = ownedMap.get(cardId)?.count || 1;
-  const qty = Math.min(Math.max(disenchantQty.get(cardId) || 1, 1), owned);
-  // Valeur MINIMALE garantie (exemplaires normaux) : le decraft consomme
-  // toujours la finition la moins prestigieuse en premier, donc le vrai
-  // total peut etre plus eleve si un exemplaire special (holo/gold/...) est
-  // consomme en cours de route - voir grist/SCHEMA.md, section Finishes.
+  const owned = ownedMap.get(cardId);
+  const ownedCount = owned?.count || 1;
+  const qty = Math.min(Math.max(disenchantQty.get(cardId) || 1, 1), ownedCount);
   const dustEach = card?.rarity?.disenchantValue || 0;
-  const minTotalDust = dustEach * qty;
+  // Le decraft consomme toujours la finition/qualite la moins prestigieuse en
+  // premier (voir disenchant.json "Validate & Prepare") : on peut donc
+  // calculer un total EXACT en simulant le meme tri sur les exemplaires
+  // reellement possedes, plutot que d'afficher un montant approximatif.
+  const sortedCopies = [...(owned?.copies || [])].sort((a, b) =>
+    (FINISH_ORDER.indexOf(a.finish || "normal") - FINISH_ORDER.indexOf(b.finish || "normal")) ||
+    (QUALITY_ORDER.indexOf(a.quality || "damaged") - QUALITY_ORDER.indexOf(b.quality || "damaged"))
+  );
+  const totalDust = sortedCopies.slice(0, qty).reduce((sum, c) => sum + estimateDust(dustEach, c.finish || "normal", c.quality || "damaged"), 0);
   const ok = await Confirm.show(
     qty > 1
-      ? `Décrafter <strong>${qty}x ${card?.name || "cette carte"}</strong> contre <strong>au moins +${minTotalDust} poussières d'étoile</strong> au total (plus si une finition spéciale est consommée) ? ` +
-        `Solde : ${stardust} &rarr; <strong>${stardust + minTotalDust}</strong> ou plus. Cette action est irréversible.`
-      : `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>au moins ${minTotalDust} poussières d'étoile</strong> (plus si c'est une finition spéciale) ? ` +
-        `Solde : ${stardust} &rarr; <strong>${stardust + minTotalDust}</strong> ou plus. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+      ? `Décrafter <strong>${qty}x ${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> au total ? ` +
+        `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible.`
+      : `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> ? ` +
+        `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
     { title: "Décrafter cette carte ?", confirmText: qty > 1 ? `Décrafter x${qty}` : "Décrafter", dangerous: true }
   );
   if (!ok) return;
@@ -850,6 +878,8 @@ async function reload() {
     stardust = status.stardust || 0;
     document.getElementById("stardust-amount").textContent = stardust;
     allCards = cardsRes.cards || [];
+    finishMultipliers = cardsRes.finishMultipliers || {};
+    qualityMultipliers = cardsRes.qualityMultipliers || {};
     ownedMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o]));
     // Craft/decraft/autel accordent de l'XP (niveaux de profil) : rafraichit
     // le badge de niveau dans le header, et deverrouille immediatement un

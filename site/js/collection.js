@@ -125,6 +125,18 @@ const prefs = loadPrefs();
 let allCardsCache = [];
 let ownedMap = new Map();
 let craftCostByCard = new Map();
+// { finishKey: multiplier } / { qualityKey: multiplier }, renvoyes par
+// get-cards.json - necessaires pour afficher un montant de decraft CORRECT
+// avant meme de cliquer (bouton/tooltip/confirmation), le vrai montant
+// applique par disenchant.json etant TOUJOURS la valeur de base de la
+// rarete multipliee par ces deux facteurs, jamais juste la valeur de base.
+let finishMultipliers = {};
+let qualityMultipliers = {};
+function estimateDust(baseValue, finish, quality) {
+  const fm = finishMultipliers[finish] != null ? finishMultipliers[finish] : 1;
+  const qm = qualityMultipliers[quality] != null ? qualityMultipliers[quality] : 1;
+  return Math.round((baseValue || 0) * fm * qm);
+}
 let stardustBalance = 0;
 // Wishlist : cote serveur (visible sur le profil public, contrairement aux
 // favoris qui restent purement locaux) - un Set d'ids pour verifier
@@ -295,7 +307,7 @@ function showCardModal(navKey, navList) {
           ` : ""}
           ${!card.isPromo ? `
             <div class="card-modal-actions">
-              ${disenchantValue != null ? `<button type="button" class="btn-ghost modal-disenchant-btn">&#9851; Décrafter (+${disenchantValue})</button>` : ""}
+              ${disenchantValue != null ? `<button type="button" class="btn-ghost modal-disenchant-btn">&#9851; Décrafter (+${estimateDust(disenchantValue, finish, quality)})</button>` : ""}
               <button type="button" class="btn-secondary modal-trade-btn">&#8644; Échanger</button>
             </div>
           ` : ""}
@@ -442,7 +454,7 @@ function cardTileHtml(card, now) {
           <div class="count-badge">x${count}</div>
           ${canQuickAct ? `
             <div class="quick-actions-row">
-              ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" data-finish="${finish}" data-quality="${quality}" title="Décrafter contre ${disenchantValue} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
+              ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" data-finish="${finish}" data-quality="${quality}" title="Décrafter contre ${estimateDust(disenchantValue, finish, quality)} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
               <button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>
               <button type="button" class="card-quick-action quick-showcase-btn ${inShowcase ? "active" : ""}" data-card-id="${card.cardId}" title="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}" aria-label="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}">&#128444;</button>
             </div>
@@ -491,7 +503,7 @@ async function craftCardQuick(cardId) {
 async function disenchantCardQuick(cardId, finish, quality, btn) {
   const card = allCardsCache.find((c) => c.cardId === cardId);
   const info = craftCostByCard.get(cardId);
-  const dust = info?.disenchantValue || 0;
+  const dust = estimateDust(info?.disenchantValue || 0, finish || "normal", quality || "damaged");
   const variantLabel = finish && finish !== "normal" ? ` (${FINISH_LABELS[finish]}${quality && quality !== "mint" ? ", " + QUALITY_LABELS[quality] : ""})` : "";
   const ok = await Confirm.show(
     `Décrafter <strong>${card?.name || "cette carte"}${variantLabel}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
@@ -894,7 +906,10 @@ function updateBulkBar() {
     bar.style.display = "none";
     return;
   }
-  const dust = [...bulkSelected].reduce((sum, key) => sum + (craftCostByCard.get(parseNavKey(key).cardId)?.disenchantValue || 0), 0);
+  const dust = [...bulkSelected].reduce((sum, key) => {
+    const { cardId, finish, quality } = parseNavKey(key);
+    return sum + estimateDust(craftCostByCard.get(cardId)?.disenchantValue || 0, finish, quality);
+  }, 0);
   bar.style.display = "flex";
   document.getElementById("bulk-disenchant-summary").textContent =
     `${bulkSelected.size} carte${bulkSelected.size > 1 ? "s" : ""} sélectionnée${bulkSelected.size > 1 ? "s" : ""} · +${dust} poussières`;
@@ -903,9 +918,12 @@ function updateBulkBar() {
 async function bulkDisenchant() {
   const keys = [...bulkSelected];
   if (!keys.length) return;
-  const minDust = keys.reduce((sum, key) => sum + (craftCostByCard.get(parseNavKey(key).cardId)?.disenchantValue || 0), 0);
+  const totalDust = keys.reduce((sum, key) => {
+    const { cardId, finish, quality } = parseNavKey(key);
+    return sum + estimateDust(craftCostByCard.get(cardId)?.disenchantValue || 0, finish, quality);
+  }, 0);
   const ok = await Confirm.show(
-    `Décrafter ces <strong>${keys.length} cartes</strong> pour <strong>au moins +${minDust} poussières d'étoile</strong> (plus si des finitions spéciales sont consommées) ? ` +
+    `Décrafter ces <strong>${keys.length} cartes</strong> pour <strong>+${totalDust} poussières d'étoile</strong> ? ` +
     `Un seul exemplaire de chaque variante sélectionnée sera détruit. Cette action est irréversible.`,
     { title: "Décrafter la sélection ?", confirmText: "Décrafter tout", dangerous: true }
   );
@@ -987,6 +1005,8 @@ async function loadCollection() {
     knownProfileLevel = currentPlayerLevel;
     refreshSleeveLocks(currentPlayerLevel);
     craftCostByCard = new Map((cardsRes.cards || []).map((c) => [c.cardId, c.rarity]));
+    finishMultipliers = cardsRes.finishMultipliers || {};
+    qualityMultipliers = cardsRes.qualityMultipliers || {};
     wishlistSet = new Set((wishlistRes.wishlist || []).map((w) => w.cardId));
     showcaseSet = new Set((showcaseRes.showcase || []).map((s) => s.cardId));
 

@@ -82,7 +82,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst extensionById = {};\nextensionsRows.forEach((e) => { extensionById[e.id] = { id: e.id, name: e.Name, key: e.Key, sortOrder: e.SortOrder || 0 }; });\n\nconst rarityById = {};\nraritiesRows.forEach((r) => {\n  rarityById[r.id] = { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex, sortOrder: r.SortOrder || 0, disenchantValue: r.DisenchantValue || 0, craftCost: r.CraftCost || 0 };\n});\n\nconst cards = cardsRows.map((c) => {\n  return {\n    cardId: c.id,\n    name: c.Name,\n    artist: c.Artist,\n    description: c.Description,\n    imageId: firstAttachment(c.Image),\n    rarity: rarityById[refId(c.Rarity)] || null,\n    extension: extensionById[refId(c.Extension)] || null,\n    isPromo: !!c.IsPromo\n  };\n});\n\nreturn [{ json: { cards } }];"
+        "jsCode": "// Grist encode les colonnes de type liste (Attachments, RefList) sous la\n// forme [\"L\", id1, id2, ...] : \"L\" est un marqueur, pas une valeur.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null && c.Active);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst extensionsRows = $('Get Extensions').all().map((i) => i.json).filter((r) => r.id != null);\nconst finishRows = $('Get Finishes').all().map((i) => i.json).filter((r) => r.id != null);\nconst qualityRows = $('Get Qualities').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst extensionById = {};\nextensionsRows.forEach((e) => { extensionById[e.id] = { id: e.id, name: e.Name, key: e.Key, sortOrder: e.SortOrder || 0 }; });\n\nconst rarityById = {};\nraritiesRows.forEach((r) => {\n  rarityById[r.id] = { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex, sortOrder: r.SortOrder || 0, disenchantValue: r.DisenchantValue || 0, craftCost: r.CraftCost || 0 };\n});\n\n// Necessaires cote front pour afficher un montant de decraft CORRECT avant\n// meme de cliquer (bouton/tooltip/confirmation) : le vrai montant applique\n// par disenchant.json est TOUJOURS rarity.DisenchantValue * finishMultiplier\n// * qualityMultiplier, jamais juste la valeur de base de la rarete.\nconst finishMultipliers = {};\nfinishRows.forEach((f) => { finishMultipliers[f.Key] = f.DisenchantMultiplier != null ? f.DisenchantMultiplier : 1; });\nconst qualityMultipliers = {};\nqualityRows.forEach((q) => { qualityMultipliers[q.Key] = q.DisenchantMultiplier != null ? q.DisenchantMultiplier : 1; });\n\nconst cards = cardsRows.map((c) => {\n  return {\n    cardId: c.id,\n    name: c.Name,\n    artist: c.Artist,\n    description: c.Description,\n    imageId: firstAttachment(c.Image),\n    rarity: rarityById[refId(c.Rarity)] || null,\n    extension: extensionById[refId(c.Extension)] || null,\n    isPromo: !!c.IsPromo\n  };\n});\n\nreturn [{ json: { cards, finishMultipliers, qualityMultipliers } }];"
       },
       "id": "format-cards",
       "name": "Format Cards",
@@ -159,6 +159,54 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "barrier-extensions-finishes",
+      "name": "Sync Get Extensions -> Get Finishes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 300],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-finishes",
+      "name": "Get Finishes",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Finishes",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+    },
+    {
+      "id": "barrier-finishes-qualities",
+      "name": "Sync Get Finishes -> Get Qualities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 300],
+      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+    },
+    {
+      "id": "get-qualities",
+      "name": "Get Qualities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [1360, 300],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Qualities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
     }
   ],
   "connections": {
@@ -243,12 +291,24 @@
       "main": [
         [
           {
-            "node": "Format Cards",
+            "node": "Sync Get Extensions -> Get Finishes",
             "type": "main",
             "index": 0
           }
         ]
       ]
+    },
+    "Sync Get Extensions -> Get Finishes": {
+      "main": [[{ "node": "Get Finishes", "type": "main", "index": 0 }]]
+    },
+    "Get Finishes": {
+      "main": [[{ "node": "Sync Get Finishes -> Get Qualities", "type": "main", "index": 0 }]]
+    },
+    "Sync Get Finishes -> Get Qualities": {
+      "main": [[{ "node": "Get Qualities", "type": "main", "index": 0 }]]
+    },
+    "Get Qualities": {
+      "main": [[{ "node": "Format Cards", "type": "main", "index": 0 }]]
     }
   },
   "active": false,
