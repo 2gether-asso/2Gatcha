@@ -1456,9 +1456,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 
 .collection-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
 
-.collection-card.locked img,
-.collection-card.locked .card-info { filter: grayscale(1) brightness(0.35); }
-
 .collection-card .card-info { padding: 8px 8px; }
 
 .count-badge {

@@ -410,7 +410,7 @@ function cardTileHtml(card, now) {
     const craftable = !card.isPromo && craftCost != null && stardustBalance >= craftCost;
     const inWishlist = wishlistSet.has(card.cardId);
     return [`
-      <div class="collection-card locked" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="0" data-finish="normal" data-quality="mint">
+      <div class="collection-card locked" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="0">
         <button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>
         <div class="card-art">
           <img src="${imgSrc}" alt="Carte non découverte" loading="lazy" />
