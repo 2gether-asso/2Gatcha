@@ -279,7 +279,8 @@ function showCardModal(navKey, navList) {
       <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
         <div class="card-art">
-          <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+          <img src="${imgSrc}" alt="${card.name}" />
+          ${navList.length > 1 ? `<span class="card-modal-position">${index + 1} / ${navList.length}</span>` : ""}
           ${navList.length > 1 ? `<button class="card-modal-nav prev" aria-label="Carte precedente">&#10094;</button>` : ""}
           ${navList.length > 1 ? `<button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
         </div>

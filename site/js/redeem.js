@@ -65,6 +65,20 @@ function celebrateRarity(key, cardEl, colorHex) {
   }
 }
 
+async function refreshBoosterStat() {
+  const grid = document.getElementById("redeem-stats-grid");
+  if (!grid) return;
+  try {
+    const status = await API.getBoosterStatus(Session.userId);
+    grid.innerHTML = `
+      <div class="stat-tile">
+        <div class="stat-value">&#127183; ${status.count ?? 0}</div>
+        <div class="stat-label">Booster${status.count > 1 ? "s" : ""} en stock</div>
+      </div>
+    `;
+  } catch (e) { /* pas bloquant : le formulaire reste utilisable sans ce chiffre */ }
+}
+
 async function redeem() {
   const input = document.getElementById("code-input");
   const btn = document.getElementById("redeem-btn");
@@ -83,6 +97,7 @@ async function redeem() {
         `<div class="reward-banner">+${res.quantity} booster${res.quantity > 1 ? "s" : ""} ! Tu en as maintenant ${res.newBoosterCount}.</div>`;
       if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
       Toast.success(`+${res.quantity} booster${res.quantity > 1 ? "s" : ""} !`);
+      refreshBoosterStat();
     } else if (res.type === "card") {
       document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">Carte reçue !</div>`;
       const grid = document.getElementById("reveal-grid");
@@ -113,6 +128,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   document.getElementById("redeem-zone").style.display = "block";
+  document.getElementById("redeem-info-panel").style.display = "block";
+  refreshBoosterStat();
   document.getElementById("redeem-btn").addEventListener("click", redeem);
   document.getElementById("code-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") redeem();
