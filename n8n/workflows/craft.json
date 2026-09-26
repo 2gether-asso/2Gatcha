@@ -229,6 +229,10 @@
             {
               "fieldId": "SerialNumber",
               "fieldValue": "={{ $json.serialNumber }}"
+            },
+            {
+              "fieldId": "Quality",
+              "fieldValue": "good"
             }
           ]
         }

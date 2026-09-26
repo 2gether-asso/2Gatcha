@@ -150,10 +150,13 @@ jeu", tableau "Qualités") via `admin-config.json` (action `updateQuality`) :
 **Tirage** (`open-pack.json`, fonction `rollQuality()` dans le node `Draw
 Cards`) : un seul tirage pondere sur les 4 lignes de `Qualities` dont le
 `DropWeight` est renseigne (retombe sur `good` si la table est vide/mal
-configuree). Ce tirage ne s'applique qu'aux boosters reels, pas a
-`craft.json`/codes/autel/restauration (qui produisent toujours `damaged`
-par omission du champ, coherent avec `Finish` qui y reste toujours
-`normal`).
+configuree). Ce tirage ne s'applique qu'aux boosters reels. `craft.json`
+ecrit desormais explicitement `Quality: 'good'` sur le node `Create Pull`
+(demande explicite - un exemplaire crafte doit toujours sortir en bon etat,
+jamais abime par defaut) ; codes/autel/restauration produisent encore
+`damaged` par omission du champ (`Finish` y reste egalement toujours
+`normal` partout) - a etendre de la meme façon si le meme constat s'applique
+un jour a ces autres sources.
 
 **Traitement visuel par palier** (`style.css`) : `good` est le palier neutre
 (aucun filtre, c'est la reference visuelle) ; `damaged`/`worn` gardent leurs
