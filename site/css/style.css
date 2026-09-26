@@ -22,6 +22,7 @@
   --rarity-rare: #60a5fa;
   --rarity-epique: #a855f7;
   --rarity-legendaire: #f5a524;
+  --rarity-mythique: #ef4444;
 
   --success: #4ade80;
   --danger: #fb7185;
@@ -43,7 +44,7 @@
   --text: #f2f2f2; --text-dim: #9a9a9a;
   --border: rgba(255,255,255,0.2); --border-soft: rgba(255,255,255,0.08);
   --accent: #d4d4d4; --accent-2: #a3a3a3; --accent-3: #e5e5e5;
-  --rarity-commune: #8a8a8a; --rarity-rare: #b0b0b0; --rarity-epique: #d9d9d9; --rarity-legendaire: #ffffff;
+  --rarity-commune: #8a8a8a; --rarity-rare: #b0b0b0; --rarity-epique: #d9d9d9; --rarity-legendaire: #ffffff; --rarity-mythique: #ef4444;
 }
 :root[data-theme="sepia"] {
   --bg-void: #1c140d; --bg-deep: #241a11;
@@ -51,7 +52,7 @@
   --text: #f3e6d0; --text-dim: #c1a887;
   --border: rgba(212,163,89,0.32); --border-soft: rgba(255,235,200,0.1);
   --accent: #d4a359; --accent-2: #b5762f; --accent-3: #e8c078;
-  --rarity-commune: #a89078; --rarity-rare: #8ba888; --rarity-epique: #b58ac0; --rarity-legendaire: #d4a359;
+  --rarity-commune: #a89078; --rarity-rare: #8ba888; --rarity-epique: #b58ac0; --rarity-legendaire: #d4a359; --rarity-mythique: #c1440e;
 }
 :root[data-theme="cyberpunk"] {
   --bg-void: #04010a; --bg-deep: #0a0316;
@@ -59,7 +60,7 @@
   --text: #f0f0ff; --text-dim: #b088e8;
   --border: rgba(255,0,200,0.32); --border-soft: rgba(0,255,213,0.14);
   --accent: #ff2ec4; --accent-2: #00ffd5; --accent-3: #ffe600;
-  --rarity-commune: #7dd3fc; --rarity-rare: #00ffd5; --rarity-epique: #ff2ec4; --rarity-legendaire: #ffe600;
+  --rarity-commune: #7dd3fc; --rarity-rare: #00ffd5; --rarity-epique: #ff2ec4; --rarity-legendaire: #ffe600; --rarity-mythique: #ff1f3d;
 }
 
 * { box-sizing: border-box; }
@@ -1183,6 +1184,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .shine-rare::after { animation: cardBackShinePulseRare 2s ease-in-out infinite; }
 .shine-epique::after { animation: cardBackShinePulseEpique 1.6s ease-in-out infinite; }
 .shine-legendaire::after { animation: cardBackShinePulseLegendaire 1.2s ease-in-out infinite; }
+.shine-mythique::after { animation: cardBackShinePulseMythique 1s ease-in-out infinite; }
 @keyframes cardBackShinePulseRare {
   0%, 100% { opacity: 0.15; }
   50% { opacity: 0.35; }
@@ -1194,6 +1196,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 @keyframes cardBackShinePulseLegendaire {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.85; }
+}
+@keyframes cardBackShinePulseMythique {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 .card-front {
@@ -1241,9 +1247,20 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
 .card-name { font-size: 0.86rem; font-weight: 700; font-family: var(--font-display); }
 
-/* Traitement typographique dedie aux raretes fortes : dorure animee pour
+/* Traitement typographique dedie aux raretes fortes : degrade rouge anime
+   pour mythique (la plus haute, au-dessus de legendaire), dorure animee pour
    legendaire, neon pour epique - sur toute carte affichant data-rarity
    (grille, pile de reveal, modale, profil), pas de JS supplementaire. */
+[data-rarity="mythique"] .card-name,
+[data-rarity="mythique"] .card-modal-name,
+[data-rarity="mythique"] .pull-log-name {
+  background: linear-gradient(120deg, #ef4444, #ffb4b4, #ef4444);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: legendaryNameShimmer 3s linear infinite;
+}
 [data-rarity="legendaire"] .card-name,
 [data-rarity="legendaire"] .card-modal-name,
 [data-rarity="legendaire"] .pull-log-name {
@@ -1296,10 +1313,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   box-shadow: 0 0 40px rgba(245,165,36,0.75), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
   animation: legendaryPulse 1.6s ease-in-out infinite;
 }
+.card[data-rarity="mythique"] .card-face {
+  box-shadow: 0 0 50px rgba(239,68,68,0.85), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
+  animation: mythiquePulse 1.4s ease-in-out infinite;
+}
 
 @keyframes legendaryPulse {
   0%, 100% { box-shadow: 0 0 40px rgba(245,165,36,0.75); }
   50% { box-shadow: 0 0 60px rgba(245,165,36,1); }
+}
+@keyframes mythiquePulse {
+  0%, 100% { box-shadow: 0 0 50px rgba(239,68,68,0.85); }
+  50% { box-shadow: 0 0 75px rgba(239,68,68,1); }
 }
 
 /* --- Collection --- */
@@ -1327,6 +1352,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   background:
     linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box,
     linear-gradient(135deg, var(--rarity-legendaire), #ffd166) border-box;
+}
+.filters button[data-filter="mythique"] {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box,
+    linear-gradient(135deg, var(--rarity-mythique), #ff9d9d) border-box;
 }
 
 .collection-grid {
@@ -1987,25 +2018,35 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    rendu 3D dans certains navigateurs (plantage/ecran fige constate). On
    isole donc l'effet a un calque de flash independant + un filtre sur la
    carte elle-meme (jamais un ancetre commun a d'autres elements 3D). */
+/* --flash-color/--flash-alpha : poses en JS depuis la vraie couleur de
+   rarete (celebrateRarity, main.js) - jamais fige sur l'orange legendaire,
+   pour que le flash reagisse aussi a epique (plus discret) et mythique (plus
+   fort). Meme logique que --shine-color sur .card-back-shine. */
 .legendary-flash {
   position: fixed;
   inset: 0;
   z-index: 410;
   pointer-events: none;
-  background: radial-gradient(circle at center, rgba(245,165,36,0.55), transparent 65%);
+  background: radial-gradient(circle at center, var(--flash-color, rgba(245,165,36,0.55)), transparent 65%);
   opacity: 0;
 }
-.legendary-flash.active { animation: legendaryFlashPulse 0.9s ease-out; }
+.legendary-flash.active { animation: legendaryFlashPulse var(--flash-duration, 0.9s) ease-out; }
+.legendary-flash.tier-epique { animation-name: legendaryFlashPulseSoft; }
 @keyframes legendaryFlashPulse {
   0% { opacity: 0; }
   20% { opacity: 1; }
   100% { opacity: 0; }
 }
+@keyframes legendaryFlashPulseSoft {
+  0% { opacity: 0; }
+  20% { opacity: 0.65; }
+  100% { opacity: 0; }
+}
 
-.card.legendary-hit .card-front { animation: legendaryHit 0.6s ease-out; }
+.card.legendary-hit .card-front { animation: legendaryHit var(--flash-duration, 0.6s) ease-out; }
 @keyframes legendaryHit {
   0% { filter: brightness(1); }
-  30% { filter: brightness(2); }
+  30% { filter: brightness(var(--flash-brightness, 2)); }
   100% { filter: brightness(1); }
 }
 
@@ -2038,10 +2079,13 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
      provoque des saccades. attachTilt() (collection.js) l'ajoute/l'enleve
      lui-meme, seulement sur la carte survolee/touchee. */
 }
-.collection-card:not(.locked)[data-rarity="rare"] { box-shadow: 0 0 0 1px rgba(59,130,246,0.35); }
-.collection-card:not(.locked)[data-rarity="epique"] { box-shadow: 0 0 0 1px rgba(168,85,247,0.4); }
+.collection-card:not(.locked)[data-rarity="rare"] { box-shadow: 0 0 0 1px rgba(59,130,246,0.4), 0 0 10px rgba(59,130,246,0.22); }
+.collection-card:not(.locked)[data-rarity="epique"] { box-shadow: 0 0 0 1px rgba(168,85,247,0.45), 0 0 14px rgba(168,85,247,0.3); }
 .collection-card:not(.locked)[data-rarity="legendaire"] {
-  box-shadow: 0 0 0 1px rgba(245,165,36,0.5), 0 0 18px rgba(245,165,36,0.25);
+  box-shadow: 0 0 0 1px rgba(245,165,36,0.55), 0 0 22px rgba(245,165,36,0.32);
+}
+.collection-card:not(.locked)[data-rarity="mythique"] {
+  box-shadow: 0 0 0 1px rgba(239,68,68,0.6), 0 0 26px rgba(239,68,68,0.4);
 }
 /* Cadre distinct par rarete, plutot que le meme rectangle pour toutes. */
 .collection-card:not(.locked)[data-rarity="rare"] { border-color: rgba(59,130,246,0.55); }
@@ -2051,16 +2095,24 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   border-width: 2px;
   border-image: linear-gradient(135deg, var(--rarity-legendaire), #ffd166, var(--rarity-legendaire)) 1;
 }
+.collection-card:not(.locked)[data-rarity="mythique"] {
+  border-style: solid;
+  border-width: 2px;
+  border-image: linear-gradient(135deg, var(--rarity-mythique), #ff9d9d, var(--rarity-mythique)) 1;
+}
 /* Epaisseur "carte physique" : une fine ombre en decalage simule une
    tranche, plutot qu'un visuel totalement plat (le halo de rarete est
    fusionne dans le meme box-shadow pour .card-face, voir plus haut). */
 .collection-card {
   box-shadow: 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
 }
-.collection-card:not(.locked)[data-rarity="rare"] { box-shadow: 0 0 0 1px rgba(59,130,246,0.35), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
-.collection-card:not(.locked)[data-rarity="epique"] { box-shadow: 0 0 0 1px rgba(168,85,247,0.4), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.collection-card:not(.locked)[data-rarity="rare"] { box-shadow: 0 0 0 1px rgba(59,130,246,0.4), 0 0 10px rgba(59,130,246,0.22), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.collection-card:not(.locked)[data-rarity="epique"] { box-shadow: 0 0 0 1px rgba(168,85,247,0.45), 0 0 14px rgba(168,85,247,0.3), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
 .collection-card:not(.locked)[data-rarity="legendaire"] {
-  box-shadow: 0 0 0 1px rgba(245,165,36,0.5), 0 0 18px rgba(245,165,36,0.25), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
+  box-shadow: 0 0 0 1px rgba(245,165,36,0.55), 0 0 22px rgba(245,165,36,0.32), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
+}
+.collection-card:not(.locked)[data-rarity="mythique"] {
+  box-shadow: 0 0 0 1px rgba(239,68,68,0.6), 0 0 26px rgba(239,68,68,0.4), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
 }
 .collection-card:not(.locked) {
   overflow: hidden;
@@ -2078,16 +2130,18 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   transition: opacity 0.3s;
 }
 .collection-card:not(.locked)[data-rarity="epique"]::after,
-.collection-card:not(.locked)[data-rarity="legendaire"]::after {
+.collection-card:not(.locked)[data-rarity="legendaire"]::after,
+.collection-card:not(.locked)[data-rarity="mythique"]::after {
   opacity: 0.7;
   /* transform plutot que background-position : anime sur le compositeur
      GPU (pas de repaint a chaque frame), bien moins couteux repete sur
      plusieurs cartes en meme temps. */
   animation: cardHoloDrift 3.5s ease-in-out infinite;
 }
-/* Reflet foil au survol des legendaires : plus vif et plus rapide que le
-   shimmer ambiant permanent (qui reste sur ::after), sur ::before. */
-.collection-card:not(.locked)[data-rarity="legendaire"]::before {
+/* Reflet foil au survol des legendaires/mythiques : plus vif et plus rapide
+   que le shimmer ambiant permanent (qui reste sur ::after), sur ::before. */
+.collection-card:not(.locked)[data-rarity="legendaire"]::before,
+.collection-card:not(.locked)[data-rarity="mythique"]::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -2098,9 +2152,26 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   pointer-events: none;
   transition: opacity 0.2s;
 }
-.collection-card:not(.locked)[data-rarity="legendaire"]:hover::before {
+.collection-card:not(.locked)[data-rarity="legendaire"]:hover::before,
+.collection-card:not(.locked)[data-rarity="mythique"]:hover::before {
   opacity: 1;
   animation: legendaryFoilSweep 0.7s ease-out;
+}
+/* Accent de bordure sur le reveal de pack (.card-front, seul element du flip
+   a avoir une vraie bordure) : le halo/pulse existe deja par rarete sur
+   .card-face (voir plus haut, legendaryPulse) - on ajoute ICI seulement la
+   bordure colore/degradee, jamais le box-shadow (deja gere par .card-face,
+   ne pas dupliquer/entrer en conflit avec son animation). */
+.card[data-rarity="epique"] .card-front { border-width: 2px; border-style: double; border-color: rgba(168,85,247,0.75); }
+.card[data-rarity="legendaire"] .card-front {
+  border-style: solid;
+  border-width: 2px;
+  border-image: linear-gradient(135deg, var(--rarity-legendaire), #ffd166, var(--rarity-legendaire)) 1;
+}
+.card[data-rarity="mythique"] .card-front {
+  border-style: solid;
+  border-width: 2px;
+  border-image: linear-gradient(135deg, var(--rarity-mythique), #ff9d9d, var(--rarity-mythique)) 1;
 }
 @keyframes legendaryFoilSweep {
   from { transform: translateX(-120%); }
@@ -2399,6 +2470,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .card-modal[data-rarity="rare"] { border-color: rgba(59,130,246,0.6); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(59,130,246,0.4), 0 0 30px rgba(59,130,246,0.22); }
 .card-modal[data-rarity="epique"] { border-color: rgba(168,85,247,0.65); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(168,85,247,0.45), 0 0 34px rgba(168,85,247,0.28); }
 .card-modal[data-rarity="legendaire"] { border-color: var(--rarity-legendaire); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(245,165,36,0.5), 0 0 40px rgba(245,165,36,0.32); }
+.card-modal[data-rarity="mythique"] { border-color: var(--rarity-mythique); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(239,68,68,0.55), 0 0 46px rgba(239,68,68,0.38); }
 .card-modal .card-art { border-radius: 20px 20px 0 0; position: relative; }
 .card-modal img {
   width: 100%;
@@ -3038,30 +3110,39 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .quality-indicator[data-quality="worn"] { border-color: #eab308; color: #fef08a; }
 .quality-indicator[data-quality="good"] { border-color: #86efac; color: #d9f9e4; }
 
-/* Traitement visuel de l'usure directement sur l'image (filtre reel, pas
-   juste un badge) : plus c'est abime, plus le filtre desature/contraste et
-   plus les rayures "verre fissure" (coherent avec la direction Arcade -
-   l'ecran d'une borne qui a vecu) sont marquees. */
+/* Traitement visuel de l'etat directement sur l'image (filtre reel, pas
+   juste un badge), sur les 4 paliers - PAS seulement damaged/worn : "bon
+   etat" est desormais neutre (le palier de reference, voir open-pack.json)
+   et "parfait etat" recoit un traitement qui l'embellit (plus vif/lumineux +
+   un reflet qui brille), pour qu'il se distingue vraiment de "bon etat" et
+   pas seulement par l'absence d'un defaut. Applique partout ou une carte
+   possedee s'affiche : collection, modale, decraft (craft.html), reveal de
+   pack (.card). */
 .card-art { position: relative; display: block; overflow: hidden; }
-.collection-card img, .craft-card img, .card-modal img { position: relative; }
+.collection-card img, .craft-card img, .card-modal img, .card-front img { position: relative; }
 .collection-card[data-quality="damaged"] img,
 .craft-card[data-quality="damaged"] img,
-.card-modal[data-quality="damaged"] img {
-  filter: saturate(0.3) contrast(1.2) brightness(0.85);
+.card-modal[data-quality="damaged"] img,
+.card[data-quality="damaged"] img {
+  filter: sepia(0.15) saturate(0.25) contrast(1.25) brightness(0.78);
 }
 .collection-card[data-quality="worn"] img,
 .craft-card[data-quality="worn"] img,
-.card-modal[data-quality="worn"] img {
-  filter: saturate(0.55) contrast(1.1) brightness(0.92);
+.card-modal[data-quality="worn"] img,
+.card[data-quality="worn"] img {
+  filter: saturate(0.55) contrast(1.08) brightness(0.9);
 }
-.collection-card[data-quality="good"] img,
-.craft-card[data-quality="good"] img,
-.card-modal[data-quality="good"] img {
-  filter: saturate(0.8) contrast(1.03);
+/* "Bon etat" : aucun filtre - c'est le palier neutre de reference. */
+.collection-card[data-quality="mint"] img,
+.craft-card[data-quality="mint"] img,
+.card-modal[data-quality="mint"] img,
+.card[data-quality="mint"] img {
+  filter: saturate(1.2) contrast(1.07) brightness(1.05);
 }
 .collection-card[data-quality] .card-art::before,
 .craft-card[data-quality] .card-art::before,
-.card-modal[data-quality] .card-art::before {
+.card-modal[data-quality] .card-art::before,
+.card[data-quality] .card-art::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -3072,7 +3153,8 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 .collection-card[data-quality="damaged"] .card-art::before,
 .craft-card[data-quality="damaged"] .card-art::before,
-.card-modal[data-quality="damaged"] .card-art::before {
+.card-modal[data-quality="damaged"] .card-art::before,
+.card[data-quality="damaged"] .card-art::before {
   opacity: 1;
   background:
     repeating-linear-gradient(58deg, rgba(255,255,255,0.5) 0 1px, transparent 1px 26px),
@@ -3081,11 +3163,42 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 .collection-card[data-quality="worn"] .card-art::before,
 .craft-card[data-quality="worn"] .card-art::before,
-.card-modal[data-quality="worn"] .card-art::before {
+.card-modal[data-quality="worn"] .card-art::before,
+.card[data-quality="worn"] .card-art::before {
   opacity: 1;
   background:
     repeating-linear-gradient(58deg, rgba(255,255,255,0.3) 0 1px, transparent 1px 34px),
     repeating-linear-gradient(-42deg, rgba(255,255,255,0.22) 0 1px, transparent 1px 28px);
+}
+/* "Parfait etat" : au lieu d'une texture d'usure, un reflet brillant qui
+   balaie doucement l'image - le signal inverse de l'abime, jamais juste
+   "rien". Egalement un fin liseret clair (outline, n'entre pas en conflit
+   avec le border-color/box-shadow deja utilises par la finition/la rarete). */
+.collection-card[data-quality="mint"] .card-art::before,
+.craft-card[data-quality="mint"] .card-art::before,
+.card-modal[data-quality="mint"] .card-art::before,
+.card[data-quality="mint"] .card-art::before {
+  opacity: 1;
+  background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%);
+  background-size: 260% 260%;
+  animation: quality-mint-sweep 3.2s ease-in-out infinite;
+}
+@keyframes quality-mint-sweep {
+  0%, 100% { background-position: 90% 10%; }
+  50% { background-position: 10% 90%; }
+}
+.collection-card[data-quality="mint"],
+.craft-card[data-quality="mint"],
+.card-modal[data-quality="mint"],
+.card[data-quality="mint"] .card-front {
+  outline: 2px solid rgba(224,247,255,0.65);
+  outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .collection-card[data-quality="mint"] .card-art::before,
+  .craft-card[data-quality="mint"] .card-art::before,
+  .card-modal[data-quality="mint"] .card-art::before,
+  .card[data-quality="mint"] .card-art::before { animation: none; }
 }
 
 /* Effet visuel applique directement sur la vignette/la modale, par-dessus
@@ -3097,23 +3210,35 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    aux yeux au premier coup d'oeil, pas seulement au survol. */
 .card-modal { position: relative; }
 .collection-card[data-finish]:not([data-finish="normal"]) .card-art::after,
-.card-modal[data-finish]:not([data-finish="normal"]) .card-art::after {
+.card-modal[data-finish]:not([data-finish="normal"]) .card-art::after,
+.craft-card[data-finish]:not([data-finish="normal"]) .card-art::after,
+.card[data-finish]:not([data-finish="normal"]) .card-art::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 1;
 }
+/* Le contour de finition vit sur le contenant possedant reellement une
+   bordure visible : .card-front pour le reveal de pack (.card est juste le
+   conteneur de flip, sans bordure propre). */
+.card[data-finish]:not([data-finish="normal"]) .card-front { border-width: 2px; }
 
 .collection-card[data-finish="holo"] img,
-.card-modal[data-finish="holo"] img { filter: saturate(1.5) contrast(1.08) brightness(1.03); }
+.card-modal[data-finish="holo"] img,
+.craft-card[data-finish="holo"] img,
+.card[data-finish="holo"] img { filter: saturate(1.65) contrast(1.1) brightness(1.04); }
 .collection-card[data-finish="holo"],
-.card-modal[data-finish="holo"] { border-color: #a78bfa !important; border-width: 2px; box-shadow: 0 0 14px rgba(167,139,250,0.5); }
+.card-modal[data-finish="holo"],
+.craft-card[data-finish="holo"] { border-color: #a78bfa !important; border-width: 2px; box-shadow: 0 0 18px rgba(167,139,250,0.6); }
+.card[data-finish="holo"] .card-front { border-color: #a78bfa !important; box-shadow: 0 0 18px rgba(167,139,250,0.6); }
 .collection-card[data-finish="holo"] .card-art::after,
-.card-modal[data-finish="holo"] .card-art::after {
+.card-modal[data-finish="holo"] .card-art::after,
+.craft-card[data-finish="holo"] .card-art::after,
+.card[data-finish="holo"] .card-art::after {
   background:
-    radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(196,181,253,0.75), rgba(103,232,249,0.5) 40%, transparent 70%),
-    repeating-linear-gradient(115deg, rgba(255,255,255,0.16) 0 4px, transparent 4px 14px, rgba(103,232,249,0.14) 14px 18px, transparent 18px 28px);
+    radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(196,181,253,0.85), rgba(103,232,249,0.55) 40%, transparent 70%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.2) 0 4px, transparent 4px 14px, rgba(103,232,249,0.18) 14px 18px, transparent 18px 28px);
   mix-blend-mode: screen;
   animation: finish-holo-shift 3.5s ease-in-out infinite;
 }
@@ -3123,26 +3248,38 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 
 .collection-card[data-finish="gold"] img,
-.card-modal[data-finish="gold"] img { filter: sepia(0.6) saturate(2.1) brightness(1.04) hue-rotate(-8deg); }
+.card-modal[data-finish="gold"] img,
+.craft-card[data-finish="gold"] img,
+.card[data-finish="gold"] img { filter: sepia(0.7) saturate(2.4) brightness(1.06) hue-rotate(-8deg); }
 .collection-card[data-finish="gold"],
-.card-modal[data-finish="gold"] { border-color: #d4af37 !important; border-width: 2px; box-shadow: 0 0 18px rgba(212,175,55,0.55); }
+.card-modal[data-finish="gold"],
+.craft-card[data-finish="gold"] { border-color: #d4af37 !important; border-width: 2px; box-shadow: 0 0 22px rgba(212,175,55,0.65); }
+.card[data-finish="gold"] .card-front { border-color: #d4af37 !important; box-shadow: 0 0 22px rgba(212,175,55,0.65); }
 .collection-card[data-finish="gold"] .card-art::after,
-.card-modal[data-finish="gold"] .card-art::after {
+.card-modal[data-finish="gold"] .card-art::after,
+.craft-card[data-finish="gold"] .card-art::after,
+.card[data-finish="gold"] .card-art::after {
   background:
-    linear-gradient(135deg, rgba(255,223,120,0.5), transparent 55%),
-    repeating-radial-gradient(circle at 20% 15%, rgba(255,235,180,0.22) 0 2px, transparent 2px 9px);
+    linear-gradient(135deg, rgba(255,223,120,0.6), transparent 55%),
+    repeating-radial-gradient(circle at 20% 15%, rgba(255,235,180,0.28) 0 2px, transparent 2px 9px);
   mix-blend-mode: overlay;
 }
 
 .collection-card[data-finish="ghost"] img,
-.card-modal[data-finish="ghost"] img { filter: grayscale(0.55) brightness(1.25) contrast(0.82); opacity: 0.88; }
+.card-modal[data-finish="ghost"] img,
+.craft-card[data-finish="ghost"] img,
+.card[data-finish="ghost"] img { filter: grayscale(0.65) brightness(1.3) contrast(0.78); opacity: 0.85; }
 .collection-card[data-finish="ghost"],
-.card-modal[data-finish="ghost"] { border-color: #94a3b8 !important; border-width: 2px; box-shadow: 0 0 16px rgba(148,163,184,0.5); }
+.card-modal[data-finish="ghost"],
+.craft-card[data-finish="ghost"] { border-color: #94a3b8 !important; border-width: 2px; box-shadow: 0 0 20px rgba(148,163,184,0.6); }
+.card[data-finish="ghost"] .card-front { border-color: #94a3b8 !important; box-shadow: 0 0 20px rgba(148,163,184,0.6); }
 .collection-card[data-finish="ghost"] .card-art::after,
-.card-modal[data-finish="ghost"] .card-art::after {
+.card-modal[data-finish="ghost"] .card-art::after,
+.craft-card[data-finish="ghost"] .card-art::after,
+.card[data-finish="ghost"] .card-art::after {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.35), rgba(148,163,184,0.18)),
-    repeating-radial-gradient(circle at 70% 60%, rgba(255,255,255,0.08) 0 3px, transparent 3px 10px);
+    linear-gradient(180deg, rgba(255,255,255,0.4), rgba(148,163,184,0.22)),
+    repeating-radial-gradient(circle at 70% 60%, rgba(255,255,255,0.1) 0 3px, transparent 3px 10px);
   mix-blend-mode: screen;
   animation: finish-ghost-breathe 3s ease-in-out infinite;
 }
@@ -3152,28 +3289,40 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 
 .collection-card[data-finish="diamond"] img,
-.card-modal[data-finish="diamond"] img { filter: contrast(1.22) brightness(1.12) saturate(0.85); }
+.card-modal[data-finish="diamond"] img,
+.craft-card[data-finish="diamond"] img,
+.card[data-finish="diamond"] img { filter: contrast(1.3) brightness(1.16) saturate(0.8); }
 .collection-card[data-finish="diamond"],
-.card-modal[data-finish="diamond"] { border-color: #7dd3fc !important; border-width: 2px; box-shadow: 0 0 20px rgba(125,211,252,0.6); }
+.card-modal[data-finish="diamond"],
+.craft-card[data-finish="diamond"] { border-color: #7dd3fc !important; border-width: 2px; box-shadow: 0 0 24px rgba(125,211,252,0.7); }
+.card[data-finish="diamond"] .card-front { border-color: #7dd3fc !important; box-shadow: 0 0 24px rgba(125,211,252,0.7); }
 .collection-card[data-finish="diamond"] .card-art::after,
-.card-modal[data-finish="diamond"] .card-art::after {
+.card-modal[data-finish="diamond"] .card-art::after,
+.craft-card[data-finish="diamond"] .card-art::after,
+.card[data-finish="diamond"] .card-art::after {
   background:
-    radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(255,255,255,0.9), rgba(125,211,252,0.5) 30%, transparent 65%),
-    repeating-linear-gradient(60deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 12px),
-    repeating-linear-gradient(-60deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 12px);
+    radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(255,255,255,0.95), rgba(125,211,252,0.55) 30%, transparent 65%),
+    repeating-linear-gradient(60deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 12px),
+    repeating-linear-gradient(-60deg, rgba(255,255,255,0.13) 0 2px, transparent 2px 12px);
   mix-blend-mode: screen;
 }
 
 .collection-card[data-finish="rainbow"] img,
-.card-modal[data-finish="rainbow"] img { filter: saturate(1.6) contrast(1.12); }
+.card-modal[data-finish="rainbow"] img,
+.craft-card[data-finish="rainbow"] img,
+.card[data-finish="rainbow"] img { filter: saturate(1.75) contrast(1.16); }
 .collection-card[data-finish="rainbow"],
-.card-modal[data-finish="rainbow"] { border-color: #ff6ec7 !important; border-width: 2px; box-shadow: 0 0 24px rgba(255,110,199,0.55); }
+.card-modal[data-finish="rainbow"],
+.craft-card[data-finish="rainbow"] { border-color: #ff6ec7 !important; border-width: 2px; box-shadow: 0 0 28px rgba(255,110,199,0.65); }
+.card[data-finish="rainbow"] .card-front { border-color: #ff6ec7 !important; box-shadow: 0 0 28px rgba(255,110,199,0.65); }
 .collection-card[data-finish="rainbow"] .card-art::after,
-.card-modal[data-finish="rainbow"] .card-art::after {
+.card-modal[data-finish="rainbow"] .card-art::after,
+.craft-card[data-finish="rainbow"] .card-art::after,
+.card[data-finish="rainbow"] .card-art::after {
   background:
     repeating-linear-gradient(115deg, #ff6ec7 0 8%, #ffd76e 8% 16%, #7dd3fc 16% 24%, #a78bfa 24% 32%, #ff6ec7 32% 40%);
   background-size: 250% 250%;
-  opacity: 0.55;
+  opacity: 0.6;
   mix-blend-mode: color-dodge;
   animation: finish-rainbow-shift 4s linear infinite;
 }
@@ -3208,10 +3357,16 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 @media (prefers-reduced-motion: reduce) {
   .collection-card[data-finish="rainbow"] .card-art::after,
   .card-modal[data-finish="rainbow"] .card-art::after,
+  .craft-card[data-finish="rainbow"] .card-art::after,
+  .card[data-finish="rainbow"] .card-art::after,
   .collection-card[data-finish="holo"] .card-art::after,
   .card-modal[data-finish="holo"] .card-art::after,
+  .craft-card[data-finish="holo"] .card-art::after,
+  .card[data-finish="holo"] .card-art::after,
   .collection-card[data-finish="ghost"] .card-art::after,
-  .card-modal[data-finish="ghost"] .card-art::after { animation: none; }
+  .card-modal[data-finish="ghost"] .card-art::after,
+  .craft-card[data-finish="ghost"] .card-art::after,
+  .card[data-finish="ghost"] .card-art::after { animation: none; }
 }
 
 /* Dissolution "poussiere d'etoile" a la destruction d'une carte (voir

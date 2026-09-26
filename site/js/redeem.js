@@ -43,25 +43,39 @@ function buildCardEl(card, index) {
   return wrap;
 }
 
+// A partir d'epique (pas seulement legendaire) : le flash plein ecran suit
+// desormais la VRAIE couleur de la rarete (hexToRgba, main.js) et son
+// intensite grandit avec le palier - jamais fige sur l'orange legendaire.
+const RARITY_FLASH_TIERS = {
+  epique: { alpha: 0.4, duration: "0.7s", brightness: 1.6, className: "tier-epique" },
+  legendaire: { alpha: 0.55, duration: "0.9s", brightness: 2, className: "tier-legendaire" },
+  mythique: { alpha: 0.7, duration: "1.2s", brightness: 2.6, className: "tier-mythique" }
+};
+const RARITY_FLASH_TOASTS = { legendaire: "Légendaire !", mythique: "Mythique !" };
 function celebrateRarity(key, cardEl, colorHex) {
   // Particules proportionnelles a la rareté (spawnRarityBurst, main.js),
   // toujours au-dessus de tout (z-index:420).
   spawnRarityBurst(key, colorHex, cardEl);
-  if (key === "legendaire") {
+  const tier = RARITY_FLASH_TIERS[key];
+  if (tier) {
     // Pas de transform sur un ancetre des cartes (voir opening.js) : on
     // isole l'effet a un flash plein écran + un filtre sur la carte.
     const flash = document.getElementById("legendary-flash");
     if (flash) {
-      flash.classList.remove("active");
+      flash.style.setProperty("--flash-color", hexToRgba(colorHex, tier.alpha));
+      flash.style.setProperty("--flash-duration", tier.duration);
+      flash.className = "legendary-flash " + tier.className;
       void flash.offsetWidth;
       flash.classList.add("active");
     }
     if (cardEl) {
+      cardEl.style.setProperty("--flash-duration", tier.duration);
+      cardEl.style.setProperty("--flash-brightness", tier.brightness);
       cardEl.classList.remove("legendary-hit");
       void cardEl.offsetWidth;
       cardEl.classList.add("legendary-hit");
     }
-    Toast.success("Légendaire !");
+    if (RARITY_FLASH_TOASTS[key]) Toast.success(RARITY_FLASH_TOASTS[key]);
   }
 }
 

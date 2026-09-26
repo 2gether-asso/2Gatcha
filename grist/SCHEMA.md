@@ -43,6 +43,39 @@ carte au hasard de l'extension (`open-pack.json`) : verifie que chaque
 extension a au moins une carte par rarete utilisee, sinon la ponderation n'a
 plus d'effet visible.
 
+### Nouvelle rarete : Mythique (au-dessus de Legendaire)
+
+**Cote code, tout est deja pret** - `Rarities` est lue dynamiquement partout
+(ponderation de tirage, badges, filtres, disenchant/craft) via `Key`/
+`SortOrder`, aucun code ne code "en dur" la liste des raretes possibles.
+Le front (CSS/JS) a deja tout le traitement visuel prepare pour
+`Key = "mythique"` (rouge, `--rarity-mythique: #ef4444`) : bordure dans la
+collection/la modale/le reveal de pack, degrade sous l'image, texte en
+degrade anime, icone 🔥, flash + particules au reveal (voir plus bas). **Il
+ne reste qu'a ajouter la ligne dans Grist** :
+
+| Name       | Key       | Weight | ColorHex  | SortOrder | DisenchantValue | CraftCost |
+|------------|-----------|--------|-----------|-----------|-----------------|-----------|
+| Mythique   | mythique  | *a definir (tres bas, ex: 0.2)* | #ef4444 | 5 (au-dessus de Legendaire) | *a definir (ex: 800)* | *a definir (ex: 3200)* |
+
+Une fois la ligne ajoutee (et au moins une carte de cette rarete active dans
+une extension), tout fonctionne sans redeploiement : filtres de la
+collection, tirage, craft/decraft, badges. Point non couvert par cette
+preparation (choix de design a faire separement si voulu) : la roue de la
+fortune, la charge du booster et les badges de succes referencent encore
+`legendaire` en dur comme "rarete la plus haute" a certains endroits
+cosmetiques (`main.js`/`style.css`) - a etendre a `mythique` si elle doit
+aussi y apparaitre.
+
+### Flash + particules au reveal : desormais des l'Epique
+
+`spawnRarityBurst`/`celebrateRarity` (main.js, opening.js, redeem.js)
+declenchent maintenant un flash plein ecran + une salve de particules des
+qu'une carte Epique ou mieux est revelee (avant : Legendaire uniquement),
+avec une couleur ET une intensite (opacite du flash, taille/nombre des
+particules, brightness du "hit") qui suivent la VRAIE couleur/le palier de
+la carte plutot qu'un orange fige - Mythique est le palier le plus fort.
+
 ## Finishes
 
 Table de reference pour les finitions cosmetiques (voir "Finitions" plus
@@ -121,6 +154,17 @@ configuree). Ce tirage ne s'applique qu'aux boosters reels, pas a
 `craft.json`/codes/autel/restauration (qui produisent toujours `damaged`
 par omission du champ, coherent avec `Finish` qui y reste toujours
 `normal`).
+
+**Traitement visuel par palier** (`style.css`) : `good` est le palier neutre
+(aucun filtre, c'est la reference visuelle) ; `damaged`/`worn` gardent leurs
+rayures "verre fissure" existantes (juste durcies) ; `mint` a desormais son
+propre traitement DISTINCT au lieu de "juste l'absence de defaut" (le
+probleme signale : "je ne vois pas la difference entre bon et parfait
+etat") - filtre plus vif/lumineux, reflet brillant anime qui balaie l'image,
+et un fin liseret clair (`outline`, n'entre pas en conflit avec le
+border-color de la finition/la rarete). Applique partout ou une carte
+possedee s'affiche : collection, modale, decraft (craft.html), profil
+public, reveal de pack.
 
 ## 2. Extensions
 
@@ -739,6 +783,29 @@ quand les 9 sont possedees.
 | BingoClaims | User           | Reference -> Users       | **nouvelle table, a creer** - evite de recompenser deux fois la meme grille |
 | BingoClaims | Month          | Text                    | `AAAA-MM` |
 | BingoClaims | ClaimedAt      | DateTime                | |
+
+**Bug reel trouve et corrige (2026-09-26)** : si `Month` est cree comme un
+type Date/DateTime dans Grist au lieu de Text (piege facile - Grist propose
+volontiers ce type pour une valeur qui ressemble a une date), l'API le
+renvoie en LECTURE comme un epoch en secondes (nombre), jamais la chaine
+`"AAAA-MM"` ecrite - une comparaison directe `===` echoue alors TOUJOURS,
+et `bingo.json` semble "ne jamais avoir de grille" cote joueur ET cote admin
+(`gridExists` echoue aussi -> chaque nouvel essai de l'admin cree une
+nouvelle ligne en double au lieu de mettre a jour la precedente). Corrige
+dans `Dispatch Action` par une fonction `monthKey()` qui normalise les deux
+formats (texte ou epoch) avant de comparer - fonctionne desormais quel que
+soit le type reel de la colonne. **Verifie quand meme que `Month` est bien
+en type Text dans Grist** (repasser la colonne en Text si besoin) pour eviter
+la confusion a l'avenir.
+
+**Second point a verifier a la main** : si une grille existante affiche des
+cases vides malgre un `adminSetGrid` reussi, verifie que `CardIds` est bien
+en type **Reference List -> Cards** et pas en Text/Any - une colonne du
+mauvais type accepte l'ecriture `["L", id, ...]` sans erreur mais la
+restitue en lecture comme le texte litteral `"[id, id, ...]"`, que le code
+(qui attend un vrai tableau, voir `refIdList()`) ne sait pas parser. Une fois
+le type de colonne corrige, resauvegarder la grille du mois via
+`admin.html` regle le probleme sans changement de code.
 
 `bingo.json` (POST `/bingo` `{ userId, action, discordId?, month?,
 cardIds?, rewardBoosters? }`) :

@@ -70,6 +70,12 @@
   <script src="js/api.js"></script>
   <script src="js/main.js"></script>
   <script>
+    // Memes echelles que collection.js/craft.js (voir grist/SCHEMA.md) : le
+    // profil public doit montrer le meme traitement visuel (filtre image,
+    // contour, degrade par finition/etat) qu'ailleurs, pas des vignettes nues.
+    const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+    const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+
     const BADGE_ERRORS = {
       badge_not_found: "Badge introuvable.",
       insufficient_dust: "Pas assez de poussières d'étoile.",
@@ -238,10 +244,16 @@
         grid.innerHTML = cards.length ? cards.map((c) => {
           const color = c.rarity?.colorHex || "#9aa0b4";
           const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
+          const finish = c.finish || "normal";
+          const quality = c.quality || "damaged";
           return `
-            <div class="collection-card" data-rarity="${c.rarity?.key || "commune"}" data-promo="${c.isPromo ? "1" : "0"}">
+            <div class="collection-card" data-rarity="${c.rarity?.key || "commune"}" data-promo="${c.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}">
               ${c.count > 1 && !c.isPromo ? `<span class="dupe-badge" title="Doublon possible a echanger">×${c.count} dispo</span>` : ""}
-              <img src="${imgSrc}" alt="${c.name}" loading="lazy" />
+              <div class="card-art">
+                <img src="${imgSrc}" alt="${c.name}" loading="lazy" />
+                ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
+                ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+              </div>
               <div class="card-info">
                 <div class="card-name">${c.name}${c.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
                 <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">

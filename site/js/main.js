@@ -411,7 +411,7 @@ const Sfx = {
 
 // Petite icone distinctive par rareté (en plus de la couleur, pour ne pas
 // reposer uniquement sur la teinte).
-const RARITY_ICONS = { commune: "&#9679;", rare: "&#9670;", epique: "&#9733;", legendaire: "&#128081;" };
+const RARITY_ICONS = { commune: "&#9679;", rare: "&#9670;", epique: "&#9733;", legendaire: "&#128081;", mythique: "&#128293;" };
 function rarityIcon(key) {
   return RARITY_ICONS[key] || RARITY_ICONS.commune;
 }
@@ -457,12 +457,13 @@ const TopLoadingBar = {
 // a un z-index superieur au modal plein écran d'ouverture (400) et a son
 // flash legendaire (410) : les effets doivent toujours passer PAR-DESSUS.
 // ---------------------------------------------------------------------------
-const RARITY_PARTICLE_COUNTS = { commune: 5, rare: 12, epique: 24, legendaire: 42 };
+const RARITY_PARTICLE_COUNTS = { commune: 5, rare: 12, epique: 24, legendaire: 42, mythique: 64 };
 const RARITY_CONFETTI = {
   commune: { particleCount: 0, spread: 0 },
   rare: { particleCount: 45, spread: 65 },
   epique: { particleCount: 80, spread: 90 },
-  legendaire: { particleCount: 150, spread: 120 }
+  legendaire: { particleCount: 150, spread: 120 },
+  mythique: { particleCount: 220, spread: 140 }
 };
 
 // Melange une couleur hex avec du blanc (0 = couleur intacte, 1 = blanc
@@ -475,6 +476,16 @@ function lightenColor(hex, amount) {
   const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
   const mix = (c) => Math.round(c + (255 - c) * amount);
   return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+// Utilise par celebrateRarity (opening.js/redeem.js) pour poser --flash-color
+// depuis la VRAIE couleur de la rarete (jamais figee sur l'orange legendaire).
+function hexToRgba(hex, alpha) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return `rgba(245,165,36,${alpha})`;
+  const num = parseInt(m[1], 16);
+  const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // Ratio de contraste WCAG entre deux couleurs hex (formule standard sRGB).
@@ -524,7 +535,7 @@ function spawnRarityBurst(key, colorHex, originEl) {
   const rect = originEl ? originEl.getBoundingClientRect() : null;
   const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
   const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
-  const maxSize = rarityKey === "legendaire" ? 22 : rarityKey === "epique" ? 16 : rarityKey === "rare" ? 12 : 8;
+  const maxSize = rarityKey === "mythique" ? 28 : rarityKey === "legendaire" ? 22 : rarityKey === "epique" ? 16 : rarityKey === "rare" ? 12 : 8;
   const maxDist = 70 + count * 2.2;
 
   const layer = getParticleLayer();
