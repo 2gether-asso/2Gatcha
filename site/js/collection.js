@@ -757,8 +757,10 @@ function renderGrid() {
     return;
   }
 
-  // Tri "extension" (par defaut) : par SortOrder d'extension, la rareté
-  // restant geree par les boutons de filtre, pas par un tri automatique.
+  // Tri "extension" (par defaut) : par SortOrder d'extension, puis par
+  // numero de catalogue (#001...) DANS chaque extension - meme ordre que le
+  // badge affiche sur les cartes non decouvertes (commune -> mythique), pour
+  // que parcourir la grille corresponde vraiment a compter #001, #002...
   let sorted;
   if (sortMode === "name") {
     sorted = [...cards].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -785,7 +787,7 @@ function renderGrid() {
       const keyA = a.extension?.key || "";
       const keyB = b.extension?.key || "";
       if (keyA !== keyB) return keyA.localeCompare(keyB);
-      return (a.name || "").localeCompare(b.name || "");
+      return (cardNumberByCardId.get(a.cardId) || 0) - (cardNumberByCardId.get(b.cardId) || 0);
     });
   }
 
