@@ -1003,16 +1003,24 @@ async function loadCollection() {
 
   try {
     allCardsCache = res.cards || [];
-    // Numero de catalogue stable (#001, #002...) : de commune a mythique
-    // (meme ordre que Rarities.SortOrder, comme sur le tableur), TOUJOURS le
-    // meme quel que soit le mode de tri/regroupement choisi dans la grille
-    // (extension/nom/artiste/recent) - departage par cardId a rarete egale
-    // pour rester stable d'un chargement a l'autre.
-    cardNumberByCardId = new Map(
-      [...allCardsCache]
+    // Numero de catalogue stable (#001, #002...) PAR EXTENSION (recommence a
+    // 1 pour chaque extension, comme sur le tableur) : de commune a mythique
+    // (meme ordre que Rarities.SortOrder), TOUJOURS le meme quel que soit le
+    // mode de tri/regroupement choisi dans la grille (extension/nom/artiste/
+    // recent) - departage par cardId a rarete egale pour rester stable d'un
+    // chargement a l'autre.
+    cardNumberByCardId = new Map();
+    const cardsByExtension = new Map();
+    allCardsCache.forEach((c) => {
+      const extKey = c.extension?.id ?? "__none__";
+      if (!cardsByExtension.has(extKey)) cardsByExtension.set(extKey, []);
+      cardsByExtension.get(extKey).push(c);
+    });
+    cardsByExtension.forEach((cards) => {
+      [...cards]
         .sort((a, b) => (a.rarity?.sortOrder ?? 999) - (b.rarity?.sortOrder ?? 999) || a.cardId - b.cardId)
-        .map((c, i) => [c.cardId, i + 1])
-    );
+        .forEach((c, i) => cardNumberByCardId.set(c.cardId, i + 1));
+    });
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
     ownedCopiesByCard = new Map((res.owned || []).map((o) => [o.cardId, o.copies || []]));
     stardustBalance = statusRes.stardust || 0;
