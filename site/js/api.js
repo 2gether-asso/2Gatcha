@@ -160,6 +160,10 @@ const API = {
     return this.get("siteBanner");
   },
 
+  getUnlockConfig() {
+    return this.get("unlockConfig");
+  },
+
   getDailyWheelStatus(userId) {
     return this.post("dailyWheel", { userId, action: "status" });
   },

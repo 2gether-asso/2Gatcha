@@ -24,6 +24,7 @@ les tables, et un node HTTP Request dedie uniquement pour servir les images
 | `craft.json`               | POST    | `/webhook/craft`             | depense des poussieres d'etoile pour obtenir une carte non-promo precise |
 | `admin-reset.json`         | POST    | `/webhook/admin-reset`       | **reserve aux admins, irreversible** : supprime tirages/echanges/quetes hebdo/quotidiennes/redemptions/inventaire booster/pity - soit pour tout le monde (`targetPseudo` vide), soit pour un seul joueur cible (`targetPseudo` rempli, resolu contre `Users.Pseudo`) |
 | `get-site-banner.json`     | GET     | `/webhook/site-banner`       | endpoint public (sans auth) qui lit `Config.BannerEnabled/BannerType/BannerMessage` pour le bandeau en haut du site |
+| `get-unlock-config.json`   | GET     | `/webhook/unlock-config`     | endpoint public (sans auth) qui lit les 12 colonnes `Config.*Unlock*` pour les niveaux de deblocage (themes/onglets/pochettes) |
 
 Ces chemins correspondent a ceux deja configures dans `site/js/config.js`.
 

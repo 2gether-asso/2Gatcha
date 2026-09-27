@@ -2329,6 +2329,23 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   transform: scale(1.1);
 }
 .collection-card.locked .card-info { filter: grayscale(1) brightness(0.5); }
+/* Numero de catalogue (#001...), directement sur la silhouette floutee : sert
+   de repere ("il me manque #014"), pas juste un placeholder "???". */
+.locked-card-number {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.6);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+  pointer-events: none;
+}
 
 /* Barres de progression par rarete */
 .rarity-progress-list {
@@ -3938,6 +3955,22 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
    Barre de pity (ouverture de booster)
    ======================================================================== */
 .pity-row { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; }
+
+/* ========================================================================
+   Liste "gains par niveau" (page d'accueil, panneau Progression)
+   ======================================================================== */
+.level-rewards-details { margin-top: 14px; }
+.level-rewards-details summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--accent-2);
+  font-weight: 600;
+  list-style: none;
+}
+.level-rewards-details summary::-webkit-details-marker { display: none; }
+.level-rewards-details summary::before { content: "▸ "; }
+.level-rewards-details[open] summary::before { content: "▾ "; }
+.level-rewards-details .quests-list { max-height: 260px; overflow-y: auto; }
 .pity-row .pity-icon { flex-shrink: 0; }
 .pity-row .pity-track { flex: 1; height: 6px; border-radius: 999px; background: var(--bg-panel-2); overflow: hidden; }
 .pity-row .pity-fill {

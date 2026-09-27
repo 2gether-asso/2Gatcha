@@ -354,11 +354,55 @@ du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
 | BannerEnabled                | Bool                    | **nouvelle colonne** - defaut false/vide ; affiche ou non le bandeau du site (voir "Bandeau du site" plus bas) |
 | BannerType                   | Text                    | **nouvelle colonne** - `info` ou `maintenance` (defaut `info` si vide) ; change juste la couleur/l'icone cote front |
 | BannerMessage                | Text                    | **nouvelle colonne** - texte affiche dans le bandeau ; bandeau invisible si vide meme si `BannerEnabled` est coche |
+| ThemeUnlockMonochrome         | Numeric                 | **nouvelle colonne** - defaut 3 si vide ; niveau de deblocage du theme Monochrome |
+| ThemeUnlockSepia              | Numeric                 | **nouvelle colonne** - defaut 5 si vide ; niveau de deblocage du theme Sépia |
+| ThemeUnlockCyberpunk          | Numeric                 | **nouvelle colonne** - defaut 8 si vide ; niveau de deblocage du theme Cyberpunk |
+| FeatureUnlockCraft            | Numeric                 | **nouvelle colonne** - defaut 2 si vide ; niveau de deblocage de l'onglet Crafter |
+| FeatureUnlockTrade            | Numeric                 | **nouvelle colonne** - defaut 3 si vide ; niveau de deblocage des echanges (trade.html) |
+| FeatureUnlockAltar            | Numeric                 | **nouvelle colonne** - defaut 4 si vide ; niveau de deblocage de l'autel de sacrifice |
+| FeatureUnlockQuality          | Numeric                 | **nouvelle colonne** - defaut 4 si vide ; niveau de deblocage de la restauration de cartes usees |
+| FeatureUnlockFinish           | Numeric                 | **nouvelle colonne** - defaut 5 si vide ; niveau de deblocage des fusions de finition |
+| FeatureUnlockShowcase         | Numeric                 | **nouvelle colonne** - defaut 6 si vide ; niveau de deblocage de la vitrine de profil |
+| SleeveUnlockNeon              | Numeric                 | **nouvelle colonne** - defaut 4 si vide ; niveau de deblocage de la pochette Neon |
+| SleeveUnlockVintage           | Numeric                 | **nouvelle colonne** - defaut 6 si vide ; niveau de deblocage de la pochette Vintage |
+| SleeveUnlockCarbone           | Numeric                 | **nouvelle colonne** - defaut 10 si vide ; niveau de deblocage de la pochette Carbone |
 
 Toutes les colonnes `Numeric` ci-dessus tolerent une cellule vide dans Grist
 (chaque workflow qui les lit retombe sur la valeur par defaut listee) - pas
 besoin de remplir la ligne existante avant de deployer, seulement d'ajouter
 les colonnes.
+
+**Important, different des autres colonnes `Numeric` ci-dessus** : les 12
+colonnes `ThemeUnlock*`/`FeatureUnlock*`/`SleeveUnlock*` doivent exister dans
+Grist AVANT de sauvegarder depuis `admin.html` (section "Déblocages par
+niveau de profil") - contrairement a la LECTURE (qui tolere une colonne
+absente et retombe sur le defaut cote code), l'API Grist refuse une
+ECRITURE vers une colonne qui n'existe pas ("Invalid column ..."), erreur
+verifiee en conditions reelles. Tant que ces colonnes n'existent pas, la
+lecture (page d'accueil, verrous de fonctionnalites) fonctionne normalement
+avec les valeurs par defaut ci-dessus - seul le formulaire de sauvegarde de
+l'admin echoue.
+
+## Déblocages par niveau de profil
+
+Meme pattern que le bandeau : jusqu'ici les niveaux de deblocage (themes,
+onglets craft/echanges/autel/restauration/finitions/vitrine, pochettes de
+carte) etaient des nombres codes en dur dans `main.js`
+(`THEME_UNLOCK_LEVEL`/`FEATURE_UNLOCK_LEVEL`) et dans `collection.html`
+(`data-level` sur chaque `.sleeve-swatch`) - aucune des deux sources n'etait
+pilotable depuis l'admin. Desormais :
+- `get-unlock-config.json` (GET `/unlock-config`, public, sans auth - lu sur
+  CHAQUE page comme le bandeau) renvoie `{ themes, features, sleeves }`
+  depuis `Config` (colonnes ci-dessus) et fusionne ces valeurs DANS les
+  objets JS existants (`main.js`, `loadUnlockConfig()`) au lieu de les
+  remplacer - toute verification deja ecrite ailleurs (craft.js,
+  collection.js, trade.js, `cycleTheme()`) en profite automatiquement.
+- `admin-config.json` (action `get`/`set`, section "Déblocages par niveau de
+  profil" de `admin.html`) permet a l'admin d'editer ces 12 valeurs sans
+  toucher Grist directement.
+- La page d'accueil (`index.html`) affiche desormais la liste complete
+  "Niveau X -> debloque Y", triee par niveau croissant, depuis ce meme
+  endpoint public - toujours a jour avec ce que l'admin a configure.
 
 ## Bandeau du site
 

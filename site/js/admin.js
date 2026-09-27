@@ -235,6 +235,18 @@ async function loadConfig() {
   document.getElementById("banner-enabled-input").checked = !!res.bannerEnabled;
   document.getElementById("banner-type-select").value = res.bannerType || "info";
   document.getElementById("banner-message-input").value = res.bannerMessage || "";
+  document.getElementById("unlock-craft-input").value = res.featureUnlockCraft || 2;
+  document.getElementById("unlock-trade-input").value = res.featureUnlockTrade || 3;
+  document.getElementById("unlock-altar-input").value = res.featureUnlockAltar || 4;
+  document.getElementById("unlock-quality-input").value = res.featureUnlockQuality || 4;
+  document.getElementById("unlock-finish-input").value = res.featureUnlockFinish || 5;
+  document.getElementById("unlock-showcase-input").value = res.featureUnlockShowcase || 6;
+  document.getElementById("unlock-theme-monochrome-input").value = res.themeUnlockMonochrome || 3;
+  document.getElementById("unlock-theme-sepia-input").value = res.themeUnlockSepia || 5;
+  document.getElementById("unlock-theme-cyberpunk-input").value = res.themeUnlockCyberpunk || 8;
+  document.getElementById("unlock-sleeve-neon-input").value = res.sleeveUnlockNeon || 4;
+  document.getElementById("unlock-sleeve-vintage-input").value = res.sleeveUnlockVintage || 6;
+  document.getElementById("unlock-sleeve-carbone-input").value = res.sleeveUnlockCarbone || 10;
 
   balanceRaritiesCache = res.rarities || [];
   balanceFinishesCache = res.finishes || [];
@@ -438,7 +450,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         weeklyQuestThreshold: Number(document.getElementById("weekly-threshold-input").value) || undefined,
         weeklyQuestRewardBoosters: document.getElementById("weekly-reward-input").value,
         weeklyQuestTarget: Number(document.getElementById("weekly-target-input").value) || undefined,
-        qualityRepairCost: Number(document.getElementById("quality-repair-cost-input").value) || undefined
+        qualityRepairCost: Number(document.getElementById("quality-repair-cost-input").value) || undefined,
+        featureUnlockCraft: Number(document.getElementById("unlock-craft-input").value) || undefined,
+        featureUnlockTrade: Number(document.getElementById("unlock-trade-input").value) || undefined,
+        featureUnlockAltar: Number(document.getElementById("unlock-altar-input").value) || undefined,
+        featureUnlockQuality: Number(document.getElementById("unlock-quality-input").value) || undefined,
+        featureUnlockFinish: Number(document.getElementById("unlock-finish-input").value) || undefined,
+        featureUnlockShowcase: Number(document.getElementById("unlock-showcase-input").value) || undefined,
+        themeUnlockMonochrome: Number(document.getElementById("unlock-theme-monochrome-input").value) || undefined,
+        themeUnlockSepia: Number(document.getElementById("unlock-theme-sepia-input").value) || undefined,
+        themeUnlockCyberpunk: Number(document.getElementById("unlock-theme-cyberpunk-input").value) || undefined,
+        sleeveUnlockNeon: Number(document.getElementById("unlock-sleeve-neon-input").value) || undefined,
+        sleeveUnlockVintage: Number(document.getElementById("unlock-sleeve-vintage-input").value) || undefined,
+        sleeveUnlockCarbone: Number(document.getElementById("unlock-sleeve-carbone-input").value) || undefined
       });
       Toast.success("Paramètres enregistrés.");
     } catch (e) {

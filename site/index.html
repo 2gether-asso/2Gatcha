@@ -64,6 +64,10 @@
             <span>Prochaine récompense : &#127183; +1 booster</span>
           </div>
         </div>
+        <details class="level-rewards-details">
+          <summary>Voir tous les gains par niveau</summary>
+          <div id="level-rewards-list" class="quests-list"></div>
+        </details>
       </div>
 
       <div class="panel" id="wheel-panel" style="display:none;">
@@ -229,6 +233,27 @@
         const pct = res.xp.xpForNextLevel ? Math.round((res.xp.xpIntoLevel / res.xp.xpForNextLevel) * 100) : 0;
         document.getElementById("pass-track-fill").style.width = pct + "%";
       }).catch(() => { passPanel.style.display = "none"; });
+
+      // Liste claire "a quel niveau je debloque quoi" : depuis le meme
+      // endpoint public que les verrous de fonctionnalites eux-memes
+      // (get-unlock-config.json), donc toujours a jour avec ce que l'admin a
+      // configure (site/admin.html, section "Déblocages par niveau de profil").
+      API.getUnlockConfig().then((res) => {
+        const featureLabels = { craft: "Crafter des cartes", trade: "Les échanges", altar: "L'autel de sacrifice", quality: "Restauration de cartes usées", finish: "Finitions (fusion de cartes)", showcase: "Vitrine de profil" };
+        const themeLabels = { monochrome: "Thème Monochrome", sepia: "Thème Sépia", cyberpunk: "Thème Cyberpunk" };
+        const sleeveLabels = { neon: "Pochette Néon", vintage: "Pochette Vintage", carbone: "Pochette Carbone" };
+        const rows = [];
+        Object.entries(res.features || {}).forEach(([k, lvl]) => rows.push({ level: lvl, label: featureLabels[k] || k }));
+        Object.entries(res.themes || {}).forEach(([k, lvl]) => rows.push({ level: lvl, label: themeLabels[k] || k }));
+        Object.entries(res.sleeves || {}).forEach(([k, lvl]) => rows.push({ level: lvl, label: sleeveLabels[k] || k }));
+        rows.sort((a, b) => a.level - b.level);
+        document.getElementById("level-rewards-list").innerHTML = rows.map((r) => `
+          <div class="quest-row">
+            <span class="quest-icon">&#127942;</span>
+            <span class="quest-label">Niveau ${r.level} — ${r.label}</span>
+          </div>
+        `).join("");
+      }).catch(() => {});
 
       const panel = document.getElementById("activity-panel");
       panel.style.display = "block";

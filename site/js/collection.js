@@ -27,7 +27,12 @@ function refreshSleeveLocks(level) {
   const prefs = loadPrefs();
   let currentIsLocked = false;
   document.querySelectorAll(".sleeve-swatch").forEach((sw) => {
-    const required = Number(sw.dataset.level) || 1;
+    // SLEEVE_UNLOCK_LEVEL (main.js) est la source de verite si loadUnlockConfig()
+    // a deja repondu (pilotable par l'admin) ; le data-level de l'HTML ne sert
+    // plus que de repli si la pochette n'y figure pas.
+    const required = (typeof SLEEVE_UNLOCK_LEVEL !== "undefined" && SLEEVE_UNLOCK_LEVEL[sw.dataset.sleeve] != null)
+      ? SLEEVE_UNLOCK_LEVEL[sw.dataset.sleeve]
+      : (Number(sw.dataset.level) || 1);
     const locked = level < required;
     sw.classList.toggle("locked", locked);
     sw.title = locked ? `Débloqué au niveau ${required}` : "";
@@ -123,6 +128,7 @@ function savePrefs(patch) {
 const prefs = loadPrefs();
 
 let allCardsCache = [];
+let cardNumberByCardId = new Map();
 let ownedMap = new Map();
 let craftCostByCard = new Map();
 // { finishKey: multiplier } / { qualityKey: multiplier }, renvoyes par
@@ -414,6 +420,7 @@ function cardTileHtml(card, now) {
         <button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}" aria-label="${inWishlist ? "Retirer de ma wishlist" : "Ajouter a ma wishlist"}">&#9733;</button>
         <div class="card-art">
           <img src="${imgSrc}" alt="Carte non découverte" loading="lazy" />
+          <span class="locked-card-number">#${String(cardNumberByCardId.get(card.cardId) || 0).padStart(3, "0")}</span>
         </div>
         <div class="card-info">
           <div class="card-name">???</div>
@@ -996,6 +1003,16 @@ async function loadCollection() {
 
   try {
     allCardsCache = res.cards || [];
+    // Numero de catalogue stable (#001, #002...) : de commune a mythique
+    // (meme ordre que Rarities.SortOrder, comme sur le tableur), TOUJOURS le
+    // meme quel que soit le mode de tri/regroupement choisi dans la grille
+    // (extension/nom/artiste/recent) - departage par cardId a rarete egale
+    // pour rester stable d'un chargement a l'autre.
+    cardNumberByCardId = new Map(
+      [...allCardsCache]
+        .sort((a, b) => (a.rarity?.sortOrder ?? 999) - (b.rarity?.sortOrder ?? 999) || a.cardId - b.cardId)
+        .map((c, i) => [c.cardId, i + 1])
+    );
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
     ownedCopiesByCard = new Map((res.owned || []).map((o) => [o.cardId, o.copies || []]));
     stardustBalance = statusRes.stardust || 0;

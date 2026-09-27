@@ -39,6 +39,7 @@ window.APP_CONFIG = {
     quests: "/quests",                // POST { userId } -> { quests, completedCount, rewardClaimed, justClaimedReward }
     adminReset: "/admin-reset",       // POST { discordId, confirm: 'RESET-V1', targetPseudo? } -> { reset: true, scope, targetPseudo, counts }
     siteBanner: "/site-banner",       // GET -> { enabled, type: 'info'|'maintenance', message }
+    unlockConfig: "/unlock-config",   // GET -> { themes: {...}, features: {...}, sleeves: {...} }
     dailyWheel: "/daily-wheel",       // POST { userId, action: 'status'|'spin' } -> { canSpin } | { prize, newStardust, newBoosterCount }
     altarSacrifice: "/altar-sacrifice", // POST { userId, cardIds: [id,id,id] } -> { success, card?, isFirstEver? } | { error }
     achievements: "/achievements",    // GET ?userId=... -> { achievements: [{key,icon,name,description,unlocked,progress,goal}], unlockedCount, totalCount }

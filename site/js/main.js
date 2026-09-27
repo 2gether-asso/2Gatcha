@@ -8,6 +8,11 @@
 // ---------------------------------------------------------------------------
 const THEME_ORDER = ["default", "monochrome", "sepia", "cyberpunk"];
 const THEME_LABELS = { default: "Nébuleuse (défaut)", monochrome: "Monochrome", sepia: "Sépia", cyberpunk: "Cyberpunk" };
+// Valeurs par defaut (utilisees tant que loadUnlockConfig() n'a pas encore
+// repondu, ou si l'admin n'a jamais touche a la config) - mutees en place
+// (Object.assign, jamais reassignees) par loadUnlockConfig() une fois la
+// vraie config recuperee, pour que toute reference existante (cycleTheme,
+// craft.js, collection.js, trade.js) voie automatiquement la mise a jour.
 const THEME_UNLOCK_LEVEL = { default: 1, monochrome: 3, sepia: 5, cyberpunk: 8 };
 let knownProfileLevel = 1;
 
@@ -20,6 +25,31 @@ let knownProfileLevel = 1;
 // ---------------------------------------------------------------------------
 const FEATURE_UNLOCK_LEVEL = { craft: 2, trade: 3, altar: 4, quality: 4, finish: 5, showcase: 6 };
 const FEATURE_LABELS = { craft: "Crafter des cartes", trade: "Les échanges", altar: "L'autel de sacrifice", quality: "La restauration de cartes usées", finish: "Les finitions (fusion de cartes)", showcase: "La vitrine de profil" };
+// Pochettes de cartes (collection.html) : mêmes valeurs par défaut que les
+// data-level historiquement poses en dur sur les .sleeve-swatch - centralisees
+// ici pour pouvoir aussi etre pilotees par loadUnlockConfig()/l'admin.
+const SLEEVE_UNLOCK_LEVEL = { default: 1, neon: 4, vintage: 6, carbone: 10 };
+
+// Recupere les seuils de deblocage configures par l'admin (endpoint public,
+// sans auth - lu sur CHAQUE page comme le bandeau du site) et les fusionne
+// DANS les objets ci-dessus (jamais de reassignation) pour que toute
+// verification deja ecrite ailleurs (cycleTheme, craft.js, collection.js,
+// trade.js) profite automatiquement de la config a jour, sans se soucier de
+// l'ordre de chargement. Echec silencieux : les valeurs par defaut ci-dessus
+// restent alors en vigueur (jamais un joueur bloque a cause d'un reseau coupe).
+let unlockConfigLoaded = null;
+function loadUnlockConfig() {
+  if (!unlockConfigLoaded) {
+    unlockConfigLoaded = API.getUnlockConfig()
+      .then((res) => {
+        if (res.themes) Object.assign(THEME_UNLOCK_LEVEL, res.themes);
+        if (res.features) Object.assign(FEATURE_UNLOCK_LEVEL, res.features);
+        if (res.sleeves) Object.assign(SLEEVE_UNLOCK_LEVEL, res.sleeves);
+      })
+      .catch(() => {});
+  }
+  return unlockConfigLoaded;
+}
 
 // Toujours une requete fraiche (pas le cache de knownProfileLevel, qui peut
 // etre perime/pas encore charge selon la page et l'ordre d'execution) :
@@ -1092,6 +1122,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
   syncHeaderOffset();
   loadSiteBanner();
+  loadUnlockConfig();
   initHeaderShrink();
   initBackToTop();
 
