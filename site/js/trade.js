@@ -35,9 +35,9 @@ const STATUS_LABELS = {
   countered: "Remplace par une contre-proposition"
 };
 
-function formatSerial(serial, maxSerial) {
+function formatSerial(serial) {
   if (serial == null) return "";
-  return ` (#${String(serial).padStart(3, "0")}${maxSerial ? "/" + maxSerial : ""})`;
+  return ` (#${String(serial).padStart(3, "0")})`;
 }
 
 let myOwnedCards = [];
@@ -45,7 +45,6 @@ let allCards = [];
 let cardById = new Map();
 let myOwnedCountByCard = new Map();
 let ownedCopiesByCard = new Map();
-let maxSerialByCard = new Map();
 let allTradesCache = [];
 let historySearch = "";
 let bulkCancelMode = false;
@@ -74,7 +73,6 @@ async function loadFormOptions() {
   // joueur, pour choisir PRECISEMENT quelle carte donner (pas juste "une
   // carte au hasard parmi les doublons").
   ownedCopiesByCard = new Map((collection.owned || []).map((o) => [o.cardId, o.copies || []]));
-  maxSerialByCard = new Map((collection.cards || []).map((c) => [c.cardId, c.maxSerial || 100]));
 
   allCards = (cardsRes.cards || []).filter((c) => !c.isPromo);
   myOwnedCards = allCards.filter((c) => myOwnedCountByCard.has(c.cardId));
@@ -133,9 +131,8 @@ function updateOfferedPullOptions() {
   if (!select) return;
   const cardId = Number(document.getElementById("offered-card-select").value);
   const copies = ownedCopiesByCard.get(cardId) || [];
-  const maxSerial = maxSerialByCard.get(cardId) || 100;
   select.innerHTML = copies.length
-    ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`).join("")
+    ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"}</option>`).join("")
     : `<option value="">Aucun exemplaire</option>`;
   if (select._fancyRefresh) select._fancyRefresh();
 }
@@ -151,10 +148,61 @@ function updateCardPreview(selectId, previewId) {
   preview.style.visibility = "visible";
   const src = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   preview.src = src;
-  // Zoom au clic : juger si un echange est equitable passe aussi par bien
-  // voir le visuel, pas juste un timbre-poste de 44px.
+  // Clic = modale de detail (rarete, numero de serie, qualite...), pas
+  // juste un zoom brut : juger si un echange est equitable passe par voir
+  // ces infos sans quitter la page (demande explicite).
   preview.style.cursor = "zoom-in";
-  preview.onclick = () => openImageLightbox(src, card.name);
+  preview.onclick = () => {
+    // Cote "carte a offrir", l'exemplaire precis est deja choisi (voir
+    // offered-pull-select) : on peut donc afficher son vrai finish/quality/
+    // numero. Cote "carte demandee", aucun exemplaire precis n'est connu
+    // avant acceptation, la modale reste generique.
+    let pull = null;
+    if (selectId === "offered-card-select") {
+      const pullId = Number(document.getElementById("offered-pull-select")?.value);
+      pull = (ownedCopiesByCard.get(card.cardId) || []).find((c) => c.pullId === pullId) || null;
+    }
+    openTradeCardModal(card, pull ? { finish: pull.finish, quality: pull.quality, serialNumber: pull.serialNumber } : {});
+  };
+}
+
+// Modale de detail au clic sur une vignette de carte (formulaire de
+// creation ou historique des echanges) : image en grand, rarete, numero de
+// serie et qualite/finition quand un exemplaire precis est connu, sinon
+// juste les infos generiques de la carte.
+function openTradeCardModal(card, opts) {
+  if (!card) return;
+  opts = opts || {};
+  const color = card.rarity?.colorHex || "#9aa0b4";
+  const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+  const finish = opts.finish && opts.finish !== "normal" ? opts.finish : null;
+  const quality = opts.quality && opts.quality !== "mint" ? opts.quality : null;
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay";
+  overlay.innerHTML = `
+    <div class="card-modal" data-rarity="${card.rarity?.key || "commune"}" ${finish ? `data-finish="${finish}"` : ""} ${quality ? `data-quality="${quality}"` : ""}>
+      <button class="card-modal-close" aria-label="Fermer">&times;</button>
+      <div class="card-art"><img src="${imgSrc}" alt="${card.name}" /></div>
+      <div class="card-modal-body">
+        <div class="card-modal-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
+        <div class="card-modal-artist">${card.artist || ""}${card.extension ? " &middot; " + card.extension.name : ""}</div>
+        <div class="card-modal-badges">
+          <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">
+            ${card.rarity?.name || "Commune"}
+          </span>
+          ${finish ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;">${FINISH_LABELS[finish]}</span>` : ""}
+          ${quality ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;">${QUALITY_LABELS[quality]}</span>` : ""}
+        </div>
+        ${opts.serialNumber != null ? `<div class="card-modal-stats"><span>Exemplaire #${String(opts.serialNumber).padStart(3, "0")}</span></div>` : ""}
+        ${card.description ? `<p class="card-modal-description">${card.description}</p>` : ""}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => { overlay.remove(); syncScrollLock(); };
+  overlay.querySelector(".card-modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  syncScrollLock();
 }
 
 function renderTradeCard(trade) {
@@ -181,11 +229,11 @@ function renderTradeCard(trade) {
     ? `contre <strong>${trade.requestedCard.name}</strong>${formatSerial(trade.requestedSerial)} a <strong>${trade.toPseudo}</strong>`
     : `en cadeau a <strong>${trade.toPseudo}</strong> (aucune contrepartie)`;
 
-  // Petites vignettes des cartes concernees, zoomables au clic (juger si un
-  // echange est equitable passe aussi par bien voir le visuel), avec le
-  // detail rarete/etat/finition sous chacune - un mur de texte pur ne
-  // rendait pas justice au cote "jeu de cartes" du site, et ne disait rien
-  // sur l'equite de l'echange (demande explicite : "plus de details").
+  // Petites vignettes des cartes concernees, avec le detail rarete/etat/
+  // finition sous chacune - un mur de texte pur ne rendait pas justice au
+  // cote "jeu de cartes" du site, et ne disait rien sur l'equite de
+  // l'echange (demande explicite : "plus de details"). Le clic ouvre la
+  // modale de detail complete (image en grand, rarete, numero, qualite).
   function thumbBlock(cardRef, isGift, isOffered) {
     if (isGift) return `<div class="trade-card-block"><div class="trade-card-thumb gift" title="Don, sans contrepartie">&#127873;</div></div>`;
     const card = cardRef ? cardById.get(cardRef.id) : null;
@@ -198,7 +246,7 @@ function renderTradeCard(trade) {
     const quality = isOffered ? (cardRef?.quality || "damaged") : null;
     return `
       <div class="trade-card-block">
-        <div class="trade-card-thumb" style="border-color:${color};cursor:zoom-in;" data-zoom-src="${src}" data-zoom-alt="${cardRef?.name || ""}">
+        <div class="trade-card-thumb" style="border-color:${color};cursor:zoom-in;" data-modal-card-id="${card ? card.cardId : ""}" data-modal-finish="${finish || ""}" data-modal-quality="${quality || ""}" data-modal-serial="${isOffered && cardRef?.serialNumber != null ? cardRef.serialNumber : ""}">
           <img src="${src}" alt="${cardRef?.name || ""}" loading="lazy" />
         </div>
         ${card ? `
@@ -227,8 +275,16 @@ function renderTradeCard(trade) {
     <div class="trade-actions">${actions}</div>
   `;
 
-  el.querySelectorAll("[data-zoom-src]").forEach((t) => {
-    t.addEventListener("click", () => openImageLightbox(t.dataset.zoomSrc, t.dataset.zoomAlt));
+  el.querySelectorAll("[data-modal-card-id]").forEach((t) => {
+    t.addEventListener("click", () => {
+      const card = cardById.get(Number(t.dataset.modalCardId));
+      if (!card) return;
+      const opts = {};
+      if (t.dataset.modalFinish) opts.finish = t.dataset.modalFinish;
+      if (t.dataset.modalQuality) opts.quality = t.dataset.modalQuality;
+      if (t.dataset.modalSerial) opts.serialNumber = Number(t.dataset.modalSerial);
+      openTradeCardModal(card, opts);
+    });
   });
   el.querySelectorAll(".accept-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, true)));
   el.querySelectorAll(".decline-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, false)));
@@ -347,9 +403,8 @@ function openAcceptModal(trade) {
     const overlay = document.createElement("div");
     overlay.className = "card-modal-overlay confirm-overlay";
     const copies = ownedCopiesByCard.get(trade.requestedCard.id) || [];
-    const maxSerial = maxSerialByCard.get(trade.requestedCard.id) || 100;
     const options = copies
-      .map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`)
+      .map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"}</option>`)
       .join("");
     overlay.innerHTML = `
       <div class="confirm-box">
@@ -422,9 +477,8 @@ async function openCounterModal(trade) {
   function refreshPullOptions() {
     const cardId = Number(offeredSelect.value);
     const copies = ownedCopiesByCard.get(cardId) || [];
-    const maxSerial = maxSerialByCard.get(cardId) || 100;
     pullSelect.innerHTML = copies.length
-      ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`).join("")
+      ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"}</option>`).join("")
       : `<option value="">Aucun exemplaire</option>`;
     if (pullSelect._fancyRefresh) pullSelect._fancyRefresh();
   }

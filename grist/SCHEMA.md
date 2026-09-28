@@ -199,7 +199,7 @@ son propre compteur de pity.
 | Active      | Bool                   | si `false`, la carte n'est plus tirable     |
 | FirstObtainedBy | Reference -> Users | vide tant que personne ne l'a obtenue ; rempli une seule fois, par le premier tirage/reclamation qui la sort (`open-pack.json`, `redeem-code.json`) |
 | FirstObtainedAt | DateTime           | date du premier obtention (epoch secondes) |
-| MaxSerial   | Numeric               | limite d'exemplaires "dans la nature" pour cette carte, tous joueurs confondus (defaut 100 si vide/0, applique cote code par `card.MaxSerial \|\| 100`). Une fois la limite atteinte, la carte n'est plus obtenable par aucun moyen (booster, craft, code, autel) : chaque workflow qui cree une ligne `Pulls` l'exclut de son pool de tirage et renvoie l'erreur `sold_out` si on tente quand meme de l'obtenir |
+| MaxSerial   | Numeric               | **vestige, plus lu par aucun workflow (2026-09-28)** - servait a plafonner le nombre d'exemplaires "dans la nature" par carte ; retire suite a la demande "plus de quota, juste qu'un numero deja tire ne peut plus etre obtenu". Peut etre supprimee de Grist sans impact. Voir "Numeros de serie - plus de quota" plus bas |
 
 ## 4. Users
 
@@ -261,7 +261,7 @@ creant/detruisant des exemplaires.
 | Card        | Reference -> Cards     |                                             |
 | ObtainedAt  | DateTime               |                                             |
 | BatchId     | Text                   | regroupe les cartes d'un meme pack ouvert ou d'un meme code reclame |
-| SerialNumber | Numeric               | numero de l'exemplaire pour cette carte, tous joueurs confondus (1er exemplaire jamais tire = 1, etc.), **unique parmi les exemplaires actuellement en circulation** de cette carte. Attribue au moment de la creation de la ligne comme le plus petit numero dans `[1, Cards.MaxSerial]` qui n'est PAS deja porte par une ligne `Pulls` existante de cette carte (jamais un simple compteur incremental) - un exemplaire decrafte/consomme/defausse (donc sa ligne `Pulls` supprimee) libere reellement son numero pour un futur tirage/craft/code/restauration/fouille. Sert a l'affichage "#004/100" cote front et a la limite `Cards.MaxSerial` |
+| SerialNumber | Numeric               | numero de l'exemplaire pour cette carte, tous joueurs confondus (1er exemplaire jamais tire = 1, etc.), **unique parmi les exemplaires actuellement en circulation** de cette carte, sans plafond. Attribue au moment de la creation de la ligne comme le plus petit numero (1, 2, 3, ...) qui n'est PAS deja porte par une ligne `Pulls` existante de cette carte (jamais un simple compteur incremental) - un exemplaire decrafte/consomme/defausse (donc sa ligne `Pulls` supprimee) libere reellement son numero pour un futur tirage/craft/code/restauration/fouille. Sert a l'affichage "#004" cote front (voir "Numeros de serie - plus de quota" plus bas) |
 | Finish       | Text                   | finition de cet exemplaire precis : `normal` (ou vide - traite comme `normal` partout, voir plus bas), `holo`, `gold`, `ghost`, `diamond`, `rainbow`, dans cet ordre croissant de prestige. Cosmetique, mais influence la valeur de decraft (voir `Finishes` plus haut et "Craft / decraft" plus bas). Voir "Finitions" plus bas |
 | Quality      | Text                   | qualite de cet exemplaire precis : `damaged` (ou vide - traite comme `damaged` partout), `worn`, `good`, `mint`, dans cet ordre croissant. Meme principe que `Finish` : tirage naturel possible a l'ouverture ET influence la valeur de decraft (voir `Qualities` plus haut et "Restauration de cartes usees" plus bas) |
 
@@ -286,9 +286,8 @@ si tu changes l'ordre, il faut le changer aux trois endroits). Contrairement
 a l'autel de sacrifice, **deterministe** : pas de hasard, la fusion reussit
 toujours si les 5 exemplaires sont reunis. Les 5 exemplaires sacrifies sont
 supprimes de `Pulls` ; un nouvel exemplaire est cree a la finition
-superieure, avec un nouveau `SerialNumber` (meme compteur global que les
-tirages/craft normaux - une carte fusionnee "consomme" donc une place sous
-`Cards.MaxSerial` comme n'importe quel autre nouvel exemplaire). Une carte
+superieure, avec un nouveau `SerialNumber` (meme suivi de numeros que les
+tirages/craft normaux - voir "Numeros de serie" ci-dessous). Une carte
 promo ne peut pas etre fusionnee (`promo_not_upgradable`). Le front
 (`craft.html`, onglet "Finitions") liste directement toutes les fusions
 possibles pour le joueur (aucun palier de rarete a choisir, contrairement a
@@ -310,7 +309,7 @@ superieure, selon l'echelle fixe `damaged -> worn -> good -> mint` (fixe
 cote code, ce n'est QUE le nombre d'exemplaires requis qui est reglable).
 Deterministe, pas de hasard. Les exemplaires consommes sont supprimes de
 `Pulls` ; un nouvel exemplaire est cree a la qualite superieure avec un
-nouveau `SerialNumber` (voir "Limite d'exemplaires" ci-dessous). Une carte
+nouveau `SerialNumber` (voir "Numeros de serie" ci-dessous). Une carte
 promo ne peut pas etre restauree (`promo_not_repairable`).
 
 Comme les Finitions, la Qualite a maintenant un tirage naturel a
@@ -318,19 +317,23 @@ l'ouverture d'un booster (voir `Qualities` plus haut) - la restauration par
 fusion reste le seul moyen de progresser en dehors des boosters (craft/
 codes/autel produisent toujours `damaged`, jamais un tirage naturel).
 
-**Limite d'exemplaires (`Cards.MaxSerial`)** : chaque workflow qui cree une
-ligne `Pulls` (`open-pack.json`, `craft.json`, `redeem-code.json`,
-`altar-sacrifice.json`, `card-quality-repair.json`, le tresor "carte" de
-`dig.json`) suit precisement QUELS numeros de serie sont deja utilises pour
-la carte visee (tous joueurs, `Set` construit depuis `Pulls.SerialNumber`) -
-jamais un simple compteur de lignes. Le nouvel exemplaire recoit le plus
-PETIT numero libre dans `[1, MaxSerial]` : si un exemplaire est decrafte/
-consomme (fusion de finition ou de qualite)/sacrifie a l'autel/perdu au
-coffre de guilde, son numero redevient immediatement disponible pour un
-futur tirage plutot que de rester "brule" derriere un compteur qui ne
-redescend jamais. Une carte est epuisee (`sold_out`, ou pour l'autel/la
-fouille elle est simplement retiree du pool - `no_target_card` si plus rien
-n'y est disponible) quand le nombre de numeros utilises atteint `MaxSerial`.
+**Numeros de serie - plus de quota (2026-09-28)** : chaque workflow qui
+cree une ligne `Pulls` (`open-pack.json`, `craft.json`, `redeem-code.json`,
+`altar-sacrifice.json`, `card-quality-repair.json`, `black-market.json`,
+`unlock-secret.json`, le tresor "carte" de `dig.json`) suit precisement
+QUELS numeros de serie sont deja utilises pour la carte visee (tous
+joueurs, `Set` construit depuis `Pulls.SerialNumber`) - jamais un simple
+compteur de lignes. Le nouvel exemplaire recoit le plus PETIT numero libre
+(1, 2, 3, ... sans plafond) : si un exemplaire est decrafte/consomme
+(fusion de finition ou de qualite)/sacrifie a l'autel/perdu au coffre de
+guilde, son numero redevient immediatement disponible pour un futur tirage
+plutot que de rester "brule" derriere un compteur qui ne redescend jamais.
+**Il n'y a plus de limite globale par carte** (l'ancienne colonne
+`Cards.MaxSerial` et l'erreur `sold_out` associee ont ete retirees de tout
+le code cote n8n) : une carte reste obtenable indefiniment, seule la
+REUTILISATION d'un numero deja en circulation est interdite. La colonne
+`Cards.MaxSerial` peut rester dans Grist (vestige, plus lue par aucun
+workflow) ou etre supprimee, au choix.
 
 ## 6. Config
 
@@ -641,12 +644,13 @@ carte directe pour ne jamais court-circuiter les raretes fortes) :
 `unlock-secret.json` (POST `/unlock-secret` `{ userId }`), declenche par un
 listener Konami-code site-wide dans `main.js`. Tire une carte au hasard
 parmi celles marquees `Cards.IsSecret = true` (qui doivent aussi avoir
-`IsPromo = true` - voir plus haut) et non epuisees (`MaxSerial`), cree une
-ligne `Pulls` (`BatchId` prefixe `secret-`) exactement comme un tirage
-normal. Repond `{ error: 'no_secret_available' }` (400) si aucune carte
-`IsSecret` n'existe encore ou si toutes sont epuisees - **il faut qu'un
-admin cree/flague au moins une carte `IsSecret=true` + `IsPromo=true` dans
-Grist pour que l'easter egg puisse jamais donner quelque chose**.
+`IsPromo = true` - voir plus haut), cree une ligne `Pulls` (`BatchId`
+prefixe `secret-`) exactement comme un tirage normal (numero de serie
+attribue par le meme suivi "plus petit numero libre", voir "Numeros de
+serie - plus de quota" plus haut). Repond `{ error: 'no_secret_available' }`
+(400) si aucune carte `IsSecret` n'existe encore - **il faut qu'un admin
+cree/flague au moins une carte `IsSecret=true` + `IsPromo=true` dans Grist
+pour que l'easter egg puisse jamais donner quelque chose**.
 
 ## Autel de sacrifice
 
@@ -734,7 +738,7 @@ piocher un au hasard, une fois par jour.
 |---------------------|--------------|------------------------|-------|
 | GuildChestDeposits  | User         | Reference -> Users     | qui a depose |
 | GuildChestDeposits  | CardId       | Reference -> Cards     | |
-| GuildChestDeposits  | SerialNumber | Numeric                | **colonne a ajouter si absente** - le numero de serie ORIGINAL de l'exemplaire depose, restaure a l'identique quand quelqu'un le pioche (sinon la pioche creerait un nouvel exemplaire au-dela de `Cards.MaxSerial`, ce qui gonflerait artificiellement le compteur mondial) |
+| GuildChestDeposits  | SerialNumber | Numeric                | **colonne a ajouter si absente** - le numero de serie ORIGINAL de l'exemplaire depose, restaure a l'identique quand quelqu'un le pioche (sinon la pioche creerait un nouvel exemplaire avec un numero different, ce qui ferait perdre son identite a la carte deposee) |
 | GuildChestDeposits  | DepositedAt  | DateTime               | |
 | GuildChestDeposits  | Claimed      | Bool                   | passe a `true` des qu'un autre joueur le pioche |
 | GuildChestClaims    | User         | Reference -> Users     | |
@@ -763,15 +767,16 @@ d'etoile.
 | BlackMarketOffers  | Cost          | Numeric               | en poussieres d'etoile |
 | BlackMarketOffers  | ExpiresAt     | DateTime              | epoch secondes |
 | BlackMarketOffers  | Active        | Bool                  | |
-| BlackMarketOffers  | MaxPurchases  | Numeric               | 0/vide = illimite (dans la limite de `Cards.MaxSerial`) |
+| BlackMarketOffers  | MaxPurchases  | Numeric               | 0/vide = illimite - limite propre a CETTE offre, independante de toute limite globale sur la carte (il n'y en a plus, voir "Numeros de serie - plus de quota") |
 
 `black-market.json` (POST `/black-market` `{ userId, action, offerId?,
 discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }`) :
 - `list` : offres actives, non expirees et pas epuisees. Le nombre deja
   achete est compte via le prefixe `Pulls.BatchId` = `market-<offerId>-...`
   (pas de colonne compteur separee - meme principe que `open-pack.json`).
-- `buy` : debite `Cost`, cree une ligne `Pulls` (respecte aussi
-  `Cards.MaxSerial` comme n'importe quel autre gain de carte).
+- `buy` : debite `Cost`, cree une ligne `Pulls` avec le plus petit numero de
+  serie libre (meme suivi que partout ailleurs, voir "Numeros de serie -
+  plus de quota").
 - `adminCreate` (reserve admin, meme liste `adminDiscordIds`) : cree une
   offre.
 

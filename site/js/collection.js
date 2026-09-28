@@ -303,7 +303,7 @@ function showCardModal(navKey, navList) {
           ${owned ? `
             <div class="card-modal-stats">
               <span>Possédée &times;${variantCopies.length}</span>
-              ${serials.length ? `<span>${serials.map((n) => `#${String(n).padStart(3, "0")}`).join(", ")} / ${card.maxSerial || 100}</span>` : ""}
+              ${serials.length ? `<span>${serials.map((n) => `#${String(n).padStart(3, "0")}`).join(", ")}</span>` : ""}
             </div>
           ` : ""}
           ${card.description ? `<p class="card-modal-description">${card.description}</p>` : ""}
@@ -555,9 +555,8 @@ async function openQuickTrade(cardId) {
   if (!others.length) { Toast.info("Aucun autre joueur a qui proposer un échange pour l'instant."); return; }
 
   const copies = ownedCopiesByCard.get(cardId) || [];
-  const maxSerial = allCardsCache.find((c) => c.cardId === cardId)?.maxSerial || 100;
   const pullOptions = copies
-    .map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"} / ${maxSerial}</option>`)
+    .map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"}</option>`)
     .join("");
 
   const overlay = document.createElement("div");
