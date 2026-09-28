@@ -501,13 +501,29 @@ h2 { font-size: 1.3rem; color: var(--text); font-weight: 700; }
   border-radius: 10px;
   padding: 6px;
   box-shadow: 0 16px 32px -12px rgba(0,0,0,0.6);
-  max-height: 260px;
-  overflow-y: auto;
   animation: fancySelectOpen 0.15s ease both;
 }
 @keyframes fancySelectOpen {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+/* Barre de recherche : hors de la zone qui defile (.fancy-select-options),
+   reste toujours visible en haut du menu. */
+.fancy-select-search {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel-2);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+.fancy-select-search:focus { outline: 2px solid var(--accent-2); outline-offset: -1px; }
+.fancy-select-options {
+  max-height: 240px;
+  overflow-y: auto;
 }
 .fancy-select-option {
   padding: 9px 12px;
@@ -520,6 +536,7 @@ h2 { font-size: 1.3rem; color: var(--text); font-weight: 700; }
 .fancy-select-option:hover,
 .fancy-select-option.highlighted { background: rgba(255,255,255,0.06); color: var(--text); }
 .fancy-select-option[aria-selected="true"] { color: var(--accent-2); font-weight: 600; }
+.fancy-select-empty { padding: 9px 12px; font-size: 0.85rem; color: var(--text-dim); font-style: italic; }
 
 /* ========================================================================
    Fil d'activite (accueil)
@@ -1778,15 +1795,18 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 /* Vignettes carte offerte -> carte demandee : remplace le mur de texte pur
    par un visuel rapide a scanner, dans l'esprit "carte a carte" du site. */
 .trade-visual { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.trade-card-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .trade-card-thumb {
-  width: 44px;
-  height: 58px;
+  width: 56px;
+  height: 74px;
   border-radius: 6px;
   border: 1.5px solid var(--border-soft);
   overflow: hidden;
   flex-shrink: 0;
   background: var(--bg-panel-solid);
+  transition: transform 0.15s ease;
 }
+.trade-card-thumb:hover { transform: scale(1.06); }
 .trade-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .trade-card-thumb.gift {
   display: flex;
@@ -1796,6 +1816,29 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   border-style: dashed;
 }
 .trade-arrow { color: var(--text-dim); font-size: 1rem; flex-shrink: 0; }
+/* Detail rarete/etat/finition sous chaque vignette : voir a l'oeil si un
+   echange est equitable sans avoir a deviner depuis la seule couleur de
+   bordure (demande explicite : "plus de details... pour juger si l'echange
+   est equitable"). */
+.trade-card-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 74px;
+}
+.rarity-tag {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.trade-card-tags .finish-tag,
+.trade-card-tags .quality-tag { font-size: 0.6rem; padding: 1px 6px; }
 
 .trade-status {
   display: inline-block;
@@ -2465,6 +2508,14 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    le display:flex ci-dessus l'emporterait sur le display:none par defaut
    de [hidden] (une regle d'auteur bat toujours la feuille de style navigateur). */
 .card-modal-overlay[hidden] { display: none; }
+.image-lightbox-overlay { cursor: zoom-out; }
+.image-lightbox-img {
+  max-width: min(90vw, 420px);
+  max-height: 85vh;
+  border-radius: 16px;
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
+  animation: modalPopIn 0.2s cubic-bezier(.2,.9,.3,1.3) both;
+}
 @keyframes modalFadeIn { to { opacity: 1; } }
 .card-modal {
   width: min(480px, 100%);
@@ -3699,19 +3750,48 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 /* ========================================================================
    Grille "classeur" dense (alternative a la grille de collection)
    ======================================================================== */
+/* 8 colonnes fixes sur desktop (au lieu d'un auto-fill qui en case bien plus
+   sur un grand ecran et rendait les vignettes minuscules) - reduit sur les
+   ecrans plus etroits, jamais moins de 3, pour rester lisible. */
 .collection-grid.dense {
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(8, 1fr);
   gap: 8px;
+}
+@media (max-width: 900px) {
+  .collection-grid.dense { grid-template-columns: repeat(5, 1fr); }
+}
+@media (max-width: 560px) {
+  .collection-grid.dense { grid-template-columns: repeat(3, 1fr); }
 }
 .collection-grid.dense .card-info { padding: 4px; }
 .collection-grid.dense .card-name { font-size: 0.68rem; }
 .collection-grid.dense .rarity-badge { display: none; }
 /* Les actions rapides (crafter/decrafter/echanger) ne rentrent pas dans une
-   vignette compacte a 96px et vont a l'encontre du but de la vue dense
-   (parcourir vite) : on les masque, l'ouverture de la modale carte reste le
-   chemin pour agir depuis cette vue. */
+   vignette compacte et vont a l'encontre du but de la vue dense (parcourir
+   vite) : on les masque, l'ouverture de la modale carte reste le chemin pour
+   agir depuis cette vue. */
 .collection-grid.dense .quick-craft-btn,
 .collection-grid.dense .quick-actions-row { display: none; }
+/* Badges finition/qualite : le texte ("ARC-EN-CIEL", "ENDOMMAGE"...) deborde
+   et se chevauche sur une vignette compacte - en vue dense, on les reduit a
+   un simple point colore (garde la couleur/le sens via la bordure, jamais de
+   texte a faire tenir). Meme logique pour le badge "New", reduit pour ne
+   jamais toucher l'etoile favori au coin oppose. */
+.collection-grid.dense .finish-indicator,
+.collection-grid.dense .quality-indicator {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0;
+  overflow: hidden;
+  bottom: 6px;
+}
+.collection-grid.dense .finish-indicator { left: 6px; }
+.collection-grid.dense .quality-indicator { right: 6px; }
+.collection-grid.dense .new-badge { font-size: 0.5rem; padding: 2px 5px; top: 4px; left: 4px; }
+.collection-grid.dense .fav-btn,
+.collection-grid.dense .wishlist-btn { top: 4px; right: 4px; width: 20px; height: 20px; font-size: 0.75rem; }
 
 /* ========================================================================
    Cadre special pour les cartes promo dans la collection

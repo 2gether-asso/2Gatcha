@@ -294,9 +294,24 @@ function enhanceSelect(selectEl) {
 
   const menu = document.createElement("div");
   menu.className = "fancy-select-menu";
-  menu.setAttribute("role", "listbox");
   menu.hidden = true;
   wrap.appendChild(menu);
+
+  // Barre de recherche en tete du menu (position:sticky, reste visible
+  // pendant que la liste en-dessous defile) : indispensable des qu'une liste
+  // depasse une vingtaine d'options (cartes, joueurs...) - filtre par
+  // sous-chaine insensible a la casse/aux accents sur le texte affiche.
+  const search = document.createElement("input");
+  search.type = "text";
+  search.className = "fancy-select-search";
+  search.placeholder = "Rechercher...";
+  search.autocomplete = "off";
+  menu.appendChild(search);
+
+  const optionsList = document.createElement("div");
+  optionsList.className = "fancy-select-options";
+  optionsList.setAttribute("role", "listbox");
+  menu.appendChild(optionsList);
 
   const label = trigger.querySelector(".fancy-select-label");
   let highlighted = -1;
@@ -306,10 +321,16 @@ function enhanceSelect(selectEl) {
     label.textContent = opt ? opt.textContent : "";
   }
 
+  function normalize(str) {
+    return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
   function renderOptions() {
-    menu.innerHTML = "";
+    optionsList.innerHTML = "";
     highlighted = selectEl.selectedIndex;
+    const query = normalize(search.value);
     [...selectEl.options].forEach((opt, i) => {
+      if (query && !normalize(opt.textContent).includes(query)) return;
       const item = document.createElement("div");
       item.className = "fancy-select-option";
       item.setAttribute("role", "option");
@@ -318,13 +339,23 @@ function enhanceSelect(selectEl) {
       if (i === selectEl.selectedIndex) item.setAttribute("aria-selected", "true");
       item.addEventListener("mouseenter", () => setHighlighted(i));
       item.addEventListener("click", () => choose(i));
-      menu.appendChild(item);
+      optionsList.appendChild(item);
     });
+    if (!optionsList.children.length) {
+      const empty = document.createElement("div");
+      empty.className = "fancy-select-empty";
+      empty.textContent = "Aucun résultat.";
+      optionsList.appendChild(empty);
+    }
   }
 
-  function setHighlighted(i) {
-    highlighted = i;
-    [...menu.children].forEach((el, idx) => el.classList.toggle("highlighted", idx === i));
+  // "highlighted" est une POSITION dans menu.children (la liste FILTREE
+  // affichee), pas l'index d'origine dans selectEl.options - les deux
+  // divergent des qu'une recherche masque des options. On ne revient a
+  // l'index d'origine (via item.dataset.index) qu'au moment de choisir.
+  function setHighlighted(pos) {
+    highlighted = pos;
+    [...optionsList.children].forEach((el, idx) => el.classList.toggle("highlighted", idx === pos));
   }
 
   function choose(i) {
@@ -336,13 +367,21 @@ function enhanceSelect(selectEl) {
     closeMenu();
   }
 
+  function chooseHighlighted() {
+    const el = optionsList.children[highlighted];
+    if (el && el.dataset.index != null) choose(Number(el.dataset.index));
+  }
+
   function openMenu() {
+    search.value = "";
     renderOptions();
     menu.hidden = false;
     trigger.setAttribute("aria-expanded", "true");
     wrap.classList.add("open");
-    setHighlighted(selectEl.selectedIndex);
+    const selectedPos = [...optionsList.children].findIndex((el) => Number(el.dataset.index) === selectEl.selectedIndex);
+    setHighlighted(selectedPos >= 0 ? selectedPos : 0);
     document.addEventListener("click", onOutsideClick);
+    search.focus();
   }
   function closeMenu() {
     menu.hidden = true;
@@ -354,6 +393,24 @@ function enhanceSelect(selectEl) {
     if (!wrap.contains(e.target)) closeMenu();
   }
 
+  search.addEventListener("input", () => {
+    renderOptions();
+    setHighlighted(optionsList.children.length && optionsList.children[0].dataset.index != null ? 0 : -1);
+  });
+  search.addEventListener("click", (e) => e.stopPropagation());
+  search.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeMenu(); trigger.focus(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const count = optionsList.children.length;
+      if (!count) return;
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      setHighlighted((highlighted + dir + count) % count);
+      return;
+    }
+    if (e.key === "Enter") { e.preventDefault(); chooseHighlighted(); }
+  });
+
   trigger.addEventListener("click", () => {
     if (menu.hidden) openMenu(); else closeMenu();
   });
@@ -362,7 +419,8 @@ function enhanceSelect(selectEl) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       if (menu.hidden) { openMenu(); return; }
-      const count = selectEl.options.length;
+      const count = optionsList.children.length;
+      if (!count) return;
       const dir = e.key === "ArrowDown" ? 1 : -1;
       setHighlighted((highlighted + dir + count) % count);
       return;
@@ -370,7 +428,7 @@ function enhanceSelect(selectEl) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       if (menu.hidden) openMenu();
-      else if (highlighted >= 0) choose(highlighted);
+      else if (highlighted >= 0) chooseHighlighted();
     }
   });
 
@@ -546,6 +604,20 @@ function rarityTextColor(hex, bg = "#1c1f42") {
     color = lightenColor(hex, amount);
   }
   return color;
+}
+
+// Zoom sur une vignette de carte (trade.js notamment) : un simple clic ouvre
+// l'image en grand, sans devoir rouvrir toute la modale carte complete.
+function openImageLightbox(imgSrc, altText) {
+  if (!imgSrc) return;
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay image-lightbox-overlay";
+  overlay.innerHTML = `<img src="${imgSrc}" alt="${altText || ""}" class="image-lightbox-img" />`;
+  overlay.addEventListener("click", () => overlay.remove());
+  document.addEventListener("keydown", function onKey(e) {
+    if (e.key === "Escape") { overlay.remove(); document.removeEventListener("keydown", onKey); }
+  });
+  document.body.appendChild(overlay);
 }
 
 function getParticleLayer() {

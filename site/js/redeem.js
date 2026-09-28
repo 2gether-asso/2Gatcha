@@ -122,7 +122,10 @@ async function redeem() {
           el.classList.add("revealed");
           Sfx.flip();
           setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
-          celebrateRarity(card.rarity?.key, el, card.rarity?.colorHex);
+          // Voir opening.js : celebrateRarity force un reflow synchrone
+          // (getBoundingClientRect) qui peut casser la transition CSS du flip
+          // si elle est lue dans le meme tick que le classList.add ci-dessus.
+          requestAnimationFrame(() => celebrateRarity(card.rarity?.key, el, card.rarity?.colorHex));
         }, 300 + i * 220);
       });
     }

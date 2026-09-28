@@ -123,7 +123,14 @@ function buildCardEl(card, index, cardBackImageId) {
       wrap.classList.add("revealed");
       Sfx.flip();
       setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
-      celebrateRarity(card.rarity?.key, wrap, color);
+      // celebrateRarity lit getBoundingClientRect() (spawnRarityBurst) : lu a
+      // chaud, dans le meme tick que le classList.add ci-dessus, ca force un
+      // reflow synchrone qui peut faire sauter la transition CSS du flip sur
+      // certains moteurs (bug reel signale : le flip ne se joue plus des que
+      // la rarete declenche des particules/confettis, jamais sur commune qui
+      // n'a pas ce chemin). On laisse le navigateur demarrer la transition du
+      // flip AVANT de forcer ce reflow, sur la frame suivante.
+      requestAnimationFrame(() => celebrateRarity(card.rarity?.key, wrap, color));
       return;
     }
     advanceStack();

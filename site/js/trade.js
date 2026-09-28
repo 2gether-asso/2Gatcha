@@ -20,6 +20,13 @@ const TRADE_ERROR_MESSAGES = {
   pull_not_chosen: "Choisis quel exemplaire tu veux donner."
 };
 
+// Memes echelles que collection.js/craft.js (voir grist/SCHEMA.md) : la
+// carte OFFERTE est un exemplaire precis (deja choisi via OfferedPull), donc
+// son finish/quality reels sont connus et affichables - indispensable pour
+// juger si un echange est equitable (demande explicite : "plus de details").
+const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+
 const STATUS_LABELS = {
   pending: "En attente",
   accepted: "Accepte",
@@ -142,7 +149,12 @@ function updateCardPreview(selectId, previewId) {
   // "pas d'image" ecrase a 44px (illisible, on dirait une image cassee).
   if (!card) { preview.style.visibility = "hidden"; return; }
   preview.style.visibility = "visible";
-  preview.src = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+  const src = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+  preview.src = src;
+  // Zoom au clic : juger si un echange est equitable passe aussi par bien
+  // voir le visuel, pas juste un timbre-poste de 44px.
+  preview.style.cursor = "zoom-in";
+  preview.onclick = () => openImageLightbox(src, card.name);
 }
 
 function renderTradeCard(trade) {
@@ -169,24 +181,43 @@ function renderTradeCard(trade) {
     ? `contre <strong>${trade.requestedCard.name}</strong>${formatSerial(trade.requestedSerial)} a <strong>${trade.toPseudo}</strong>`
     : `en cadeau a <strong>${trade.toPseudo}</strong> (aucune contrepartie)`;
 
-  // Petites vignettes des cartes concernees : un mur de texte pur ne
-  // rendait pas justice au cote "jeu de cartes" du site. L'API ne renvoie
-  // que {id, name} par carte impliquee, on retrouve image/rarete via le
-  // catalogue complet deja charge (cardById).
-  function thumb(cardRef, isGift) {
-    if (isGift) return `<div class="trade-card-thumb gift" title="Don, sans contrepartie">&#127873;</div>`;
+  // Petites vignettes des cartes concernees, zoomables au clic (juger si un
+  // echange est equitable passe aussi par bien voir le visuel), avec le
+  // detail rarete/etat/finition sous chacune - un mur de texte pur ne
+  // rendait pas justice au cote "jeu de cartes" du site, et ne disait rien
+  // sur l'equite de l'echange (demande explicite : "plus de details").
+  function thumbBlock(cardRef, isGift, isOffered) {
+    if (isGift) return `<div class="trade-card-block"><div class="trade-card-thumb gift" title="Don, sans contrepartie">&#127873;</div></div>`;
     const card = cardRef ? cardById.get(cardRef.id) : null;
     const color = card?.rarity?.colorHex || "#9aa0b4";
     const src = card ? (API.imageUrl(card.imageId) || PLACEHOLDER_IMG) : PLACEHOLDER_IMG;
-    return `<div class="trade-card-thumb" style="border-color:${color};"><img src="${src}" alt="${cardRef?.name || ""}" loading="lazy" /></div>`;
+    // Le finish/quality ne sont connus (et donc affiches) que pour la carte
+    // OFFERTE (exemplaire precis) - la carte demandee reste abstraite tant
+        // que l'echange n'est pas accepte (voir trade.json "Build Trade List").
+    const finish = isOffered ? (cardRef?.finish || "normal") : null;
+    const quality = isOffered ? (cardRef?.quality || "damaged") : null;
+    return `
+      <div class="trade-card-block">
+        <div class="trade-card-thumb" style="border-color:${color};cursor:zoom-in;" data-zoom-src="${src}" data-zoom-alt="${cardRef?.name || ""}">
+          <img src="${src}" alt="${cardRef?.name || ""}" loading="lazy" />
+        </div>
+        ${card ? `
+          <div class="trade-card-tags">
+            <span class="rarity-tag" style="color:${color};border-color:${color};">${card.rarity?.name || "Commune"}</span>
+            ${finish && finish !== "normal" ? `<span class="finish-tag" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
+            ${quality && quality !== "mint" ? `<span class="quality-tag" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+          </div>
+        ` : ""}
+      </div>
+    `;
   }
 
   el.innerHTML = `
     ${canBulkCancel ? `<label class="bulk-checkbox" style="position:static;"><input type="checkbox" data-bulk-trade-id="${trade.tradeId}" ${bulkCancelSelected.has(trade.tradeId) ? "checked" : ""} /></label>` : ""}
     <div class="trade-visual">
-      ${thumb(trade.offeredCard, false)}
+      ${thumbBlock(trade.offeredCard, false, true)}
       <span class="trade-arrow" aria-hidden="true">&#8594;</span>
-      ${thumb(trade.requestedCard, !trade.requestedCard)}
+      ${thumbBlock(trade.requestedCard, !trade.requestedCard, false)}
     </div>
     <div class="trade-info">
       ${trade.counterOfTradeId ? `<div class="trade-counter-tag">&#128260; Contre-proposition (echange #${trade.counterOfTradeId})</div>` : ""}
@@ -196,6 +227,9 @@ function renderTradeCard(trade) {
     <div class="trade-actions">${actions}</div>
   `;
 
+  el.querySelectorAll("[data-zoom-src]").forEach((t) => {
+    t.addEventListener("click", () => openImageLightbox(t.dataset.zoomSrc, t.dataset.zoomAlt));
+  });
   el.querySelectorAll(".accept-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, true)));
   el.querySelectorAll(".decline-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, false)));
   el.querySelectorAll(".counter-btn").forEach((b) => b.addEventListener("click", () => counterPropose(b.dataset.id)));
