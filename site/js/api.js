@@ -111,6 +111,19 @@ const API = {
     return this.post("openPack", { userId, extensionId });
   },
 
+  // Annonce Discord automatique (Mythique/Legendaire/Epique) - appelee par
+  // le front une fois le reveal termine, jamais par le backend au tirage
+  // (voir opening.js onAllRevealed).
+  notifyReveal(userId, batchIds) {
+    return this.post("notifyReveal", { userId, batchIds, action: "auto" });
+  },
+
+  // Partage manuel (bouton "Partager sur Discord") : meme endpoint, message
+  // toujours envoye (pas conditionne a la rarete).
+  sharePull(userId, batchIds) {
+    return this.post("notifyReveal", { userId, batchIds, action: "share" });
+  },
+
   disenchantCard(userId, cardId, finish, quality) {
     return this.post("disenchant", { userId, cardId, finish, quality });
   },
@@ -348,5 +361,8 @@ const API = {
   },
   adminSetBingoGrid(discordId, params) {
     return this.post("bingo", { discordId, action: "adminSetGrid", ...params });
+  },
+  adminGift(discordId, params) {
+    return this.post("adminGift", { discordId, ...params });
   }
 };

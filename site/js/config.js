@@ -22,6 +22,7 @@ window.APP_CONFIG = {
     cards: "/cards",                  // GET -> liste du catalogue complet
     extensions: "/extensions",        // GET -> { extensions: [{ id, name, key, active, packImageId, cardBackImageId }] }
     openPack: "/open-pack",           // POST { userId, extensionId } -> ouvre 1 booster (5 cartes) de cette extension
+    notifyReveal: "/notify-reveal",   // POST { userId, batchIds: [...], action: 'auto'|'share' } -> { notified } - poste sur Discord (annonce auto Mythique/Legendaire/Epique, ou partage manuel), revalide toujours les cartes via BatchId cote serveur
     collection: "/collection",        // GET ?userId=... -> collection de l'utilisateur
     image: "/image",                  // GET ?id=... -> proxy binaire vers une piece jointe Grist
     boosterStatus: "/booster-status", // GET ?userId=... -> { count, stardust, extensions: [{extensionId,name,key,sortOrder}] } (count = solde générique, commun a toutes les extensions)
@@ -54,6 +55,7 @@ window.APP_CONFIG = {
     communityBoss: "/community-boss",  // POST { userId, action: 'status'|'attack'|'adminCreate', cardId?, discordId?, bossName?, maxHp?, rewardBoosters? }
     guildChest: "/guild-chest",        // POST { userId, action: 'status'|'deposit'|'draw', cardId? }
     blackMarket: "/black-market",      // POST { userId, action: 'list'|'buy'|'adminCreate', offerId?, discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }
+    adminGift: "/admin-gift",          // POST { discordId, targetUserId, giftType: 'card'|'booster'|'dust', cardId?, finish?, quality?, quantity? } -> { gifted, giftType, quantity, ... } | { error }
     dig: "/dig",                       // POST { userId, action: 'status'|'dig' }
     bingo: "/bingo"                    // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
   }

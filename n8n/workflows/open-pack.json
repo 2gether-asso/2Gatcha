@@ -28,7 +28,7 @@
         304
       ],
       "parameters": {
-        "jsCode": "// A adapter une seule fois : ID du document Grist, webhook Discord (optionnel).\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst discordWebhookUrl = 'https://discord.com/api/webhooks/1551618475179511940/BsIPFGMDe0jiylrnEGTluRaPCP3zEi2tEWangoaZHgT_uShe2Zyy4dgTIRkLRjQ1cxZW';\nconst body = $input.first().json.body || {};\nconst requestedDryRun = !!body.dryRun;\nconst isAdmin = adminDiscordIds.includes((body.discordId || '').toString());\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    extensionId: Number(body.extensionId),\n    boosterSize: 5,\n    dryRun: requestedDryRun && isAdmin,\n    discordWebhookUrl\n  }\n}];"
+        "jsCode": "// A adapter une seule fois : ID du document Grist.\n// L'annonce Discord automatique (Mythique/Legendaire/Epique) et le partage\n// manuel vivent desormais dans notify-reveal.json, declenches par le FRONT\n// une fois le reveal termine (jamais ici, au tirage - ca spoilerait le\n// joueur, voir opening.js onAllRevealed).\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst body = $input.first().json.body || {};\nconst requestedDryRun = !!body.dryRun;\nconst isAdmin = adminDiscordIds.includes((body.discordId || '').toString());\nreturn [{\n  json: {\n    docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n    userId: Number(body.userId),\n    extensionId: Number(body.extensionId),\n    boosterSize: 5,\n    dryRun: requestedDryRun && isAdmin\n  }\n}];"
       }
     },
     {
@@ -357,7 +357,7 @@
         192
       ],
       "parameters": {
-        "jsCode": "const draw = $('Draw Cards').first().json;\nreturn [{ json: { docId: $('Set Config').first().json.docId, userId: draw.userId, extensionId: draw.extensionId, inventoryId: draw.inventoryId, inventoryExists: draw.inventoryExists, pullsSinceTop: draw.pullsSinceTop, totalPulls: draw.totalPulls, boosterCount: draw.newBoosterCount, xp: draw.newXp, levelsGained: draw.levelsGained } }];"
+        "jsCode": "const draw = $('Draw Cards').first().json;\nreturn [{ json: { docId: $('Set Config').first().json.docId, userId: draw.userId, extensionId: draw.extensionId, inventoryId: draw.inventoryId, inventoryExists: draw.inventoryExists, pullsSinceTop: draw.pullsSinceTop, totalPulls: draw.totalPulls, boosterCount: draw.newBoosterCount, xp: draw.newXp, levelsGained: draw.levelsGained, batchId: draw.batchId } }];"
       }
     },
     {
@@ -438,7 +438,7 @@
         192
       ],
       "parameters": {
-        "jsCode": "function levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver,\n  serialNumber: i.json.serialNumber,\n  finish: i.json.finish || 'normal',\n  quality: i.json.quality || 'damaged'\n}));\nconst last = $('Finalize').first().json;\nreturn [{\n  json: {\n    cards,\n    pity: { pullsSinceTop: last.pullsSinceTop },\n    booster: { extensionId: last.extensionId, count: last.boosterCount },\n    xp: { total: last.xp, level: levelForXp(last.xp), leveledUp: (last.levelsGained || 0) > 0 }\n  }\n}];\n"
+        "jsCode": "function levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst cards = $('Draw Cards').all().map((i) => ({\n  cardId: i.json.cardId,\n  name: i.json.name,\n  artist: i.json.artist,\n  description: i.json.description,\n  imageId: i.json.imageId,\n  rarity: i.json.rarity,\n  isFirstEver: !!i.json.isFirstEver,\n  serialNumber: i.json.serialNumber,\n  finish: i.json.finish || 'normal',\n  quality: i.json.quality || 'damaged'\n}));\nconst last = $('Finalize').first().json;\nreturn [{\n  json: {\n    cards,\n    batchId: last.batchId,\n    pity: { pullsSinceTop: last.pullsSinceTop },\n    booster: { extensionId: last.extensionId, count: last.boosterCount },\n    xp: { total: last.xp, level: levelForXp(last.xp), leveledUp: (last.levelsGained || 0) > 0 }\n  }\n}];\n"
       }
     },
     {
@@ -634,70 +634,6 @@
           "id": "Yoc8FS9lCXpWBRrk",
           "name": "Grist account"
         }
-      }
-    },
-    {
-      "id": "build-notify-payload",
-      "name": "Build Notify Payload",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        528,
-        624
-      ],
-      "parameters": {
-        "jsCode": "const config = $('Set Config').first().json;\nconst drawn = $('Draw Cards').all().map((i) => i.json);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === config.userId);\nconst pseudo = (user && user.Pseudo) || 'Un joueur';\n// Mentionner directement le joueur (ping Discord) uniquement pour la\n// legendaire - trop frequent pour l'epique, ca deviendrait vite du bruit.\nconst discordMention = user && user.DiscordId ? `<@${user.DiscordId}>` : `**${pseudo}**`;\nfunction hexToInt(hex) { return parseInt((hex || '9aa0b4').replace('#', ''), 16) || 0x9aa0b4; }\n\n// Notifications variees selon la rarete : la legendaire ping le joueur avec\n// un embed dore, l'epique reste une simple annonce discrete sans ping.\nconst legendary = drawn.filter((c) => c.rarity && c.rarity.key === 'legendaire');\nconst epic = drawn.filter((c) => c.rarity && c.rarity.key === 'epique');\n\nlet content = '';\nlet embeds = [];\nif (legendary.length) {\n  content = `\\u{1F31F} ${discordMention} vient de decrocher une carte legendaire !`;\n  embeds = [{ color: hexToInt(legendary[0].rarity.colorHex), title: '\\u{1F451} ' + legendary.map((c) => c.name).join(', '), description: `Rarete : **${legendary[0].rarity.name}**` }];\n} else if (epic.length) {\n  content = `\\u2728 **${pseudo}** vient d'obtenir une carte epique.`;\n  embeds = [{ color: hexToInt(epic[0].rarity.colorHex), title: epic.map((c) => c.name).join(', '), description: `Rarete : **${epic[0].rarity.name}**` }];\n}\n\nconst shouldNotify = !config.dryRun && (legendary.length > 0 || epic.length > 0) && !!config.discordWebhookUrl && !config.discordWebhookUrl.startsWith('CHANGE-MOI');\n\nreturn [{ json: { shouldNotify, webhookUrl: config.discordWebhookUrl, content, embeds } }];"
-      }
-    },
-    {
-      "id": "if-should-notify",
-      "name": "If Should Notify",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        704,
-        624
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 1
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.shouldNotify }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "notify-discord",
-      "name": "Notify Discord",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        880,
-        624
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.webhookUrl }}",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ content: $json.content, embeds: $json.embeds }) }}",
-        "options": {}
       }
     },
     {
@@ -1502,11 +1438,6 @@
             "node": "If Inventory Exists",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Build Notify Payload",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -1622,29 +1553,6 @@
         [
           {
             "node": "Update Card First Obtained",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
-    "Build Notify Payload": {
-      "main": [
-        [
-          {
-            "node": "If Should Notify",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "If Should Notify": {
-      "main": [
-        [
-          {
-            "node": "Notify Discord",
             "type": "main",
             "index": 0
           }

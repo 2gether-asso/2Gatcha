@@ -105,7 +105,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst allPulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === cfg.cardId);\n\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_upgradable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\n// Echelle de finitions fixe, du plus commun au plus prestigieux. Chaque\n// palier consomme 5 exemplaires IDENTIQUES (meme carte, meme finition) pour\n// en produire 1 seul de la finition suivante - deterministe, pas de RNG\n// (contrairement a l'autel de sacrifice).\nconst FINISH_ORDER = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];\nconst fromIndex = FINISH_ORDER.indexOf(cfg.fromFinish);\nif (fromIndex === -1 || fromIndex === FINISH_ORDER.length - 1) {\n  return [{ json: { ok: false, error: 'invalid_finish' } }];\n}\nconst toFinish = FINISH_ORDER[fromIndex + 1];\n\nfunction finishOf(p) { return p.Finish || 'normal'; }\nconst myPulls = allPulls.filter((p) => refId(p.User) === cfg.userId);\nconst matching = myPulls.filter((p) => refId(p.Card) === cfg.cardId && finishOf(p) === cfg.fromFinish);\nif (matching.length < 5) {\n  return [{ json: { ok: false, error: 'not_enough_duplicates' } }];\n}\n\n// Plus de quota (Cards.MaxSerial) : la carte fusionnee reste attribuable\n// indefiniment. On suit QUELS numeros sont utilises (pas juste un\n// compteur) pour reattribuer le plus petit numero libre, comme partout\n// ailleurs.\nconst usedSerials = new Set();\nallPulls.forEach((p) => { if (refId(p.Card) === cfg.cardId && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\nlet serialNumber = null;\nfor (let n = 1; ; n++) { if (!usedSerials.has(n)) { serialNumber = n; break; } }\n\nconst pullIdsToDelete = matching.slice(0, 5).map((p) => p.id);\n\nreturn [{ json: {\n  ok: true,\n  docId: cfg.docId,\n  userId: cfg.userId,\n  cardId: cfg.cardId,\n  pullIdsToDelete,\n  fromFinish: cfg.fromFinish,\n  toFinish,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `foil-${cfg.userId}-${Date.now()}`,\n  serialNumber\n} }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst allPulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === cfg.cardId);\n\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\nif (card.IsPromo) return [{ json: { ok: false, error: 'promo_not_upgradable' } }];\nif (card.Active === false) return [{ json: { ok: false, error: 'card_inactive' } }];\n\n// Echelle de finitions fixe, du plus commun au plus prestigieux. Chaque\n// palier consomme 5 exemplaires IDENTIQUES (meme carte, meme finition) pour\n// en produire 1 seul de la finition suivante - deterministe, pas de RNG\n// (contrairement a l'autel de sacrifice).\nconst FINISH_ORDER = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];\nconst fromIndex = FINISH_ORDER.indexOf(cfg.fromFinish);\nif (fromIndex === -1 || fromIndex === FINISH_ORDER.length - 1) {\n  return [{ json: { ok: false, error: 'invalid_finish' } }];\n}\nconst toFinish = FINISH_ORDER[fromIndex + 1];\n\nfunction finishOf(p) { return p.Finish || 'normal'; }\nconst myPulls = allPulls.filter((p) => refId(p.User) === cfg.userId);\nconst matching = myPulls.filter((p) => refId(p.Card) === cfg.cardId && finishOf(p) === cfg.fromFinish);\nif (matching.length < 5) {\n  return [{ json: { ok: false, error: 'not_enough_duplicates' } }];\n}\n\n// Plus de quota (Cards.MaxSerial) : la carte fusionnee reste attribuable\n// indefiniment. On suit QUELS numeros sont utilises (pas juste un\n// compteur) pour reattribuer le plus petit numero libre, comme partout\n// ailleurs.\nconst usedSerials = new Set();\nallPulls.forEach((p) => { if (refId(p.Card) === cfg.cardId && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\nlet serialNumber = null;\nfor (let n = 1; ; n++) { if (!usedSerials.has(n)) { serialNumber = n; break; } }\n\nconst pullIdsToDelete = matching.slice(0, 5).map((p) => p.id);\n\n// Niveaux de profil : XP gagnee pour une fusion reussie (meme montant que\n// crafter une carte), +1 booster bonus par niveau franchi.\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nfunction levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst XP_PER_UPGRADE = 5;\nconst oldXp = (user && user.XP) || 0;\nconst newXp = oldXp + XP_PER_UPGRADE;\nconst levelsGained = levelForXp(newXp) - levelForXp(oldXp);\nconst newBoosterCount = ((user && user.BoosterCount) || 0) + levelsGained;\n\nreturn [{ json: {\n  ok: true,\n  userId: cfg.userId,\n  newXp,\n  newBoosterCount,\n  docId: cfg.docId,\n  cardId: cfg.cardId,\n  pullIdsToDelete,\n  fromFinish: cfg.fromFinish,\n  toFinish,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `foil-${cfg.userId}-${Date.now()}`,\n  serialNumber\n} }];"
       }
     },
     {
@@ -284,6 +284,79 @@
         "responseBody": "={{ $json }}",
         "options": {}
       }
+    },
+    {
+      "id": "sync-get-users-xp",
+      "name": "Sync Get Cards -> Get Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -780,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-users-xp",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -700,
+        520
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "update-user-xp",
+      "name": "Update User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        660
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "XP",
+              "fieldValue": "={{ $json.newXp }}"
+            },
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $json.newBoosterCount }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     }
   ],
   "connections": {
@@ -335,7 +408,7 @@
       "main": [
         [
           {
-            "node": "Compute Upgrade",
+            "node": "Sync Get Cards -> Get Users",
             "type": "main",
             "index": 0
           }
@@ -358,6 +431,11 @@
         [
           {
             "node": "Expand Sacrificed Pulls",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update User",
             "type": "main",
             "index": 0
           }
@@ -420,6 +498,28 @@
         [
           {
             "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Users": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Compute Upgrade",
             "type": "main",
             "index": 0
           }

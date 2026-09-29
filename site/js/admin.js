@@ -136,6 +136,45 @@ async function loadCardOptions() {
     .join("");
 }
 
+// -----------------------------------------------------------------------
+// Don a un joueur : carte (avec finition/qualité choisies), booster(s) ou
+// poussières - pratique pour compenser un bug ou recompenser un joueur sans
+// devoir passer par un code d'evenement a usage generique.
+// -----------------------------------------------------------------------
+async function loadGiftUserOptions() {
+  const select = document.getElementById("gift-user-select");
+  try {
+    const res = await API.listUsers();
+    const users = (res.users || []).slice().sort((a, b) => (a.pseudo || "").localeCompare(b.pseudo || ""));
+    select.innerHTML = users.map((u) => `<option value="${u.userId}">${u.pseudo}</option>`).join("") || `<option value="">Aucun joueur</option>`;
+  } catch (e) {
+    select.innerHTML = `<option value="">Impossible de charger les joueurs</option>`;
+  }
+}
+
+function populateGiftCardSelect() {
+  document.getElementById("gift-card-select").innerHTML = cardsCatalog
+    .filter((c) => !c.isPromo)
+    .map((c) => `<option value="${c.cardId}">${c.name}</option>`)
+    .join("");
+}
+
+function updateGiftCardPreview() {
+  const preview = document.getElementById("gift-card-preview");
+  const select = document.getElementById("gift-card-select");
+  const card = cardsCatalog.find((c) => String(c.cardId) === select.value);
+  preview.src = (card && API.imageUrl(card.imageId)) || PLACEHOLDER_IMG;
+  preview.style.display = "block";
+}
+
+function updateGiftFieldVisibility() {
+  const isCard = document.getElementById("gift-type-select").value === "card";
+  document.getElementById("gift-card-label").style.display = isCard ? "block" : "none";
+  document.getElementById("gift-finish-label").style.display = isCard ? "block" : "none";
+  document.getElementById("gift-quality-label").style.display = isCard ? "block" : "none";
+  if (isCard) updateGiftCardPreview();
+}
+
 // Genere un QR code pointant vers redeem.html avec le code pre-rempli
 // (scan -> arrivee directe sur la page de reclamation).
 function renderCodeQr(code) {
@@ -235,6 +274,7 @@ async function loadConfig() {
   document.getElementById("banner-enabled-input").checked = !!res.bannerEnabled;
   document.getElementById("banner-type-select").value = res.bannerType || "info";
   document.getElementById("banner-message-input").value = res.bannerMessage || "";
+  document.getElementById("maintenance-enabled-input").checked = !!res.maintenanceMode;
   document.getElementById("unlock-craft-input").value = res.featureUnlockCraft || 2;
   document.getElementById("unlock-trade-input").value = res.featureUnlockTrade || 3;
   document.getElementById("unlock-altar-input").value = res.featureUnlockAltar || 4;
@@ -427,6 +467,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateMarketCardPreview();
     loadMarketAdmin();
     populateBingoCardSelects();
+    loadGiftUserOptions();
+    populateGiftCardSelect();
+    updateGiftFieldVisibility();
     document.getElementById("admin-zone").style.display = "block";
   } catch (e) {
     if (e.code === "forbidden") {
@@ -481,6 +524,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       Toast.success("Bandeau enregistré.");
     } catch (err) {
       Toast.error("Impossible d'enregistrer le bandeau. (" + err.message + ")");
+    }
+  });
+
+  document.getElementById("maintenance-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const enabled = document.getElementById("maintenance-enabled-input").checked;
+    try {
+      await API.adminSetConfig(Session.discordId, { maintenanceMode: enabled });
+      Toast.success(enabled ? "Mode maintenance activé." : "Mode maintenance désactivé.");
+    } catch (err) {
+      Toast.error("Impossible de changer le mode maintenance. (" + err.message + ")");
     }
   });
 
@@ -619,6 +673,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   document.getElementById("market-card-select").addEventListener("change", updateMarketCardPreview);
+
+  document.getElementById("gift-type-select").addEventListener("change", updateGiftFieldVisibility);
+  document.getElementById("gift-card-select").addEventListener("change", updateGiftCardPreview);
+  document.getElementById("gift-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const giftType = document.getElementById("gift-type-select").value;
+    const targetUserId = Number(document.getElementById("gift-user-select").value);
+    const quantity = Number(document.getElementById("gift-quantity-input").value) || 1;
+    if (!targetUserId) { Toast.error("Choisis un joueur."); return; }
+    try {
+      const res = await API.adminGift(Session.discordId, {
+        targetUserId,
+        giftType,
+        quantity,
+        cardId: giftType === "card" ? Number(document.getElementById("gift-card-select").value) : undefined,
+        finish: giftType === "card" ? document.getElementById("gift-finish-select").value : undefined,
+        quality: giftType === "card" ? document.getElementById("gift-quality-select").value : undefined
+      });
+      const label = res.giftType === "card" ? `${res.quantity}x ${res.cardName}` : res.giftType === "booster" ? `${res.quantity} booster(s)` : `${res.quantity} poussière(s)`;
+      Toast.success(`Don envoyé : ${label} !`);
+      document.getElementById("gift-quantity-input").value = "1";
+    } catch (err) {
+      Toast.error("Impossible d'envoyer le don. (" + err.message + ")");
+    }
+  });
 
   document.getElementById("create-boss-form").addEventListener("submit", async (e) => {
     e.preventDefault();

@@ -12,7 +12,10 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-460, 300]
+      "position": [
+        -460,
+        300
+      ]
     },
     {
       "parameters": {
@@ -23,7 +26,10 @@
       "name": "Set Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-240, 300]
+      "position": [
+        -240,
+        300
+      ]
     },
     {
       "parameters": {
@@ -37,7 +43,10 @@
       "name": "Get Config",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [-20, 300],
+      "position": [
+        -20,
+        300
+      ],
       "alwaysOutputData": true,
       "credentials": {
         "gristApi": {
@@ -49,13 +58,16 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const configRow = $input.all().map((i) => i.json).find((r) => r.id != null);\nconst enabled = !!(configRow && configRow.BannerEnabled);\nconst type = (configRow && configRow.BannerType) || 'info';\nconst message = (configRow && configRow.BannerMessage) || '';\nreturn [{ json: { enabled: enabled && !!message, type, message } }];"
+        "jsCode": "const configRow = $input.all().map((i) => i.json).find((r) => r.id != null);\nconst enabled = !!(configRow && configRow.BannerEnabled);\nconst type = (configRow && configRow.BannerType) || 'info';\nconst message = (configRow && configRow.BannerMessage) || '';\n// Mode maintenance : separe du bandeau cosmetique (voir admin.html \"Activer\n// le mode maintenance\") - redirige tout le trafic non-admin vers\n// maintenance.html cote front (main.js), contrairement au bandeau qui reste\n// purement visuel.\nconst maintenanceMode = !!(configRow && configRow.MaintenanceMode);\nreturn [{ json: { enabled: enabled && !!message, type, message, maintenanceMode } }];"
       },
       "id": "format-response",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -67,21 +79,56 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     }
   ],
   "connections": {
     "Webhook": {
-      "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Set Config": {
-      "main": [[{ "node": "Get Config", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Get Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Config": {
-      "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Format Response": {
-      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,

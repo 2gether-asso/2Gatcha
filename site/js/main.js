@@ -1020,6 +1020,26 @@ function renderHeader() {
 // soit automatiquement comptee dans --header-h une fois syncHeaderOffset()
 // rappele. Silencieusement absente si l'appel echoue ou si elle est
 // desactivee : jamais bloquant pour le reste de la page.
+// Mode maintenance : redirige tout le trafic non-admin vers maintenance.html
+// tant que Config.MaintenanceMode est actif (voir admin.html "Bandeau du
+// site" -> bouton "Activer le mode maintenance"). Les admins ne sont JAMAIS
+// rediriges (Session.isAdmin(), meme liste que partout ailleurs) pour
+// pouvoir verifier le site pendant la mise a jour. Purement cote client :
+// ce n'est pas une barriere de securite (les endpoints restent joignables),
+// juste un confort pour ne pas laisser les joueurs sur une page a moitie
+// fonctionnelle pendant une maintenance.
+async function checkMaintenanceMode() {
+  if (location.pathname.endsWith("maintenance.html")) return;
+  try {
+    const res = await API.getSiteBanner();
+    if (res.maintenanceMode && !Session.isAdmin()) {
+      location.replace("maintenance.html");
+    }
+  } catch (e) {
+    // Un echec ne doit jamais bloquer l'acces normal au site.
+  }
+}
+
 async function loadSiteBanner() {
   const el = document.getElementById("site-header");
   if (!el) return;
@@ -1191,6 +1211,7 @@ async function prefetchAllCardImages() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  checkMaintenanceMode();
   renderHeader();
   syncHeaderOffset();
   loadSiteBanner();

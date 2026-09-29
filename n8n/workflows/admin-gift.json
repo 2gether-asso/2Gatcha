@@ -1,0 +1,634 @@
+{
+  "name": "2Gatcha - admin-gift",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        300
+      ],
+      "webhookId": "a1b2c3d4-gift-0000-000000000000",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-gift",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// A adapter une seule fois : ID du document Grist + IDs Discord admin (meme\n// liste que les autres workflows admin-*).\nconst docId = 'cRP1WgZQv7KmwmVrUbuEF8';\nconst adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst body = $input.first().json.body || {};\nconst discordId = (body.discordId || '').toString();\nreturn [{\n  json: {\n    docId,\n    discordId,\n    isAdmin: adminDiscordIds.includes(discordId),\n    targetUserId: Number(body.targetUserId),\n    giftType: (body.giftType || '').toString(),\n    cardId: Number(body.cardId),\n    finish: (body.finish || 'normal').toString(),\n    quality: (body.quality || 'good').toString(),\n    quantity: Number(body.quantity) || 1\n  }\n}];"
+      }
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -1200,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-1",
+      "name": "Sync Get Users -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -880,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-2",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -560,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-3",
+      "name": "Sync Get Rarities -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        -240,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "compute-gift",
+      "name": "Compute Gift",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\nconst cfg = $('Set Config').first().json;\nif (!cfg.isAdmin) return [{ json: { ok: false, error: 'forbidden' } }];\n\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst targetUser = users.find((u) => u.id === cfg.targetUserId);\nif (!targetUser) return [{ json: { ok: false, error: 'unknown_user' } }];\n\nconst quantity = Math.max(1, Math.min(100, cfg.quantity || 1));\n\nif (cfg.giftType === 'booster') {\n  return [{ json: {\n    ok: true, mutation: 'booster', targetUserId: cfg.targetUserId, quantity,\n    newBoosterCount: (targetUser.BoosterCount || 0) + quantity,\n    newStardust: targetUser.StardustCount || 0\n  } }];\n}\n\nif (cfg.giftType === 'dust') {\n  return [{ json: {\n    ok: true, mutation: 'dust', targetUserId: cfg.targetUserId, quantity,\n    newBoosterCount: targetUser.BoosterCount || 0,\n    newStardust: (targetUser.StardustCount || 0) + quantity\n  } }];\n}\n\nif (cfg.giftType !== 'card') {\n  return [{ json: { ok: false, error: 'invalid_gift_type' } }];\n}\n\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === cfg.cardId);\nif (!card) return [{ json: { ok: false, error: 'card_not_found' } }];\n\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarityRow = rarities.find((r) => r.id === refId(card.Rarity));\nconst rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\nconst FINISH_KEYS = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];\nconst QUALITY_KEYS = ['damaged', 'worn', 'good', 'mint'];\nconst finish = FINISH_KEYS.includes(cfg.finish) ? cfg.finish : 'normal';\nconst quality = QUALITY_KEYS.includes(cfg.quality) ? cfg.quality : 'good';\n\n// Plus de quota (Cards.MaxSerial, voir grist/SCHEMA.md \"Numeros de serie -\n// plus de quota\") : on suit QUELS numeros sont utilises (pas juste un\n// compteur) pour reattribuer le plus petit numero libre a chaque exemplaire\n// offert, comme partout ailleurs (open-pack/craft/echange...).\nconst allPulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst usedSerials = new Set();\nallPulls.forEach((p) => { if (refId(p.Card) === card.id && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\nfunction nextSerial() {\n  for (let n = 1; ; n++) { if (!usedSerials.has(n)) { usedSerials.add(n); return n; } }\n}\n\n// Un don admin ne declenche JAMAIS Cards.FirstObtainedBy : ce badge doit\n// rester reserve a une VRAIE premiere decouverte en jeu, pas a un don de\n// compensation/test qui volerait le merite a un joueur.\nconst now = Math.floor(Date.now() / 1000);\nconst batchId = `admin-gift-${cfg.targetUserId}-${Date.now()}`;\nconst items = [];\nfor (let i = 0; i < quantity; i++) {\n  items.push({\n    json: {\n      ok: true, mutation: 'card',\n      targetUserId: cfg.targetUserId,\n      cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image),\n      rarity, obtainedAt: now, batchId,\n      serialNumber: nextSerial(),\n      finish, quality\n    }\n  });\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        160,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        360,
+        460
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "if-is-card",
+      "name": "If Is Card",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        360,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mutation === 'card' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-pull",
+      "name": "Create Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        560,
+        140
+      ],
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.targetUserId }}"
+            },
+            {
+              "fieldId": "Card",
+              "fieldValue": "={{ $json.cardId }}"
+            },
+            {
+              "fieldId": "ObtainedAt",
+              "fieldValue": "={{ $json.obtainedAt }}"
+            },
+            {
+              "fieldId": "BatchId",
+              "fieldValue": "={{ $json.batchId }}"
+            },
+            {
+              "fieldId": "SerialNumber",
+              "fieldValue": "={{ $json.serialNumber }}"
+            },
+            {
+              "fieldId": "Finish",
+              "fieldValue": "={{ $json.finish }}"
+            },
+            {
+              "fieldId": "Quality",
+              "fieldValue": "={{ $json.quality }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "barrier-4",
+      "name": "Sync Create Pull -> Format Card Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        140
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "format-card-response",
+      "name": "Format Card Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        140
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const first = $('Compute Gift').first().json;\nconst created = $('Create Pull').all().length;\nreturn [{ json: {\n  gifted: true,\n  giftType: 'card',\n  cardName: first.name,\n  quantity: created,\n  finish: first.finish,\n  quality: first.quality\n} }];"
+      }
+    },
+    {
+      "id": "respond-card",
+      "name": "Respond Card",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1160,
+        140
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "update-user",
+      "name": "Update User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        560,
+        400
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $json.targetUserId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $json.newBoosterCount }}"
+            },
+            {
+              "fieldId": "StardustCount",
+              "fieldValue": "={{ $json.newStardust }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-simple-response",
+      "name": "Format Simple Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r = $('Compute Gift').first().json;\nreturn [{ json: {\n  gifted: true,\n  giftType: r.mutation,\n  quantity: r.quantity,\n  newBoosterCount: r.newBoosterCount,\n  newStardust: r.newStardust\n} }];"
+      }
+    },
+    {
+      "id": "respond-simple",
+      "name": "Respond Simple",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Rarities -> Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Rarities -> Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Compute Gift",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Gift": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Ok": {
+      "main": [
+        [
+          {
+            "node": "If Is Card",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Is Card": {
+      "main": [
+        [
+          {
+            "node": "Create Pull",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pull": {
+      "main": [
+        [
+          {
+            "node": "Sync Create Pull -> Format Card Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Create Pull -> Format Card Response": {
+      "main": [
+        [
+          {
+            "node": "Format Card Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Card Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User": {
+      "main": [
+        [
+          {
+            "node": "Format Simple Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Simple Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Simple",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

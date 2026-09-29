@@ -100,6 +100,20 @@ const CRAFT_ERRORS_LOCAL = {
   card_inactive: "Cette carte n'est plus disponible.",
   insufficient_dust: "Pas assez de poussières d'etoile."
 };
+const FINISH_ERRORS_LOCAL = {
+  card_not_found: "Carte introuvable.",
+  promo_not_upgradable: "Cette carte promo ne peut pas être fusionnée.",
+  card_inactive: "Cette carte n'est plus disponible.",
+  invalid_finish: "Cette finition ne peut pas être fusionnée davantage.",
+  not_enough_duplicates: "Il te faut 5 exemplaires identiques pour fusionner."
+};
+const QUALITY_ERRORS_LOCAL = {
+  card_not_found: "Carte introuvable.",
+  promo_not_repairable: "Cette carte promo ne peut pas être restaurée.",
+  card_inactive: "Cette carte n'est plus disponible.",
+  invalid_quality: "Cette qualité ne peut pas être restaurée davantage.",
+  not_enough_duplicates: "Il te faut 3 exemplaires identiques pour restaurer."
+};
 const TRADE_ERRORS_LOCAL = {
   user_not_found: "Aucun joueur ne porte ce pseudo.",
   cannot_trade_self: "Tu ne peux pas t'echanger une carte avec toi-meme.",
@@ -281,6 +295,13 @@ function showCardModal(navKey, navList) {
     const finish = owned ? (variantFinish || "normal") : "normal";
     const quality = owned ? (variantQuality || "damaged") : "mint";
     const serials = variantCopies.map((c) => c.serialNumber).filter((n) => n != null).sort((a, b) => a - b);
+    // Memes raccourcis fusion/restauration que sur la vignette (voir
+    // cardTileHtml) - indispensables ici en vue dense, ou .quick-actions-row
+    // est masque et la modale devient le seul chemin d'action.
+    const nextFinish = FINISH_ORDER[FINISH_ORDER.indexOf(finish) + 1];
+    const canUpgradeFinish = owned && nextFinish && currentPlayerLevel >= FEATURE_UNLOCK_LEVEL.finish && (owned.finishCounts?.[finish] || 0) >= 5;
+    const nextQuality = QUALITY_ORDER[QUALITY_ORDER.indexOf(quality) + 1];
+    const canUpgradeQuality = owned && nextQuality && currentPlayerLevel >= FEATURE_UNLOCK_LEVEL.quality && (owned.qualityCounts?.[quality] || 0) >= 3;
     overlay.innerHTML = `
       <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
         <button class="card-modal-close" aria-label="Fermer">&times;</button>
@@ -316,6 +337,8 @@ function showCardModal(navKey, navList) {
             <div class="card-modal-actions">
               ${disenchantValue != null ? `<button type="button" class="btn-ghost modal-disenchant-btn">&#9851; Décrafter (+${estimateDust(disenchantValue, finish, quality)})</button>` : ""}
               <button type="button" class="btn-secondary modal-trade-btn">&#8644; Échanger</button>
+              ${canUpgradeFinish ? `<button type="button" class="btn-secondary modal-finish-upgrade-btn">&#10024; Fusionner en ${FINISH_LABELS[nextFinish]}</button>` : ""}
+              ${canUpgradeQuality ? `<button type="button" class="btn-secondary modal-quality-repair-btn">&#128295; Restaurer en ${QUALITY_LABELS[nextQuality]}</button>` : ""}
             </div>
           ` : ""}
         </div>
@@ -330,6 +353,10 @@ function showCardModal(navKey, navList) {
     if (modalDisenchantBtn) modalDisenchantBtn.addEventListener("click", () => { close(); disenchantCardQuick(card.cardId, finish, quality); });
     const modalTradeBtn = overlay.querySelector(".modal-trade-btn");
     if (modalTradeBtn) modalTradeBtn.addEventListener("click", () => { close(); openQuickTrade(card.cardId); });
+    const modalFinishUpgradeBtn = overlay.querySelector(".modal-finish-upgrade-btn");
+    if (modalFinishUpgradeBtn) modalFinishUpgradeBtn.addEventListener("click", () => { close(); upgradeFinishQuick(card.cardId, finish); });
+    const modalQualityRepairBtn = overlay.querySelector(".modal-quality-repair-btn");
+    if (modalQualityRepairBtn) modalQualityRepairBtn.addEventListener("click", () => { close(); repairQualityQuick(card.cardId, quality); });
     if (finish !== "normal") attachTilt(overlay.querySelector(".card-modal"));
   }
 
@@ -444,6 +471,13 @@ function cardTileHtml(card, now) {
     const { finish, quality, count } = variant;
     const navKey = `${card.cardId}::${finish}::${quality}`;
     const bulkChecked = bulkEligible && bulkSelected.has(navKey);
+    // Raccourcis fusion/restauration : visibles uniquement si CETTE variante
+    // (meme finition/qualite) reunit assez de doublons ET que le niveau
+    // requis est debloque - jamais juste "assez de la carte en general".
+    const nextFinish = FINISH_ORDER[FINISH_ORDER.indexOf(finish) + 1];
+    const canUpgradeFinish = canQuickAct && nextFinish && currentPlayerLevel >= FEATURE_UNLOCK_LEVEL.finish && (owned.finishCounts?.[finish] || 0) >= 5;
+    const nextQuality = QUALITY_ORDER[QUALITY_ORDER.indexOf(quality) + 1];
+    const canUpgradeQuality = canQuickAct && nextQuality && currentPlayerLevel >= FEATURE_UNLOCK_LEVEL.quality && (owned.qualityCounts?.[quality] || 0) >= 3;
     return `
       <div class="collection-card ${bulkSelectMode && bulkEligible ? "bulk-mode" : ""} ${bulkChecked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}" tabindex="0" role="button" aria-label="Voir la carte ${card.name.replace(/"/g, "&quot;")}">
         ${isNew && i === 0 ? '<span class="new-badge">New</span>' : ""}
@@ -465,6 +499,8 @@ function cardTileHtml(card, now) {
               ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" data-finish="${finish}" data-quality="${quality}" title="Décrafter contre ${estimateDust(disenchantValue, finish, quality)} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
               <button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>
               <button type="button" class="card-quick-action quick-showcase-btn ${inShowcase ? "active" : ""}" data-card-id="${card.cardId}" title="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}" aria-label="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}">&#128444;</button>
+              ${canUpgradeFinish ? `<button type="button" class="card-quick-action quick-finish-upgrade-btn" data-card-id="${card.cardId}" data-from-finish="${finish}" title="Fusionner 5x ${FINISH_LABELS[finish]} en ${FINISH_LABELS[nextFinish]}" aria-label="Améliorer la finition">&#10024;</button>` : ""}
+              ${canUpgradeQuality ? `<button type="button" class="card-quick-action quick-quality-repair-btn" data-card-id="${card.cardId}" data-from-quality="${quality}" title="Restaurer 3x ${QUALITY_LABELS[quality]} en ${QUALITY_LABELS[nextQuality]}" aria-label="Améliorer la qualité">&#128295;</button>` : ""}
             </div>
           ` : ""}
         </div>
@@ -538,6 +574,53 @@ async function disenchantCardQuick(cardId, finish, quality, btn) {
     renderGrid();
   } catch (e) {
     Toast.error(DISENCHANT_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
+// Raccourcis directement depuis la collection pour fusionner une finition ou
+// restaurer une qualite, sans passer par craft.html - visibles uniquement
+// quand assez de doublons IDENTIQUES (meme finition/qualite, voir
+// finishCounts/qualityCounts) sont reunis ET que le niveau requis est
+// debloque (FEATURE_UNLOCK_LEVEL.finish/.quality, voir main.js). Recharge
+// toute la collection apres coup plutot que de rapiecer l'etat local : la
+// fusion consomme plusieurs exemplaires (avec leurs propres pullId/serial)
+// pour en produire un nouveau, trop de champs derives a resynchroniser a la
+// main pour valoir le risque d'un etat incoherent.
+async function upgradeFinishQuick(cardId, fromFinish) {
+  const card = allCardsCache.find((c) => c.cardId === cardId);
+  const toFinish = FINISH_ORDER[FINISH_ORDER.indexOf(fromFinish) + 1];
+  const ok = await Confirm.show(
+    `Fusionner 5 exemplaires <strong>${FINISH_LABELS[fromFinish]}</strong> de <strong>${card?.name || "cette carte"}</strong> en 1 exemplaire <strong>${FINISH_LABELS[toFinish]}</strong> ? ` +
+    `Les 5 exemplaires sacrifiés sont perdus définitivement.`,
+    { title: "Fusionner ces cartes ?", confirmText: "Fusionner", dangerous: true }
+  );
+  if (!ok) return;
+  try {
+    const res = await API.foilUpgrade(Session.userId, cardId, fromFinish);
+    Toast.success(`${card?.name || "Carte"} passe en ${FINISH_LABELS[res.toFinish]} !`);
+    if (typeof confetti === "function") confetti({ particleCount: 130, spread: 100, origin: { y: 0.5 } });
+    await loadCollection();
+  } catch (e) {
+    Toast.error(FINISH_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
+async function repairQualityQuick(cardId, fromQuality) {
+  const card = allCardsCache.find((c) => c.cardId === cardId);
+  const toQuality = QUALITY_ORDER[QUALITY_ORDER.indexOf(fromQuality) + 1];
+  const ok = await Confirm.show(
+    `Restaurer 3 exemplaires <strong>${QUALITY_LABELS[fromQuality]}</strong> de <strong>${card?.name || "cette carte"}</strong> en 1 exemplaire <strong>${QUALITY_LABELS[toQuality]}</strong> ? ` +
+    `Les 3 exemplaires consommés sont perdus définitivement.`,
+    { title: "Restaurer ces cartes ?", confirmText: "Restaurer", dangerous: true }
+  );
+  if (!ok) return;
+  try {
+    const res = await API.repairCardQuality(Session.userId, cardId, fromQuality);
+    Toast.success(`${card?.name || "Carte"} passe en ${QUALITY_LABELS[res.toQuality]} !`);
+    if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+    await loadCollection();
+  } catch (e) {
+    Toast.error(QUALITY_ERRORS_LOCAL[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }
 
@@ -894,6 +977,12 @@ function renderGrid() {
   });
   container.querySelectorAll(".quick-showcase-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); toggleShowcase(Number(btn.dataset.cardId), btn); });
+  });
+  container.querySelectorAll(".quick-finish-upgrade-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); upgradeFinishQuick(Number(btn.dataset.cardId), btn.dataset.fromFinish); });
+  });
+  container.querySelectorAll(".quick-quality-repair-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); repairQualityQuick(Number(btn.dataset.cardId), btn.dataset.fromQuality); });
   });
   container.querySelectorAll("[data-bulk-key]").forEach((cb) => {
     cb.addEventListener("change", (e) => {

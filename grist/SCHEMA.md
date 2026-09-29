@@ -235,7 +235,11 @@ plusieurs paliers). Sources d'XP actuelles : ouvrir un booster (+10,
 `open-pack.json`), crafter une carte (+5, `craft.json`), tourner la roue
 quotidienne (+5, `daily-wheel.json`), tenter un sacrifice a l'autel (+5,
 que ca reussisse ou non, `altar-sacrifice.json`), conclure un echange (+5
-**pour chacune des deux parties**, `trade.json`).
+**pour chacune des deux parties**, `trade.json`), restaurer une carte usee
+(+5, `card-quality-repair.json`) et fusionner une finition (+5,
+`foil-upgrade.json`) - ces deux derniers ajoutes le 2026-09-29 (auparavant
+ces deux actions ne rapportaient aucune XP, contrairement a toutes les
+autres actions "de fond" du jeu).
 
 `BoosterCount` est un stock unique, commun a toutes les extensions : un code
 d'evenement de type `booster` ajoute des points generiques (`+N`, sans
@@ -357,6 +361,7 @@ du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
 | BannerEnabled                | Bool                    | **nouvelle colonne** - defaut false/vide ; affiche ou non le bandeau du site (voir "Bandeau du site" plus bas) |
 | BannerType                   | Text                    | **nouvelle colonne** - `info` ou `maintenance` (defaut `info` si vide) ; change juste la couleur/l'icone cote front |
 | BannerMessage                | Text                    | **nouvelle colonne** - texte affiche dans le bandeau ; bandeau invisible si vide meme si `BannerEnabled` est coche |
+| MaintenanceMode               | Bool                    | **nouvelle colonne a creer (2026-09-29)** - defaut false/vide ; separe du bandeau cosmetique ci-dessus : quand actif, redirige tout le trafic NON-ADMIN vers `maintenance.html` (verification cote client dans `main.js` via `Session.isAdmin()`, purement UX - pas une barriere de securite, les endpoints restent joignables). Tant que cette colonne n'existe pas dans Grist, la LECTURE degrade proprement (`maintenanceMode: false`), mais l'ECRITURE (`admin-config.json` action=set) echoue avec une erreur Grist "Bad request" - a creer avant d'utiliser le bouton "Activer le mode maintenance" dans admin.html |
 | ThemeUnlockMonochrome         | Numeric                 | **nouvelle colonne** - defaut 3 si vide ; niveau de deblocage du theme Monochrome |
 | ThemeUnlockSepia              | Numeric                 | **nouvelle colonne** - defaut 5 si vide ; niveau de deblocage du theme Sépia |
 | ThemeUnlockCyberpunk          | Numeric                 | **nouvelle colonne** - defaut 8 si vide ; niveau de deblocage du theme Cyberpunk |
@@ -420,6 +425,22 @@ tres leger, `get-site-banner.json` (GET `/site-banner`, sans authentification
 plutot que par `admin-config.json` qui est gate admin. `main.js`
 (`loadSiteBanner()`) l'appelle a chaque chargement de page et insere le
 bandeau seulement si `enabled` est vrai ET `message` non vide.
+
+**Mode maintenance (2026-09-29)** : bouton separe dans la meme section
+admin.html ("Activer le mode maintenance"), pilote par `Config.MaintenanceMode`
+(colonne a creer, voir tableau `Config` plus haut) - contrairement au bandeau
+qui est purement cosmetique, ce mode REDIRIGE reellement. `get-site-banner.json`
+renvoie aussi `maintenanceMode` dans sa reponse ; `main.js`
+(`checkMaintenanceMode()`, appelee en tout premier dans le handler
+`DOMContentLoaded`, avant meme `renderHeader()`) redirige vers
+`maintenance.html` (nouvelle page statique, sans header/nav) des que
+`maintenanceMode` est vrai, **sauf pour les admins** (`Session.isAdmin()`,
+meme liste `adminDiscordIds` que partout ailleurs cote front). Purement une
+verification cote client par confort UX - les endpoints n8n restent tous
+joignables pendant la maintenance, ce n'est pas une barriere de securite.
+`maintenance.html` s'auto-rafraichit toutes les 20s (`get-site-banner`) pour
+revenir automatiquement sur `index.html` des que la maintenance est levee,
+sans que le joueur ait besoin de rafraichir lui-meme.
 
 ## 7. EventCodes
 
@@ -795,18 +816,30 @@ de l'etat du plateau courant du joueur -
 l'etat est absent/corrompu) et regenere automatiquement des que les 16
 tuiles sont creusees. Jamais renvoye tel quel au client : `dig.json` n'expose
 que la projection publique (tuile creusee ou non ; si creusee et liee a un
-tresor, son etat `done`/`remaining`) pour ne jamais reveler a l'avance quelles
-tuiles caches encore quelque chose.
+tresor, son `reward` + son etat `done`/`remaining`) pour ne jamais reveler
+a l'avance quelles tuiles cachent encore quelque chose.
+
+**Icone partagee des la premiere tuile creusee (2026-09-29)** : le `reward`
+d'un tresor est desormais expose meme quand il n'est PAS encore complet
+(`done:false`), pas seulement une fois termine - le front (`jeux.js`)
+affiche alors la VRAIE icone de la recompense (attenuee) plutot qu'une
+fissure generique, ce qui permet de relier visuellement deux tuiles deja
+creusees appartenant au MEME tresor (meme icone), meme quand deux tresors
+differents sont en cours simultanement et afficheraient sinon le meme
+compteur "-1" ambigu. Ca ne revele toujours rien sur les tuiles NON
+creusees - uniquement un lien entre des tuiles deja fouillees.
 
 Repartition des tresors sur le plateau de 16 tuiles a chaque generation
-(le reste, 5 tuiles, ne cache rien) :
+(le reste, 3 tuiles, ne cache rien) - table enrichie le 2026-09-29 (ajout de
+la carte Rare a la place d'une des poussieres simples) :
 
 | Tuiles necessaires | Recompense | Quantite de tresors |
 |---------------------|------------|----------------------|
 | 4                   | 1 carte de la rarete la plus commune | 1 |
+| 3                   | 1 carte de la rarete juste au-dessus (Rare) | 1 |
 | 2                   | 1 booster generique | 1 |
 | 2                   | grosse poussiere (25-50) | 1 |
-| 1                   | petite poussiere (5-15) | 3 |
+| 1                   | petite poussiere (5-15) | 2 |
 
 `dig.json` (POST `/dig` `{ userId, action: 'status'|'dig', tileIndex? }`) -
 base sur `Users.DigEnergy`/`Users.LastDigEnergyAt` (voir table `Users` plus
@@ -816,11 +849,14 @@ une `tileIndex` (0-15) pas encore creusee, et renvoie soit `nothing` (tuile
 vide), soit `partial` (tuile liee a un tresor pas encore complet - le nombre
 de tuiles restantes est renvoye, mais pas leur position), soit le
 resultat final (`dust`/`booster`/`card`) quand la derniere tuile d'un tresor
-est creusee. Carte du tresor "4 tuiles" toujours de la rarete la plus
-commune (jamais un jackpot - "un vieux doublon retrouve", pas une carte
-rare) ; si aucune carte commune n'est disponible (toutes epuisees), degrade
-silencieusement vers de la poussiere plutot que d'echouer l'action (les 4
-tuiles restent liberees).
+est creusee. Le tresor "4 tuiles" tire toujours dans la rarete la PLUS BASSE
+(SortOrder), le "3 tuiles" dans la rarete JUSTE AU-DESSUS (index 1 des
+raretes triees) - avec les raretes par defaut (Commune/Rare/Epique/
+Legendaire/Mythique) ca donne Commune puis Rare ; `card.rarity` est renvoye
+avec la carte pour que le front distingue les deux. Si aucune carte de ce
+palier n'est disponible (toutes epuisees ou aucune active), degrade
+silencieusement vers de la poussiere (30 pour le palier Commune, 50 pour le
+palier Rare) plutot que d'echouer l'action (les tuiles restent liberees).
 
 ## Bingo de collection
 

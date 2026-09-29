@@ -13,7 +13,8 @@ les tables, et un node HTTP Request dedie uniquement pour servir les images
 | `list-users.json`          | GET     | `/webhook/users`             | liste minimale (userId, pseudo) pour le selecteur d'echange |
 | `get-cards.json`           | GET     | `/webhook/cards`             | catalogue complet des cartes actives (avec extension/promo) |
 | `get-extensions.json`      | GET     | `/webhook/extensions`        | liste des extensions (packs) actives       |
-| `open-pack.json`           | POST    | `/webhook/open-pack`         | ouvre 1 booster (5 cartes) d'une extension, decremente son solde |
+| `open-pack.json`           | POST    | `/webhook/open-pack`         | ouvre 1 booster (5 cartes) d'une extension, decremente son solde (renvoie aussi `batchId`, utilise par le front pour `notify-reveal.json` une fois le reveal termine - ne notifie plus Discord lui-meme) |
+| `notify-reveal.json`       | POST    | `/webhook/notify-reveal`     | poste sur Discord : `action:'auto'` (annonce Mythique/Legendaire/Epique, appelee par le front APRES le reveal pour ne pas spoiler) ou `action:'share'` (bouton "Partager sur Discord", toujours envoye) - revalide toujours les cartes via `batchIds` cote serveur, jamais les donnees envoyees par le client |
 | `get-collection.json`      | GET     | `/webhook/collection`        | collection d'un utilisateur + progression  |
 | `get-image.json`           | GET     | `/webhook/image?id=...`      | sert une image (carte, packet, dos de carte - proxy vers Grist) |
 | `get-booster-status.json`  | GET     | `/webhook/booster-status`    | solde de boosters par extension + total + poussieres d'etoile |

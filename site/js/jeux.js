@@ -26,7 +26,7 @@ let digEnergy = 0;
 let digMaxEnergy = 5;
 let digBusy = false;
 
-const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#128142;", booster: "&#127183;", card: "&#127942;" };
+const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#128142;", booster: "&#127183;", card: "&#127942;", rareCard: "&#127775;" };
 
 async function loadDig() {
   try {
@@ -56,11 +56,16 @@ function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
   }
 }
 
+// Meme icone pour toutes les tuiles d'un MEME tresor, des le premier coup de
+// pioche (pas seulement une fois complet) : c'est ce qui permet de relier
+// visuellement des tuiles deja creusees a un tresor commun, plutot qu'une
+// fissure generique identique pour tous les tresors en cours.
 function digTileContent(tile) {
   if (!tile.dug) return { cls: "", html: "" };
   if (!tile.treasure) return { cls: "dug empty", html: "" };
-  if (tile.treasure.done) return { cls: "dug revealed", html: DIG_REWARD_ICON[tile.treasure.reward] || "&#10024;" };
-  return { cls: "dug partial", html: `<span class="dig-crack">&#9889;</span><span class="dig-remaining">-${tile.treasure.remaining}</span>` };
+  const icon = DIG_REWARD_ICON[tile.treasure.reward] || "&#10024;";
+  if (tile.treasure.done) return { cls: "dug revealed", html: icon };
+  return { cls: "dug partial", html: `<span class="dig-partial-icon">${icon}</span><span class="dig-remaining">-${tile.treasure.remaining}</span>` };
 }
 
 function renderDigBoard(tiles) {
@@ -97,8 +102,11 @@ async function doDig(tileIndex) {
       resultEl.innerHTML = `&#127183; Trésor libéré : +1 booster !`;
       if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
     } else if (res.outcome === "card") {
-      resultEl.innerHTML = `&#127942; Trésor libéré : tu as trouvé <strong>${res.card.name}</strong> !`;
-      if (typeof confetti === "function") confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
+      const isRare = res.card.rarity && res.card.rarity.key !== "commune";
+      const icon = isRare ? "&#127775;" : "&#127942;";
+      const rarityLabel = res.card.rarity ? ` (${res.card.rarity.name})` : "";
+      resultEl.innerHTML = `${icon} Trésor libéré : tu as trouvé <strong>${res.card.name}</strong>${rarityLabel} !`;
+      if (typeof confetti === "function") confetti({ particleCount: isRare ? 220 : 150, spread: isRare ? 130 : 100, origin: { y: 0.5 } });
     }
 
     if (res.boardCleared) {

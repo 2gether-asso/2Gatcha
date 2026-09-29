@@ -695,7 +695,7 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 }
 .dig-tile.dug.empty { opacity: 0.5; }
 .dig-tile.dug.partial { border-color: #f5a524; }
-.dig-crack { font-size: 1.3rem; filter: drop-shadow(0 0 6px rgba(245,165,36,0.6)); }
+.dig-partial-icon { font-size: 1.3rem; filter: drop-shadow(0 0 6px rgba(245,165,36,0.6)) grayscale(0.35); opacity: 0.85; }
 .dig-remaining {
   position: absolute;
   bottom: 4px;
@@ -1079,6 +1079,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .booster-pack.charging-rare { box-shadow: 0 0 26px rgba(59,130,246,0.55); }
 .booster-pack.charging-epique { animation: boosterChargeEpique 0.35s ease-in-out infinite; box-shadow: 0 0 40px rgba(168,85,247,0.6); }
 .booster-pack.charging-legendaire { animation: boosterChargeLegendaire 0.22s ease-in-out infinite; box-shadow: 0 0 60px rgba(245,165,36,0.8); }
+.booster-pack.charging-mythique { animation: boosterChargeMythique 0.16s ease-in-out infinite; box-shadow: 0 0 75px rgba(239,68,68,0.9); }
 @keyframes boosterChargeEpique {
   0%, 100% { transform: translate(0, 0) scale(1.04) rotate(0deg); }
   25% { transform: translate(-6px, 0) scale(1.06) rotate(-3deg); }
@@ -1090,6 +1091,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   25% { transform: translate(-9px, 0) scale(1.1) rotate(-4deg); }
   50% { transform: translate(9px, 0) scale(1.12) rotate(4deg); }
   75% { transform: translate(-7px, 0) scale(1.1) rotate(-3deg); }
+}
+@keyframes boosterChargeMythique {
+  0%, 100% { transform: translate(0, 0) scale(1.08) rotate(0deg); }
+  25% { transform: translate(-11px, 0) scale(1.13) rotate(-5deg); }
+  50% { transform: translate(11px, 0) scale(1.15) rotate(5deg); }
+  75% { transform: translate(-9px, 0) scale(1.13) rotate(-4deg); }
 }
 
 /* Choix x1/x5 (modale d'ouverture) */
@@ -1719,6 +1726,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    place, un bouton Enregistrer dedie (pas de formulaire global qui
    soumettrait tout d'un coup - chaque rangee est sa propre unite de
    sauvegarde, cote serveur comme cote UI). */
+.balance-subheading { grid-column: 1 / -1; }
 .balance-table { margin-bottom: 8px; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
 .balance-row {
   display: grid;
@@ -4233,3 +4241,27 @@ body.hide-stats #stats-block { display: none; }
       rgba(4, 5, 12, 0.97);
   }
 }
+
+/* Page de maintenance (maintenance.html) : ecran plein page indépendant du
+   header/nav habituel - le site est volontairement injoignable, pas de sens
+   a montrer une navigation vers des pages qui rediraient aussitot ici. */
+.maintenance-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px;
+  gap: 10px;
+}
+.maintenance-icon { font-size: 3.5rem; filter: drop-shadow(0 0 20px rgba(245, 165, 36, 0.5)); }
+.maintenance-brand { font-size: 2rem; margin-top: 6px; }
+.maintenance-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--text-main);
+  margin: 4px 0 0;
+}
+.maintenance-message { color: var(--text-dim); max-width: 440px; line-height: 1.6; }
+.maintenance-sub { color: var(--accent-2); font-weight: 600; max-width: 440px; }
