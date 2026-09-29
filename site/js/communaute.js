@@ -220,6 +220,14 @@ async function attackBoss(cardId) {
 // -----------------------------------------------------------------------
 // Coffre de guilde
 // -----------------------------------------------------------------------
+// Le pot commun exclut TOUJOURS les propres depots du joueur (on ne pioche
+// jamais sa propre carte, voir grist/SCHEMA.md "Coffre de guilde mystere") :
+// avec peu de joueurs actifs, deposer puis voir "0 carte disponible" peut
+// donner l'impression que le coffre est casse alors que c'est simplement
+// qu'aucun AUTRE joueur n'a encore rien depose. On separe donc clairement
+// "ton depot est bien passe" de "ce qu'il y a a piocher pour toi", et on
+// laisse toujours au moins une action possible (actualiser) plutot que de
+// laisser un panneau vide sans aucun bouton.
 async function loadChest() {
   if (!Session.isLoggedIn()) {
     document.getElementById("chest-guest-warning").style.display = "block";
@@ -230,15 +238,30 @@ async function loadChest() {
     await ensureCollectionLoaded();
     const res = await API.getGuildChestStatus(Session.userId);
     const statusText = document.getElementById("chest-status-text");
+    const hint = document.getElementById("chest-status-hint");
     const drawBtn = document.getElementById("chest-draw-btn");
-    statusText.textContent = `${res.poolSize} carte${res.poolSize > 1 ? "s" : ""} disponible${res.poolSize > 1 ? "s" : ""} dans le pot commun.`;
-    if (res.alreadyDrawnToday) {
-      drawBtn.style.display = "none";
-      statusText.textContent += " Tu as déjà pioché aujourd'hui.";
-    } else {
-      drawBtn.style.display = res.poolSize > 0 ? "inline-flex" : "none";
-    }
+
     chestAlreadyDepositedToday = !!res.alreadyDepositedToday;
+
+    if (res.alreadyDrawnToday) {
+      statusText.textContent = "Tu as déjà pioché aujourd'hui, reviens demain.";
+    } else if (res.poolSize > 0) {
+      statusText.textContent = `${res.poolSize} carte${res.poolSize > 1 ? "s" : ""} d'autres joueurs disponible${res.poolSize > 1 ? "s" : ""} à piocher !`;
+    } else {
+      statusText.textContent = "Le pot commun est vide pour l'instant.";
+    }
+    drawBtn.style.display = (!res.alreadyDrawnToday && res.poolSize > 0) ? "inline-flex" : "none";
+
+    if (chestAlreadyDepositedToday && !res.alreadyDrawnToday && res.poolSize === 0) {
+      hint.textContent = "Ta carte est bien dans le pot commun. Reviens plus tard, ou clique sur Actualiser si quelqu'un vient de déposer.";
+      hint.style.display = "block";
+    } else if (chestAlreadyDepositedToday) {
+      hint.textContent = "Tu as déjà déposé une carte aujourd'hui.";
+      hint.style.display = "block";
+    } else {
+      hint.style.display = "none";
+    }
+
     document.getElementById("chest-deposit-limit-msg").style.display = chestAlreadyDepositedToday ? "block" : "none";
     document.getElementById("chest-card-grid").style.display = chestAlreadyDepositedToday ? "none" : "";
     document.getElementById("chest-search-input").style.display = chestAlreadyDepositedToday ? "none" : "";
@@ -289,6 +312,11 @@ async function depositChest(cardId, finish, quality) {
 }
 
 document.addEventListener("click", async (e) => {
+  if (e.target && e.target.id === "chest-refresh-btn") {
+    allCards = [];
+    await loadChest();
+    return;
+  }
   if (e.target && e.target.id === "chest-draw-btn") {
     try {
       const res = await API.drawGuildChest(Session.userId);

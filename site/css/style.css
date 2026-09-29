@@ -634,6 +634,9 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 .wheel-icon { font-size: 2.4rem; line-height: 1; }
 .wheel-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 #wheel-status-text { color: var(--text-dim); font-size: 0.9rem; }
+.chest-status-hint { color: var(--text-dim); font-size: 0.82rem; font-style: italic; }
+.chest-status-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chest-status-actions .btn-secondary { font-size: 0.82rem; padding: 8px 12px; }
 .wheel-prizes-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .wheel-prize-chip {
   font-size: 0.72rem;
