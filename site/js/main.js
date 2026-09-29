@@ -711,42 +711,6 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Easter egg : le code Konami (haut haut bas bas gauche droite gauche droite
-// B A) débloque une carte secrète (Cards.IsSecret), n'importe ou sur le
-// site. Purement cache, aucun indice visuel - c'est le principe.
-// ---------------------------------------------------------------------------
-const KONAMI_CODE = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
-let konamiProgress = 0;
-document.addEventListener("keydown", (e) => {
-  if (!Session.isLoggedIn()) return;
-  const expected = KONAMI_CODE[konamiProgress];
-  const matches = expected.length === 1 ? e.key.toLowerCase() === expected : e.key === expected;
-  if (matches) {
-    konamiProgress++;
-    if (konamiProgress === KONAMI_CODE.length) {
-      konamiProgress = 0;
-      triggerSecretUnlock();
-    }
-  } else {
-    konamiProgress = e.key === KONAMI_CODE[0] ? 1 : 0;
-  }
-});
-
-async function triggerSecretUnlock() {
-  try {
-    const res = await API.unlockSecret(Session.userId);
-    if (res.unlocked) {
-      Toast.success(`Carte secrète débloquée : ${res.card.name} !`);
-      if (typeof confetti === "function") confetti({ particleCount: 200, spread: 160, origin: { y: 0.5 } });
-      spawnRarityBurst("legendaire", "#f5a524", null);
-      Sfx.reveal("legendaire");
-    }
-  } catch (e) {
-    Toast.info(e.code === "no_secret_available" ? "Tu as déjà tout trouvé ici..." : "Rien de spécial ne s'est passé.");
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Verrouillage du scroll de la page pendant qu'une modale plein écran est
 // ouverte (zoom de carte, ouverture de booster) : sans ca, la page derriere
 // continue de defiler sous la modale, ce qui est deroutant. On resynchronise
@@ -939,6 +903,10 @@ function renderHeader() {
             <span id="header-stardust-badge" class="stat-chip" title="Poussières d'étoile (craft/décraft)">
               <span class="icon">&#10024;</span><span class="count">...</span>
             </span>
+            <span id="header-key-divider" class="stat-divider" aria-hidden="true" style="display:none;"></span>
+            <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
+              <span class="icon">&#128273;</span><span class="count">0</span>
+            </span>
           </div>
           <div class="user-menu" id="user-menu">
             <button type="button" class="user-menu-trigger" id="user-menu-trigger">
@@ -1097,6 +1065,24 @@ async function loadHeaderBoosterBadge() {
         dustEl = dustBadge.querySelector(".count");
       }
       bumpNumber(dustEl, status.stardust || 0);
+    }
+
+    // Clefs secretes : uniquement visibles quand on en possede au moins une
+    // (voir dig.json/unlock-secret.json) - masquees entierement a 0 plutot
+    // que d'afficher un compteur vide en permanence.
+    const keyBadge = document.getElementById("header-key-badge");
+    const keyDivider = document.getElementById("header-key-divider");
+    if (keyBadge) {
+      const keys = status.keys || 0;
+      if (keys > 0) {
+        const keyEl = keyBadge.querySelector(".count");
+        bumpNumber(keyEl, keys);
+        keyBadge.style.display = "flex";
+        if (keyDivider) keyDivider.style.display = "block";
+      } else {
+        keyBadge.style.display = "none";
+        if (keyDivider) keyDivider.style.display = "none";
+      }
     }
 
     if (status.xp) knownProfileLevel = status.xp.level;

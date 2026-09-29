@@ -16,6 +16,12 @@ const ERROR_MESSAGES = {
   sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
 
+const UNLOCK_ERROR_MESSAGES = {
+  no_key: "Il te faut une clef secrète pour ouvrir cette serrure (trouvable en fouillant).",
+  no_secret_available: "Aucune carte secrète n'est disponible pour le moment.",
+  unknown_user: "Utilisateur introuvable, reconnecte-toi."
+};
+
 function buildCardEl(card, index) {
   const wrap = document.createElement("div");
   wrap.className = "card";
@@ -139,6 +145,48 @@ async function redeem() {
   }
 }
 
+// Serrure cachee (easter egg cartes secretes) : 5 clics sur le cadeau le
+// decalent sur le cote et revelent une serrure ; cliquer la serrure consomme
+// une clef secrete (trouvee en fouillant, voir jeux.js) et donne une carte
+// IsSecret au hasard. Remplace l'ancien Konami code.
+let giftClickCount = 0;
+let lockRevealed = false;
+let unlockBusy = false;
+
+function onGiftClick() {
+  if (lockRevealed) return;
+  giftClickCount++;
+  if (giftClickCount >= 5) {
+    lockRevealed = true;
+    document.getElementById("redeem-gift-icon").classList.add("gift-shifted");
+    document.getElementById("redeem-lock-icon").classList.add("lock-revealed");
+  }
+}
+
+async function onLockClick() {
+  if (unlockBusy) return;
+  unlockBusy = true;
+  try {
+    const res = await API.unlockSecret(Session.userId);
+    document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">Carte secrète débloquée !</div>`;
+    const grid = document.getElementById("reveal-grid");
+    grid.innerHTML = "";
+    const el = buildCardEl(res.card, 0);
+    grid.appendChild(el);
+    setTimeout(() => {
+      el.classList.add("revealed");
+      Sfx.flip();
+      setTimeout(() => Sfx.reveal(res.card.rarity?.key), 260);
+      requestAnimationFrame(() => celebrateRarity(res.card.rarity?.key || "legendaire", el, res.card.rarity?.colorHex || "#8b5cf6"));
+    }, 300);
+    loadHeaderBoosterBadge();
+  } catch (e) {
+    Toast.error(UNLOCK_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+  } finally {
+    unlockBusy = false;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
@@ -151,6 +199,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("code-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") redeem();
   });
+  document.getElementById("redeem-gift-icon").addEventListener("click", onGiftClick);
+  document.getElementById("redeem-lock-icon").addEventListener("click", onLockClick);
 
   // Prefill depuis un QR code génère par l'admin (redeem.html?code=XXXX).
   const prefill = new URLSearchParams(window.location.search).get("code");

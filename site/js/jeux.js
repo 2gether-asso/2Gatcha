@@ -109,6 +109,12 @@ async function doDig(tileIndex) {
       if (typeof confetti === "function") confetti({ particleCount: isRare ? 220 : 150, spread: isRare ? 130 : 100, origin: { y: 0.5 } });
     }
 
+    if (res.foundKey) {
+      Toast.success("&#128273; Tu as trouvé une clef secrète !");
+      if (typeof confetti === "function") confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } });
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    }
+
     if (res.boardCleared) {
       setTimeout(() => {
         Toast.info("Plateau entièrement fouillé — un nouveau vient d'apparaître !");

@@ -153,9 +153,12 @@ async function loadGiftUserOptions() {
 }
 
 function populateGiftCardSelect() {
+  // Un don admin doit pouvoir cibler N'IMPORTE QUELLE carte, promo ou
+  // secrete incluses (contrairement aux codes d'evenement/au craft normal
+  // qui les excluent) : c'est justement l'outil a utiliser pour offrir une
+  // carte secrete a un joueur sans lui faire chercher le Konami code.
   document.getElementById("gift-card-select").innerHTML = cardsCatalog
-    .filter((c) => !c.isPromo)
-    .map((c) => `<option value="${c.cardId}">${c.name}</option>`)
+    .map((c) => `<option value="${c.cardId}">${c.name}${c.isSecret ? " (secrète)" : c.isPromo ? " (promo)" : ""}</option>`)
     .join("");
 }
 
@@ -450,6 +453,33 @@ function populateBingoCardSelects() {
   `).join("");
 }
 
+// -----------------------------------------------------------------------
+// Recompenses de niveau (100 paliers)
+// -----------------------------------------------------------------------
+async function loadLevelRewardsAdmin() {
+  const tbody = document.getElementById("level-rewards-tbody");
+  try {
+    const res = await API.adminListLevelRewards(Session.discordId);
+    const cardOptions = `<option value="">— aucune —</option>` +
+      cardsCatalog.map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
+    tbody.innerHTML = res.rows.map((r) => `
+      <tr data-level="${r.level}" data-row-id="${r.rowId || ""}">
+        <td>${r.level}</td>
+        <td><input type="number" min="0" class="lvl-dust-input" value="${r.dust || 0}" /></td>
+        <td><input type="number" min="0" class="lvl-booster-input" value="${r.booster || 0}" /></td>
+        <td><select class="lvl-card-select">${cardOptions}</select></td>
+      </tr>
+    `).join("");
+    tbody.querySelectorAll("tr").forEach((tr) => {
+      const level = Number(tr.dataset.level);
+      const row = res.rows.find((r) => r.level === level);
+      if (row && row.cardId) tr.querySelector(".lvl-card-select").value = String(row.cardId);
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4">Erreur de chargement. (${e.message})</td></tr>`;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
@@ -467,6 +497,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateMarketCardPreview();
     loadMarketAdmin();
     populateBingoCardSelects();
+    loadLevelRewardsAdmin();
     loadGiftUserOptions();
     populateGiftCardSelect();
     updateGiftFieldVisibility();
@@ -747,6 +778,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       Toast.success("Grille de bingo enregistrée !");
     } catch (err) {
       Toast.error("Impossible d'enregistrer la grille. (" + err.message + ")");
+    }
+  });
+
+  document.getElementById("save-level-rewards-btn").addEventListener("click", async () => {
+    const rows = [...document.querySelectorAll("#level-rewards-tbody tr[data-level]")].map((tr) => ({
+      rowId: tr.dataset.rowId ? Number(tr.dataset.rowId) : null,
+      level: Number(tr.dataset.level),
+      dust: Number(tr.querySelector(".lvl-dust-input").value) || 0,
+      booster: Number(tr.querySelector(".lvl-booster-input").value) || 0,
+      cardId: tr.querySelector(".lvl-card-select").value ? Number(tr.querySelector(".lvl-card-select").value) : null
+    }));
+    try {
+      await API.adminSetLevelRewards(Session.discordId, rows);
+      Toast.success("Récompenses de niveau enregistrées.");
+      loadLevelRewardsAdmin();
+    } catch (err) {
+      Toast.error("Impossible d'enregistrer. (" + err.message + ")");
     }
   });
 

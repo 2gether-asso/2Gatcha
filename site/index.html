@@ -68,6 +68,10 @@
           <summary>Voir tous les gains par niveau</summary>
           <div id="level-rewards-list" class="quests-list"></div>
         </details>
+        <div id="level-claim-banner" class="level-claim-banner" style="display:none;">
+          <span id="level-claim-text"></span>
+          <button type="button" id="level-claim-btn" class="btn">Réclamer</button>
+        </div>
       </div>
 
       <div class="panel" id="wheel-panel" style="display:none;">
@@ -222,8 +226,10 @@
 
       // Pass de combat (free) : barre de progression vers le prochain
       // niveau, reprend l'XP deja calculee par booster-status (pas d'appel
-      // supplementaire). La recompense reste fixe (+1 booster/niveau, voir
-      // grist/SCHEMA.md) - pas encore de recompenses variees par palier.
+      // supplementaire). En plus du +1 booster/niveau fixe, l'admin peut
+      // configurer des paliers avec poussieres/boosters/carte supplementaires
+      // (site/admin.html, section "Récompenses de niveau") - reclames via le
+      // bandeau ci-dessous des qu'un palier configure est atteint.
       const passPanel = document.getElementById("pass-panel");
       passPanel.style.display = "block";
       API.getBoosterStatus(Session.userId).then((res) => {
@@ -233,6 +239,33 @@
         const pct = res.xp.xpForNextLevel ? Math.round((res.xp.xpIntoLevel / res.xp.xpForNextLevel) * 100) : 0;
         document.getElementById("pass-track-fill").style.width = pct + "%";
       }).catch(() => { passPanel.style.display = "none"; });
+
+      API.getLevelRewardsStatus(Session.userId).then((res) => {
+        const banner = document.getElementById("level-claim-banner");
+        if (!res.hasPending) return;
+        banner.style.display = "flex";
+        const count = (res.pendingLevels || []).length;
+        document.getElementById("level-claim-text").innerHTML =
+          `&#127775; ${count} palier${count > 1 ? "s" : ""} de niveau à réclamer !`;
+      }).catch(() => {});
+      document.getElementById("level-claim-btn").addEventListener("click", async (e) => {
+        e.target.disabled = true;
+        try {
+          const res = await API.claimLevelRewards(Session.userId);
+          const parts = [];
+          if (res.dustGained) parts.push(`+${res.dustGained} poussières`);
+          if (res.boostersGained) parts.push(`+${res.boostersGained} booster${res.boostersGained > 1 ? "s" : ""}`);
+          (res.cards || []).forEach((c) => parts.push(`carte "${c.name}"`));
+          Toast.success(`Niveau ${res.fromLevel}${res.toLevel > res.fromLevel ? "-" + res.toLevel : ""} : ${parts.join(", ") || "récompense réclamée"} !`);
+          if (typeof confetti === "function") confetti({ particleCount: 150, spread: 110, origin: { y: 0.5 } });
+          document.getElementById("level-claim-banner").style.display = "none";
+          if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+        } catch (err) {
+          Toast.error("Impossible de réclamer. (" + err.message + ")");
+        } finally {
+          e.target.disabled = false;
+        }
+      });
 
       // Liste claire "a quel niveau je debloque quoi" : depuis le meme
       // endpoint public que les verrous de fonctionnalites eux-memes

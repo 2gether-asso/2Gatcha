@@ -194,7 +194,7 @@ son propre compteur de pity.
 | Rarity      | Reference -> Rarities | quelle rarete                               |
 | Extension   | Reference -> Extensions | a quelle extension appartient la carte (utilisee pour le tirage normal) |
 | IsPromo     | Bool                  | si `true`, exclue du tirage normal des boosters : obtenable uniquement via un code d'evenement (`EventCodes`, `RewardType=card`). Une carte promo n'est **ni decraftable, ni craftable, ni echangeable** (`disenchant.json`, `craft.json` et `trade.json` la refusent) |
-| IsSecret    | Bool                  | sous-ensemble des cartes promo, reservees a l'easter egg Konami code (voir "Cartes secretes" plus bas). Doit toujours etre pose avec `IsPromo=true` en meme temps : les cartes secretes profitent de l'exclusion tirage/craft/echange deja geree par `IsPromo`, `IsSecret` ne fait que les rendre eligibles a `unlock-secret.json` |
+| IsSecret    | Bool                  | sous-ensemble des cartes promo, reservees a l'easter egg clef + serrure cachee (voir "Cartes secretes" plus bas). Doit toujours etre pose avec `IsPromo=true` en meme temps : les cartes secretes profitent de l'exclusion tirage/craft/echange deja geree par `IsPromo`, `IsSecret` ne fait que les rendre eligibles a `unlock-secret.json` |
 | Image       | Attachments            | l'image de la carte, uploadee dans Grist    |
 | Active      | Bool                   | si `false`, la carte n'est plus tirable     |
 | FirstObtainedBy | Reference -> Users | vide tant que personne ne l'a obtenue ; rempli une seule fois, par le premier tirage/reclamation qui la sort (`open-pack.json`, `redeem-code.json`) |
@@ -219,6 +219,7 @@ son propre compteur de pity.
 | DigEnergy             | Numeric   | defaut 5 (plein), energie du mini-jeu de fouille (voir "Mini-jeu de fouille" plus bas) |
 | LastDigEnergyAt       | DateTime  | epoch secondes, dernier instant ou l'energie de fouille a ete lue/consommee - sert de base au calcul de regeneration (+1/minute) |
 | DigBoardState         | Text      | vide par defaut ; **nouvelle colonne a creer** - JSON du plateau de tuiles courant du mini-jeu de fouille (voir "Mini-jeu de fouille" plus bas) |
+| KeyCount              | Numeric   | defaut 0, **nouvelle colonne a creer** - nombre de clefs secretes possedees (voir "Cartes secretes" plus bas). Affichee dans le header uniquement si `> 0` |
 
 **Niveaux de profil** : purement cosmetique/motivant, base sur `Users.XP`
 (cumulatif, jamais retire). Le niveau n'est **pas** stocke - il se calcule a
@@ -236,10 +237,11 @@ plusieurs paliers). Sources d'XP actuelles : ouvrir un booster (+10,
 quotidienne (+5, `daily-wheel.json`), tenter un sacrifice a l'autel (+5,
 que ca reussisse ou non, `altar-sacrifice.json`), conclure un echange (+5
 **pour chacune des deux parties**, `trade.json`), restaurer une carte usee
-(+5, `card-quality-repair.json`) et fusionner une finition (+5,
-`foil-upgrade.json`) - ces deux derniers ajoutes le 2026-09-29 (auparavant
-ces deux actions ne rapportaient aucune XP, contrairement a toutes les
-autres actions "de fond" du jeu).
+(+5, `card-quality-repair.json`), fusionner une finition (+5,
+`foil-upgrade.json`) et decrafter une carte (+5, `disenchant.json`) - ces
+trois derniers ajoutes le 2026-09-29 (auparavant ces actions ne
+rapportaient aucune XP, contrairement a toutes les autres actions "de
+fond" du jeu).
 
 `BoosterCount` est un stock unique, commun a toutes les extensions : un code
 d'evenement de type `booster` ajoute des points generiques (`+N`, sans
@@ -315,6 +317,16 @@ Deterministe, pas de hasard. Les exemplaires consommes sont supprimes de
 `Pulls` ; un nouvel exemplaire est cree a la qualite superieure avec un
 nouveau `SerialNumber` (voir "Numeros de serie" ci-dessous). Une carte
 promo ne peut pas etre restauree (`promo_not_repairable`).
+
+**Bug reel trouve et corrige (2026-09-29)** : le filtre des exemplaires
+consommables ne matche que sur `Quality` (pas sur `Finish`), donc les 3
+(ou N) exemplaires reunis peuvent avoir des finitions differentes - or la
+ligne recreee n'ecrivait JAMAIS de `Finish` du tout, ce qui la laissait
+vide (= `normal` partout ailleurs dans le code) : restaurer la qualite
+effacait silencieusement la finition de la carte (un exemplaire Holo
+redescendait en Normal). Desormais la carte recreee reprend la finition
+la PLUS PRESTIGIEUSE parmi les exemplaires consommes (jamais une perte de
+valeur pour le joueur).
 
 Comme les Finitions, la Qualite a maintenant un tirage naturel a
 l'ouverture d'un booster (voir `Qualities` plus haut) - la restauration par
@@ -544,7 +556,7 @@ la quete du jour correspondante, dans la meme requete).
 | CraftCount            | Numeric               | nombre de crafts reussis cette semaine, objectif 5 (chaque craft compte, pas de limite a 1/jour) |
 | TradeCount            | Numeric               | nombre de propositions d'echange creees cette semaine, objectif 5 |
 | OpenBoosterCount      | Numeric               | nombre de boosters reels ouverts cette semaine, objectif 5 |
-| LastLoginCountedDate  | Text                  | `AAAA-MM-JJ` (Europe/Paris) du dernier jour ou `LoginCount` a ete incremente - empeche de compter 5 fois la meme journee en rafraichissant la page |
+| LastLoginCountedDate  | Text                  | `AAAA-MM-JJ` (Europe/Paris) du dernier jour ou `LoginCount` a ete incremente - empeche de compter 5 fois la meme journee en rafraichissant la page. **Bug reel trouve et corrige (2026-09-29)** : Grist stockait cette colonne en Date/DateTime plutot que Text (meme piege que `Bingo.Month`), donc la lecture renvoyait un nombre d'epoch-secondes au lieu de la chaine ecrite - la comparaison `string !== number` etait alors TOUJOURS vraie et `LoginCount` s'incrementait a CHAQUE appel (donc a chaque rafraichissement de page) au lieu d'une fois par jour. `weekly-quests.json` normalise desormais la valeur lue avant de comparer (`dateKey()`), quel que soit le type reel de la colonne - verifier/corriger quand meme le type de la colonne dans Grist est recommande mais plus strictement necessaire |
 | RewardClaimed         | Bool                  | passe a `true` des que 3 des 4 compteurs ci-dessus atteignent 5 la meme semaine ; `Users.BoosterCount` recoit alors +5 automatiquement |
 
 ## 8. CodeRedemptions
@@ -660,18 +672,88 @@ carte directe pour ne jamais court-circuiter les raretes fortes) :
 - 20% : grosse quantite de poussieres d'etoile (50-100)
 - 10% : 1 booster generique
 
-## Cartes secretes (easter egg Konami code)
+## Cartes secretes (clef + serrure cachee, remplace l'ancien Konami code)
 
-`unlock-secret.json` (POST `/unlock-secret` `{ userId }`), declenche par un
-listener Konami-code site-wide dans `main.js`. Tire une carte au hasard
-parmi celles marquees `Cards.IsSecret = true` (qui doivent aussi avoir
-`IsPromo = true` - voir plus haut), cree une ligne `Pulls` (`BatchId`
-prefixe `secret-`) exactement comme un tirage normal (numero de serie
-attribue par le meme suivi "plus petit numero libre", voir "Numeros de
+**`Users.KeyCount`** (Numeric, colonne a CREER si absente) : nombre de clefs
+secretes possedees par le joueur. Affichee dans le header (a cote des
+poussieres d'etoile) uniquement quand elle est `> 0` (voir
+`get-booster-status.json`'s champ `keys` et `main.js`'s `#header-key-badge`).
+
+**Obtention d'une clef** : `dig.json`'s action `dig` fait un tirage
+INDEPENDANT de 2% de chance a chaque case creusee (que la case contienne
+deja un tresor ou non) - voir `foundKey`/`newKeyCount` dans `Dispatch
+Action` et le champ `KeyCount` ajoute a `Update User`. Le front (`jeux.js`)
+affiche un toast + confettis quand `res.foundKey` est vrai.
+
+**Depense d'une clef** : `unlock-secret.json` (POST `/unlock-secret`
+`{ userId }`) exige desormais `Users.KeyCount >= 1` (sinon `{ error: 'no_key'
+}`, 400) et decremente la clef que le tirage reussisse ou non. Tire une
+carte au hasard parmi celles marquees `Cards.IsSecret = true` (qui doivent
+aussi avoir `IsPromo = true` - voir plus haut), cree une ligne `Pulls`
+(`BatchId` prefixe `secret-`) exactement comme un tirage normal (numero de
+serie attribue par le meme suivi "plus petit numero libre", voir "Numeros de
 serie - plus de quota" plus haut). Repond `{ error: 'no_secret_available' }`
-(400) si aucune carte `IsSecret` n'existe encore - **il faut qu'un admin
-cree/flague au moins une carte `IsSecret=true` + `IsPromo=true` dans Grist
-pour que l'easter egg puisse jamais donner quelque chose**.
+(400) si aucune carte `IsSecret` n'existe encore (la clef est quand meme
+consommee) - **il faut qu'un admin cree/flague au moins une carte
+`IsSecret=true` + `IsPromo=true` dans Grist pour que l'easter egg puisse
+jamais donner quelque chose**.
+
+**Serrure cachee** : sur `redeem.html` (page "Code"), cliquer 5 fois sur
+l'icone cadeau (`#redeem-gift-icon`) la decale sur le cote et revele une
+serrure (`#redeem-lock-icon`, purement cote client, voir `redeem.js`) ;
+cliquer la serrure appelle `/unlock-secret`. L'ancien listener Konami-code
+site-wide (`main.js`) a ete retire - ce mecanisme est desormais le seul
+chemin vers les cartes secretes.
+
+## Récompenses de niveau (100 paliers)
+
+Table en plus du +1 booster/niveau fixe deja existant (voir "4. Users" plus
+haut) : un admin peut configurer, pour chaque niveau de 1 a 100, une
+combinaison de poussieres d'etoile / boosters / une carte precise a donner
+EN PLUS quand le joueur atteint ce niveau.
+
+**Nouvelle table `LevelRewards`** (a creer) :
+
+| Colonne      | Type                   | Description |
+|--------------|------------------------|-------------|
+| Level        | Numeric                | 1 a 100, un seul row par niveau |
+| DustReward   | Numeric                | defaut 0, poussieres d'etoile donnees a ce palier |
+| BoosterReward| Numeric                | defaut 0, boosters donnes a ce palier |
+| CardReward   | Reference -> Cards     | optionnel (vide = pas de carte a ce palier) |
+
+Un palier sans ligne du tout, ou une ligne a 0/0/vide, ne donne simplement
+rien - l'admin n'a pas besoin de remplir les 100 lignes pour que la
+fonctionnalite marche (voir `admin.html`, section "Récompenses de niveau").
+
+**`Users.LastRewardedLevel`** (Numeric, defaut 0, **nouvelle colonne a
+creer**) : plus haut niveau dont les recompenses de palier ont deja ete
+reclamees, empeche de re-donner les memes recompenses a chaque appel.
+
+`level-rewards.json` (POST `/level-rewards`), dispatch sur `action` :
+- `status` `{ userId }` (public) : calcule le niveau actuel depuis `Users.XP`
+  (meme formule que partout ailleurs) et compare a `LastRewardedLevel` ;
+  retourne `{ currentLevel, lastRewardedLevel, hasPending, pendingLevels }`.
+- `claim` `{ userId }` (public) : recalcule les paliers en attente
+  server-side (ne fait jamais confiance a un niveau envoye par le client),
+  somme les `DustReward`/`BoosterReward` de tous les paliers entre
+  `LastRewardedLevel+1` et le niveau actuel, cree une ligne `Pulls` par
+  palier ayant une `CardReward` (numero de serie via le suivi habituel
+  "plus petit numero libre", `BatchId` prefixe `levelup-`), puis met a jour
+  `Users.StardustCount`/`BoosterCount`/`LastRewardedLevel` en un seul appel.
+  Repond `{ claimed, fromLevel, toLevel, dustGained, boostersGained, cards,
+  newStardust, newBoosterCount }`.
+- `adminList`/`adminSet` `{ discordId, rows? }` (memes `adminDiscordIds`
+  hardcodes que partout ailleurs) : `adminList` retourne les 100 paliers
+  (ceux sans ligne Grist remontent a 0/0/vide) avec le `rowId` Grist de
+  chaque ligne existante (`null` si le palier n'a pas encore de ligne) ;
+  `adminSet` recoit les 100 lignes d'un coup et fait, pour chacune, une
+  creation ou une mise a jour Grist selon que `rowId` est fourni ou non
+  (voir `admin.html`, bouton "Enregistrer les 100 paliers" - un seul appel
+  qui met a jour tout d'un coup, pas 100 requetes separees).
+
+Front : `index.html` affiche un bandeau "Réclamer" dans le panneau
+Progression des qu'un palier est en attente (`#level-claim-banner`), a cote
+du +1 booster/niveau fixe qui reste, lui, automatique et non affiche ici.
 
 ## Autel de sacrifice
 
@@ -760,22 +842,33 @@ piocher un au hasard, une fois par jour.
 | GuildChestDeposits  | User         | Reference -> Users     | qui a depose |
 | GuildChestDeposits  | CardId       | Reference -> Cards     | |
 | GuildChestDeposits  | SerialNumber | Numeric                | **colonne a ajouter si absente** - le numero de serie ORIGINAL de l'exemplaire depose, restaure a l'identique quand quelqu'un le pioche (sinon la pioche creerait un nouvel exemplaire avec un numero different, ce qui ferait perdre son identite a la carte deposee) |
+| GuildChestDeposits  | Finish       | Text                    | **colonne a CREER (2026-09-29), sinon le depot echoue completement** - meme principe que `SerialNumber` : avant, la finition/qualite de l'exemplaire depose etaient silencieusement PERDUES (jamais ecrites du tout), donc une carte Holo redevenait Normale des qu'elle passait par le coffre. Desormais conservee et restauree a l'identique a la pioche |
+| GuildChestDeposits  | Quality      | Text                    | **colonne a CREER (2026-09-29), sinon le depot echoue completement** - meme chose que `Finish` ci-dessus, pour la qualite |
 | GuildChestDeposits  | DepositedAt  | DateTime               | |
 | GuildChestDeposits  | Claimed      | Bool                   | passe a `true` des qu'un autre joueur le pioche |
 | GuildChestClaims    | User         | Reference -> Users     | |
 | GuildChestClaims    | Date         | Text                   | `AAAA-MM-JJ` (fuseau Paris) - un seul tirage par jour et par joueur, meme logique que `DailyQuests.Date` |
 
-`guild-chest.json` (POST `/guild-chest` `{ userId, action, cardId? }`) :
+`guild-chest.json` (POST `/guild-chest` `{ userId, action, cardId?, finish?, quality? }`) :
 - `status` : `poolSize` (depots non reclames d'AUTRES joueurs) +
   `alreadyDrawnToday`.
 - `deposit` : donne une carte non-promo possedee - **supprime la ligne
   `Pulls`** (comme un decraft, irreversible) et cree une ligne
-  `GuildChestDeposits` (`Claimed: false`).
+  `GuildChestDeposits` (`Claimed: false`). **`finish`/`quality` (2026-09-29,
+  optionnels mais toujours envoyes par le front)** ciblent l'exemplaire EXACT
+  a deposer (meme convention que `disenchant.json` : `config.finish`/
+  `config.quality`) - BUG REEL corrige ici : sans ca, le serveur prenait le
+  PREMIER exemplaire trouve, potentiellement le plus prestigieux (Holo/
+  Parfait etat) du joueur, sans qu'il ait pu choisir. Le front
+  (`communaute.js` `chestCardTile`) affiche desormais une ligne par variante
+  reellement possedee (comme la collection), chacune avec son propre bouton
+  "Déposer" cible.
 - `draw` : refuse si deja tire aujourd'hui (`already_drawn_today`) ou si le
   pot est vide/uniquement rempli par le joueur lui-meme (`chest_empty`).
   Choisit un depot au hasard parmi ceux d'AUTRES joueurs, le marque
   `Claimed: true`, **recree une ligne `Pulls`** pour le tireur avec le MEME
-  `SerialNumber` que l'exemplaire depose (voir note colonne ci-dessus).
+  `SerialNumber`/`Finish`/`Quality` que l'exemplaire depose (voir notes
+  colonnes ci-dessus).
 
 ## Marche noir ephemere
 

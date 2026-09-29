@@ -57,6 +57,7 @@ window.APP_CONFIG = {
     blackMarket: "/black-market",      // POST { userId, action: 'list'|'buy'|'adminCreate', offerId?, discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }
     adminGift: "/admin-gift",          // POST { discordId, targetUserId, giftType: 'card'|'booster'|'dust', cardId?, finish?, quality?, quantity? } -> { gifted, giftType, quantity, ... } | { error }
     dig: "/dig",                       // POST { userId, action: 'status'|'dig' }
-    bingo: "/bingo"                    // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
+    bingo: "/bingo",                   // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
+    levelRewards: "/level-rewards"     // POST { userId, action: 'status'|'claim' } | { discordId, action: 'adminList'|'adminSet', rows? }
   }
 };

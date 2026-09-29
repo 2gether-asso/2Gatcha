@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  cardId: Number(body.cardId),\n  today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date())\n} }];"
+        "jsCode": "const body = $input.first().json.body || {};\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  cardId: Number(body.cardId),\n  finish: (body.finish || '').toString(),\n  quality: (body.quality || '').toString(),\n  today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date())\n} }];"
       }
     },
     {
@@ -219,7 +219,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toParisDate(epochSeconds) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(epochSeconds * 1000)); }\nconst cfg = $('Set Config').first().json;\nconst deposits = $('Get Guild Chest Deposits').all().map((i) => i.json).filter((r) => r.id != null);\nconst claims = $('Get Guild Chest Claims').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst alreadyDrawnToday = claims.some((c) => refId(c.User) === cfg.userId && c.Date === cfg.today);\nconst alreadyDepositedToday = deposits.some((d) => refId(d.User) === cfg.userId && d.DepositedAt && toParisDate(d.DepositedAt) === cfg.today);\n\nif (cfg.action === 'deposit') {\n  if (alreadyDepositedToday) return [{ json: { ...cfg, ok: false, error: 'already_deposited_today' } }];\n  const card = cards.find((c) => c.id === cfg.cardId);\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  if (card.IsPromo) return [{ json: { ...cfg, ok: false, error: 'promo_not_donatable' } }];\n  const pull = pulls.find((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.cardId);\n  if (!pull) return [{ json: { ...cfg, ok: false, error: 'card_not_owned' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'deposit', pullRowIdToDelete: pull.id, serialNumber: pull.SerialNumber } }];\n}\n\nif (cfg.action === 'draw') {\n  if (alreadyDrawnToday) return [{ json: { ...cfg, ok: false, error: 'already_drawn_today' } }];\n  const candidates = deposits.filter((d) => !d.Claimed && refId(d.User) !== cfg.userId);\n  if (!candidates.length) return [{ json: { ...cfg, ok: false, error: 'chest_empty' } }];\n  const picked = candidates[Math.floor(Math.random() * candidates.length)];\n  return [{ json: { ...cfg, ok: true, mutation: 'draw', depositRowId: picked.id, drawnCardId: refId(picked.CardId), drawnSerialNumber: picked.SerialNumber } }];\n}\n\n// action === 'status' (ou toute autre valeur) : aucune mutation.\nconst poolSize = deposits.filter((d) => !d.Claimed && refId(d.User) !== cfg.userId).length;\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', poolSize, alreadyDrawnToday, alreadyDepositedToday } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction toParisDate(epochSeconds) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(epochSeconds * 1000)); }\nconst cfg = $('Set Config').first().json;\nconst deposits = $('Get Guild Chest Deposits').all().map((i) => i.json).filter((r) => r.id != null);\nconst claims = $('Get Guild Chest Claims').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\n\nconst alreadyDrawnToday = claims.some((c) => refId(c.User) === cfg.userId && c.Date === cfg.today);\nconst alreadyDepositedToday = deposits.some((d) => refId(d.User) === cfg.userId && d.DepositedAt && toParisDate(d.DepositedAt) === cfg.today);\n\nif (cfg.action === 'deposit') {\n  if (alreadyDepositedToday) return [{ json: { ...cfg, ok: false, error: 'already_deposited_today' } }];\n  const card = cards.find((c) => c.id === cfg.cardId);\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  if (card.IsPromo) return [{ json: { ...cfg, ok: false, error: 'promo_not_donatable' } }];\n  function finishOf(p) { return p.Finish || 'normal'; }\n  function qualityOf(p) { return p.Quality || 'damaged'; }\n  // Cible l'exemplaire EXACT choisi par le joueur (finish/quality, envoyes\n  // par une vignette de coffre qui affiche desormais une pile distincte par\n  // variante, comme la collection) - BUG REEL corrige ici (2026-09-29) :\n  // avant, on prenait le PREMIER exemplaire trouve au hasard, qui pouvait\n  // etre le plus prestigieux (holo/mint) du joueur au lieu d'un doublon\n  // quelconque, sans que celui-ci ait pu choisir. La finition/qualite sont\n  // aussi desormais reellement conservees (voir Create Guild Chest Deposit\n  // / Create Drawn Pull) - avant, elles etaient silencieusement effacees.\n  let myPulls = pulls.filter((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.cardId);\n  if (!myPulls.length) return [{ json: { ...cfg, ok: false, error: 'card_not_owned' } }];\n  if (cfg.finish && cfg.quality) {\n    const exact = myPulls.filter((p) => finishOf(p) === cfg.finish && qualityOf(p) === cfg.quality);\n    if (!exact.length) return [{ json: { ...cfg, ok: false, error: 'variant_not_owned' } }];\n    myPulls = exact;\n  }\n  const pull = myPulls[0];\n  return [{ json: { ...cfg, ok: true, mutation: 'deposit', pullRowIdToDelete: pull.id, serialNumber: pull.SerialNumber, finish: finishOf(pull), quality: qualityOf(pull) } }];\n}\n\nif (cfg.action === 'draw') {\n  if (alreadyDrawnToday) return [{ json: { ...cfg, ok: false, error: 'already_drawn_today' } }];\n  const candidates = deposits.filter((d) => !d.Claimed && refId(d.User) !== cfg.userId);\n  if (!candidates.length) return [{ json: { ...cfg, ok: false, error: 'chest_empty' } }];\n  const picked = candidates[Math.floor(Math.random() * candidates.length)];\n  return [{ json: { ...cfg, ok: true, mutation: 'draw', depositRowId: picked.id, drawnCardId: refId(picked.CardId), drawnSerialNumber: picked.SerialNumber, drawnFinish: picked.Finish || 'normal', drawnQuality: picked.Quality || 'damaged' } }];\n}\n\n// action === 'status' (ou toute autre valeur) : aucune mutation.\nconst poolSize = deposits.filter((d) => !d.Claimed && refId(d.User) !== cfg.userId).length;\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', poolSize, alreadyDrawnToday, alreadyDepositedToday } }];"
       }
     },
     {
@@ -366,6 +366,14 @@
               "fieldValue": "={{ $('Dispatch Action').first().json.serialNumber }}"
             },
             {
+              "fieldId": "Finish",
+              "fieldValue": "={{ $('Dispatch Action').first().json.finish }}"
+            },
+            {
+              "fieldId": "Quality",
+              "fieldValue": "={{ $('Dispatch Action').first().json.quality }}"
+            },
+            {
               "fieldId": "DepositedAt",
               "fieldValue": "={{ Math.floor(Date.now() / 1000) }}"
             },
@@ -508,6 +516,14 @@
             {
               "fieldId": "SerialNumber",
               "fieldValue": "={{ $('Dispatch Action').first().json.drawnSerialNumber }}"
+            },
+            {
+              "fieldId": "Finish",
+              "fieldValue": "={{ $('Dispatch Action').first().json.drawnFinish }}"
+            },
+            {
+              "fieldId": "Quality",
+              "fieldValue": "={{ $('Dispatch Action').first().json.drawnQuality }}"
             }
           ]
         }
@@ -578,7 +594,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst d = $('Dispatch Action').first().json;\nconst cards = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === d.drawnCardId);\nconst rarity = card ? rarities.find((r) => r.id === refId(card.Rarity)) : null;\nreturn [{ json: {\n  drawn: true,\n  card: card ? {\n    cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image),\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null,\n    serialNumber: d.drawnSerialNumber\n  } : null\n} }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst d = $('Dispatch Action').first().json;\nconst cards = $('Get Cards').all().map((i) => i.json).filter((c) => c.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst card = cards.find((c) => c.id === d.drawnCardId);\nconst rarity = card ? rarities.find((r) => r.id === refId(card.Rarity)) : null;\nreturn [{ json: {\n  drawn: true,\n  card: card ? {\n    cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image),\n    rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null,\n    serialNumber: d.drawnSerialNumber,\n    finish: d.drawnFinish,\n    quality: d.drawnQuality\n  } : null\n} }];"
       }
     },
     {

@@ -12,6 +12,7 @@ const CHEST_ERRORS = {
   card_not_found: "Carte introuvable.",
   promo_not_donatable: "Cette carte promo ne peut pas être donnée.",
   card_not_owned: "Tu ne possèdes pas cette carte.",
+  variant_not_owned: "Tu ne possèdes plus cet exemplaire précis.",
   already_drawn_today: "Tu as déjà pioché aujourd'hui, reviens demain.",
   already_deposited_today: "Tu as déjà déposé une carte aujourd'hui, reviens demain.",
   chest_empty: "Le coffre est vide pour l'instant, reviens plus tard."
@@ -24,6 +25,16 @@ const MARKET_ERRORS = {
   insufficient_dust: "Pas assez de poussières d'étoile.",
   sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
+
+// Echelles finish/quality (voir grist/SCHEMA.md, meme ordre que partout
+// ailleurs) : utilisees pour afficher une pile DISTINCTE par variante sur
+// une vignette de depot du coffre, pour que le joueur choisisse VRAIMENT
+// quel exemplaire il donne (pas un exemplaire au hasard parmi ses
+// doublons - voir buildChestVariants/chestCardTile plus bas).
+const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
+const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
+const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
 
 let allCards = [];
 let ownedMap = new Map();
@@ -87,6 +98,54 @@ function donatableCardTile(card, actionLabel, actionClass) {
         <div class="card-name">${card.name}</div>
         <div class="owned-count">Possède x${owned.count}</div>
         <button class="${actionClass}" data-card-id="${card.cardId}">${actionLabel}</button>
+      </div>
+    </div>
+  `;
+}
+
+// Regroupe les exemplaires possedes d'une carte par variante EXACTE
+// (finition+qualite), comme collection.js buildVariants - une pile par
+// variante reellement distincte, jamais un simple total qui masquerait
+// quel exemplaire precis part.
+function buildChestVariants(owned) {
+  if (!owned || !owned.copies || !owned.copies.length) return [];
+  const map = new Map();
+  owned.copies.forEach((c) => {
+    const finish = c.finish || "normal";
+    const quality = c.quality || "damaged";
+    const key = finish + "::" + quality;
+    if (!map.has(key)) map.set(key, { finish, quality, count: 0 });
+    map.get(key).count++;
+  });
+  return [...map.values()].sort((a, b) =>
+    (FINISH_ORDER.indexOf(a.finish) - FINISH_ORDER.indexOf(b.finish)) ||
+    (QUALITY_ORDER.indexOf(a.quality) - QUALITY_ORDER.indexOf(b.quality))
+  );
+}
+
+// Vignette de depot du coffre : une ligne par variante VRAIMENT possedee
+// (pas juste un total), pour que le joueur choisisse exactement quel
+// exemplaire il donne - avant, le serveur prenait le premier trouve au
+// hasard, qui pouvait etre le plus prestigieux (holo/mint) du joueur.
+function chestCardTile(card) {
+  const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+  const owned = ownedMap.get(card.cardId);
+  const variants = buildChestVariants(owned);
+  return `
+    <div class="craft-card" data-rarity="${card.rarity?.key || "commune"}">
+      <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+      <div class="card-info">
+        <div class="card-name">${card.name}</div>
+        ${variants.map((v) => `
+          <div class="chest-variant-row">
+            <span class="chest-variant-tags">
+              ${v.finish !== "normal" ? `<span class="finish-tag" data-finish="${v.finish}">${FINISH_LABELS[v.finish]}</span>` : ""}
+              ${v.quality !== "mint" ? `<span class="quality-tag" data-quality="${v.quality}">${QUALITY_LABELS[v.quality]}</span>` : ""}
+              <span class="chest-variant-count">x${v.count}</span>
+            </span>
+            <button type="button" class="btn-secondary chest-deposit-btn" data-card-id="${card.cardId}" data-finish="${v.finish}" data-quality="${v.quality}">Déposer</button>
+          </div>
+        `).join("")}
       </div>
     </div>
   `;
@@ -197,22 +256,30 @@ function renderChestGrid() {
     donatable = donatable.filter((c) => normalize(c.name).includes(q));
   }
   grid.innerHTML = donatable.length
-    ? donatable.map((c) => donatableCardTile(c, "Déposer", "btn-secondary chest-deposit-btn")).join("")
+    ? donatable.map((c) => chestCardTile(c)).join("")
     : `<div class="empty-state">Aucune carte à déposer ne correspond.</div>`;
   grid.querySelectorAll(".chest-deposit-btn").forEach((btn) => {
-    btn.addEventListener("click", () => depositChest(Number(btn.dataset.cardId)));
+    btn.addEventListener("click", () => depositChest(Number(btn.dataset.cardId), btn.dataset.finish, btn.dataset.quality));
   });
 }
 
-async function depositChest(cardId) {
+// finish/quality precisent EXACTEMENT quelle variante deposer (vignette
+// cliquee) - BUG REEL corrige ici (2026-09-29) : avant, le serveur prenait
+// le premier exemplaire trouve au hasard (potentiellement le plus
+// prestigieux du joueur) sans lui laisser le choix, et la finition/qualite
+// etaient de toute facon silencieusement perdues au passage dans le coffre.
+async function depositChest(cardId, finish, quality) {
   const card = allCards.find((c) => c.cardId === cardId);
+  const variantLabel = finish && finish !== "normal" || (quality && quality !== "mint")
+    ? ` (${finish !== "normal" ? FINISH_LABELS[finish] : ""}${finish !== "normal" && quality !== "mint" ? ", " : ""}${quality !== "mint" ? QUALITY_LABELS[quality] : ""})`
+    : "";
   const ok = await Confirm.show(
-    `Déposer <strong>${card?.name || "cette carte"}</strong> dans le pot commun ? L'exemplaire quitte définitivement ta collection (un autre joueur pourra le piocher).`,
+    `Déposer <strong>${card?.name || "cette carte"}${variantLabel}</strong> dans le pot commun ? L'exemplaire quitte définitivement ta collection (un autre joueur pourra le piocher).`,
     { title: "Déposer cette carte ?", confirmText: "Déposer", dangerous: true }
   );
   if (!ok) return;
   try {
-    await API.depositGuildChest(Session.userId, cardId);
+    await API.depositGuildChest(Session.userId, cardId, finish, quality);
     Toast.success(`${card?.name || "Carte"} déposée dans le coffre.`);
     allCards = [];
     await loadChest();

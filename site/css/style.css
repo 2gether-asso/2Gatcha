@@ -1617,6 +1617,34 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .redeem-icon { font-size: 2.6rem; flex-shrink: 0; line-height: 1; }
 .redeem-card .code-form { flex: 1; margin: 0; }
 
+/* Serrure cachee (easter egg cartes secretes) : 5 clics sur le cadeau le
+   decalent sur le cote et revelent une serrure, consommee via une clef
+   trouvee en fouillant (voir jeux.js/dig.json et unlock-secret.json) -
+   remplace l'ancien Konami code. */
+.redeem-icon-zone { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+.redeem-icon-zone .redeem-icon { transition: transform 0.4s ease; cursor: default; user-select: none; }
+.redeem-icon-zone .redeem-icon.gift-shifted { transform: translateX(34px); }
+.redeem-lock-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  position: absolute;
+  left: 0;
+  opacity: 0;
+  transform: scale(0.4) rotate(-15deg);
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+}
+.redeem-lock-icon.lock-revealed {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  pointer-events: auto;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .redeem-icon-zone .redeem-icon, .redeem-lock-icon { transition: none; }
+}
+
 .code-form {
   display: flex;
   gap: 12px;
@@ -1759,6 +1787,54 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   .balance-row.balance-head { display: none; }
   .balance-row-label { grid-column: 1 / -1; }
   .balance-save-btn { grid-column: 1 / -1; }
+}
+
+/* Recompenses de niveau (100 paliers) : longue liste, un seul bouton
+   "Enregistrer" global plutot qu'un par ligne (contrairement aux tableaux
+   d'equilibrage ci-dessus) - 100 requetes individuelles serait excessif. */
+.level-rewards-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.level-rewards-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.level-rewards-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  padding: 8px 10px;
+  text-align: left;
+  z-index: 1;
+}
+.level-rewards-table td { padding: 6px 10px; border-bottom: 1px solid var(--border-soft); }
+.level-rewards-table tr:last-child td { border-bottom: none; }
+.level-rewards-table td:first-child { font-family: var(--font-display); font-weight: 700; }
+.level-rewards-table input[type="number"] {
+  width: 84px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+.level-rewards-table select {
+  width: 100%;
+  min-width: 160px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
 }
 
 /* --- Liste d'echanges --- */
@@ -3538,6 +3614,23 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .craft-card.unavailable { opacity: 0.5; filter: grayscale(0.6); }
 .craft-card.unavailable img { filter: grayscale(0.4); }
 
+/* Coffre de guilde : une ligne par variante (finish+qualite) REELLEMENT
+   possedee sur une meme vignette carte, chacune avec son propre bouton
+   "Déposer" - pour choisir VRAIMENT quel exemplaire part, pas un doublon
+   au hasard parmi tous ceux possedes (voir communaute.js chestCardTile). */
+.chest-variant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.chest-variant-row:first-of-type { border-top: none; margin-top: 4px; }
+.chest-variant-tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.chest-variant-count { font-size: 0.72rem; color: var(--text-dim); font-weight: 700; }
+.chest-variant-row .chest-deposit-btn { width: auto; flex-shrink: 0; padding: 6px 12px; font-size: 0.74rem; }
+
 /* Selecteur de quantite +/- (craft/decraft) */
 .qty-stepper {
   display: flex;
@@ -4059,6 +4152,22 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 .level-rewards-details summary::before { content: "▸ "; }
 .level-rewards-details[open] summary::before { content: "▾ "; }
 .level-rewards-details .quests-list { max-height: 260px; overflow-y: auto; }
+.level-claim-banner {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(34, 211, 238, 0.16));
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
 .pity-row .pity-icon { flex-shrink: 0; }
 .pity-row .pity-track { flex: 1; height: 6px; border-radius: 999px; background: var(--bg-panel-2); overflow: hidden; }
 .pity-row .pity-fill {

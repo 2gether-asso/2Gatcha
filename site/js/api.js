@@ -119,9 +119,11 @@ const API = {
   },
 
   // Partage manuel (bouton "Partager sur Discord") : meme endpoint, message
-  // toujours envoye (pas conditionne a la rarete).
-  sharePull(userId, batchIds) {
-    return this.post("notifyReveal", { userId, batchIds, action: "share" });
+  // toujours envoye (pas conditionne a la rarete). imageBase64 (PNG genere
+  // par canvas cote client, voir opening.js buildShareImage) est optionnel -
+  // le backend repli sur un message texte simple si absent.
+  sharePull(userId, batchIds, imageBase64) {
+    return this.post("notifyReveal", { userId, batchIds, action: "share", imageBase64 });
   },
 
   disenchantCard(userId, cardId, finish, quality) {
@@ -325,8 +327,8 @@ const API = {
   getGuildChestStatus(userId) {
     return this.post("guildChest", { userId, action: "status" });
   },
-  depositGuildChest(userId, cardId) {
-    return this.post("guildChest", { userId, action: "deposit", cardId });
+  depositGuildChest(userId, cardId, finish, quality) {
+    return this.post("guildChest", { userId, action: "deposit", cardId, finish, quality });
   },
   drawGuildChest(userId) {
     return this.post("guildChest", { userId, action: "draw" });
@@ -364,5 +366,18 @@ const API = {
   },
   adminGift(discordId, params) {
     return this.post("adminGift", { discordId, ...params });
+  },
+
+  getLevelRewardsStatus(userId) {
+    return this.post("levelRewards", { userId, action: "status" });
+  },
+  claimLevelRewards(userId) {
+    return this.post("levelRewards", { userId, action: "claim" });
+  },
+  adminListLevelRewards(discordId) {
+    return this.post("levelRewards", { discordId, action: "adminList" });
+  },
+  adminSetLevelRewards(discordId, rows) {
+    return this.post("levelRewards", { discordId, action: "adminSet", rows });
   }
 };
