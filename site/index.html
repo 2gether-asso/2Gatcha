@@ -61,7 +61,7 @@
           <div class="pass-track-bar"><div id="pass-track-fill" class="pass-track-fill"></div></div>
           <div class="pass-track-labels">
             <span id="pass-xp-label"></span>
-            <span>Prochaine récompense : &#127183; +1 booster</span>
+            <span id="pass-next-reward-label">Prochaine récompense : &#127183; +1 booster garanti à chaque niveau</span>
           </div>
         </div>
         <details class="level-rewards-details">
@@ -259,11 +259,30 @@
 
       API.getLevelRewardsStatus(Session.userId).then((res) => {
         const banner = document.getElementById("level-claim-banner");
-        if (!res.hasPending) return;
-        banner.style.display = "flex";
-        const count = (res.pendingLevels || []).length;
-        document.getElementById("level-claim-text").innerHTML =
-          `&#127775; ${count} palier${count > 1 ? "s" : ""} de niveau à réclamer !`;
+        if (res.hasPending) {
+          banner.style.display = "flex";
+          const count = (res.pendingLevels || []).length;
+          document.getElementById("level-claim-text").innerHTML =
+            `&#127775; ${count} palier${count > 1 ? "s" : ""} de niveau à réclamer !`;
+        }
+
+        // "Prochaine récompense" refletait jusqu'ici un texte fixe ("+1
+        // booster"), identique quel que soit le niveau ou la config admin -
+        // desormais complete par le VRAI prochain palier bonus configure
+        // (poussieres/booster(s) supplementaires/carte), voir nextReward
+        // (level-rewards.json, action "status").
+        const nextLabel = document.getElementById("pass-next-reward-label");
+        if (nextLabel) {
+          let text = "Prochaine récompense : &#127183; +1 booster garanti à chaque niveau";
+          if (res.nextReward) {
+            const parts = [];
+            if (res.nextReward.boosters) parts.push(`+${res.nextReward.boosters} booster${res.nextReward.boosters > 1 ? "s" : ""}`);
+            if (res.nextReward.dust) parts.push(`+${res.nextReward.dust} poussières`);
+            if (res.nextReward.cardName) parts.push(`la carte "${res.nextReward.cardName}"`);
+            if (parts.length) text += ` · Bonus niveau ${res.nextReward.level} : ${parts.join(", ")}`;
+          }
+          nextLabel.innerHTML = text;
+        }
       }).catch(() => {});
       document.getElementById("level-claim-btn").addEventListener("click", async (e) => {
         e.target.disabled = true;

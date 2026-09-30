@@ -6,7 +6,10 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-2000, 300],
+      "position": [
+        -2000,
+        300
+      ],
       "webhookId": "a1b2c3d4-lvlrw-0000-000000000000",
       "parameters": {
         "httpMethod": "POST",
@@ -20,7 +23,10 @@
       "name": "Set Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1800, 300],
+      "position": [
+        -1800,
+        300
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const adminDiscordIds = ['785223211730075709', '184008667690041345'];\nconst body = $input.first().json.body || {};\nconst discordId = (body.discordId || '').toString();\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || '').toString(),\n  discordId,\n  isAdmin: adminDiscordIds.includes(discordId),\n  rows: Array.isArray(body.rows) ? body.rows : []\n} }];"
@@ -32,7 +38,10 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-1600, 300],
+      "position": [
+        -1600,
+        300
+      ],
       "parameters": {
         "operation": "getAll",
         "docId": "={{ $json.docId }}",
@@ -40,15 +49,26 @@
         "returnAll": true,
         "additionalOptions": {}
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "sync-1",
       "name": "Sync Get Users -> Get LevelRewards",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1440, 300],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -1440,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-level-rewards",
@@ -56,7 +76,10 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-1280, 300],
+      "position": [
+        -1280,
+        300
+      ],
       "parameters": {
         "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
@@ -64,15 +87,26 @@
         "returnAll": true,
         "additionalOptions": {}
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "sync-2",
       "name": "Sync Get LevelRewards -> Get Cards",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1120, 300],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -1120,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-cards",
@@ -80,7 +114,10 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-960, 300],
+      "position": [
+        -960,
+        300
+      ],
       "parameters": {
         "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
@@ -88,15 +125,26 @@
         "returnAll": true,
         "additionalOptions": {}
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "sync-3",
       "name": "Sync Get Cards -> Get Pulls",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-800, 300],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        -800,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "get-pulls",
@@ -104,7 +152,10 @@
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
       "alwaysOutputData": true,
-      "position": [-640, 300],
+      "position": [
+        -640,
+        300
+      ],
       "parameters": {
         "operation": "getAll",
         "docId": "={{ $('Set Config').first().json.docId }}",
@@ -112,17 +163,25 @@
         "returnAll": true,
         "additionalOptions": {}
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "dispatch-action",
       "name": "Dispatch Action",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-460, 300],
+      "position": [
+        -460,
+        300
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\n\n// Meme formule que partout ailleurs (voir grist/SCHEMA.md) : passer du\n// niveau n au niveau n+1 coute 50*n XP.\nfunction levelForXp(x) { return Math.floor((25 + Math.sqrt(625 + 100 * (x || 0))) / 50); }\n\nif (cfg.action === 'adminSet') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'adminSet' } }];\n}\n\nif (cfg.action === 'adminList') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'none', isAdminList: true } }];\n}\n\nif (!user) return [{ json: { ...cfg, ok: false, error: 'unknown_user' } }];\n\nconst rewards = $('Get LevelRewards').all().map((i) => i.json).filter((r) => r.id != null);\nconst currentLevel = levelForXp(user.XP || 0);\nconst lastRewarded = user.LastRewardedLevel || 0;\n// Un palier sans ligne configuree (ou une ligne vide : 0 poussiere, 0\n// booster, pas de carte) ne rapporte simplement rien - l'admin n'a pas\n// besoin de remplir les 100 paliers pour que la fonctionnalite marche.\nconst pendingRows = rewards\n  .filter((r) => (r.Level || 0) > lastRewarded && (r.Level || 0) <= currentLevel && ((r.DustReward || 0) > 0 || (r.BoosterReward || 0) > 0 || refId(r.CardReward)))\n  .sort((a, b) => (a.Level || 0) - (b.Level || 0));\n\nif (cfg.action === 'claim') {\n  if (currentLevel <= lastRewarded) return [{ json: { ...cfg, ok: false, error: 'nothing_to_claim' } }];\n  const totalDust = pendingRows.reduce((s, r) => s + (r.DustReward || 0), 0);\n  const totalBoosters = pendingRows.reduce((s, r) => s + (r.BoosterReward || 0), 0);\n  const cardLevels = pendingRows.filter((r) => refId(r.CardReward)).map((r) => ({ level: r.Level, cardId: refId(r.CardReward) }));\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'claim',\n    fromLevel: lastRewarded + 1, toLevel: currentLevel,\n    newStardust: (user.StardustCount || 0) + totalDust,\n    newBoosterCount: (user.BoosterCount || 0) + totalBoosters,\n    newLastRewardedLevel: currentLevel,\n    totalDust, totalBoosters, cardLevels\n  } }];\n}\n\n// action === 'status' (ou toute autre valeur)\nreturn [{ json: {\n  ...cfg, ok: true, mutation: 'none',\n  currentLevel, lastRewardedLevel: lastRewarded,\n  hasPending: pendingRows.length > 0,\n  pendingLevels: pendingRows.map((r) => r.Level)\n} }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\n\n// Meme formule que partout ailleurs (voir grist/SCHEMA.md) : passer du\n// niveau n au niveau n+1 coute 50*n XP.\nfunction levelForXp(x) { return Math.floor((25 + Math.sqrt(625 + 100 * (x || 0))) / 50); }\n\nif (cfg.action === 'adminSet') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'adminSet' } }];\n}\n\nif (cfg.action === 'adminList') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'none', isAdminList: true } }];\n}\n\nif (!user) return [{ json: { ...cfg, ok: false, error: 'unknown_user' } }];\n\nconst rewards = $('Get LevelRewards').all().map((i) => i.json).filter((r) => r.id != null);\nconst currentLevel = levelForXp(user.XP || 0);\nconst lastRewarded = user.LastRewardedLevel || 0;\n// Un palier sans ligne configuree (ou une ligne vide : 0 poussiere, 0\n// booster, pas de carte) ne rapporte simplement rien - l'admin n'a pas\n// besoin de remplir les 100 paliers pour que la fonctionnalite marche.\nconst pendingRows = rewards\n  .filter((r) => (r.Level || 0) > lastRewarded && (r.Level || 0) <= currentLevel && ((r.DustReward || 0) > 0 || (r.BoosterReward || 0) > 0 || refId(r.CardReward)))\n  .sort((a, b) => (a.Level || 0) - (b.Level || 0));\n\nif (cfg.action === 'claim') {\n  if (currentLevel <= lastRewarded) return [{ json: { ...cfg, ok: false, error: 'nothing_to_claim' } }];\n  const totalDust = pendingRows.reduce((s, r) => s + (r.DustReward || 0), 0);\n  const totalBoosters = pendingRows.reduce((s, r) => s + (r.BoosterReward || 0), 0);\n  const cardLevels = pendingRows.filter((r) => refId(r.CardReward)).map((r) => ({ level: r.Level, cardId: refId(r.CardReward) }));\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'claim',\n    fromLevel: lastRewarded + 1, toLevel: currentLevel,\n    newStardust: (user.StardustCount || 0) + totalDust,\n    newBoosterCount: (user.BoosterCount || 0) + totalBoosters,\n    newLastRewardedLevel: currentLevel,\n    totalDust, totalBoosters, cardLevels\n  } }];\n}\n\n// action === 'status' (ou toute autre valeur)\n\n// Prochain palier CONFIGURE a venir (strictement au-dessus du niveau\n// actuel) : jusqu'ici la page d'accueil affichait un texte fixe \"+1\n// booster\" quel que soit le niveau/la config admin (le seul +1 booster\n// garanti a chaque niveau est accorde ailleurs, voir grist/SCHEMA.md - ceci\n// concerne les bonus SUPPLEMENTAIRES configures par palier). Le nom de\n// carte est resolu ici (Get Cards tourne deja, meme si l'action est\n// 'status') pour eviter un aller-retour de plus cote client.\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst upcoming = rewards\n  .filter((r) => (r.Level || 0) > currentLevel && ((r.DustReward || 0) > 0 || (r.BoosterReward || 0) > 0 || refId(r.CardReward)))\n  .sort((a, b) => (a.Level || 0) - (b.Level || 0))[0];\nlet nextReward = null;\nif (upcoming) {\n  const cardRef = refId(upcoming.CardReward);\n  const card = cardRef ? cards.find((c) => c.id === cardRef) : null;\n  nextReward = {\n    level: upcoming.Level,\n    dust: upcoming.DustReward || 0,\n    boosters: upcoming.BoosterReward || 0,\n    cardName: card ? card.Name : null\n  };\n}\n\nreturn [{ json: {\n  ...cfg, ok: true, mutation: 'none',\n  currentLevel, lastRewardedLevel: lastRewarded,\n  hasPending: pendingRows.length > 0,\n  pendingLevels: pendingRows.map((r) => r.Level),\n  nextReward\n} }];"
       }
     },
     {
@@ -130,12 +189,26 @@
       "name": "If Ok",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-260, 300],
+      "position": [
+        -260,
+        300
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ $json.ok }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -147,11 +220,16 @@
       "name": "Respond Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-60, 620],
+      "position": [
+        -60,
+        620
+      ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ { error: $json.error } }}",
-        "options": { "responseCode": 400 }
+        "options": {
+          "responseCode": 400
+        }
       }
     },
     {
@@ -159,12 +237,26 @@
       "name": "If Mutation Is Claim",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-60, 200],
+      "position": [
+        -60,
+        200
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ $json.mutation }}", "rightValue": "claim", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.mutation }}",
+              "rightValue": "claim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -176,7 +268,10 @@
       "name": "Update User",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [140, 60],
+      "position": [
+        140,
+        60
+      ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $json.docId }}",
@@ -185,28 +280,51 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "StardustCount", "fieldValue": "={{ $json.newStardust }}" },
-            { "fieldId": "BoosterCount", "fieldValue": "={{ $json.newBoosterCount }}" },
-            { "fieldId": "LastRewardedLevel", "fieldValue": "={{ $json.newLastRewardedLevel }}" }
+            {
+              "fieldId": "StardustCount",
+              "fieldValue": "={{ $json.newStardust }}"
+            },
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $json.newBoosterCount }}"
+            },
+            {
+              "fieldId": "LastRewardedLevel",
+              "fieldValue": "={{ $json.newLastRewardedLevel }}"
+            }
           ]
         }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "sync-4",
       "name": "Sync Update User -> Expand Card Rewards",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [340, 60],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }
+      "position": [
+        340,
+        60
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
     },
     {
       "id": "expand-card-rewards",
       "name": "Expand Card Rewards",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [540, 60],
+      "position": [
+        540,
+        60
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst d = $('Dispatch Action').first().json;\nif (!d.cardLevels || !d.cardLevels.length) return [];\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst usedSerials = {};\npulls.forEach((p) => { const cid = refId(p.Card); if (!usedSerials[cid]) usedSerials[cid] = new Set(); if (p.SerialNumber != null) usedSerials[cid].add(p.SerialNumber); });\nfunction nextSerialFor(cid) { if (!usedSerials[cid]) usedSerials[cid] = new Set(); const used = usedSerials[cid]; for (let n = 1; ; n++) { if (!used.has(n)) { used.add(n); return n; } } }\nreturn d.cardLevels.map((cl) => ({ json: {\n  docId: d.docId, userId: d.userId, cardId: cl.cardId, level: cl.level,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `levelup-${d.userId}-${cl.level}-${Date.now()}`,\n  serialNumber: nextSerialFor(cl.cardId)\n} }));"
@@ -217,7 +335,10 @@
       "name": "Create Pull",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [740, 60],
+      "position": [
+        740,
+        60
+      ],
       "parameters": {
         "operation": "create",
         "docId": "={{ $json.docId }}",
@@ -225,22 +346,45 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "User", "fieldValue": "={{ $json.userId }}" },
-            { "fieldId": "Card", "fieldValue": "={{ $json.cardId }}" },
-            { "fieldId": "ObtainedAt", "fieldValue": "={{ $json.obtainedAt }}" },
-            { "fieldId": "BatchId", "fieldValue": "={{ $json.batchId }}" },
-            { "fieldId": "SerialNumber", "fieldValue": "={{ $json.serialNumber }}" }
+            {
+              "fieldId": "User",
+              "fieldValue": "={{ $json.userId }}"
+            },
+            {
+              "fieldId": "Card",
+              "fieldValue": "={{ $json.cardId }}"
+            },
+            {
+              "fieldId": "ObtainedAt",
+              "fieldValue": "={{ $json.obtainedAt }}"
+            },
+            {
+              "fieldId": "BatchId",
+              "fieldValue": "={{ $json.batchId }}"
+            },
+            {
+              "fieldId": "SerialNumber",
+              "fieldValue": "={{ $json.serialNumber }}"
+            }
           ]
         }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "format-claim-response",
       "name": "Format Claim Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [940, 60],
+      "position": [
+        940,
+        60
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "function firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst d = $('Dispatch Action').first().json;\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst createdCards = (d.cardLevels || []).map((cl) => {\n  const card = cardById[cl.cardId];\n  return card ? { level: cl.level, cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image) } : null;\n}).filter(Boolean);\nreturn [{ json: {\n  claimed: true,\n  fromLevel: d.fromLevel, toLevel: d.toLevel,\n  dustGained: d.totalDust, boostersGained: d.totalBoosters,\n  cards: createdCards,\n  newStardust: d.newStardust, newBoosterCount: d.newBoosterCount\n} }];"
@@ -251,12 +395,26 @@
       "name": "If Mutation Is AdminSet",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [140, 300],
+      "position": [
+        140,
+        300
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ $json.mutation }}", "rightValue": "adminSet", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.mutation }}",
+              "rightValue": "adminSet",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -268,7 +426,10 @@
       "name": "Expand Level Rows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [340, 220],
+      "position": [
+        340,
+        220
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const d = $('Dispatch Action').first().json;\nreturn (d.rows || []).map((r) => ({ json: {\n  docId: d.docId,\n  rowId: r.rowId || null,\n  level: Number(r.level),\n  dust: Number(r.dust) || 0,\n  booster: Number(r.booster) || 0,\n  cardId: r.cardId ? Number(r.cardId) : null\n} }));"
@@ -279,12 +440,26 @@
       "name": "If Row Exists",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [540, 220],
+      "position": [
+        540,
+        220
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ !!$json.rowId }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "leftValue": "={{ !!$json.rowId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -296,7 +471,10 @@
       "name": "Update Level Reward Row",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [740, 140],
+      "position": [
+        740,
+        140
+      ],
       "parameters": {
         "operation": "update",
         "docId": "={{ $json.docId }}",
@@ -305,21 +483,41 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "Level", "fieldValue": "={{ $json.level }}" },
-            { "fieldId": "DustReward", "fieldValue": "={{ $json.dust }}" },
-            { "fieldId": "BoosterReward", "fieldValue": "={{ $json.booster }}" },
-            { "fieldId": "CardReward", "fieldValue": "={{ $json.cardId || 0 }}" }
+            {
+              "fieldId": "Level",
+              "fieldValue": "={{ $json.level }}"
+            },
+            {
+              "fieldId": "DustReward",
+              "fieldValue": "={{ $json.dust }}"
+            },
+            {
+              "fieldId": "BoosterReward",
+              "fieldValue": "={{ $json.booster }}"
+            },
+            {
+              "fieldId": "CardReward",
+              "fieldValue": "={{ $json.cardId || 0 }}"
+            }
           ]
         }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "create-level-reward-row",
       "name": "Create Level Reward Row",
       "type": "n8n-nodes-base.grist",
       "typeVersion": 1,
-      "position": [740, 300],
+      "position": [
+        740,
+        300
+      ],
       "parameters": {
         "operation": "create",
         "docId": "={{ $json.docId }}",
@@ -327,34 +525,71 @@
         "dataToSend": "defineInNode",
         "fieldsToSend": {
           "properties": [
-            { "fieldId": "Level", "fieldValue": "={{ $json.level }}" },
-            { "fieldId": "DustReward", "fieldValue": "={{ $json.dust }}" },
-            { "fieldId": "BoosterReward", "fieldValue": "={{ $json.booster }}" },
-            { "fieldId": "CardReward", "fieldValue": "={{ $json.cardId || 0 }}" }
+            {
+              "fieldId": "Level",
+              "fieldValue": "={{ $json.level }}"
+            },
+            {
+              "fieldId": "DustReward",
+              "fieldValue": "={{ $json.dust }}"
+            },
+            {
+              "fieldId": "BoosterReward",
+              "fieldValue": "={{ $json.booster }}"
+            },
+            {
+              "fieldId": "CardReward",
+              "fieldValue": "={{ $json.cardId || 0 }}"
+            }
           ]
         }
       },
-      "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
     },
     {
       "id": "format-adminset-response",
       "name": "Format Admin Set Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [940, 220],
-      "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: { saved: true } }];" }
+      "position": [
+        940,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { saved: true } }];"
+      }
     },
     {
       "id": "if-is-adminlist",
       "name": "If Is Admin List",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [340, 460],
+      "position": [
+        340,
+        460
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
-            { "leftValue": "={{ $json.isAdminList }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "leftValue": "={{ $json.isAdminList }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -366,7 +601,10 @@
       "name": "Format Admin List Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [540, 400],
+      "position": [
+        540,
+        400
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst rewards = $('Get LevelRewards').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst byLevel = {};\nrewards.forEach((r) => { byLevel[r.Level] = r; });\nconst rows = [];\nfor (let level = 1; level <= 100; level++) {\n  const r = byLevel[level];\n  const cardId = r ? refId(r.CardReward) : null;\n  rows.push({\n    level,\n    rowId: r ? r.id : null,\n    dust: r ? (r.DustReward || 0) : 0,\n    booster: r ? (r.BoosterReward || 0) : 0,\n    cardId: cardId || null,\n    cardName: cardId && cardById[cardId] ? cardById[cardId].Name : null\n  });\n}\nreturn [{ json: { rows } }];"
@@ -377,10 +615,13 @@
       "name": "Format Status Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [540, 540],
+      "position": [
+        540,
+        540
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const d = $('Dispatch Action').first().json;\nreturn [{ json: { currentLevel: d.currentLevel, lastRewardedLevel: d.lastRewardedLevel, hasPending: d.hasPending, pendingLevels: d.pendingLevels } }];"
+        "jsCode": "const d = $('Dispatch Action').first().json;\nreturn [{ json: { currentLevel: d.currentLevel, lastRewardedLevel: d.lastRewardedLevel, hasPending: d.hasPending, pendingLevels: d.pendingLevels, nextReward: d.nextReward || null } }];"
       }
     },
     {
@@ -388,63 +629,342 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1140, 300],
-      "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": {} }
+      "position": [
+        1140,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
-    "Set Config": { "main": [[{ "node": "Get Users", "type": "main", "index": 0 }]] },
-    "Get Users": { "main": [[{ "node": "Sync Get Users -> Get LevelRewards", "type": "main", "index": 0 }]] },
-    "Sync Get Users -> Get LevelRewards": { "main": [[{ "node": "Get LevelRewards", "type": "main", "index": 0 }]] },
-    "Get LevelRewards": { "main": [[{ "node": "Sync Get LevelRewards -> Get Cards", "type": "main", "index": 0 }]] },
-    "Sync Get LevelRewards -> Get Cards": { "main": [[{ "node": "Get Cards", "type": "main", "index": 0 }]] },
-    "Get Cards": { "main": [[{ "node": "Sync Get Cards -> Get Pulls", "type": "main", "index": 0 }]] },
-    "Sync Get Cards -> Get Pulls": { "main": [[{ "node": "Get Pulls", "type": "main", "index": 0 }]] },
-    "Get Pulls": { "main": [[{ "node": "Dispatch Action", "type": "main", "index": 0 }]] },
-    "Dispatch Action": { "main": [[{ "node": "If Ok", "type": "main", "index": 0 }]] },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users -> Get LevelRewards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get LevelRewards": {
+      "main": [
+        [
+          {
+            "node": "Get LevelRewards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get LevelRewards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get LevelRewards -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get LevelRewards -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Action": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Ok": {
       "main": [
-        [{ "node": "If Mutation Is Claim", "type": "main", "index": 0 }],
-        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "If Mutation Is Claim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "If Mutation Is Claim": {
       "main": [
-        [{ "node": "Update User", "type": "main", "index": 0 }],
-        [{ "node": "If Mutation Is AdminSet", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Update User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Mutation Is AdminSet",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Update User": { "main": [[{ "node": "Sync Update User -> Expand Card Rewards", "type": "main", "index": 0 }]] },
-    "Sync Update User -> Expand Card Rewards": { "main": [[{ "node": "Expand Card Rewards", "type": "main", "index": 0 }]] },
-    "Expand Card Rewards": { "main": [[{ "node": "Create Pull", "type": "main", "index": 0 }]] },
-    "Create Pull": { "main": [[{ "node": "Format Claim Response", "type": "main", "index": 0 }]] },
-    "Format Claim Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Update User": {
+      "main": [
+        [
+          {
+            "node": "Sync Update User -> Expand Card Rewards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Update User -> Expand Card Rewards": {
+      "main": [
+        [
+          {
+            "node": "Expand Card Rewards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Card Rewards": {
+      "main": [
+        [
+          {
+            "node": "Create Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pull": {
+      "main": [
+        [
+          {
+            "node": "Format Claim Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Claim Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Mutation Is AdminSet": {
       "main": [
-        [{ "node": "Expand Level Rows", "type": "main", "index": 0 }],
-        [{ "node": "If Is Admin List", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Expand Level Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Is Admin List",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Expand Level Rows": { "main": [[{ "node": "If Row Exists", "type": "main", "index": 0 }]] },
+    "Expand Level Rows": {
+      "main": [
+        [
+          {
+            "node": "If Row Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Row Exists": {
       "main": [
-        [{ "node": "Update Level Reward Row", "type": "main", "index": 0 }],
-        [{ "node": "Create Level Reward Row", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Update Level Reward Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Level Reward Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Update Level Reward Row": { "main": [[{ "node": "Format Admin Set Response", "type": "main", "index": 0 }]] },
-    "Create Level Reward Row": { "main": [[{ "node": "Format Admin Set Response", "type": "main", "index": 0 }]] },
-    "Format Admin Set Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Update Level Reward Row": {
+      "main": [
+        [
+          {
+            "node": "Format Admin Set Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Level Reward Row": {
+      "main": [
+        [
+          {
+            "node": "Format Admin Set Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Admin Set Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "If Is Admin List": {
       "main": [
-        [{ "node": "Format Admin List Response", "type": "main", "index": 0 }],
-        [{ "node": "Format Status Response", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Format Admin List Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Status Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Format Admin List Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
-    "Format Status Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Format Admin List Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Status Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

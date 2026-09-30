@@ -92,28 +92,60 @@ function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
 // visuellement des tuiles deja creusees a un tresor commun, plutot qu'une
 // fissure generique identique pour tous les tresors en cours.
 function digTileContent(tile) {
-  if (!tile.dug) return { cls: "", html: "" };
-  if (!tile.treasure) return { cls: "dug empty", html: "" };
+  if (!tile.dug) return { cls: "", html: "", reward: "" };
+  if (!tile.treasure) return { cls: "dug empty", html: "", reward: "" };
   const icon = DIG_REWARD_ICON[tile.treasure.reward] || "&#10024;";
-  if (tile.treasure.done) return { cls: "dug revealed", html: icon };
-  return { cls: "dug partial", html: `<span class="dig-partial-icon">${icon}</span><span class="dig-remaining">-${tile.treasure.remaining}</span>` };
+  if (tile.treasure.done) return { cls: "dug revealed", html: `<span class="dig-treasure-glow"></span><span class="dig-treasure-icon">${icon}</span>`, reward: tile.treasure.reward };
+  return { cls: "dug partial", html: `<span class="dig-partial-icon">${icon}</span><span class="dig-remaining">-${tile.treasure.remaining}</span>`, reward: tile.treasure.reward };
 }
 
 function renderDigBoard(tiles) {
   const board = document.getElementById("dig-board");
   board.innerHTML = tiles.map((t, i) => {
-    const { cls, html } = digTileContent(t);
+    const { cls, html, reward } = digTileContent(t);
     const disabled = t.dug || digEnergy < 1 || digBusy;
-    return `<button type="button" class="dig-tile ${cls}" data-tile-index="${i}" ${disabled ? "disabled" : ""} aria-label="${t.dug ? "Tuile creusée" : "Creuser cette tuile"}">${html}</button>`;
+    // Variante de texture (1 a 4, voir [data-variant] en CSS) plutot qu'un
+    // unique motif de terre repete a l'identique sur les 16 tuiles - evite
+    // l'effet "papier peint" d'un sol parfaitement uniforme.
+    const variant = (i % 4) + 1;
+    return `<button type="button" class="dig-tile ${cls}" data-tile-index="${i}" data-variant="${variant}" ${reward ? `data-reward="${reward}"` : ""} ${disabled ? "disabled" : ""} aria-label="${t.dug ? "Tuile creusée" : "Creuser cette tuile"}">${html}</button>`;
   }).join("");
   board.querySelectorAll(".dig-tile:not([disabled])").forEach((btn) => {
-    btn.addEventListener("click", () => doDig(Number(btn.dataset.tileIndex)));
+    btn.addEventListener("click", () => doDig(Number(btn.dataset.tileIndex), btn));
   });
 }
 
-async function doDig(tileIndex) {
+// Petite volee de terre au moment du coup de pioche (embellissement,
+// 2026-09-30) : reutilise le calque de particules partage (getParticleLayer,
+// main.js, deja utilise par les eclats de foil a l'ouverture de booster)
+// plutot que d'en creer un nouveau conteneur fixe de plus.
+function spawnDigDustBurst(tileEl) {
+  if (!tileEl || typeof getParticleLayer !== "function") return;
+  const rect = tileEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const colors = ["#8a6a4a", "#6b4f36", "#a9815a", "#5a4229"];
+  const layer = getParticleLayer();
+  for (let i = 0; i < 10; i++) {
+    const speck = document.createElement("span");
+    speck.className = "dig-dust-speck";
+    const angle = Math.PI + Math.random() * Math.PI; // vers le haut, en eventail
+    const dist = 20 + Math.random() * 46;
+    speck.style.left = cx + "px";
+    speck.style.top = cy + "px";
+    speck.style.background = colors[Math.floor(Math.random() * colors.length)];
+    speck.style.setProperty("--dx", (Math.cos(angle) * dist) + "px");
+    speck.style.setProperty("--dy", (Math.sin(angle) * dist) + "px");
+    speck.style.animationDuration = (0.45 + Math.random() * 0.25) + "s";
+    layer.appendChild(speck);
+    setTimeout(() => speck.remove(), 800);
+  }
+}
+
+async function doDig(tileIndex, tileEl) {
   if (digBusy || digEnergy < 1) return;
   digBusy = true;
+  spawnDigDustBurst(tileEl);
   const resultEl = document.getElementById("dig-result");
   try {
     const res = await API.dig(Session.userId, tileIndex);

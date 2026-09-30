@@ -819,13 +819,37 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 
 /* Mini-jeu de fouille : meme squelette que .wheel-widget. */
 .dig-widget { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
-.dig-icon { font-size: 2.4rem; line-height: 1; }
+/* Petit balancement au repos (embellissement, 2026-09-30) : une pioche
+   parfaitement figee a cote d'une jauge qui vit (pips qui se remplissent)
+   detonnait, comme un element mort au milieu d'une page par ailleurs animee
+   (pack qui flotte, roue qui tourne, etc.). */
+.dig-icon { font-size: 2.4rem; line-height: 1; display: inline-block; animation: digIconIdle 2.6s ease-in-out infinite; }
+@keyframes digIconIdle {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+@media (prefers-reduced-motion: reduce) { .dig-icon { animation: none; } }
 .dig-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 #dig-status-text { color: var(--text-dim); font-size: 0.9rem; }
 .dig-energy-bar { display: flex; gap: 6px; }
 .dig-pip { width: 22px; height: 14px; border-radius: 4px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
 .dig-pip.filled { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: var(--accent-2); }
 .dig-result { margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); font-weight: 700; font-family: var(--font-display); text-align: center; }
+
+/* Site de fouille (2026-09-30) : cadre chaleureux (tons terre) autour du
+   plateau plutot que des tuiles flottant directement sur le fond violet de
+   la page - donne un vrai lieu ("un chantier de fouille") au lieu d'une
+   grille abstraite. */
+.dig-site {
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(245,165,36,0.08), transparent 60%),
+    linear-gradient(180deg, #241a12, #1a130d);
+  border: 1px solid rgba(245, 165, 36, 0.18);
+  box-shadow: inset 0 2px 18px rgba(0,0,0,0.4);
+}
 
 /* Plateau de fouille : grille de tuiles a creuser (voir jeux.js/dig.json).
    Terre non creusee -> vide (rien) -> fissure (tresor partiel, discret,
@@ -836,13 +860,13 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   max-width: 420px;
-  margin: 18px auto 0;
+  margin: 0 auto;
 }
 .dig-tile {
   position: relative;
   aspect-ratio: 1;
   border-radius: 12px;
-  border: 1px solid var(--border-soft);
+  border: 1px solid rgba(0,0,0,0.3);
   background:
     repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 6px, transparent 6px 14px),
     linear-gradient(160deg, #4a3728, #2c2013);
@@ -852,7 +876,25 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
   justify-content: center;
   font-size: 1.6rem;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  overflow: hidden;
 }
+/* Petits cailloux/mottes eparpilles, une disposition differente par variante
+   (voir data-variant, jeux.js) - sans ca les 16 tuiles etaient un copier-
+   coller visuel exact du meme motif, effet "papier peint" plat. */
+.dig-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle, rgba(0,0,0,0.35) 0 3px, transparent 3px),
+    radial-gradient(circle, rgba(255,255,255,0.08) 0 2px, transparent 2px);
+  pointer-events: none;
+}
+.dig-tile[data-variant="1"]::before { background-position: 15% 25%, 70% 65%; background-size: 30% 30%, 24% 24%; }
+.dig-tile[data-variant="2"]::before { background-position: 75% 20%, 25% 70%; background-size: 26% 26%, 32% 32%; }
+.dig-tile[data-variant="3"]::before { background-position: 40% 75%, 80% 30%; background-size: 34% 34%, 22% 22%; }
+.dig-tile[data-variant="4"]::before { background-position: 20% 55%, 65% 15%; background-size: 24% 24%, 30% 30%; }
 .dig-tile:hover:not([disabled]) {
   transform: translateY(-3px) scale(1.03);
   border-color: var(--accent-2);
@@ -861,39 +903,90 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 .dig-tile[disabled] { cursor: not-allowed; }
 .dig-tile[disabled]:not(.dug) { opacity: 0.4; }
 .dig-tile.dug {
-  background: var(--bg-panel-2);
+  background: radial-gradient(circle at 50% 40%, #131418, #0a0b0e 75%);
   border-style: dashed;
+  border-color: var(--border-soft);
+  box-shadow: inset 0 6px 14px rgba(0,0,0,0.6);
 }
-.dig-tile.dug.empty { opacity: 0.5; }
+.dig-tile.dug::before { display: none; }
+.dig-tile.dug.empty { opacity: 0.6; }
 /* Pulsation (embellissement 2026-09-30) : signale qu'un tresor est en cours
    sur CETTE tuile sans jamais reveler la position des autres tuiles du meme
    tresor (deliberement caches, voir jeux.js digTileContent). */
 .dig-tile.dug.partial { border-color: #f5a524; animation: digPartialPulse 1.8s ease-in-out infinite; }
 .dig-partial-icon { font-size: 1.3rem; filter: drop-shadow(0 0 6px rgba(245,165,36,0.6)) grayscale(0.35); opacity: 0.85; }
 @keyframes digPartialPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245,165,36,0.4); }
-  50% { box-shadow: 0 0 14px 2px rgba(245,165,36,0.55); }
+  0%, 100% { box-shadow: inset 0 6px 14px rgba(0,0,0,0.6), 0 0 0 0 rgba(245,165,36,0.4); }
+  50% { box-shadow: inset 0 6px 14px rgba(0,0,0,0.6), 0 0 14px 2px rgba(245,165,36,0.55); }
 }
 @media (prefers-reduced-motion: reduce) {
   .dig-tile.dug.partial { animation: none; }
 }
+/* Pastille plutot qu'un texte minuscule dans un coin (trop discret pour un
+   chiffre qui compte vraiment pour la strategie du joueur - combien de
+   tuiles il reste a trouver pour ce tresor). */
 .dig-remaining {
   position: absolute;
-  bottom: 4px;
-  right: 6px;
-  font-size: 0.62rem;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f5a524;
+  color: #1a130d;
+  font-size: 0.66rem;
+  font-weight: 800;
   font-family: var(--font-display);
-  color: #f5a524;
+  box-shadow: 0 0 0 2px #1a130d;
 }
+/* Halo colore par palier de recompense (voir data-reward, DIG_REWARD_ICON
+   dans jeux.js) : une mythique fraichement liberee doit se voir de loin,
+   une simple poussiere reste discrete - jusque-la la meme icone flottante
+   pour tous les paliers ne rendait pas justice a la rarete du tresor. */
+.dig-treasure-glow {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--dig-glow-color, #9aa0b4) 0%, transparent 70%);
+  opacity: 0.5;
+  filter: blur(2px);
+}
+.dig-treasure-icon { position: relative; font-size: 1.7rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+.dig-tile[data-reward="smallDust"] { --dig-glow-color: #9aa0b4; }
+.dig-tile[data-reward="bigDust"] { --dig-glow-color: #22d3ee; }
+.dig-tile[data-reward="booster"] { --dig-glow-color: #8b5cf6; }
+.dig-tile[data-reward="card"] { --dig-glow-color: #f5a524; }
+.dig-tile[data-reward="rareCard"] { --dig-glow-color: #ef4444; }
 .dig-tile.dug.revealed {
-  border-color: var(--accent-2);
-  box-shadow: 0 0 16px -4px color-mix(in srgb, var(--accent-2) 70%, transparent);
+  border-color: var(--dig-glow-color, var(--accent-2));
+  box-shadow: 0 0 16px -4px color-mix(in srgb, var(--dig-glow-color, var(--accent-2)) 70%, transparent);
   animation: digRevealPop 0.35s cubic-bezier(.2,.9,.3,1.3);
 }
 @keyframes digRevealPop { 0% { transform: scale(0.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @media (max-width: 480px) {
+  .dig-site { padding: 14px; }
   .dig-board { gap: 8px; }
   .dig-tile { font-size: 1.3rem; border-radius: 10px; }
+}
+
+/* Volee de terre au coup de pioche (spawnDigDustBurst, jeux.js) : meme
+   calque partage que les particules de rarete/eclats de foil. */
+.dig-dust-speck {
+  position: fixed;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 420;
+  animation: digDustFly 0.6s ease-out forwards;
+}
+@keyframes digDustFly {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(180deg); opacity: 0; }
 }
 
 /* Grille de bingo 3x3. */
@@ -3116,6 +3209,12 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
+/* Le compteur XP reste court et ne doit jamais se retrouver coupe mot par
+   mot - c'est desormais le texte de recompense (variable, parfois une
+   phrase complete avec un bonus de palier) qui absorbe l'espace restant et
+   passe a la ligne si besoin (voir #pass-next-reward-label, index.html). */
+#pass-xp-label { white-space: nowrap; flex-shrink: 0; }
+#pass-next-reward-label { flex: 1; min-width: 0; text-align: right; }
 
 /* Barre de PV du boss communautaire (meme squelette que .pass-track). */
 .hp-track { margin-top: 12px; }
