@@ -155,12 +155,22 @@ function updateCardPreview(selectId, previewId) {
   const preview = document.getElementById(previewId);
   if (!select || !preview) return;
   const card = allCards.find((c) => String(c.cardId) === select.value);
-  // Pas de select => pas de vignette du tout plutot que le placeholder
-  // "pas d'image" ecrase a 44px (illisible, on dirait une image cassee).
-  if (!card) { preview.style.visibility = "hidden"; return; }
+  const frame = preview.closest(".trade-side-card");
+  // Cadre vide (dashed + "?") tant qu'aucune carte n'est choisie, plutot que
+  // le placeholder "pas d'image" ecrase a 44px (illisible, on dirait une
+  // image cassee) de l'ancien formulaire.
+  if (!card) {
+    preview.style.visibility = "hidden";
+    if (frame) { frame.classList.add("empty"); frame.style.removeProperty("--frame-color"); }
+    return;
+  }
   preview.style.visibility = "visible";
   const src = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   preview.src = src;
+  if (frame) {
+    frame.classList.remove("empty");
+    frame.style.setProperty("--frame-color", card.rarity?.colorHex || "#9aa0b4");
+  }
   // Clic = modale de detail (rarete, numero de serie, qualite...), pas
   // juste un zoom brut : juger si un echange est equitable passe par voir
   // ces infos sans quitter la page (demande explicite).

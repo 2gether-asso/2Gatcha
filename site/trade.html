@@ -24,38 +24,49 @@
       </div>
 
       <div id="trade-zone" style="display:none;">
-        <h2>Proposer un échange</h2>
-        <form id="create-trade-form" class="trade-form">
-          <label>
-            Ma carte a offrir
-            <div class="card-preview-row">
-              <img id="offered-card-preview" class="card-preview-thumb" alt="" />
-              <select id="offered-card-select" required></select>
-            </div>
-          </label>
-          <label class="checkbox-inline">
-            <input type="checkbox" id="offer-duplicates-only" />
-            Ne montrer que mes doublons (garder mes exemplaires uniques)
-          </label>
-          <label>
-            Exemplaire a donner
-            <select id="offered-pull-select" required></select>
-          </label>
-          <label>
-            Pseudo du joueur cible
-            <select id="target-select" required></select>
-          </label>
-          <label>
-            Carte demandee (laisse sur "Aucune" pour un don)
-            <div class="card-preview-row">
-              <img id="requested-card-preview" class="card-preview-thumb" alt="" />
-              <select id="requested-card-select"><option value="">Choisis d'abord un joueur cible</option></select>
-            </div>
-          </label>
-          <button type="submit">Proposer l'échange</button>
-        </form>
+        <div class="trade-compose panel-inset">
+          <h2>Proposer un échange</h2>
+          <form id="create-trade-form" class="trade-compose-form">
+            <label class="trade-target-picker">
+              <span class="trade-field-label">Échanger avec</span>
+              <select id="target-select" required></select>
+            </label>
 
-        <div id="trade-suggestions" class="panel" style="display:none;margin:20px 0;padding:16px;">
+            <div class="trade-compose-sides">
+              <div class="trade-side">
+                <span class="trade-side-label">Tu donnes</span>
+                <div class="trade-side-card">
+                  <img id="offered-card-preview" class="trade-side-thumb" alt="" />
+                </div>
+                <select id="offered-card-select" required></select>
+                <div class="trade-side-extra">
+                  <label class="trade-side-sub">
+                    Exemplaire
+                    <select id="offered-pull-select" required></select>
+                  </label>
+                  <label class="checkbox-inline">
+                    <input type="checkbox" id="offer-duplicates-only" />
+                    Doublons uniquement
+                  </label>
+                </div>
+              </div>
+
+              <div class="trade-compose-arrow" aria-hidden="true">&#8644;</div>
+
+              <div class="trade-side">
+                <span class="trade-side-label">Tu reçois <em>(optionnel)</em></span>
+                <div class="trade-side-card">
+                  <img id="requested-card-preview" class="trade-side-thumb" alt="" />
+                </div>
+                <select id="requested-card-select"><option value="">Choisis d'abord un joueur cible</option></select>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-primary trade-compose-submit">Proposer l'échange</button>
+          </form>
+        </div>
+
+        <div id="trade-suggestions" class="panel-inset" style="display:none;margin:20px 0;padding:16px;">
           <h2 style="font-size:1.05rem;">&#128161; Suggestions d'échange</h2>
           <div id="trade-suggestions-list" class="suggestions-list"></div>
         </div>

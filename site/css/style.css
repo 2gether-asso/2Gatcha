@@ -275,11 +275,16 @@ header#site-header.shrunk .avatar { width: 22px; height: 22px; }
   gap: 2px;
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  /* PAS de overflow-x: auto ici (retire, 2026-09-30) : sans overflow-y
+     assorti, la spec CSS force alors overflow-y a "auto" aussi (regle
+     "si l'un vaut visible et l'autre non, visible devient auto") - ca
+     rognait silencieusement tout .nav-group-dropdown positionne EN DESSOUS
+     de .nav (bug reel trouve en testant les sous-menus : styles calcules
+     corrects, dropdown pourtant invisible a l'ecran). Le repli "ca ne
+     rentre pas" est desormais gere par le retour a la ligne (voir media
+     query 641-1180px plus bas), pas par un defilement horizontal cache. */
   font-family: var(--font-display);
 }
-.nav::-webkit-scrollbar { display: none; }
 .nav a {
   position: relative;
   display: inline-flex;
@@ -306,13 +311,15 @@ header#site-header.shrunk .avatar { width: 22px; height: 22px; }
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
 }
 
-/* Menu "Plus" (fix debordement nav, 2026-09-30) : Communaute/Jeux/Admin
-   regroupes ici plutot que dans la liste plate - la .nav gardait un
-   overflow-x scrollable mais sans barre visible (scrollbar-width: none),
-   donc rien n'indiquait a l'utilisateur qu'il manquait des destinations a
-   droite. Meme squelette ouverture/fermeture que .user-menu/.notif-bell. */
-.nav-more { position: relative; flex-shrink: 0; }
-.nav-more-trigger {
+/* Sous-menus de nav (reorganisation demandee, 2026-09-30) : les pages qui
+   appartiennent au meme geste (ouvrir un booster / reclamer un code ;
+   consulter sa collection / la faire evoluer) sont regroupees sous un seul
+   declencheur nomme plutot que d'etaler 9 destinations a plat (voir
+   NAV_ITEMS/buildNavNodes, main.js). Classes generiques : plusieurs groupes
+   peuvent coexister dans la nav, chacun avec son propre etat ouvert/ferme.
+   Meme squelette ouverture/fermeture que .user-menu/.notif-bell. */
+.nav-group { position: relative; flex-shrink: 0; }
+.nav-group-trigger {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -331,10 +338,10 @@ header#site-header.shrunk .avatar { width: 22px; height: 22px; }
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
-.nav-more-trigger:hover, .nav-more-trigger.active { color: var(--text); background: rgba(255,255,255,0.05); }
-.nav-more-arrow { font-size: 0.65rem; transition: transform 0.15s; }
-.nav-more.open .nav-more-arrow { transform: rotate(180deg); }
-.nav-more-trigger.has-dot::after {
+.nav-group-trigger:hover, .nav-group-trigger.active { color: var(--text); background: rgba(255,255,255,0.05); }
+.nav-group-arrow { font-size: 0.65rem; transition: transform 0.15s; }
+.nav-group.open .nav-group-arrow { transform: rotate(180deg); }
+.nav-group-trigger.has-dot::after {
   content: "";
   position: absolute;
   top: 5px;
@@ -345,11 +352,11 @@ header#site-header.shrunk .avatar { width: 22px; height: 22px; }
   background: var(--danger);
   box-shadow: 0 0 0 2px var(--bg-panel-solid);
 }
-.nav-more-dropdown {
+.nav-group-dropdown {
   position: absolute;
   top: calc(100% + 10px);
   left: 0;
-  min-width: 180px;
+  min-width: 190px;
   background: var(--bg-panel-solid);
   border: 1px solid var(--border-soft);
   border-radius: 12px;
@@ -358,8 +365,8 @@ header#site-header.shrunk .avatar { width: 22px; height: 22px; }
   display: none;
   z-index: 20;
 }
-.nav-more.open .nav-more-dropdown { display: block; animation: modalPopIn 0.15s ease forwards; }
-.nav-more-dropdown a {
+.nav-group.open .nav-group-dropdown { display: block; animation: modalPopIn 0.15s ease forwards; }
+.nav-group-dropdown a {
   display: flex;
   width: 100%;
   align-items: center;
@@ -372,8 +379,8 @@ header#site-header.shrunk .avatar { width: 22px; height: 22px; }
   border-radius: 8px;
   white-space: nowrap;
 }
-.nav-more-dropdown a:hover { background: rgba(255,255,255,0.06); color: var(--text); text-decoration: none; }
-.nav-more-dropdown a.active { color: var(--text); }
+.nav-group-dropdown a:hover { background: rgba(255,255,255,0.06); color: var(--text); text-decoration: none; }
+.nav-group-dropdown a.active { color: var(--text); }
 
 .user-box { display: flex; align-items: center; gap: 14px; font-size: 0.9rem; color: var(--text-dim); }
 
@@ -2031,7 +2038,8 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .trade-form select,
 .admin-form select,
 .admin-form input[type="text"],
-.admin-form input[type="number"] {
+.admin-form input[type="number"],
+.trade-compose-form select {
   background: var(--bg-panel-2);
   border: 1px solid var(--border-soft);
   color: var(--text);
@@ -2041,6 +2049,96 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   font-family: var(--font-body);
 }
 .trade-form button, .admin-form button { grid-column: -2 / -1; }
+
+/* Panneau imbrique (suggestions, formulaire de creation d'echange...) :
+   version allegee de .panel pour un encart DANS un .panel deja existant -
+   sans son flou/halo/gros padding, qui se cumulaient mal en imbrication. */
+.panel-inset {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 22px 24px;
+}
+
+/* Formulaire de creation d'echange (refonte visuelle, 2026-09-30) : remplace
+   la grille generique .trade-form (ou la case a cocher "doublons" finissait
+   perdue entre deux cellules, se chevauchant avec le label voisin) par une
+   mise en scene "tu donnes <-> tu recois" a deux colonnes, chacune avec un
+   vrai cadre de carte (comme .trade-card-thumb dans l'historique) plutot
+   qu'une petite vignette 44px a cote d'un select. */
+.trade-compose h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.trade-compose-form { display: flex; flex-direction: column; gap: 24px; margin-top: 18px; }
+.trade-target-picker { display: flex; flex-direction: column; gap: 6px; max-width: 320px; }
+.trade-field-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.trade-compose-sides { display: flex; align-items: flex-start; justify-content: center; gap: 20px; flex-wrap: wrap; }
+.trade-side { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1; min-width: 210px; max-width: 280px; }
+.trade-side-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+}
+.trade-side-label em { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: normal; opacity: 0.7; }
+.trade-side select { width: 100%; }
+/* --frame-color pose en JS (updateCardPreview, trade.js) depuis la vraie
+   couleur de rarete de la carte choisie - un cadre neutre tant qu'aucune
+   carte n'est selectionnee. */
+.trade-side-card {
+  position: relative;
+  width: 130px;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  border: 2px solid var(--frame-color, var(--border-soft));
+  background: var(--bg-panel-solid);
+  overflow: hidden;
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--frame-color, var(--accent)) 70%, transparent);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.trade-side-card.empty { border-style: dashed; opacity: 0.7; box-shadow: none; }
+.trade-side-card.empty::before {
+  content: "?";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  color: var(--text-dim);
+}
+.trade-side-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+.trade-compose-arrow {
+  align-self: center;
+  margin-top: 44px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--accent-2);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.trade-side-extra { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; width: 100%; justify-content: center; }
+.trade-side-sub { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--text-dim); flex: 1; min-width: 90px; }
+.trade-side-extra .checkbox-inline { white-space: nowrap; padding-bottom: 10px; }
+.trade-compose-submit { align-self: center; min-width: 240px; }
+@media (max-width: 640px) {
+  .trade-compose-sides { flex-direction: column; align-items: center; }
+  .trade-compose-arrow { margin-top: 0; transform: rotate(90deg); }
+}
 
 /* Tableaux d'equilibrage (raretes/finitions) : chaque ligne editable en
    place, un bouton Enregistrer dedie (pas de formulaire global qui
@@ -4973,8 +5071,8 @@ body.hide-stats #stats-block { display: none; }
 }
 
 /* Zone intermediaire (tablette / petit laptop, 2026-09-30) : le regroupement
-   sous "Plus" (voir .nav-more) ne suffit pas seul a rendre .nav lisible ici -
-   le reste du header (pastille ressources + recherche + cloche + menu
+   par sous-menus (voir .nav-group) ne suffit pas seul a rendre .nav lisible
+   ici - le reste du header (pastille ressources + recherche + cloche + menu
    utilisateur) reste sur une seule ligne et ne laisse a .nav qu'une largeur
    trop etroite pour ses 6-7 destinations restantes, meme reduites. On passe
    .nav sur sa propre ligne pleine largeur (comme le fait deja le mode mobile

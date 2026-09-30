@@ -888,14 +888,14 @@ function bumpNumber(el, newValue) {
 // d'une reorganisation plus large, pas la fin de l'histoire.
 const NAV_ITEMS = [
   { href: "index.html", label: "Accueil", icon: "&#127968;", auth: false, badgeKey: "rewards" },
-  { href: "ouverture.html", label: "Boosters", icon: "&#127873;", auth: false, badgeKey: "boosters" },
-  { href: "collection.html", label: "Collection", icon: "&#128218;", auth: false },
-  { href: "craft.html", label: "Craft", icon: "&#10024;", auth: true },
-  { href: "redeem.html", label: "Code", icon: "&#127915;", auth: true },
+  { href: "ouverture.html", label: "Ouvrir un booster", icon: "&#127873;", auth: false, badgeKey: "boosters", group: "jouer", groupLabel: "Jouer" },
+  { href: "redeem.html", label: "Réclamer un code", icon: "&#127915;", auth: true, group: "jouer" },
+  { href: "collection.html", label: "Ma collection", icon: "&#128218;", auth: false, group: "collection", groupLabel: "Collection" },
+  { href: "craft.html", label: "Craft & décomposer", icon: "&#10024;", auth: true, group: "collection" },
+  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true },
+  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
-  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true, group: "more" },
-  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux", group: "more" },
-  { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin", group: "more" }
+  { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
 ];
 
 function currentPage() {
@@ -1038,17 +1038,16 @@ async function loadNavBadges() {
       }
     });
 
-    // Le lien "Jeux" (et Communaute/Admin) est desormais planque sous le menu
-    // "Plus" du header (voir renderHeader) : sans ca, sa pastille de rappel
-    // (jeuxCount ci-dessus) resterait invisible tant qu'on n'a pas deplie le
-    // menu. On reporte donc un simple point sur le declencheur "Plus" des
-    // qu'au moins un lien qu'il contient a lui-meme une pastille active.
-    const navMoreTrigger = document.getElementById("nav-more-trigger");
-    if (navMoreTrigger) {
-      const dropdown = document.getElementById("nav-more-dropdown");
-      const hasChildDot = !!(dropdown && dropdown.querySelector(".nav-dot"));
-      navMoreTrigger.classList.toggle("has-dot", hasChildDot);
-    }
+    // "Ouvrir un booster" (badgeKey boosters) vit desormais sous le sous-menu
+    // "Jouer" (voir NAV_ITEMS/buildNavNodes) : sans ca, sa pastille de rappel
+    // resterait invisible tant qu'on n'a pas deplie le groupe. On reporte
+    // donc un simple point sur CHAQUE declencheur de groupe des qu'au moins
+    // un lien qu'il contient a lui-meme une pastille active.
+    document.querySelectorAll(".nav-group").forEach((group) => {
+      const trigger = group.querySelector(".nav-group-trigger");
+      const hasChildDot = !!group.querySelector(".nav-group-dropdown .nav-dot");
+      trigger.classList.toggle("has-dot", hasChildDot);
+    });
   } catch (e) { /* pas grave, juste un rappel visuel */ }
 }
 
@@ -1059,21 +1058,42 @@ function renderHeader() {
   if (!el) return;
 
   const page = currentPage();
-  // Regroupe les pages les moins consultees au quotidien sous un menu "Plus"
-  // (voir NAV_ITEMS) : corrige le debordement silencieux de la nav complete
-  // sur les ecrans moyens (tablette/petit laptop), et degage un peu de place
-  // pour les elements a droite (monnaies, recherche, notifications...).
-  const primaryItems = visibleNavItems().filter((i) => !i.group);
-  const moreItems = visibleNavItems().filter((i) => i.group === "more");
+  // Reorganisation du menu (2026-09-30, demande explicite) : plutot qu'une
+  // liste plate de 9 destinations, les pages qui appartiennent au meme geste
+  // sont regroupees sous un sous-menu nomme (voir NAV_ITEMS) - "Jouer"
+  // (ouvrir un booster / reclamer un code) et "Collection" (consulter / faire
+  // evoluer via craft) - le reste (Communaute, Jeux, Echanges, Admin) reste
+  // en acces direct, deja assez distinct pour ne pas avoir besoin d'y etre
+  // range. buildNavNodes() construit une liste ordonnee de noeuds - lien
+  // simple ou groupe - en respectant l'ordre de declaration de NAV_ITEMS.
+  function buildNavNodes(items) {
+    const nodes = [];
+    const groupIndex = {};
+    items.forEach((item) => {
+      if (item.group) {
+        if (!(item.group in groupIndex)) {
+          groupIndex[item.group] = nodes.length;
+          nodes.push({ type: "group", key: item.group, label: item.groupLabel || item.group, items: [] });
+        }
+        nodes[groupIndex[item.group]].items.push(item);
+      } else {
+        nodes.push({ type: "link", item });
+      }
+    });
+    return nodes;
+  }
   const navLinkHtml = (i) => `<a href="${i.href}" class="${i.href === page ? "active" : ""}" data-badge-key="${i.badgeKey || ""}">${i.label}</a>`;
-  const primaryLinks = primaryItems.map(navLinkHtml).join("");
-  const moreDropdown = moreItems.length ? `
-    <div class="nav-more" id="nav-more">
-      <button type="button" class="nav-more-trigger ${moreItems.some((i) => i.href === page) ? "active" : ""}" id="nav-more-trigger" aria-haspopup="true" aria-expanded="false">Plus <span class="nav-more-arrow">&#9662;</span></button>
-      <div class="nav-more-dropdown" id="nav-more-dropdown">${moreItems.map(navLinkHtml).join("")}</div>
-    </div>
-  ` : "";
-  const links = `<nav class="nav">${primaryLinks}${moreDropdown}</nav>`;
+  const navHtml = buildNavNodes(visibleNavItems()).map((node) => {
+    if (node.type === "link") return navLinkHtml(node.item);
+    const activeInGroup = node.items.some((i) => i.href === page);
+    return `
+      <div class="nav-group" id="nav-group-${node.key}">
+        <button type="button" class="nav-group-trigger ${activeInGroup ? "active" : ""}" aria-haspopup="true" aria-expanded="false">${node.label} <span class="nav-group-arrow">&#9662;</span></button>
+        <div class="nav-group-dropdown">${node.items.map(navLinkHtml).join("")}</div>
+      </div>
+    `;
+  }).join("");
+  const links = `<nav class="nav">${navHtml}</nav>`;
 
   if (Session.isLoggedIn()) {
     const avatar = Session.discordAvatar
@@ -1154,22 +1174,30 @@ function renderHeader() {
       if (!notifBell.contains(e.target)) notifBell.classList.remove("open");
     });
 
-    const navMore = document.getElementById("nav-more");
-    if (navMore) {
-      const navMoreTrigger = document.getElementById("nav-more-trigger");
-      navMoreTrigger.addEventListener("click", (e) => {
+    // Sous-menus de nav (Jouer/Collection, voir NAV_ITEMS/buildNavNodes) :
+    // meme squelette ouverture/fermeture que .user-menu/.notif-bell, generique
+    // pour fonctionner avec n'importe quel nombre de groupes simultanes -
+    // ouvrir l'un referme automatiquement les autres.
+    document.querySelectorAll(".nav-group").forEach((group) => {
+      const trigger = group.querySelector(".nav-group-trigger");
+      trigger.addEventListener("click", (e) => {
         e.stopPropagation();
-        const opening = !navMore.classList.contains("open");
-        navMore.classList.toggle("open", opening);
-        navMoreTrigger.setAttribute("aria-expanded", opening ? "true" : "false");
+        const opening = !group.classList.contains("open");
+        document.querySelectorAll(".nav-group.open").forEach((g) => {
+          if (g !== group) { g.classList.remove("open"); g.querySelector(".nav-group-trigger").setAttribute("aria-expanded", "false"); }
+        });
+        group.classList.toggle("open", opening);
+        trigger.setAttribute("aria-expanded", opening ? "true" : "false");
       });
-      document.addEventListener("click", (e) => {
-        if (!navMore.contains(e.target)) {
-          navMore.classList.remove("open");
-          navMoreTrigger.setAttribute("aria-expanded", "false");
+    });
+    document.addEventListener("click", (e) => {
+      document.querySelectorAll(".nav-group.open").forEach((group) => {
+        if (!group.contains(e.target)) {
+          group.classList.remove("open");
+          group.querySelector(".nav-group-trigger").setAttribute("aria-expanded", "false");
         }
       });
-    }
+    });
 
     // Recherche globale (QoL 2026-09-30, demande explicite : "les profils
     // sont peu accessibles") : trouve un joueur par pseudo (raccourci direct
