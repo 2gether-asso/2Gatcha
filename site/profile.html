@@ -237,15 +237,26 @@
         `).join("");
 
         // Wishlist : ce que ce joueur cherche activement, utile pour cibler
-        // une proposition d'echange plutot que de deviner.
+        // une proposition d'echange plutot que de deviner. Indicateur
+        // "réalisable" (2026-09-30) : compare au solde de poussieres du
+        // VISITEUR connecte (pas du profil affiche) - utile aussi bien sur
+        // son propre profil ("je peux deja le crafter") que sur celui d'un
+        // autre joueur ("je pourrais lui en offrir un contre un echange").
         const wishlist = res.wishlist || [];
         if (wishlist.length) {
           document.getElementById("profile-wishlist-zone").style.display = "block";
+          let myStardust = null;
+          if (Session.isLoggedIn()) {
+            try { myStardust = (await API.getBoosterStatus(Session.userId)).stardust || 0; } catch (e) {}
+          }
           document.getElementById("profile-wishlist-grid").innerHTML = wishlist.map((c) => {
             const color = c.rarity?.colorHex || "#9aa0b4";
             const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
+            const craftCost = c.rarity?.craftCost;
+            const craftable = !c.isPromo && myStardust != null && craftCost != null && myStardust >= craftCost;
             return `
-              <div class="wishlist-mini-card">
+              <div class="wishlist-mini-card ${craftable ? "craftable" : ""}">
+                ${craftable ? `<span class="wishlist-craftable-badge" title="Tu as assez de poussières pour crafter cette carte">&#10024;</span>` : ""}
                 <img src="${imgSrc}" alt="${c.name}" loading="lazy" style="border-color:${color};" />
                 <span class="wishlist-mini-name">${c.name}</span>
               </div>

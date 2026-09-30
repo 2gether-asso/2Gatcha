@@ -35,7 +35,7 @@
           <span class="dig-icon" aria-hidden="true">&#9935;</span>
           <div class="dig-status">
             <div id="dig-energy-bar" class="dig-energy-bar"></div>
-            <div id="dig-status-text">Chargement...</div>
+            <div id="dig-status-text" class="skeleton-line">Chargement...</div>
           </div>
         </div>
         <div id="dig-board" class="dig-board"></div>
@@ -62,12 +62,15 @@
             <div class="vault-bars" aria-hidden="true"></div>
             <div class="vault-lock-icon" aria-hidden="true">&#128274;</div>
           </div>
-          <div id="vault-card-name" class="vault-card-name">Chargement...</div>
+          <div id="vault-card-name" class="vault-card-name skeleton-line">Chargement...</div>
           <div class="vault-keys-track"><div id="vault-keys-fill" class="vault-keys-fill"></div></div>
           <div id="vault-keys-label" class="vault-keys-label"></div>
           <button type="button" class="btn" id="vault-open-btn" style="display:none;">&#128273; Ouvrir le coffre (6 clefs)</button>
         </div>
-        <div id="vault-opened" class="empty-state" style="display:none;">&#127881; Tu as déjà ouvert le coffre-fort, cette carte arc-en-ciel est à toi pour toujours !</div>
+        <div id="vault-opened" class="vault-opened-banner" style="display:none;">
+          <img id="vault-opened-img" class="vault-opened-img" src="" alt="" />
+          <div class="vault-opened-text">&#127881; Tu as déjà ouvert le coffre-fort : <strong id="vault-opened-name"></strong> est à toi pour toujours.</div>
+        </div>
       </div>
     </div>
   </main>

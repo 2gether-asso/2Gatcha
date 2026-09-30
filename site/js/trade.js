@@ -47,6 +47,9 @@ let myOwnedCountByCard = new Map();
 let ownedCopiesByCard = new Map();
 let allTradesCache = [];
 let historySearch = "";
+// Filtre par statut (QoL 2026-09-30), en plus du filtre par pseudo deja en
+// place - utile a mesure que l'historique d'echanges s'allonge.
+let statusFilter = "all";
 let bulkCancelMode = false;
 let bulkCancelSelected = new Set();
 let activeTradeTab = "incoming";
@@ -59,6 +62,21 @@ function setActiveTradeTab(tab) {
   document.getElementById("tab-outgoing-btn").setAttribute("aria-selected", String(tab === "outgoing"));
   document.getElementById("incoming-pane").style.display = tab === "incoming" ? "block" : "none";
   document.getElementById("outgoing-pane").style.display = tab === "outgoing" ? "block" : "none";
+}
+
+// Filtre "doublons uniquement" (QoL 2026-09-30) : evite de proposer par
+// erreur son dernier exemplaire d'une carte - ne montre que celles possedees
+// en x2 ou plus quand la case est cochee.
+function renderOfferedCardOptions() {
+  const duplicatesOnly = document.getElementById("offer-duplicates-only")?.checked;
+  const options = duplicatesOnly ? myOwnedCards.filter((c) => (myOwnedCountByCard.get(c.cardId) || 0) >= 2) : myOwnedCards;
+  const offeredSelect = document.getElementById("offered-card-select");
+  offeredSelect.innerHTML = options
+    .map((c) => `<option value="${c.cardId}">${c.name} (x${myOwnedCountByCard.get(c.cardId)})</option>`)
+    .join("") || `<option value="">${duplicatesOnly ? "Aucun doublon" : "Aucune carte possédée"}</option>`;
+  if (offeredSelect._fancyRefresh) offeredSelect._fancyRefresh();
+  updateCardPreview("offered-card-select", "offered-card-preview");
+  updateOfferedPullOptions();
 }
 
 async function loadFormOptions() {
@@ -80,10 +98,7 @@ async function loadFormOptions() {
   // echanges (l'API ne renvoie que {id, name} par carte impliquee).
   cardById = new Map((cardsRes.cards || []).map((c) => [c.cardId, c]));
 
-  const offeredSelect = document.getElementById("offered-card-select");
-  offeredSelect.innerHTML = myOwnedCards
-    .map((c) => `<option value="${c.cardId}">${c.name} (x${myOwnedCountByCard.get(c.cardId)})</option>`)
-    .join("") || `<option value="">Aucune carte possédée</option>`;
+  renderOfferedCardOptions();
 
   const targetSelect = document.getElementById("target-select");
   const users = (usersRes.users || []).filter((u) => String(u.userId) !== String(Session.userId));
@@ -91,8 +106,6 @@ async function loadFormOptions() {
     .map((u) => `<option value="${u.pseudo}">${u.pseudo}</option>`)
     .join("") || `<option value="">Aucun autre joueur</option>`;
 
-  updateCardPreview("offered-card-select", "offered-card-preview");
-  updateOfferedPullOptions();
   await updateRequestedCardOptionsForTarget(targetSelect.value);
 }
 
@@ -306,14 +319,16 @@ function renderTradeCard(trade) {
 // par pseudo de l'autre joueur (voir #trade-history-search).
 function renderTradeGroup(container, trades, emptyLabel) {
   container.innerHTML = "";
-  const filtered = historySearch
+  let filtered = historySearch
     ? trades.filter((t) => {
         const other = t.direction === "incoming" ? t.fromPseudo : t.toPseudo;
         return (other || "").toLowerCase().includes(historySearch.toLowerCase());
       })
     : trades;
+  if (statusFilter !== "all") filtered = filtered.filter((t) => t.status === statusFilter);
   if (!filtered.length) {
-    container.append(Object.assign(document.createElement("div"), { className: "empty-state", textContent: historySearch ? "Aucun échange avec ce joueur." : emptyLabel }));
+    const filterActive = historySearch || statusFilter !== "all";
+    container.append(Object.assign(document.createElement("div"), { className: "empty-state", textContent: filterActive ? "Aucun échange ne correspond à ce filtre." : emptyLabel }));
     return;
   }
   const pending = filtered.filter((t) => t.status === "pending");
@@ -657,6 +672,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   document.getElementById("requested-card-select").addEventListener("change", () => updateCardPreview("requested-card-select", "requested-card-preview"));
   document.getElementById("target-select").addEventListener("change", (e) => updateRequestedCardOptionsForTarget(e.target.value));
+  document.getElementById("offer-duplicates-only").addEventListener("change", renderOfferedCardOptions);
   enhanceSelect(document.getElementById("offered-card-select"));
   enhanceSelect(document.getElementById("offered-pull-select"));
   enhanceSelect(document.getElementById("requested-card-select"));
@@ -687,6 +703,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("trade-history-search").addEventListener("input", (e) => {
     clearTimeout(historyTimer);
     historyTimer = setTimeout(() => { historySearch = e.target.value; renderAllTrades(); }, 150);
+  });
+  document.getElementById("trade-status-filter").addEventListener("change", (e) => {
+    statusFilter = e.target.value;
+    renderAllTrades();
   });
 
   document.getElementById("bulk-cancel-toggle").addEventListener("click", (e) => {

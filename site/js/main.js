@@ -216,10 +216,78 @@ const Toast = {
       clearBtn.remove();
     }
   },
-  success(msg) { this.show(msg, "success"); },
-  error(msg) { this.show(msg, "error"); },
-  info(msg) { this.show(msg, "info"); }
+  success(msg) { this.show(msg, "success"); NotificationHistory.add("success", msg); },
+  error(msg) { this.show(msg, "error"); NotificationHistory.add("error", msg); },
+  info(msg) { this.show(msg, "info"); NotificationHistory.add("info", msg); }
 };
+
+// ---------------------------------------------------------------------------
+// Historique de notifications (embellissement/QoL 2026-09-30) : ce site est
+// multi-pages (chaque navigation recharge completement le JS), donc un Toast
+// manque en changeant de page est perdu pour toujours - la petite cloche
+// dans le header garde une trace recente consultable a tout moment.
+// sessionStorage (pas localStorage) : une trace par session de navigation,
+// pas une notification qui ressurgirait des semaines plus tard.
+// ---------------------------------------------------------------------------
+const NotificationHistory = {
+  KEY: "2gatcha_notif_history",
+  LAST_SEEN_KEY: "2gatcha_notif_last_seen",
+  MAX: 20,
+  getAll() {
+    try { return JSON.parse(sessionStorage.getItem(this.KEY) || "[]"); } catch (e) { return []; }
+  },
+  add(type, message) {
+    if (!message) return;
+    try {
+      const list = this.getAll();
+      list.unshift({ type, message, ts: Date.now() });
+      sessionStorage.setItem(this.KEY, JSON.stringify(list.slice(0, this.MAX)));
+    } catch (e) {}
+  },
+  unreadCount() {
+    let lastSeen = 0;
+    try { lastSeen = Number(sessionStorage.getItem(this.LAST_SEEN_KEY) || 0); } catch (e) {}
+    return this.getAll().filter((n) => n.ts > lastSeen).length;
+  },
+  markAllSeen() {
+    try { sessionStorage.setItem(this.LAST_SEEN_KEY, String(Date.now())); } catch (e) {}
+  }
+};
+
+function relativeTime(ts) {
+  const diff = Math.max(0, Date.now() - ts);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `il y a ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  return `il y a ${Math.floor(hours / 24)} j`;
+}
+
+function renderNotifDot() {
+  const dot = document.getElementById("notif-bell-dot");
+  if (!dot) return;
+  const count = NotificationHistory.unreadCount();
+  dot.style.display = count > 0 ? "block" : "none";
+}
+
+function renderNotifDropdown() {
+  const el = document.getElementById("notif-bell-dropdown");
+  if (!el) return;
+  const items = NotificationHistory.getAll();
+  const icons = { success: "&#10003;", error: "&#9888;", info: "&#10024;" };
+  el.innerHTML = items.length
+    ? items.map((n) => `
+        <div class="notif-item notif-item-${n.type}">
+          <span class="notif-item-icon">${icons[n.type] || icons.info}</span>
+          <span class="notif-item-body">
+            <span class="notif-item-msg">${n.message}</span>
+            <span class="notif-item-time">${relativeTime(n.ts)}</span>
+          </span>
+        </div>
+      `).join("")
+    : `<div class="notif-empty">Rien de nouveau pour l'instant.</div>`;
+}
 
 // ---------------------------------------------------------------------------
 // Confirmation stylisee (remplace window.confirm, qui casse totalement le
@@ -796,14 +864,14 @@ function bumpNumber(el, newValue) {
 }
 
 const NAV_ITEMS = [
-  { href: "index.html", label: "Accueil", icon: "&#127968;", auth: false },
+  { href: "index.html", label: "Accueil", icon: "&#127968;", auth: false, badgeKey: "rewards" },
   { href: "ouverture.html", label: "Boosters", icon: "&#127873;", auth: false, badgeKey: "boosters" },
   { href: "collection.html", label: "Collection", icon: "&#128218;", auth: false },
   { href: "craft.html", label: "Craft", icon: "&#10024;", auth: true },
   { href: "redeem.html", label: "Code", icon: "&#127915;", auth: true },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
   { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true },
-  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true },
+  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
   { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
 ];
 
@@ -896,6 +964,57 @@ async function loadNavBadges() {
       }
     });
   } catch (e) { /* pas grave, juste un rappel visuel */ }
+
+  // Pastilles "quelque chose a reclamer" (2026-09-30) : jusqu'ici seuls les
+  // echanges/boosters avaient un rappel sur la nav, une quete/un palier de
+  // niveau termine ou un coffre-fort pret ne se decouvraient qu'en visitant
+  // la page par hasard. Cache plus longtemps que trades/boosters (ces etats
+  // bougent moins souvent) pour ne pas multiplier les requetes en arriere-
+  // plan a chaque changement de page.
+  try {
+    let rewardsCount = API._cacheGet("2gatcha_cache_rewards_count", 90 * 1000);
+    if (rewardsCount == null) {
+      const [quests, weekly, levelRewards] = await Promise.all([
+        API.getQuestStatus(Session.userId).catch(() => null),
+        API.getWeeklyQuestStatus(Session.userId).catch(() => null),
+        API.getLevelRewardsStatus(Session.userId).catch(() => null)
+      ]);
+      rewardsCount = [quests?.canClaim, weekly?.canClaim, levelRewards?.hasPending].filter(Boolean).length;
+      API._cacheSet("2gatcha_cache_rewards_count", rewardsCount);
+    }
+    document.querySelectorAll('[data-badge-key="rewards"]').forEach((a) => {
+      a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
+      if (rewardsCount > 0) {
+        const dot = document.createElement("span");
+        dot.className = "nav-dot";
+        dot.textContent = String(rewardsCount);
+        (a.querySelector(".bn-icon") || a).appendChild(dot);
+      }
+    });
+  } catch (e) { /* pas grave, juste un rappel visuel */ }
+
+  try {
+    let jeuxCount = API._cacheGet("2gatcha_cache_jeux_count", 90 * 1000);
+    if (jeuxCount == null) {
+      const [vault, bingo] = await Promise.all([
+        API.getVaultStatus(Session.userId).catch(() => null),
+        API.getBingoStatus(Session.userId).catch(() => null)
+      ]);
+      const vaultReady = !!(vault && !vault.alreadyOpened && vault.userKeys >= vault.keysRequired);
+      const bingoReady = !!(bingo && bingo.hasGrid && bingo.allOwned && !bingo.claimed);
+      jeuxCount = [vaultReady, bingoReady].filter(Boolean).length;
+      API._cacheSet("2gatcha_cache_jeux_count", jeuxCount);
+    }
+    document.querySelectorAll('[data-badge-key="jeux"]').forEach((a) => {
+      a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
+      if (jeuxCount > 0) {
+        const dot = document.createElement("span");
+        dot.className = "nav-dot";
+        dot.textContent = String(jeuxCount);
+        (a.querySelector(".bn-icon") || a).appendChild(dot);
+      }
+    });
+  } catch (e) { /* pas grave, juste un rappel visuel */ }
 }
 
 function renderHeader() {
@@ -929,6 +1048,19 @@ function renderHeader() {
               <span class="icon">&#128273;</span><span class="count">0</span>
             </span>
           </div>
+          <div class="global-search" id="global-search">
+            <button type="button" class="global-search-trigger" id="global-search-trigger" aria-label="Recherche" title="Rechercher un joueur, une carte...">&#128269;</button>
+            <div class="global-search-panel" id="global-search-panel">
+              <input type="text" id="global-search-input" placeholder="Joueur, carte, page..." autocomplete="off" />
+              <div class="global-search-results" id="global-search-results"></div>
+            </div>
+          </div>
+          <div class="notif-bell" id="notif-bell">
+            <button type="button" class="notif-bell-trigger" id="notif-bell-trigger" aria-label="Notifications recentes" title="Notifications recentes">
+              &#128276;<span id="notif-bell-dot" class="notif-bell-dot" style="display:none;"></span>
+            </button>
+            <div class="notif-bell-dropdown" id="notif-bell-dropdown"></div>
+          </div>
           <div class="user-menu" id="user-menu">
             <button type="button" class="user-menu-trigger" id="user-menu-trigger">
               ${avatar}
@@ -956,6 +1088,91 @@ function renderHeader() {
     });
     document.addEventListener("click", (e) => {
       if (!userMenu.contains(e.target)) userMenu.classList.remove("open");
+    });
+    const notifBell = document.getElementById("notif-bell");
+    renderNotifDot();
+    document.getElementById("notif-bell-trigger").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const opening = !notifBell.classList.contains("open");
+      notifBell.classList.toggle("open", opening);
+      if (opening) {
+        renderNotifDropdown();
+        NotificationHistory.markAllSeen();
+        renderNotifDot();
+      }
+    });
+    document.addEventListener("click", (e) => {
+      if (!notifBell.contains(e.target)) notifBell.classList.remove("open");
+    });
+
+    // Recherche globale (QoL 2026-09-30, demande explicite : "les profils
+    // sont peu accessibles") : trouve un joueur par pseudo (raccourci direct
+    // vers son profil, jusque-la seulement atteignable en cliquant un pseudo
+    // au hasard sur le classement/un echange), une carte, ou une page. Les
+    // listes joueurs/cartes ne sont chargees qu'a la premiere ouverture (pas
+    // sur chaque chargement de page), en reutilisant le cache existant de
+    // API.listUsers()/getCards() si une autre page l'a deja rempli.
+    const searchEl = document.getElementById("global-search");
+    const searchInput = document.getElementById("global-search-input");
+    const searchResults = document.getElementById("global-search-results");
+    let searchDataLoaded = false;
+    let searchUsers = [];
+    let searchCards = [];
+
+    async function ensureSearchData() {
+      if (searchDataLoaded) return;
+      searchDataLoaded = true;
+      try {
+        const [usersRes, cardsRes] = await Promise.all([API.listUsers(), API.getCards()]);
+        searchUsers = usersRes.users || [];
+        searchCards = cardsRes.cards || [];
+      } catch (e) { /* recherche degradee (pages seulement) si hors-ligne */ }
+    }
+
+    function renderSearchResults(query) {
+      const q = query.trim().toLowerCase();
+      if (!q) { searchResults.innerHTML = `<div class="global-search-hint">Tape un pseudo, un nom de carte...</div>`; return; }
+      const players = searchUsers.filter((u) => (u.pseudo || "").toLowerCase().includes(q)).slice(0, 5);
+      const cards = searchCards.filter((c) => (c.name || "").toLowerCase().includes(q)).slice(0, 5);
+      const pages = visibleNavItems().filter((i) => i.label.toLowerCase().includes(q));
+      const sections = [];
+      if (players.length) {
+        sections.push(`<div class="global-search-group">Joueurs</div>` + players.map((u) =>
+          `<a class="global-search-item" href="profile.html?pseudo=${encodeURIComponent(u.pseudo)}">&#128100; ${u.pseudo}</a>`
+        ).join(""));
+      }
+      if (cards.length) {
+        sections.push(`<div class="global-search-group">Cartes</div>` + cards.map((c) =>
+          `<a class="global-search-item" href="collection.html?cardId=${c.cardId}">&#127183; ${c.name}</a>`
+        ).join(""));
+      }
+      if (pages.length) {
+        sections.push(`<div class="global-search-group">Pages</div>` + pages.map((i) =>
+          `<a class="global-search-item" href="${i.href}">${i.icon} ${i.label}</a>`
+        ).join(""));
+      }
+      searchResults.innerHTML = sections.length ? sections.join("") : `<div class="global-search-hint">Aucun résultat.</div>`;
+    }
+
+    document.getElementById("global-search-trigger").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const opening = !searchEl.classList.contains("open");
+      searchEl.classList.toggle("open", opening);
+      if (opening) {
+        searchInput.value = "";
+        renderSearchResults("");
+        searchInput.focus();
+        await ensureSearchData();
+        renderSearchResults(searchInput.value);
+      }
+    });
+    searchInput.addEventListener("input", () => renderSearchResults(searchInput.value));
+    searchInput.addEventListener("click", (e) => e.stopPropagation());
+    document.addEventListener("click", (e) => {
+      if (!searchEl.contains(e.target)) searchEl.classList.remove("open");
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") searchEl.classList.remove("open");
     });
     document.getElementById("mute-toggle-btn").addEventListener("click", (e) => {
       Sfx.setMuted(!Sfx.muted);
@@ -1116,10 +1333,29 @@ async function loadHeaderBoosterBadge() {
     if (keyBadge) {
       const keys = status.keys || 0;
       if (keys > 0) {
-        const keyEl = keyBadge.querySelector(".count");
-        bumpNumber(keyEl, keys);
         keyBadge.style.display = "flex";
         if (keyDivider) keyDivider.style.display = "block";
+        // Progression vers le coffre-fort visible partout (QoL 2026-09-30) :
+        // auparavant seule la page Jeux montrait "X/6", ailleurs on ne
+        // voyait qu'un chiffre sans contexte. Cache (comme loadNavBadges) -
+        // simple confort d'affichage, pas critique a la seconde pres. La
+        // valeur finale (nombre brut ou "X/6") est decidee AVANT d'appeler
+        // bumpNumber une seule fois - lui passer un format texte puis le
+        // corriger juste apres ferait sauter l'anim au milieu (son propre
+        // requestAnimationFrame ecraserait la correction sur l'image suivante).
+        let vault = API._cacheGet("2gatcha_cache_vault_progress", 90 * 1000);
+        if (vault === null) {
+          vault = await API.getVaultStatus(Session.userId).catch(() => null);
+          API._cacheSet("2gatcha_cache_vault_progress", vault);
+        }
+        const keyEl = keyBadge.querySelector(".count");
+        if (vault && !vault.alreadyOpened && vault.keysRequired) {
+          keyBadge.title = `${keys} / ${vault.keysRequired} clefs vers le coffre-fort`;
+          keyEl.textContent = `${keys}/${vault.keysRequired}`;
+        } else {
+          keyBadge.title = "Clefs secrètes (fouilles)";
+          bumpNumber(keyEl, keys);
+        }
       } else {
         keyBadge.style.display = "none";
         if (keyDivider) keyDivider.style.display = "none";
@@ -1257,4 +1493,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // Les polices web (Bungee/Inter) peuvent legerement changer la hauteur du
   // header une fois chargees : on recale une fois qu'elles sont pretes.
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderOffset);
+
+  // Rafraichissement periodique du header (QoL 2026-09-30) : un don admin ou
+  // un gain recu pendant qu'on reste sur la meme page (booster, poussieres,
+  // clefs) ne se voyait auparavant qu'au prochain rechargement manuel. Les
+  // deux fonctions appelees ont deja leur propre cache (45-90s), donc cet
+  // intervalle ne multiplie pas vraiment les requetes - il se contente de
+  // les redeclencher regulierement. Pause quand l'onglet est en arriere-plan.
+  if (Session.isLoggedIn()) {
+    setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      loadHeaderBoosterBadge();
+      loadNavBadges();
+    }, 60000);
+  }
 });

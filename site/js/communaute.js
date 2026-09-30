@@ -47,6 +47,12 @@ function normalize(str) {
   return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// Memorise le dernier onglet visite (QoL 2026-09-30).
+const LAST_TAB_KEY = "2gatcha_last_tab_communaute";
+function getInitialTab() {
+  try { return localStorage.getItem(LAST_TAB_KEY) || "calendar"; } catch (e) { return "calendar"; }
+}
+
 function setActiveTab(tab) {
   activeTab = tab;
   ["calendar", "boss", "chest", "market"].forEach((key) => {
@@ -54,6 +60,8 @@ function setActiveTab(tab) {
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
   });
+  try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
+  if (tab === "calendar") loadCalendar();
   if (tab === "boss") loadBoss();
   if (tab === "chest") loadChest();
   if (tab === "market") loadMarket();
@@ -241,6 +249,7 @@ async function loadChest() {
     const hint = document.getElementById("chest-status-hint");
     const drawBtn = document.getElementById("chest-draw-btn");
     const chestIcon = document.getElementById("chest-icon");
+    statusText.classList.remove("skeleton-line");
 
     chestAlreadyDepositedToday = !!res.alreadyDepositedToday;
 
@@ -278,6 +287,7 @@ async function loadChest() {
     document.getElementById("chest-search-input").style.display = chestAlreadyDepositedToday ? "none" : "";
     renderChestGrid();
   } catch (e) {
+    document.getElementById("chest-status-text").classList.remove("skeleton-line");
     Toast.error("Impossible de charger le coffre.");
   }
 }
@@ -392,7 +402,7 @@ async function buyMarket(offerId) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  loadCalendar();
+  setActiveTab(getInitialTab());
 
   document.getElementById("tab-calendar-btn").addEventListener("click", () => setActiveTab("calendar"));
   document.getElementById("tab-boss-btn").addEventListener("click", () => setActiveTab("boss"));

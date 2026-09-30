@@ -145,11 +145,25 @@ function applyFeatureLocks() {
   });
 }
 
+// Memorise le dernier onglet visite (QoL 2026-09-30). Ne restaure jamais un
+// onglet devenu verrouille entre-temps (ex: admin qui relève un palier) -
+// getInitialTab() revalide contre knownProfileLevel avant d'utiliser la
+// valeur memorisee, plutot que de laisser setActiveTab la rejeter en
+// silence au tout premier appel (aucun onglet ne serait alors affiche).
+const LAST_TAB_KEY = "2gatcha_last_tab_craft";
+function getInitialTab() {
+  let tab = "disenchant";
+  try { tab = localStorage.getItem(LAST_TAB_KEY) || "disenchant"; } catch (e) {}
+  if (FEATURE_UNLOCK_LEVEL[tab] && knownProfileLevel < FEATURE_UNLOCK_LEVEL[tab]) return "disenchant";
+  return tab;
+}
+
 function setActiveTab(tab) {
   if (FEATURE_UNLOCK_LEVEL[tab] && knownProfileLevel < FEATURE_UNLOCK_LEVEL[tab]) {
     Toast.info(`${FEATURE_LABELS[tab]} se débloque au niveau ${FEATURE_UNLOCK_LEVEL[tab]} (tu es niveau ${knownProfileLevel}).`);
     return;
   }
+  try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
   activeTab = tab;
   document.getElementById("tab-disenchant-btn").classList.toggle("active", tab === "disenchant");
   document.getElementById("tab-disenchant-btn").setAttribute("aria-selected", String(tab === "disenchant"));
@@ -550,6 +564,7 @@ function craftCardTile(card, mode) {
       <div class="card-info">
         <div class="card-name">${card.name}</div>
         <div class="craft-cost">${cost} poussières</div>
+        ${!canAfford ? `<div class="craft-missing">Il te manque ${cost - stardust} poussières</div>` : ""}
         ${showCraftStepper ? `
           <div class="qty-stepper">
             <button type="button" class="qty-btn" data-qty-action="minus" data-mode="craft" data-card-id="${card.cardId}" ${craftQtyVal <= 1 ? "disabled" : ""}>&minus;</button>
@@ -956,7 +971,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("craft-zone").style.display = "block";
   await fetchMyLevel();
   applyFeatureLocks();
-  setActiveTab("disenchant");
+  setActiveTab(getInitialTab());
   reload();
 
   document.getElementById("tab-disenchant-btn").addEventListener("click", () => setActiveTab("disenchant"));
@@ -969,10 +984,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     craftBulkSelectMode = !craftBulkSelectMode;
     craftBulkSelected.clear();
     e.target.classList.toggle("active", craftBulkSelectMode);
+    document.getElementById("select-all-craft-btn").style.display = craftBulkSelectMode ? "" : "none";
     updateBulkCraftBar();
     renderCraftGrid();
   });
   document.getElementById("bulk-craft-btn").addEventListener("click", bulkCraft);
+  // Coche chaque case visible plutot que de recalculer la liste filtree :
+  // reutilise le listener "change" deja pose par renderCraftGrid (met a
+  // jour craftBulkSelected + la barre de resume), respecte donc deja
+  // automatiquement la recherche/le filtre en cours.
+  document.getElementById("select-all-craft-btn").addEventListener("click", () => {
+    document.querySelectorAll("#craft-grid [data-craft-bulk-id]:not(:disabled)").forEach((cb) => {
+      if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event("change")); }
+    });
+  });
 
   let craftSearchTimer = null;
   document.getElementById("craft-search-input").addEventListener("input", (e) => {
@@ -992,8 +1017,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     bulkSelectMode = !bulkSelectMode;
     bulkSelected.clear();
     e.target.classList.toggle("active", bulkSelectMode);
+    document.getElementById("select-all-disenchant-btn").style.display = bulkSelectMode ? "" : "none";
     updateBulkBar();
     renderDisenchantGrid();
   });
   document.getElementById("bulk-disenchant-btn").addEventListener("click", bulkDisenchant);
+  document.getElementById("select-all-disenchant-btn").addEventListener("click", () => {
+    document.querySelectorAll("#disenchant-grid [data-bulk-id]").forEach((cb) => {
+      if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event("change")); }
+    });
+  });
 });

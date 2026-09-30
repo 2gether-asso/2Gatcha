@@ -2,12 +2,22 @@
 
 let digTimer = null;
 
+// Memorise le dernier onglet visite (QoL 2026-09-30) : revenir sur "Jeux"
+// rouvrait toujours "Fouille" par defaut, meme si on passait le plus clair
+// de son temps sur "Coffre-fort".
+const LAST_TAB_KEY = "2gatcha_last_tab_jeux";
+function getInitialTab() {
+  try { return localStorage.getItem(LAST_TAB_KEY) || "dig"; } catch (e) { return "dig"; }
+}
+
 function setActiveTab(tab) {
   ["dig", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
   });
+  try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
+  if (tab === "dig") loadDig();
   if (tab === "bingo") loadBingo();
   if (tab === "vault") loadVault();
 }
@@ -41,20 +51,40 @@ async function loadDig() {
     document.getElementById("dig-intro").textContent =
       `Creuse les tuiles pour trouver des trésors cachés — certains sont étalés sur plusieurs tuiles, il faut toutes les creuser pour libérer l'objet. Chaque tuile coûte 1 point d'énergie (régénère +1 chaque ${regenLabel}, jusqu'à ${digMaxEnergy}).`;
   } catch (e) {
+    document.getElementById("dig-status-text").classList.remove("skeleton-line");
     document.getElementById("dig-status-text").textContent = "Impossible de charger l'énergie.";
   }
 }
 
+// Compte a rebours en direct (2026-09-30) : auparavant un texte fige, qui
+// affichait "prochaine dans 3 min" indefiniment tant que la page n'etait pas
+// rechargee a la main, meme une fois l'energie reellement revenue. Decompte
+// cote client (pas de nouvel appel reseau chaque seconde) puis re-verifie le
+// vrai etat serveur une fois le delai ecoule.
+let digCountdownTimer = null;
 function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
+  if (digCountdownTimer) { clearInterval(digCountdownTimer); digCountdownTimer = null; }
   document.getElementById("dig-energy-bar").innerHTML = Array.from({ length: maxEnergy }, (_, i) => `
     <span class="dig-pip ${i < energy ? "filled" : ""}"></span>
   `).join("");
   const statusText = document.getElementById("dig-status-text");
+  statusText.classList.remove("skeleton-line");
   if (energy > 0) {
     statusText.textContent = `${energy} / ${maxEnergy} énergie — chaque tuile en coûte 1`;
-  } else {
-    statusText.textContent = `Énergie épuisée — prochaine dans ${formatDuration(secondsUntilNext || 60)}`;
+    return;
   }
+  let remaining = secondsUntilNext || 60;
+  statusText.textContent = `Énergie épuisée — prochaine dans ${formatDuration(remaining)}`;
+  digCountdownTimer = setInterval(() => {
+    remaining -= 5;
+    if (remaining <= 0) {
+      clearInterval(digCountdownTimer);
+      digCountdownTimer = null;
+      loadDig();
+      return;
+    }
+    statusText.textContent = `Énergie épuisée — prochaine dans ${formatDuration(remaining)}`;
+  }, 5000);
 }
 
 // Meme icone pour toutes les tuiles d'un MEME tresor, des le premier coup de
@@ -197,7 +227,9 @@ async function loadVault() {
     }
     document.getElementById("vault-card-img").src = API.imageUrl(res.card.imageId) || PLACEHOLDER_IMG;
     document.getElementById("vault-card-img").alt = res.card.name;
-    document.getElementById("vault-card-name").textContent = res.card.name;
+    const vaultNameEl = document.getElementById("vault-card-name");
+    vaultNameEl.classList.remove("skeleton-line");
+    vaultNameEl.textContent = res.card.name;
     const pct = Math.min(100, Math.round((res.userKeys / res.keysRequired) * 100));
     document.getElementById("vault-keys-fill").style.width = pct + "%";
     document.getElementById("vault-keys-label").innerHTML = `&#128273; ${res.userKeys} / ${res.keysRequired} clefs`;
@@ -206,7 +238,10 @@ async function loadVault() {
     const openedZone = document.getElementById("vault-opened");
     if (res.alreadyOpened) {
       lockedZone.style.display = "none";
-      openedZone.style.display = "block";
+      openedZone.style.display = "flex";
+      document.getElementById("vault-opened-img").src = API.imageUrl(res.card.imageId) || PLACEHOLDER_IMG;
+      document.getElementById("vault-opened-img").alt = res.card.name;
+      document.getElementById("vault-opened-name").textContent = res.card.name;
     } else {
       lockedZone.style.display = "block";
       openedZone.style.display = "none";
@@ -246,6 +281,5 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
   document.getElementById("vault-open-btn").addEventListener("click", openVault);
-  document.getElementById("dig-pane").style.display = "block";
-  loadDig();
+  setActiveTab(getInitialTab());
 });

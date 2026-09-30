@@ -80,7 +80,7 @@
         <div class="wheel-widget">
           <span class="wheel-icon" aria-hidden="true">&#127920;</span>
           <div class="wheel-status">
-            <div id="wheel-status-text">Chargement...</div>
+            <div id="wheel-status-text" class="skeleton-line">Chargement...</div>
             <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
           </div>
         </div>
@@ -96,13 +96,13 @@
           <h2 style="flex:1;margin:0;">&#127919; Quêtes du jour</h2>
           <span id="quest-streak-badge" class="streak-badge" style="display:none;"></span>
         </div>
-        <p class="lead" style="font-size:0.85rem;" id="quests-intro">Chargement...</p>
+        <p class="lead skeleton-line" style="font-size:0.85rem;" id="quests-intro">Chargement...</p>
         <div id="quests-list" class="quests-list"></div>
       </div>
 
       <div class="panel" id="weekly-quests-panel" style="display:none;">
         <h2>&#128197; Quêtes de la semaine</h2>
-        <p class="lead" style="font-size:0.85rem;" id="weekly-quests-intro">Chargement...</p>
+        <p class="lead skeleton-line" style="font-size:0.85rem;" id="weekly-quests-intro">Chargement...</p>
         <div id="weekly-quests-list" class="quests-list"></div>
       </div>
     </div>
@@ -381,7 +381,9 @@
           const quests = res.quests || {};
           const threshold = res.threshold || 2;
           const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 2;
-          document.getElementById("quests-intro").textContent =
+          const questsIntroEl = document.getElementById("quests-intro");
+          questsIntroEl.classList.remove("skeleton-line");
+          questsIntroEl.textContent =
             `Complète ${threshold} des 4 quêtes aujourd'hui pour recevoir ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}.`;
           list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
             const done = !!quests[key];
@@ -425,6 +427,7 @@
             if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.4 } });
           }
         }).catch(() => {
+          document.getElementById("quests-intro").classList.remove("skeleton-line");
           document.getElementById("quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
         });
       }
@@ -440,7 +443,9 @@
         const target = res.target || 5;
         const threshold = res.threshold || 3;
         const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 5;
-        document.getElementById("weekly-quests-intro").innerHTML =
+        const weeklyIntroEl = document.getElementById("weekly-quests-intro");
+        weeklyIntroEl.classList.remove("skeleton-line");
+        weeklyIntroEl.innerHTML =
           `Complète ${threshold} des 4 quêtes cette semaine (lundi &rarr; dimanche) pour recevoir ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}.`;
         list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
           const count = Math.min(quests[key] || 0, target);
@@ -478,6 +483,7 @@
           });
         }
         }).catch(() => {
+          document.getElementById("weekly-quests-intro").classList.remove("skeleton-line");
           document.getElementById("weekly-quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
         });
       }
@@ -488,8 +494,13 @@
       achievementsPanel.style.display = "block";
       API.getAchievements(Session.userId).then((res) => {
         document.getElementById("achievements-count").textContent = `${res.unlockedCount} / ${res.totalCount} débloqués`;
+        // "Presque debloque" (QoL 2026-09-30) : un liseré qui pulse doucement
+        // sur la vignette elle-meme (il n'en manque qu'un), plus un Toast une
+        // seule fois par session pour ne pas obliger a scroller jusqu'ici
+        // pour le remarquer.
+        const almostDone = (res.achievements || []).filter((a) => !a.unlocked && a.goal - a.progress <= 1);
         document.getElementById("achievements-grid").innerHTML = (res.achievements || []).map((a) => `
-          <div class="achievement-tile ${a.unlocked ? "unlocked" : ""}">
+          <div class="achievement-tile ${a.unlocked ? "unlocked" : ""} ${!a.unlocked && a.goal - a.progress <= 1 ? "almost-done" : ""}">
             <span class="achievement-icon">${a.icon}</span>
             <div class="achievement-info">
               <div class="achievement-name">${a.name}</div>
@@ -501,6 +512,15 @@
             </div>
           </div>
         `).join("");
+        if (almostDone.length) {
+          let notified = false;
+          try { notified = sessionStorage.getItem("2gatcha_almost_achievement_notified") === "1"; } catch (e) {}
+          if (!notified) {
+            const label = almostDone.length === 1 ? `"${almostDone[0].name}"` : `${almostDone.length} succès`;
+            Toast.info(`&#127942; Tu es tout proche de débloquer ${label} !`);
+            try { sessionStorage.setItem("2gatcha_almost_achievement_notified", "1"); } catch (e) {}
+          }
+        }
       }).catch(() => {
         document.getElementById("achievements-grid").innerHTML = `<div class="empty-state">Impossible de charger les succès.</div>`;
       });
@@ -513,6 +533,7 @@
       const wheelSpinBtn = document.getElementById("wheel-spin-btn");
       wheelPanel.style.display = "block";
       API.getDailyWheelStatus(Session.userId).then((res) => {
+        wheelStatusText.classList.remove("skeleton-line");
         if (res.canSpin) {
           wheelStatusText.textContent = "Ton tirage du jour est disponible !";
           wheelSpinBtn.style.display = "inline-flex";
@@ -520,6 +541,7 @@
           wheelStatusText.textContent = "Reviens demain pour un nouveau tirage.";
         }
       }).catch(() => {
+        wheelStatusText.classList.remove("skeleton-line");
         wheelStatusText.textContent = "Impossible de charger la roue pour l'instant.";
       });
 

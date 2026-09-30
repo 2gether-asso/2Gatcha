@@ -920,6 +920,16 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
   filter: grayscale(0.6);
 }
 .achievement-tile.unlocked { opacity: 1; filter: none; border-color: rgba(245,165,36,0.4); }
+/* "Presque debloque" (QoL 2026-09-30) : il n'en manque qu'un - liseré discret
+   qui pulse, sans crier aussi fort qu'un succes deja obtenu. */
+.achievement-tile.almost-done { border-color: var(--accent-2); animation: achievementAlmostPulse 2.2s ease-in-out infinite; }
+@keyframes achievementAlmostPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.3); }
+  50% { box-shadow: 0 0 0 5px rgba(34,211,238,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .achievement-tile.almost-done { animation: none; }
+}
 
 /* Boutique de badges cosmetiques (page profil, "Mes badges"). */
 .badge-shop-grid {
@@ -1729,6 +1739,31 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .empty-state.feature-locked { max-width: 480px; margin: 40px auto; line-height: 1.6; }
 .empty-state.feature-locked::before { content: none; }
 
+/* Squelette de chargement (2026-09-30) : remplace le texte statique
+   "Chargement..." par une barre animee, plus doux pour l'oeil qu'un texte
+   fige (et evite l'impression de page bloquee, voir le bug corrige sur le
+   coffre-fort). S'applique directement sur l'element qui contient deja le
+   texte "Chargement..." - le rend transparent et anime son propre fond ; le
+   JS appelant retire cette classe des que le vrai contenu est pose. */
+.skeleton-line {
+  display: inline-block;
+  min-width: 90px;
+  max-width: 100%;
+  height: 0.85em;
+  border-radius: 4px;
+  color: transparent !important;
+  background: linear-gradient(90deg, var(--bg-panel-2) 25%, var(--bg-panel-solid) 50%, var(--bg-panel-2) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line { animation: none; opacity: 0.6; }
+}
+
 .error-box {
   background: #3b1220;
   border: 1px solid #7f1d3a;
@@ -2007,11 +2042,28 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   border: 3px solid #ff6ec7;
   animation: vault-glow-pulse 3s ease-in-out infinite;
 }
-.vault-card-img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(1.6) contrast(1.1); }
+/* Filtre adouci (2026-09-30) : saturate(1.6)+contrast(1.1) ecrasait les
+   photos deja sombres (ex: un chat noir) en quasi-noir illisible - un leger
+   coup de lumiere garde la carte reconnaissable quelle que soit l'image. */
+.vault-card-img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(1.3) brightness(1.25) contrast(1.05); }
+/* Barreaux metalliques (2026-09-30, corrige un vrai bug) : l'ancienne version
+   etait un simple voile sombre semi-transparent, qui se fondait avec toute
+   image deja sombre et rendait la carte totalement illisible (juste un
+   rectangle noir). Un degrade clair-fonce-clair par barreau (comme un reflet
+   sur une tige metallique) reste visible quelle que soit l'image en dessous,
+   ET laisse largement plus de place transparente pour voir la carte. */
 .vault-bars {
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(90deg, rgba(10,10,20,0.85) 0 6px, transparent 6px 26px);
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px, transparent 22px,
+    rgba(0,0,0,0.7) 22px, rgba(0,0,0,0.7) 24px,
+    rgba(210,210,220,0.9) 25px,
+    rgba(0,0,0,0.7) 26px, rgba(0,0,0,0.7) 28px,
+    transparent 28px
+  );
+  box-shadow: inset 0 0 18px rgba(0,0,0,0.55);
   pointer-events: none;
 }
 .vault-lock-icon {
@@ -2052,6 +2104,35 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 @media (prefers-reduced-motion: reduce) {
   .vault-card-frame, .vault-keys-fill { animation: none; }
   .vault-card-frame.vault-unlocking { animation: none; opacity: 0; transition: opacity 0.4s ease; }
+}
+
+/* Coffre deja ouvert (2026-09-30, corrige un vrai bug) : reprenait la classe
+   generique .empty-state (icone "boite d'archives" + gros espace vide),
+   qui envoyait un signal "rien a voir ici" - a l'oppose d'un message de
+   reussite. Reprend plutot le ton celebratoire de .reward-banner, avec la
+   carte desormais entierement revelee (sans barreaux) a cote du texte. */
+.vault-opened-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,110,199,0.22), rgba(125,211,252,0.16));
+  border: 1px solid var(--border);
+}
+.vault-opened-img {
+  width: 70px;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 2px solid #ff6ec7;
+  box-shadow: 0 0 18px rgba(255,110,199,0.5);
+  flex-shrink: 0;
+}
+.vault-opened-text { font-size: 0.92rem; line-height: 1.5; }
+@media (max-width: 480px) {
+  .vault-opened-banner { padding: 14px 16px; }
+  .vault-opened-img { width: 54px; }
 }
 
 /* --- Liste d'echanges --- */
@@ -3854,6 +3935,9 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .craft-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
 .craft-card .card-info { padding: 8px 10px 12px; }
 .craft-card .craft-cost { font-size: 0.78rem; color: var(--accent-3); font-weight: 700; margin: 4px 0 8px; }
+/* Calculateur "il te manque X" (QoL 2026-09-30) : remplace le simple grise
+   "indisponible" par un chiffre exploitable, pas juste "pas assez". */
+.craft-card .craft-missing { font-size: 0.72rem; color: var(--text-dim); margin: -6px 0 8px; }
 .craft-card button { width: 100%; padding: 8px; font-size: 0.82rem; }
 .craft-card .owned-count { font-size: 0.7rem; color: var(--text-dim); }
 .disenchant-btn { background: linear-gradient(135deg, var(--accent-dark), var(--accent-3)); }
@@ -4222,6 +4306,115 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
 .user-menu-dropdown button:hover, .user-menu-dropdown a:hover { background: rgba(255,255,255,0.06); color: var(--text); }
 .user-menu-dropdown .menu-sep { height: 1px; background: var(--border-soft); margin: 6px 2px; }
 
+/* Cloche de notifications (QoL 2026-09-30) : meme squelette que .user-menu,
+   garde une trace des derniers Toasts (voir main.js NotificationHistory) -
+   utile sur ce site multi-pages ou un Toast manque en changeant de page est
+   perdu pour toujours sans ca. */
+.notif-bell { position: relative; }
+.notif-bell-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  font-size: 1rem;
+  box-shadow: none;
+}
+.notif-bell-dot {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--bg-panel-solid);
+}
+.notif-bell-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(320px, 85vw);
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px -16px rgba(0,0,0,0.7);
+  padding: 8px;
+  display: none;
+  z-index: 20;
+}
+.notif-bell.open .notif-bell-dropdown { display: block; animation: modalPopIn 0.15s ease forwards; }
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.notif-item + .notif-item { border-top: 1px solid var(--border-soft); }
+.notif-item-icon { flex-shrink: 0; margin-top: 1px; }
+.notif-item-success .notif-item-icon { color: var(--success); }
+.notif-item-error .notif-item-icon { color: var(--danger); }
+.notif-item-info .notif-item-icon { color: var(--accent-2); }
+.notif-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif-item-msg { color: var(--text); line-height: 1.35; word-wrap: break-word; }
+.notif-item-time { color: var(--text-dim); font-size: 0.72rem; }
+.notif-empty { color: var(--text-dim); text-align: center; padding: 20px 10px; font-size: 0.85rem; }
+
+/* Recherche globale (QoL 2026-09-30, demande explicite : les profils sont
+   peu accessibles) : meme squelette que .notif-bell, trouve un joueur, une
+   carte ou une page depuis n'importe quelle page. */
+.global-search { position: relative; }
+.global-search-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  font-size: 1rem;
+  box-shadow: none;
+}
+.global-search-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(320px, 85vw);
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px -16px rgba(0,0,0,0.7);
+  padding: 10px;
+  display: none;
+  z-index: 21;
+}
+.global-search.open .global-search-panel { display: block; animation: modalPopIn 0.15s ease forwards; }
+.global-search-panel input {
+  width: 100%;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  margin-bottom: 8px;
+}
+.global-search-results { max-height: 340px; overflow-y: auto; }
+.global-search-group { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); padding: 6px 8px 2px; }
+.global-search-item { display: block; padding: 8px; border-radius: 8px; color: var(--text); font-size: 0.88rem; text-decoration: none; }
+.global-search-item:hover { background: rgba(255,255,255,0.06); }
+.global-search-hint { color: var(--text-dim); font-size: 0.82rem; padding: 10px 8px; text-align: center; }
+
 /* ========================================================================
    Barre de chargement (haut de page, pendant les appels API)
    ======================================================================== */
@@ -4312,13 +4505,32 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
   gap: 10px;
   margin: 12px 0;
 }
-.wishlist-mini-card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wishlist-mini-card { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
 .wishlist-mini-card img {
   width: 100%;
   aspect-ratio: 3/4;
   object-fit: cover;
   border-radius: 8px;
   border: 2px solid var(--border-soft);
+}
+/* Indicateur "réalisable" (2026-09-30) : signale qu'un souhait est deja a
+   portee de poussieres, pas besoin d'attendre un tirage. */
+.wishlist-mini-card.craftable img { border-color: var(--success); box-shadow: 0 0 12px rgba(74,222,128,0.5); }
+.wishlist-craftable-badge {
+  position: absolute;
+  top: -4px;
+  right: 4px;
+  z-index: 1;
+  background: var(--success);
+  color: #06210f;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }
 .wishlist-mini-name {
   font-size: 0.68rem;
