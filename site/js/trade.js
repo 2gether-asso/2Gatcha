@@ -525,8 +525,13 @@ async function respond(tradeId, accept) {
     await API.respondTrade(Session.userId, Number(tradeId), accept, requestedPullId);
     Toast.success(accept ? "Échange accepte !" : "Échange refuse.");
     // Un echange accepte accorde de l'XP (niveaux de profil) aux deux
-    // parties : rafraichit le badge de niveau dans le header.
-    if (accept) loadHeaderBoosterBadge();
+    // parties : rafraichit le badge de niveau dans le header. Confettis
+    // (embellissement 2026-09-30) : un echange accepte etait jusque-la la
+    // seule action de gain du site sans aucune petite fete visuelle.
+    if (accept) {
+      loadHeaderBoosterBadge();
+      if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.5 } });
+    }
     loadTrades();
   } catch (e) {
     Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));

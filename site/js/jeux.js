@@ -3,12 +3,13 @@
 let digTimer = null;
 
 function setActiveTab(tab) {
-  ["dig", "bingo"].forEach((key) => {
+  ["dig", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
   });
   if (tab === "bingo") loadBingo();
+  if (tab === "vault") loadVault();
 }
 
 function formatDuration(seconds) {
@@ -181,6 +182,60 @@ async function claimBingo() {
   }
 }
 
+// -----------------------------------------------------------------------
+// Coffre-fort : une carte promo arc-en-ciel vitrine, visible mais enfermee
+// tant qu'on n'a pas 6 clefs secretes (memes clefs que la fouille/la roue
+// quotidienne) - deverrouillage DEFINITIF, une seule fois par joueur (voir
+// vault.json - pas de colonne d'etat dediee, juste une ligne Pulls au
+// BatchId prefixe 'vault-').
+async function loadVault() {
+  try {
+    const res = await API.getVaultStatus(Session.userId);
+    if (!res.card) {
+      document.getElementById("vault-locked").innerHTML = `<div class="empty-state">Le coffre-fort n'est pas encore configuré.</div>`;
+      return;
+    }
+    document.getElementById("vault-card-img").src = API.imageUrl(res.card.imageId) || PLACEHOLDER_IMG;
+    document.getElementById("vault-card-img").alt = res.card.name;
+    document.getElementById("vault-card-name").textContent = res.card.name;
+    const pct = Math.min(100, Math.round((res.userKeys / res.keysRequired) * 100));
+    document.getElementById("vault-keys-fill").style.width = pct + "%";
+    document.getElementById("vault-keys-label").innerHTML = `&#128273; ${res.userKeys} / ${res.keysRequired} clefs`;
+    const openBtn = document.getElementById("vault-open-btn");
+    const lockedZone = document.getElementById("vault-locked");
+    const openedZone = document.getElementById("vault-opened");
+    if (res.alreadyOpened) {
+      lockedZone.style.display = "none";
+      openedZone.style.display = "block";
+    } else {
+      lockedZone.style.display = "block";
+      openedZone.style.display = "none";
+      openBtn.style.display = res.userKeys >= res.keysRequired ? "inline-flex" : "none";
+    }
+  } catch (e) {
+    Toast.error("Impossible de charger le coffre-fort.");
+  }
+}
+
+async function openVault() {
+  const ok = await Confirm.show(
+    `Ouvrir le coffre-fort consomme <strong>6 clefs secrètes</strong> et débloque définitivement la carte arc-en-ciel qu'il contient. Continuer ?`,
+    { title: "Ouvrir le coffre-fort ?", confirmText: "Ouvrir" }
+  );
+  if (!ok) return;
+  try {
+    const res = await API.openVault(Session.userId);
+    Toast.success(`Coffre-fort ouvert : ${res.card.name} !`);
+    if (typeof confetti === "function") confetti({ particleCount: 250, spread: 140, origin: { y: 0.5 } });
+    const frame = document.querySelector("#vault-locked .vault-card-frame");
+    if (frame) frame.classList.add("vault-unlocking");
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    setTimeout(() => loadVault(), 1000);
+  } catch (e) {
+    Toast.error(e.code === "not_enough_keys" ? "Pas assez de clefs." : e.code === "already_opened" ? "Déjà ouvert." : ("Erreur. (" + e.message + ")"));
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
@@ -188,7 +243,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   document.getElementById("tab-dig-btn").addEventListener("click", () => setActiveTab("dig"));
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));
+  document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
+  document.getElementById("vault-open-btn").addEventListener("click", openVault);
   document.getElementById("dig-pane").style.display = "block";
   loadDig();
 });

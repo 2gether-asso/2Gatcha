@@ -110,29 +110,46 @@
     <div id="wheel-modal-overlay" class="card-modal-overlay" hidden>
       <div class="wheel-modal">
         <div class="wheel-container">
+          <div id="wheel-pointer-glow" class="wheel-pointer-glow" aria-hidden="true"></div>
           <div class="wheel-pointer" aria-hidden="true">&#9660;</div>
           <svg id="wheel-svg" class="wheel-svg" viewBox="0 0 200 200" role="img" aria-label="Roue de la fortune">
+            <defs>
+              <linearGradient id="wheelJackpotGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ffe066" />
+                <stop offset="50%" stop-color="#fff7cc" />
+                <stop offset="100%" stop-color="#d4af37" />
+              </linearGradient>
+            </defs>
             <g id="wheel-group">
-              <!-- 8 cases, alternant poussiere/booster/poussiere+ ; les tailles
+              <!-- 12 cases (2026-09-30, etait 8), 5 types de lots ; les tailles
                    ne sont pas egales - chaque type garde au total exactement
-                   la meme probabilite qu'avant (70/20/10%), juste repartie sur
-                   plusieurs cases pour l'effet visuel d'une vraie roue. -->
-              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 100,10 A 90,90 0 0,1 189.5,90.6 Z" />
-              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 189.5,90.6 A 90,90 0 0,1 189.5,109.4 Z" />
-              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 189.5,109.4 A 90,90 0 0,1 166.9,160.2 Z" />
-              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 166.9,160.2 A 90,90 0 0,1 47.1,172.8 Z" />
-              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 47.1,172.8 A 90,90 0 0,1 33.1,160.2 Z" />
-              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 33.1,160.2 A 90,90 0 0,1 10.5,109.4 Z" />
-              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 10.5,109.4 A 90,90 0 0,1 81.3,12.0 Z" />
-              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 81.3,12.0 A 90,90 0 0,1 100,10 Z" />
-              <text x="141.5" y="57.9" class="wheel-icon-label">&#10024;</text>
-              <text x="162" y="104" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
-              <text x="156.6" y="129.2" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
-              <text x="106.5" y="165.7" class="wheel-icon-label">&#10024;</text>
-              <text x="58.5" y="150.1" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
-              <text x="43.4" y="129.2" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
-              <text x="49.8" y="67.6" class="wheel-icon-label">&#10024;</text>
-              <text x="93.5" y="42.3" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
+                   la meme probabilite que dans daily-wheel.json (voir
+                   grist/SCHEMA.md), juste repartie sur plusieurs cases pour
+                   l'effet visuel d'une vraie roue a 12 secteurs. -->
+              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 100,10 A 90,90 0 0,1 145,22.1 Z" />
+              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 145,22.1 A 90,90 0 0,1 177.9,55 Z" />
+              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 177.9,55 A 90,90 0 0,1 190,100 Z" />
+              <path class="wheel-seg wheel-seg-key" d="M 100,100 L 190,100 A 90,90 0 0,1 177.9,145 Z" />
+              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 177.9,145 A 90,90 0 0,1 145,177.9 Z" />
+              <path class="wheel-seg wheel-seg-jackpot" d="M 100,100 L 145,177.9 A 90,90 0 0,1 100,190 Z" />
+              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 100,190 A 90,90 0 0,1 55,177.9 Z" />
+              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 55,177.9 A 90,90 0 0,1 22.1,145 Z" />
+              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 22.1,145 A 90,90 0 0,1 10,100 Z" />
+              <path class="wheel-seg wheel-seg-key" d="M 100,100 L 10,100 A 90,90 0 0,1 22.1,55 Z" />
+              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 22.1,55 A 90,90 0 0,1 55,22.1 Z" />
+              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 55,22.1 A 90,90 0 0,1 100,10 Z" />
+              <text x="116" y="40.1" class="wheel-icon-label">&#10024;</text>
+              <text x="148.1" y="51.9" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
+              <text x="159.9" y="84" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
+              <text x="165.7" y="117.6" class="wheel-icon-label wheel-icon-label-tiny">&#128273;</text>
+              <text x="143.8" y="143.8" class="wheel-icon-label">&#10024;</text>
+              <text x="117.6" y="165.7" class="wheel-icon-label wheel-icon-label-jackpot">&#127775;</text>
+              <text x="84" y="159.9" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
+              <text x="51.9" y="148.1" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
+              <text x="40.1" y="116" class="wheel-icon-label">&#10024;</text>
+              <text x="34.3" y="82.4" class="wheel-icon-label wheel-icon-label-tiny">&#128273;</text>
+              <text x="56.2" y="56.2" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
+              <text x="84" y="40.1" class="wheel-icon-label">&#10024;</text>
             </g>
             <circle cx="100" cy="100" r="12" class="wheel-hub" />
           </svg>
@@ -342,54 +359,82 @@
       // Quetes du jour.
       const questsPanel = document.getElementById("quests-panel");
       questsPanel.style.display = "block";
+      // Coche qui se dessine (embellissement 2026-09-30) au lieu du simple
+      // remplacement instantane de l'emoji par &#9989; - stroke-dasharray/
+      // dashoffset anime en CSS (voir .quest-check-svg).
+      const QUEST_CHECK_SVG = `<svg class="quest-check-svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 12l5 5L20 7" /></svg>`;
       const QUEST_LABELS = {
         login: { icon: "&#128100;", label: "Se connecter" },
         craft: { icon: "&#10024;", label: "Crafter une carte" },
         trade: { icon: "&#128260;", label: "Proposer un échange" },
         openBooster: { icon: "&#127183;", label: "Ouvrir un booster" }
       };
-      API.getQuestStatus(Session.userId).then((res) => {
-        const list = document.getElementById("quests-list");
-        const quests = res.quests || {};
-        const threshold = res.threshold || 2;
-        const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 2;
-        document.getElementById("quests-intro").textContent =
-          `Complète ${threshold} des 4 quêtes aujourd'hui pour recevoir ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}.`;
-        list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
-          const done = !!quests[key];
-          return `
-            <div class="quest-row ${done ? "done" : ""}">
-              <span class="quest-icon">${done ? "&#9989;" : meta.icon}</span>
-              <span class="quest-label">${meta.label}</span>
+      // Le gain n'est plus accorde automatiquement a la simple consultation :
+      // un bouton "Réclamer" apparait sous les quêtes une fois le seuil
+      // atteint (res.canClaim), et l'utilisateur doit cliquer pour toucher
+      // ses boosters (voir quests.json/weekly-quests.json, action 'claim'
+      // separee de 'status'). Fonctions nommees pour pouvoir tout
+      // re-afficher proprement apres une reclamation.
+      function loadDailyQuests() {
+        API.getQuestStatus(Session.userId).then((res) => {
+          const list = document.getElementById("quests-list");
+          const quests = res.quests || {};
+          const threshold = res.threshold || 2;
+          const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 2;
+          document.getElementById("quests-intro").textContent =
+            `Complète ${threshold} des 4 quêtes aujourd'hui pour recevoir ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}.`;
+          list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
+            const done = !!quests[key];
+            return `
+              <div class="quest-row ${done ? "done" : ""}">
+                <span class="quest-icon">${done ? QUEST_CHECK_SVG : meta.icon}</span>
+                <span class="quest-label">${meta.label}</span>
+              </div>
+            `;
+          }).join("") + `
+            <div class="quest-reward ${res.rewardClaimed ? "claimed" : ""}">
+              <span>${res.rewardClaimed ? `&#127183; ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} aujourd'hui !` : `${res.completedCount || 0} / ${threshold} pour débloquer ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}`}</span>
+              ${res.canClaim ? `<button type="button" class="btn quest-claim-btn" id="quest-claim-btn">Réclamer</button>` : ""}
             </div>
           `;
-        }).join("") + `
-          <div class="quest-reward ${res.rewardClaimed ? "claimed" : ""}">
-            ${res.rewardClaimed ? `&#127183; ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} aujourd'hui !` : `${res.completedCount || 0} / ${threshold} pour débloquer ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}`}
-          </div>
-        `;
-        if (res.justClaimedReward) {
-          Toast.success(`Quêtes du jour : ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} !`);
-          if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
-        }
-        const streak = res.streak;
-        if (streak && streak.current > 0) {
-          const badge = document.getElementById("quest-streak-badge");
-          badge.style.display = "inline-flex";
-          badge.innerHTML = `&#128293; Série de ${streak.current} jour${streak.current > 1 ? "s" : ""}`;
-        }
-        if (streak && streak.isNewToday && streak.bonusBoosters > 0) {
-          Toast.success(`Série de ${streak.current} jours : +${streak.bonusBoosters} booster${streak.bonusBoosters > 1 ? "s" : ""} bonus !`);
-          if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.4 } });
-        }
-      }).catch(() => {
-        document.getElementById("quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
-      });
+          if (res.canClaim) {
+            document.getElementById("quest-claim-btn").addEventListener("click", async (e) => {
+              e.target.disabled = true;
+              try {
+                const claimRes = await API.claimQuestReward(Session.userId);
+                if (claimRes.justClaimedReward) {
+                  Toast.success(`Quêtes du jour : ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} !`);
+                  if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+                  if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+                }
+                loadDailyQuests();
+              } catch (err) {
+                Toast.error("Impossible de réclamer. (" + err.message + ")");
+                e.target.disabled = false;
+              }
+            });
+          }
+          const streak = res.streak;
+          if (streak && streak.current > 0) {
+            const badge = document.getElementById("quest-streak-badge");
+            badge.style.display = "inline-flex";
+            badge.innerHTML = `&#128293; Série de ${streak.current} jour${streak.current > 1 ? "s" : ""}`;
+          }
+          if (streak && streak.isNewToday && streak.bonusBoosters > 0) {
+            Toast.success(`Série de ${streak.current} jours : +${streak.bonusBoosters} booster${streak.bonusBoosters > 1 ? "s" : ""} bonus !`);
+            if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.4 } });
+          }
+        }).catch(() => {
+          document.getElementById("quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
+        });
+      }
+      loadDailyQuests();
 
       // Quetes de la semaine.
       const weeklyQuestsPanel = document.getElementById("weekly-quests-panel");
       weeklyQuestsPanel.style.display = "block";
-      API.getWeeklyQuestStatus(Session.userId).then((res) => {
+      function loadWeeklyQuests() {
+        API.getWeeklyQuestStatus(Session.userId).then((res) => {
         const list = document.getElementById("weekly-quests-list");
         const quests = res.quests || {};
         const target = res.target || 5;
@@ -403,7 +448,7 @@
           const pct = Math.round((count / target) * 100);
           return `
             <div class="quest-row weekly ${done ? "done" : ""}">
-              <span class="quest-icon">${done ? "&#9989;" : meta.icon}</span>
+              <span class="quest-icon">${done ? QUEST_CHECK_SVG : meta.icon}</span>
               <span class="quest-label">${meta.label}</span>
               <span class="quest-count">${count} / ${target}</span>
               <span class="quest-mini-track"><span class="quest-mini-fill" style="width:${pct}%;"></span></span>
@@ -411,16 +456,32 @@
           `;
         }).join("") + `
           <div class="quest-reward ${res.rewardClaimed ? "claimed" : ""}">
-            ${res.rewardClaimed ? `&#127183; ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} cette semaine !` : `${res.completedCount || 0} / ${threshold} pour débloquer ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}`}
+            <span>${res.rewardClaimed ? `&#127183; ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} cette semaine !` : `${res.completedCount || 0} / ${threshold} pour débloquer ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}`}</span>
+            ${res.canClaim ? `<button type="button" class="btn quest-claim-btn" id="weekly-quest-claim-btn">Réclamer</button>` : ""}
           </div>
         `;
-        if (res.justClaimedReward) {
-          Toast.success(`Quêtes de la semaine : ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} !`);
-          if (typeof confetti === "function") confetti({ particleCount: 140, spread: 100, origin: { y: 0.5 } });
+        if (res.canClaim) {
+          document.getElementById("weekly-quest-claim-btn").addEventListener("click", async (e) => {
+            e.target.disabled = true;
+            try {
+              const claimRes = await API.claimWeeklyQuestReward(Session.userId);
+              if (claimRes.justClaimedReward) {
+                Toast.success(`Quêtes de la semaine : ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""} débloqué${rewardBoosters > 1 ? "s" : ""} !`);
+                if (typeof confetti === "function") confetti({ particleCount: 140, spread: 100, origin: { y: 0.5 } });
+                if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+              }
+              loadWeeklyQuests();
+            } catch (err) {
+              Toast.error("Impossible de réclamer. (" + err.message + ")");
+              e.target.disabled = false;
+            }
+          });
         }
-      }).catch(() => {
-        document.getElementById("weekly-quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
-      });
+        }).catch(() => {
+          document.getElementById("weekly-quests-list").innerHTML = `<div class="empty-state">Impossible de charger les quêtes.</div>`;
+        });
+      }
+      loadWeeklyQuests();
 
       // Succes / achievements.
       const achievementsPanel = document.getElementById("achievements-panel");
@@ -462,25 +523,31 @@
         wheelStatusText.textContent = "Impossible de charger la roue pour l'instant.";
       });
 
-      // 8 cases (depuis le haut, sens horaire), alternant poussiere/booster/
-      // poussiere+ dans l'ordre exact des <path> dessines dans le SVG. Les
-      // tailles ne sont pas egales : chaque TYPE garde au total exactement
-      // la meme probabilite qu'avant (70/20/10%), juste repartie sur
-      // plusieurs cases pour l'effet visuel d'une vraie roue a 8 secteurs.
+      // 12 cases (depuis le haut, sens horaire), 5 types de lots dans l'ordre
+      // exact des <path> dessines dans le SVG (2026-09-30, etait 8 cases/3
+      // types). Le NOMBRE de cases par type est purement cosmetique : la
+      // vraie probabilite vient entierement de daily-wheel.json (voir
+      // grist/SCHEMA.md), le front tire juste une case au hasard PARMI
+      // celles du type deja decide par le serveur pour savoir ou s'arreter.
       const WHEEL_SEGMENTS = [
-        { type: "small", start: 0, end: 84 },
-        { type: "booster", start: 84, end: 96 },
-        { type: "big", start: 96, end: 132 },
-        { type: "small", start: 132, end: 216 },
-        { type: "booster", start: 216, end: 228 },
-        { type: "big", start: 228, end: 264 },
-        { type: "small", start: 264, end: 348 },
-        { type: "booster", start: 348, end: 360 }
+        { type: "small", start: 0, end: 30 },
+        { type: "booster", start: 30, end: 60 },
+        { type: "big", start: 60, end: 90 },
+        { type: "key", start: 90, end: 120 },
+        { type: "small", start: 120, end: 150 },
+        { type: "jackpot", start: 150, end: 180 },
+        { type: "big", start: 180, end: 210 },
+        { type: "booster", start: 210, end: 240 },
+        { type: "small", start: 240, end: 270 },
+        { type: "key", start: 270, end: 300 },
+        { type: "big", start: 300, end: 330 },
+        { type: "small", start: 330, end: 360 }
       ];
       const wheelOverlay = document.getElementById("wheel-modal-overlay");
       const wheelGroup = document.getElementById("wheel-group");
       const wheelResultEl = document.getElementById("wheel-modal-result");
       const wheelCloseBtn = document.getElementById("wheel-modal-close-btn");
+      const wheelPointerGlow = document.getElementById("wheel-pointer-glow");
 
       function spinWheelTo(tier) {
         // Plusieurs cases partagent le meme type : on en tire une au hasard
@@ -503,6 +570,15 @@
         wheelGroup.style.transform = `rotate(${finalRotation}deg)`;
       }
 
+      // Libelle + son + confettis par type de lot (5 paliers depuis le
+      // 2026-09-30 - voir grist/SCHEMA.md "Roue de la fortune quotidienne").
+      const WHEEL_PRIZE_META = {
+        stardust: (p) => ({ label: `+${p.amount} poussières d'étoile !`, sfx: "rare", confetti: { particleCount: 80, spread: 80 } }),
+        booster: (p) => ({ label: `+${p.amount} booster${p.amount > 1 ? "s" : ""} !`, sfx: "legendaire", confetti: { particleCount: 110, spread: 90 } }),
+        key: (p) => ({ label: `+${p.amount} clé${p.amount > 1 ? "s" : ""} secrète${p.amount > 1 ? "s" : ""} ! &#128273;`, sfx: "epique", confetti: { particleCount: 100, spread: 90 } }),
+        jackpot: (p) => ({ label: `JACKPOT ! +${p.amount} boosters et +${p.dust} poussières !`, sfx: "mythique", confetti: { particleCount: 260, spread: 150 } })
+      };
+
       wheelSpinBtn.addEventListener("click", async () => {
         wheelSpinBtn.disabled = true;
         wheelResultEl.textContent = "";
@@ -510,20 +586,20 @@
         wheelOverlay.hidden = false;
         syncScrollLock();
         Sfx.click();
+        if (wheelPointerGlow) wheelPointerGlow.classList.add("spinning");
 
         try {
           const res = await API.spinDailyWheel(Session.userId);
           spinWheelTo(res.prize.tier);
           wheelGroup.addEventListener("transitionend", function onSpun() {
             wheelGroup.removeEventListener("transitionend", onSpun);
-            const prizeLabel = res.prize.type === "booster"
-              ? `+${res.prize.amount} booster${res.prize.amount > 1 ? "s" : ""} !`
-              : `+${res.prize.amount} poussières d'étoile !`;
-            wheelResultEl.textContent = `Gagné : ${prizeLabel}`;
+            if (wheelPointerGlow) wheelPointerGlow.classList.remove("spinning");
+            const meta = (WHEEL_PRIZE_META[res.prize.type] || WHEEL_PRIZE_META.stardust)(res.prize);
+            wheelResultEl.innerHTML = `Gagné : ${meta.label}`;
             wheelCloseBtn.style.display = "inline-flex";
-            Sfx.reveal(res.prize.type === "booster" ? "legendaire" : "rare");
-            if (typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } });
-            wheelStatusText.textContent = `Gagné aujourd'hui : ${prizeLabel} Reviens demain.`;
+            Sfx.reveal(meta.sfx);
+            if (typeof confetti === "function") confetti({ ...meta.confetti, origin: { y: 0.5 } });
+            wheelStatusText.innerHTML = `Gagné aujourd'hui : ${meta.label} Reviens demain.`;
             wheelSpinBtn.style.display = "none";
             loadHeaderBoosterBadge();
           }, { once: true });
@@ -531,6 +607,7 @@
           wheelOverlay.hidden = true;
           syncScrollLock();
           wheelSpinBtn.disabled = false;
+          if (wheelPointerGlow) wheelPointerGlow.classList.remove("spinning");
           Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : "Erreur. (" + e.message + ")");
         }
       });

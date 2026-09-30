@@ -487,7 +487,11 @@ const Sfx = {
       commune: [392],
       rare: [392, 523.25],
       epique: [392, 523.25, 659.25],
-      legendaire: [392, 523.25, 659.25, 783.99, 987.77]
+      legendaire: [392, 523.25, 659.25, 783.99, 987.77],
+      // Bug reel corrige ici (2026-09-30) : manquait completement, donc tout
+      // VRAI tirage mythique (craft/redeem/opening.js/etc.) retombait sur
+      // l'accord le plus fade (commune) au lieu du plus impressionnant.
+      mythique: [392, 523.25, 659.25, 783.99, 987.77, 1244.51]
     };
     const notes = chords[rarityKey] || chords.commune;
     notes.forEach((freq, i) => this._tone(freq, i * 0.055, 0.55, "sine", 0.085));
@@ -744,6 +748,21 @@ function syncScrollLock() {
 
 // Anime un changement de valeur numerique (badge boosters, stats...) avec un
 // petit "bump" au lieu d'un saut sec.
+// Petit "+N" qui s'envole depuis un badge de monnaie (embellissement
+// 2026-09-30), en plus du compteur qui defile deja plus bas. Position:fixed
+// + append direct sur <body> (comme getParticleLayer) pour ne pas dependre
+// du contexte de positionnement du badge appelant.
+function spawnFloatingGain(el, delta) {
+  const rect = el.getBoundingClientRect();
+  const span = document.createElement("span");
+  span.className = "count-gain-float";
+  span.textContent = "+" + delta;
+  span.style.left = (rect.left + rect.width / 2) + "px";
+  span.style.top = rect.top + "px";
+  document.body.appendChild(span);
+  setTimeout(() => span.remove(), 900);
+}
+
 function bumpNumber(el, newValue) {
   const prevRaw = el.textContent.trim();
   const prevNum = Number(prevRaw);
@@ -754,6 +773,8 @@ function bumpNumber(el, newValue) {
     el.textContent = newValue;
     return;
   }
+
+  if (nextNum > prevNum) spawnFloatingGain(el, nextNum - prevNum);
 
   // Petit effet "compteur qui defile" plutot qu'un saut sec au nouveau
   // chiffre : interpole la valeur affichee sur ~450ms.
@@ -1033,13 +1054,33 @@ async function loadSiteBanner() {
 // une detection ratee (cache efface, premiere visite) ne fait que sauter la
 // petite fete, jamais une erreur visible.
 const LEVEL_SEEN_KEY = "2gatcha_level_seen_" + Session.userId;
+// Bandeau plein ecran (embellissement 2026-09-30) : cree dynamiquement (pas
+// un <div> fige dans chaque page, contrairement a #legendary-flash qui
+// n'existe que sur redeem.html/ouverture.html) puisque loadHeaderBoosterBadge
+// tourne site-wide et peut declencher un passage de niveau depuis N'IMPORTE
+// QUELLE page.
+function showLevelUpBanner(newLevel) {
+  let el = document.getElementById("level-up-banner");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "level-up-banner";
+    el.className = "level-up-banner";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<span class="level-up-banner-label">Niveau supérieur</span><span class="level-up-banner-number">${newLevel}</span>`;
+  el.classList.remove("active");
+  void el.offsetWidth;
+  el.classList.add("active");
+  setTimeout(() => el.classList.remove("active"), 2600);
+}
+
 function celebrateLevelUpIfNeeded(newLevel) {
   if (!newLevel) return;
   let prevLevel = null;
   try { prevLevel = Number(localStorage.getItem(LEVEL_SEEN_KEY)) || null; } catch (e) {}
   if (prevLevel && newLevel > prevLevel) {
-    Toast.success(`Niveau ${newLevel} atteint !`);
-    if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
+    showLevelUpBanner(newLevel);
+    if (typeof confetti === "function") confetti({ particleCount: 160, spread: 120, origin: { y: 0.3 } });
   }
   try { localStorage.setItem(LEVEL_SEEN_KEY, String(newLevel)); } catch (e) {}
 }

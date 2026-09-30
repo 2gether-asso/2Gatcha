@@ -296,11 +296,17 @@ const API = {
   },
 
   getQuestStatus(userId) {
-    return this.post("quests", { userId });
+    return this.post("quests", { userId, action: "status" });
+  },
+  claimQuestReward(userId) {
+    return this.post("quests", { userId, action: "claim" });
   },
 
   getWeeklyQuestStatus(userId) {
-    return this.post("weeklyQuests", { userId });
+    return this.post("weeklyQuests", { userId, action: "status" });
+  },
+  claimWeeklyQuestReward(userId) {
+    return this.post("weeklyQuests", { userId, action: "claim" });
   },
 
   listBadges(userId) {
@@ -379,5 +385,12 @@ const API = {
   },
   adminSetLevelRewards(discordId, rows) {
     return this.post("levelRewards", { discordId, action: "adminSet", rows });
+  },
+
+  getVaultStatus(userId) {
+    return this.post("vault", { userId, action: "status" });
+  },
+  openVault(userId) {
+    return this.post("vault", { userId, action: "open" });
   }
 };

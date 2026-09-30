@@ -240,8 +240,19 @@ async function loadChest() {
     const statusText = document.getElementById("chest-status-text");
     const hint = document.getElementById("chest-status-hint");
     const drawBtn = document.getElementById("chest-draw-btn");
+    const chestIcon = document.getElementById("chest-icon");
 
     chestAlreadyDepositedToday = !!res.alreadyDepositedToday;
+
+    // Le coffre "a l'air" rempli selon poolSize (embellissement 2026-09-30) :
+    // ferme et terne a 0, entrouvert des 1+, dore et anime a partir de 3 -
+    // un signal visuel immediat de "il y a quelque chose a piocher" avant
+    // meme de lire le texte de statut.
+    if (chestIcon) {
+      chestIcon.classList.toggle("chest-empty", res.poolSize === 0);
+      chestIcon.classList.toggle("chest-full", res.poolSize >= 3);
+      chestIcon.textContent = res.poolSize === 0 ? "\u{1F4E6}" : "\u{1F381}";
+    }
 
     if (res.alreadyDrawnToday) {
       statusText.textContent = "Tu as déjà pioché aujourd'hui, reviens demain.";

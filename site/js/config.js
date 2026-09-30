@@ -37,7 +37,7 @@ window.APP_CONFIG = {
     recentPulls: "/recent-pulls",     // GET -> { pulls: [{pseudo,cardName,imageId,rarity,obtainedAt}] }
     publicProfile: "/public-profile", // GET ?pseudo=... -> { pseudo, totalPulls, uniqueCards, cards }
     wishlist: "/wishlist",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { wishlist }
-    quests: "/quests",                // POST { userId } -> { quests, completedCount, rewardClaimed, justClaimedReward }
+    quests: "/quests",                // POST { userId, action: 'status'|'claim' } -> { quests, completedCount, rewardClaimed, canClaim, justClaimedReward }
     adminReset: "/admin-reset",       // POST { discordId, confirm: 'RESET-V1', targetPseudo? } -> { reset: true, scope, targetPseudo, counts }
     siteBanner: "/site-banner",       // GET -> { enabled, type: 'info'|'maintenance', message }
     unlockConfig: "/unlock-config",   // GET -> { themes: {...}, features: {...}, sleeves: {...} }
@@ -48,7 +48,7 @@ window.APP_CONFIG = {
     showcase: "/showcase",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { showcase } (max 5 cartes, affichees sur le profil public)
     foilUpgrade: "/foil-upgrade",      // POST { userId, cardId, fromFinish } -> { upgraded, cardId, fromFinish, toFinish, serialNumber } | { error }
     unlockSecret: "/unlock-secret",    // POST { userId } -> { unlocked, card, serialNumber } | { error: 'no_secret_available' }
-    weeklyQuests: "/weekly-quests",    // POST { userId } -> { weekStart, quests, completedCount, rewardClaimed, justClaimedReward }
+    weeklyQuests: "/weekly-quests",    // POST { userId, action: 'status'|'claim' } -> { weekStart, quests, completedCount, rewardClaimed, canClaim, justClaimedReward }
     cardQualityRepair: "/card-quality-repair", // POST { userId, cardId, fromQuality } -> { repaired, cardId, fromQuality, toQuality, serialNumber } | { error }
     badges: "/badges",                 // POST { userId, action: 'list'|'buy'|'select', badgeKey? } -> { badges, selectedBadge, newStardust? } | { error }
     eventCalendar: "/event-calendar",  // GET -> { events: [{ label, startsAt, expiresAt, isLive }] }
@@ -58,6 +58,7 @@ window.APP_CONFIG = {
     adminGift: "/admin-gift",          // POST { discordId, targetUserId, giftType: 'card'|'booster'|'dust', cardId?, finish?, quality?, quantity? } -> { gifted, giftType, quantity, ... } | { error }
     dig: "/dig",                       // POST { userId, action: 'status'|'dig' }
     bingo: "/bingo",                   // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
-    levelRewards: "/level-rewards"     // POST { userId, action: 'status'|'claim' } | { discordId, action: 'adminList'|'adminSet', rows? }
+    levelRewards: "/level-rewards",    // POST { userId, action: 'status'|'claim' } | { discordId, action: 'adminList'|'adminSet', rows? }
+    vault: "/vault"                    // POST { userId, action: 'status'|'open' } -> { card, keysRequired, userKeys, alreadyOpened } | { opened, card, serialNumber, newKeyCount }
   }
 };

@@ -824,6 +824,34 @@ function closeModal() {
   }
 }
 
+// Embellissement (2026-09-30) : petits eclats de foil qui explosent depuis
+// le pack au moment exact de la dechirure (classe .tearing), en plus du
+// flash/tremblement deja en place. Reutilise la meme couche partagee que
+// spawnRarityBurst (main.js) pour ne pas dupliquer un conteneur fixe de plus.
+function spawnFoilShards(originEl) {
+  const rect = originEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const colors = ["#ff6ec7", "#ffd76e", "#7dd3fc", "#a78bfa", "#f5a524"];
+  const layer = getParticleLayer();
+  for (let i = 0; i < 26; i++) {
+    const shard = document.createElement("span");
+    shard.className = "foil-shard";
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 90 + Math.random() * 160;
+    shard.style.left = cx + "px";
+    shard.style.top = cy + "px";
+    shard.style.background = colors[Math.floor(Math.random() * colors.length)];
+    shard.style.setProperty("--dx", (Math.cos(angle) * dist) + "px");
+    shard.style.setProperty("--dy", (Math.sin(angle) * dist + 60) + "px");
+    shard.style.setProperty("--rot", (360 + Math.random() * 360) + "deg");
+    shard.style.animationDuration = (0.6 + Math.random() * 0.4) + "s";
+    shard.style.animationDelay = (Math.random() * 0.08) + "s";
+    layer.appendChild(shard);
+    setTimeout(() => shard.remove(), 1200);
+  }
+}
+
 async function startOpening(ext) {
   isBusy = true;
   lastOpenedExtension = ext;
@@ -883,6 +911,7 @@ async function startOpening(ext) {
     await wait(750);
     pack.classList.remove("charging", "charging-legendaire", "charging-epique", "charging-rare", "charging-mythique");
     pack.classList.add("tearing");
+    spawnFoilShards(pack);
     flash.classList.add("flash-active");
     skipHint.classList.remove("visible");
 

@@ -22,6 +22,7 @@
       <div class="tabs" role="tablist">
         <button type="button" class="tab active" id="tab-dig-btn" role="tab" aria-selected="true">&#9935; Fouille</button>
         <button type="button" class="tab" id="tab-bingo-btn" role="tab" aria-selected="false">&#127922; Bingo</button>
+        <button type="button" class="tab" id="tab-vault-btn" role="tab" aria-selected="false">&#128274; Coffre-fort</button>
       </div>
 
       <div id="guest-warning" style="display:none;">
@@ -51,6 +52,22 @@
             <span id="bingo-claimed-label" class="quest-reward claimed" style="display:none;">&#127942; Récompense déjà réclamée ce mois-ci !</span>
           </div>
         </div>
+      </div>
+
+      <div id="vault-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Une carte promo arc-en-ciel est enfermée dans le coffre-fort de l'association. Il faut <strong>6 clefs secrètes</strong> pour l'ouvrir — trouvables en fouillant ou à la roue quotidienne.</p>
+        <div id="vault-locked" class="vault-scene">
+          <div class="vault-card-frame">
+            <img id="vault-card-img" class="vault-card-img" src="" alt="" />
+            <div class="vault-bars" aria-hidden="true"></div>
+            <div class="vault-lock-icon" aria-hidden="true">&#128274;</div>
+          </div>
+          <div id="vault-card-name" class="vault-card-name">Chargement...</div>
+          <div class="vault-keys-track"><div id="vault-keys-fill" class="vault-keys-fill"></div></div>
+          <div id="vault-keys-label" class="vault-keys-label"></div>
+          <button type="button" class="btn" id="vault-open-btn" style="display:none;">&#128273; Ouvrir le coffre (6 clefs)</button>
+        </div>
+        <div id="vault-opened" class="empty-state" style="display:none;">&#127881; Tu as déjà ouvert le coffre-fort, cette carte arc-en-ciel est à toi pour toujours !</div>
       </div>
     </div>
   </main>

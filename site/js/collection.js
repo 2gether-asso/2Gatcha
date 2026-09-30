@@ -333,12 +333,12 @@ function showCardModal(navKey, navList) {
               &#127942; ${isFirstObtainer ? "C'est toi qui as" : `<strong>${card.firstObtainedBy}</strong> a`} obtenu cette carte en premier sur le serveur !
             </div>
           ` : ""}
-          ${!card.isPromo ? `
+          ${(!card.isPromo || (card.isSecret && disenchantValue != null)) ? `
             <div class="card-modal-actions">
-              ${disenchantValue != null ? `<button type="button" class="btn-ghost modal-disenchant-btn">&#9851; Décrafter (+${estimateDust(disenchantValue, finish, quality)})</button>` : ""}
-              <button type="button" class="btn-secondary modal-trade-btn">&#8644; Échanger</button>
-              ${canUpgradeFinish ? `<button type="button" class="btn-secondary modal-finish-upgrade-btn">&#10024; Fusionner en ${FINISH_LABELS[nextFinish]}</button>` : ""}
-              ${canUpgradeQuality ? `<button type="button" class="btn-secondary modal-quality-repair-btn">&#128295; Restaurer en ${QUALITY_LABELS[nextQuality]}</button>` : ""}
+              ${disenchantValue != null && (!card.isPromo || card.isSecret) ? `<button type="button" class="btn-ghost modal-disenchant-btn">&#9851; ${card.isSecret ? "Décrafter (+1 booster)" : `Décrafter (+${estimateDust(disenchantValue, finish, quality)})`}</button>` : ""}
+              ${!card.isPromo ? `<button type="button" class="btn-secondary modal-trade-btn">&#8644; Échanger</button>` : ""}
+              ${!card.isPromo && canUpgradeFinish ? `<button type="button" class="btn-secondary modal-finish-upgrade-btn">&#10024; Fusionner en ${FINISH_LABELS[nextFinish]}</button>` : ""}
+              ${!card.isPromo && canUpgradeQuality ? `<button type="button" class="btn-secondary modal-quality-repair-btn">&#128295; Restaurer en ${QUALITY_LABELS[nextQuality]}</button>` : ""}
             </div>
           ` : ""}
         </div>
@@ -463,6 +463,10 @@ function cardTileHtml(card, now) {
   const isFav = favorites.has(card.cardId);
   const inShowcase = showcaseSet.has(card.cardId);
   const canQuickAct = !card.isPromo;
+  // Exception (2026-09-30) : une carte secrete reste promo (pas d'echange,
+  // pas de fusion/restauration) mais PEUT etre decraftee - contre un
+  // booster plutot que des poussieres, voir disenchant.json.
+  const canDisenchant = (canQuickAct || card.isSecret) && disenchantValue != null;
   const bulkEligible = canQuickAct && disenchantValue != null;
   const isNew = !!(owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(card.cardId));
   const variants = buildVariants(owned);
@@ -494,13 +498,13 @@ function cardTileHtml(card, now) {
             ${rarityIcon(card.rarity?.key)} ${card.rarity?.name || "Commune"}
           </span>
           <div class="count-badge">x${count}</div>
-          ${canQuickAct ? `
+          ${(canQuickAct || canDisenchant) ? `
             <div class="quick-actions-row">
-              ${disenchantValue != null ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" data-finish="${finish}" data-quality="${quality}" title="Décrafter contre ${estimateDust(disenchantValue, finish, quality)} poussières" aria-label="Décrafter">&#9851;</button>` : ""}
-              <button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>
-              <button type="button" class="card-quick-action quick-showcase-btn ${inShowcase ? "active" : ""}" data-card-id="${card.cardId}" title="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}" aria-label="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}">&#128444;</button>
-              ${canUpgradeFinish ? `<button type="button" class="card-quick-action quick-finish-upgrade-btn" data-card-id="${card.cardId}" data-from-finish="${finish}" title="Fusionner 5x ${FINISH_LABELS[finish]} en ${FINISH_LABELS[nextFinish]}" aria-label="Améliorer la finition">&#10024;</button>` : ""}
-              ${canUpgradeQuality ? `<button type="button" class="card-quick-action quick-quality-repair-btn" data-card-id="${card.cardId}" data-from-quality="${quality}" title="Restaurer 3x ${QUALITY_LABELS[quality]} en ${QUALITY_LABELS[nextQuality]}" aria-label="Améliorer la qualité">&#128295;</button>` : ""}
+              ${canDisenchant ? `<button type="button" class="card-quick-action quick-disenchant-btn" data-card-id="${card.cardId}" data-finish="${finish}" data-quality="${quality}" title="${card.isSecret ? "Décrafter contre 1 booster" : `Décrafter contre ${estimateDust(disenchantValue, finish, quality)} poussières`}" aria-label="Décrafter">&#9851;</button>` : ""}
+              ${canQuickAct ? `<button type="button" class="card-quick-action quick-trade-btn" data-card-id="${card.cardId}" title="Proposer un échange" aria-label="Proposer un échange">&#8644;</button>` : ""}
+              ${canQuickAct ? `<button type="button" class="card-quick-action quick-showcase-btn ${inShowcase ? "active" : ""}" data-card-id="${card.cardId}" title="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}" aria-label="${inShowcase ? "Retirer de ma vitrine" : "Ajouter a ma vitrine"}">&#128444;</button>` : ""}
+              ${canQuickAct && canUpgradeFinish ? `<button type="button" class="card-quick-action quick-finish-upgrade-btn" data-card-id="${card.cardId}" data-from-finish="${finish}" title="Fusionner 5x ${FINISH_LABELS[finish]} en ${FINISH_LABELS[nextFinish]}" aria-label="Améliorer la finition">&#10024;</button>` : ""}
+              ${canQuickAct && canUpgradeQuality ? `<button type="button" class="card-quick-action quick-quality-repair-btn" data-card-id="${card.cardId}" data-from-quality="${quality}" title="Restaurer 3x ${QUALITY_LABELS[quality]} en ${QUALITY_LABELS[nextQuality]}" aria-label="Améliorer la qualité">&#128295;</button>` : ""}
             </div>
           ` : ""}
         </div>
@@ -549,15 +553,22 @@ async function disenchantCardQuick(cardId, finish, quality, btn) {
   const info = craftCostByCard.get(cardId);
   const dust = estimateDust(info?.disenchantValue || 0, finish || "normal", quality || "damaged");
   const variantLabel = finish && finish !== "normal" ? ` (${FINISH_LABELS[finish]}${quality && quality !== "mint" ? ", " + QUALITY_LABELS[quality] : ""})` : "";
+  // Carte secrete : contrepartie fixe de 1 booster (voir disenchant.json),
+  // pas de poussieres - la carte n'a pas de valeur de decraft coherente
+  // etant promo.
   const ok = await Confirm.show(
-    `Décrafter <strong>${card?.name || "cette carte"}${variantLabel}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
-    `Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+    card?.isSecret
+      ? `Décrafter <strong>${card?.name || "cette carte"}${variantLabel}</strong> contre <strong>1 booster</strong> ? ` +
+        `Cette action est irréversible : l'exemplaire sera définitivement détruit.`
+      : `Décrafter <strong>${card?.name || "cette carte"}${variantLabel}</strong> contre <strong>${dust} poussières d'étoile</strong> ? ` +
+        `Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
     { title: "Décrafter cette carte ?", confirmText: "Décrafter", dangerous: true }
   );
   if (!ok) return;
   try {
     const res = await API.disenchantCard(Session.userId, cardId, finish, quality);
-    Toast.success(`+${res.dustGained} poussières (${res.cardName})`);
+    Toast.success(res.boosterGranted ? `+1 booster (${res.cardName})` : `+${res.dustGained} poussières (${res.cardName})`);
+    if (res.boosterGranted && typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     await playDustDissolve(btn ? btn.closest(".collection-card") : null);
     stardustBalance = res.newStardust ?? (stardustBalance + dust);
     const owned = ownedMap.get(cardId);

@@ -514,12 +514,23 @@ de nettoyer sa vitrine lui-meme.
 ## DailyQuests
 
 Une ligne par couple (User, jour). 4 quetes quotidiennes fixes ; en
-completer 2 sur 4 accorde automatiquement 1 booster gratuit (une seule fois
-par jour, voir `RewardClaimed`). Cree/mise a jour par `quests.json` (quete
-"se connecter", au premier chargement de la page qui consulte les quetes du
-jour) et par une branche additionnelle dans `craft.json` (crafter une
-carte), `trade.json` (proposer un echange) et `open-pack.json` (ouvrir un
-booster reel, pas en mode test admin).
+completer 2 sur 4 debloque 1 booster gratuit, **reclame via un bouton
+"Réclamer" cote joueur (2026-09-30) plutot qu'accorde automatiquement a la
+simple consultation** (voir `RewardClaimed`). Cree/mise a jour par
+`quests.json` (quete "se connecter", au premier chargement de la page qui
+consulte les quetes du jour) et par une branche additionnelle dans
+`craft.json` (crafter une carte), `trade.json` (proposer un echange) et
+`open-pack.json` (ouvrir un booster reel, pas en mode test admin).
+
+`quests.json` distingue desormais `action: 'status'` (lecture seule - coche
+les quetes/la serie de connexion mais N'ACCORDE JAMAIS le gain) de
+`action: 'claim'` (n'accorde le gain que si le seuil est atteint et pas deja
+reclame ce jour-la). La reponse inclut `canClaim` (true des que le seuil est
+atteint et non reclame - sert au front a afficher le bouton) en plus de
+`rewardClaimed`/`justClaimedReward` (true seulement sur l'appel qui vient de
+reclamer avec succes). La serie de connexion (streak, bonus tous les 3/7/14/
+30 jours) reste, elle, automatique des la premiere consultation du jour -
+seul le gain des 4 quetes est desormais manuel.
 
 | Colonne          | Type                | Notes                                    |
 |-------------------|----------------------|---------------------------------------------|
@@ -538,8 +549,10 @@ Une ligne par couple (User, semaine). 4 quetes hebdomadaires fixes, mais
 `DailyQuests` - chaque quete demande **5 occurrences** de l'action dans la
 semaine (5 connexions un jour different, 5 crafts, 5 echanges proposes, 5
 boosters ouverts), pas juste une seule fois. En completer 3 des 4 (chaque
-compteur atteint 5) accorde automatiquement 5 boosters gratuits (une seule
-fois par semaine, voir `RewardClaimed`). Semaine = lundi-dimanche, fuseau
+compteur atteint 5) debloque 5 boosters gratuits, **reclames via un bouton
+"Réclamer" (2026-09-30, meme principe que `DailyQuests` ci-dessus - `action:
+'status'` vs `'claim'`, reponse avec `canClaim`) plutot qu'accordes
+automatiquement**. Semaine = lundi-dimanche, fuseau
 Europe/Paris (`WeekStart` = date du lundi, format `AAAA-MM-JJ`). Cree/mise a
 jour par `weekly-quests.json` (increment de connexion, au premier
 chargement de la page qui consulte les quetes de la semaine CE JOUR-LA
@@ -660,6 +673,13 @@ workflows.
 Une carte promo n'est ni decraftable ni craftable : elle reste exclusivement
 obtenable via un code d'evenement (`EventCodes`, `RewardType=card`).
 
+**Exception (2026-09-30)** : une carte `IsSecret` reste promo (toujours
+exclue du craft, de l'echange, du coffre de guilde...) mais **PEUT** etre
+decraftee - contre **1 booster fixe**, jamais des poussieres (une carte
+secrete n'a pas de valeur de decraft coherente en poussieres). Reponse de
+`disenchant.json` enrichie d'un `boosterGranted` (bool) pour que le front
+sache afficher "+1 booster" plutot que "+X poussières".
+
 ---
 
 ## Roue de la fortune quotidienne
@@ -667,10 +687,53 @@ obtenable via un code d'evenement (`EventCodes`, `RewardType=card`).
 `daily-wheel.json` (POST `/daily-wheel` `{ userId, action: 'status'|'spin' }`).
 Un seul tirage par jour et par joueur, base sur `Users.LastWheelSpinDate`
 (fuseau Paris, meme logique que `DailyQuests`). Lots ("mix prudent", pas de
-carte directe pour ne jamais court-circuiter les raretes fortes) :
-- 70% : petite quantite de poussieres d'etoile (10-25)
+carte directe pour ne jamais court-circuiter les raretes fortes) - table
+enrichie le 2026-09-30 (2 nouveaux paliers, une clef secrete et un jackpot
+rare) :
+- 50% : petite quantite de poussieres d'etoile (10-25)
 - 20% : grosse quantite de poussieres d'etoile (50-100)
-- 10% : 1 booster generique
+- 15% : 1 booster generique
+- 10% : 1 clef secrete (`Users.KeyCount`, voir "Cartes secretes" plus bas et
+  "Coffre-fort" ci-dessous - meme monnaie que ces deux fonctionnalites)
+- 5% : jackpot - 2 boosters ET 100 poussieres d'etoile d'un coup
+
+Le SVG de la roue (`index.html`) a ete redessine en 12 secteurs (au lieu de
+8) pour representer visuellement les 5 paliers ; comme avant, le NOMBRE de
+secteurs par type est purement cosmetique (variete visuelle de la case sur
+laquelle on peut s'arreter), la vraie probabilite est entierement decidee
+par le tirage serveur ci-dessus avant meme que le front ne fasse tourner la
+roue.
+
+## Coffre-fort (autre utilite des clefs secretes)
+
+Deuxieme debouche pour `Users.KeyCount` (2026-09-30, en plus de la serrure
+cachee ci-dessous) : une page "Coffre-fort" (nouvel onglet de `jeux.html`,
+a cote de Fouille/Bingo) montre EN PERMANENCE une carte precise - visible,
+mais enfermee derriere des barreaux tant que le joueur n'a pas **6 clefs
+secretes**. Deverrouillage **definitif, une seule fois par joueur** (pas
+repetable) : une fois ouvert, le joueur garde la carte pour toujours et la
+page affiche juste un message de felicitations a la place.
+
+**`Cards.IsVault`** (Bool, **nouvelle colonne a creer**) : marque LA carte
+qui vit dans le coffre-fort. A poser sur UNE seule carte, en plus de
+`IsPromo=true` (c'est une carte promo, comme les cartes secretes) ; mettre
+aussi son `Finish` de reference sur "rainbow" en Grist si tu veux qu'elle
+s'affiche deja arc-en-ciel ailleurs, meme si `vault.json` force de toute
+facon `Finish=rainbow` sur la ligne `Pulls` creee a l'ouverture.
+
+`vault.json` (POST `/vault` `{ userId, action: 'status'|'open' }`) :
+- `status` : trouve la carte marquee `IsVault`, retourne
+  `{ card: {cardId,name,artist,imageId}, keysRequired: 6, userKeys,
+  alreadyOpened }`. Repond `{ error: 'vault_not_configured' }` si aucune
+  carte n'a encore `IsVault=true`.
+- `open` : refuse si `alreadyOpened` (`error: 'already_opened'`) ou si
+  `Users.KeyCount < 6` (`error: 'not_enough_keys'`) ; sinon decremente
+  `KeyCount` de 6 et cree une ligne `Pulls` (`Finish: 'rainbow'`, numero de
+  serie via le suivi habituel "plus petit numero libre", `BatchId` prefixe
+  `vault-`). **Pas de colonne d'etat dediee** : comme `craft-`/`secret-`/
+  `dig-`, on sait qu'un joueur a deja ouvert le coffre s'il possede une
+  ligne `Pulls` de la carte du coffre avec un `BatchId` commencant par
+  `vault-` - meme convention que partout ailleurs dans le projet.
 
 ## Cartes secretes (clef + serrure cachee, remplace l'ancien Konami code)
 
@@ -704,6 +767,26 @@ serrure (`#redeem-lock-icon`, purement cote client, voir `redeem.js`) ;
 cliquer la serrure appelle `/unlock-secret`. L'ancien listener Konami-code
 site-wide (`main.js`) a ete retire - ce mecanisme est desormais le seul
 chemin vers les cartes secretes.
+
+**Invisibilite en collection (extension `pack-secretes`, 2026-09-30)** :
+les cartes dont `Extension.Key = 'pack-secretes'` n'apparaissent PAS dans
+`get-collection.json` tant qu'elles n'ont pas ete obtenues - ni la carte
+(pas meme une case "???" verrouillee, contrairement a toute autre carte non
+possedee) ni la categorie/extension elle-meme (le regroupement par
+extension de `collection.js` n'affiche naturellement aucun groupe vide,
+puisque le filtre est fait cote backend). Des qu'un exemplaire est trouve,
+la carte ET la categorie apparaissent - les AUTRES cartes secretes encore
+non trouvees restent, elles, invisibles individuellement. Filtre applique
+uniquement dans `get-collection.json` (jamais dans `get-cards.json`,
+toujours utilise tel quel par l'admin pour le don de cartes - voir plus
+haut "le don à un joueur via admin doit pouvoir donner... les secrètes").
+`Cards.IsSecret` est desormais aussi expose par `get-collection.json` (en
+plus de `get-cards.json` deja avant) pour permettre au front de distinguer
+une carte secrete d'une carte promo normale (voir decraft ci-dessous).
+
+**Decraftable en exception (2026-09-30)** : voir "Craft / decraft" plus
+haut - une carte secrete reste promo mais peut etre decraftee contre 1
+booster fixe (jamais de poussieres).
 
 ## Récompenses de niveau (100 paliers)
 

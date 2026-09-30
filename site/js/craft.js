@@ -508,10 +508,14 @@ function craftCardTile(card, mode) {
     // possede, voir worstFinish/worstQuality) - au-dela de qty=1, un decraft
     // en masse peut ensuite entamer une variante plus prestigieuse, d'ou le
     // "au moins" dans la confirmation (disenchant()) plutot qu'un total exact.
+    // Carte secrete : contrepartie fixe de 1 booster par exemplaire (voir
+    // disenchant.json), jamais de poussieres - exclue du mode bulk (dont le
+    // total suppose des poussieres uniquement) pour ne pas fausser la somme.
     const dust = estimateDust(card.rarity?.disenchantValue || 0, finish, quality);
+    const bulkCheckable = bulkSelectMode && !card.isSecret;
     return `
       <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
-        ${bulkSelectMode ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
+        ${bulkCheckable ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
         <div class="card-art">
           <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
           ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
@@ -520,7 +524,7 @@ function craftCardTile(card, mode) {
         <div class="card-info">
           <div class="card-name">${card.name}</div>
           <div class="owned-count">Possède x${owned.count}</div>
-          <div class="craft-cost">+${dust} poussières</div>
+          <div class="craft-cost">${card.isSecret ? `+${qty} booster${qty > 1 ? "s" : ""}` : `+${dust} poussières`}</div>
           ${showStepper ? `
             <div class="qty-stepper">
               <button type="button" class="qty-btn" data-qty-action="minus" data-mode="disenchant" data-card-id="${card.cardId}" ${qty <= 1 ? "disabled" : ""}>&minus;</button>
@@ -613,9 +617,39 @@ function renderUnusedDustReminder() {
   }
 }
 
+// Meme effet de bascule 3D + reflet suivant le curseur que collection.js
+// (attachTilt) - duplique ici plutot qu'importe (pas de module partage sur
+// ce site statique, voir grist/SCHEMA.md convention). Rend enfin les
+// finitions holo/diamant/arc-en-ciel du Décrafter aussi vivantes que dans
+// la collection, ou elles beneficiaient deja de ce reflet interactif.
+function attachTilt(el) {
+  const update = (clientX, clientY) => {
+    const rect = el.getBoundingClientRect();
+    const px = (clientX - rect.left) / rect.width - 0.5;
+    const py = (clientY - rect.top) / rect.height - 0.5;
+    el.style.setProperty("--ry", `${px * 16}deg`);
+    el.style.setProperty("--rx", `${py * -16}deg`);
+    el.style.setProperty("--shine-x", `${(px + 0.5) * 100}%`);
+    el.style.setProperty("--shine-y", `${(py + 0.5) * 100}%`);
+  };
+  const reset = () => {
+    el.style.setProperty("--rx", `0deg`);
+    el.style.setProperty("--ry", `0deg`);
+    el.style.setProperty("--shine-x", `50%`);
+    el.style.setProperty("--shine-y", `50%`);
+    el.style.willChange = "auto";
+  };
+  el.addEventListener("mouseenter", () => { el.style.willChange = "transform"; });
+  el.addEventListener("mousemove", (e) => update(e.clientX, e.clientY));
+  el.addEventListener("mouseleave", reset);
+}
+
 function renderDisenchantGrid() {
   const grid = document.getElementById("disenchant-grid");
-  let disenchantable = allCards.filter((c) => !c.isPromo && ownedMap.has(c.cardId));
+  // Exception (2026-09-30) : une carte secrete reste promo mais PEUT etre
+  // decraftee (contre un booster plutot que des poussieres, voir
+  // disenchant.json) - toutes les AUTRES cartes promo restent exclues.
+  let disenchantable = allCards.filter((c) => (!c.isPromo || c.isSecret) && ownedMap.has(c.cardId));
   if (craftRarityFilter !== "all") disenchantable = disenchantable.filter((c) => c.rarity?.key === craftRarityFilter);
   if (craftSearchQuery) {
     const q = normalize(craftSearchQuery);
@@ -634,6 +668,7 @@ function renderDisenchantGrid() {
   grid.innerHTML = disenchantable.length
     ? disenchantable.map((c) => craftCardTile(c, "disenchant")).join("")
     : `<div class="empty-state">Aucune carte decraftable ne correspond.</div>`;
+  grid.querySelectorAll(".craft-card").forEach(attachTilt);
   grid.querySelectorAll(".disenchant-btn").forEach((btn) => {
     btn.addEventListener("click", () => disenchant(Number(btn.dataset.cardId), btn));
   });
@@ -794,22 +829,29 @@ async function disenchant(cardId, btn) {
     (QUALITY_ORDER.indexOf(a.quality || "damaged") - QUALITY_ORDER.indexOf(b.quality || "damaged"))
   );
   const totalDust = sortedCopies.slice(0, qty).reduce((sum, c) => sum + estimateDust(dustEach, c.finish || "normal", c.quality || "damaged"), 0);
+  // Carte secrete : contrepartie fixe de 1 booster par exemplaire (voir
+  // disenchant.json), jamais de poussieres.
   const ok = await Confirm.show(
-    qty > 1
-      ? `Décrafter <strong>${qty}x ${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> au total ? ` +
-        `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible.`
-      : `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> ? ` +
-        `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+    card?.isSecret
+      ? `Décrafter <strong>${qty > 1 ? `${qty}x ` : ""}${card?.name || "cette carte"}</strong> contre <strong>${qty} booster${qty > 1 ? "s" : ""}</strong> ? ` +
+        `Cette action est irréversible.`
+      : qty > 1
+        ? `Décrafter <strong>${qty}x ${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> au total ? ` +
+          `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible.`
+        : `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> ? ` +
+          `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
     { title: "Décrafter cette carte ?", confirmText: qty > 1 ? `Décrafter x${qty}` : "Décrafter", dangerous: true }
   );
   if (!ok) return;
   let successCount = 0;
   let totalDustGained = 0;
+  let totalBoostersGained = 0;
   let lastError = null;
   for (let i = 0; i < qty; i++) {
     try {
       const res = await API.disenchantCard(Session.userId, cardId);
       totalDustGained += res.dustGained || 0;
+      if (res.boosterGranted) totalBoostersGained++;
       successCount++;
     } catch (e) {
       lastError = e;
@@ -820,9 +862,14 @@ async function disenchant(cardId, btn) {
     Toast.error(DISENCHANT_ERRORS[lastError?.code] || ("Erreur. (" + lastError?.message + ")"));
     return;
   }
-  Toast.success(successCount > 1
-    ? `+${totalDustGained} poussières (${successCount}x ${card?.name})`
-    : `+${totalDustGained} poussières (${card?.name})`);
+  if (totalBoostersGained > 0) {
+    Toast.success(`+${totalBoostersGained} booster${totalBoostersGained > 1 ? "s" : ""} (${card?.name})`);
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } else {
+    Toast.success(successCount > 1
+      ? `+${totalDustGained} poussières (${successCount}x ${card?.name})`
+      : `+${totalDustGained} poussières (${card?.name})`);
+  }
   disenchantQty.delete(cardId);
   await playDustDissolve(btn ? btn.closest(".craft-card") : null);
   await reload();
