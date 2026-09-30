@@ -572,6 +572,10 @@
             {
               "fieldId": "Date",
               "fieldValue": "={{ $('Dispatch Action').first().json.today }}"
+            },
+            {
+              "fieldId": "DepositRowId",
+              "fieldValue": "={{ $('Dispatch Action').first().json.depositRowId }}"
             }
           ]
         }
@@ -624,6 +628,206 @@
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
+      }
+    },
+    {
+      "id": "wait-before-recheck-chest",
+      "name": "Wait Before Recheck Chest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "await new Promise((resolve) => setTimeout(resolve, 400));\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "sync-wait-recheck-chest",
+      "name": "Sync Wait -> Recheck Chest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "recheck-guild-chest-claims",
+      "name": "Recheck Guild Chest Claims",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1800,
+        460
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "GuildChestClaims",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-recheck-decide-chest",
+      "name": "Sync Recheck -> Decide Chest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "decide-draw-outcome",
+      "name": "Decide Draw Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst myClaim = $('Create Guild Chest Claim').first().json;\nconst myPull = $('Create Drawn Pull').first().json;\nconst d = $('Dispatch Action').first().json;\nconst rivals = $('Recheck Guild Chest Claims').all().map((i) => i.json).filter((r) => r.id != null && refId(r.DepositRowId) === d.depositRowId);\nrivals.sort((a, b) => a.id - b.id);\n// Le premier (id le plus bas = ecrit le premier) gagne le depot - meme\n// classement obtenu par tous les tireurs concurrents une fois leurs\n// ecritures visibles.\nconst winner = rivals[0];\nconst iWon = !winner || winner.id === myClaim.id;\nif (iWon) return [{ json: { rollback: false } }];\nreturn [{ json: { rollback: true, docId: d.docId, myClaimRowId: myClaim.id, myPullRowId: myPull.id } }];"
+      }
+    },
+    {
+      "id": "if-draw-rollback-needed",
+      "name": "If Draw Rollback Needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        460
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.rollback }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "delete-my-claim",
+      "name": "Delete My Claim",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        2600,
+        360
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $('Decide Draw Outcome').first().json.docId }}",
+        "tableId": "GuildChestClaims",
+        "rowId": "={{ $('Decide Draw Outcome').first().json.myClaimRowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-delete-claim-delete-pull",
+      "name": "Sync Delete Claim -> Delete Pull",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "delete-my-drawn-pull",
+      "name": "Delete My Drawn Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        3000,
+        360
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $('Decide Draw Outcome').first().json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $('Decide Draw Outcome').first().json.myPullRowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-deposit-taken",
+      "name": "Format Deposit Taken",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { error: 'deposit_already_claimed' } }];"
+      }
+    },
+    {
+      "id": "respond-deposit-taken",
+      "name": "Respond Deposit Taken",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3400,
+        360
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
       }
     }
   ],
@@ -906,7 +1110,7 @@
       "main": [
         [
           {
-            "node": "Format Draw Response",
+            "node": "Wait Before Recheck Chest",
             "type": "main",
             "index": 0
           }
@@ -929,6 +1133,123 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Recheck Chest": {
+      "main": [
+        [
+          {
+            "node": "Sync Wait -> Recheck Chest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Wait -> Recheck Chest": {
+      "main": [
+        [
+          {
+            "node": "Recheck Guild Chest Claims",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck Guild Chest Claims": {
+      "main": [
+        [
+          {
+            "node": "Sync Recheck -> Decide Chest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Recheck -> Decide Chest": {
+      "main": [
+        [
+          {
+            "node": "Decide Draw Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Draw Outcome": {
+      "main": [
+        [
+          {
+            "node": "If Draw Rollback Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Draw Rollback Needed": {
+      "main": [
+        [
+          {
+            "node": "Delete My Claim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Draw Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete My Claim": {
+      "main": [
+        [
+          {
+            "node": "Sync Delete Claim -> Delete Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Delete Claim -> Delete Pull": {
+      "main": [
+        [
+          {
+            "node": "Delete My Drawn Pull",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete My Drawn Pull": {
+      "main": [
+        [
+          {
+            "node": "Format Deposit Taken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Deposit Taken": {
+      "main": [
+        [
+          {
+            "node": "Respond Deposit Taken",
             "type": "main",
             "index": 0
           }

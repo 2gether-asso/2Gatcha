@@ -136,13 +136,38 @@ function buildCardEl(card, index, cardBackImageId) {
       // n'a pas ce chemin). On laisse le navigateur demarrer la transition du
       // flip AVANT de forcer ce reflow, sur la frame suivante.
       requestAnimationFrame(() => celebrateRarity(card.rarity?.key, wrap, color));
+      renderStackPips();
       return;
     }
     advanceStack();
   };
   wrap.addEventListener("click", flip);
   wrap._flip = flip;
+  attachCardShine(wrap);
   return wrap;
+}
+
+// Reflet holographique qui suit le curseur (finitions holo/diamant, voir
+// style.css [data-finish] ...::after, jusque-la fige a 50%/50% dans cette
+// page car rien ne posait --shine-x/--shine-y ici - contrairement a
+// collection.js/craft.js qui le font deja via attachTilt). On se contente des
+// coordonnees du reflet, jamais de rotateX/rotateY : le wrap (.card) voit son
+// `transform` entierement pilote en inline par layoutStack (position dans la
+// pile), un tilt CSS base sur ces memes vars serait donc immediatement
+// ecrase et sans effet.
+function attachCardShine(el) {
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+  el.addEventListener("mousemove", (e) => {
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    el.style.setProperty("--shine-x", `${px * 100}%`);
+    el.style.setProperty("--shine-y", `${py * 100}%`);
+  });
+  el.addEventListener("mouseleave", () => {
+    el.style.setProperty("--shine-x", "50%");
+    el.style.setProperty("--shine-y", "50%");
+  });
 }
 
 // Positionne chaque carte de la pile : la carte a stackIndex est active
@@ -155,12 +180,16 @@ function layoutStack() {
       el.classList.add("discarded");
       el.dataset.active = "false";
       el.style.transform = "translateX(-160%) rotate(-18deg)";
+      el.style.filter = "";
       return;
     }
     el.dataset.active = rel === 0 ? "true" : "false";
     const depth = Math.min(rel, 4);
     el.style.transform = `translate(${depth * 5}px, ${depth * 7}px) rotate(${depth * 2}deg) scale(${1 - depth * 0.03})`;
     el.style.zIndex = String(100 - depth);
+    // Profondeur de champ : la pile derriere la carte active se floute
+    // progressivement (effet bokeh), plutot que de rester nette a plat.
+    el.style.filter = depth > 0 ? `blur(${Math.min(depth * 1.1, 3.5)}px)` : "";
   });
   const progress = document.getElementById("stack-progress");
   if (progress) {
@@ -168,6 +197,7 @@ function layoutStack() {
       ? `Carte ${Math.min(stackIndex + 1, stackCardEls.length)} / ${stackCardEls.length}`
       : "";
   }
+  renderStackPips();
 
   // Precharge l'image de la carte suivante pendant qu'on regarde la carte
   // active : evite un petit flash/attente au moment ou elle passe au sommet.
@@ -176,6 +206,23 @@ function layoutStack() {
     const src = API.imageUrl(next.imageId);
     if (src) { const img = new Image(); img.src = src; }
   }
+}
+
+// Pips de progression (au-dessus de la pile) : un point par carte du lot,
+// colore avec la vraie rarete de la carte des qu'elle est revelee - repere
+// visuel immediat sur la qualite du lot en cours, la ou "Carte 2/5" (texte)
+// ne donne aucune indication avant d'y arriver.
+function renderStackPips() {
+  const el = document.getElementById("stack-pips");
+  if (!el) return;
+  if (!lastRevealedCards.length) { el.innerHTML = ""; return; }
+  el.innerHTML = lastRevealedCards.map((c, i) => {
+    const cardEl = stackCardEls[i];
+    const revealed = cardEl && cardEl.classList.contains("revealed");
+    const color = revealed ? (c.rarity?.colorHex || "#9aa0b4") : "";
+    const current = i === stackIndex ? "current" : "";
+    return `<span class="stack-pip ${revealed ? "revealed" : ""} ${current}" style="${color ? `--pip-color:${color}` : ""}"></span>`;
+  }).join("");
 }
 
 function advanceStack() {
@@ -460,12 +507,40 @@ async function shareBestPull() {
 // A partir d'epique (pas seulement legendaire) : le flash plein ecran suit
 // desormais la VRAIE couleur de la rarete (hexToRgba, main.js) et son
 // intensite grandit avec le palier - jamais fige sur l'orange legendaire.
+// Rare est desormais le palier d'entree de la "vraie" animation autour de la
+// carte (demande explicite, 2026-09-30, en remplacement de l'idee des eclats
+// de foil colores par extension) : jusqu'ici seule une epique+ declenchait le
+// flash plein ecran/le pulse de luminosite (voir plus bas), une rare tiree se
+// distinguait uniquement par son halo STATIQUE (.card-face, style.css) sans
+// aucune animation. Chaque palier ajoute son propre anneau lumineux qui
+// eclate autour de la carte (spawnCardAuraRing), avec un nombre de pulsations
+// et une taille croissants ; le flash plein ecran/le zoom cinematique restent
+// reserves a epique+ (heroZoom) pour ne pas rendre une simple rare aussi
+// spectaculaire qu'une mythique.
 const RARITY_FLASH_TIERS = {
-  epique: { alpha: 0.4, duration: "0.7s", brightness: 1.6, className: "tier-epique" },
-  legendaire: { alpha: 0.55, duration: "0.9s", brightness: 2, className: "tier-legendaire" },
-  mythique: { alpha: 0.7, duration: "1.2s", brightness: 2.6, className: "tier-mythique" }
+  rare: { alpha: 0.22, duration: "0.5s", brightness: 1.25, className: "tier-rare", ringPulses: 1, ringScale: 1.3 },
+  epique: { alpha: 0.4, duration: "0.7s", brightness: 1.6, className: "tier-epique", ringPulses: 2, ringScale: 1.5, heroZoom: true, heroScale: 1.14 },
+  legendaire: { alpha: 0.55, duration: "0.9s", brightness: 2, className: "tier-legendaire", ringPulses: 3, ringScale: 1.7, heroZoom: true, heroScale: 1.2 },
+  mythique: { alpha: 0.7, duration: "1.2s", brightness: 2.6, className: "tier-mythique", ringPulses: 4, ringScale: 1.9, heroZoom: true, heroScale: 1.28 }
 };
 const RARITY_FLASH_TOASTS = { legendaire: "Légendaire !", mythique: "Mythique !" };
+
+// Anneau lumineux qui eclate autour de la carte (voir commentaire ci-dessus) :
+// element ephemere ajoute comme enfant direct de la carte (.card doit rester
+// position:relative, voir style.css), auto-supprime a la fin de sa propre
+// animation (animationend ne se declenche qu'une fois, apres TOUTES les
+// iterations de l'animation-iteration-count).
+function spawnCardAuraRing(cardEl, colorHex, tier) {
+  if (!cardEl || !tier || !tier.ringPulses) return;
+  const ring = document.createElement("div");
+  ring.className = "card-aura-ring";
+  ring.style.setProperty("--aura-color", colorHex || "#9aa0b4");
+  ring.style.setProperty("--aura-scale", String(tier.ringScale || 1.3));
+  ring.style.setProperty("--aura-pulses", String(tier.ringPulses));
+  cardEl.appendChild(ring);
+  ring.addEventListener("animationend", () => ring.remove());
+}
+
 function celebrateRarity(key, cardEl, colorHex) {
   spawnRarityBurst(key, colorHex, cardEl);
   const tier = RARITY_FLASH_TIERS[key];
@@ -484,7 +559,14 @@ function celebrateRarity(key, cardEl, colorHex) {
       cardEl.classList.remove("legendary-hit");
       void cardEl.offsetWidth;
       cardEl.classList.add("legendary-hit");
+      if (tier.heroZoom) {
+        cardEl.style.setProperty("--hero-scale", String(tier.heroScale));
+        cardEl.classList.remove("hero-zoom");
+        void cardEl.offsetWidth;
+        cardEl.classList.add("hero-zoom");
+      }
     }
+    spawnCardAuraRing(cardEl, colorHex, tier);
     if (RARITY_FLASH_TOASTS[key]) Toast.success(RARITY_FLASH_TOASTS[key]);
   }
 }
@@ -755,10 +837,20 @@ function openModalFor(extensionId) {
   stackIndex = 0;
   const progressEl = document.getElementById("stack-progress");
   if (progressEl) progressEl.textContent = "";
+  const pipsEl = document.getElementById("stack-pips");
+  if (pipsEl) pipsEl.innerHTML = "";
   const oldRevealAll = document.getElementById("reveal-all-btn");
   if (oldRevealAll) oldRevealAll.remove();
   pack.classList.remove("locked", "charging", "tearing");
   pack.style.visibility = "visible";
+
+  // Halo ambiant proportionnel a la pity (voir .booster-pack.charging,
+  // style.css) : plus on approche du palier legendaire garanti sur cette
+  // extension, plus la charge du pack rougeoie fort avant meme de savoir ce
+  // qui va sortir - jusque-la la pity n'etait visible que sur l'ecran de
+  // selection d'extension, jamais pendant l'ouverture elle-meme.
+  const pityRatio = pityThreshold ? Math.min(1, (pityByExt.get(ext.id) || 0) / pityThreshold) : 0;
+  pack.style.setProperty("--pity-ratio", String(pityRatio));
 
   const img = API.imageUrl(ext.packImageId);
   pack.innerHTML = img
@@ -904,6 +996,20 @@ async function startOpening(ext) {
       pack.classList.add("charging-" + bestRarity);
     }
 
+    // Jauge de charge visible autour du pack (anneau SVG, voir ouverture.html
+    // #charge-ring) : jusqu'ici la charge de 750ms n'etait qu'un tremblement
+    // CSS sans aucun repere de progression. L'anneau se remplit exactement
+    // sur la duree du wait() qui suit, et prend la couleur de la meilleure
+    // rareté deja tiree (meme "spoiler discret" que le tremblement).
+    const chargeRing = document.getElementById("charge-ring");
+    if (chargeRing) {
+      const bestCard = allCards.find((c) => (c.rarity?.key || "commune") === bestRarity);
+      chargeRing.style.setProperty("--charge-ring-color", (bestCard && bestCard.rarity?.colorHex) || "#8b5cf6");
+      chargeRing.classList.remove("active");
+      void chargeRing.offsetWidth;
+      chargeRing.classList.add("active");
+    }
+
     // Sequence volontairement plus lente qu'avant : charge (750ms) ->
     // dechirure marquee (750ms, voir packTear) -> court silence (250ms)
     // avant l'apparition des cartes. Le pull est LE moment fort de la
@@ -911,6 +1017,7 @@ async function startOpening(ext) {
     await wait(750);
     pack.classList.remove("charging", "charging-legendaire", "charging-epique", "charging-rare", "charging-mythique");
     pack.classList.add("tearing");
+    if (chargeRing) chargeRing.classList.remove("active");
     spawnFoilShards(pack);
     flash.classList.add("flash-active");
     skipHint.classList.remove("visible");
@@ -949,29 +1056,67 @@ async function startOpening(ext) {
       revealAllBtn.textContent = "Tout révéler";
       revealAllBtn.addEventListener("click", () => {
         // "Tout révéler" bascule la pile en ligne : les cartes se posent
-        // cote a cote (mise en page normale de .reveal-grid, plus de pile)
-        // et se retournent toutes ensemble (léger décalage de quelques ms
-        // entre chacune pour que les sons/effets ne se chevauchent pas
-        // completement), au lieu de l'ancien enchainement carte par carte.
+        // cote a cote (mise en page normale de .reveal-grid, plus de pile).
+        // FLIP (First-Last-Invert-Play) : on capture la position actuelle de
+        // chaque carte AVANT de changer les classes, pour animer un vrai
+        // glissement pile -> ligne plutot qu'un saut instantane (stacked ->
+        // row-reveal recalcule toute la grille CSS d'un coup, sans
+        // transition possible directement sur cette bascule).
         revealAllBtn.disabled = true;
-        grid.classList.remove("stacked");
-        grid.classList.add("row-reveal");
-        const progress = document.getElementById("stack-progress");
-        if (progress) progress.textContent = "";
+        const firstRects = stackCardEls.map((el) => el.getBoundingClientRect());
+
         // Si le joueur avait deja retourne quelques cartes a la main avant
         // de cliquer "Tout révéler", elles portent .discarded (envolees sur
         // le cote, invisibles) : on les remet dans le rang avec les autres.
         stackCardEls.forEach((el) => {
           el.classList.remove("discarded");
           el.style.transform = "";
+          el.style.filter = "";
           el.dataset.active = "true";
         });
+        grid.classList.remove("stacked");
+        grid.classList.add("row-reveal");
+        const progress = document.getElementById("stack-progress");
+        if (progress) progress.textContent = "";
+        const pips = document.getElementById("stack-pips");
+        if (pips) pips.innerHTML = "";
+
+        // Reflow force : necessaire pour lire la position FINALE (en ligne)
+        // juste apres avoir bascule les classes ci-dessus.
+        void grid.offsetWidth;
         stackCardEls.forEach((el, i) => {
-          if (el.classList.contains("revealed")) return;
-          setTimeout(() => el._flip(), i * 90);
+          const last = el.getBoundingClientRect();
+          const dx = firstRects[i].left - last.left;
+          const dy = firstRects[i].top - last.top;
+          if (!dx && !dy) return;
+          el.style.transition = "none";
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          void el.offsetWidth;
+          el.style.transition = "transform 0.5s cubic-bezier(.2,.8,.2,1)";
+          el.style.transform = "";
+        });
+
+        // Ordre de reveal trie par rareté croissante (garde la meilleure
+        // carte du lot pour la fin, avec une pause suspendue juste avant)
+        // plutot que l'ordre brut du tirage - convention courante des jeux
+        // gacha pour finir sur un point culminant au lieu d'un flip uniforme.
+        const order = stackCardEls.map((_, i) => i).filter((i) => !stackCardEls[i].classList.contains("revealed"));
+        order.sort((a, b) => (RARITY_ORDER[lastRevealedCards[a].rarity?.key || "commune"] ?? 0) - (RARITY_ORDER[lastRevealedCards[b].rarity?.key || "commune"] ?? 0));
+        let totalDelay = 0;
+        order.forEach((idx, k) => {
+          const delay = k * 90 + (k === order.length - 1 && order.length > 1 ? 550 : 0);
+          totalDelay = Math.max(totalDelay, delay);
+          setTimeout(() => stackCardEls[idx]._flip(), delay);
         });
         stackIndex = stackCardEls.length;
-        setTimeout(onAllRevealed, stackCardEls.length * 90 + 500);
+        // Le recap "Termine : ..." doit attendre la fin du zoom cinematique de
+        // la derniere carte (epique+, voir heroZoom) avant de s'afficher -
+        // sinon il apparait par-dessus une carte encore en train de grossir,
+        // ce qui casse net l'effet de point culminant qu'on cherche a creer.
+        const lastKey = order.length ? (lastRevealedCards[order[order.length - 1]].rarity?.key || "commune") : "commune";
+        const lastTier = RARITY_FLASH_TIERS[lastKey];
+        const lastTierMs = lastTier ? parseFloat(lastTier.duration) * 1000 : 0;
+        setTimeout(onAllRevealed, totalDelay + Math.max(500, lastTierMs + 250));
       });
       grid.after(revealAllBtn);
     } else {

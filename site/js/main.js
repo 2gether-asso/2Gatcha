@@ -251,6 +251,9 @@ const NotificationHistory = {
   },
   markAllSeen() {
     try { sessionStorage.setItem(this.LAST_SEEN_KEY, String(Date.now())); } catch (e) {}
+  },
+  clear() {
+    try { sessionStorage.removeItem(this.KEY); } catch (e) {}
   }
 };
 
@@ -276,7 +279,10 @@ function renderNotifDropdown() {
   if (!el) return;
   const items = NotificationHistory.getAll();
   const icons = { success: "&#10003;", error: "&#9888;", info: "&#10024;" };
-  el.innerHTML = items.length
+  const header = items.length
+    ? `<div class="notif-bell-header"><span>Notifications</span><button type="button" class="notif-clear-btn" id="notif-clear-btn">Tout effacer</button></div>`
+    : "";
+  el.innerHTML = header + (items.length
     ? items.map((n) => `
         <div class="notif-item notif-item-${n.type}">
           <span class="notif-item-icon">${icons[n.type] || icons.info}</span>
@@ -286,7 +292,16 @@ function renderNotifDropdown() {
           </span>
         </div>
       `).join("")
-    : `<div class="notif-empty">Rien de nouveau pour l'instant.</div>`;
+    : `<div class="notif-empty">Rien de nouveau pour l'instant.</div>`);
+  const clearBtn = document.getElementById("notif-clear-btn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      NotificationHistory.clear();
+      renderNotifDropdown();
+      renderNotifDot();
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -863,6 +878,14 @@ function bumpNumber(el, newValue) {
   requestAnimationFrame(step);
 }
 
+// "group: 'more'" (2026-09-30) : la nav du haut debordait silencieusement
+// (aucun retour a la ligne ni defilement) des qu'on descendait sous ~1150px
+// de large - un vrai bug decouvert par capture d'ecran, pas juste une
+// question de gout : Craft/Code/Échanges/Communauté/Jeux/Admin devenaient
+// tous inaccessibles au clavier/souris sur un ecran de tablette/petit
+// laptop. Regroupe les pages les moins consultees au quotidien sous un menu
+// "Plus" (voir renderHeader) pour degager assez de place - premiere etape
+// d'une reorganisation plus large, pas la fin de l'histoire.
 const NAV_ITEMS = [
   { href: "index.html", label: "Accueil", icon: "&#127968;", auth: false, badgeKey: "rewards" },
   { href: "ouverture.html", label: "Boosters", icon: "&#127873;", auth: false, badgeKey: "boosters" },
@@ -870,9 +893,9 @@ const NAV_ITEMS = [
   { href: "craft.html", label: "Craft", icon: "&#10024;", auth: true },
   { href: "redeem.html", label: "Code", icon: "&#127915;", auth: true },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
-  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true },
-  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
-  { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
+  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true, group: "more" },
+  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux", group: "more" },
+  { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin", group: "more" }
 ];
 
 function currentPage() {
@@ -1014,6 +1037,18 @@ async function loadNavBadges() {
         (a.querySelector(".bn-icon") || a).appendChild(dot);
       }
     });
+
+    // Le lien "Jeux" (et Communaute/Admin) est desormais planque sous le menu
+    // "Plus" du header (voir renderHeader) : sans ca, sa pastille de rappel
+    // (jeuxCount ci-dessus) resterait invisible tant qu'on n'a pas deplie le
+    // menu. On reporte donc un simple point sur le declencheur "Plus" des
+    // qu'au moins un lien qu'il contient a lui-meme une pastille active.
+    const navMoreTrigger = document.getElementById("nav-more-trigger");
+    if (navMoreTrigger) {
+      const dropdown = document.getElementById("nav-more-dropdown");
+      const hasChildDot = !!(dropdown && dropdown.querySelector(".nav-dot"));
+      navMoreTrigger.classList.toggle("has-dot", hasChildDot);
+    }
   } catch (e) { /* pas grave, juste un rappel visuel */ }
 }
 
@@ -1024,7 +1059,21 @@ function renderHeader() {
   if (!el) return;
 
   const page = currentPage();
-  const links = `<nav class="nav">${visibleNavItems().map((i) => `<a href="${i.href}" class="${i.href === page ? "active" : ""}" data-badge-key="${i.badgeKey || ""}">${i.label}</a>`).join("")}</nav>`;
+  // Regroupe les pages les moins consultees au quotidien sous un menu "Plus"
+  // (voir NAV_ITEMS) : corrige le debordement silencieux de la nav complete
+  // sur les ecrans moyens (tablette/petit laptop), et degage un peu de place
+  // pour les elements a droite (monnaies, recherche, notifications...).
+  const primaryItems = visibleNavItems().filter((i) => !i.group);
+  const moreItems = visibleNavItems().filter((i) => i.group === "more");
+  const navLinkHtml = (i) => `<a href="${i.href}" class="${i.href === page ? "active" : ""}" data-badge-key="${i.badgeKey || ""}">${i.label}</a>`;
+  const primaryLinks = primaryItems.map(navLinkHtml).join("");
+  const moreDropdown = moreItems.length ? `
+    <div class="nav-more" id="nav-more">
+      <button type="button" class="nav-more-trigger ${moreItems.some((i) => i.href === page) ? "active" : ""}" id="nav-more-trigger" aria-haspopup="true" aria-expanded="false">Plus <span class="nav-more-arrow">&#9662;</span></button>
+      <div class="nav-more-dropdown" id="nav-more-dropdown">${moreItems.map(navLinkHtml).join("")}</div>
+    </div>
+  ` : "";
+  const links = `<nav class="nav">${primaryLinks}${moreDropdown}</nav>`;
 
   if (Session.isLoggedIn()) {
     const avatar = Session.discordAvatar
@@ -1104,6 +1153,23 @@ function renderHeader() {
     document.addEventListener("click", (e) => {
       if (!notifBell.contains(e.target)) notifBell.classList.remove("open");
     });
+
+    const navMore = document.getElementById("nav-more");
+    if (navMore) {
+      const navMoreTrigger = document.getElementById("nav-more-trigger");
+      navMoreTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const opening = !navMore.classList.contains("open");
+        navMore.classList.toggle("open", opening);
+        navMoreTrigger.setAttribute("aria-expanded", opening ? "true" : "false");
+      });
+      document.addEventListener("click", (e) => {
+        if (!navMore.contains(e.target)) {
+          navMore.classList.remove("open");
+          navMoreTrigger.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
 
     // Recherche globale (QoL 2026-09-30, demande explicite : "les profils
     // sont peu accessibles") : trouve un joueur par pseudo (raccourci direct

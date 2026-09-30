@@ -219,7 +219,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst cfg = $('Set Config').first().json;\nconst now = Math.floor(Date.now() / 1000);\nconst offersRows = $('Get Black Market Offers').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\n\nfunction purchasesFor(offerId) {\n  const prefix = `market-${offerId}-`;\n  return pulls.filter((p) => (p.BatchId || '').toString().startsWith(prefix)).length;\n}\n\nif (cfg.action === 'buy') {\n  const offer = offersRows.find((o) => o.id === cfg.offerId);\n  if (!offer) return [{ json: { ...cfg, ok: false, error: 'offer_not_found' } }];\n  if (offer.Active === false) return [{ json: { ...cfg, ok: false, error: 'offer_inactive' } }];\n  if (offer.ExpiresAt && now > offer.ExpiresAt) return [{ json: { ...cfg, ok: false, error: 'offer_expired' } }];\n  const used = purchasesFor(offer.id);\n  if (offer.MaxPurchases && used >= offer.MaxPurchases) return [{ json: { ...cfg, ok: false, error: 'offer_exhausted' } }];\n  const user = users.find((u) => u.id === cfg.userId);\n  const cost = offer.Cost || 0;\n  if (!user || (user.StardustCount || 0) < cost) return [{ json: { ...cfg, ok: false, error: 'insufficient_dust' } }];\n  const cardId = refId(offer.CardId);\n  const card = cardById[cardId];\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  // Plus de quota (Cards.MaxSerial) : suit QUELS numeros sont utilises (pas\n  // juste un compteur) pour reattribuer le plus petit numero libre, comme\n  // partout ailleurs.\n  const usedSerials = new Set();\n  pulls.forEach((p) => { if (refId(p.Card) === cardId && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\n  let serialNumber = null;\n  for (let n = 1; ; n++) { if (!usedSerials.has(n)) { serialNumber = n; break; } }\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'buy',\n    offerRowId: offer.id, cardId, cost, newStardust: (user.StardustCount || 0) - cost,\n    batchId: `market-${offer.id}-${cfg.userId}-${Date.now()}`,\n    serialNumber\n  } }];\n}\n\nif (cfg.action === 'adminCreate') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  const card = cardById[cfg.cardId];\n  if (!card || !cfg.cost) return [{ json: { ...cfg, ok: false, error: 'missing_fields' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'adminCreate', expiresAt: now + cfg.expiresInHours * 3600 } }];\n}\n\n// action === 'list' (ou toute autre valeur) : aucune mutation.\nconst list = offersRows\n  .filter((o) => o.Active !== false && (!o.ExpiresAt || now < o.ExpiresAt))\n  .map((o) => {\n    const cardId = refId(o.CardId);\n    const card = cardById[cardId];\n    const rarity = card ? rarityById[refId(card.Rarity)] : null;\n    const used = purchasesFor(o.id);\n    const remaining = o.MaxPurchases ? Math.max(0, o.MaxPurchases - used) : null;\n    return card ? {\n      offerId: o.id, cost: o.Cost || 0, expiresAt: o.ExpiresAt || null, remaining,\n      card: { cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null }\n    } : null;\n  }).filter((o) => o && (o.remaining === null || o.remaining > 0));\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', offers: list } }];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nconst cfg = $('Set Config').first().json;\nconst now = Math.floor(Date.now() / 1000);\nconst offersRows = $('Get Black Market Offers').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardById = {}; cards.forEach((c) => { cardById[c.id] = c; });\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\n\nfunction purchasesFor(offerId) {\n  const prefix = `market-${offerId}-`;\n  return pulls.filter((p) => (p.BatchId || '').toString().startsWith(prefix)).length;\n}\n\nif (cfg.action === 'buy') {\n  const offer = offersRows.find((o) => o.id === cfg.offerId);\n  if (!offer) return [{ json: { ...cfg, ok: false, error: 'offer_not_found' } }];\n  if (offer.Active === false) return [{ json: { ...cfg, ok: false, error: 'offer_inactive' } }];\n  if (offer.ExpiresAt && now > offer.ExpiresAt) return [{ json: { ...cfg, ok: false, error: 'offer_expired' } }];\n  const used = purchasesFor(offer.id);\n  if (offer.MaxPurchases && used >= offer.MaxPurchases) return [{ json: { ...cfg, ok: false, error: 'offer_exhausted' } }];\n  const user = users.find((u) => u.id === cfg.userId);\n  const cost = offer.Cost || 0;\n  if (!user || (user.StardustCount || 0) < cost) return [{ json: { ...cfg, ok: false, error: 'insufficient_dust' } }];\n  const cardId = refId(offer.CardId);\n  const card = cardById[cardId];\n  if (!card) return [{ json: { ...cfg, ok: false, error: 'card_not_found' } }];\n  // Plus de quota (Cards.MaxSerial) : suit QUELS numeros sont utilises (pas\n  // juste un compteur) pour reattribuer le plus petit numero libre, comme\n  // partout ailleurs.\n  const usedSerials = new Set();\n  pulls.forEach((p) => { if (refId(p.Card) === cardId && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\n  let serialNumber = null;\n  for (let n = 1; ; n++) { if (!usedSerials.has(n)) { serialNumber = n; break; } }\n  return [{ json: {\n    ...cfg, ok: true, mutation: 'buy',\n    offerRowId: offer.id, cardId, cost, oldStardust: user.StardustCount || 0, newStardust: (user.StardustCount || 0) - cost,\n    maxPurchases: offer.MaxPurchases || 0,\n    batchId: `market-${offer.id}-${cfg.userId}-${Date.now()}`,\n    serialNumber\n  } }];\n}\n\nif (cfg.action === 'adminCreate') {\n  if (!cfg.isAdmin) return [{ json: { ...cfg, ok: false, error: 'forbidden' } }];\n  const card = cardById[cfg.cardId];\n  if (!card || !cfg.cost) return [{ json: { ...cfg, ok: false, error: 'missing_fields' } }];\n  return [{ json: { ...cfg, ok: true, mutation: 'adminCreate', expiresAt: now + cfg.expiresInHours * 3600 } }];\n}\n\n// action === 'list' (ou toute autre valeur) : aucune mutation.\nconst list = offersRows\n  .filter((o) => o.Active !== false && (!o.ExpiresAt || now < o.ExpiresAt))\n  .map((o) => {\n    const cardId = refId(o.CardId);\n    const card = cardById[cardId];\n    const rarity = card ? rarityById[refId(card.Rarity)] : null;\n    const used = purchasesFor(o.id);\n    const remaining = o.MaxPurchases ? Math.max(0, o.MaxPurchases - used) : null;\n    return card ? {\n      offerId: o.id, cost: o.Cost || 0, expiresAt: o.ExpiresAt || null, remaining,\n      card: { cardId: card.id, name: card.Name, artist: card.Artist, imageId: firstAttachment(card.Image), rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex } : null }\n    } : null;\n  }).filter((o) => o && (o.remaining === null || o.remaining > 0));\nreturn [{ json: { ...cfg, ok: true, mutation: 'none', offers: list } }];"
       }
     },
     {
@@ -525,6 +525,215 @@
         "responseBody": "={{ $json }}",
         "options": {}
       }
+    },
+    {
+      "id": "wait-before-recheck-mp",
+      "name": "Wait Before Recheck MP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        60
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "await new Promise((resolve) => setTimeout(resolve, 400));\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "sync-wait-recheck-mp",
+      "name": "Sync Wait -> Recheck MP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        60
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "recheck-market-pulls",
+      "name": "Recheck Market Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1800,
+        60
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Dispatch Action').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-recheck-decide-mp",
+      "name": "Sync Recheck -> Decide MP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        60
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "decide-purchase-outcome",
+      "name": "Decide Purchase Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        60
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const myPull = $('Create Market Pull').first().json;\nconst d = $('Dispatch Action').first().json;\nconst prefix = `market-${d.offerRowId}-`;\nconst allPulls = $('Recheck Market Pulls').all().map((i) => i.json).filter((r) => r.id != null && (r.BatchId || '').toString().startsWith(prefix));\nallPulls.sort((a, b) => a.id - b.id);\nconst winners = d.maxPurchases ? allPulls.slice(0, d.maxPurchases) : allPulls;\nconst iWon = !d.maxPurchases || winners.some((r) => r.id === myPull.id);\nif (iWon) return [{ json: { rollback: false } }];\nreturn [{ json: { rollback: true, docId: d.docId, myPullRowId: myPull.id, userId: d.userId, oldStardust: d.oldStardust } }];"
+      }
+    },
+    {
+      "id": "if-purchase-rollback-needed",
+      "name": "If Purchase Rollback Needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.rollback }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "delete-my-market-pull",
+      "name": "Delete My Market Pull",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        2600,
+        -40
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $('Decide Purchase Outcome').first().json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $('Decide Purchase Outcome').first().json.myPullRowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-delete-pull-revert-mp",
+      "name": "Sync Delete Pull -> Revert Stardust",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        -40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "revert-stardust-mp",
+      "name": "Revert Stardust MP",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        3000,
+        -40
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Decide Purchase Outcome').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Decide Purchase Outcome').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "StardustCount",
+              "fieldValue": "={{ $('Decide Purchase Outcome').first().json.oldStardust }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "format-offer-exhausted",
+      "name": "Format Offer Exhausted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        -40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { error: 'offer_exhausted' } }];"
+      }
+    },
+    {
+      "id": "respond-offer-exhausted",
+      "name": "Respond Offer Exhausted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3400,
+        -40
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
     }
   ],
   "connections": {
@@ -722,7 +931,7 @@
       "main": [
         [
           {
-            "node": "Format Buy Response",
+            "node": "Wait Before Recheck MP",
             "type": "main",
             "index": 0
           }
@@ -785,6 +994,123 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Recheck MP": {
+      "main": [
+        [
+          {
+            "node": "Sync Wait -> Recheck MP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Wait -> Recheck MP": {
+      "main": [
+        [
+          {
+            "node": "Recheck Market Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck Market Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Recheck -> Decide MP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Recheck -> Decide MP": {
+      "main": [
+        [
+          {
+            "node": "Decide Purchase Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Purchase Outcome": {
+      "main": [
+        [
+          {
+            "node": "If Purchase Rollback Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Purchase Rollback Needed": {
+      "main": [
+        [
+          {
+            "node": "Delete My Market Pull",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Buy Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete My Market Pull": {
+      "main": [
+        [
+          {
+            "node": "Sync Delete Pull -> Revert Stardust",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Delete Pull -> Revert Stardust": {
+      "main": [
+        [
+          {
+            "node": "Revert Stardust MP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revert Stardust MP": {
+      "main": [
+        [
+          {
+            "node": "Format Offer Exhausted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Offer Exhausted": {
+      "main": [
+        [
+          {
+            "node": "Respond Offer Exhausted",
             "type": "main",
             "index": 0
           }

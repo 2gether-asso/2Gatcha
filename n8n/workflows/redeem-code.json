@@ -163,7 +163,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst codesRows = $('Get Event Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptionsRows = $('Get Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst allPulls = $('Get All Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!config.code) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nconst normalized = config.code.toLowerCase();\nconst codeRow = codesRows.find((c) => (c.Code || '').toString().trim().toLowerCase() === normalized);\n\nif (!codeRow) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nif (codeRow.Active === false) {\n  return [{ json: { ok: false, error: 'code_inactive' } }];\n}\nconst now = Math.floor(Date.now() / 1000);\nif (codeRow.ExpiresAt && now > codeRow.ExpiresAt) {\n  return [{ json: { ok: false, error: 'code_expired' } }];\n}\n\nconst codeRedemptions = redemptionsRows.filter((r) => refId(r.Code) === codeRow.id);\nif (codeRedemptions.some((r) => refId(r.User) === config.userId)) {\n  return [{ json: { ok: false, error: 'already_redeemed' } }];\n}\nif (codeRow.MaxRedemptions && codeRedemptions.length >= codeRow.MaxRedemptions) {\n  return [{ json: { ok: false, error: 'code_exhausted' } }];\n}\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) {\n  return [{ json: { ok: false, error: 'unknown_user' } }];\n}\n\nconst quantity = codeRow.Quantity || 1;\nconst batchId = `code-${codeRow.Code}-${Date.now()}`;\n\nif (codeRow.RewardType === 'card') {\n  const card = cardsRows.find((c) => c.id === refId(codeRow.CardId));\n  if (!card) {\n    return [{ json: { ok: false, error: 'code_misconfigured' } }];\n  }\n  const rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\n  const rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\n  // Plus de quota (Cards.MaxSerial) : un code peut toujours etre reclame.\n  // On suit QUELS numeros sont utilises (pas juste un compteur) pour\n  // reattribuer les plus petits numeros libres - un exemplaire decrafte/\n  // defausse libere vraiment son numero pour un futur don, sans jamais\n  // dupliquer un numero encore en circulation.\n  const usedSerials = new Set();\n  allPulls.forEach((p) => { if (refId(p.Card) === card.id && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\n  function takeNextSerial() {\n    for (let n = 1; ; n++) {\n      if (!usedSerials.has(n)) { usedSerials.add(n); return n; }\n    }\n  }\n\n  const items = [];\n  for (let i = 0; i < quantity; i++) {\n    items.push({\n      json: {\n        ok: true,\n        kind: 'card',\n        docId: config.docId,\n        codeRowId: codeRow.id,\n        userId: config.userId,\n        obtainedAt: now,\n        batchId,\n        cardId: card.id,\n        isFirstEver: !card.FirstObtainedBy,\n        name: card.Name,\n        artist: card.Artist,\n        description: card.Description,\n        imageId: firstAttachment(card.Image),\n        rarity,\n        serialNumber: takeNextSerial()\n      }\n    });\n  }\n  return items;\n}\n\nreturn [{\n  json: {\n    ok: true,\n    kind: 'booster',\n    docId: config.docId,\n    codeRowId: codeRow.id,\n    userId: config.userId,\n    quantity,\n    newBoosterCount: (user.BoosterCount || 0) + quantity\n  }\n}];"
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) {\n  if (!Array.isArray(v) || !v.length) return null;\n  const ids = v[0] === 'L' ? v.slice(1) : v;\n  return ids.length ? ids[0] : null;\n}\n\nconst config = $('Set Config').first().json;\nconst codesRows = $('Get Event Codes').all().map((i) => i.json).filter((r) => r.id != null);\nconst redemptionsRows = $('Get Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null);\nconst cardsRows = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst raritiesRows = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst usersRows = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst allPulls = $('Get All Pulls').all().map((i) => i.json).filter((r) => r.id != null);\n\nif (!config.code) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nconst normalized = config.code.toLowerCase();\nconst codeRow = codesRows.find((c) => (c.Code || '').toString().trim().toLowerCase() === normalized);\n\nif (!codeRow) {\n  return [{ json: { ok: false, error: 'invalid_code' } }];\n}\nif (codeRow.Active === false) {\n  return [{ json: { ok: false, error: 'code_inactive' } }];\n}\nconst now = Math.floor(Date.now() / 1000);\nif (codeRow.ExpiresAt && now > codeRow.ExpiresAt) {\n  return [{ json: { ok: false, error: 'code_expired' } }];\n}\n\nconst codeRedemptions = redemptionsRows.filter((r) => refId(r.Code) === codeRow.id);\nif (codeRedemptions.some((r) => refId(r.User) === config.userId)) {\n  return [{ json: { ok: false, error: 'already_redeemed' } }];\n}\nif (codeRow.MaxRedemptions && codeRedemptions.length >= codeRow.MaxRedemptions) {\n  return [{ json: { ok: false, error: 'code_exhausted' } }];\n}\n\nconst user = usersRows.find((u) => u.id === config.userId);\nif (!user) {\n  return [{ json: { ok: false, error: 'unknown_user' } }];\n}\n\nconst quantity = codeRow.Quantity || 1;\nconst batchId = `code-${codeRow.Code}-${Date.now()}`;\n\nif (codeRow.RewardType === 'card') {\n  const card = cardsRows.find((c) => c.id === refId(codeRow.CardId));\n  if (!card) {\n    return [{ json: { ok: false, error: 'code_misconfigured' } }];\n  }\n  const rarityRow = raritiesRows.find((r) => r.id === refId(card.Rarity));\n  const rarity = rarityRow ? { id: rarityRow.id, name: rarityRow.Name, key: rarityRow.Key, colorHex: rarityRow.ColorHex } : null;\n\n  // Plus de quota (Cards.MaxSerial) : un code peut toujours etre reclame.\n  // On suit QUELS numeros sont utilises (pas juste un compteur) pour\n  // reattribuer les plus petits numeros libres - un exemplaire decrafte/\n  // defausse libere vraiment son numero pour un futur don, sans jamais\n  // dupliquer un numero encore en circulation.\n  const usedSerials = new Set();\n  allPulls.forEach((p) => { if (refId(p.Card) === card.id && p.SerialNumber != null) usedSerials.add(p.SerialNumber); });\n  function takeNextSerial() {\n    for (let n = 1; ; n++) {\n      if (!usedSerials.has(n)) { usedSerials.add(n); return n; }\n    }\n  }\n\n  const maxRedemptions = codeRow.MaxRedemptions || 0;\n  const items = [];\n  for (let i = 0; i < quantity; i++) {\n    items.push({\n      json: {\n        ok: true,\n        kind: 'card',\n        docId: config.docId,\n        codeRowId: codeRow.id,\n        maxRedemptions,\n        userId: config.userId,\n        obtainedAt: now,\n        batchId,\n        cardId: card.id,\n        isFirstEver: !card.FirstObtainedBy,\n        name: card.Name,\n        artist: card.Artist,\n        description: card.Description,\n        imageId: firstAttachment(card.Image),\n        rarity,\n        serialNumber: takeNextSerial()\n      }\n    });\n  }\n  return items;\n}\n\nreturn [{\n  json: {\n    ok: true,\n    kind: 'booster',\n    docId: config.docId,\n    codeRowId: codeRow.id,\n    maxRedemptions: codeRow.MaxRedemptions || 0,\n    userId: config.userId,\n    quantity,\n    oldBoosterCount: user.BoosterCount || 0,\n    newBoosterCount: (user.BoosterCount || 0) + quantity\n  }\n}];"
       }
     },
     {
@@ -302,7 +302,7 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const cards = $('Validate & Prepare').all().map((i) => i.json).map((c) => ({\n  cardId: c.cardId,\n  name: c.name,\n  artist: c.artist,\n  description: c.description,\n  imageId: c.imageId,\n  rarity: c.rarity,\n  isFirstEver: !!c.isFirstEver,\n  serialNumber: c.serialNumber\n}));\nconst first = $('Validate & Prepare').first().json;\nreturn [{ json: { kind: 'card', codeRowId: first.codeRowId, userId: first.userId, docId: first.docId, cards } }];"
+        "jsCode": "const cards = $('Validate & Prepare').all().map((i) => i.json).map((c) => ({\n  cardId: c.cardId,\n  name: c.name,\n  artist: c.artist,\n  description: c.description,\n  imageId: c.imageId,\n  rarity: c.rarity,\n  isFirstEver: !!c.isFirstEver,\n  serialNumber: c.serialNumber\n}));\nconst first = $('Validate & Prepare').first().json;\nconst pullRowIds = $('Insert Pulls').all().map((i) => i.json.id);\nreturn [{ json: { kind: 'card', codeRowId: first.codeRowId, userId: first.userId, docId: first.docId, maxRedemptions: first.maxRedemptions, pullRowIds, cards } }];"
       }
     },
     {
@@ -665,6 +665,327 @@
           "name": "Grist account"
         }
       }
+    },
+    {
+      "id": "wait-before-recheck",
+      "name": "Wait Before Recheck",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// BUG REEL corrige ici (2026-09-30) : \"Decide Redemption Outcome\" essayait\n// de distinguer la branche carte/booster en lisant $('Insert Redemption\n// Card')/$('Insert Redemption Booster') - mais n8n leve une erreur reelle\n// des qu'on reference un noeud qui n'a PAS execute sur le chemin emprunte\n// (une seule des deux branches tourne jamais par execution), pas juste une\n// liste vide comme je l'avais suppose. On capture donc l'id de la ligne de\n// reclamation ICI (le seul point ou les deux branches se rejoignent), et on\n// determine card/booster via Validate & Prepare (qui tourne TOUJOURS) plus\n// loin plutot que via les noeuds Insert conditionnels.\nconst myRedemptionId = $input.first().json.id;\nawait new Promise((resolve) => setTimeout(resolve, 400));\nreturn [{ json: { myRedemptionId } }];"
+      }
+    },
+    {
+      "id": "sync-wait-recheck",
+      "name": "Sync Wait -> Recheck",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      }
+    },
+    {
+      "id": "recheck-code-redemptions",
+      "name": "Recheck Code Redemptions",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        1800,
+        260
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Validate & Prepare').first().json.docId }}",
+        "tableId": "CodeRedemptions",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-recheck-decide",
+      "name": "Sync Recheck -> Decide",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "decide-redemption-outcome",
+      "name": "Decide Redemption Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst prep = $('Validate & Prepare').first().json;\nconst isCard = prep.kind === 'card';\nconst myRedemptionId = $('Wait Before Recheck').first().json.myRedemptionId;\nconst codeRowId = prep.codeRowId;\nconst maxRedemptions = prep.maxRedemptions || 0;\nconst docId = prep.docId;\n\nconst allRedemptions = $('Recheck Code Redemptions').all().map((i) => i.json).filter((r) => r.id != null && refId(r.Code) === codeRowId);\nallRedemptions.sort((a, b) => a.id - b.id);\nconst winners = maxRedemptions ? allRedemptions.slice(0, maxRedemptions) : allRedemptions;\nconst iWon = !maxRedemptions || winners.some((r) => r.id === myRedemptionId);\n\nif (iWon) {\n  return [{ json: { rollback: false, isCard, docId } }];\n}\n\nif (isCard) {\n  const finalize = $('Finalize Card').first().json;\n  return [{ json: { rollback: true, isCard: true, docId, redemptionRowId: myRedemptionId, pullRowIds: finalize.pullRowIds || [] } }];\n}\nreturn [{ json: { rollback: true, isCard: false, docId, redemptionRowId: myRedemptionId, userId: prep.userId, oldBoosterCount: prep.oldBoosterCount } }];"
+      }
+    },
+    {
+      "id": "if-rollback-needed",
+      "name": "If Rollback Needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.rollback }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "if-is-card-success",
+      "name": "If Is Card Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        160
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Decide Redemption Outcome').first().json.isCard }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "delete-my-redemption-row",
+      "name": "Delete My Redemption Row",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        2600,
+        360
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $('Decide Redemption Outcome').first().json.docId }}",
+        "tableId": "CodeRedemptions",
+        "rowId": "={{ $('Decide Redemption Outcome').first().json.redemptionRowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-delete-redemption-rollback",
+      "name": "Sync Delete Redemption -> Rollback Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "if-is-card-rollback",
+      "name": "If Is Card Rollback",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        360
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Decide Redemption Outcome').first().json.isCard }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "expand-pull-deletes",
+      "name": "Expand Pull Deletes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        280
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $('Decide Redemption Outcome').first().json;\nreturn (d.pullRowIds || []).map((id) => ({ json: { docId: d.docId, pullRowId: id } }));"
+      }
+    },
+    {
+      "id": "delete-pull-rollback",
+      "name": "Delete Pull (Rollback)",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        3400,
+        280
+      ],
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Pulls",
+        "rowId": "={{ $json.pullRowId }}"
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "revert-booster-count",
+      "name": "Revert Booster Count",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        3200,
+        440
+      ],
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Decide Redemption Outcome').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Decide Redemption Outcome').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $('Decide Redemption Outcome').first().json.oldBoosterCount }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      }
+    },
+    {
+      "id": "sync-rollback-format-exhausted",
+      "name": "Sync Rollback -> Format Exhausted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      }
+    },
+    {
+      "id": "format-exhausted",
+      "name": "Format Exhausted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3800,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { error: 'code_exhausted' } }];"
+      }
+    },
+    {
+      "id": "respond-exhausted",
+      "name": "Respond Exhausted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4000,
+        360
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
     }
   ],
   "connections": {
@@ -828,7 +1149,7 @@
       "main": [
         [
           {
-            "node": "Respond Card",
+            "node": "Wait Before Recheck",
             "type": "main",
             "index": 0
           }
@@ -839,7 +1160,7 @@
       "main": [
         [
           {
-            "node": "Respond Booster",
+            "node": "Wait Before Recheck",
             "type": "main",
             "index": 0
           }
@@ -952,6 +1273,192 @@
         [
           {
             "node": "Validate & Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Recheck": {
+      "main": [
+        [
+          {
+            "node": "Sync Wait -> Recheck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Wait -> Recheck": {
+      "main": [
+        [
+          {
+            "node": "Recheck Code Redemptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck Code Redemptions": {
+      "main": [
+        [
+          {
+            "node": "Sync Recheck -> Decide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Recheck -> Decide": {
+      "main": [
+        [
+          {
+            "node": "Decide Redemption Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Redemption Outcome": {
+      "main": [
+        [
+          {
+            "node": "If Rollback Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Rollback Needed": {
+      "main": [
+        [
+          {
+            "node": "Delete My Redemption Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Is Card Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Is Card Success": {
+      "main": [
+        [
+          {
+            "node": "Respond Card",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Booster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete My Redemption Row": {
+      "main": [
+        [
+          {
+            "node": "Sync Delete Redemption -> Rollback Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Delete Redemption -> Rollback Type": {
+      "main": [
+        [
+          {
+            "node": "If Is Card Rollback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Is Card Rollback": {
+      "main": [
+        [
+          {
+            "node": "Expand Pull Deletes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Revert Booster Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Pull Deletes": {
+      "main": [
+        [
+          {
+            "node": "Delete Pull (Rollback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Pull (Rollback)": {
+      "main": [
+        [
+          {
+            "node": "Sync Rollback -> Format Exhausted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revert Booster Count": {
+      "main": [
+        [
+          {
+            "node": "Sync Rollback -> Format Exhausted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Rollback -> Format Exhausted": {
+      "main": [
+        [
+          {
+            "node": "Format Exhausted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Exhausted": {
+      "main": [
+        [
+          {
+            "node": "Respond Exhausted",
             "type": "main",
             "index": 0
           }

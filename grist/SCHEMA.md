@@ -466,7 +466,7 @@ aux participants pendant sa duree de validite.
 | RewardType       | Text                    | `booster` (ajoute des boosters generiques, toutes extensions) ou `card` (donne directement des exemplaires d'une carte precise, y compris une carte promo) |
 | Quantity         | Numeric                 | nb de boosters, ou nb d'exemplaires de la carte |
 | CardId           | Reference -> Cards      | rempli seulement si `RewardType = card` |
-| MaxRedemptions   | Numeric                 | nb max d'utilisateurs differents pouvant reclamer ce code ; 0 ou vide = illimite. Un meme utilisateur ne peut de toute facon reclamer un code qu'une seule fois (voir `CodeRedemptions`) |
+| MaxRedemptions   | Numeric                 | nb max d'utilisateurs differents pouvant reclamer ce code ; 0 ou vide = illimite. Un meme utilisateur ne peut de toute facon reclamer un code qu'une seule fois (voir `CodeRedemptions`). **`redeem-code.json` revalide cette limite apres-coup (2026-09-30)** en cas de reclamations simultanees (le cas reel : un code annonce en direct pendant un evenement) - voir "Securite en cas d'acces concurrent" plus bas |
 | ExpiresAt        | DateTime                | epoch secondes ; passe cette date, le code n'est plus utilisable |
 | Active           | Bool                    | permet a l'admin de desactiver un code avant son expiration |
 | CreatedAt        | DateTime                | |
@@ -931,6 +931,7 @@ piocher un au hasard, une fois par jour.
 | GuildChestDeposits  | Claimed      | Bool                   | passe a `true` des qu'un autre joueur le pioche |
 | GuildChestClaims    | User         | Reference -> Users     | |
 | GuildChestClaims    | Date         | Text                   | `AAAA-MM-JJ` (fuseau Paris) - un seul tirage par jour et par joueur, meme logique que `DailyQuests.Date` |
+| GuildChestClaims    | DepositRowId | Reference -> GuildChestDeposits | **colonne a CREER (2026-09-30)** - quel depot precis cette reclamation a pioche. Necessaire pour detecter que deux joueurs ont pioche le MEME depot au meme instant (voir "Securite en cas d'acces concurrent" plus bas) ; sans elle, deux tirages simultanes pourraient dupliquer la meme carte donnee |
 
 `guild-chest.json` (POST `/guild-chest` `{ userId, action, cardId?, finish?, quality? }`) :
 - `status` : `poolSize` (depots non reclames d'AUTRES joueurs) +
@@ -951,7 +952,9 @@ piocher un au hasard, une fois par jour.
   Choisit un depot au hasard parmi ceux d'AUTRES joueurs, le marque
   `Claimed: true`, **recree une ligne `Pulls`** pour le tireur avec le MEME
   `SerialNumber`/`Finish`/`Quality` que l'exemplaire depose (voir notes
-  colonnes ci-dessus).
+  colonnes ci-dessus). **Verifie apres-coup (2026-09-30)** qu'aucun autre
+  joueur n'a pioche le MEME depot au meme instant - voir "Securite en cas
+  d'acces concurrent" plus bas.
 
 ## Marche noir ephemere
 
@@ -973,7 +976,9 @@ discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }`) :
   (pas de colonne compteur separee - meme principe que `open-pack.json`).
 - `buy` : debite `Cost`, cree une ligne `Pulls` avec le plus petit numero de
   serie libre (meme suivi que partout ailleurs, voir "Numeros de serie -
-  plus de quota").
+  plus de quota"). **Revalide `MaxPurchases` apres-coup (2026-09-30)** en
+  cas d'achats simultanes - voir "Securite en cas d'acces concurrent" plus
+  bas.
 - `adminCreate` (reserve admin, meme liste `adminDiscordIds`) : cree une
   offre.
 
@@ -1139,6 +1144,57 @@ exemplaire deja pioche restait dans le pot commun), `Cards.IsPromo`
 reserve l'egalite stricte aux valeurs deja calculees cote code (jamais
 lues telles quelles depuis une ligne Grist).
 
+## Securite en cas d'acces concurrent (2026-09-30)
+
+n8n + Grist n'offre ni transaction ni verrou : chaque workflow fait
+"lire -> calculer -> ecrire" en plusieurs etapes non-atomiques. Si deux
+requetes arrivent presque au meme instant (le cas reel : un admin annonce un
+code en direct pendant un evenement, et beaucoup de monde le tape au meme
+moment), les deux peuvent lire le MEME etat "avant" et toutes les deux
+passer un controle de limite (`MaxRedemptions`, `MaxPurchases`, un depot de
+coffre de guilde deja pioche...) qui n'aurait du en laisser passer qu'une.
+
+**Pattern retenu : verifier apres-coup, annuler si conflit** (plutot qu'un
+vrai verrou, hors de portee sans une vraie base de donnees transactionnelle) :
+1. Ecrire normalement (optimiste), comme avant.
+2. Attendre un court delai (400ms) pour laisser les ecritures concurrentes
+   se deposer.
+3. Relire l'etat REEL et classer tous les concurrents par id Grist croissant
+   (= ordre d'insertion reel, le meme pour tout le monde une fois les
+   ecritures visibles) : les N premiers (N = la limite) gagnent.
+4. Si je ne suis pas dans les gagnants : je supprime ce que j'ai cree/repare
+   ce que j'ai debite, et je reponds l'erreur normale (`code_exhausted`,
+   `offer_exhausted`, `deposit_already_claimed`) - jamais de penalite
+   injuste pour une collision qui n'est pas la faute du joueur (ex: son
+   tirage du jour n'est pas consomme si son coffre de guilde echoue ainsi).
+
+**Limite assumee** : ce n'est pas une garantie a 100% (deux ecritures
+separees de moins de 400ms pourraient encore, en theorie, se rater toutes
+les deux lors de la relecture), mais ca reduit la fenetre de course de
+"toujours cassee" a "extremement rare" - suffisant pour le volume de trafic
+reel de ce site (une petite association, pas des milliers d'utilisateurs
+simultanes). Un vrai verrou serait plus robuste mais demanderait une
+infrastructure que Grist n'offre pas nativement.
+
+**Deja applique** : `redeem-code.json` (limite `MaxRedemptions`, annule la
+ligne `CodeRedemptions` + les exemplaires crees), `black-market.json`
+(limite `MaxPurchases`, annule l'exemplaire achete + rembourse les
+poussieres), `guild-chest.json` (deux joueurs qui piochent le meme depot au
+meme instant, annule la reclamation + l'exemplaire en trop du perdant -
+necessite la nouvelle colonne `GuildChestClaims.DepositRowId`, voir "Coffre
+de guilde mystere" plus haut).
+
+**Pas encore applique (risque plus faible, laisse de cote pour l'instant)** :
+les numeros de serie ("plus petit numero libre") utilisent le meme genre de
+lecture-puis-ecriture partout (`open-pack.json`, `craft.json`,
+`altar-sacrifice.json`, `dig.json`, `admin-gift.json`, `unlock-secret.json`,
+`vault.json`, `level-rewards.json`...) - deux tirages strictement
+simultanes sur la MEME carte pourraient en theorie recevoir le meme numero.
+Impact plus cosmetique (numerotation en double, pas de duplication de valeur
+economique ni de depassement de limite) et bien plus couteux a corriger
+partout (une douzaine de fichiers) pour un risque bien plus faible en
+pratique - a traiter en suivi si ca devient genant.
+
 ## Chainer des appels Grist dans un workflow (piege n8n)
 
 Un node Grist "classique" (type `getAll`) s'execute **une fois par item recu
@@ -1150,6 +1206,30 @@ nouveau node Grist ajoute a un workflow existant : ne jamais faire pointer un
 node Grist `getAll` directement sur la sortie d'un autre node Grist
 `getAll` ; intercale toujours un node Code (`mode: runOnceForAllItems`,
 `return [{ json: {} }];`) entre les deux pour ramener a un seul item.
+
+## Referencer un noeud qui n'a pas execute (autre piege n8n, 2026-09-30)
+
+Bug reel rencontre en construisant "Securite en cas d'acces concurrent"
+ci-dessus : `redeem-code.json` a deux branches mutuellement exclusives
+(carte / booster), chacune avec son propre node "Insert Redemption ...".
+Un node Code plus loin essayait de savoir laquelle avait tourne en testant
+`$('Insert Redemption Card').all().length > 0` - en supposant qu'un noeud
+jamais execute renverrait simplement une liste vide. **Faux** : n8n leve une
+vraie erreur d'execution ("Error in workflow") des qu'on reference par nom
+un noeud qui n'a PAS execute sur le chemin reellement emprunte, plutot que
+de renvoyer `[]`. Repere en testant pour de vrai (le chemin booster
+plantait, le chemin carte passait - le genre d'asymetrie qu'une simple
+relecture du code ne remarque pas forcement).
+
+**Regle a suivre** : ne jamais faire `$('NomDuNoeud').first()/.all()` sur un
+noeud qui peut ne PAS avoir tourne selon la branche prise. Si plusieurs
+branches se rejoignent plus loin, capture ce dont tu as besoin (un id, un
+type...) au point de jonction ou juste apres l'embranchement conditionnel -
+jamais en revenant lire un noeud specifique a une branche depuis l'aval.
+Determine plutot "quelle branche a tourne" via un noeud qui s'execute
+TOUJOURS (ex: le node de calcul principal type `Validate & Prepare`/
+`Dispatch Action`, present sur tous les chemins), jamais via la presence/
+absence de donnees d'un noeud conditionnel.
 
 ## Cle API Grist
 
