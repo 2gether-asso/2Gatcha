@@ -2224,7 +2224,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   font-size: 1.1rem;
   flex-shrink: 0;
 }
-.trade-side-extra { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; width: 100%; justify-content: center; }
+.trade-side-extra { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; flex-wrap: wrap; width: 100%; justify-content: center; }
 .trade-side-sub { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--text-dim); flex: 1; min-width: 90px; }
 .trade-side-extra .checkbox-inline { white-space: nowrap; padding-bottom: 10px; }
 .trade-compose-submit { align-self: center; min-width: 240px; }
