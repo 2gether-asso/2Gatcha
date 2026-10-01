@@ -10,10 +10,42 @@ const API = {
     return this.base() + path + qs;
   },
 
+  // n8n injoignable (2026-10-02) : un vrai echec reseau ("Failed to fetch",
+  // pas une erreur HTTP renvoyee par un workflow) declenche une verification
+  // rapide ; si le serveur ne repond toujours pas, le joueur bascule sur la
+  // page de maintenance, qui le ramene automatiquement des que n8n revient -
+  // plutot qu'une page a moitie cassee couverte de toasts d'erreur.
+  _offlineCheck: null,
+  async _fetch(url, opts) {
+    try {
+      return await fetch(url, opts);
+    } catch (e) {
+      if (e instanceof TypeError) this._handleOffline();
+      throw e;
+    }
+  },
+  _handleOffline() {
+    if (location.pathname.endsWith("maintenance.html") || this._offlineCheck) return;
+    this._offlineCheck = (async () => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      try {
+        await fetch(this.url("siteBanner", { _ts: Date.now() }), { cache: "no-store", signal: ctrl.signal });
+        return; // le serveur repond : simple echec ponctuel, on reste ici
+      } catch (e) {
+        try { sessionStorage.setItem("2gatcha_offline_return", location.pathname.split("/").pop() + location.search); } catch (_) {}
+        location.replace("maintenance.html?offline=1");
+      } finally {
+        clearTimeout(timer);
+        this._offlineCheck = null;
+      }
+    })();
+  },
+
   async post(name, body) {
     if (typeof TopLoadingBar !== "undefined") TopLoadingBar.start();
     try {
-      const res = await fetch(this.url(name), {
+      const res = await this._fetch(this.url(name), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body || {})
@@ -37,7 +69,7 @@ const API = {
     if (typeof TopLoadingBar !== "undefined") TopLoadingBar.start();
     try {
       const bustedQuery = { ...(query || {}), _ts: Date.now() };
-      const res = await fetch(this.url(name, bustedQuery), { cache: "no-store" });
+      const res = await this._fetch(this.url(name, bustedQuery), { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);

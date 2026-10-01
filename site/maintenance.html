@@ -28,15 +28,26 @@
     async function checkStillInMaintenance() {
       try {
         const res = await API.getSiteBanner();
-        if (!res.maintenanceMode) { window.location.href = "index.html"; return; }
+        if (!res.maintenanceMode) {
+          // Retour sur la page quittee lors d'une panne serveur (voir
+          // API._handleOffline), sinon l'accueil.
+          let back = "index.html";
+          try { back = sessionStorage.getItem("2gatcha_offline_return") || back; sessionStorage.removeItem("2gatcha_offline_return"); } catch (_) {}
+          window.location.href = back;
+          return;
+        }
         document.getElementById("maintenance-custom-message").textContent = res.message || "";
       } catch (e) {
         // Pas de reseau/API down : reste sur la page plutot que de risquer
         // une redirection incorrecte.
       }
     }
+    if (new URLSearchParams(location.search).get("offline")) {
+      document.getElementById("maintenance-custom-message").textContent = "Le serveur de jeu ne répond pas pour l'instant - la page se rechargera toute seule dès son retour.";
+    }
     checkStillInMaintenance();
-    setInterval(checkStillInMaintenance, 20000);
+    // Plus frequent en cas de panne serveur : le retour doit etre rapide.
+    setInterval(checkStillInMaintenance, new URLSearchParams(location.search).get("offline") ? 10000 : 20000);
   </script>
 </body>
 </html>
