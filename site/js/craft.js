@@ -508,49 +508,94 @@ async function repairQuality(cardId, fromQuality) {
   }
 }
 
+// Variantes possedees d'une carte (meme logique que collection.js) : une
+// pile distincte par finition + qualite, pour decrafter EXACTEMENT
+// l'exemplaire voulu au lieu de laisser le serveur choisir "le moins
+// prestigieux" (refonte 2026-10-01, alignee sur le decraft de la collection).
+function buildVariants(owned) {
+  if (!owned || !owned.copies || !owned.copies.length) return [];
+  const map = new Map();
+  owned.copies.forEach((c) => {
+    const finish = c.finish || "normal";
+    const quality = c.quality || "damaged";
+    const key = finish + "::" + quality;
+    if (!map.has(key)) map.set(key, { finish, quality, count: 0, serialNumbers: [] });
+    const v = map.get(key);
+    v.count++;
+    if (c.serialNumber != null) v.serialNumbers.push(c.serialNumber);
+  });
+  return [...map.values()].sort((a, b) =>
+    (FINISH_ORDER.indexOf(a.finish) - FINISH_ORDER.indexOf(b.finish)) ||
+    (QUALITY_ORDER.indexOf(a.quality) - QUALITY_ORDER.indexOf(b.quality))
+  );
+}
+
+function variantKey(cardId, finish, quality) { return cardId + "::" + finish + "::" + quality; }
+function parseVariantKey(key) {
+  const [cardId, finish, quality] = key.split("::");
+  return { cardId: Number(cardId), finish, quality };
+}
+// Tous les exemplaires possedes, par variante : { key -> { card, variant } }.
+let disenchantVariants = new Map();
+
+function disenchantTile(card, variant) {
+  const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+  const { finish, quality, count } = variant;
+  const key = variantKey(card.cardId, finish, quality);
+  const checked = bulkSelected.has(key);
+  const qty = Math.min(Math.max(disenchantQty.get(key) || 1, 1), count);
+  const dustEach = estimateDust(card.rarity?.disenchantValue || 0, finish, quality);
+  const reward = card.isSecret ? `+${qty} booster${qty > 1 ? "s" : ""}` : `+${dustEach * qty} poussières`;
+  const hasFirst = (variant.serialNumbers || []).includes(1);
+  // Carte secrete : contrepartie en boosters (voir disenchant.json), exclue de
+  // la selection multiple dont le total est exprime en poussieres.
+  const bulkCheckable = bulkSelectMode && !card.isSecret;
+  return `
+    <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-variant-key="${key}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
+      ${bulkCheckable ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${key}" ${checked ? "checked" : ""} /></label>` : ""}
+      <div class="card-art">
+        <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+        ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
+        <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
+        ${hasFirst ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+      </div>
+      <div class="card-info">
+        <div class="card-name">${card.name}</div>
+        <div class="owned-count">Possède x${count}${hasFirst ? " · dont le #001" : ""}</div>
+        <div class="craft-cost" data-reward-display="${key}">${reward}</div>
+        ${count > 1 ? `
+          <div class="qty-stepper">
+            <button type="button" class="qty-btn" data-dqty="minus" data-key="${key}" ${qty <= 1 ? "disabled" : ""}>&minus;</button>
+            <span class="qty-value" data-dqty-display="${key}">${qty}</span>
+            <button type="button" class="qty-btn" data-dqty="plus" data-key="${key}" ${qty >= count ? "disabled" : ""}>+</button>
+          </div>
+        ` : ""}
+        <button class="disenchant-btn" data-key="${key}" ${bulkSelectMode ? "disabled" : ""}>${qty > 1 ? `Décrafter x${qty}` : "Décrafter"}</button>
+      </div>
+    </div>
+  `;
+}
+
+function adjustDisenchantQty(key, delta) {
+  const entry = disenchantVariants.get(key);
+  if (!entry) return;
+  const max = Math.max(entry.variant.count, 1);
+  const next = Math.min(Math.max((disenchantQty.get(key) || 1) + delta, 1), max);
+  disenchantQty.set(key, next);
+  const tile = document.querySelector(`.craft-card[data-variant-key="${key}"]`);
+  if (!tile) return;
+  const { card, variant } = entry;
+  tile.querySelector(`[data-dqty-display="${key}"]`).textContent = next;
+  tile.querySelector(".disenchant-btn").textContent = next > 1 ? `Décrafter x${next}` : "Décrafter";
+  tile.querySelector('[data-dqty="minus"]').disabled = next <= 1;
+  tile.querySelector('[data-dqty="plus"]').disabled = next >= max;
+  const dustEach = estimateDust(card.rarity?.disenchantValue || 0, variant.finish, variant.quality);
+  tile.querySelector(`[data-reward-display="${key}"]`).textContent = card.isSecret ? `+${next} booster${next > 1 ? "s" : ""}` : `+${dustEach * next} poussières`;
+  if (bulkSelected.has(key)) updateBulkBar();
+}
+
 function craftCardTile(card, mode) {
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
-  if (mode === "disenchant") {
-    const owned = ownedMap.get(card.cardId);
-    const checked = bulkSelected.has(card.cardId);
-    const maxQty = owned?.count || 1;
-    const qty = Math.min(Math.max(disenchantQty.get(card.cardId) || 1, 1), maxQty);
-    const showStepper = !bulkSelectMode && maxQty > 1;
-    const quality = worstQuality(owned?.qualityCounts);
-    const finish = worstFinish(owned?.finishCounts);
-    // Montant exact pour LE PROCHAIN exemplaire decrafte (le moins prestigieux
-    // possede, voir worstFinish/worstQuality) - au-dela de qty=1, un decraft
-    // en masse peut ensuite entamer une variante plus prestigieuse, d'ou le
-    // "au moins" dans la confirmation (disenchant()) plutot qu'un total exact.
-    // Carte secrete : contrepartie fixe de 1 booster par exemplaire (voir
-    // disenchant.json), jamais de poussieres - exclue du mode bulk (dont le
-    // total suppose des poussieres uniquement) pour ne pas fausser la somme.
-    const dust = estimateDust(card.rarity?.disenchantValue || 0, finish, quality);
-    const bulkCheckable = bulkSelectMode && !card.isSecret;
-    return `
-      <div class="craft-card ${bulkSelectMode ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
-        ${bulkCheckable ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${card.cardId}" ${checked ? "checked" : ""} /></label>` : ""}
-        <div class="card-art">
-          <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
-          ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
-          ${quality ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
-        </div>
-        <div class="card-info">
-          <div class="card-name">${card.name}</div>
-          <div class="owned-count">Possède x${owned.count}</div>
-          <div class="craft-cost">${card.isSecret ? `+${qty} booster${qty > 1 ? "s" : ""}` : `+${dust} poussières`}</div>
-          ${showStepper ? `
-            <div class="qty-stepper">
-              <button type="button" class="qty-btn" data-qty-action="minus" data-mode="disenchant" data-card-id="${card.cardId}" ${qty <= 1 ? "disabled" : ""}>&minus;</button>
-              <span class="qty-value" data-qty-display="disenchant" data-card-id="${card.cardId}">${qty}</span>
-              <button type="button" class="qty-btn" data-qty-action="plus" data-mode="disenchant" data-card-id="${card.cardId}" ${qty >= maxQty ? "disabled" : ""}>+</button>
-            </div>
-          ` : ""}
-          <button class="disenchant-btn" data-card-id="${card.cardId}" ${bulkSelectMode ? "disabled" : ""}>${qty > 1 ? `Decrafter x${qty}` : "Decrafter"}</button>
-        </div>
-      </div>
-    `;
-  }
   const cost = card.rarity?.craftCost || 0;
   const canAfford = stardust >= cost;
   const craftChecked = craftBulkSelected.has(card.cardId);
@@ -670,34 +715,61 @@ function renderDisenchantGrid() {
     const q = normalize(craftSearchQuery);
     disenchantable = disenchantable.filter((c) => normalize(c.name).includes(q));
   }
-  // Les plus gros doublons d'abord (le plus a ecouler), puis les plus
-  // rentables a valeur de doublon egale : c'est plus utile pour decider par
-  // ou commencer que le seul rendement en poussieres (une legendaire dont
-  // on a 1 seul exemplaire ne doit pas passer avant 6 communes en trop).
-  disenchantable = [...disenchantable].sort((a, b) => {
-    const countA = ownedMap.get(a.cardId)?.count || 0;
-    const countB = ownedMap.get(b.cardId)?.count || 0;
-    if (countB !== countA) return countB - countA;
-    return (b.rarity?.disenchantValue || 0) - (a.rarity?.disenchantValue || 0);
+  disenchantVariants = new Map();
+  const entries = [];
+  disenchantable.forEach((card) => {
+    const owned = ownedMap.get(card.cardId);
+    buildVariants(owned).forEach((variant) => {
+      const key = variantKey(card.cardId, variant.finish, variant.quality);
+      const entry = { card, variant, totalOwned: owned.count || 0 };
+      disenchantVariants.set(key, entry);
+      entries.push(entry);
+    });
   });
-  grid.innerHTML = disenchantable.length
-    ? disenchantable.map((c) => craftCardTile(c, "disenchant")).join("")
-    : `<div class="empty-state">Aucune carte decraftable ne correspond.</div>`;
+  // Les plus gros doublons d'abord (le plus a ecouler), puis les plus
+  // rentables, puis par nom - les variantes d'une meme carte restent
+  // regroupees (de la moins a la plus prestigieuse, voir buildVariants).
+  entries.sort((a, b) =>
+    (b.totalOwned - a.totalOwned) ||
+    ((b.card.rarity?.disenchantValue || 0) - (a.card.rarity?.disenchantValue || 0)) ||
+    a.card.name.localeCompare(b.card.name) ||
+    (a.card.cardId - b.card.cardId)
+  );
+  // Des cles disparues (carte entierement decraftee) ne doivent plus
+  // compter dans la selection.
+  [...bulkSelected].forEach((k) => { if (!disenchantVariants.has(k)) bulkSelected.delete(k); });
+  grid.innerHTML = entries.length
+    ? entries.map((e) => disenchantTile(e.card, e.variant)).join("")
+    : `<div class="empty-state">Aucune carte décraftable ne correspond.</div>`;
   grid.querySelectorAll(".craft-card").forEach(attachTilt);
   grid.querySelectorAll(".disenchant-btn").forEach((btn) => {
-    btn.addEventListener("click", () => disenchant(Number(btn.dataset.cardId), btn));
+    btn.addEventListener("click", () => disenchant(btn.dataset.key, btn));
   });
-  grid.querySelectorAll('[data-qty-action][data-mode="disenchant"]').forEach((btn) => {
-    btn.addEventListener("click", () => adjustQty("disenchant", Number(btn.dataset.cardId), btn.dataset.qtyAction === "plus" ? 1 : -1));
+  grid.querySelectorAll("[data-dqty]").forEach((btn) => {
+    btn.addEventListener("click", () => adjustDisenchantQty(btn.dataset.key, btn.dataset.dqty === "plus" ? 1 : -1));
   });
   grid.querySelectorAll("[data-bulk-id]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
-      const id = Number(cb.dataset.bulkId);
-      if (e.target.checked) bulkSelected.add(id); else bulkSelected.delete(id);
+      const key = cb.dataset.bulkId;
+      if (e.target.checked) bulkSelected.add(key); else bulkSelected.delete(key);
       cb.closest(".craft-card").classList.toggle("selected", e.target.checked);
       updateBulkBar();
     });
   });
+  updateBulkBar();
+}
+
+// Selection multiple : chaque variante cochee est decraftee a hauteur de la
+// quantite choisie sur SA tuile (1 par defaut) - total exact, puisque la
+// finition/qualite de chaque exemplaire est connue.
+function bulkPlan() {
+  return [...bulkSelected].map((key) => {
+    const entry = disenchantVariants.get(key);
+    if (!entry) return null;
+    const qty = Math.min(Math.max(disenchantQty.get(key) || 1, 1), entry.variant.count);
+    const dust = estimateDust(entry.card.rarity?.disenchantValue || 0, entry.variant.finish, entry.variant.quality) * qty;
+    return { key, ...entry, qty, dust };
+  }).filter(Boolean);
 }
 
 function updateBulkBar() {
@@ -706,45 +778,48 @@ function updateBulkBar() {
     bar.style.display = "none";
     return;
   }
-  // Le decraft en masse ne consomme qu'UN SEUL exemplaire par carte (le
-  // moins prestigieux possede) : le total est donc calculable exactement.
-  const dust = [...bulkSelected].reduce((sum, id) => {
-    const card = allCards.find((c) => c.cardId === id);
-    const owned = ownedMap.get(id);
-    return sum + estimateDust(card?.rarity?.disenchantValue || 0, worstFinish(owned?.finishCounts), worstQuality(owned?.qualityCounts));
-  }, 0);
+  const plan = bulkPlan();
+  const copies = plan.reduce((s, p) => s + p.qty, 0);
+  const dust = plan.reduce((s, p) => s + p.dust, 0);
   bar.style.display = "flex";
   document.getElementById("bulk-disenchant-summary").textContent =
-    `${bulkSelected.size} carte${bulkSelected.size > 1 ? "s" : ""} sélectionnée${bulkSelected.size > 1 ? "s" : ""} · +${dust} poussières`;
+    `${copies} exemplaire${copies > 1 ? "s" : ""} (${plan.length} variante${plan.length > 1 ? "s" : ""}) · +${dust} poussières`;
 }
 
 async function bulkDisenchant() {
-  const ids = [...bulkSelected];
-  if (!ids.length) return;
-  const totalDust = ids.reduce((sum, id) => {
-    const card = allCards.find((c) => c.cardId === id);
-    const owned = ownedMap.get(id);
-    return sum + estimateDust(card?.rarity?.disenchantValue || 0, worstFinish(owned?.finishCounts), worstQuality(owned?.qualityCounts));
-  }, 0);
+  const plan = bulkPlan();
+  if (!plan.length) return;
+  const copies = plan.reduce((s, p) => s + p.qty, 0);
+  const totalDust = plan.reduce((s, p) => s + p.dust, 0);
+  const lines = plan.slice(0, 8).map((p) =>
+    `<li>${p.qty > 1 ? p.qty + "x " : ""}${p.card.name} — ${p.variant.finish !== "normal" ? FINISH_LABELS[p.variant.finish] + ", " : ""}${QUALITY_LABELS[p.variant.quality]}</li>`).join("");
   const ok = await Confirm.show(
-    `Décrafter ces <strong>${ids.length} cartes</strong> pour <strong>+${totalDust} poussières d'étoile</strong> ? ` +
+    `Décrafter <strong>${copies} exemplaire${copies > 1 ? "s" : ""}</strong> pour <strong>+${totalDust} poussières d'étoile</strong> ?` +
+    `<ul style="text-align:left;margin:8px 0;font-size:0.85rem;">${lines}${plan.length > 8 ? `<li>… et ${plan.length - 8} autre(s)</li>` : ""}</ul>` +
     `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible.`,
     { title: "Décrafter la sélection ?", confirmText: "Décrafter tout", dangerous: true }
   );
   if (!ok) return;
+  const btn = document.getElementById("bulk-disenchant-btn");
+  btn.disabled = true;
   let successCount = 0;
   let totalDustGained = 0;
-  for (const id of ids) {
-    try {
-      const res = await API.disenchantCard(Session.userId, id);
-      totalDustGained += res.dustGained || 0;
-      successCount++;
-    } catch (e) { /* on continue avec les suivantes */ }
+  for (const p of plan) {
+    for (let i = 0; i < p.qty; i++) {
+      try {
+        const res = await API.disenchantCard(Session.userId, p.card.cardId, p.variant.finish, p.variant.quality);
+        totalDustGained += res.dustGained || 0;
+        successCount++;
+      } catch (e) { break; /* variante epuisee ou erreur : on passe a la suivante */ }
+    }
   }
-  Toast.success(`${successCount} carte${successCount > 1 ? "s" : ""} décraftée${successCount > 1 ? "s" : ""} (+${totalDustGained} poussières).`);
+  btn.disabled = false;
+  Toast.success(`${successCount} exemplaire${successCount > 1 ? "s" : ""} décrafté${successCount > 1 ? "s" : ""} (+${totalDustGained} poussières).`);
   bulkSelected.clear();
+  disenchantQty.clear();
   bulkSelectMode = false;
   document.getElementById("bulk-select-toggle").classList.remove("active");
+  document.getElementById("select-all-disenchant-btn").style.display = "none";
   await reload();
 }
 
@@ -829,42 +904,31 @@ async function bulkCraft() {
   await reload();
 }
 
-async function disenchant(cardId, btn) {
-  const card = allCards.find((c) => c.cardId === cardId);
-  const owned = ownedMap.get(cardId);
-  const ownedCount = owned?.count || 1;
-  const qty = Math.min(Math.max(disenchantQty.get(cardId) || 1, 1), ownedCount);
-  const dustEach = card?.rarity?.disenchantValue || 0;
-  // Le decraft consomme toujours la finition/qualite la moins prestigieuse en
-  // premier (voir disenchant.json "Validate & Prepare") : on peut donc
-  // calculer un total EXACT en simulant le meme tri sur les exemplaires
-  // reellement possedes, plutot que d'afficher un montant approximatif.
-  const sortedCopies = [...(owned?.copies || [])].sort((a, b) =>
-    (FINISH_ORDER.indexOf(a.finish || "normal") - FINISH_ORDER.indexOf(b.finish || "normal")) ||
-    (QUALITY_ORDER.indexOf(a.quality || "damaged") - QUALITY_ORDER.indexOf(b.quality || "damaged"))
-  );
-  const totalDust = sortedCopies.slice(0, qty).reduce((sum, c) => sum + estimateDust(dustEach, c.finish || "normal", c.quality || "damaged"), 0);
+async function disenchant(key, btn) {
+  const entry = disenchantVariants.get(key);
+  if (!entry) return;
+  const { card, variant } = entry;
+  const qty = Math.min(Math.max(disenchantQty.get(key) || 1, 1), variant.count);
+  const variantLabel = `${variant.finish !== "normal" ? FINISH_LABELS[variant.finish] + ", " : ""}${QUALITY_LABELS[variant.quality]}`;
+  const totalDust = estimateDust(card.rarity?.disenchantValue || 0, variant.finish, variant.quality) * qty;
   // Carte secrete : contrepartie fixe de 1 booster par exemplaire (voir
   // disenchant.json), jamais de poussieres.
   const ok = await Confirm.show(
-    card?.isSecret
-      ? `Décrafter <strong>${qty > 1 ? `${qty}x ` : ""}${card?.name || "cette carte"}</strong> contre <strong>${qty} booster${qty > 1 ? "s" : ""}</strong> ? ` +
-        `Cette action est irréversible.`
-      : qty > 1
-        ? `Décrafter <strong>${qty}x ${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> au total ? ` +
-          `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible.`
-        : `Décrafter <strong>${card?.name || "cette carte"}</strong> contre <strong>+${totalDust} poussières d'étoile</strong> ? ` +
-          `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible : l'exemplaire sera définitivement détruit.`,
+    card.isSecret
+      ? `Décrafter <strong>${qty > 1 ? `${qty}x ` : ""}${card.name}</strong> (${variantLabel}) contre <strong>${qty} booster${qty > 1 ? "s" : ""}</strong> ? Cette action est irréversible.`
+      : `Décrafter <strong>${qty > 1 ? `${qty}x ` : ""}${card.name}</strong> (${variantLabel}) contre <strong>+${totalDust} poussières d'étoile</strong> ? ` +
+        `Solde : ${stardust} &rarr; <strong>${stardust + totalDust}</strong>. Cette action est irréversible.`,
     { title: "Décrafter cette carte ?", confirmText: qty > 1 ? `Décrafter x${qty}` : "Décrafter", dangerous: true }
   );
   if (!ok) return;
+  if (btn) btn.disabled = true;
   let successCount = 0;
   let totalDustGained = 0;
   let totalBoostersGained = 0;
   let lastError = null;
   for (let i = 0; i < qty; i++) {
     try {
-      const res = await API.disenchantCard(Session.userId, cardId);
+      const res = await API.disenchantCard(Session.userId, card.cardId, variant.finish, variant.quality);
       totalDustGained += res.dustGained || 0;
       if (res.boosterGranted) totalBoostersGained++;
       successCount++;
@@ -874,18 +938,17 @@ async function disenchant(cardId, btn) {
     }
   }
   if (successCount === 0) {
+    if (btn) btn.disabled = false;
     Toast.error(DISENCHANT_ERRORS[lastError?.code] || ("Erreur. (" + lastError?.message + ")"));
     return;
   }
   if (totalBoostersGained > 0) {
-    Toast.success(`+${totalBoostersGained} booster${totalBoostersGained > 1 ? "s" : ""} (${card?.name})`);
+    Toast.success(`+${totalBoostersGained} booster${totalBoostersGained > 1 ? "s" : ""} (${card.name})`);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } else {
-    Toast.success(successCount > 1
-      ? `+${totalDustGained} poussières (${successCount}x ${card?.name})`
-      : `+${totalDustGained} poussières (${card?.name})`);
+    Toast.success(successCount > 1 ? `+${totalDustGained} poussières (${successCount}x ${card.name})` : `+${totalDustGained} poussières (${card.name})`);
   }
-  disenchantQty.delete(cardId);
+  disenchantQty.delete(key);
   await playDustDissolve(btn ? btn.closest(".craft-card") : null);
   await reload();
 }
