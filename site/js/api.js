@@ -175,8 +175,8 @@ const API = {
     return this.post("dailyWheel", { userId, action: "status" });
   },
 
-  spinDailyWheel(userId) {
-    return this.post("dailyWheel", { userId, action: "spin" });
+  spinDailyWheel(userId, useKey) {
+    return this.post("dailyWheel", { userId, action: "spin", useKey: !!useKey });
   },
 
   altarSacrifice(userId, cardIds) {

@@ -82,6 +82,7 @@
           <div class="wheel-status">
             <div id="wheel-status-text" class="skeleton-line">Chargement...</div>
             <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
+            <button type="button" class="btn-secondary wheel-key-btn" id="wheel-key-btn" style="display:none;" title="Relancer la roue en dépensant 1 clé secrète">&#128274; Relancer contre 1 &#128273;</button>
           </div>
         </div>
         <div class="wheel-prizes-preview">
@@ -550,6 +551,19 @@
       const wheelPanel = document.getElementById("wheel-panel");
       const wheelStatusText = document.getElementById("wheel-status-text");
       const wheelSpinBtn = document.getElementById("wheel-spin-btn");
+      const wheelKeyBtn = document.getElementById("wheel-key-btn");
+      // Cadenas (2026-10-02) : une fois le tirage gratuit du jour utilise, la
+      // roue peut etre relancee contre 1 clef secrete (verifie cote serveur,
+      // daily-wheel.json useKey). Grise sans clef plutot que masque, pour que
+      // la possibilite reste connue.
+      function showWheelKeyBtn(keys) {
+        wheelKeyBtn.style.display = "inline-flex";
+        wheelKeyBtn.disabled = keys < 1;
+        wheelKeyBtn.innerHTML = keys < 1
+          ? "&#128274; Relance (1 &#128273; requise)"
+          : "&#128274; Relancer (&minus;1 &#128273;)";
+        wheelKeyBtn.title = keys < 1 ? "Il te faut une clé secrète (fouille, roue...)" : `Relancer la roue contre 1 clé secrète - tu en as ${keys}`;
+      }
       wheelPanel.style.display = "block";
       API.getDailyWheelStatus(Session.userId).then((res) => {
         wheelStatusText.classList.remove("skeleton-line");
@@ -557,7 +571,8 @@
           wheelStatusText.textContent = "Ton tirage du jour est disponible !";
           wheelSpinBtn.style.display = "inline-flex";
         } else {
-          wheelStatusText.textContent = "Reviens demain pour un nouveau tirage.";
+          wheelStatusText.textContent = "Reviens demain pour un nouveau tirage gratuit.";
+          showWheelKeyBtn(res.keys || 0);
         }
       }).catch(() => {
         wheelStatusText.classList.remove("skeleton-line");
@@ -620,8 +635,9 @@
         jackpot: (p) => ({ label: `JACKPOT ! +${p.amount} boosters et +${p.dust} poussières !`, sfx: "mythique", confetti: { particleCount: 260, spread: 150 } })
       };
 
-      wheelSpinBtn.addEventListener("click", async () => {
+      async function startWheelSpin(useKey) {
         wheelSpinBtn.disabled = true;
+        wheelKeyBtn.disabled = true;
         wheelResultEl.textContent = "";
         wheelCloseBtn.style.display = "none";
         wheelOverlay.hidden = false;
@@ -630,7 +646,7 @@
         if (wheelPointerGlow) wheelPointerGlow.classList.add("spinning");
 
         try {
-          const res = await API.spinDailyWheel(Session.userId);
+          const res = await API.spinDailyWheel(Session.userId, useKey);
           spinWheelTo(res.prize.tier);
           wheelGroup.addEventListener("transitionend", function onSpun() {
             wheelGroup.removeEventListener("transitionend", onSpun);
@@ -642,16 +658,20 @@
             if (typeof confetti === "function") confetti({ ...meta.confetti, origin: { y: 0.5 } });
             wheelStatusText.innerHTML = `Gagné aujourd'hui : ${meta.label} Reviens demain.`;
             wheelSpinBtn.style.display = "none";
+            showWheelKeyBtn(res.newKeyCount || 0);
             loadHeaderBoosterBadge();
           }, { once: true });
         } catch (e) {
           wheelOverlay.hidden = true;
           syncScrollLock();
           wheelSpinBtn.disabled = false;
+          wheelKeyBtn.disabled = false;
           if (wheelPointerGlow) wheelPointerGlow.classList.remove("spinning");
-          Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : "Erreur. (" + e.message + ")");
+          Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : e.code === "no_key" ? "Il te faut une clé secrète pour relancer la roue." : "Erreur. (" + e.message + ")");
         }
-      });
+      }
+      wheelSpinBtn.addEventListener("click", () => startWheelSpin(false));
+      wheelKeyBtn.addEventListener("click", () => startWheelSpin(true));
 
       wheelCloseBtn.addEventListener("click", () => {
         wheelOverlay.hidden = true;
