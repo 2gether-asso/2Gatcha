@@ -35,6 +35,7 @@ function formatDuration(seconds) {
 // -----------------------------------------------------------------------
 let digEnergy = 0;
 let digMaxEnergy = 5;
+let digRegenSeconds = 60;
 let digBusy = false;
 
 const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#128142;", booster: "&#127183;", card: "&#127942;", rareCard: "&#127775;" };
@@ -44,6 +45,7 @@ async function loadDig() {
     const res = await API.getDigStatus(Session.userId);
     digEnergy = res.energy;
     digMaxEnergy = res.maxEnergy || 5;
+    digRegenSeconds = res.regenSeconds || 60;
     renderDigEnergy(res.energy, digMaxEnergy, res.secondsUntilNext);
     renderDigBoard(res.tiles || []);
     const regenSeconds = res.regenSeconds || 60;
@@ -63,7 +65,7 @@ async function loadDig() {
 // vrai etat serveur une fois le delai ecoule.
 let digCountdownTimer = null;
 function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
-  if (digCountdownTimer) { clearInterval(digCountdownTimer); digCountdownTimer = null; }
+  if (digCountdownTimer) { clearInterval(digCountdownTimer); clearTimeout(digCountdownTimer); digCountdownTimer = null; }
   document.getElementById("dig-energy-bar").innerHTML = Array.from({ length: maxEnergy }, (_, i) => `
     <span class="dig-pip ${i < energy ? "filled" : ""}"></span>
   `).join("");
@@ -71,20 +73,32 @@ function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
   statusText.classList.remove("skeleton-line");
   if (energy > 0) {
     statusText.textContent = `${energy} / ${maxEnergy} énergie — chaque tuile en coûte 1`;
+    // Jauge pas pleine : on recharge l'etat reel au moment ou le prochain
+    // point revient, au lieu d'attendre un rechargement manuel de la page.
+    if (energy < maxEnergy && secondsUntilNext) {
+      digCountdownTimer = setTimeout(() => { digCountdownTimer = null; loadDig(); }, (secondsUntilNext + 1) * 1000);
+    }
     return;
   }
-  let remaining = secondsUntilNext || 60;
-  statusText.textContent = `Énergie épuisée — prochaine dans ${formatDuration(remaining)}`;
+  // Delai reel renvoye par le serveur (statut ET reponse de fouille depuis
+  // 2026-10-01) plutot qu'un 60s suppose : avec un delai de regen configure
+  // plus long, l'ancien decompte annoncait "moins d'une minute" a tort.
+  let remaining = secondsUntilNext || digRegenSeconds || 60;
+  const render = () => {
+    const m = Math.floor(remaining / 60), s = remaining % 60;
+    statusText.textContent = `Énergie épuisée — prochaine dans ${m > 0 ? `${m} min ` : ""}${String(s).padStart(m > 0 ? 2 : 1, "0")} s`;
+  };
+  render();
   digCountdownTimer = setInterval(() => {
-    remaining -= 5;
+    remaining -= 1;
     if (remaining <= 0) {
       clearInterval(digCountdownTimer);
       digCountdownTimer = null;
       loadDig();
       return;
     }
-    statusText.textContent = `Énergie épuisée — prochaine dans ${formatDuration(remaining)}`;
-  }, 5000);
+    render();
+  }, 1000);
 }
 
 // Meme icone pour toutes les tuiles d'un MEME tresor, des le premier coup de
@@ -151,7 +165,7 @@ async function doDig(tileIndex, tileEl) {
     const res = await API.dig(Session.userId, tileIndex);
     digEnergy = res.newEnergy;
     digBusy = false;
-    renderDigEnergy(res.newEnergy, digMaxEnergy, null);
+    renderDigEnergy(res.newEnergy, res.maxEnergy || digMaxEnergy, res.secondsUntilNext || null);
     renderDigBoard(res.tiles || []);
 
     resultEl.style.display = "block";

@@ -2795,7 +2795,14 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   100% { opacity: 0; }
 }
 
-.card.legendary-hit .card-front { animation: legendaryHit var(--flash-duration, 0.6s) ease-out; }
+/* Le flash de luminosite s'applique aux ENFANTS de la face, jamais a
+   .card-front elle-meme (bug Firefox reel, 2026-10-01) : un `filter` sur
+   une face qui participe au contexte 3D du flip (preserve-3d de
+   .card-inner) la sort de ce contexte sous Firefox - la face avant
+   restait alors affichee en miroir (ou le flip semblait ne jamais se
+   faire) des qu'une carte rare+ declenchait cet effet. Les enfants, eux,
+   sont deja aplatis par l'overflow:hidden de .card-face : sans risque. */
+.card.legendary-hit .card-front > * { animation: legendaryHit var(--flash-duration, 0.6s) ease-out; }
 @keyframes legendaryHit {
   0% { filter: brightness(1); }
   30% { filter: brightness(var(--flash-brightness, 2)); }
@@ -5262,3 +5269,72 @@ body.hide-stats #stats-block { display: none; }
 }
 .maintenance-message { color: var(--text-dim); max-width: 440px; line-height: 1.6; }
 .maintenance-sub { color: var(--accent-2); font-weight: 600; max-width: 440px; }
+
+/* ========================================================================
+   Firefox : aucun mix-blend-mode a l'interieur d'une carte qui se retourne
+   (2026-10-01, bug reel "les cartes ne se retournent pas sous Firefox").
+   Un descendant en mix-blend-mode force Firefox a isoler/aplatir le
+   contexte preserve-3d de .card-inner : la face avant s'affichait alors en
+   miroir, ou le dos restait visible - uniquement pour les cartes rare+ (dos
+   .card-back-shine) et les finitions/etats speciaux, jamais pour une
+   commune "nue", d'ou un bug qui semblait aleatoire. Places EN FIN de
+   fichier pour l'emporter (a specificite egale) sur les regles de
+   finition/qualite plus haut ; ne concerne que .card (reveal de booster /
+   code), la collection et la modale gardent leurs fusions d'origine.
+   ======================================================================== */
+.card .card-back-shine::after,
+.card[data-quality] .card-art::before,
+.card[data-finish] .card-art::after { mix-blend-mode: normal; }
+.card .card-back-shine::after {
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--shine-color, transparent) 45%, transparent), transparent 70%);
+}
+.card[data-finish]:not([data-finish="normal"]) .card-art::after { opacity: 0.5; }
+.card[data-quality] .card-art::before { opacity: 0.6; }
+
+/* Echange en attente devenu impossible (exemplaire offert parti ailleurs). */
+.trade-unavailable-tag {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: rgba(251,113,133,0.14);
+  border: 1px solid #fb7185;
+  color: var(--text);
+}
+
+/* Etiquette "#001" : premier exemplaire en circulation d'une carte (numero
+   de serie 1). En haut au centre de l'illustration pour ne jamais heurter
+   les badges deja places dans les coins (Nouvelle !, favori, finition,
+   etat). */
+.serial-one-badge {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: #1a1206;
+  background: linear-gradient(135deg, #ffe08a, #f5a524);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 0 10px rgba(245,165,36,0.55);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.serial-one-badge[style*="position:static"] { transform: none; display: inline-flex; align-items: center; }
+
+/* Finition (coin gauche) + etat (coin droit) sur la meme illustration : avec
+   "Parfait état" desormais toujours affiche, un libelle long ("Arc-en-ciel")
+   chevauchait le badge voisin sur les cartes etroites - chacun reste dans
+   sa moitie et s'abrege proprement si besoin. */
+.card-art .finish-indicator:not([style*="position:static"]),
+.card-art .quality-indicator:not([style*="position:static"]) {
+  max-width: calc(50% - 10px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

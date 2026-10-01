@@ -105,6 +105,7 @@ function buildCardEl(card, index, cardBackImageId) {
       <img src="${imgSrc}" alt="${card.name}" />
       ${finishBadge}
       ${qualityBadge}
+      ${card.serialNumber === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
     </div>
     <div class="card-info">
       <div class="card-name">${card.name}</div>
@@ -255,8 +256,6 @@ function onAllRevealed() {
     Toast.info(`Il te reste ${boosterCount} booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}.`);
   }
 
-  const shareBtn = document.getElementById("share-pull-btn");
-  if (shareBtn && lastRevealedCards.length) shareBtn.style.display = "inline-flex";
 
   // Annonce Discord automatique (Mythique/Legendaire/Epique) : envoyee ICI,
   // une fois que le JOUEUR a fini de reveler ses cartes (tap manuel ou
@@ -282,215 +281,6 @@ function onAllRevealed() {
     } else {
       openAnotherBtn.style.display = "none";
     }
-  }
-}
-
-function loadImageCORS(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-// Dessine une image en mode "cover" (recadree, jamais deformee) dans une
-// boite donnee.
-function drawImageCover(ctx, img, x, y, w, h) {
-  const imgRatio = img.width / img.height;
-  const boxRatio = w / h;
-  let sx, sy, sw, sh;
-  if (imgRatio > boxRatio) {
-    sh = img.height; sw = sh * boxRatio; sx = (img.width - sw) / 2; sy = 0;
-  } else {
-    sw = img.width; sh = sw / boxRatio; sx = 0; sy = (img.height - sh) / 2;
-  }
-  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
-}
-
-function roundRectPath(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-// Genere l'image composite du partage (canvas) : la meilleure carte du lot
-// dans un vrai cadre de carte (bordure/lueur couleur rarete, art recadre
-// proprement), avec le reste du lot en bandeau et le branding du site.
-async function buildShareImage() {
-  const best = lastRevealedCards.reduce((a, b) => {
-    const ka = a.rarity?.key || "commune", kb = b.rarity?.key || "commune";
-    return (RARITY_ORDER[kb] ?? 0) > (RARITY_ORDER[ka] ?? 0) ? b : a;
-  });
-  const color = best.rarity?.colorHex || "#9aa0b4";
-  const others = lastRevealedCards.filter((c) => c !== best).slice(0, 4);
-
-  const [bestImg, ...otherImgs] = await Promise.all([
-    loadImageCORS(API.imageUrl(best.imageId) || PLACEHOLDER_IMG),
-    ...others.map((c) => loadImageCORS(API.imageUrl(c.imageId) || PLACEHOLDER_IMG).catch(() => null))
-  ]);
-  // Les polices web doivent etre chargees AVANT de dessiner du texte sur le
-  // canvas, sinon le navigateur rend avec une police de secours generique.
-  if (document.fonts && document.fonts.ready) await document.fonts.ready;
-
-  const W = 1080, H = 1440;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-  ctx.textAlign = "center";
-
-  // Fond : couleur de base + halo colore rarete + legere trame d'etoiles.
-  ctx.fillStyle = "#06070f";
-  ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W / 2, 500, 60, W / 2, 500, 640);
-  glow.addColorStop(0, color + "4d");
-  glow.addColorStop(1, "#06070f00");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "rgba(255,255,255,0.3)";
-  for (let i = 0; i < 70; i++) {
-    const sx = (i * 197) % W, sy = (i * 359 + 40) % H;
-    ctx.beginPath();
-    ctx.arc(sx, sy, i % 5 === 0 ? 1.6 : 0.9, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Wordmark degrade (meme esprit que .brand en CSS).
-  ctx.font = "400 46px Bungee, sans-serif";
-  const wmGrad = ctx.createLinearGradient(W / 2 - 150, 0, W / 2 + 150, 0);
-  wmGrad.addColorStop(0, "#8b5cf6");
-  wmGrad.addColorStop(1, "#22d3ee");
-  ctx.fillStyle = wmGrad;
-  ctx.fillText("2GATCHA", W / 2, 88);
-  ctx.font = "600 26px Inter, sans-serif";
-  ctx.fillStyle = "#9a9cc4";
-  ctx.fillText(lastOpenedExtension?.name || "Ouverture de booster", W / 2, 128);
-
-  // Cadre de la carte principale : lueur douce, art recadre (jamais
-  // deforme), double liseré colore comme les vraies cartes du site.
-  const cardW = 560, cardH = 750;
-  const cardX = (W - cardW) / 2, cardY = 168;
-  ctx.save();
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 80;
-  roundRectPath(ctx, cardX, cardY, cardW, cardH, 28);
-  ctx.fillStyle = "#14162e";
-  ctx.fill();
-  ctx.restore();
-
-  ctx.save();
-  roundRectPath(ctx, cardX, cardY, cardW, cardH, 28);
-  ctx.clip();
-  drawImageCover(ctx, bestImg, cardX, cardY, cardW, cardH);
-  if (best.rarity?.key === "legendaire" || best.rarity?.key === "mythique") {
-    const sweep = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-    sweep.addColorStop(0, "rgba(255,255,255,0)");
-    sweep.addColorStop(0.46, "rgba(255,255,255,0.24)");
-    sweep.addColorStop(0.54, "rgba(255,255,255,0)");
-    ctx.fillStyle = sweep;
-    ctx.fillRect(cardX, cardY, cardW, cardH);
-  }
-  ctx.restore();
-
-  roundRectPath(ctx, cardX, cardY, cardW, cardH, 28);
-  ctx.lineWidth = 7;
-  ctx.strokeStyle = color;
-  ctx.stroke();
-  roundRectPath(ctx, cardX + 9, cardY + 9, cardW - 18, cardH - 18, 21);
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.stroke();
-
-  // Nom + pastille de rarete (meme habillage que .rarity-badge en CSS).
-  ctx.fillStyle = "#f5f5fc";
-  ctx.font = "400 48px Bungee, sans-serif";
-  ctx.fillText(best.name || "Carte", W / 2, cardY + cardH + 66);
-
-  const rarityLabel = (best.rarity?.name || "Commune").toUpperCase();
-  ctx.font = "400 26px Bungee, sans-serif";
-  const pillW = ctx.measureText(rarityLabel).width + 74;
-  const pillX = (W - pillW) / 2, pillY = cardY + cardH + 92, pillH = 48;
-  roundRectPath(ctx, pillX, pillY, pillW, pillH, pillH / 2);
-  ctx.fillStyle = color + "26";
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = color;
-  ctx.stroke();
-  ctx.fillStyle = color;
-  ctx.fillText(rarityLabel, W / 2, pillY + 33);
-
-  // Bandeau du reste du lot (si booster multi-cartes) : chaque vignette
-  // garde le liseré de SA propre rarete.
-  const validOthers = others.map((c, i) => ({ card: c, img: otherImgs[i] })).filter((o) => o.img);
-  if (validOthers.length) {
-    const stripY = pillY + 96;
-    ctx.font = "600 24px Inter, sans-serif";
-    ctx.fillStyle = "#9a9cc4";
-    ctx.fillText("+ le reste du lot", W / 2, stripY - 14);
-
-    const thumbW = 150, thumbH = 200, gap = 22;
-    const totalW = validOthers.length * thumbW + (validOthers.length - 1) * gap;
-    let sx = (W - totalW) / 2;
-    validOthers.forEach(({ card, img }) => {
-      const c = card.rarity?.colorHex || "#9aa0b4";
-      ctx.save();
-      roundRectPath(ctx, sx, stripY, thumbW, thumbH, 14);
-      ctx.clip();
-      drawImageCover(ctx, img, sx, stripY, thumbW, thumbH);
-      ctx.restore();
-      roundRectPath(ctx, sx, stripY, thumbW, thumbH, 14);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = c;
-      ctx.stroke();
-      sx += thumbW + gap;
-    });
-  }
-
-  // Pied de page : pseudo + URL du site, pour la viralite.
-  ctx.font = "600 24px Inter, sans-serif";
-  ctx.fillStyle = "#9a9cc4";
-  ctx.fillText((Session.pseudo ? Session.pseudo + "  ·  " : "") + "gatcha.2gether-asso.fr", W / 2, H - 36);
-
-  // JPEG plutot que PNG : le serveur (nginx) plafonne les requetes a 1 Mo, et
-  // un PNG (sans perte) de cette image pleine de degrades/photos pesait
-  // ~1,7 Mo une fois encode en base64, systematiquement rejete en 413. Le
-  // JPEG compresse bien mieux ce type de contenu, largement sous la limite.
-  return canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
-}
-
-// Partage l'ouverture en cours (session x1/x5/x10 complete) sur Discord :
-// genere la meme image composite qu'avant (canvas, carte principale +
-// reste du lot + branding), mais l'envoie desormais en piece jointe au
-// webhook Discord au lieu de la telecharger - le backend revalide les
-// cartes via sessionBatchIds (jamais les donnees envoyees ici), donc
-// compatible multi-ouverture. Repli sur un message texte simple (sans
-// image) si la generation canvas echoue (ex: probleme CORS ponctuel sur
-// get-image.json) plutot que de bloquer completement le partage.
-async function shareBestPull() {
-  if (!sessionBatchIds.length) return;
-  const shareBtn = document.getElementById("share-pull-btn");
-  const originalLabel = shareBtn ? shareBtn.innerHTML : "";
-  if (shareBtn) { shareBtn.disabled = true; shareBtn.innerHTML = "Génération..."; }
-  try {
-    let imageBase64 = null;
-    try {
-      imageBase64 = await buildShareImage();
-    } catch (e) {
-      // Pas bloquant : le partage part quand meme, juste sans image jointe.
-    }
-    if (shareBtn) shareBtn.innerHTML = "Envoi...";
-    await API.sharePull(Session.userId, sessionBatchIds, imageBase64);
-    Toast.success("Ouverture partagee sur Discord !");
-  } catch (e) {
-    Toast.error("Impossible de partager cette ouverture. (" + e.message + ")");
-  } finally {
-    if (shareBtn) { shareBtn.disabled = false; shareBtn.innerHTML = originalLabel; }
   }
 }
 
@@ -880,8 +670,6 @@ function openModalFor(extensionId) {
       b.disabled = qty > boosterCount;
     });
   }
-  const shareBtn = document.getElementById("share-pull-btn");
-  if (shareBtn) shareBtn.style.display = "none";
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn) openAnotherBtn.style.display = "none";
 
@@ -1164,8 +952,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const shareBtn = document.getElementById("share-pull-btn");
-  if (shareBtn) shareBtn.addEventListener("click", shareBestPull);
 
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn) {

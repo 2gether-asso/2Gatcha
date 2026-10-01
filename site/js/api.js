@@ -118,14 +118,6 @@ const API = {
     return this.post("notifyReveal", { userId, batchIds, action: "auto" });
   },
 
-  // Partage manuel (bouton "Partager sur Discord") : meme endpoint, message
-  // toujours envoye (pas conditionne a la rarete). imageBase64 (PNG genere
-  // par canvas cote client, voir opening.js buildShareImage) est optionnel -
-  // le backend repli sur un message texte simple si absent.
-  sharePull(userId, batchIds, imageBase64) {
-    return this.post("notifyReveal", { userId, batchIds, action: "share", imageBase64 });
-  },
-
   disenchantCard(userId, cardId, finish, quality) {
     return this.post("disenchant", { userId, cardId, finish, quality });
   },

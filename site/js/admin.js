@@ -453,6 +453,37 @@ function populateBingoCardSelects() {
   `).join("");
 }
 
+function monthKeyOffset(offset) {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Autogeneration (2026-10-01) : 9 cartes distinctes tirees au hasard, hors
+// promo, secretes et mythiques (trop rares pour une grille a completer en un
+// mois). Remplit SEULEMENT le formulaire, cible le mois PROCHAIN : la grille
+// en cours, sur laquelle des joueurs progressent deja, n'est jamais touchee
+// sans un enregistrement explicite (et confirme, voir le submit).
+function autogenerateBingo() {
+  const eligible = cardsCatalog.filter((c) => !c.isPromo && !c.isSecret && c.active !== false && (c.rarity?.key || "commune") !== "mythique");
+  if (eligible.length < 9) {
+    Toast.error(`Pas assez de cartes éligibles (${eligible.length}/9).`);
+    return;
+  }
+  const pool = eligible.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  document.querySelectorAll(".bingo-cell-select").forEach((sel, i) => {
+    sel.value = String(pool[i].cardId);
+    if (sel._fancyRefresh) sel._fancyRefresh();
+  });
+  document.getElementById("bingo-month-input").value = monthKeyOffset(1);
+  Toast.info("Grille générée pour le mois prochain — vérifie puis enregistre.");
+}
+
 // -----------------------------------------------------------------------
 // Recompenses de niveau (100 paliers)
 // -----------------------------------------------------------------------
@@ -762,6 +793,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  document.getElementById("bingo-autogen-btn").addEventListener("click", autogenerateBingo);
   document.getElementById("create-bingo-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const cardIds = [...document.querySelectorAll(".bingo-cell-select")].map((s) => Number(s.value));
@@ -769,9 +801,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       Toast.error("Choisis 9 cartes différentes.");
       return;
     }
+    // Garde-fou : remplacer la grille du mois EN COURS efface la progression
+    // des joueurs qui la remplissent deja - confirmation explicite exigee.
+    const monthValue = document.getElementById("bingo-month-input").value.trim();
+    if (!monthValue || monthValue === monthKeyOffset(0)) {
+      const ok = await Confirm.show("Tu vas <strong>remplacer la grille du mois en cours</strong>, sur laquelle des joueurs progressent peut-être déjà. Continuer ?", {
+        title: "Remplacer la grille actuelle ?",
+        confirmText: "Remplacer quand même",
+        dangerous: true
+      });
+      if (!ok) return;
+    }
     try {
       await API.adminSetBingoGrid(Session.discordId, {
-        month: document.getElementById("bingo-month-input").value.trim() || undefined,
+        month: monthValue || undefined,
         cardIds,
         rewardBoosters: Number(document.getElementById("bingo-reward-input").value) || 0
       });

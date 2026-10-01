@@ -319,7 +319,8 @@ function showCardModal(navKey, navList) {
               ${card.rarity?.name || "Commune"}
             </span>
             ${owned && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;">${FINISH_LABELS[finish]}</span>` : ""}
-            ${owned && quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;">${QUALITY_LABELS[quality]}</span>` : ""}
+            ${owned ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;">${QUALITY_LABELS[quality]}</span>` : ""}
+            ${serials.includes(1) ? `<span class="serial-one-badge" style="position:static;" title="Premier exemplaire en circulation">#001</span>` : ""}
           </div>
           ${owned ? `
             <div class="card-modal-stats">
@@ -473,6 +474,7 @@ function cardTileHtml(card, now) {
 
   return variants.map((variant, i) => {
     const { finish, quality, count } = variant;
+    const hasFirstSerial = (variant.serialNumbers || []).includes(1);
     const navKey = `${card.cardId}::${finish}::${quality}`;
     const bulkChecked = bulkEligible && bulkSelected.has(navKey);
     // Raccourcis fusion/restauration : visibles uniquement si CETTE variante
@@ -490,7 +492,8 @@ function cardTileHtml(card, now) {
         <div class="card-art">
           <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
           ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
-          ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+          ${quality ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+          ${hasFirstSerial ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
         </div>
         <div class="card-info">
           <div class="card-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>

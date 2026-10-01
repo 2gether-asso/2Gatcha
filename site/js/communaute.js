@@ -148,7 +148,7 @@ function chestCardTile(card) {
           <div class="chest-variant-row">
             <span class="chest-variant-tags">
               ${v.finish !== "normal" ? `<span class="finish-tag" data-finish="${v.finish}">${FINISH_LABELS[v.finish]}</span>` : ""}
-              ${v.quality !== "mint" ? `<span class="quality-tag" data-quality="${v.quality}">${QUALITY_LABELS[v.quality]}</span>` : ""}
+              ${v.quality ? `<span class="quality-tag" data-quality="${v.quality}">${QUALITY_LABELS[v.quality]}</span>` : ""}
               <span class="chest-variant-count">x${v.count}</span>
             </span>
             <button type="button" class="btn-secondary chest-deposit-btn" data-card-id="${card.cardId}" data-finish="${v.finish}" data-quality="${v.quality}">Déposer</button>

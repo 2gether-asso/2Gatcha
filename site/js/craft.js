@@ -533,7 +533,7 @@ function craftCardTile(card, mode) {
         <div class="card-art">
           <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
           ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
-          ${quality !== "mint" ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+          ${quality ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
         </div>
         <div class="card-info">
           <div class="card-name">${card.name}</div>

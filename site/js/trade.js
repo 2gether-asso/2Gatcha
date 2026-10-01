@@ -17,8 +17,14 @@ const TRADE_ERROR_MESSAGES = {
   trade_not_pending: "Cet échange n'est plus en attente.",
   cards_no_longer_available: "Une des deux cartes n'est plus disponible (deja echangee ailleurs).",
   promo_not_tradeable: "Les cartes promo ne sont pas echangeables.",
-  pull_not_chosen: "Choisis quel exemplaire tu veux donner."
+  pull_not_chosen: "Choisis quel exemplaire tu veux donner.",
+  offer_no_longer_available: "L'exemplaire proposé a déjà changé de main : cet échange a été annulé automatiquement.",
+  pull_not_owned: "Tu ne possèdes plus cet exemplaire - la liste vient d'être rafraîchie, réessaie."
 };
+// Erreurs qui signifient "l'etat affiche est perime" : on recharge alors
+// cartes possedees + liste d'echanges plutot que de laisser l'utilisateur
+// re-cliquer sur un bouton qui echouera a nouveau.
+const STALE_STATE_ERRORS = new Set(["offer_no_longer_available", "pull_not_owned", "cards_no_longer_available", "trade_not_pending", "trade_not_found"]);
 
 // Memes echelles que collection.js/craft.js (voir grist/SCHEMA.md) : la
 // carte OFFERTE est un exemplaire precis (deja choisi via OfferedPull), donc
@@ -38,6 +44,38 @@ const STATUS_LABELS = {
 function formatSerial(serial) {
   if (serial == null) return "";
   return ` (#${String(serial).padStart(3, "0")})`;
+}
+
+// Libelle d'un exemplaire precis : numero + finition/etat, pour choisir en
+// connaissance de cause QUEL exemplaire on donne (jusqu'ici seul le numero
+// etait affiche - impossible de distinguer un Holo d'un normal).
+function copyLabel(c) {
+  const parts = [c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"];
+  if (c.finish && c.finish !== "normal") parts.push(FINISH_LABELS[c.finish] || c.finish);
+  if (c.quality) parts.push(QUALITY_LABELS[c.quality] || c.quality);
+  return parts.join(" · ");
+}
+
+// Exemplaires deja engages comme "carte offerte" dans un de MES echanges
+// encore en attente : les redonner ailleurs ferait echouer cet autre echange.
+function committedPullIds() {
+  return new Set(allTradesCache
+    .filter((t) => t.direction === "outgoing" && t.status === "pending" && t.offeredPullId)
+    .map((t) => t.offeredPullId));
+}
+
+// Un clic = une requete : les appels n8n prennent plusieurs secondes, un
+// double-clic declenchait jusqu'ici un second appel (erreur "n'est plus en
+// attente", voire XP comptee deux fois si les deux passaient en meme temps).
+const inFlightTrades = new Set();
+function setTradeBusy(tradeId, busy) {
+  if (busy) inFlightTrades.add(String(tradeId)); else inFlightTrades.delete(String(tradeId));
+  document.querySelectorAll(`.trade-card button[data-id="${tradeId}"]`).forEach((b) => { b.disabled = busy; });
+}
+
+async function refreshAfterMutation() {
+  try { await loadFormOptions(); } catch (e) { /* la liste reste exploitable */ }
+  await loadTrades();
 }
 
 let myOwnedCards = [];
@@ -67,13 +105,25 @@ function setActiveTradeTab(tab) {
 // Filtre "doublons uniquement" (QoL 2026-09-30) : evite de proposer par
 // erreur son dernier exemplaire d'une carte - ne montre que celles possedees
 // en x2 ou plus quand la case est cochee.
+// Cartes possedees par le joueur cible (rempli au choix de la cible, voir
+// updateRequestedCardOptionsForTarget) : sert a reperer, parmi MES cartes,
+// celles qu'il n'a pas encore - les plus susceptibles de l'interesser.
+let targetOwnedIds = null;
+
 function renderOfferedCardOptions() {
   const duplicatesOnly = document.getElementById("offer-duplicates-only")?.checked;
-  const options = duplicatesOnly ? myOwnedCards.filter((c) => (myOwnedCountByCard.get(c.cardId) || 0) >= 2) : myOwnedCards;
+  const missingOnly = document.getElementById("offer-missing-only")?.checked && targetOwnedIds;
+  const previous = document.getElementById("offered-card-select").value;
+  let options = duplicatesOnly ? myOwnedCards.filter((c) => (myOwnedCountByCard.get(c.cardId) || 0) >= 2) : myOwnedCards;
+  if (missingOnly) options = options.filter((c) => !targetOwnedIds.has(c.cardId));
   const offeredSelect = document.getElementById("offered-card-select");
+  const emptyLabel = missingOnly ? "Il possède déjà toutes tes cartes" : duplicatesOnly ? "Aucun doublon" : "Aucune carte possédée";
   offeredSelect.innerHTML = options
-    .map((c) => `<option value="${c.cardId}">${c.name} (x${myOwnedCountByCard.get(c.cardId)})</option>`)
-    .join("") || `<option value="">${duplicatesOnly ? "Aucun doublon" : "Aucune carte possédée"}</option>`;
+    .map((c) => {
+      const missing = targetOwnedIds && !targetOwnedIds.has(c.cardId);
+      return `<option value="${c.cardId}" ${String(c.cardId) === previous ? "selected" : ""}>${c.name} (x${myOwnedCountByCard.get(c.cardId)})${missing ? " ✦ il ne l'a pas" : ""}</option>`;
+    })
+    .join("") || `<option value="">${emptyLabel}</option>`;
   if (offeredSelect._fancyRefresh) offeredSelect._fancyRefresh();
   updateCardPreview("offered-card-select", "offered-card-preview");
   updateOfferedPullOptions();
@@ -116,6 +166,8 @@ async function updateRequestedCardOptionsForTarget(pseudo) {
   const select = document.getElementById("requested-card-select");
   if (!select) return;
   if (!pseudo) {
+    targetOwnedIds = null;
+    renderOfferedCardOptions();
     select.innerHTML = `<option value="">Choisis d'abord un joueur cible</option>`;
     if (select._fancyRefresh) select._fancyRefresh();
     updateCardPreview("requested-card-select", "requested-card-preview");
@@ -125,13 +177,16 @@ async function updateRequestedCardOptionsForTarget(pseudo) {
   if (select._fancyRefresh) select._fancyRefresh();
   try {
     const profile = await API.getPublicProfile(pseudo);
+    targetOwnedIds = new Set((profile.cards || []).map((c) => c.cardId));
     const options = (profile.cards || []).filter((c) => !c.isPromo);
     select.innerHTML = `<option value="">Aucune (don)</option>` + options
-      .map((c) => `<option value="${c.cardId}">${c.name} (x${c.count})</option>`)
+      .map((c) => `<option value="${c.cardId}">${c.name} (x${c.count})${myOwnedCountByCard.has(c.cardId) ? "" : " ✦ tu ne l'as pas"}</option>`)
       .join("");
   } catch (e) {
+    targetOwnedIds = null;
     select.innerHTML = `<option value="">Aucune (don)</option>`;
   }
+  renderOfferedCardOptions();
   if (select._fancyRefresh) select._fancyRefresh();
   updateCardPreview("requested-card-select", "requested-card-preview");
 }
@@ -144,8 +199,9 @@ function updateOfferedPullOptions() {
   if (!select) return;
   const cardId = Number(document.getElementById("offered-card-select").value);
   const copies = ownedCopiesByCard.get(cardId) || [];
+  const committed = committedPullIds();
   select.innerHTML = copies.length
-    ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"}</option>`).join("")
+    ? copies.map((c) => `<option value="${c.pullId}">${copyLabel(c)}${committed.has(c.pullId) ? " (déjà proposé ailleurs)" : ""}</option>`).join("")
     : `<option value="">Aucun exemplaire</option>`;
   if (select._fancyRefresh) select._fancyRefresh();
 }
@@ -199,7 +255,7 @@ function openTradeCardModal(card, opts) {
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   const finish = opts.finish && opts.finish !== "normal" ? opts.finish : null;
-  const quality = opts.quality && opts.quality !== "mint" ? opts.quality : null;
+  const quality = opts.quality || null;
   const overlay = document.createElement("div");
   overlay.className = "card-modal-overlay";
   overlay.innerHTML = `
@@ -236,17 +292,25 @@ function renderTradeCard(trade) {
 
   const canBulkCancel = bulkCancelMode && trade.direction === "outgoing" && trade.status === "pending";
   let actions = "";
+  const busy = inFlightTrades.has(String(trade.tradeId)) ? "disabled" : "";
   if (trade.status === "pending") {
     if (trade.direction === "incoming") {
-      actions = `
-        <button class="btn-secondary accept-btn" data-id="${trade.tradeId}">Accepter</button>
-        <button class="btn-ghost counter-btn" data-id="${trade.tradeId}">Contre-proposer</button>
-        <button class="btn-ghost decline-btn" data-id="${trade.tradeId}">Refuser</button>
+      // Exemplaire offert parti ailleurs entre-temps : "Accepter" echouerait
+      // forcement - seul le refus reste propose.
+      actions = trade.offerUnavailable
+        ? `<button class="btn-ghost decline-btn" data-id="${trade.tradeId}" ${busy}>Refuser</button>`
+        : `
+        <button class="btn-secondary accept-btn" data-id="${trade.tradeId}" ${busy}>Accepter</button>
+        <button class="btn-ghost counter-btn" data-id="${trade.tradeId}" ${busy}>Contre-proposer</button>
+        <button class="btn-ghost decline-btn" data-id="${trade.tradeId}" ${busy}>Refuser</button>
       `;
     } else if (!bulkCancelMode) {
-      actions = `<button class="btn-ghost cancel-btn" data-id="${trade.tradeId}">Annuler</button>`;
+      actions = `<button class="btn-ghost cancel-btn" data-id="${trade.tradeId}" ${busy}>Annuler</button>`;
     }
   }
+  const unavailableTag = trade.status === "pending" && trade.offerUnavailable
+    ? `<div class="trade-unavailable-tag">&#9888; ${trade.direction === "incoming" ? "L'exemplaire proposé n'est plus disponible" : "Ton exemplaire n'est plus disponible (échangé ailleurs)"}</div>`
+    : "";
 
   const requestPart = trade.requestedCard
     ? `contre <strong>${trade.requestedCard.name}</strong>${formatSerial(trade.requestedSerial)} a <strong>${trade.toPseudo}</strong>`
@@ -276,7 +340,7 @@ function renderTradeCard(trade) {
           <div class="trade-card-tags">
             <span class="rarity-tag" style="color:${color};border-color:${color};">${card.rarity?.name || "Commune"}</span>
             ${finish && finish !== "normal" ? `<span class="finish-tag" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
-            ${quality && quality !== "mint" ? `<span class="quality-tag" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+            ${quality ? `<span class="quality-tag" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
           </div>
         ` : ""}
       </div>
@@ -292,6 +356,7 @@ function renderTradeCard(trade) {
     </div>
     <div class="trade-info">
       ${trade.counterOfTradeId ? `<div class="trade-counter-tag">&#128260; Contre-proposition (echange #${trade.counterOfTradeId})</div>` : ""}
+      ${unavailableTag}
       <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong>${formatSerial(trade.offeredSerial)} ${requestPart}</div>
       <span class="trade-status ${statusClass}">${STATUS_LABELS[trade.status] || trade.status}</span>
     </div>
@@ -427,9 +492,12 @@ function openAcceptModal(trade) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "card-modal-overlay confirm-overlay";
-    const copies = ownedCopiesByCard.get(trade.requestedCard.id) || [];
+    // Exclut les exemplaires deja engages dans un de mes echanges en attente
+    // (les donner ici ferait echouer l'autre echange plus tard).
+    const committed = committedPullIds();
+    const copies = (ownedCopiesByCard.get(trade.requestedCard.id) || []).filter((c) => !committed.has(c.pullId));
     const options = copies
-      .map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"}</option>`)
+      .map((c) => `<option value="${c.pullId}">${copyLabel(c)}</option>`)
       .join("");
     overlay.innerHTML = `
       <div class="confirm-box">
@@ -438,7 +506,7 @@ function openAcceptModal(trade) {
           Tu vas donner <strong>${trade.requestedCard.name}</strong> a <strong>${trade.fromPseudo}</strong>.<br />
           Choisis quel exemplaire donner :
         </div>
-        <select id="accept-pull-select" style="width:100%;margin:10px 0;">${options || `<option value="">Aucun exemplaire disponible</option>`}</select>
+        <select id="accept-pull-select" style="width:100%;margin:10px 0;">${options || `<option value="">Aucun exemplaire disponible (ou tous déjà proposés ailleurs)</option>`}</select>
         <div class="confirm-actions">
           <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
           <button type="button" class="confirm-ok" ${copies.length ? "" : "disabled"}>Confirmer</button>
@@ -503,7 +571,7 @@ async function openCounterModal(trade) {
     const cardId = Number(offeredSelect.value);
     const copies = ownedCopiesByCard.get(cardId) || [];
     pullSelect.innerHTML = copies.length
-      ? copies.map((c) => `<option value="${c.pullId}">${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"}</option>`).join("")
+      ? copies.map((c) => `<option value="${c.pullId}">${copyLabel(c)}</option>`).join("")
       : `<option value="">Aucun exemplaire</option>`;
     if (pullSelect._fancyRefresh) pullSelect._fancyRefresh();
   }
@@ -539,16 +607,23 @@ async function openCounterModal(trade) {
   });
 }
 
+function handleTradeError(e) {
+  Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+  if (STALE_STATE_ERRORS.has(e.code)) refreshAfterMutation();
+}
+
 async function respond(tradeId, accept) {
+  if (inFlightTrades.has(String(tradeId))) return;
   const trade = allTradesCache.find((t) => String(t.tradeId) === String(tradeId));
   let requestedPullId = null;
   if (accept && trade && trade.requestedCard) {
     requestedPullId = await openAcceptModal(trade);
     if (!requestedPullId) return;
   }
+  setTradeBusy(tradeId, true);
   try {
     await API.respondTrade(Session.userId, Number(tradeId), accept, requestedPullId);
-    Toast.success(accept ? "Échange accepte !" : "Échange refuse.");
+    Toast.success(accept ? "Échange accepté !" : "Échange refusé.");
     // Un echange accepte accorde de l'XP (niveaux de profil) aux deux
     // parties : rafraichit le badge de niveau dans le header. Confettis
     // (embellissement 2026-09-30) : un echange accepte etait jusque-la la
@@ -557,33 +632,43 @@ async function respond(tradeId, accept) {
       loadHeaderBoosterBadge();
       if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.5 } });
     }
-    loadTrades();
+    setTradeBusy(tradeId, false);
+    await refreshAfterMutation();
   } catch (e) {
-    Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+    setTradeBusy(tradeId, false);
+    handleTradeError(e);
   }
 }
 
 async function counterPropose(tradeId) {
+  if (inFlightTrades.has(String(tradeId))) return;
   const trade = allTradesCache.find((t) => String(t.tradeId) === String(tradeId));
   if (!trade) return;
   const result = await openCounterModal(trade);
   if (!result) return;
+  setTradeBusy(tradeId, true);
   try {
     await API.counterTrade(Session.userId, Number(tradeId), result.offeredCardId, result.offeredPullId, result.requestedCardId);
     Toast.success("Contre-proposition envoyée !");
-    loadTrades();
+    setTradeBusy(tradeId, false);
+    await refreshAfterMutation();
   } catch (e) {
-    Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+    setTradeBusy(tradeId, false);
+    handleTradeError(e);
   }
 }
 
 async function cancel(tradeId) {
+  if (inFlightTrades.has(String(tradeId))) return;
+  setTradeBusy(tradeId, true);
   try {
     await API.cancelTrade(Session.userId, Number(tradeId));
-    Toast.info("Échange annule.");
-    loadTrades();
+    Toast.info("Échange annulé.");
+    setTradeBusy(tradeId, false);
+    await refreshAfterMutation();
   } catch (e) {
-    Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+    setTradeBusy(tradeId, false);
+    handleTradeError(e);
   }
 }
 
@@ -607,7 +692,7 @@ async function bulkCancel() {
   bulkCancelSelected.clear();
   bulkCancelMode = false;
   document.getElementById("bulk-cancel-toggle").classList.remove("active");
-  loadTrades();
+  await refreshAfterMutation();
 }
 
 // Suggestions d'échange : parmi les autres joueurs, qui possède en double
@@ -683,6 +768,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("requested-card-select").addEventListener("change", () => updateCardPreview("requested-card-select", "requested-card-preview"));
   document.getElementById("target-select").addEventListener("change", (e) => updateRequestedCardOptionsForTarget(e.target.value));
   document.getElementById("offer-duplicates-only").addEventListener("change", renderOfferedCardOptions);
+  document.getElementById("offer-missing-only").addEventListener("change", renderOfferedCardOptions);
   enhanceSelect(document.getElementById("offered-card-select"));
   enhanceSelect(document.getElementById("offered-pull-select"));
   enhanceSelect(document.getElementById("requested-card-select"));
@@ -702,8 +788,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       await API.createTrade(Session.userId, toPseudo, offeredCardId, offeredPullId, requestedCardId);
-      Toast.success("Échange propose !");
-      loadTrades();
+      Toast.success("Échange proposé !");
+      await refreshAfterMutation();
     } catch (err) {
       Toast.error(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));
     }
