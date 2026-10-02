@@ -631,7 +631,7 @@ function openModalFor(extensionId) {
   if (pipsEl) pipsEl.innerHTML = "";
   const oldRevealAll = document.getElementById("reveal-all-btn");
   if (oldRevealAll) oldRevealAll.remove();
-  pack.classList.remove("locked", "charging", "tearing");
+  pack.classList.remove("locked", "charging", "tearing", "pack-shiny", "charging-special");
   pack.style.visibility = "visible";
 
   // Halo ambiant proportionnel a la pity (voir .booster-pack.charging,
@@ -754,6 +754,9 @@ async function startOpening(ext) {
     const quantity = Math.min(openQuantity, boosterCount);
     const allCards = [];
     const batchIds = [];
+    // Raretes de booster (2026-10-02) : booster shiny (0.1%) et carte bonus.
+    let packShiny = false;
+    let bonusCards = 0;
     let lastBoosterInfo = null;
     for (let i = 0; i < quantity; i++) {
       const res = await API.openPack(Session.userId, ext.id);
@@ -771,17 +774,27 @@ async function startOpening(ext) {
       }
       allCards.push(...(res.cards || []));
       if (res.batchId) batchIds.push(res.batchId);
+      if (res.pack?.shiny) packShiny = true;
+      if (res.pack?.bonusCard) bonusCards++;
       lastBoosterInfo = res.booster;
     }
 
-    // Intensifie le tremblement du pack selon la meilleure rareté deja
-    // tiree (spoiler discret, courant dans les jeux gacha).
+    // Revelation de la moins rare a la plus rare (aussi sur un x5, ou les
+    // boosters sont concatenes) : la meilleure carte arrive en dernier.
+    allCards.sort((a, b) => (RARITY_ORDER[a.rarity?.key || "commune"] ?? 0) - (RARITY_ORDER[b.rarity?.key || "commune"] ?? 0));
+    // Indice SUBTIL (2026-10-02, demande explicite) : on sent qu'il y a
+    // quelque chose, sans savoir quoi - un seul fremissement neutre des une
+    // epique, plus de tremblement/couleur differents par rarete qui
+    // revelaient le contenu avant meme la dechirure.
     const bestRarity = allCards.reduce((best, c) => {
       const k = c.rarity?.key || "commune";
       return (RARITY_ORDER[k] ?? 0) > (RARITY_ORDER[best] ?? 0) ? k : best;
     }, "commune");
-    if (bestRarity === "legendaire" || bestRarity === "epique" || bestRarity === "rare" || bestRarity === "mythique") {
-      pack.classList.add("charging-" + bestRarity);
+    const somethingSpecial = (RARITY_ORDER[bestRarity] ?? 0) >= (RARITY_ORDER.epique ?? 2);
+    if (somethingSpecial) pack.classList.add("charging-special");
+    if (packShiny) {
+      pack.classList.add("pack-shiny");
+      Toast.success("&#127752; Booster SHINY ! Ses cartes sont meilleures que d'habitude.");
     }
 
     // Jauge de charge visible autour du pack (anneau SVG, voir ouverture.html
@@ -791,8 +804,7 @@ async function startOpening(ext) {
     // rareté deja tiree (meme "spoiler discret" que le tremblement).
     const chargeRing = document.getElementById("charge-ring");
     if (chargeRing) {
-      const bestCard = allCards.find((c) => (c.rarity?.key || "commune") === bestRarity);
-      chargeRing.style.setProperty("--charge-ring-color", (bestCard && bestCard.rarity?.colorHex) || "#8b5cf6");
+      chargeRing.style.setProperty("--charge-ring-color", packShiny ? "#ff6ec7" : "#8b5cf6");
       chargeRing.classList.remove("active");
       void chargeRing.offsetWidth;
       chargeRing.classList.add("active");
@@ -803,7 +815,8 @@ async function startOpening(ext) {
     // avant l'apparition des cartes. Le pull est LE moment fort de la
     // page, il ne doit pas se sentir expedie.
     await wait(750);
-    pack.classList.remove("charging", "charging-legendaire", "charging-epique", "charging-rare", "charging-mythique");
+    pack.classList.remove("charging", "charging-special", "charging-legendaire", "charging-epique", "charging-rare", "charging-mythique");
+    if (bonusCards) Toast.info(`&#127873; +${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus dans ce booster !`);
     pack.classList.add("tearing");
     if (chargeRing) chargeRing.classList.remove("active");
     spawnFoilShards(pack);

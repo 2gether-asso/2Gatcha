@@ -554,8 +554,7 @@
       const wheelKeyBtn = document.getElementById("wheel-key-btn");
       // Cadenas (2026-10-02) : une fois le tirage gratuit du jour utilise, la
       // roue peut etre relancee contre 1 clef secrete (verifie cote serveur,
-      // daily-wheel.json useKey). Grise sans clef plutot que masque, pour que
-      // la possibilite reste connue.
+      // daily-wheel.json useKey). Masque sans clef : voir showWheelKeyBtn.
       function showWheelKeyBtn(keys) {
         // Les clefs restent un secret : sans clef, aucune trace du cadenas
         // (on decouvre cet usage une fois une clef trouvee).

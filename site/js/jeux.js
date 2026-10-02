@@ -48,6 +48,7 @@ async function loadDig() {
     digRegenSeconds = res.regenSeconds || 60;
     renderDigEnergy(res.energy, digMaxEnergy, res.secondsUntilNext);
     renderDigBoard(res.tiles || []);
+    renderKennel(res);
     const regenSeconds = res.regenSeconds || 60;
     const regenLabel = regenSeconds < 60 ? `${regenSeconds}s` : regenSeconds === 60 ? "minute" : `${Math.round(regenSeconds / 60)} min`;
     document.getElementById("dig-intro").textContent =
@@ -156,6 +157,66 @@ function spawnDigDustBurst(tileEl) {
   }
 }
 
+// ---------------------------------------------------------------------
+// Chenil (2026-10-02) : un os (achete ici contre des poussieres, ou laisse
+// par un sacrifice rate a l'autel) envoie le chien creuser a ta place pendant
+// 2 h, une tuile toutes les 10 min, sans energie. Ses trouvailles sont
+// creditees a ton retour (voir dig.json "Chien de fouille").
+// ---------------------------------------------------------------------
+let kennelTimer = null;
+function renderKennel(res) {
+  const zone = document.getElementById("dig-kennel");
+  if (res.boneCost == null) { zone.style.display = "none"; return; } // workflow pas encore a jour
+  zone.style.display = "";
+  const bones = res.bones || 0;
+  const left = res.dogSecondsLeft || 0;
+  document.getElementById("dig-kennel-bones").textContent = bones ? `${bones} os` : "";
+  const buyBtn = document.getElementById("dig-buy-bone-btn");
+  buyBtn.innerHTML = `Acheter un os (${res.boneCost} &#10024;)`;
+  const useBtn = document.getElementById("dig-use-bone-btn");
+  useBtn.disabled = bones < 1 || left > 0;
+  document.getElementById("dig-kennel-dog").classList.toggle("digging", left > 0);
+  const text = document.getElementById("dig-kennel-text");
+  if (kennelTimer) { clearInterval(kennelTimer); kennelTimer = null; }
+  if (left > 0) {
+    let remaining = left;
+    const render = () => {
+      const h = Math.floor(remaining / 3600), m = Math.floor((remaining % 3600) / 60);
+      text.textContent = `Le chien creuse pour toi encore ${h ? h + " h " : ""}${m} min (1 tuile toutes les 10 min).`;
+    };
+    render();
+    kennelTimer = setInterval(() => { remaining -= 30; if (remaining <= 0) { clearInterval(kennelTimer); kennelTimer = null; loadDig(); return; } render(); }, 30000);
+  } else {
+    text.textContent = bones ? "Donne-lui un os et il creusera 2 h pour toi, sans énergie." : "Un os permet d'envoyer le chien creuser 2 h à ta place.";
+  }
+  announceDogReport(res.dogReport);
+}
+
+function announceDogReport(r) {
+  if (r && r.tiles > 0) {
+    const parts = [];
+    if (r.dust) parts.push(`+${r.dust} poussières`);
+    if (r.boosters) parts.push(`+${r.boosters} booster${r.boosters > 1 ? "s" : ""}`);
+    if (r.keys) parts.push(`+${r.keys} &#128273;`);
+    Toast.success(`&#128021; Le chien a creusé ${r.tiles} tuile${r.tiles > 1 ? "s" : ""}${parts.length ? " : " + parts.join(", ") : " (rien trouvé)"}.`);
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  }
+}
+
+async function kennelAction(kind, btn) {
+  btn.disabled = true;
+  try {
+    if (kind === "buy") { await API.buyBone(Session.userId); Toast.success("&#129460; Os acheté !"); }
+    else { await API.useBone(Session.userId); Toast.success("&#128021; Le chien part creuser pour 2 h !"); }
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    await loadDig();
+  } catch (e) {
+    btn.disabled = false;
+    const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Le chien creuse déjà !" };
+    Toast.error(msg[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+}
+
 async function doDig(tileIndex, tileEl) {
   if (digBusy || digEnergy < 1) return;
   digBusy = true;
@@ -167,6 +228,7 @@ async function doDig(tileIndex, tileEl) {
     digBusy = false;
     renderDigEnergy(res.newEnergy, res.maxEnergy || digMaxEnergy, res.secondsUntilNext || null);
     renderDigBoard(res.tiles || []);
+    announceDogReport(res.dogReport);
 
     resultEl.style.display = "block";
     if (res.outcome === "partial") {
@@ -327,6 +389,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
   document.getElementById("vault-open-btn").addEventListener("click", openVault);
+  document.getElementById("dig-buy-bone-btn").addEventListener("click", (e) => kennelAction("buy", e.currentTarget));
+  document.getElementById("dig-use-bone-btn").addEventListener("click", (e) => kennelAction("use", e.currentTarget));
   // Onglet Coffre-fort cache tant que le joueur n'a jamais eu de clef : les
   // clefs et leurs usages se decouvrent en explorant, pas dans un menu.
   const initial = getInitialTab();

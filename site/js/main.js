@@ -343,6 +343,136 @@ const Confirm = {
 };
 
 // ---------------------------------------------------------------------------
+// Choix des exemplaires d'une fusion (finition / restauration d'etat,
+// 2026-10-02) : le joueur coche EXACTEMENT les exemplaires sacrifies et
+// choisit le numero de serie conserve sur le nouvel exemplaire - plus jamais
+// de #001 ou d'arc-en-ciel consomme par accident. Preselection identique au
+// defaut serveur (foil-upgrade.json / card-quality-repair.json) : d'abord les
+// moins precieux sur l'autre axe, puis les numeros les plus hauts.
+// copies : [{ pullId, serialNumber, finish, quality }] (deja filtrees sur la
+// finition/qualite source). otherRank(copy) : valeur de l'autre axe.
+// Resout { pullIds, keepPullId } ou null si annule.
+// ---------------------------------------------------------------------------
+const FusionPicker = {
+  open({ title, intro, copies, required, otherRank, confirmText = "Fusionner" }) {
+    return new Promise((resolve) => {
+      const FIN = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+      const QUA = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+      const sorted = [...copies].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999));
+      const byDefault = [...copies].sort((a, b) => (otherRank(a) - otherRank(b)) || ((b.serialNumber || 0) - (a.serialNumber || 0)));
+      const selected = new Set(byDefault.slice(0, required).map((c) => c.pullId));
+      const lowestSelected = () => sorted.find((c) => selected.has(c.pullId)) || null;
+      let keep = lowestSelected()?.pullId ?? null;
+      const serial = (c) => (c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "#?");
+      const precious = (c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint";
+
+      const overlay = document.createElement("div");
+      overlay.className = "card-modal-overlay confirm-overlay";
+      overlay.innerHTML = `
+        <div class="confirm-box fusion-picker">
+          <div class="confirm-title">${title}</div>
+          <div class="confirm-message">${intro}</div>
+          <div class="fusion-picker-list">
+            ${sorted.map((c) => `
+              <div class="fusion-row" data-pull="${c.pullId}">
+                <label class="fusion-pick"><input type="checkbox" data-pick="${c.pullId}" /> <strong>${serial(c)}</strong> · ${FIN[c.finish || "normal"]} · ${QUA[c.quality || "damaged"]}${precious(c) ? ' <span class="fusion-precious">précieux</span>' : ""}</label>
+                <label class="fusion-keep" title="Le nouvel exemplaire portera ce numéro"><input type="radio" name="fusion-keep" data-keep="${c.pullId}" /> garder ce n°</label>
+              </div>`).join("")}
+          </div>
+          <div class="fusion-picker-count"></div>
+          <div class="confirm-actions">
+            <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
+            <button type="button" class="btn-danger confirm-ok">${confirmText}</button>
+          </div>
+        </div>
+      `;
+      const okBtn = overlay.querySelector(".confirm-ok");
+      const refresh = () => {
+        if (!selected.has(keep)) keep = lowestSelected()?.pullId ?? null;
+        overlay.querySelectorAll(".fusion-row").forEach((row) => {
+          const id = Number(row.dataset.pull);
+          const on = selected.has(id);
+          row.classList.toggle("selected", on);
+          row.querySelector("[data-pick]").checked = on;
+          const radio = row.querySelector("[data-keep]");
+          radio.disabled = !on;
+          radio.checked = on && id === keep;
+        });
+        const lost = [...selected].map((id) => copies.find((c) => c.pullId === id)).filter((c) => c && c.pullId !== keep && precious(c));
+        overlay.querySelector(".fusion-picker-count").innerHTML =
+          `${selected.size} / ${required} sélectionné${required > 1 ? "s" : ""}` +
+          (lost.length ? ` · <span class="fusion-warning">&#9888; tu sacrifies ${lost.map(serial).join(", ")} (précieux)</span>` : "");
+        okBtn.disabled = selected.size !== required;
+      };
+      overlay.querySelectorAll("[data-pick]").forEach((cb) => cb.addEventListener("change", () => {
+        const id = Number(cb.dataset.pick);
+        if (cb.checked) selected.add(id); else selected.delete(id);
+        refresh();
+      }));
+      overlay.querySelectorAll("[data-keep]").forEach((r) => r.addEventListener("change", () => { keep = Number(r.dataset.keep); refresh(); }));
+      const finish = (result) => { overlay.remove(); syncScrollLock(); resolve(result); };
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
+      overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
+      okBtn.addEventListener("click", () => finish({ pullIds: [...selected], keepPullId: keep }));
+      document.body.appendChild(overlay);
+      syncScrollLock();
+      refresh();
+    });
+  }
+};
+// ---------------------------------------------------------------------------
+// Signaux de la page Communaute (2026-10-02) : quels onglets ont quelque chose
+// d'actif (evenement prevu, boss en cours, offre au marche noir, carte a
+// piocher dans le coffre) et une "empreinte" de ce contenu. Une empreinte
+// differente de la derniere vue = pastille de nouveaute, jusqu'a ce que le
+// joueur ouvre l'onglet. Partage entre communaute.js (onglets) et
+// loadNavBadges (pastille du menu), avec un cache court pour ne pas refaire
+// 4 appels a chaque page.
+// ---------------------------------------------------------------------------
+const CommunauteSignals = {
+  TABS: ["calendar", "boss", "chest", "market"],
+  async fetch(force) {
+    if (!force) {
+      const cached = API._cacheGet("2gatcha_cache_communaute_signals", 90 * 1000);
+      if (cached) return cached;
+    }
+    const [cal, boss, chest, market] = await Promise.all([
+      API.getEventCalendar().catch(() => null),
+      API.getBossStatus(Session.userId).catch(() => null),
+      API.getGuildChestStatus(Session.userId).catch(() => null),
+      API.listBlackMarket(Session.userId).catch(() => null)
+    ]);
+    const events = (cal && cal.events) || [];
+    const offers = (market && market.offers) || [];
+    const today = new Date().toISOString().slice(0, 10);
+    const canDraw = !!(chest && !chest.alreadyDrawnToday && chest.poolSize > 0);
+    const signals = {
+      calendar: { active: events.length > 0, sig: events.map((e) => e.label + "@" + (e.startsAt || "")).join("|") },
+      boss: { active: !!(boss && boss.active), sig: boss && boss.active ? "boss:" + boss.bossName + ":" + boss.maxHp : "" },
+      // Le coffre de guilde reste toujours visible (on peut deposer a tout
+      // moment) ; la pastille ne signale qu'une carte a piocher aujourd'hui.
+      chest: { active: true, sig: canDraw ? "draw:" + today : "" },
+      market: { active: offers.length > 0, sig: offers.map((o) => o.offerId || o.id).join("|") }
+    };
+    API._cacheSet("2gatcha_cache_communaute_signals", signals);
+    return signals;
+  },
+  seenKey(tab) { return "2gatcha_seen_communaute_" + tab; },
+  isUnseen(tab, signal) {
+    if (!signal || !signal.active || !signal.sig) return false;
+    try { return localStorage.getItem(this.seenKey(tab)) !== signal.sig; } catch (e) { return false; }
+  },
+  markSeen(tab, signal) {
+    if (!signal || !signal.sig) return;
+    try { localStorage.setItem(this.seenKey(tab), signal.sig); } catch (e) {}
+  },
+  unseenCount(signals) { return this.TABS.filter((t) => this.isUnseen(t, signals[t])).length; }
+};
+
+const FUSION_QUALITY_RANK = ["damaged", "worn", "good", "mint"];
+const FUSION_FINISH_RANK = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
+
+// ---------------------------------------------------------------------------
 // Menu deroulant stylise a la place du <select> natif du navigateur (moche
 // et non personnalisable). Le <select> d'origine reste dans le DOM comme
 // source de verite (garde .value, continue a emettre "change") : tout code
@@ -892,7 +1022,8 @@ const NAV_ITEMS = [
   { href: "redeem.html", label: "Réclamer un code", icon: "&#127915;", auth: true, group: "jouer" },
   { href: "collection.html", label: "Ma collection", icon: "&#128218;", auth: false, group: "collection", groupLabel: "Collection" },
   { href: "craft.html", label: "Craft & décomposer", icon: "&#10024;", auth: true, group: "collection" },
-  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true },
+  { href: "coffre.html", label: "Coffre-fort perso", icon: "&#128274;", auth: true, group: "collection" },
+  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true, badgeKey: "communaute" },
   { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
   { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
@@ -1037,6 +1168,20 @@ async function loadNavBadges() {
         (a.querySelector(".bn-icon") || a).appendChild(dot);
       }
     });
+
+    try {
+      const signals = await CommunauteSignals.fetch();
+      const unseen = CommunauteSignals.unseenCount(signals);
+      document.querySelectorAll('[data-badge-key="communaute"]').forEach((a) => {
+        a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
+        if (unseen > 0) {
+          const dot = document.createElement("span");
+          dot.className = "nav-dot";
+          dot.textContent = String(unseen);
+          (a.querySelector(".bn-icon") || a).appendChild(dot);
+        }
+      });
+    } catch (e) { /* rappel visuel facultatif */ }
 
     // "Ouvrir un booster" (badgeKey boosters) vit desormais sous le sous-menu
     // "Jouer" (voir NAV_ITEMS/buildNavNodes) : sans ca, sa pastille de rappel

@@ -22,10 +22,19 @@ const UNLOCK_ERROR_MESSAGES = {
   unknown_user: "Utilisateur introuvable, reconnecte-toi."
 };
 
+const REDEEM_FINISH_LABELS = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const REDEEM_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+
 function buildCardEl(card, index) {
   const wrap = document.createElement("div");
   wrap.className = "card";
   wrap.dataset.rarity = card.rarity?.key || "commune";
+  // Meme traitement visuel que l'ouverture de booster (finition, etat, #001) :
+  // une carte secrete arc-en-ciel doit se voir comme telle.
+  const finish = card.finish || "normal";
+  const quality = card.quality || null;
+  wrap.dataset.finish = finish;
+  if (quality) wrap.dataset.quality = quality;
   wrap.style.animationDelay = `${index * 90}ms`;
 
   const color = card.rarity?.colorHex || "#9aa0b4";
@@ -35,7 +44,12 @@ function buildCardEl(card, index) {
     <div class="card-inner">
       <div class="card-face card-back">?</div>
       <div class="card-face card-front">
-        <img src="${imgSrc}" alt="${card.name}" />
+        <div class="card-art">
+          <img src="${imgSrc}" alt="${card.name}" />
+          ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${REDEEM_FINISH_LABELS[finish] || finish}</span>` : ""}
+          ${quality ? `<span class="quality-indicator" data-quality="${quality}">${REDEEM_QUALITY_LABELS[quality] || quality}</span>` : ""}
+          ${card.serialNumber === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+        </div>
         <div class="card-info">
           <div class="card-name">${card.name}</div>
           <div class="card-artist">${card.artist || ""}</div>
@@ -153,8 +167,12 @@ let giftClickCount = 0;
 let lockRevealed = false;
 let unlockBusy = false;
 
+// Nombre de clefs du joueur (lu au chargement) : sans clef, le cadeau ne
+// revele rien - les clefs et leurs usages restent un secret a decouvrir.
+let playerKeys = 0;
+
 function onGiftClick() {
-  if (lockRevealed) return;
+  if (lockRevealed || playerKeys < 1) return;
   giftClickCount++;
   if (giftClickCount >= 5) {
     lockRevealed = true;
@@ -168,6 +186,7 @@ async function onLockClick() {
   unlockBusy = true;
   try {
     const res = await API.unlockSecret(Session.userId);
+    playerKeys = res.newKeyCount != null ? res.newKeyCount : Math.max(0, playerKeys - 1);
     document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">Carte secrète débloquée !</div>`;
     const grid = document.getElementById("reveal-grid");
     grid.innerHTML = "";
@@ -201,6 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("redeem-gift-icon").addEventListener("click", onGiftClick);
   document.getElementById("redeem-lock-icon").addEventListener("click", onLockClick);
+  API.getBoosterStatus(Session.userId).then((s) => { playerKeys = s.keys || 0; }).catch(() => {});
 
   // Prefill depuis un QR code génère par l'admin (redeem.html?code=XXXX).
   const prefill = new URLSearchParams(window.location.search).get("code");

@@ -5338,3 +5338,194 @@ body.hide-stats #stats-block { display: none; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Choix des exemplaires d'une fusion (FusionPicker, main.js). */
+.fusion-picker { width: min(460px, 94vw); }
+.fusion-picker-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; margin: 12px 0 8px; text-align: left; }
+.fusion-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border-radius: 10px;
+  background: var(--bg-panel-2); border: 1px solid var(--border-soft);
+  font-size: 0.85rem;
+}
+.fusion-row.selected { border-color: #fb7185; background: rgba(251,113,133,0.08); }
+.fusion-pick, .fusion-keep { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.fusion-pick input, .fusion-keep input { width: auto; }
+.fusion-keep { font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; }
+.fusion-keep input:disabled + * , .fusion-keep:has(input:disabled) { opacity: 0.4; cursor: default; }
+.fusion-precious {
+  font-size: 0.65rem; padding: 1px 6px; border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #f5a524); color: #1a1206; font-weight: 700;
+}
+.fusion-picker-count { font-size: 0.8rem; color: var(--text-dim); text-align: left; }
+.fusion-warning { color: #fb7185; font-weight: 600; }
+
+/* Pastille "nouveau" sur un onglet (Communaute) tant que son contenu actif
+   n'a pas ete consulte - voir CommunauteSignals (main.js). */
+.tab { position: relative; }
+.tab-new-dot {
+  position: absolute; top: 9px; right: 1px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--danger, #fb7185);
+  box-shadow: 0 0 0 2px var(--bg-panel-solid), 0 0 8px rgba(251,113,133,0.7);
+}
+
+/* Coffre de guilde : pioche au choix contre une clef (zone visible seulement
+   si le joueur possede une clef). */
+.chest-key-zone {
+  margin-top: 18px; padding: 16px 18px; border-radius: 14px;
+  border: 1px solid rgba(245,165,36,0.35);
+  background: radial-gradient(circle at 0% 0%, rgba(245,165,36,0.10), transparent 60%), var(--bg-panel-2);
+}
+.chest-key-title { margin: 0 0 4px; font-size: 1rem; }
+.chest-key-hint { margin: 0 0 12px; font-size: 0.82rem; color: var(--text-dim); }
+.chest-key-pick-btn { width: 100%; margin-top: 6px; }
+
+/* Cartes etroites (grilles craft/coffre/collection) : etiquettes plus
+   compactes pour que "Arc-en-ciel" + "Parfait état" tiennent sans etre
+   tronques. */
+.craft-card .card-art .finish-indicator,
+.craft-card .card-art .quality-indicator,
+.collection-card .card-art .finish-indicator,
+.collection-card .card-art .quality-indicator {
+  font-size: 0.56rem;
+  padding: 2px 5px;
+  letter-spacing: 0;
+  bottom: 6px;
+}
+.craft-card .card-art .finish-indicator,
+.collection-card .card-art .finish-indicator { left: 5px; }
+.craft-card .card-art .quality-indicator,
+.collection-card .card-art .quality-indicator { right: 5px; }
+
+/* ========================================================================
+   Autel (refonte 2026-10-02) : 3 emplacements remplis a la main avec des
+   exemplaires precis + grille des exemplaires posables.
+   ======================================================================== */
+.altar-board {
+  padding: 18px; border-radius: 18px; margin-bottom: 16px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(239,68,68,0.16), transparent 65%),
+    linear-gradient(180deg, #1d1220, #120c16);
+  border: 1px solid rgba(239,68,68,0.28);
+  box-shadow: inset 0 2px 18px rgba(0,0,0,0.45);
+}
+.altar-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 520px; margin: 0 auto; }
+.altar-slot {
+  position: relative; aspect-ratio: 3 / 4; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  overflow: hidden; padding: 0; box-shadow: none;
+}
+.altar-slot.empty {
+  border: 2px dashed rgba(239,68,68,0.45); color: var(--text-dim);
+  font-size: 0.75rem; justify-content: center; background: rgba(0,0,0,0.25);
+  animation: altarSlotBreath 2.4s ease-in-out infinite;
+}
+@keyframes altarSlotBreath { 0%, 100% { border-color: rgba(239,68,68,0.3); } 50% { border-color: rgba(239,68,68,0.7); } }
+.altar-slot.filled { border: 2px solid var(--slot-color, #9aa0b4); background: var(--bg-panel-solid); cursor: pointer; box-shadow: 0 0 16px -4px var(--slot-color, #9aa0b4); }
+.altar-slot.filled img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.altar-slot-name, .altar-slot-meta {
+  position: relative; z-index: 1; width: 100%; text-align: center; padding: 0 4px;
+  background: rgba(0,0,0,0.72); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.altar-slot-name { font-family: var(--font-display); font-size: 0.72rem; padding-top: 4px; }
+.altar-slot-meta { font-size: 0.62rem; color: var(--text-dim); padding-bottom: 5px; }
+.altar-slot-remove {
+  position: absolute; top: 6px; right: 6px; z-index: 2; width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.7); color: #fff; font-size: 0.9rem;
+}
+.altar-odds { text-align: center; margin-top: 14px; font-size: 0.85rem; color: var(--text-dim); }
+.altar-warning { text-align: center; margin-top: 8px; font-size: 0.8rem; color: #fb7185; font-weight: 600; }
+.altar-actions { display: flex; justify-content: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.altar-copy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.altar-copy {
+  position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+  padding: 6px; border-radius: 12px; text-align: left; box-shadow: none;
+  background: var(--bg-panel-2); border: 1px solid var(--border-soft); cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.altar-copy img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; }
+.altar-copy:hover:not(.disabled) { transform: translateY(-2px); border-color: #ef4444; }
+.altar-copy.disabled { opacity: 0.35; cursor: not-allowed; }
+.altar-copy-name { font-size: 0.75rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.altar-copy-meta { font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.altar-copy-precious {
+  position: absolute; top: 10px; left: 10px; font-size: 0.6rem; font-weight: 800; padding: 1px 6px; border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #f5a524); color: #1a1206;
+}
+.altar-bone-gain { color: #f5d9a8; }
+@media (prefers-reduced-motion: reduce) { .altar-slot.empty { animation: none; } }
+
+/* Chenil de la fouille (os + chien qui creuse 2 h). */
+.dig-kennel {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 14px; padding: 12px 16px; border-radius: 14px;
+  background: linear-gradient(135deg, rgba(245,217,168,0.08), transparent 70%), var(--bg-panel-2);
+  border: 1px solid rgba(245,217,168,0.25);
+}
+.dig-kennel-dog { font-size: 2rem; line-height: 1; display: inline-block; }
+.dig-kennel-dog.digging { animation: dogDig 0.9s ease-in-out infinite; }
+@keyframes dogDig { 0%, 100% { transform: rotate(-8deg) translateY(0); } 50% { transform: rotate(8deg) translateY(3px); } }
+.dig-kennel-body { flex: 1; min-width: 200px; }
+.dig-kennel-title { font-family: var(--font-display); font-size: 0.9rem; }
+.dig-kennel-bones { margin-left: 6px; font-family: var(--font-body); font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; background: rgba(245,217,168,0.15); color: #f5d9a8; }
+.dig-kennel-bones:empty { display: none; }
+.dig-kennel-text { font-size: 0.82rem; color: var(--text-dim); margin-top: 2px; }
+.dig-kennel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .dig-kennel-dog.digging { animation: none; } }
+
+/* Raretes de booster (2026-10-02). Indice subtil : un seul fremissement
+   neutre quand le booster contient une epique ou mieux - on sent "quelque
+   chose" sans savoir quoi (remplace les tremblements/couleurs par rarete). */
+.booster-pack.charging-special { animation: boosterChargeSpecial 0.38s ease-in-out infinite; box-shadow: 0 0 34px rgba(255,255,255,0.28); }
+@keyframes boosterChargeSpecial {
+  0%, 100% { transform: translate(0, 0) scale(1.04) rotate(0deg); }
+  25% { transform: translate(-5px, 0) scale(1.06) rotate(-2.5deg); }
+  50% { transform: translate(5px, 0) scale(1.06) rotate(2.5deg); }
+  75% { transform: translate(-3px, 0) scale(1.05) rotate(-1.5deg); }
+}
+/* Booster shiny (0.1%) : pack irise. */
+.booster-pack.pack-shiny { box-shadow: 0 0 46px rgba(255,110,199,0.6), 0 0 90px rgba(125,211,252,0.35); }
+.booster-pack.pack-shiny::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(120deg, rgba(255,110,199,0.45), rgba(255,215,110,0.4), rgba(125,211,252,0.45), rgba(167,139,250,0.45));
+  background-size: 300% 300%;
+  animation: shinyPackShift 1.6s linear infinite;
+}
+@keyframes shinyPackShift { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+@media (prefers-reduced-motion: reduce) { .booster-pack.pack-shiny::before, .booster-pack.charging-special { animation: none; } }
+
+/* ===== Coffre-fort perso (coffre.html + tuiles "Protégé" de la collection, 2026-10-02) ===== */
+.collection-card.protected-card { text-decoration: none; color: inherit; border-color: #22c55e; box-shadow: 0 0 0 2px #22c55e66, 0 0 18px #22c55e88; animation: protected-glow 2.6s ease-in-out infinite; }
+.collection-card.protected-card .card-name { color: #4ade80; }
+.collection-card.protected-card .card-art img { filter: saturate(0.85); }
+.protected-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; color: #052e16; background: #4ade80; }
+@keyframes protected-glow { 0%, 100% { box-shadow: 0 0 0 2px #22c55e55, 0 0 12px #22c55e66; } 50% { box-shadow: 0 0 0 2px #22c55eaa, 0 0 24px #22c55eaa; } }
+@media (prefers-reduced-motion: reduce) { .collection-card.protected-card { animation: none; } }
+.pv-locked { text-align: center; padding: 32px 16px; display: grid; gap: 12px; justify-items: center; }
+.pv-locked-icon { font-size: 3rem; opacity: 0.7; }
+.pv-summary { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 18px; }
+.pv-reward-note { flex: 1 1 260px; font-size: 0.9rem; opacity: 0.85; }
+.pv-rows { display: grid; gap: 14px; }
+.pv-row { border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px; background: rgba(0,0,0,0.18); }
+.pv-row.complete { border-color: #22c55e; box-shadow: 0 0 16px #22c55e44; }
+.pv-row-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.pv-row-name { font-weight: 800; }
+.pv-row.complete .pv-row-name { color: #4ade80; }
+.pv-row-progress { margin-left: auto; font-size: 0.85rem; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.pv-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 640px) { .pv-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.pv-slot { position: relative; aspect-ratio: 5 / 7; max-width: 100%; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px; text-align: center; border: 2px dashed rgba(255,255,255,0.15); }
+.pv-slot.available { border-color: #22c55e88; }
+.pv-slot.filled { border: 2px solid #22c55e; padding: 0; justify-content: flex-end; }
+.pv-slot.filled img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pv-slot.filled .pv-slot-label, .pv-slot.filled .pv-withdraw { position: relative; z-index: 1; }
+.pv-slot.filled .pv-slot-label { width: 100%; background: rgba(0,0,0,0.65); padding: 2px; }
+.pv-slot-label { font-size: 0.72rem; font-weight: 700; }
+.pv-slot-missing { opacity: 0.4; }
+.pv-store, .pv-withdraw { font-size: 0.7rem; padding: 4px 6px; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; }
+.pv-store { background: #22c55e; color: #052e16; }
+.pv-withdraw { background: rgba(0,0,0,0.75); color: #fff; margin-bottom: 4px; opacity: 0; transition: opacity 0.15s; }
+.pv-slot.filled:hover .pv-withdraw, .pv-slot.filled:focus-within .pv-withdraw { opacity: 1; }
+@media (hover: none) { .pv-withdraw { opacity: 1; } }

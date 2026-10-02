@@ -211,8 +211,9 @@ const API = {
     return this.post("dailyWheel", { userId, action: "spin", useKey: !!useKey });
   },
 
-  altarSacrifice(userId, cardIds) {
-    return this.post("altarSacrifice", { userId, cardIds });
+  // pullIds : les 3 exemplaires EXACTS poses dans les slots de l'autel.
+  altarSacrifice(userId, pullIds) {
+    return this.post("altarSacrifice", { userId, pullIds });
   },
 
   getAchievements(userId) {
@@ -307,12 +308,13 @@ const API = {
     return this.post("showcase", { userId, action: "remove", cardId });
   },
 
-  foilUpgrade(userId, cardId, fromFinish) {
-    return this.post("foilUpgrade", { userId, cardId, fromFinish });
+  // selection (optionnelle) : { pullIds, keepPullId } - voir FusionPicker.
+  foilUpgrade(userId, cardId, fromFinish, selection) {
+    return this.post("foilUpgrade", { userId, cardId, fromFinish, ...(selection || {}) });
   },
 
-  repairCardQuality(userId, cardId, fromQuality) {
-    return this.post("cardQualityRepair", { userId, cardId, fromQuality });
+  repairCardQuality(userId, cardId, fromQuality, selection) {
+    return this.post("cardQualityRepair", { userId, cardId, fromQuality, ...(selection || {}) });
   },
 
   unlockSecret(userId) {
@@ -360,8 +362,9 @@ const API = {
   depositGuildChest(userId, cardId, finish, quality) {
     return this.post("guildChest", { userId, action: "deposit", cardId, finish, quality });
   },
-  drawGuildChest(userId) {
-    return this.post("guildChest", { userId, action: "draw" });
+  // depositId + useKey : pioche AU CHOIX contre 1 clef secrete.
+  drawGuildChest(userId, depositId) {
+    return this.post("guildChest", depositId != null ? { userId, action: "draw", useKey: true, depositId } : { userId, action: "draw" });
   },
 
   listBlackMarket(userId) {
@@ -376,6 +379,13 @@ const API = {
   },
   dig(userId, tileIndex) {
     return this.post("dig", { userId, action: "dig", tileIndex });
+  },
+  // Chenil (2026-10-02) : acheter un os contre des poussieres / lancer le chien.
+  buyBone(userId) {
+    return this.post("dig", { userId, action: "buyBone" });
+  },
+  useBone(userId) {
+    return this.post("dig", { userId, action: "useBone" });
   },
 
   getBingoStatus(userId) {
@@ -411,6 +421,9 @@ const API = {
     return this.post("levelRewards", { discordId, action: "adminSet", rows });
   },
 
+  personalVault(userId, action, pullId) {
+    return this.post("personalVault", { userId, action, pullId });
+  },
   getVaultStatus(userId) {
     return this.post("vault", { userId, action: "status" });
   },

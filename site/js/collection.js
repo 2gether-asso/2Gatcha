@@ -144,6 +144,9 @@ const prefs = loadPrefs();
 let allCardsCache = [];
 let cardNumberByCardId = new Map();
 let ownedMap = new Map();
+// Coffre-fort perso : exemplaires ranges au coffre (hors collection active),
+// affiches en vert "Protégé" sans aucune action possible.
+let protectedMap = new Map();
 let craftCostByCard = new Map();
 // { finishKey: multiplier } / { qualityKey: multiplier }, renvoyes par
 // get-cards.json - necessaires pour afficher un montant de decraft CORRECT
@@ -435,7 +438,21 @@ function cardTileHtml(card, now) {
   const info = craftCostByCard.get(card.cardId);
   const craftCost = info?.craftCost;
   const disenchantValue = info?.disenchantValue;
+  const protectedTiles = (protectedMap.get(card.cardId) || []).map((c) => `
+      <a class="collection-card protected-card" href="coffre.html" data-rarity="${card.rarity?.key || "commune"}" data-finish="${c.finish}" data-quality="mint" title="Rangée dans ton coffre-fort : clique pour la gérer">
+        <div class="card-art">
+          <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
+          ${c.finish !== "normal" ? `<span class="finish-indicator" data-finish="${c.finish}">${FINISH_LABELS[c.finish]}</span>` : ""}
+          ${c.serialNumber === 1 ? `<span class="serial-one-badge">#001</span>` : ""}
+        </div>
+        <div class="card-info">
+          <div class="card-name">${card.name}</div>
+          <span class="protected-badge">&#128274; Protégé</span>
+        </div>
+      </a>
+    `);
 
+  if (!owned && protectedTiles.length) return protectedTiles;
   if (!owned) {
     // Carte manquante mais a portee de poussieres : le signaler directement
     // sur la vignette, avec une action de craft immediate (plus besoin de
@@ -513,7 +530,7 @@ function cardTileHtml(card, now) {
         </div>
       </div>
     `;
-  });
+  }).concat(protectedTiles);
 }
 
 // Actions rapides directement depuis la collection : eviter d'avoir a
@@ -603,14 +620,17 @@ async function disenchantCardQuick(cardId, finish, quality, btn) {
 async function upgradeFinishQuick(cardId, fromFinish) {
   const card = allCardsCache.find((c) => c.cardId === cardId);
   const toFinish = FINISH_ORDER[FINISH_ORDER.indexOf(fromFinish) + 1];
-  const ok = await Confirm.show(
-    `Fusionner 5 exemplaires <strong>${FINISH_LABELS[fromFinish]}</strong> de <strong>${card?.name || "cette carte"}</strong> en 1 exemplaire <strong>${FINISH_LABELS[toFinish]}</strong> ? ` +
-    `Les 5 exemplaires sacrifiés sont perdus définitivement.`,
-    { title: "Fusionner ces cartes ?", confirmText: "Fusionner", dangerous: true }
-  );
-  if (!ok) return;
+  const copies = ((ownedMap.get(cardId) || {}).copies || []).filter((c) => (c.finish || "normal") === fromFinish);
+  const selection = await FusionPicker.open({
+    title: "Fusionner en " + FINISH_LABELS[toFinish],
+    intro: `Choisis les <strong>5 exemplaires ${FINISH_LABELS[fromFinish]}</strong> de <strong>${card?.name || "cette carte"}</strong> à sacrifier, et le numéro que gardera le nouvel exemplaire <strong>${FINISH_LABELS[toFinish]}</strong>. La meilleure qualité sacrifiée est conservée.`,
+    copies,
+    required: 5,
+    otherRank: (c) => FUSION_QUALITY_RANK.indexOf(c.quality || "damaged")
+  });
+  if (!selection) return;
   try {
-    const res = await API.foilUpgrade(Session.userId, cardId, fromFinish);
+    const res = await API.foilUpgrade(Session.userId, cardId, fromFinish, selection);
     Toast.success(`${card?.name || "Carte"} passe en ${FINISH_LABELS[res.toFinish]} !`);
     if (typeof confetti === "function") confetti({ particleCount: 130, spread: 100, origin: { y: 0.5 } });
     await loadCollection();
@@ -622,14 +642,18 @@ async function upgradeFinishQuick(cardId, fromFinish) {
 async function repairQualityQuick(cardId, fromQuality) {
   const card = allCardsCache.find((c) => c.cardId === cardId);
   const toQuality = QUALITY_ORDER[QUALITY_ORDER.indexOf(fromQuality) + 1];
-  const ok = await Confirm.show(
-    `Restaurer 3 exemplaires <strong>${QUALITY_LABELS[fromQuality]}</strong> de <strong>${card?.name || "cette carte"}</strong> en 1 exemplaire <strong>${QUALITY_LABELS[toQuality]}</strong> ? ` +
-    `Les 3 exemplaires consommés sont perdus définitivement.`,
-    { title: "Restaurer ces cartes ?", confirmText: "Restaurer", dangerous: true }
-  );
-  if (!ok) return;
+  const copies = ((ownedMap.get(cardId) || {}).copies || []).filter((c) => (c.quality || "damaged") === fromQuality);
+  const selection = await FusionPicker.open({
+    title: "Restaurer en " + QUALITY_LABELS[toQuality],
+    intro: `Choisis les <strong>3 exemplaires ${QUALITY_LABELS[fromQuality]}</strong> de <strong>${card?.name || "cette carte"}</strong> à consommer, et le numéro que gardera le nouvel exemplaire <strong>${QUALITY_LABELS[toQuality]}</strong>. La meilleure finition consommée est conservée.`,
+    copies,
+    required: 3,
+    otherRank: (c) => FUSION_FINISH_RANK.indexOf(c.finish || "normal"),
+    confirmText: "Restaurer"
+  });
+  if (!selection) return;
   try {
-    const res = await API.repairCardQuality(Session.userId, cardId, fromQuality);
+    const res = await API.repairCardQuality(Session.userId, cardId, fromQuality, selection);
     Toast.success(`${card?.name || "Carte"} passe en ${QUALITY_LABELS[res.toQuality]} !`);
     if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
     await loadCollection();
@@ -840,7 +864,7 @@ function renderGrid() {
   let cards = allCardsCache.filter(
     (c) => activeFilter === "all" || c.rarity?.key === activeFilter
   );
-  if (missingOnly) cards = cards.filter((c) => !ownedMap.has(c.cardId));
+  if (missingOnly) cards = cards.filter((c) => !ownedMap.has(c.cardId) && !protectedMap.has(c.cardId));
   if (favoritesOnly) cards = cards.filter((c) => favorites.has(c.cardId));
   if (artistFilter) cards = cards.filter((c) => (c.artist || "") === artistFilter);
   if (searchQuery) {
@@ -1126,6 +1150,7 @@ async function loadCollection() {
         .forEach((c, i) => cardNumberByCardId.set(c.cardId, i + 1));
     });
     ownedMap = new Map((res.owned || []).map((o) => [o.cardId, o]));
+    protectedMap = new Map((res.protectedCards || []).map((o) => [o.cardId, o.copies || []]));
     ownedCopiesByCard = new Map((res.owned || []).map((o) => [o.cardId, o.copies || []]));
     stardustBalance = statusRes.stardust || 0;
     // Pochettes de cartes (sleeves) et vitrine : debloquees par niveau de

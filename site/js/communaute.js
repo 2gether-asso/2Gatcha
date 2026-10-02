@@ -53,8 +53,32 @@ function getInitialTab() {
   try { return localStorage.getItem(LAST_TAB_KEY) || "calendar"; } catch (e) { return "calendar"; }
 }
 
+// Signaux courants (voir CommunauteSignals, main.js) : onglets visibles et
+// pastilles de nouveaute.
+let communauteSignals = null;
+
+function renderTabDots() {
+  if (!communauteSignals) return;
+  CommunauteSignals.TABS.forEach((key) => {
+    const btn = document.getElementById(`tab-${key}-btn`);
+    btn.querySelectorAll(".tab-new-dot").forEach((d) => d.remove());
+    if (CommunauteSignals.isUnseen(key, communauteSignals[key])) {
+      const dot = document.createElement("span");
+      dot.className = "tab-new-dot";
+      dot.setAttribute("aria-label", "Nouveau");
+      btn.appendChild(dot);
+    }
+  });
+}
+
 function setActiveTab(tab) {
   activeTab = tab;
+  if (communauteSignals) {
+    // Ouvrir l'onglet = "vu" : sa pastille (et celle du menu) disparait.
+    CommunauteSignals.markSeen(tab, communauteSignals[tab]);
+    renderTabDots();
+    if (typeof loadNavBadges === "function") loadNavBadges();
+  }
   ["calendar", "boss", "chest", "market"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
@@ -252,6 +276,7 @@ async function loadChest() {
     statusText.classList.remove("skeleton-line");
 
     chestAlreadyDepositedToday = !!res.alreadyDepositedToday;
+    renderChestKeyPool(res);
 
     // Le coffre "a l'air" rempli selon poolSize (embellissement 2026-09-30) :
     // ferme et terne a 0, entrouvert des 1+, dore et anime a partir de 3 -
@@ -332,6 +357,54 @@ async function depositChest(cardId, finish, quality) {
   }
 }
 
+// Pioche au choix contre 1 clef (2026-10-02) : le contenu du coffre n'est
+// renvoye par le serveur que si le joueur possede une clef - sans clef, cette
+// zone n'existe tout simplement pas pour lui (les clefs restent un secret).
+const CHEST_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const CHEST_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+function renderChestKeyPool(res) {
+  const zone = document.getElementById("chest-key-zone");
+  const pool = res.pool || [];
+  if (!(res.keys > 0) || !pool.length) { zone.style.display = "none"; return; }
+  zone.style.display = "";
+  const sorted = [...pool].sort((a, b) => (b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0) || a.name.localeCompare(b.name));
+  document.getElementById("chest-key-grid").innerHTML = sorted.map((p) => {
+    const imgSrc = API.imageUrl(p.imageId) || PLACEHOLDER_IMG;
+    return `
+      <div class="craft-card" data-rarity="${p.rarity?.key || "commune"}" data-finish="${p.finish}" data-quality="${p.quality}">
+        <div class="card-art">
+          <img src="${imgSrc}" alt="${p.name}" loading="lazy" />
+          ${p.finish !== "normal" ? `<span class="finish-indicator" data-finish="${p.finish}">${CHEST_FINISH_LABELS[p.finish]}</span>` : ""}
+          <span class="quality-indicator" data-quality="${p.quality}">${CHEST_QUALITY_LABELS[p.quality]}</span>
+          ${p.serialNumber === 1 ? `<span class="serial-one-badge">#001</span>` : ""}
+        </div>
+        <div class="card-info">
+          <div class="card-name">${p.name}</div>
+          <div class="owned-count">${p.rarity?.name || ""}${p.serialNumber != null ? " · #" + String(p.serialNumber).padStart(3, "0") : ""}</div>
+          <button type="button" class="btn-secondary chest-key-pick-btn" data-deposit-id="${p.depositId}">Prendre (&minus;1 &#128273;)</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+  document.querySelectorAll(".chest-key-pick-btn").forEach((btn) => btn.addEventListener("click", () => pickChestWithKey(Number(btn.dataset.depositId), btn)));
+}
+
+async function pickChestWithKey(depositId, btn) {
+  btn.disabled = true;
+  try {
+    const res = await API.drawGuildChest(Session.userId, depositId);
+    Toast.success(`Tu as pris : ${res.card?.name || "une carte"} !`);
+    if (typeof confetti === "function") confetti({ particleCount: 110, spread: 90, origin: { y: 0.5 } });
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    allCards = [];
+    await loadChest();
+  } catch (err) {
+    btn.disabled = false;
+    Toast.error(CHEST_ERRORS[err.code] || ({ no_key: "Il te faut une clé secrète.", deposit_unavailable: "Cette carte vient d'être prise par quelqu'un d'autre." }[err.code]) || ("Erreur. (" + err.message + ")"));
+    if (err.code === "deposit_unavailable") { allCards = []; await loadChest(); }
+  }
+}
+
 document.addEventListener("click", async (e) => {
   if (e.target && e.target.id === "chest-refresh-btn") {
     allCards = [];
@@ -401,8 +474,23 @@ async function buyMarket(offerId) {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  setActiveTab(getInitialTab());
+document.addEventListener("DOMContentLoaded", async () => {
+  // N'affiche que les onglets qui ont quelque chose d'actif (pas de boss en
+  // cours = pas d'onglet Boss, etc.). Hors connexion, on garde l'affichage
+  // complet (les panneaux expliquent qu'il faut se connecter).
+  if (Session.isLoggedIn()) {
+    try { communauteSignals = await CommunauteSignals.fetch(true); } catch (e) { communauteSignals = null; }
+  }
+  let initial = getInitialTab();
+  if (communauteSignals) {
+    CommunauteSignals.TABS.forEach((key) => {
+      document.getElementById(`tab-${key}-btn`).style.display = communauteSignals[key].active ? "" : "none";
+    });
+    const firstUnseen = CommunauteSignals.TABS.find((k) => CommunauteSignals.isUnseen(k, communauteSignals[k]));
+    if (!communauteSignals[initial] || !communauteSignals[initial].active) initial = firstUnseen || "chest";
+    renderTabDots();
+  }
+  setActiveTab(initial);
 
   document.getElementById("tab-calendar-btn").addEventListener("click", () => setActiveTab("calendar"));
   document.getElementById("tab-boss-btn").addEventListener("click", () => setActiveTab("boss"));
