@@ -557,6 +557,9 @@
       // daily-wheel.json useKey). Grise sans clef plutot que masque, pour que
       // la possibilite reste connue.
       function showWheelKeyBtn(keys) {
+        // Les clefs restent un secret : sans clef, aucune trace du cadenas
+        // (on decouvre cet usage une fois une clef trouvee).
+        if (keys < 1) { wheelKeyBtn.style.display = "none"; return; }
         wheelKeyBtn.style.display = "inline-flex";
         wheelKeyBtn.disabled = keys < 1;
         wheelKeyBtn.innerHTML = keys < 1

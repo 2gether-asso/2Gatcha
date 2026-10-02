@@ -327,5 +327,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
   document.getElementById("vault-open-btn").addEventListener("click", openVault);
-  setActiveTab(getInitialTab());
+  // Onglet Coffre-fort cache tant que le joueur n'a jamais eu de clef : les
+  // clefs et leurs usages se decouvrent en explorant, pas dans un menu.
+  const initial = getInitialTab();
+  setActiveTab(initial === "vault" ? "dig" : initial);
+  API.getVaultStatus(Session.userId).then((res) => {
+    if ((res.userKeys || 0) > 0 || res.alreadyOpened) {
+      document.getElementById("tab-vault-btn").style.display = "";
+      if (initial === "vault") setActiveTab("vault");
+    }
+  }).catch(() => {});
 });
