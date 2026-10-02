@@ -5516,16 +5516,16 @@ body.hide-stats #stats-block { display: none; }
 .pv-row-progress { margin-left: auto; font-size: 0.85rem; font-variant-numeric: tabular-nums; opacity: 0.85; }
 .pv-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 @media (max-width: 640px) { .pv-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.pv-slot { position: relative; aspect-ratio: 5 / 7; max-width: 100%; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px; text-align: center; border: 2px dashed rgba(255,255,255,0.15); }
+.pv-slot { position: relative; min-height: 160px; max-width: 100%; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px; text-align: center; border: 2px dashed rgba(255,255,255,0.15); }
 .pv-slot.available { border-color: #22c55e88; }
-.pv-slot.filled { border: 2px solid #22c55e; padding: 0; justify-content: flex-end; }
-.pv-slot.filled img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.pv-slot.filled .pv-slot-label, .pv-slot.filled .pv-withdraw { position: relative; z-index: 1; }
-.pv-slot.filled .pv-slot-label { width: 100%; background: rgba(0,0,0,0.65); padding: 2px; }
+.pv-slot.filled { border: none; padding: 0; justify-content: flex-start; overflow: visible; gap: 4px; aspect-ratio: auto; }
+.pv-mini { width: 100%; }
+.pv-mini .card-art img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.pv-slot-foot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .pv-slot-label { font-size: 0.72rem; font-weight: 700; }
 .pv-slot-missing { opacity: 0.4; }
 .pv-store, .pv-withdraw { font-size: 0.7rem; padding: 4px 6px; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; }
 .pv-store { background: #22c55e; color: #052e16; }
-.pv-withdraw { background: rgba(0,0,0,0.75); color: #fff; margin-bottom: 4px; opacity: 0; transition: opacity 0.15s; }
+.pv-withdraw { background: rgba(255,255,255,0.12); color: #fff; opacity: 0; transition: opacity 0.15s; }
 .pv-slot.filled:hover .pv-withdraw, .pv-slot.filled:focus-within .pv-withdraw { opacity: 1; }
 @media (hover: none) { .pv-withdraw { opacity: 1; } }

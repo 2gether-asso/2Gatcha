@@ -37,10 +37,22 @@ function pvRender(data) {
     const slots = PV_FINISHES.map((f) => {
       const slot = r.slots.find((s) => s.finish === f) || { candidates: [] };
       if (slot.stored) {
+        // Meme rendu que les vignettes de la collection (.collection-card +
+        // data-finish/data-quality) : on recupere les effets de finition et
+        // les etiquettes existants.
         return `<div class="pv-slot filled" data-finish="${f}">
-          <img src="${img}" alt="" loading="lazy" />
-          <span class="pv-slot-label">${PV_FINISH_LABELS[f]} ${pvSerial(slot.stored.serialNumber)}</span>
-          <button type="button" class="pv-withdraw" data-pull-id="${slot.stored.pullId}" title="Retirer du coffre">Retirer</button>
+          <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="${f}" data-quality="mint">
+            <div class="card-art">
+              <img src="${img}" alt="${r.name}" loading="lazy" />
+              ${f !== "normal" ? `<span class="finish-indicator" data-finish="${f}">${PV_FINISH_LABELS[f]}</span>` : ""}
+              <span class="quality-indicator" data-quality="mint">Parfait état</span>
+              ${slot.stored.serialNumber === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+            </div>
+          </div>
+          <div class="pv-slot-foot">
+            <span class="pv-slot-label">${PV_FINISH_LABELS[f]} ${pvSerial(slot.stored.serialNumber)}</span>
+            <button type="button" class="pv-withdraw" data-pull-id="${slot.stored.pullId}" title="Retirer du coffre">Retirer</button>
+          </div>
         </div>`;
       }
       const best = slot.candidates.slice().sort((a, b) => (b.serialNumber === 1) - (a.serialNumber === 1) || (a.serialNumber || 0) - (b.serialNumber || 0))[0];

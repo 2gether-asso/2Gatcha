@@ -443,6 +443,7 @@ function cardTileHtml(card, now) {
         <div class="card-art">
           <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
           ${c.finish !== "normal" ? `<span class="finish-indicator" data-finish="${c.finish}">${FINISH_LABELS[c.finish]}</span>` : ""}
+          <span class="quality-indicator" data-quality="mint">${QUALITY_LABELS.mint}</span>
           ${c.serialNumber === 1 ? `<span class="serial-one-badge">#001</span>` : ""}
         </div>
         <div class="card-info">
