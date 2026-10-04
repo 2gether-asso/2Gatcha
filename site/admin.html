@@ -18,7 +18,7 @@
     <div class="panel">
       <h1>Admin - Codes événement</h1>
       <p class="lead">Créé un code a distribuer pendant un événement de l'asso.
-        Besoin de vérifier le rendu d'une carte avant de l'uploader dans Grist ?
+        Besoin de vérifier le rendu d'une carte avant de l'importer ?
         <a href="card-preview-tool.html">Outil de prévisualisation &rarr;</a>
         &middot; <a href="admin-db.html">Base de données &amp; images &rarr;</a>
       </p>
@@ -153,7 +153,7 @@
           <div class="admin-section-body">
             <p class="lead" style="font-size:0.85rem;">
               Ajuste les taux de drop et les valeurs d'équilibrage directement ici
-              (équivalent à éditer les tables Grist correspondantes) - effet immédiat,
+              (équivalent à éditer les tables dans <a href="admin-db.html">Base de données</a>) - effet immédiat,
               sans redéploiement.
             </p>
 
@@ -267,8 +267,9 @@
           <div class="admin-section-body">
             <p class="lead" style="font-size:0.85rem;">
               Créé une nouvelle extension ici, puis ajoute son visuel de packet et
-              son dos de carte directement dans Grist (table <code>Extensions</code>,
-              colonnes <code>PackImage</code>/<code>CardBackImage</code>).
+              son dos de carte dans <a href="admin-db.html">Base de données</a>
+              (onglet Tables, table <code>Extensions</code>, colonnes
+              <code>PackImage</code>/<code>CardBackImage</code> : icône &#128247;).
             </p>
             <div id="extensions-list" class="codes-calendar"></div>
             <form id="create-extension-form" class="admin-form">

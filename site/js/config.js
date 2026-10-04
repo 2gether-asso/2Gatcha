@@ -1,10 +1,10 @@
-// Configuration du site - a adapter avec l'URL de ton instance n8n et ton
-// application Discord (voir n8n/README.md, section "Discord").
+// Configuration du site : adresse de l'API 2Gatcha (api/README.md) et
+// application Discord.
 window.APP_CONFIG = {
-  // Bascule vers l'API maison (api/README.md) : remplacer par l'adresse de
-  // l'API, ex. "https://api.gatcha.2gether-asso.fr/webhook/", ou "/webhook/"
-  // si le conteneur de l'API sert aussi le site.
-  n8nBaseUrl: "https://n8n.matiboux.com/webhook/",
+  // API maison (remplace n8n + Grist depuis le 2026-10-04). Le nom
+  // "n8nBaseUrl" est garde pour ne rien casser ailleurs ; quand le conteneur
+  // de l'API sert lui-meme le site, il le reecrit a la volee en "/webhook/".
+  n8nBaseUrl: "https://gatcha-api.2gether-asso.fr/webhook/",
 
   // A adapter : Client ID de ton application Discord (visible dans le
   // Developer Portal, il n'est pas secret). L'URI de redirection ci-dessous
@@ -13,9 +13,9 @@ window.APP_CONFIG = {
   discordRedirectUri: window.location.origin + window.location.pathname.replace(/[^/]*$/, "") + "auth-callback.html",
   discordScope: "identify guilds",
 
-  // A adapter : memes ID Discord que la liste `adminDiscordIds` codee en dur
-  // dans n8n/workflows/admin-codes.json. Ne sert ici qu'a afficher (ou pas)
-  // le lien "Admin" dans le menu ; la verification qui compte est cote n8n.
+  // Memes ID Discord que la liste `adminDiscordIds` des workflows admin
+  // (n8n/workflows/admin-*.json, executes par l'API). Ne sert ici qu'a
+  // afficher (ou pas) le lien "Admin" ; la verification qui compte est cote API.
   adminDiscordIds: ["785223211730075709", "184008667690041345"],
 
   endpoints: {
@@ -27,7 +27,7 @@ window.APP_CONFIG = {
     openPack: "/open-pack",           // POST { userId, extensionId } -> ouvre 1 booster (5 cartes) de cette extension
     notifyReveal: "/notify-reveal",   // POST { userId, batchIds: [...], action: 'auto'|'share' } -> { notified } - poste sur Discord (annonce auto Mythique/Legendaire/Epique, ou partage manuel), revalide toujours les cartes via BatchId cote serveur
     collection: "/collection",        // GET ?userId=... -> collection de l'utilisateur
-    image: "/image",                  // GET ?id=... -> proxy binaire vers une piece jointe Grist
+    image: "/image",                  // GET ?id=... -> image (WebP) servie par l'API
     boosterStatus: "/booster-status", // GET ?userId=... -> { count, stardust, extensions: [{extensionId,name,key,sortOrder}] } (count = solde générique, commun a toutes les extensions)
     redeemCode: "/redeem-code",       // POST { userId, code } -> { type: 'booster'|'card', ... }
     adminCodes: "/admin-codes",       // POST { discordId, action: 'create'|'list'|'revoke', ... }

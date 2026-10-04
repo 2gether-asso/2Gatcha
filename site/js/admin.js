@@ -675,7 +675,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         sortOrder: Number(document.getElementById("ext-sort-input").value) || 0,
         active: true
       });
-      Toast.success("Extension créée ! Ajoute son visuel dans Grist pour la rendre jolie.");
+      Toast.success("Extension créée ! Ajoute son visuel dans Admin > Base de données pour la rendre jolie.");
       document.getElementById("create-extension-form").reset();
       API._cacheSet("2gatcha_cache_extensions", null);
       loadExtensionsAdmin();

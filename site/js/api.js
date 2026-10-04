@@ -1,4 +1,4 @@
-// Petite couche d'accès a l'API n8n. Tous les webhooks n8n retournent du JSON.
+// Petite couche d'accès a l'API 2Gatcha (memes adresses que les anciens webhooks n8n). Toutes les reponses sont du JSON.
 const API = {
   base() {
     return window.APP_CONFIG.n8nBaseUrl.replace(/\/$/, "");
