@@ -1495,7 +1495,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   position: relative;
   perspective: 1200px;
   width: 100%;
-  aspect-ratio: 3 / 4;
+  /* Illustration entiere en 3:4 (comme dans la collection) + bandeau du nom. */
+  aspect-ratio: 30 / 49;
   opacity: 0;
   transform: translateY(24px) scale(0.9);
   animation: cardAppear 0.5s ease forwards;
@@ -1555,7 +1556,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   position: relative;
 }
 
-.card-front .card-art { width: 100%; height: 76%; }
+.card-front .card-art { width: 100%; aspect-ratio: 3 / 4; flex: none; }
 .card-front img {
   width: 100%;
   height: 100%;
@@ -3542,8 +3543,8 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .reveal-grid.stacked {
   display: block;
   position: relative;
-  width: min(240px, 78vw);
-  aspect-ratio: 3 / 4;
+  width: min(240px, 78vw, 36vh);
+  aspect-ratio: 30 / 49;
   margin: 6px auto 0;
 }
 .reveal-grid.stacked .card {
@@ -5725,12 +5726,15 @@ button.set-chip-claim::before { content: none; }
    (image + nom), environ 23 % plus haute que la carte : en grille ("Tout
    reveler"), chaque carte chevauchait celle du dessous. */
 .reveal-grid .card-front { position: absolute; inset: 0; }
+/* Une fois les cartes posees, le booster (deja masque) libere sa place :
+   sinon ses 300 px repoussaient "Tout reveler" sous le bord de l'ecran. */
+.pack-modal-stage:has(#reveal-grid .card) .booster-stage { display: none; }
 .reveal-grid .card-front .card-info { flex: 1; min-height: 0; overflow: hidden; }
 
-/* Badges d'une carte revelee : bas de l'illustration (ils couvraient la
-   finition / l'etat en haut, et se chevauchaient entre eux). */
-.reveal-grid .card-front > .new-badge,
-.reveal-grid .card-front > .dupe-badge { top: calc(76% - 26px); }
+/* Badges d'une carte revelee : "Nouvelle !" / doublon en haut a gauche,
+   finition et etat dans les coins du bas de l'illustration. Le bandeau
+   "1ere obtention du serveur" prend toute la largeur : le #001 passe dessous. */
+.reveal-grid .card-front > .first-ever-badge ~ .card-art .serial-one-badge { top: 40px; }
 
 /* "Tout reveler" : grille compacte et lisible, meilleures cartes d'abord */
 .pack-modal-stage.reveal-row .booster-stage,
