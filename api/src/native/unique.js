@@ -79,6 +79,12 @@ export function syncUniqueCards(store) {
       const fix = {};
       if (cols.IsPromo && !c.IsPromo) fix.IsPromo = true;
       if (cols.Extension && ext && !refId(c.Extension)) fix.Extension = ext.id;
+      // Premier obtenteur jamais note (carte obtenue avant le registre, ou
+      // donnee par un admin) : le plus ancien exemplaire.
+      if (cols.FirstObtainedBy && !refId(c.FirstObtainedBy) && store.tables.has('Pulls')) {
+        const first = store.getAll('Pulls').filter((p) => refId(p.Card) === c.id).sort((a, b) => (a.ObtainedAt || 0) - (b.ObtainedAt || 0) || (a.SerialNumber || 0) - (b.SerialNumber || 0))[0];
+        if (first && refId(first.User)) fix.FirstObtainedBy = refId(first.User);
+      }
       if (Object.keys(fix).length) { store.update('Cards', c.id, fix); promoted++; }
     }
   }

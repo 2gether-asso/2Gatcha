@@ -36,6 +36,7 @@ async function test(name, fn) {
   try { await fn(); passed++; console.log(' ok  ' + name); } catch (e) { console.log('FAIL ' + name + '\n     ' + (e.stack || e.message).split('\n').slice(0, 10).join('\n     ')); process.exitCode = 1; }
 }
 const user = (id) => store.get('Users', id);
+const refIdOf = (v) => (Array.isArray(v) ? v[1] : v);
 
 await test('demarrage sur une base vide (test de l image Docker)', () => {
   const t0 = path.join(os.tmpdir(), `2gatcha-native-empty-${process.pid}.sqlite`);
@@ -518,6 +519,14 @@ await test('embellissements : meteo, carnet de peche, classement des metiers, re
   assert.ok(owned, 'au moins une carte Unique possedee');
   assert.ok(owned.owners.some((o) => o.userId === 1));
   assert.equal(new Set(owned.owners.map((o) => o.userId)).size, owned.owners.length, 'un joueur une seule fois');
+  // Carte Unique obtenue avant le registre (ou donnee par un admin) : premier obtenteur retrouve.
+  const rarityU = store.getAll('Rarities').find((x) => x.Key === 'unique');
+  const old = store.create('Cards', { Name: 'Unique ancienne', Rarity: rarityU.id, Active: true, IsPromo: true });
+  store.create('Pulls', { User: 2, Card: old.id, SerialNumber: 1, Finish: 'normal', Quality: 'mint', ObtainedAt: 100, BatchId: 'admin-gift' });
+  unique.syncUniqueCards(store);
+  assert.equal(refIdOf(store.get('Cards', old.id).FirstObtainedBy), 2);
+  const reg = call('POST', 'unique-counter', { body: { userId: 1, action: 'status' } }).json.cards.find((x) => x.cardId === old.id);
+  assert.deepEqual(reg.owners.map((o) => o.userId), [2]);
   assert.ok('pseudo' in owned.owners[0]);
 });
 

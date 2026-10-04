@@ -144,7 +144,9 @@ function pvRenderCounter(st, fresh) {
   }
   grid.innerHTML = st.cards.map((c) => {
     const img = API.imageUrl(c.imageId) || "";
+    // Ancienne API (sans registre) : on n'affiche rien plutot que "personne".
     const owners = c.owners || [];
+    const hasRegistry = Array.isArray(c.owners);
     const shown = owners.slice(0, 5);
     const ownersHtml = owners.length
       ? `<div class="pv-owners" title="${owners.map((o, i) => `${i + 1}. ${o.pseudo}`).join(" · ")}">
@@ -152,7 +154,7 @@ function pvRenderCounter(st, fresh) {
           ${owners.length > 5 ? `<span class="pv-owner more">+${owners.length - 5}</span>` : ""}
           <span class="pv-owners-label">1er : ${owners[0].pseudo}${owners.length > 1 ? ` · ${owners.length} propriétaires` : ""}</span>
         </div>`
-      : `<div class="pv-owners empty">Personne ne l'a encore.</div>`;
+      : hasRegistry ? `<div class="pv-owners empty">Personne ne l'a encore.</div>` : "";
     return `<div class="pv-counter-card ${c.owned ? "owned" : "missing"}">
       <div class="pv-dome">
         <div class="collection-card" data-rarity="unique">
