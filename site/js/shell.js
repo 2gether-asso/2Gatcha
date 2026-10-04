@@ -303,6 +303,9 @@ function renderHeader() {
             <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
               <span class="icon">&#128273;</span><span class="count">0</span>
             </span>
+            <a id="header-part-badge" class="stat-chip stat-chip-part" href="collection.html#finitions" title="Pièces détachées : remplacent un exemplaire dans l'atelier Finitions / Qualité" style="display:none;">
+              <span class="icon">&#128297;</span><span class="count">0</span>
+            </a>
             <a id="header-ticket-badge" class="stat-chip stat-chip-ticket" href="coffre.html#comptoir" title="Tickets Unique : à échanger au Comptoir Unique (coffre-fort)" style="display:none;">
               <span class="icon">&#127915;</span><span class="count">0</span>
             </a>
@@ -728,6 +731,13 @@ async function loadHeaderBoosterBadge() {
       }
     }
 
+    // Pieces detachees (pechees) : visibles seulement si > 0.
+    const partBadge = document.getElementById("header-part-badge");
+    if (partBadge) {
+      const parts = status.spareParts || 0;
+      partBadge.style.display = parts > 0 ? "flex" : "none";
+      if (parts > 0) bumpNumber(partBadge.querySelector(".count"), parts);
+    }
     // Tickets Unique (api/src/native/unique.js) : visibles seulement si > 0.
     const ticketBadge = document.getElementById("header-ticket-badge");
     if (ticketBadge) {

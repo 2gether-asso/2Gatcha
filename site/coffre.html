@@ -39,6 +39,23 @@
           <p class="pv-counter-lead">Chaque ligne complète du coffre-fort te donne un <strong>Ticket Unique</strong>. Échange-le ici contre la carte Unique de ton choix : elles ne s'obtiennent nulle part ailleurs.</p>
           <div id="pv-counter-grid" class="pv-counter-grid"></div>
         </section>
+        <div class="pv-toolbar" id="pv-toolbar">
+          <label>Trier
+            <select id="pv-sort">
+              <option value="progress">Les plus avancées</option>
+              <option value="rarity">Rareté</option>
+              <option value="name">Nom</option>
+            </select>
+          </label>
+          <label>Afficher
+            <select id="pv-filter">
+              <option value="all">Toutes les lignes</option>
+              <option value="almost">Presque complètes (4-5/6)</option>
+              <option value="open">À compléter</option>
+              <option value="done">Complètes</option>
+            </select>
+          </label>
+        </div>
         <div id="pv-rows" class="pv-rows"></div>
       </div>
     </div>

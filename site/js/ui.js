@@ -803,3 +803,49 @@ function bumpNumber(el, newValue) {
   }
   requestAnimationFrame(step);
 }
+
+// ---------------------------------------------------------------------------
+// Passage de niveau d'un metier (peche, fouille) : carte plein ecran avec les
+// bonus debloques, plutot qu'un simple toast.
+// ---------------------------------------------------------------------------
+const LevelUpModal = {
+  show({ icon, name, level, perks = [], tool = "" }) {
+    const overlay = document.createElement("div");
+    overlay.className = "card-modal-overlay levelup-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", `${name} niveau ${level}`);
+    overlay.innerHTML = `
+      <div class="levelup-card">
+        <div class="levelup-icon" aria-hidden="true">${icon}</div>
+        <div class="levelup-eyebrow">${name}</div>
+        <div class="levelup-level">Niveau ${level}</div>
+        ${tool ? `<div class="levelup-tool">Nouvel outil : <strong>${tool}</strong></div>` : ""}
+        <ul class="levelup-perks">${perks.filter(Boolean).map((p) => `<li>${p}</li>`).join("")}</ul>
+        <button type="button" class="btn levelup-close">Super !</button>
+      </div>`;
+    const close = () => { overlay.remove(); syncScrollLock(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    overlay.addEventListener("click", (e) => { if (e.target === overlay || e.target.closest(".levelup-close")) close(); });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    syncScrollLock();
+    overlay.querySelector(".levelup-close").focus();
+    if (typeof Sfx !== "undefined" && Sfx.reveal) Sfx.reveal("legendaire");
+    if (typeof confetti === "function") confetti({ particleCount: 160, spread: 120, origin: { y: 0.55 } });
+  }
+};
+
+// Piece detachee qui vient se visser a la place d'un exemplaire (atelier).
+function screwPartAnimation() {
+  return new Promise((resolve) => {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { resolve(); return; }
+    const overlay = document.createElement("div");
+    overlay.className = "part-screw-overlay";
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.innerHTML = `<div class="part-screw-slot"><span class="part-screw">&#128297;</span></div>`;
+    document.body.appendChild(overlay);
+    if (typeof Sfx !== "undefined" && Sfx.click) { Sfx.click(); setTimeout(() => Sfx.click(), 350); setTimeout(() => Sfx.click(), 650); }
+    setTimeout(() => { overlay.remove(); resolve(); }, 1100);
+  });
+}

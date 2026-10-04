@@ -148,10 +148,10 @@ doublons, coup final au boss) sans le modifier.
 | `duplicates.js` | — (après `open-pack`) | poussière passive pour chaque doublon à l'ouverture |
 | `push.js` | `GET push-config`, `POST push` | notifications push (Web Push) |
 | `seasons.js` | `POST season`, `POST admin-season` | saison mensuelle : paliers d'XP du mois, carte exclusive au dernier palier |
-| `fishing.js` | `POST fishing` | pêche : chaque lancer coûte des poussières (os, clés, boosters, coffres…) |
+| `fishing.js` | `POST fishing` | pêche : coût en poussières, météo du jour, carnet de pêche, pièces détachées |
 | `unique.js` | `POST unique-counter` | rareté Unique (verte) : 1 Ticket Unique par ligne complète du coffre-fort, échangé au Comptoir contre la carte de son choix |
 | `personal-vault.js` | `POST personal-vault` | coffre-fort perso : lignes de 6 finitions, récompense + Ticket Unique |
-| `levels.js` | — (après `dig`) | niveaux de pêche et de fouille (1 à 10) |
+| `levels.js` | `GET skills-leaderboard` (+ après `dig`) | niveaux de pêche et de fouille (1 à 10, chenil compris), classement de la semaine |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

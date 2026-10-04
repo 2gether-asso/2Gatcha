@@ -5951,3 +5951,140 @@ button.set-chip-claim::before { content: none; }
 /* Atelier : piece detachee dans le choix des exemplaires */
 .fusion-part { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--accent-2); font-size: 0.85rem; cursor: pointer; }
 .fusion-part input { accent-color: var(--accent-2); }
+
+/* Halo vert anime des cartes Unique (collection, profil public, vitrine) */
+@keyframes uniqueHalo {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--rarity-unique) 60%, transparent), 0 0 14px color-mix(in srgb, var(--rarity-unique) 30%, transparent); }
+  50% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--rarity-unique) 85%, transparent), 0 0 30px color-mix(in srgb, var(--rarity-unique) 60%, transparent); }
+}
+.collection-card:not(.locked)[data-rarity="unique"] { animation: uniqueHalo 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .collection-card:not(.locked)[data-rarity="unique"] { animation: none; } }
+
+/* En-tete : pieces detachees */
+.stat-chip-part { color: var(--accent-2); text-decoration: none; }
+
+/* Passage de niveau */
+.levelup-card { width: min(360px, 100%); padding: 26px 22px 20px; border-radius: 20px; text-align: center; background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent-2) 30%, var(--bg-panel-solid)), var(--bg-panel-solid) 70%); border: 1px solid color-mix(in srgb, var(--accent-2) 55%, transparent); box-shadow: 0 30px 70px -20px rgba(0,0,0,0.8), 0 0 40px color-mix(in srgb, var(--accent-2) 30%, transparent); animation: modalPopIn 0.45s cubic-bezier(.2,.9,.3,1.3) both; display: grid; gap: 8px; justify-items: center; }
+.levelup-icon { font-size: 3rem; animation: levelupBounce 1.2s ease-in-out infinite; }
+@keyframes levelupBounce { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
+.levelup-eyebrow { text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.78rem; color: var(--text-dim); }
+.levelup-level { font-family: var(--font-display); font-size: 2rem; color: var(--accent-2); }
+.levelup-tool { font-size: 0.85rem; }
+.levelup-perks { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 6px; width: 100%; }
+.levelup-perks li { padding: 6px 10px; border-radius: 10px; background: var(--bg-panel-2); font-size: 0.85rem; }
+.levelup-perks li::before { content: "\2714  "; color: var(--success); }
+@media (prefers-reduced-motion: reduce) { .levelup-icon { animation: none; } }
+
+/* Piece detachee qui se visse (atelier) */
+.part-screw-overlay { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; background: rgba(4,6,12,0.55); pointer-events: none; animation: uniqueFade 0.2s ease both; }
+.part-screw-slot { width: 120px; height: 160px; border-radius: 14px; border: 2px dashed var(--accent-2); display: grid; place-items: center; background: rgba(0,0,0,0.35); }
+.part-screw { font-size: 3.4rem; animation: partScrew 1s cubic-bezier(.3,.7,.3,1) both; }
+@keyframes partScrew { 0% { transform: translateY(-140px) rotate(0deg) scale(1.4); opacity: 0; } 35% { opacity: 1; } 70% { transform: translateY(0) rotate(540deg) scale(1); } 85% { transform: scale(1.12) rotate(600deg); } 100% { transform: scale(1) rotate(630deg); } }
+
+/* Peche : poissons, canne, meteo, carnet */
+.fish-swim { position: absolute; font-size: 1.1rem; opacity: 0.55; filter: brightness(0.6) saturate(0.6); animation: fishSwim 14s linear infinite; }
+.fish-swim.s1 { top: 30%; animation-duration: 16s; }
+.fish-swim.s2 { top: 55%; animation-duration: 11s; animation-delay: -5s; transform: scaleX(-1); animation-name: fishSwimBack; }
+.fish-swim.s3 { top: 75%; animation-duration: 19s; animation-delay: -9s; }
+.fish-swim.gold { top: 45%; opacity: 0; filter: drop-shadow(0 0 6px #f5d76e) sepia(1) saturate(3) brightness(1.2); animation: fishGold 26s linear infinite; animation-delay: -3s; }
+@keyframes fishSwim { from { left: -8%; } to { left: 108%; } }
+@keyframes fishSwimBack { from { left: 108%; } to { left: -8%; } }
+@keyframes fishGold { 0%, 70% { left: -8%; opacity: 0; } 72% { opacity: 0.9; } 98% { opacity: 0.9; } 100% { left: 108%; opacity: 0; } }
+.fish-rod { position: absolute; right: 8%; top: 8%; width: 6px; height: 46%; border-radius: 3px; transform: rotate(-28deg); transform-origin: bottom; background: linear-gradient(#a3d977, #6b8e23); box-shadow: 0 0 0 1px rgba(0,0,0,0.3); }
+.fish-rod[data-rod="carbone"] { background: linear-gradient(#4b5563, #111827); }
+.fish-rod[data-rod="or"] { background: linear-gradient(#ffe9b8, #d4af37); box-shadow: 0 0 10px rgba(212,175,55,0.7); }
+.fish-rod[data-rod="legende"] { background: linear-gradient(#bbf7d0, #22c55e, #a855f7); box-shadow: 0 0 14px rgba(34,197,94,0.8); }
+.fish-weather { position: absolute; left: 10px; bottom: 10px; z-index: 2; padding: 4px 10px; border-radius: 999px; background: rgba(6,7,15,0.65); color: #fff; font-size: 0.78rem; }
+.fish-weather small { opacity: 0.8; }
+.fish-weather-fx { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.fish-scene[data-weather="soleil"] .fish-sky { background: radial-gradient(circle at 80% 20%, #ffe28a 0 8%, transparent 9%), linear-gradient(#3b6fb6, #7fb3e6); }
+.fish-scene[data-weather="pluie"] .fish-weather-fx { background: repeating-linear-gradient(105deg, transparent 0 14px, rgba(200,220,255,0.35) 14px 15px); background-size: 40px 40px; animation: fishRain 0.6s linear infinite; }
+@keyframes fishRain { to { background-position: -10px 40px; } }
+.fish-scene[data-weather="brume"] .fish-weather-fx { background: linear-gradient(rgba(220,225,235,0.08), rgba(220,225,235,0.35) 60%, rgba(220,225,235,0.15)); animation: fishFog 8s ease-in-out infinite alternate; }
+@keyframes fishFog { from { opacity: 0.6; } to { opacity: 1; } }
+.fish-scene[data-weather="orage"] .fish-sky { background: linear-gradient(#141826, #2b3047); }
+.fish-scene[data-weather="orage"] .fish-weather-fx { animation: fishStorm 7s infinite; }
+@keyframes fishStorm { 0%, 92%, 96%, 100% { background: transparent; } 93%, 95% { background: rgba(255,255,255,0.35); } }
+.fish-new { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--accent-2); color: #031018; font-size: 0.65rem; }
+.fish-book { margin-top: 8px; }
+.fish-book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 8px; }
+.fish-book-entry { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--bg-panel-2); border-left: 3px solid var(--tier-color, var(--border-soft)); }
+.fish-book-entry.unseen { opacity: 0.55; border-left-color: var(--border-soft); }
+.fish-book-icon { grid-row: span 2; font-size: 1.4rem; }
+.fish-book-name { font-weight: 700; font-size: 0.85rem; }
+.fish-book-meta { font-size: 0.72rem; color: var(--text-dim); }
+@media (prefers-reduced-motion: reduce) { .fish-swim, .fish-weather-fx { animation: none !important; } }
+
+/* Metiers : outil affiche */
+.skill-tool { margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 0.7rem; border: 1px solid var(--border-soft); color: var(--text-dim); }
+.skill-tool.tool-fer, .skill-tool.tool-carbone { color: #cbd5e1; border-color: #64748b; }
+.skill-tool.tool-or { color: #f5d76e; border-color: #d4af37; }
+.skill-tool.tool-legende { color: var(--rarity-unique); border-color: var(--rarity-unique); box-shadow: 0 0 10px color-mix(in srgb, var(--rarity-unique) 40%, transparent); }
+
+/* Chenil : collier et cape */
+.dig-kennel-dog-wrap { position: relative; display: inline-grid; place-items: center; }
+.dig-dog-collar { position: absolute; left: 50%; bottom: 6px; width: 18px; height: 5px; border-radius: 3px; transform: translateX(-30%); background: #ef4444; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+.dig-kennel-dog-wrap[data-tier="bleu"] .dig-dog-collar { background: #3b82f6; }
+.dig-kennel-dog-wrap[data-tier="or"] .dig-dog-collar, .dig-kennel-dog-wrap[data-tier="cape"] .dig-dog-collar { background: #f5d76e; box-shadow: 0 0 6px #d4af37; }
+.dig-dog-cape { display: none; position: absolute; right: 60%; top: 30%; width: 22px; height: 26px; background: linear-gradient(135deg, #dc2626, #7f1d1d); clip-path: polygon(100% 0, 0 30%, 30% 100%); animation: dogCape 1.2s ease-in-out infinite alternate; }
+.dig-kennel-dog-wrap[data-tier="cape"] .dig-dog-cape { display: block; }
+@keyframes dogCape { from { transform: rotate(-6deg); } to { transform: rotate(8deg); } }
+
+/* Rapport du chien */
+.dog-postcard { position: relative; width: min(420px, 100%); padding: 22px 20px 18px; border-radius: 12px; background: #fdf6e3; color: #3b2f22; box-shadow: 0 30px 70px -20px rgba(0,0,0,0.8); transform: rotate(-1.5deg); animation: modalPopIn 0.4s cubic-bezier(.2,.9,.3,1.3) both; display: grid; gap: 10px; }
+.dog-postcard-stamp { position: absolute; top: 10px; right: 12px; width: 46px; height: 54px; display: grid; place-items: center; border: 2px dashed #b45309; border-radius: 4px; font-size: 1.4rem; transform: rotate(6deg); }
+.dog-postcard-pic { font-size: 2.6rem; }
+.dog-postcard-title { font-family: var(--font-display); font-size: 1.1rem; color: #92400e; }
+.dog-postcard-text p { margin: 6px 0; font-size: 0.9rem; }
+.dog-postcard-text ul { margin: 4px 0; padding-left: 18px; font-size: 0.88rem; }
+.dog-postcard-sign { font-style: italic; text-align: right; font-size: 0.85rem; }
+.dog-postcard-close { justify-self: end; }
+
+/* Coffre-fort : tri, apercu, scellage */
+.pv-toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 12px; font-size: 0.82rem; }
+.pv-toolbar[hidden] { display: none; }
+.pv-toolbar label { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
+.pv-toolbar select { background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text); padding: 5px 8px; border-radius: 8px; }
+.pv-row-preview { margin: -2px 0 8px; font-size: 0.78rem; color: var(--rarity-unique); }
+.pv-row.sealing .pv-slot { animation: pvSeal 0.5s cubic-bezier(.2,.9,.3,1.3) both; animation-delay: var(--seal-delay, 0ms); }
+@keyframes pvSeal { 0% { transform: scale(1); } 40% { transform: scale(0.92); box-shadow: inset 0 0 0 3px #f5d76e, 0 0 18px rgba(245,215,110,0.7); } 100% { transform: scale(1); box-shadow: inset 0 0 0 2px color-mix(in srgb, #f5d76e 60%, transparent); } }
+
+/* Comptoir : vitrine de musee + registre */
+.pv-dome { position: relative; padding: 10px 10px 0; border-radius: 60px 60px 12px 12px; background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.10), transparent 60%); }
+.pv-dome-glass { position: absolute; inset: 0; border-radius: 60px 60px 12px 12px; border: 1px solid rgba(255,255,255,0.18); background: linear-gradient(115deg, rgba(255,255,255,0.18) 0 12%, transparent 22% 70%, rgba(255,255,255,0.08) 80%); pointer-events: none; }
+.pv-counter-card.missing .pv-dome::after { content: ""; position: absolute; left: 50%; top: -30px; width: 160%; height: 140%; transform: translateX(-50%); background: radial-gradient(ellipse at 50% 0%, rgba(255,246,200,0.35), transparent 60%); opacity: 0; transition: opacity 0.35s ease; pointer-events: none; }
+.pv-counter-card.missing:hover .pv-dome::after { opacity: 1; }
+.pv-counter-card.missing:hover .collection-card img { filter: brightness(0.55) saturate(0.4) contrast(1.1); transition: filter 0.35s ease; }
+.pv-owners { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 0.7rem; color: var(--text-dim); }
+.pv-owners.empty { justify-content: center; font-style: italic; }
+.pv-owner { width: 22px; height: 22px; border-radius: 50%; overflow: hidden; display: inline-grid; place-items: center; background: var(--bg-panel-2); border: 1px solid var(--border-soft); font-size: 0.65rem; margin-left: -6px; }
+.pv-owner:first-child { margin-left: 0; }
+.pv-owner.first { border-color: #f5d76e; box-shadow: 0 0 6px rgba(245,215,110,0.7); }
+.pv-owner img { width: 100%; height: 100%; object-fit: cover; }
+.pv-owners-label { width: 100%; margin-top: 2px; }
+
+/* Ticket qui se dechire */
+.ticket-tear-overlay { position: fixed; inset: 0; z-index: 1250; display: grid; place-items: center; background: rgba(4,6,12,0.6); pointer-events: none; }
+.ticket-tear { display: flex; font-family: var(--font-display); font-size: 1.3rem; color: #04210f; }
+.ticket-half { padding: 16px 22px; background: linear-gradient(135deg, #16a34a, #22c55e 60%, #4ade80); box-shadow: 0 10px 30px -10px rgba(34,197,94,0.8); }
+.ticket-half.left { border-right: 3px dashed rgba(4,33,15,0.5); border-radius: 8px 0 0 8px; animation: tearLeft 0.9s ease-in both; }
+.ticket-half.right { border-radius: 0 8px 8px 0; animation: tearRight 0.9s ease-in both; }
+@keyframes tearLeft { 0%, 35% { transform: none; } 100% { transform: translate(-60px, 40px) rotate(-18deg); opacity: 0; } }
+@keyframes tearRight { 0%, 35% { transform: none; } 100% { transform: translate(60px, 40px) rotate(18deg); opacity: 0; } }
+
+/* Communaute : classement des metiers */
+.skills-boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.skills-since { grid-column: 1 / -1; font-size: 0.78rem; color: var(--text-dim); }
+.skills-board { padding: 14px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.skills-board h3 { margin: 0 0 10px; font-size: 1rem; }
+.skills-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.skills-row { display: grid; grid-template-columns: 28px 28px 1fr auto auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; font-variant-numeric: tabular-nums; }
+.skills-row.champion { background: linear-gradient(90deg, rgba(245,215,110,0.18), transparent); box-shadow: inset 0 0 0 1px rgba(245,215,110,0.45); }
+.skills-row.me { outline: 1px solid var(--accent-2); }
+.skills-rank { text-align: center; font-weight: 800; color: var(--text-dim); }
+.skills-row.champion .skills-rank { font-size: 1.1rem; }
+.skills-avatar { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--bg-panel); font-size: 0.75rem; }
+.skills-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.skills-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; font-weight: 600; }
+.skills-level { font-size: 0.72rem; color: var(--text-dim); }
+.skills-xp { font-weight: 700; color: var(--accent-2); }

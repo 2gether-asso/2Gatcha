@@ -79,7 +79,7 @@ function setActiveTab(tab) {
     renderTabDots();
     if (typeof loadNavBadges === "function") loadNavBadges();
   }
-  ["calendar", "boss", "chest", "market"].forEach((key) => {
+  ["calendar", "boss", "chest", "market", "skills"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
@@ -89,6 +89,32 @@ function setActiveTab(tab) {
   if (tab === "boss") loadBoss();
   if (tab === "chest") loadChest();
   if (tab === "market") loadMarket();
+  if (tab === "skills") loadSkills();
+}
+
+// Classement des metiers (api/src/native/levels.js) : XP de la semaine.
+const skillsEscape = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+async function loadSkills() {
+  const zone = document.getElementById("skills-boards");
+  try {
+    const res = await API.getSkillsLeaderboard();
+    const since = new Date(res.week + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    const board = (title, icon, rows) => `
+      <div class="skills-board">
+        <h3>${icon} ${title}</h3>
+        ${rows.length ? `<ol class="skills-list">${rows.map((r) => `
+          <li class="skills-row ${r.rank === 1 ? "champion" : ""} ${Session.userId && String(r.userId) === String(Session.userId) ? "me" : ""}">
+            <span class="skills-rank">${r.rank === 1 ? "&#128081;" : r.rank}</span>
+            <span class="skills-avatar">${r.discordAvatar ? `<img src="${r.discordAvatar}" alt="" />` : skillsEscape((r.pseudo || "?").slice(0, 1))}</span>
+            <a class="skills-name" href="profile.html?pseudo=${encodeURIComponent(r.pseudo || "")}">${skillsEscape(r.pseudo || "?")}</a>
+            <span class="skills-level">niv. ${r.level}</span>
+            <span class="skills-xp">${r.weekXp} XP</span>
+          </li>`).join("")}</ol>` : `<div class="empty-state">Personne cette semaine : à toi de jouer !</div>`}
+      </div>`;
+    zone.innerHTML = `<div class="skills-since">Depuis le lundi ${since}</div>` + board("Pêcheurs", "&#127907;", res.fishing) + board("Fouilleurs", "&#9935;&#65039;", res.dig);
+  } catch (e) {
+    zone.innerHTML = `<div class="empty-state">Impossible de charger le classement.</div>`;
+  }
 }
 
 async function loadCalendar() {
@@ -656,6 +682,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-boss-btn").addEventListener("click", () => setActiveTab("boss"));
   document.getElementById("tab-chest-btn").addEventListener("click", () => setActiveTab("chest"));
   document.getElementById("tab-market-btn").addEventListener("click", () => setActiveTab("market"));
+  document.getElementById("tab-skills-btn").addEventListener("click", () => setActiveTab("skills"));
 
   let bossSearchTimer = null;
   document.getElementById("boss-search-input").addEventListener("input", (e) => {

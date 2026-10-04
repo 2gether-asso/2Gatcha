@@ -487,6 +487,40 @@ await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), foui
   assert.ok(Math.abs(status.json.digLevel.perks.dogSpeed - 0.15) < 1e-9);
 });
 
+await test('embellissements : meteo, carnet de peche, classement des metiers, registre des cartes Unique', async () => {
+  const { weatherOf } = await import('../src/native/fishing.js');
+  assert.equal(weatherOf('2026-10-05').key, weatherOf('2026-10-05').key, 'meme meteo toute la journee');
+  assert.ok(['soleil', 'pluie', 'brume', 'orage'].includes(weatherOf().key));
+  for (const key of ['FishingCost', 'FishingDailyCasts', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingLoot: [{ type: 'dust', weight: 1, min: 10, max: 10 }] } } });
+  store.update('Users', 2, { FishingRecords: '', FishingWeek: '', FishingWeekXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 1000 });
+  let r = call('POST', 'fishing', { body: { userId: 2, action: 'cast' } }).json;
+  assert.equal(r.catches[0].first, true);
+  assert.equal(r.weather.key, weatherOf().key);
+  const dust = r.records.find((x) => x.type === 'dust');
+  assert.equal(dust.count, 1);
+  assert.ok(dust.first > 0 && dust.best >= 10);
+  r = call('POST', 'fishing', { body: { userId: 2, action: 'cast', count: 2 } }).json;
+  assert.equal(r.records.find((x) => x.type === 'dust').count, 3);
+  assert.equal(r.catches[0].first, false);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
+  // Classement de la semaine : peche (3 XP pour joueur 2) et fouille.
+  store.update('Users', 1, { DigWeek: '', DigWeekXP: 0, FishingWeek: '', FishingWeekXP: 0 });
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, { status: 200, json: { dug: true, revealed: true, dustGained: 0 } });
+  const lb = call('GET', 'skills-leaderboard', {}).json;
+  assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(lb.week));
+  assert.equal(new Date(lb.week + 'T12:00:00Z').getUTCDay(), 1, 'la semaine commence un lundi');
+  assert.deepEqual([lb.fishing[0].userId, lb.fishing[0].weekXp, lb.fishing[0].rank], [2, 3, 1]);
+  assert.deepEqual([lb.dig[0].userId, lb.dig[0].weekXp], [1, 6]);
+  // Registre : proprietaires de la carte Unique dans l'ordre d'obtention.
+  const c = call('POST', 'unique-counter', { body: { userId: 1, action: 'status' } }).json;
+  const owned = c.cards.find((x) => x.owned);
+  assert.ok(owned, 'au moins une carte Unique possedee');
+  assert.ok(owned.owners.some((o) => o.userId === 1));
+  assert.equal(new Set(owned.owners.map((o) => o.userId)).size, owned.owners.length, 'un joueur une seule fois');
+  assert.ok('pseudo' in owned.owners[0]);
+});
+
 await test('unique : migration une seule fois des lignes deja completees en tickets', () => {
   // Base neuve : joueur 2 avec 3 lignes completees et 1 carte Unique deja recue.
   const t2 = path.join(os.tmpdir(), `2gatcha-native-mig-${process.pid}.sqlite`);

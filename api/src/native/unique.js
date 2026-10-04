@@ -17,6 +17,8 @@
 //   "Comptoir Unique" contre la carte Unique de son choix (pas deja possedee).
 // - Migration (une fois) : les lignes completees qui n'ont pas encore donne
 //   de carte Unique deviennent des tickets.
+// - Registre : chaque carte de la vitrine liste ses proprietaires dans l'ordre
+//   d'obtention ; un echange est annonce sur Discord (DISCORD_WEBHOOK_URL).
 // - Les cartes promo ne vont plus au coffre-fort (une seule finition
 //   possible) : celles qui y etaient rangees retournent dans la collection.
 
@@ -151,8 +153,15 @@ function counterState(store, user) {
     const id = refId(p.Card);
     if (!mine.has(id) || (p.SerialNumber || 0) < mine.get(id)) mine.set(id, p.SerialNumber || 0);
   }
+  const users = new Map(store.getAll('Users').map((u) => [u.id, u]));
+  const ownersOf = (cardId) => store.getAll('Pulls')
+    .filter((p) => refId(p.Card) === cardId)
+    .sort((a, b) => (a.ObtainedAt || 0) - (b.ObtainedAt || 0) || (a.SerialNumber || 0) - (b.SerialNumber || 0))
+    .map((p) => users.get(refId(p.User)))
+    .filter((u, i, arr) => u && arr.findIndex((x) => x && x.id === u.id) === i)
+    .map((u) => ({ userId: u.id, pseudo: u.Pseudo, discordId: u.DiscordId || null, discordAvatar: u.DiscordAvatar || null }));
   const cards = uniqueCards(store)
-    .map((c) => ({ ...cardSummary(store, c), owned: mine.has(c.id), serialNumber: mine.has(c.id) ? mine.get(c.id) : null }))
+    .map((c) => ({ ...cardSummary(store, c), owned: mine.has(c.id), serialNumber: mine.has(c.id) ? mine.get(c.id) : null, owners: ownersOf(c.id) }))
     .sort((a, b) => (a.owned - b.owned) || a.name.localeCompare(b.name));
   return { tickets: Number(user.UniqueTickets) || 0, cards, remaining: cards.filter((c) => !c.owned).length };
 }
@@ -168,7 +177,24 @@ function handleCounter({ store, body }) {
   if (store.getAll('Pulls').some((p) => refId(p.User) === user.id && refId(p.Card) === card.id)) return fail('already_owned');
   store.update('Users', user.id, { UniqueTickets: (Number(user.UniqueTickets) || 0) - 1 });
   const granted = giveUniqueCard(store, user, card);
+  announce(user, granted);
   return ok({ redeemed: true, card: granted, ...counterState(store, store.get('Users', user.id)) });
+}
+
+// Annonce Discord (hors verrou, sans attendre : un echec ne bloque rien).
+function announce(user, card) {
+  const url = process.env.DISCORD_WEBHOOK_URL;
+  if (!url || typeof fetch !== 'function') return;
+  const body = {
+    embeds: [{
+      title: '🍀 Carte Unique obtenue !',
+      description: `**${user.Pseudo || 'Un joueur'}** a échangé un Ticket Unique contre **${card.name}** (#${String(card.serialNumber).padStart(3, '0')})${card.isFirstEver ? ' : premier exemplaire du serveur !' : '.'}`,
+      color: 0x22c55e
+    }]
+  };
+  setTimeout(() => {
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
+  }, 0);
 }
 
 export const routes = {

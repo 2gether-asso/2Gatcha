@@ -43,7 +43,7 @@
         </div>
         <div class="skill-level" id="dig-level" hidden></div>
         <div id="dig-kennel" class="dig-kennel" style="display:none;">
-          <span class="dig-kennel-dog" id="dig-kennel-dog" aria-hidden="true">&#128021;</span>
+          <span class="dig-kennel-dog-wrap" id="dig-kennel-dog-wrap" aria-hidden="true"><span class="dig-dog-cape"></span><span class="dig-kennel-dog" id="dig-kennel-dog">&#128021;</span><span class="dig-dog-collar"></span></span>
           <div class="dig-kennel-body">
             <div class="dig-kennel-title">Chenil <span class="dig-kennel-bones" id="dig-kennel-bones"></span></div>
             <div class="dig-kennel-text" id="dig-kennel-text"></div>
@@ -94,7 +94,12 @@
         <p class="lead" style="font-size:0.85rem;">Lance ta ligne contre quelques poussières : avec de la chance, tu remontes un os pour le chien, une clé, un booster, un coffre ou une pièce détachée (remplace un exemplaire dans l'atelier Finitions / Qualité). Plus tu pêches, plus ton niveau monte.</p>
         <div class="fish-scene" id="fish-scene" aria-live="polite">
           <div class="fish-sky" aria-hidden="true"></div>
-          <div class="fish-water" aria-hidden="true"><span class="fish-wave w1"></span><span class="fish-wave w2"></span><span class="fish-wave w3"></span></div>
+          <div class="fish-weather-fx" aria-hidden="true"></div>
+          <div class="fish-water" aria-hidden="true"><span class="fish-wave w1"></span><span class="fish-wave w2"></span><span class="fish-wave w3"></span>
+            <span class="fish-swim s1">&#128031;</span><span class="fish-swim s2">&#128032;</span><span class="fish-swim s3">&#128031;</span><span class="fish-swim s4 gold">&#128032;</span>
+          </div>
+          <div class="fish-rod" id="fish-rod" aria-hidden="true"></div>
+          <div class="fish-weather" id="fish-weather"></div>
           <div class="fish-line" id="fish-line" aria-hidden="true"><span class="fish-bobber"></span></div>
           <div class="fish-status" id="fish-status">Prêt à pêcher</div>
           <div class="fish-catch" id="fish-catch" hidden></div>
@@ -106,6 +111,10 @@
           <span class="fish-meta" id="fish-meta"></span>
         </div>
         <div class="fish-log" id="fish-log"></div>
+        <details class="fish-table-wrap fish-book-wrap">
+          <summary>&#128214; Carnet de pêche</summary>
+          <div class="fish-book" id="fish-book"></div>
+        </details>
         <details class="fish-table-wrap">
           <summary>Que peut-on pêcher ?</summary>
           <table class="fish-table" id="fish-table"></table>

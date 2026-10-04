@@ -65,7 +65,8 @@ L'autel ne vise jamais cette rarete.
 - `Users.SpareParts` : pieces detachees (pechees). Dans l'atelier Finitions
   ou Qualite, une piece remplace UN des exemplaires a consommer (5 -> 4, 3 -> 2).
 - `Users.FishingXP` / `Users.DigXP` : niveaux de peche et de fouille (1 a 10,
-  `api/src/native/levels.js`).
+  `api/src/native/levels.js`) ; `FishingWeek`/`FishingWeekXP`, `DigWeek`/`DigWeekXP` :
+  XP de la semaine (classement des metiers) ; `FishingRecords` : carnet de peche (JSON).
 
 ### Nouvelle rarete : Mythique (au-dessus de Legendaire)
 

@@ -583,6 +583,9 @@ const API = {
     return this.post("levelRewards", { discordId, action: "adminSet", rows });
   },
 
+  getSkillsLeaderboard() {
+    return this.get("skillsLeaderboard");
+  },
   uniqueCounter(userId, action, cardId) {
     return this.post("uniqueCounter", { userId, action, cardId });
   },

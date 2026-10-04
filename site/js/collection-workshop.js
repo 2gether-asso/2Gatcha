@@ -622,6 +622,7 @@
     });
     if (!selection) return;
     try {
+      if (selection.parts) await screwPartAnimation();
       const res = isFinish
         ? await API.foilUpgrade(Session.userId, cardId, from, selection)
         : await API.repairCardQuality(Session.userId, cardId, from, selection);

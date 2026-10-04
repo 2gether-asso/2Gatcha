@@ -21,17 +21,39 @@ function pvSerial(n) {
   return n != null ? `#${String(n).padStart(3, "0")}` : "";
 }
 
+// Tri / filtre des lignes (memorises dans le navigateur).
+const PV_VIEW_KEY = "2gatcha_pv_view";
+function pvView() {
+  try { return { sort: "progress", filter: "all", ...JSON.parse(localStorage.getItem(PV_VIEW_KEY) || "{}") }; } catch (e) { return { sort: "progress", filter: "all" }; }
+}
+function pvApplyView(rows) {
+  const v = pvView();
+  const keep = { all: () => true, almost: (r) => !r.complete && r.filled >= 4, open: (r) => !r.complete, done: (r) => r.complete }[v.filter] || (() => true);
+  const sorters = {
+    progress: (a, b) => (b.filled - a.filled) || ((b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0)) || a.name.localeCompare(b.name),
+    rarity: (a, b) => ((b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0)) || (b.filled - a.filled) || a.name.localeCompare(b.name),
+    name: (a, b) => a.name.localeCompare(b.name)
+  };
+  return rows.filter(keep).sort(sorters[v.sort] || sorters.progress);
+}
+let pvLastData = null;
+
 function pvRender(data) {
-  const rows = data.rows || [];
-  const complete = rows.filter((r) => r.complete).length;
+  pvLastData = data;
+  const allRows = data.rows || [];
+  const rows = pvApplyView(allRows);
+  const complete = allRows.filter((r) => r.complete).length;
   document.getElementById("pv-summary").innerHTML = `
-    <div class="stat-tile"><div class="stat-value">${rows.reduce((n, r) => n + r.filled, 0)}</div><div class="stat-label">Cartes protégées</div></div>
+    <div class="stat-tile"><div class="stat-value">${allRows.reduce((n, r) => n + r.filled, 0)}</div><div class="stat-label">Cartes protégées</div></div>
     <div class="stat-tile"><div class="stat-value">${complete}</div><div class="stat-label">Lignes complètes</div></div>
     <div class="pv-reward-note">Ligne complète (6 finitions en parfait état) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>${pvUniqueNote(data.unique)}, une seule fois par carte. Les cartes promo ne vont pas au coffre.</div>
   `;
   const box = document.getElementById("pv-rows");
+  document.getElementById("pv-toolbar").hidden = allRows.length < 2;
   if (!rows.length) {
-    box.innerHTML = `<p class="muted">Aucune carte en parfait état pour l'instant. Restaure tes cartes (Craft &rarr; Qualité) pour pouvoir les ranger ici.</p>`;
+    box.innerHTML = allRows.length
+      ? `<p class="muted">Aucune ligne ne correspond à ce filtre.</p>`
+      : `<p class="muted">Aucune carte en parfait état pour l'instant. Restaure tes cartes (Craft &rarr; Qualité) pour pouvoir les ranger ici.</p>`;
     return;
   }
   box.innerHTML = rows.map((r) => {
@@ -64,15 +86,33 @@ function pvRender(data) {
         ${best ? `<button type="button" class="pv-store" data-pull-id="${best.pullId}" title="Ranger ${pvSerial(best.serialNumber)}">Ranger ${pvSerial(best.serialNumber)}</button>` : `<span class="pv-slot-missing">&mdash;</span>`}
       </div>`;
     }).join("");
-    return `<div class="pv-row ${r.complete ? "complete" : ""}">
+    const missing = PV_FINISHES.filter((f) => !(r.slots.find((s) => s.finish === f) || {}).stored).map((f) => PV_FINISH_LABELS[f]);
+    const preview = !r.claimed && r.filled >= 4 && r.filled < 6
+      ? `<div class="pv-row-preview">Plus que <strong>${missing.join(" et ")}</strong> : ${data.boostersPerRow} boosters + ${data.dustPerRow} &#10024; + 1 &#127915;</div>`
+      : "";
+    return `<div class="pv-row ${r.complete ? "complete" : ""}" data-card-id="${r.cardId}">
       <div class="pv-row-head">
         <span class="pv-row-name">${r.name}</span>
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${r.rarity?.name || ""}</span>
         <span class="pv-row-progress">${r.filled}/6 ${r.claimed ? "&#10004; récompense reçue" : ""}</span>
       </div>
+      ${preview}
       <div class="pv-slots">${slots}</div>
     </div>`;
   }).join("");
+}
+
+// Ligne qui se scelle : les 6 emplacements se verrouillent un par un.
+function pvSealRow(cardId) {
+  const row = document.querySelector(`.pv-row[data-card-id="${cardId}"]`);
+  if (!row) return;
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+  row.classList.add("sealing");
+  row.querySelectorAll(".pv-slot").forEach((slot, i) => {
+    slot.style.setProperty("--seal-delay", `${i * 140}ms`);
+    setTimeout(() => { if (typeof Sfx !== "undefined" && Sfx._tone) Sfx._tone(320 + i * 60, 0, 0.12, "square", 0.05); }, i * 140);
+  });
+  setTimeout(() => row.classList.remove("sealing"), 1800);
 }
 
 // Carte Unique (verte) offerte a chaque ligne completee, tant qu'il en reste
@@ -104,11 +144,24 @@ function pvRenderCounter(st, fresh) {
   }
   grid.innerHTML = st.cards.map((c) => {
     const img = API.imageUrl(c.imageId) || "";
+    const owners = c.owners || [];
+    const shown = owners.slice(0, 5);
+    const ownersHtml = owners.length
+      ? `<div class="pv-owners" title="${owners.map((o, i) => `${i + 1}. ${o.pseudo}`).join(" · ")}">
+          ${shown.map((o, i) => `<span class="pv-owner ${i === 0 ? "first" : ""}">${o.discordAvatar ? `<img src="${o.discordAvatar}" alt="" />` : `<span>${(o.pseudo || "?").slice(0, 1)}</span>`}</span>`).join("")}
+          ${owners.length > 5 ? `<span class="pv-owner more">+${owners.length - 5}</span>` : ""}
+          <span class="pv-owners-label">1er : ${owners[0].pseudo}${owners.length > 1 ? ` · ${owners.length} propriétaires` : ""}</span>
+        </div>`
+      : `<div class="pv-owners empty">Personne ne l'a encore.</div>`;
     return `<div class="pv-counter-card ${c.owned ? "owned" : "missing"}">
-      <div class="collection-card" data-rarity="unique">
-        <div class="card-art"><img src="${img}" alt="${c.owned ? c.name : "Carte Unique à obtenir : " + c.name}" loading="lazy" /></div>
-        <div class="card-info"><div class="card-name">${c.name}</div></div>
+      <div class="pv-dome">
+        <div class="collection-card" data-rarity="unique">
+          <div class="card-art"><img src="${img}" alt="${c.owned ? c.name : "Carte Unique à obtenir : " + c.name}" loading="lazy" /></div>
+          <div class="card-info"><div class="card-name">${c.name}</div></div>
+        </div>
+        <span class="pv-dome-glass" aria-hidden="true"></span>
       </div>
+      ${ownersHtml}
       ${c.owned
         ? `<span class="pv-counter-owned">&#10004; Obtenue ${pvSerial(c.serialNumber)}</span>`
         : `<button type="button" class="btn pv-redeem" data-card-id="${c.cardId}" ${st.tickets ? "" : "disabled"}>Échanger 1 &#127915;</button>`}
@@ -134,6 +187,7 @@ async function pvRedeem(cardId) {
   pvBusy = true;
   try {
     const res = await API.uniqueCounter(Session.userId, "redeem", cardId);
+    await pvTearTicket();
     pvRenderCounter(res);
     pvRevealUnique(res.card);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
@@ -143,6 +197,20 @@ async function pvRedeem(cardId) {
   } finally {
     pvBusy = false;
   }
+}
+
+// Ticket qui se dechire le long des pointilles.
+function pvTearTicket() {
+  return new Promise((resolve) => {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) { resolve(); return; }
+    const overlay = document.createElement("div");
+    overlay.className = "ticket-tear-overlay";
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.innerHTML = `<div class="ticket-tear"><span class="ticket-half left">&#127915; TICKET</span><span class="ticket-half right">UNIQUE</span></div>`;
+    document.body.appendChild(overlay);
+    if (typeof Sfx !== "undefined" && Sfx._tone) setTimeout(() => Sfx._tone(180, 0, 0.18, "sawtooth", 0.04), 380);
+    setTimeout(() => { overlay.remove(); resolve(); }, 950);
+  });
 }
 
 // Revele les cartes une par une (la suivante a la fermeture de la precedente).
@@ -191,6 +259,7 @@ async function pvLoad(action, pullId) {
     if (action === "store") Toast.success("Carte rangée au coffre : elle est protégée.");
     if (action === "withdraw") Toast.info("Carte retirée du coffre : elle revient dans ta collection.");
     if (data.reward) {
+      pvSealRow(data.reward.cardId);
       Toast.success(`Ligne ${data.reward.cardName} complète ! +${data.reward.boosters} boosters, +${data.reward.dust} poussières${data.reward.ticket ? " et un Ticket Unique 🎫" : ""}.`);
       if (typeof loadNavBadges === "function") loadNavBadges();
     }
@@ -214,6 +283,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (store) pvLoad("store", Number(store.dataset.pullId));
     else if (withdraw) pvLoad("withdraw", Number(withdraw.dataset.pullId));
   });
+  const view = pvView();
+  document.getElementById("pv-sort").value = view.sort;
+  document.getElementById("pv-filter").value = view.filter;
+  ["pv-sort", "pv-filter"].forEach((id) => document.getElementById(id).addEventListener("change", () => {
+    try { localStorage.setItem(PV_VIEW_KEY, JSON.stringify({ sort: document.getElementById("pv-sort").value, filter: document.getElementById("pv-filter").value })); } catch (e) {}
+    if (pvLastData) pvRender(pvLastData);
+  }));
   document.getElementById("pv-counter-grid").addEventListener("click", (e) => {
     const btn = e.target.closest(".pv-redeem");
     if (btn) pvRedeem(Number(btn.dataset.cardId));

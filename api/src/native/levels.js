@@ -10,13 +10,22 @@
 //   - chenil : le chien creuse 5 % plus vite et a +3 points de flair par
 //     niveau (lus par dig.json).
 // Peche : voir fishing.js (XP par lancer, lancers en plus, meilleures prises).
+//
+// Classement des metiers (page Communaute) : XP gagnee dans la semaine (lundi
+// heure de Paris), meilleurs pecheurs et fouilleurs.
+//   GET /webhook/skills-leaderboard -> { week, fishing: [...], dig: [...] }
 
+import { ok, parisDay } from './common.js';
 import { setting } from './settings.js';
 
 export const MAX_LEVEL = 10;
 
 export const schema = {
-  Users: { DigXP: { type: 'Numeric' }, FishingXP: { type: 'Numeric' } }
+  Users: {
+    DigXP: { type: 'Numeric' }, FishingXP: { type: 'Numeric' },
+    DigWeek: { type: 'Text' }, DigWeekXP: { type: 'Numeric' },
+    FishingWeek: { type: 'Text' }, FishingWeekXP: { type: 'Numeric' }
+  }
 };
 
 export const threshold = (level, step) => (step * level * (level - 1)) / 2;
@@ -34,6 +43,44 @@ export function levelInfo(xp, step) {
     next: level < MAX_LEVEL ? threshold(level + 1, step) : null
   };
 }
+
+// Lundi de la semaine en cours (AAAA-MM-JJ, heure de Paris).
+export function weekKey(at = Date.now()) {
+  const day = parisDay(0, at);
+  const d = new Date(day + 'T12:00:00Z');
+  const back = (d.getUTCDay() + 6) % 7;
+  return parisDay(-back, at);
+}
+
+// Champs a ecrire pour ajouter de l'XP de la semaine (kind : 'Dig' | 'Fishing').
+export function weeklyXpFields(user, kind, xp) {
+  const week = weekKey();
+  const current = user[kind + 'Week'] === week ? Number(user[kind + 'WeekXP']) || 0 : 0;
+  return { [kind + 'Week']: week, [kind + 'WeekXP']: current + xp };
+}
+
+function board(store, kind, step) {
+  const week = weekKey();
+  return store.getAll('Users')
+    .map((u) => ({ u, xp: u[kind + 'Week'] === week ? Number(u[kind + 'WeekXP']) || 0 : 0 }))
+    .filter((x) => x.xp > 0)
+    .sort((a, b) => b.xp - a.xp)
+    .slice(0, 10)
+    .map((x, i) => ({
+      rank: i + 1, userId: x.u.id, pseudo: x.u.Pseudo, discordId: x.u.DiscordId || null, discordAvatar: x.u.DiscordAvatar || null,
+      weekXp: x.xp, level: levelFor(x.u[kind + 'XP'], step)
+    }));
+}
+
+function handleLeaderboard({ store }) {
+  return ok({
+    week: weekKey(),
+    fishing: board(store, 'Fishing', setting(store, 'FishingLevelXpStep')),
+    dig: board(store, 'Dig', setting(store, 'DigLevelXpStep'))
+  });
+}
+
+export const routes = { 'GET skills-leaderboard': handleLeaderboard };
 
 export function digPerks(level) {
   return { energyBonus: Math.floor(level / 2), regenReduction: 0.05 * (level - 1), dustBonus: 0.1 * (level - 1), dogSpeed: 0.05 * (level - 1), dogFlair: 0.03 * (level - 1) };
@@ -53,7 +100,8 @@ export function afterWorkflow({ store, path, request, response }) {
   const json = response.json;
   const before = digLevel(store, user);
   if (body.action === 'dig' && json.dug) {
-    const fields = { DigXP: (Number(user.DigXP) || 0) + 1 + (json.revealed ? 5 : 0) };
+    const gained = 1 + (json.revealed ? 5 : 0);
+    const fields = { DigXP: (Number(user.DigXP) || 0) + gained, ...weeklyXpFields(user, 'Dig', gained) };
     const bonus = json.dustGained > 0 ? Math.round(json.dustGained * before.perks.dustBonus) : 0;
     if (bonus) {
       fields.StardustCount = (Number(user.StardustCount) || 0) + bonus;

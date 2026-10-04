@@ -27,6 +27,7 @@
         <button type="button" class="tab" id="tab-boss-btn" role="tab" aria-selected="false">&#128128; Boss</button>
         <button type="button" class="tab" id="tab-chest-btn" role="tab" aria-selected="false">&#127873; Coffre de guilde</button>
         <button type="button" class="tab" id="tab-market-btn" role="tab" aria-selected="false">&#127761; Marché noir</button>
+        <button type="button" class="tab" id="tab-skills-btn" role="tab" aria-selected="false">&#127942; Métiers</button>
       </div>
 
       <div id="calendar-pane">
@@ -96,6 +97,11 @@
           </div>
           <div id="chest-card-grid" class="craft-grid"></div>
         </div>
+      </div>
+
+      <div id="skills-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Les meilleurs pêcheurs et fouilleurs de la semaine (XP gagnée depuis lundi). Le premier de chaque métier porte la couronne jusqu'à lundi prochain.</p>
+        <div id="skills-boards" class="skills-boards"><div class="loading-row"><div class="spinner"></div></div></div>
       </div>
 
       <div id="market-pane" style="display:none;">

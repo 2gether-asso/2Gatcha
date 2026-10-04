@@ -39,44 +39,76 @@ let digBusy = false;
 // -----------------------------------------------------------------------
 // Niveaux de metier (api/src/native/levels.js) : peche et fouille, 1 a 10.
 // -----------------------------------------------------------------------
-function renderSkillLevel(id, icon, name, info, perks) {
+// Outil affiche selon le niveau (purement visuel).
+const DIG_TOOLS = [
+  { min: 1, key: "bois", name: "Pelle en bois", icon: "&#129706;" },
+  { min: 4, key: "fer", name: "Pelle en fer", icon: "&#9935;&#65039;" },
+  { min: 7, key: "or", name: "Pelle dorée", icon: "&#9935;&#65039;" },
+  { min: 10, key: "legende", name: "Pelle de légende", icon: "&#10024;" }
+];
+const FISH_RODS = [
+  { min: 1, key: "bambou", name: "Canne en bambou" },
+  { min: 4, key: "carbone", name: "Canne en carbone" },
+  { min: 7, key: "or", name: "Canne dorée" },
+  { min: 10, key: "legende", name: "Canne de légende" }
+];
+const toolFor = (list, level) => [...list].reverse().find((t) => level >= t.min) || list[0];
+let digLevelCache = 1;
+
+function digPerkTexts(p = {}) {
+  return [
+    p.energyBonus ? `+${p.energyBonus} énergie max` : "",
+    p.regenReduction ? `recharge ${Math.round(p.regenReduction * 100)} % plus rapide` : "",
+    p.dustBonus ? `+${Math.round(p.dustBonus * 100)} % de poussières trouvées` : "",
+    p.dogSpeed ? `chien ${Math.round(p.dogSpeed * 100)} % plus rapide, plus de flair` : ""
+  ];
+}
+function fishPerkTexts(p = {}) {
+  return [
+    p.extraCasts ? `+${p.extraCasts} lancers par jour` : "",
+    p.emptyReduction ? `${Math.round(p.emptyReduction * 100)} % de prises vides en moins` : "",
+    p.rareBoost ? `+${Math.round(p.rareBoost * 100)} % de chances de prises rares` : ""
+  ];
+}
+
+function renderSkillLevel(id, icon, name, info, perks, tool) {
   const el = document.getElementById(id);
   if (!el || !info) return;
   el.hidden = false;
   const pct = info.next == null ? 100 : Math.min(100, ((info.xp - info.current) / (info.next - info.current)) * 100);
   el.innerHTML = `
     <div class="skill-level-head">
-      <span class="skill-level-badge">${icon} ${name} <strong>niv. ${info.level}</strong>${info.level >= info.max ? " (max)" : ""}</span>
+      <span class="skill-level-badge">${icon} ${name} <strong>niv. ${info.level}</strong>${info.level >= info.max ? " (max)" : ""}${tool ? ` <span class="skill-tool tool-${tool.key}">${tool.name}</span>` : ""}</span>
       <span class="skill-level-xp">${info.next == null ? `${info.xp} XP` : `${info.xp - info.current} / ${info.next - info.current} XP`}</span>
     </div>
     <div class="skill-level-bar" role="progressbar" aria-label="Progression ${name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="skill-level-fill" style="width:${pct}%"></div></div>
     <div class="skill-level-perks">${perks.filter(Boolean).map((p) => `<span>${p}</span>`).join("") || "<span>Joue pour monter de niveau : chaque niveau donne un bonus.</span>"}</div>`;
 }
 
-function announceLevelUp(icon, name, level) {
-  Toast.success(`${icon} ${name} : niveau ${level} atteint !`);
-  if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.6 } });
+function announceLevelUp(icon, name, level, info) {
+  const isDig = name === "Fouille";
+  const list = isDig ? DIG_TOOLS : FISH_RODS;
+  const tool = toolFor(list, level);
+  const newTool = toolFor(list, level - 1).key !== tool.key ? tool.name : "";
+  LevelUpModal.show({ icon, name, level, tool: newTool, perks: (isDig ? digPerkTexts : fishPerkTexts)(info && info.perks) });
 }
 
 function renderDigLevel(info) {
   if (!info) return;
-  const p = info.perks || {};
-  renderSkillLevel("dig-level", "&#9935;&#65039;", "Fouille", info, [
-    p.energyBonus ? `+${p.energyBonus} énergie max` : "",
-    p.regenReduction ? `recharge ${Math.round(p.regenReduction * 100)} % plus rapide` : "",
-    p.dustBonus ? `+${Math.round(p.dustBonus * 100)} % de poussières trouvées` : "",
-    p.dogSpeed ? `chien ${Math.round(p.dogSpeed * 100)} % plus rapide, plus de flair` : ""
-  ]);
+  digLevelCache = info.level;
+  const tool = toolFor(DIG_TOOLS, info.level);
+  renderSkillLevel("dig-level", tool.icon, "Fouille", info, digPerkTexts(info.perks), tool);
+  document.getElementById("dig-pane").dataset.shovel = tool.key;
+  // Collier du chien : couleur selon le niveau, cape au niveau max.
+  const dog = document.getElementById("dig-kennel-dog-wrap");
+  if (dog) dog.dataset.tier = info.level >= 10 ? "cape" : info.level >= 7 ? "or" : info.level >= 4 ? "bleu" : "rouge";
 }
 
 function renderFishLevel(info) {
   if (!info) return;
-  const p = info.perks || {};
-  renderSkillLevel("fish-level", "&#127907;", "Pêche", info, [
-    p.extraCasts ? `+${p.extraCasts} lancers par jour` : "",
-    p.emptyReduction ? `${Math.round(p.emptyReduction * 100)} % de prises vides en moins` : "",
-    p.rareBoost ? `+${Math.round(p.rareBoost * 100)} % de chances de prises rares` : ""
-  ]);
+  const rod = toolFor(FISH_RODS, info.level);
+  renderSkillLevel("fish-level", "&#127907;", "Pêche", info, fishPerkTexts(info.perks), rod);
+  document.getElementById("fish-rod").dataset.rod = rod.key;
 }
 
 const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#128142;", booster: "&#127183;", card: "&#127942;", rareCard: "&#127775;" };
@@ -183,9 +215,10 @@ function spawnDigDustBurst(tileEl) {
   const rect = tileEl.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
-  const colors = ["#8a6a4a", "#6b4f36", "#a9815a", "#5a4229"];
+  const colors = digLevelCache >= 10 ? ["#f5d76e", "#ffe9b8", "#a9815a", "#22c55e"] : digLevelCache >= 7 ? ["#d4af37", "#a9815a", "#6b4f36", "#f5d76e"] : ["#8a6a4a", "#6b4f36", "#a9815a", "#5a4229"];
   const layer = getParticleLayer();
-  for (let i = 0; i < 10; i++) {
+  const specks = 10 + Math.min(18, digLevelCache * 2);
+  for (let i = 0; i < specks; i++) {
     const speck = document.createElement("span");
     speck.className = "dig-dust-speck";
     const angle = Math.PI + Math.random() * Math.PI; // vers le haut, en eventail
@@ -248,9 +281,33 @@ function announceDogReport(r) {
     if (r.boosters) parts.push(`+${r.boosters} booster${r.boosters > 1 ? "s" : ""}`);
     if (r.keys) parts.push(`+${r.keys} &#128273;`);
     (r.cards || []).forEach((c) => parts.push(`&#127183; ${c.name}${c.serialNumber != null ? " #" + String(c.serialNumber).padStart(3, "0") : ""}`));
-    Toast.success(`&#128021; Le chien a creusé ${r.tiles} tuile${r.tiles > 1 ? "s" : ""}${parts.length ? " : " + parts.join(", ") : " (rien trouvé)"}.`);
+    showDogPostcard(r, parts);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   }
+}
+
+// Carte postale du chien : ce qu'il a rapporte pendant ton absence.
+function showDogPostcard(r, parts) {
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay dog-postcard-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "Rapport du chien");
+  overlay.innerHTML = `
+    <div class="dog-postcard">
+      <div class="dog-postcard-stamp" aria-hidden="true">&#128062;</div>
+      <div class="dog-postcard-pic" aria-hidden="true">&#128021;&#9935;&#65039;</div>
+      <div class="dog-postcard-text">
+        <div class="dog-postcard-title">Bons baisers du chantier !</div>
+        <p>Pendant ton absence, j'ai creusé <strong>${r.tiles} tuile${r.tiles > 1 ? "s" : ""}</strong>.</p>
+        ${parts.length ? `<ul>${parts.map((p) => `<li>${p}</li>`).join("")}</ul>` : "<p>Rien trouvé cette fois… mais j'ai bien remué la terre !</p>"}
+        <div class="dog-postcard-sign">Ton chien, Wouf &#128062;</div>
+      </div>
+      <button type="button" class="btn dog-postcard-close">Merci !</button>
+    </div>`;
+  const close = () => { overlay.remove(); syncScrollLock(); };
+  overlay.addEventListener("click", (e) => { if (e.target === overlay || e.target.closest(".dog-postcard-close")) close(); });
+  document.body.appendChild(overlay);
+  syncScrollLock();
 }
 
 async function kennelAction(kind, btn) {
@@ -280,7 +337,7 @@ async function doDig(tileIndex, tileEl) {
     renderDigBoard(res.tiles || [], res.sniffTile);
     announceDogReport(res.dogReport);
     renderDigLevel(res.digLevel);
-    if (res.levelUp) announceLevelUp("&#9935;&#65039;", "Fouille", res.levelUp);
+    if (res.levelUp) announceLevelUp(toolFor(DIG_TOOLS, res.levelUp).icon, "Fouille", res.levelUp, res.digLevel);
 
     resultEl.style.display = "block";
     if (res.outcome === "partial") {
@@ -334,9 +391,30 @@ function fishCatchText(c) {
   return `${c.amount > 1 ? c.amount + " × " : ""}${c.label}`;
 }
 
+function renderFishBook(records) {
+  const el = document.getElementById("fish-book");
+  if (!el || !records) return;
+  const fmt = (t) => (t ? new Date(t * 1000).toLocaleDateString("fr-FR") : "—");
+  el.innerHTML = `<div class="fish-book-grid">${records.map((r) => `
+    <div class="fish-book-entry tier-${r.tier} ${r.count ? "" : "unseen"}">
+      <span class="fish-book-icon" aria-hidden="true">${r.count ? FISH_ICONS[r.type] || "" : "&#10067;"}</span>
+      <span class="fish-book-name">${r.count ? r.label : "???"}</span>
+      <span class="fish-book-meta">${r.count ? `${r.count} prise${r.count > 1 ? "s" : ""} · 1re le ${fmt(r.first)}${r.type === "dust" && r.best ? ` · record ${r.best} &#10024;` : ""}` : "Jamais pêché"}</span>
+    </div>`).join("")}</div>`;
+}
+
+function renderFishWeather(w) {
+  if (!w) return;
+  const scene = document.getElementById("fish-scene");
+  scene.dataset.weather = w.key;
+  document.getElementById("fish-weather").innerHTML = `<span>${w.icon} ${w.label}</span> <small>${w.effect}</small>`;
+}
+
 function renderFishing(st) {
   fishState = st;
   renderFishLevel(st.level);
+  renderFishWeather(st.weather);
+  renderFishBook(st.records);
   const left = st.castsLeft == null ? "illimités" : `${st.castsLeft} restant${st.castsLeft > 1 ? "s" : ""} aujourd'hui`;
   document.getElementById("fish-meta").innerHTML = `${st.cost} &#10024; le lancer · ${left} · tu as ${st.stardust} &#10024;`;
   document.getElementById("fish-cast-btn").innerHTML = `&#127907; Lancer (${st.cost} &#10024;)`;
@@ -377,7 +455,12 @@ async function castFishing(count) {
     const best = res.catches.reduce((a, c) => (["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(c.tier) > ["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(a.tier) ? c : a), res.catches[0]);
     catchEl.hidden = false;
     catchEl.className = "fish-catch tier-" + best.tier;
-    catchEl.innerHTML = res.catches.map((c) => `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}</span>`).join("");
+    catchEl.innerHTML = "";
+    for (const [i, c] of res.catches.entries()) {
+      if (i) await fishWait(320);
+      catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}${c.first ? ' <span class="fish-new">1re !</span>' : c.record ? ' <span class="fish-new">record !</span>' : ""}</span>`);
+      if (typeof Sfx !== "undefined" && Sfx.click && res.catches.length > 1) Sfx.click();
+    }
     status.textContent = res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" ? "Pas de chance…" : "Belle prise !");
     if (["epique", "legendaire", "mythique"].includes(best.tier) && typeof confetti === "function") confetti({ particleCount: best.tier === "mythique" ? 180 : 90, spread: 90, origin: { y: 0.55 } });
     const log = document.getElementById("fish-log");
@@ -385,7 +468,7 @@ async function castFishing(count) {
     while (log.children.length > 20) log.lastElementChild.remove();
     fishBusy = false;
     renderFishing(res);
-    if (res.levelUp) announceLevelUp("&#127907;", "Pêche", res.levelUp);
+    if (res.levelUp) announceLevelUp("&#127907;", "Pêche", res.levelUp, res.level);
     if (res.catches.some((c) => c.type === "part")) Toast.info("&#128297; Pièce détachée : dans l'atelier (Finitions ou Qualité), elle remplace un des exemplaires à consommer.");
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
