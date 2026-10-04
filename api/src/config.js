@@ -13,6 +13,13 @@ export const config = {
   siteDir: env.SITE_DIR || '',
   // Adresse de l'API injectee dans le js/config.js du site servi par l'API.
   siteApiBase: env.SITE_API_BASE || '/webhook/',
+  // Sauvegardes vers Azure Blob Storage (vide = desactivees), voir backup.js.
+  backup: {
+    sasUrl: env.AZURE_BACKUP_SAS_URL || '',
+    prefix: env.BACKUP_PREFIX || 'backups',
+    hours: Number(env.BACKUP_INTERVAL_HOURS || 6),
+    retentionDays: Number(env.BACKUP_RETENTION_DAYS || 30)
+  },
   // Mot de passe de la page d'administration de la base (vide = desactivee).
   adminToken: env.ADMIN_TOKEN || '',
   // Origines autorisees pour le CORS ("*" par defaut, comme les webhooks n8n).

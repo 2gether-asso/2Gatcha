@@ -130,13 +130,14 @@ function logout() {
 }
 
 function setTab(tab) {
-  ["images", "tables"].forEach((t) => {
+  ["images", "tables", "backups"].forEach((t) => {
     const btn = document.getElementById(`adb-tab-${t}`);
     btn.classList.toggle("active", t === tab);
     btn.setAttribute("aria-selected", String(t === tab));
     document.getElementById(`adb-${t}-pane`).style.display = t === tab ? "" : "none";
   });
   if (tab === "tables" && !adb.table && adb.tables.length) loadRows(document.getElementById("adb-table").value);
+  if (tab === "backups") loadBackups();
 }
 
 // ------------------------------------------------------------- images
@@ -457,6 +458,38 @@ async function refreshTables() {
   if (current) document.getElementById("adb-table").value = current;
 }
 
+// ------------------------------------------------------------- sauvegardes
+async function loadBackups() {
+  const statusBox = document.getElementById("adb-backup-status");
+  const listBox = document.getElementById("adb-backup-list");
+  try {
+    const { status, backups } = await adbFetch("/admin/api/backups");
+    const last = status.lastBackup;
+    statusBox.innerHTML = (last ? `<p>Dernière sauvegarde depuis le démarrage de l'API : <strong>${new Date(last.at).toLocaleString("fr-FR")}</strong> (${formatBytes(last.size)})</p>` : "")
+      + (status.lastError ? `<div class="error-box">Dernier échec (${new Date(status.lastError.at).toLocaleString("fr-FR")}) : ${escapeHtml(status.lastError.message)}</div>` : "");
+    listBox.innerHTML = backups.length
+      ? `<div class="adb-table-wrap"><table class="adb-table"><thead><tr><th>Date</th><th>Taille</th><th>Nom (pour npm run restore)</th></tr></thead><tbody>${backups.map((b) => `<tr><td>${new Date(b.date).toLocaleString("fr-FR")}</td><td>${formatBytes(b.size)}</td><td><code>${escapeHtml(b.name.split("/").pop())}</code></td></tr>`).join("")}</tbody></table></div>`
+      : `<p class="adb-help">Aucune sauvegarde pour l'instant.</p>`;
+  } catch (err) {
+    statusBox.innerHTML = `<div class="error-box">${err.status === 503 ? "Sauvegardes désactivées : AZURE_BACKUP_SAS_URL n'est pas configuré sur le serveur." : escapeHtml(err.message)}</div>`;
+    listBox.innerHTML = "";
+  }
+}
+
+async function backupNow(e) {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    const { status } = await adbFetch("/admin/api/backups", { method: "POST" });
+    Toast.success(`Sauvegarde envoyée (${formatBytes(status.lastBackup.size)}).`);
+    await loadBackups();
+  } catch (err) {
+    Toast.error(`Échec de la sauvegarde : ${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ------------------------------------------------------------- init
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adb-api-url").value = adbLoad(ADB_URL_KEY) || defaultApiUrl();
@@ -465,6 +498,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adb-logout").addEventListener("click", logout);
   document.getElementById("adb-tab-images").addEventListener("click", () => setTab("images"));
   document.getElementById("adb-tab-tables").addEventListener("click", () => setTab("tables"));
+  document.getElementById("adb-tab-backups").addEventListener("click", () => setTab("backups"));
+  document.getElementById("adb-backup-now").addEventListener("click", backupNow);
 
   const quality = document.getElementById("adb-quality");
   quality.addEventListener("input", () => { document.getElementById("adb-quality-label").textContent = quality.value; });

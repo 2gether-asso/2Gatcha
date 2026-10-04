@@ -13,6 +13,7 @@ import { config } from './config.js';
 import { Store } from './store.js';
 import { WorkflowRunner } from './runtime.js';
 import { createAdmin } from './admin.js';
+import { AzureBackup, startBackupSchedule } from './backup.js';
 
 const store = new Store(config.dbPath);
 const runner = new WorkflowRunner({ store, overrides: config.overrides });
@@ -140,7 +141,14 @@ function serveImage(req, res, url) {
   send(res, req, 200, { 'Content-Type': att.mime || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' }, Buffer.from(att.data));
 }
 
-const handleAdmin = createAdmin({ store, withLock, token: config.adminToken, sendJson });
+// Sauvegardes automatiques (si AZURE_BACKUP_SAS_URL est configure).
+let backups = null;
+if (config.backup.sasUrl) {
+  const backup = new AzureBackup({ sasUrl: config.backup.sasUrl, prefix: config.backup.prefix });
+  backups = { backup, ...startBackupSchedule({ store, backup, hours: config.backup.hours, retentionDays: config.backup.retentionDays }) };
+}
+
+const handleAdmin = createAdmin({ store, withLock, token: config.adminToken, sendJson, backups });
 
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
@@ -148,7 +156,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') return send(res, req, 204, {}, '');
     if (url.pathname.startsWith('/admin/api/')) return await handleAdmin(req, res, url);
-    if (url.pathname === '/health') return sendJson(res, req, 200, { ok: true, workflows: routes.size, tables: store.stats() });
+    if (url.pathname === '/health') return sendJson(res, req, 200, { ok: true, workflows: routes.size, tables: store.stats(), backups: backups ? { enabled: true, lastBackupAt: backups.status.lastBackup?.at || null, lastError: backups.status.lastError } : { enabled: false } });
 
     const m = url.pathname.match(/^\/webhook\/(.+?)\/?$/);
     if (m) {

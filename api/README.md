@@ -54,9 +54,39 @@ Si la publication échoue avec une erreur de permission, autorise l'écriture
 des paquets par les workflows : dépôt > Settings > Actions > General >
 Workflow permissions.
 
-La base vit dans `data/2gatcha.sqlite` (volume). Pour la sauvegarder, il
-suffit de copier ce fichier, idéalement API arrêtée, ou avec
-`sqlite3 2gatcha.sqlite ".backup save.sqlite"`.
+La base vit dans `data/2gatcha.sqlite` (volume) : tables, comptes joueurs **et
+images**, tout est dans ce seul fichier.
+
+### Sauvegardes Azure Blob (recommandé)
+
+Avec `AZURE_BACKUP_SAS_URL` renseigné, l'API envoie toutes les 6 h
+(`BACKUP_INTERVAL_HOURS`) une copie cohérente et compressée de la base vers un
+conteneur Azure Blob : `backups/2gatcha-<date>.sqlite.gz`. Un créneau est
+sauté si rien n'a changé depuis la sauvegarde précédente. Les sauvegardes de
+plus de 30 jours (`BACKUP_RETENTION_DAYS`) sont supprimées, mais les 3 plus
+récentes sont toujours gardées.
+
+1. Dans le portail Azure, crée un conteneur **privé** (ex. `2gatcha-backups`)
+   dans un compte de stockage.
+2. Sur ce conteneur, génère un **SAS** avec les droits *Read, Add, Create,
+   Write, Delete, List* et une expiration lointaine (note-la : il faudra le
+   renouveler). Copie l'« URL SAS d'objet blob » dans `AZURE_BACKUP_SAS_URL`.
+   Le SAS ne donne accès qu'à ce conteneur, pas au reste du compte.
+
+Commandes :
+
+```bash
+docker compose run --rm api npm run backup             # sauvegarde immédiate
+docker compose run --rm api npm run backup -- --list   # liste des sauvegardes
+docker compose stop api                                # restauration :
+docker compose run --rm api npm run restore -- latest  #   (ou le nom d'une sauvegarde)
+docker compose start api
+```
+
+La restauration vérifie le fichier avant de l'utiliser et ne supprime jamais
+la base actuelle : elle est renommée en `2gatcha.sqlite.avant-restauration-<date>`.
+L'onglet **Sauvegardes** de `admin-db.html` affiche la liste et permet de
+lancer une sauvegarde à la main. `/health` indique la date de la dernière.
 
 **Un seul conteneur pour tout** : il sert l'API (`/webhook/...`), la page
 d'administration et le site, derrière ton reverse proxy habituel (Caddy,
@@ -114,6 +144,8 @@ maintenance.
 | `ALLOWED_ORIGINS` | origines CORS autorisées (`*` par défaut) |
 | `ADMIN_TOKEN` | mot de passe de `admin-db.html` (vide = administration désactivée) |
 | `DISCORD_CLIENT_SECRET`, `DISCORD_WEBHOOK_URL` | secrets injectés dans les nœuds « Set Config » à la place des `CHANGE-MOI` |
+| `AZURE_BACKUP_SAS_URL` | URL SAS du conteneur Azure Blob des sauvegardes (vide = désactivées) |
+| `BACKUP_PREFIX`, `BACKUP_INTERVAL_HOURS`, `BACKUP_RETENTION_DAYS` | dossier, fréquence (h) et conservation (jours) des sauvegardes |
 | `GRIST_URL`, `GRIST_DOC`, `GRIST_API_KEY` | import initial uniquement |
 
 ## Limites connues

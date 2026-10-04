@@ -66,6 +66,9 @@ export class Store {
   // tests sur une base d'essai, jamais en production.
   constructor(dbPath, { lenient = false } = {}) {
     this.lenient = lenient;
+    // Compteur de modifications : permet aux sauvegardes de sauter un
+    // creneau quand rien n'a change.
+    this.changes = 0;
     fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
     this.db = new DatabaseSync(dbPath);
     this.db.exec(`
@@ -156,6 +159,7 @@ export class Store {
     t.rows.set(id, json);
     t.snapshot = null;
     this.stmt.upsertRow.run(t.name, id, json);
+    this.changes++;
   }
 
   create(name, fields) {
@@ -193,6 +197,7 @@ export class Store {
     t.rows.delete(id);
     t.snapshot = null;
     this.stmt.deleteRow.run(name, id);
+    this.changes++;
     return true;
   }
 
@@ -228,10 +233,12 @@ export class Store {
 
   deleteAttachment(id) {
     this.db.prepare('DELETE FROM attachments WHERE id = ?').run(Number(id));
+    this.changes++;
   }
 
   putAttachment(id, fileName, mime, data) {
     this.stmt.putAttachment.run(Number(id), fileName, mime, data);
+    this.changes++;
   }
 
   nextAttachmentId() {
@@ -250,6 +257,12 @@ export class Store {
       this.load();
       throw e;
     }
+  }
+
+  // Copie coherente de la base dans un fichier (SQLite VACUUM INTO) : sure
+  // meme pendant que l'API tourne.
+  snapshotTo(file) {
+    this.db.exec("VACUUM INTO '" + String(file).replace(/'/g, "''") + "'");
   }
 
   stats() {

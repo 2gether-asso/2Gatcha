@@ -11,6 +11,8 @@
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "import": "node --disable-warning=ExperimentalWarning scripts/import-grist.js",
     "test": "node --disable-warning=ExperimentalWarning scripts/selftest.js",
-    "compare": "node scripts/compare.js"
+    "compare": "node scripts/compare.js",
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
+    "restore": "node --disable-warning=ExperimentalWarning scripts/restore.js"
   }
 }

@@ -45,7 +45,7 @@ function attachmentIds(row, columns) {
   return ids;
 }
 
-export function createAdmin({ store, withLock, token, sendJson }) {
+export function createAdmin({ store, withLock, token, sendJson, backups = null }) {
   return async function handleAdmin(req, res, url) {
     if (!token) return sendJson(res, req, 503, { error: 'admin_disabled', message: 'ADMIN_TOKEN non configure sur le serveur.' });
     const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -168,6 +168,20 @@ export function createAdmin({ store, withLock, token, sendJson }) {
         return { id };
       });
       return sendJson(res, req, 200, { ...result, size: data.length, mime });
+    }
+
+    // GET /admin/api/backups : liste + etat ; POST : sauvegarder maintenant.
+    if (section === 'backups') {
+      if (!backups) return sendJson(res, req, 503, { error: 'backups_disabled', message: 'AZURE_BACKUP_SAS_URL non configure sur le serveur.' });
+      if (method === 'POST') {
+        const status = await backups.run(true);
+        if (status.lastError && (!status.lastBackup || status.lastError.at > status.lastBackup.at)) return sendJson(res, req, 502, { error: 'backup_failed', message: status.lastError.message });
+        return sendJson(res, req, 200, { status });
+      }
+      if (method === 'GET') {
+        const list = await backups.backup.list();
+        return sendJson(res, req, 200, { status: backups.status, backups: list.slice(0, 100) });
+      }
     }
 
     return sendJson(res, req, 404, { error: 'not_found' });

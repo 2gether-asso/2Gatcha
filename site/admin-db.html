@@ -35,6 +35,7 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" id="adb-tab-images" role="tab" aria-selected="true">&#128444; Images</button>
           <button type="button" class="tab" id="adb-tab-tables" role="tab" aria-selected="false">&#128202; Tables</button>
+          <button type="button" class="tab" id="adb-tab-backups" role="tab" aria-selected="false">&#9729; Sauvegardes</button>
           <button type="button" class="btn-secondary adb-logout" id="adb-logout">Se déconnecter</button>
         </div>
 
@@ -71,6 +72,18 @@
               </div>
             </div>
             <div id="adb-img-grid" class="adb-img-grid"></div>
+          </div>
+        </section>
+
+        <section id="adb-backups-pane" style="display:none;">
+          <div class="adb-card">
+            <div class="adb-row adb-row-between">
+              <h2>Sauvegardes Azure Blob</h2>
+              <button type="button" class="btn" id="adb-backup-now">&#9729; Sauvegarder maintenant</button>
+            </div>
+            <p class="adb-help">La base entière (tables, joueurs et images) est copiée automatiquement vers Azure Blob Storage. Pour restaurer : <code>docker compose stop api</code>, puis <code>docker compose run --rm api npm run restore -- latest</code> (ou le nom d'une sauvegarde), puis <code>docker compose start api</code>.</p>
+            <div id="adb-backup-status"></div>
+            <div id="adb-backup-list"></div>
           </div>
         </section>
 
