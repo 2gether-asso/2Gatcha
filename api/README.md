@@ -130,8 +130,20 @@ maintenance.
   **dans le navigateur** avant l'envoi. Remplacer une image existante crée une
   nouvelle pièce jointe et redirige les cartes vers elle (les navigateurs
   gardent les images en cache un an).
-- **Tables** : édition directe des cellules, ajout et suppression de lignes,
-  ajout de colonnes. C'est ce qui remplace l'édition dans Grist.
+- **Tables** : édition directe des cellules, ajout et suppression de lignes.
+  C'est ce qui remplace l'édition dans Grist.
+- **Structure** (bouton « Structure » ou clic sur un en-tête de colonne) :
+  ajouter, renommer, changer le type (les valeurs existantes sont
+  reconverties) et supprimer des colonnes ; créer, renommer (les colonnes
+  référence suivent) et supprimer des tables. Avant un renommage ou une
+  suppression, la page liste les workflows qui mentionnent ce nom : ils
+  cassent tant que leur code n'est pas adapté.
+
+Les colonnes que Grist marquait « formule » sans formule (colonnes jamais
+remplies) sont traitées comme des colonnes de données, et corrigées
+automatiquement en base au démarrage de l'API. Une vraie formule Grist ne peut
+pas être exécutée par l'API : sa colonne reste en lecture seule jusqu'à ce
+qu'on la convertisse en données depuis « Structure ».
 
 ## Configuration (`.env`)
 

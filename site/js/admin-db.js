@@ -318,6 +318,7 @@ async function loadRows(table, offset = 0) {
   adb.total = data.total;
   adb.columns = data.columns;
   renderGrid();
+  renderSchema();
 }
 
 function colType(col) {
@@ -343,7 +344,7 @@ function renderGrid() {
   const cols = Object.keys(adb.columns);
   const grid = document.getElementById("adb-grid");
   grid.innerHTML = `
-    <thead><tr><th>id</th>${cols.map((c) => `<th title="${escapeHtml(adb.columns[c].type)}">${escapeHtml(c)}<span class="adb-col-type">${escapeHtml(colType(c))}</span></th>`).join("")}<th></th></tr></thead>
+    <thead><tr><th>id</th>${cols.map((c) => `<th class="adb-col-head" data-head-col="${escapeHtml(c)}" title="${escapeHtml(adb.columns[c].type)} - cliquer pour modifier la colonne">${escapeHtml(c)}<span class="adb-col-type">${escapeHtml(colType(c))}</span></th>`).join("")}<th></th></tr></thead>
     <tbody>${adb.rows.map((r) => `<tr data-row-id="${r.id}"><td class="adb-id">${r.id}</td>${cols.map((c) => `<td data-col="${escapeHtml(c)}" class="adb-cell adb-type-${colType(c).toLowerCase()}">${cellHtml(r, c)}</td>`).join("")}<td><button type="button" class="adb-del" data-del-row="${r.id}" title="Supprimer la ligne">&#128465;</button></td></tr>`).join("")}</tbody>`;
   const end = Math.min(adb.offset + adb.limit, adb.total);
   document.getElementById("adb-page-info").textContent = adb.total ? `Lignes ${adb.offset + 1}–${end} sur ${adb.total}` : "Aucune ligne";
@@ -416,7 +417,7 @@ async function addRow() {
 }
 
 async function deleteRow(id) {
-  if (!window.confirm(`Supprimer définitivement la ligne #${id} de ${adb.table} ?`)) return;
+  if (!(await Confirm.show(`Supprimer définitivement la ligne #${id} de <strong>${escapeHtml(adb.table)}</strong> ?`, { title: "Supprimer la ligne", confirmText: "Supprimer", dangerous: true }))) return;
   try {
     await adbFetch(`/admin/api/tables/${encodeURIComponent(adb.table)}/rows/${id}`, { method: "DELETE" });
     Toast.success(`Ligne #${id} supprimée.`);
@@ -425,16 +426,216 @@ async function deleteRow(id) {
   } catch (err) { Toast.error(err.message); }
 }
 
-async function addColumn() {
-  const id = window.prompt("Identifiant de la nouvelle colonne (ex. ExpeditionCard) :");
-  if (!id) return;
-  const type = window.prompt("Type : Text, Numeric, Int, Bool, Ref:Table, RefList:Table, Attachments, DateTime, Any", "Numeric");
-  if (!type) return;
+// ------------------------------------------------------------- structure
+// Types proposes (memes noms que Grist). Ref / RefList demandent la table visee.
+const ADB_TYPES = [
+  ["Text", "Texte"], ["Numeric", "Nombre"], ["Int", "Entier"], ["Bool", "Oui / non"],
+  ["DateTime", "Date et heure"], ["Date", "Date"], ["Choice", "Choix"], ["ChoiceList", "Liste de choix"],
+  ["Ref", "Référence →"], ["RefList", "Liste de références →"], ["Attachments", "Images"], ["Any", "Libre (Any)"]
+];
+const ADB_ID_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const jsonHeaders = { "Content-Type": "application/json" };
+
+function tablePath(table = adb.table) {
+  return `/admin/api/tables/${encodeURIComponent(table)}`;
+}
+
+function typeEditorHtml(fullType) {
+  const [base, target = ""] = String(fullType || "Any").split(":");
+  const known = ADB_TYPES.some(([k]) => k === base);
+  const opts = (known ? ADB_TYPES : [[base, base], ...ADB_TYPES]).map(([k, label]) => `<option value="${k}" ${k === base ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  const tables = adb.tables.map((t) => `<option value="${escapeHtml(t.name)}" ${t.name === target ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("");
+  const needsTarget = base === "Ref" || base === "RefList";
+  return `<select class="adb-type-base" aria-label="Type">${opts}</select><select class="adb-type-target" aria-label="Table visée" ${needsTarget ? "" : "hidden"}>${tables}</select>`;
+}
+
+function readType(cell) {
+  const base = cell.querySelector(".adb-type-base").value;
+  const target = cell.querySelector(".adb-type-target");
+  return base === "Ref" || base === "RefList" ? `${base}:${target.value}` : base;
+}
+
+function wireTypeEditor(cell, onChange) {
+  const base = cell.querySelector(".adb-type-base");
+  const target = cell.querySelector(".adb-type-target");
+  base.addEventListener("change", () => { target.hidden = !(base.value === "Ref" || base.value === "RefList"); onChange && onChange(); });
+  target.addEventListener("change", () => onChange && onChange());
+}
+
+function isFormulaCol(def) {
+  return def.isFormula && String(def.formula || "").trim();
+}
+
+function renderSchema() {
+  const box = document.getElementById("adb-schema");
+  if (box.hidden || !adb.table) return;
+  const cols = adb.columns || {};
+  const ids = Object.keys(cols);
+  document.getElementById("adb-schema-title").textContent = adb.table;
+  document.getElementById("adb-schema-count").textContent = `${ids.length} colonne${ids.length > 1 ? "s" : ""} · ${adb.total} ligne${adb.total > 1 ? "s" : ""}`;
+  document.getElementById("adb-schema-cols").innerHTML = ids.map((id) => {
+    const def = cols[id];
+    const state = isFormulaCol(def)
+      ? `<span class="adb-tag adb-tag-warn" title="${escapeHtml(def.formula)}">formule Grist</span> <button type="button" class="btn-ghost adb-mini" data-col-action="unformula">Convertir en données</button>`
+      : `<span class="adb-tag adb-tag-ok">données</span>`;
+    return `<tr data-schema-col="${escapeHtml(id)}">
+      <td><input type="text" class="adb-col-name" value="${escapeHtml(id)}" aria-label="Nom de la colonne ${escapeHtml(id)}" /></td>
+      <td class="adb-type-cell">${typeEditorHtml(def.type)}</td>
+      <td>${state}</td>
+      <td class="adb-schema-actions"><button type="button" class="btn-secondary adb-mini" data-col-action="save" disabled>Enregistrer</button><button type="button" class="adb-del" data-col-action="drop" title="Supprimer la colonne ${escapeHtml(id)}" aria-label="Supprimer la colonne ${escapeHtml(id)}">&#128465;</button></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="4" class="adb-help">Aucune colonne : ajoute la première ci-dessous.</td></tr>`;
+  document.querySelectorAll("#adb-schema-cols tr[data-schema-col]").forEach((tr) => {
+    const id = tr.dataset.schemaCol;
+    const saveBtn = tr.querySelector('[data-col-action="save"]');
+    const nameInput = tr.querySelector(".adb-col-name");
+    const typeCell = tr.querySelector(".adb-type-cell");
+    const dirty = () => {
+      const changed = nameInput.value.trim() !== id || readType(typeCell) !== cols[id].type;
+      saveBtn.disabled = !changed;
+      tr.classList.toggle("adb-dirty", changed);
+    };
+    nameInput.addEventListener("input", dirty);
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !saveBtn.disabled) saveColumn(tr); if (e.key === "Escape") renderSchema(); });
+    wireTypeEditor(typeCell, dirty);
+  });
+  const newType = document.getElementById("adb-new-col-type");
+  newType.innerHTML = typeEditorHtml("Numeric");
+  wireTypeEditor(newType);
+  document.getElementById("adb-rename-table").value = adb.table;
+  document.getElementById("adb-drop-table-name").textContent = adb.table;
+  document.getElementById("adb-drop-table-confirm").value = "";
+  document.getElementById("adb-drop-table-btn").disabled = true;
+}
+
+function toggleSchema(force) {
+  const box = document.getElementById("adb-schema");
+  box.hidden = force === undefined ? !box.hidden : !force;
+  document.getElementById("adb-schema-toggle").setAttribute("aria-expanded", String(!box.hidden));
+  renderSchema();
+}
+
+// Workflows qui mentionnent cette table / colonne : affiche dans la
+// confirmation, pour ne pas casser un jeu en prod par megarde.
+async function usageWarning(ident) {
   try {
-    await adbFetch(`/admin/api/tables/${encodeURIComponent(adb.table)}/columns`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id.trim(), type: type.trim() }) });
-    Toast.success(`Colonne ${id} ajoutée.`);
+    const { workflows } = await adbFetch(`${tablePath()}/usage?column=${encodeURIComponent(ident)}`);
+    if (!workflows.length) return `<p>Aucun workflow ne mentionne <code>${escapeHtml(ident)}</code>.</p>`;
+    return `<div class="error-box adb-usage"><strong>${workflows.length} workflow${workflows.length > 1 ? "s mentionnent" : " mentionne"} <code>${escapeHtml(ident)}</code></strong> (à vérifier : un nom courant peut désigner autre chose) :<br>${workflows.map((w) => `<code>${escapeHtml(w)}</code>`).join(" ")}<br>Ils échoueront tant que leur code n'est pas mis à jour.</div>`;
+  } catch (err) {
+    return `<p class="adb-help">Vérification des workflows impossible (${escapeHtml(err.message)}).</p>`;
+  }
+}
+
+async function afterSchemaChange(message) {
+  Toast.success(message);
+  await refreshTables();
+  await loadRows(adb.table, adb.offset);
+}
+
+async function saveColumn(tr) {
+  const id = tr.dataset.schemaCol;
+  const def = adb.columns[id];
+  const newId = tr.querySelector(".adb-col-name").value.trim();
+  const newType = readType(tr.querySelector(".adb-type-cell"));
+  if (!ADB_ID_RE.test(newId)) { Toast.error("Nom invalide : lettres, chiffres et _, en commençant par une lettre."); return; }
+  const changes = {};
+  const parts = [];
+  if (newId !== id) { changes.id = newId; parts.push(`renommer <code>${escapeHtml(id)}</code> en <code>${escapeHtml(newId)}</code>`); }
+  if (newType !== def.type) { changes.type = newType; parts.push(`passer le type de <code>${escapeHtml(def.type)}</code> à <code>${escapeHtml(newType)}</code> (les ${adb.total} valeurs sont reconverties)`); }
+  if (!parts.length) return;
+  const warning = changes.id ? await usageWarning(id) : "";
+  const ok = await Confirm.show(`<p>Dans <strong>${escapeHtml(adb.table)}</strong> : ${parts.join(", puis ")}.</p>${warning}`, { title: "Modifier la colonne", confirmText: "Appliquer", dangerous: !!changes.id });
+  if (!ok) return;
+  try {
+    await adbFetch(`${tablePath()}/columns/${encodeURIComponent(id)}`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify(changes) });
+    await afterSchemaChange(`Colonne ${newId} mise à jour.`);
+  } catch (err) { Toast.error(err.message); }
+}
+
+async function unformulaColumn(id) {
+  const def = adb.columns[id];
+  const ok = await Confirm.show(`<p>La colonne <code>${escapeHtml(id)}</code> était calculée dans Grist par la formule <code>${escapeHtml(def.formula)}</code>, que l'API ne sait pas exécuter. La convertir en colonne de données garde ses valeurs actuelles et permet aux workflows et à cette page de l'écrire.</p>`, { title: "Convertir en données", confirmText: "Convertir" });
+  if (!ok) return;
+  try {
+    await adbFetch(`${tablePath()}/columns/${encodeURIComponent(id)}`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ formula: false }) });
+    await afterSchemaChange(`Colonne ${id} convertie en données.`);
+  } catch (err) { Toast.error(err.message); }
+}
+
+async function dropColumn(id) {
+  const warning = await usageWarning(id);
+  const ok = await Confirm.show(`<p>Supprimer la colonne <code>${escapeHtml(id)}</code> de <strong>${escapeHtml(adb.table)}</strong> et ses valeurs dans les ${adb.total} lignes ? Irréversible (hors restauration d'une sauvegarde).</p>${warning}`, { title: "Supprimer la colonne", confirmText: "Supprimer", dangerous: true });
+  if (!ok) return;
+  try {
+    await adbFetch(`${tablePath()}/columns/${encodeURIComponent(id)}`, { method: "DELETE" });
+    await afterSchemaChange(`Colonne ${id} supprimée.`);
+  } catch (err) { Toast.error(err.message); }
+}
+
+async function addColumn() {
+  const input = document.getElementById("adb-new-col-name");
+  const id = input.value.trim();
+  if (!ADB_ID_RE.test(id)) { Toast.error("Nom invalide : lettres, chiffres et _, en commençant par une lettre."); input.focus(); return; }
+  if (adb.columns[id]) { Toast.error(`La colonne ${id} existe déjà.`); input.focus(); return; }
+  const type = readType(document.getElementById("adb-new-col-type"));
+  try {
+    await adbFetch(`${tablePath()}/columns`, { method: "POST", headers: jsonHeaders, body: JSON.stringify({ id, type }) });
+    input.value = "";
+    await afterSchemaChange(`Colonne ${id} (${type}) ajoutée.`);
+  } catch (err) { Toast.error(err.message); }
+}
+
+async function renameTable() {
+  const newName = document.getElementById("adb-rename-table").value.trim();
+  if (newName === adb.table) return;
+  if (!ADB_ID_RE.test(newName)) { Toast.error("Nom invalide : lettres, chiffres et _, en commençant par une lettre."); return; }
+  const warning = await usageWarning(adb.table);
+  const ok = await Confirm.show(`<p>Renommer la table <strong>${escapeHtml(adb.table)}</strong> en <strong>${escapeHtml(newName)}</strong> ? Les colonnes référence des autres tables suivent automatiquement.</p>${warning}`, { title: "Renommer la table", confirmText: "Renommer", dangerous: true });
+  if (!ok) return;
+  try {
+    await adbFetch(tablePath(), { method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ name: newName }) });
+    adb.table = newName;
+    await afterSchemaChange(`Table renommée en ${newName}.`);
+  } catch (err) { Toast.error(err.message); }
+}
+
+async function dropTable() {
+  const name = adb.table;
+  if (document.getElementById("adb-drop-table-confirm").value.trim() !== name) return;
+  try {
+    await adbFetch(`${tablePath()}?confirm=${encodeURIComponent(name)}`, { method: "DELETE" });
+    Toast.success(`Table ${name} supprimée.`);
+    adb.table = null;
     await refreshTables();
-    await loadRows(adb.table, adb.offset);
+    toggleSchema(false);
+    const sel = document.getElementById("adb-table");
+    if (sel.value) await loadRows(sel.value);
+  } catch (err) { Toast.error(err.message); }
+}
+
+function toggleNewTable(force) {
+  const form = document.getElementById("adb-new-table");
+  form.hidden = force === undefined ? !form.hidden : !force;
+  document.getElementById("adb-new-table-toggle").setAttribute("aria-expanded", String(!form.hidden));
+  if (!form.hidden) document.getElementById("adb-new-table-name").focus();
+}
+
+async function createTable(e) {
+  e.preventDefault();
+  const input = document.getElementById("adb-new-table-name");
+  const name = input.value.trim();
+  if (!ADB_ID_RE.test(name)) { Toast.error("Nom invalide : lettres, chiffres et _, en commençant par une lettre."); return; }
+  try {
+    await adbFetch("/admin/api/tables", { method: "POST", headers: jsonHeaders, body: JSON.stringify({ name }) });
+    input.value = "";
+    toggleNewTable(false);
+    Toast.success(`Table ${name} créée.`);
+    adb.table = name;
+    await refreshTables();
+    await loadRows(name, 0);
+    toggleSchema(true);
+    document.getElementById("adb-new-col-name").focus();
   } catch (err) { Toast.error(err.message); }
 }
 
@@ -525,8 +726,34 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adb-next").addEventListener("click", () => loadRows(adb.table, adb.offset + adb.limit));
   document.getElementById("adb-add-row").addEventListener("click", addRow);
   document.getElementById("adb-add-col").addEventListener("click", addColumn);
+  document.getElementById("adb-new-col-name").addEventListener("keydown", (e) => { if (e.key === "Enter") addColumn(); });
+  document.getElementById("adb-schema-toggle").addEventListener("click", () => toggleSchema());
+  document.getElementById("adb-new-table-toggle").addEventListener("click", () => toggleNewTable());
+  document.getElementById("adb-new-table-cancel").addEventListener("click", () => toggleNewTable(false));
+  document.getElementById("adb-new-table").addEventListener("submit", createTable);
+  document.getElementById("adb-rename-table-btn").addEventListener("click", renameTable);
+  document.getElementById("adb-drop-table-btn").addEventListener("click", dropTable);
+  document.getElementById("adb-drop-table-confirm").addEventListener("input", (e) => {
+    document.getElementById("adb-drop-table-btn").disabled = e.target.value.trim() !== adb.table;
+  });
+  document.getElementById("adb-schema-cols").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-col-action]");
+    if (!btn) return;
+    const tr = btn.closest("tr[data-schema-col]");
+    const action = btn.dataset.colAction;
+    if (action === "save") saveColumn(tr);
+    else if (action === "drop") dropColumn(tr.dataset.schemaCol);
+    else if (action === "unformula") unformulaColumn(tr.dataset.schemaCol);
+  });
   const grid = document.getElementById("adb-grid");
   grid.addEventListener("click", (e) => {
+    const head = e.target.closest("[data-head-col]");
+    if (head) {
+      toggleSchema(true);
+      const tr = document.querySelector(`#adb-schema-cols tr[data-schema-col="${CSS.escape(head.dataset.headCol)}"]`);
+      if (tr) { tr.scrollIntoView({ block: "center", behavior: "smooth" }); const input = tr.querySelector(".adb-col-name"); input.focus(); input.select(); }
+      return;
+    }
     const del = e.target.closest("[data-del-row]");
     if (del) { deleteRow(Number(del.dataset.delRow)); return; }
     if (e.target.closest(".adb-cell-upload")) return;

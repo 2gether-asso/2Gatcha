@@ -9,6 +9,8 @@
 // de joueur.
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -45,7 +47,19 @@ function attachmentIds(row, columns) {
   return ids;
 }
 
-export function createAdmin({ store, withLock, token, sendJson, backups = null }) {
+// Noms des workflows dont le JSON mentionne cet identifiant (mot entier).
+// Indicatif : un nom de colonne courant ("Name") peut apparaitre ailleurs.
+function workflowUsage(dir, ident) {
+  if (!dir || !ident) return [];
+  const re = new RegExp(`\\b${String(ident).replace(/[^A-Za-z0-9_]/g, '')}\\b`);
+  try {
+    return fs.readdirSync(dir).filter((f) => f.endsWith('.json') && re.test(fs.readFileSync(path.join(dir, f), 'utf8'))).map((f) => f.replace(/\.json$/, '')).sort();
+  } catch (e) {
+    return [];
+  }
+}
+
+export function createAdmin({ store, withLock, token, sendJson, backups = null, workflowsDir = null }) {
   return async function handleAdmin(req, res, url) {
     if (!token) return sendJson(res, req, 503, { error: 'admin_disabled', message: 'ADMIN_TOKEN non configure sur le serveur.' });
     const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -91,12 +105,48 @@ export function createAdmin({ store, withLock, token, sendJson, backups = null }
         return sendJson(res, req, ok ? 200 : 404, { deleted: ok });
       }
       // POST /admin/api/tables/:t/columns  { id, type }
-      if (b === 'columns' && method === 'POST') {
+      if (b === 'columns' && !c && method === 'POST') {
         const { id, type } = await readJson(req);
         if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id || '')) return sendJson(res, req, 400, { error: 'invalid_column_id' });
+        if (t.columns[id]) return sendJson(res, req, 409, { error: `La colonne "${id}" existe deja.` });
         await withLock(() => store.addColumn(a, id, type || 'Any'));
         return sendJson(res, req, 200, { columns: store.table(a).columns });
       }
+      // PATCH /admin/api/tables/:t/columns/:col  { id?, type?, formula?: false }
+      if (b === 'columns' && c && method === 'PATCH') {
+        const changes = await readJson(req);
+        await withLock(() => store.updateColumn(a, c, changes));
+        return sendJson(res, req, 200, { columns: store.table(a).columns });
+      }
+      // DELETE /admin/api/tables/:t/columns/:col
+      if (b === 'columns' && c && method === 'DELETE') {
+        await withLock(() => store.dropColumn(a, c));
+        return sendJson(res, req, 200, { columns: store.table(a).columns });
+      }
+      // GET /admin/api/tables/:t/usage?column=  : workflows qui mentionnent
+      // cette table / colonne (avertissement avant renommage ou suppression).
+      if (b === 'usage' && method === 'GET') {
+        return sendJson(res, req, 200, { workflows: workflowUsage(workflowsDir, url.searchParams.get('column') || a) });
+      }
+      // PATCH /admin/api/tables/:t  { name }  : renommer la table
+      if (!b && method === 'PATCH') {
+        const { name } = await readJson(req);
+        await withLock(() => store.renameTable(a, name));
+        return sendJson(res, req, 200, { name });
+      }
+      // DELETE /admin/api/tables/:t?confirm=<nom de la table>
+      if (!b && method === 'DELETE') {
+        if (url.searchParams.get('confirm') !== a) return sendJson(res, req, 400, { error: 'confirm_required' });
+        await withLock(() => store.dropTable(a));
+        return sendJson(res, req, 200, { deleted: a });
+      }
+    }
+
+    // POST /admin/api/tables  { name, columns?: { colId: { type } } }
+    if (section === 'tables' && !a && method === 'POST') {
+      const { name, columns } = await readJson(req);
+      await withLock(() => store.createTable(name, columns || {}));
+      return sendJson(res, req, 200, { name, columns: store.table(name).columns });
     }
 
     // GET /admin/api/images : toutes les pieces jointes + qui les utilise.

@@ -92,7 +92,16 @@ export class Store {
   load() {
     this.tables = new Map();
     for (const { name, columns } of this.db.prepare('SELECT name, columns FROM meta_tables').all()) {
-      this.tables.set(name, { name, columns: JSON.parse(columns), rows: new Map(), maxId: 0, snapshot: null });
+      const cols = JSON.parse(columns);
+      // Grist marque "formule" toute colonne vide jamais remplie (formule
+      // vide) : ce sont en fait des colonnes de donnees. Corrige une fois
+      // pour toutes en base (bases importees avant ce correctif).
+      let fixed = false;
+      for (const def of Object.values(cols)) {
+        if (def.isFormula && !String(def.formula || '').trim()) { def.isFormula = false; def.formula = ''; fixed = true; }
+      }
+      if (fixed) this.stmt.upsertTable.run(name, JSON.stringify(cols));
+      this.tables.set(name, { name, columns: cols, rows: new Map(), maxId: 0, snapshot: null });
     }
     for (const { tbl, id, data } of this.db.prepare('SELECT tbl, id, data FROM rows ORDER BY tbl, id').all()) {
       const t = this.tables.get(tbl);
@@ -144,7 +153,7 @@ export class Store {
         err.httpCode = 400;
         throw err;
       }
-      if (col.isFormula) {
+      if (isRealFormula(col)) {
         const err = new Error(`Cannot write formula column "${k}" in table "${t.name}"`);
         err.httpCode = 400;
         throw err;
@@ -218,6 +227,101 @@ export class Store {
     for (const [id, raw] of t.rows) this.write(t, id, { ...JSON.parse(raw), [colId]: def });
   }
 
+  // Les operations ci-dessous (page admin) modifient le schema ET toutes les
+  // lignes, dans une transaction : tout ou rien.
+  createTable(name, columns = {}) {
+    assertId(name, 'table');
+    if (this.tables.has(name)) throw httpError(409, `Table "${name}" already exists`);
+    for (const colId of Object.keys(columns)) assertId(colId, 'column');
+    const cols = Object.fromEntries(Object.entries(columns).map(([k, d]) => [k, { type: (d && d.type) || 'Any', isFormula: false, formula: '' }]));
+    this.transaction(() => this.defineTable(name, cols));
+  }
+
+  renameTable(name, newName) {
+    const t = this.table(name);
+    if (name === newName) return;
+    assertId(newName, 'table');
+    if (this.tables.has(newName)) throw httpError(409, `Table "${newName}" already exists`);
+    this.transaction(() => {
+      this.db.prepare('UPDATE rows SET tbl = ? WHERE tbl = ?').run(newName, name);
+      this.db.prepare('UPDATE meta_tables SET name = ? WHERE name = ?').run(newName, name);
+      this.tables.delete(name);
+      t.name = newName;
+      this.tables.set(newName, t);
+      // Les colonnes Ref:/RefList: (de toutes les tables) suivent le nouveau nom.
+      for (const other of this.tables.values()) {
+        let changed = false;
+        const cols = {};
+        for (const [k, d] of Object.entries(other.columns)) {
+          const m = /^(Ref|RefList):(.+)$/.exec(d.type || '');
+          if (m && m[2] === name) { cols[k] = { ...d, type: `${m[1]}:${newName}` }; changed = true; } else cols[k] = d;
+        }
+        if (changed) this.defineTable(other.name, cols);
+      }
+      this.changes++;
+    });
+  }
+
+  dropTable(name) {
+    this.table(name);
+    this.transaction(() => {
+      this.db.prepare('DELETE FROM rows WHERE tbl = ?').run(name);
+      this.db.prepare('DELETE FROM meta_tables WHERE name = ?').run(name);
+      this.tables.delete(name);
+      this.changes++;
+    });
+  }
+
+  // changes : { id?: nouveau nom, type?: nouveau type, formula?: false pour
+  // transformer une colonne formule en colonne de donnees }. Renommer garde
+  // la position de la colonne ; changer le type reconvertit chaque valeur.
+  updateColumn(name, colId, changes = {}) {
+    const t = this.table(name);
+    const old = t.columns[colId];
+    if (!old) throw httpError(404, `Column "${colId}" not found in table "${name}"`);
+    const newId = changes.id && changes.id !== colId ? changes.id : colId;
+    if (newId !== colId) {
+      assertId(newId, 'column');
+      if (t.columns[newId]) throw httpError(409, `Column "${newId}" already exists in table "${name}"`);
+    }
+    const def = { ...old };
+    const retype = !!changes.type && changes.type !== old.type;
+    if (retype) def.type = changes.type;
+    if (changes.formula === false) { def.isFormula = false; def.formula = ''; }
+    const columns = {};
+    for (const [k, d] of Object.entries(t.columns)) columns[k === colId ? newId : k] = k === colId ? def : d;
+    this.transaction(() => {
+      this.defineTable(name, columns);
+      if (newId === colId && !retype) return;
+      for (const [id, raw] of t.rows) {
+        const row = JSON.parse(raw);
+        const out = {};
+        for (const [k, v] of Object.entries(row)) {
+          if (k !== colId) { out[k] = v; continue; }
+          out[newId] = retype ? convertValue(old.type, def.type, v) : v;
+        }
+        if (!(colId in row)) out[newId] = defaultFor(def);
+        this.write(t, id, out);
+      }
+    });
+  }
+
+  dropColumn(name, colId) {
+    const t = this.table(name);
+    if (!t.columns[colId]) throw httpError(404, `Column "${colId}" not found in table "${name}"`);
+    const columns = { ...t.columns };
+    delete columns[colId];
+    this.transaction(() => {
+      this.defineTable(name, columns);
+      for (const [id, raw] of t.rows) {
+        const row = JSON.parse(raw);
+        if (!(colId in row)) continue;
+        delete row[colId];
+        this.write(t, id, row);
+      }
+    });
+  }
+
   // Une piece jointe peut exister SANS contenu (data NULL) : image connue
   // (nom d'origine, cartes qui l'utilisent) mais perdue cote Grist a
   // l'import, a re-importer depuis la page d'administration.
@@ -268,6 +372,45 @@ export class Store {
   stats() {
     return Object.fromEntries([...this.tables.values()].map((t) => [t.name, t.rows.size]));
   }
+}
+
+function httpError(code, message) {
+  return Object.assign(new Error(message), { httpCode: code, status: code });
+}
+
+function assertId(id, what) {
+  if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(String(id || ''))) throw httpError(400, `Invalid ${what} id "${id}"`);
+}
+
+// Vraie formule Python (non executable ici) : ecriture refusee. Une colonne
+// "formule" a formule vide est une colonne de donnees.
+function isRealFormula(col) {
+  return !!col.isFormula && !!String(col.formula || '').trim();
+}
+
+// Conversion d'une valeur existante lors d'un changement de type de colonne.
+export function convertValue(fromType, toType, v) {
+  const from = baseType(fromType), to = baseType(toType);
+  if (v == null) return coerce(toType, null);
+  if (v === '') return coerce(toType, '');
+  const listLike = (t) => t === 'RefList' || t === 'ChoiceList' || t === 'Attachments';
+  if (listLike(from) && Array.isArray(v)) {
+    const items = v[0] === 'L' ? v.slice(1) : v;
+    if (listLike(to)) return ['L', ...items];
+    if (to === 'Ref') return Number(items[0]) || 0;
+    if (to === 'Text' || to === 'Choice') return items.join(', ');
+    return items.length ? coerce(toType, items[0]) : coerce(toType, null);
+  }
+  if (from === 'Ref' && listLike(to)) return v ? ['L', v] : null;
+  if (to === 'Ref' && typeof v === 'string' && !/^\d+$/.test(v.trim())) return 0;
+  if ((to === 'Text' || to === 'Choice') && (from === 'Date' || from === 'DateTime') && typeof v === 'number') {
+    return new Date(v * 1000).toISOString().slice(0, from === 'Date' ? 10 : 19).replace('T', ' ');
+  }
+  if ((to === 'Date' || to === 'DateTime') && typeof v === 'string' && !/^-?\d+(\.\d+)?$/.test(v.trim())) {
+    const d = Date.parse(v);
+    return Number.isNaN(d) ? v : Math.floor(d / 1000);
+  }
+  return coerce(toType, v);
 }
 
 // Valeur par defaut d'une colonne a la creation d'une ligne. Les "trigger

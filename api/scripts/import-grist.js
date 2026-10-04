@@ -43,7 +43,9 @@ for (const t of IMAGES_ONLY ? [] : tables) {
   for (const c of columns) {
     if (c.id.startsWith('gristHelper_') || c.id === 'manualSort') continue;
     const f = c.fields || {};
-    cols[c.id] = { type: f.type || 'Any', isFormula: !!f.isFormula, formula: f.formula || '' };
+    // Colonne "formule" a formule vide = colonne vide jamais remplie dans
+    // Grist : c'est une colonne de donnees.
+    cols[c.id] = { type: f.type || 'Any', isFormula: !!f.isFormula && !!f.formula, formula: f.formula || '' };
     if (f.isFormula && f.formula) report.formulas.push(`${tableId}.${c.id} = ${f.formula}`);
     else if (f.formula) report.triggerFormulas.push(`${tableId}.${c.id} = ${f.formula}`);
   }

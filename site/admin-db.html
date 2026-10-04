@@ -92,9 +92,54 @@
             <label>Table <select id="adb-table"></select></label>
             <input type="search" id="adb-search" placeholder="Rechercher dans la table..." />
             <button type="button" class="btn-secondary" id="adb-add-row">+ Ligne</button>
-            <button type="button" class="btn-secondary" id="adb-add-col">+ Colonne</button>
+            <button type="button" class="btn-secondary" id="adb-schema-toggle" aria-expanded="false" aria-controls="adb-schema">&#9881; Structure</button>
+            <button type="button" class="btn-ghost" id="adb-new-table-toggle" aria-expanded="false" aria-controls="adb-new-table">+ Table</button>
           </div>
-          <p class="adb-help">Clique sur une cellule pour la modifier (Entrée pour enregistrer, Échap pour annuler). Les références s'écrivent avec l'id de la ligne visée ; les listes au format <code>["L", 1, 2]</code>.</p>
+
+          <form id="adb-new-table" class="adb-card" hidden>
+            <h2>Nouvelle table</h2>
+            <div class="adb-row">
+              <label>Nom de la table <input type="text" id="adb-new-table-name" placeholder="ex. Expeditions" pattern="[A-Za-z][A-Za-z0-9_]*" required /></label>
+              <button type="submit" class="btn">Créer la table</button>
+              <button type="button" class="btn-ghost" id="adb-new-table-cancel">Annuler</button>
+            </div>
+            <p class="adb-help">Lettres, chiffres et <code>_</code>, en commençant par une lettre. La table est créée vide ; ajoute ensuite ses colonnes dans « Structure ». Un workflow ne s'en sert que si son code y fait référence.</p>
+          </form>
+
+          <section id="adb-schema" class="adb-card" hidden aria-label="Structure de la table">
+            <div class="adb-row adb-row-between">
+              <h2>Structure de <span id="adb-schema-title"></span></h2>
+              <span class="adb-help" id="adb-schema-count"></span>
+            </div>
+            <div class="adb-table-wrap">
+              <table class="adb-table adb-schema-table">
+                <thead><tr><th>Colonne</th><th>Type</th><th>État</th><th></th></tr></thead>
+                <tbody id="adb-schema-cols"></tbody>
+                <tfoot>
+                  <tr class="adb-schema-new">
+                    <td><input type="text" id="adb-new-col-name" placeholder="NouvelleColonne" aria-label="Nom de la nouvelle colonne" /></td>
+                    <td class="adb-type-cell" id="adb-new-col-type"></td>
+                    <td class="adb-help">Remplie avec la valeur par défaut du type</td>
+                    <td><button type="button" class="btn-secondary" id="adb-add-col">+ Ajouter</button></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p class="adb-help">Renommer ou supprimer une colonne (ou une table) casse les workflows qui l'utilisent : la page te dit lesquels la mentionnent avant de valider. Changer le type reconvertit toutes les valeurs existantes (texte ↔ nombre, date ↔ texte, référence ↔ liste…).</p>
+            <details class="adb-danger-zone">
+              <summary>Renommer ou supprimer la table</summary>
+              <div class="adb-row">
+                <label>Nouveau nom <input type="text" id="adb-rename-table" /></label>
+                <button type="button" class="btn-secondary" id="adb-rename-table-btn">Renommer</button>
+              </div>
+              <div class="adb-row">
+                <label>Tape <strong id="adb-drop-table-name"></strong> pour confirmer <input type="text" id="adb-drop-table-confirm" autocomplete="off" /></label>
+                <button type="button" class="btn-danger" id="adb-drop-table-btn" disabled>Supprimer la table et toutes ses lignes</button>
+              </div>
+            </details>
+          </section>
+
+          <p class="adb-help">Clique sur une cellule pour la modifier (Entrée pour enregistrer, Échap pour annuler), sur un en-tête de colonne pour modifier sa structure. Les références s'écrivent avec l'id de la ligne visée ; les listes au format <code>["L", 1, 2]</code>.</p>
           <div class="adb-table-wrap"><table class="adb-table" id="adb-grid"></table></div>
           <div class="adb-row adb-row-between">
             <span id="adb-page-info"></span>

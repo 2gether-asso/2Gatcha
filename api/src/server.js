@@ -148,7 +148,7 @@ if (config.backup.sasUrl) {
   backups = { backup, ...startBackupSchedule({ store, backup, hours: config.backup.hours, retentionDays: config.backup.retentionDays }) };
 }
 
-const handleAdmin = createAdmin({ store, withLock, token: config.adminToken, sendJson, backups });
+const handleAdmin = createAdmin({ store, withLock, token: config.adminToken, sendJson, backups, workflowsDir: config.workflowsDir });
 
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
@@ -193,7 +193,7 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, req, 404, { error: 'not_found' });
   } catch (err) {
     console.error(err);
-    if (!res.headersSent) sendJson(res, req, err.status || 500, { error: err.message });
+    if (!res.headersSent) sendJson(res, req, err.status || err.httpCode || 500, { error: err.message });
   }
 });
 
