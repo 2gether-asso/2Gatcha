@@ -7,9 +7,9 @@
 
 const ERROR_MESSAGES = {
   invalid_code: "Ce code n'existe pas.",
-  code_inactive: "Ce code a ete désactivé.",
-  code_expired: "Ce code a expire.",
-  already_redeemed: "Tu as deja réclame ce code.",
+  code_inactive: "Ce code a été désactivé.",
+  code_expired: "Ce code a expiré.",
+  already_redeemed: "Tu as déjà réclamé ce code.",
   code_exhausted: "Ce code a atteint son nombre maximum d'utilisations.",
   unknown_user: "Utilisateur introuvable, reconnecte-toi.",
   code_misconfigured: "Ce code est mal configure, previens un admin.",

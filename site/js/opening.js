@@ -601,7 +601,7 @@ async function refreshStatus() {
 
     renderExtensionPicker();
   } catch (e) {
-    Toast.error("Impossible de recuperer les extensions/boosters. (" + e.message + ")");
+    Toast.error("Impossible de récupérer les extensions/boosters. (" + e.message + ")");
   }
 }
 

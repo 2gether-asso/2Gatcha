@@ -10,14 +10,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const errorZone = document.getElementById("error-zone");
 
   if (errorParam) {
-    statusLabel.textContent = "Connexion annulee.";
+    statusLabel.textContent = "Connexion annulée.";
     setTimeout(() => { window.location.href = "index.html"; }, 1500);
     return;
   }
 
   if (!code) {
     statusLabel.textContent = "Code de connexion manquant.";
-    errorZone.innerHTML = `<div class="error-box">Reviens sur la <a href="index.html">page d'accueil</a> et reessaie.</div>`;
+    errorZone.innerHTML = `<div class="error-box">Reviens sur la <a href="index.html">page d'accueil</a> et réessaie.</div>`;
     return;
   }
 
@@ -38,6 +38,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.location.href = "index.html?error=not_in_guild";
       return;
     }
-    errorZone.innerHTML = `<div class="error-box">${e.message}. Retourne a la <a href="index.html">page d'accueil</a> et reessaie.</div>`;
+    errorZone.innerHTML = `<div class="error-box">${e.message}. Retourne à la <a href="index.html">page d'accueil</a> et réessaie.</div>`;
   }
 });

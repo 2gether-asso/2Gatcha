@@ -10,12 +10,12 @@
 
 const TRADE_ERROR_MESSAGES = {
   user_not_found: "Aucun joueur ne porte ce pseudo.",
-  cannot_trade_self: "Tu ne peux pas t'echanger une carte avec toi-meme.",
+  cannot_trade_self: "Tu ne peux pas t'échanger une carte avec toi-même.",
   card_not_owned: "Tu ne possèdes pas cette carte.",
   trade_not_found: "Échange introuvable.",
   not_your_trade: "Cet échange ne te concerne pas.",
   trade_not_pending: "Cet échange n'est plus en attente.",
-  cards_no_longer_available: "Une des deux cartes n'est plus disponible (deja echangee ailleurs).",
+  cards_no_longer_available: "Une des deux cartes n'est plus disponible (déjà échangée ailleurs).",
   promo_not_tradeable: "Les cartes promo ne sont pas echangeables.",
   pull_not_chosen: "Choisis quel exemplaire tu veux donner.",
   offer_no_longer_available: "L'exemplaire proposé a déjà changé de main : cet échange a été annulé automatiquement.",
@@ -355,7 +355,7 @@ function renderTradeCard(trade) {
       ${thumbBlock(trade.requestedCard, !trade.requestedCard, false)}
     </div>
     <div class="trade-info">
-      ${trade.counterOfTradeId ? `<div class="trade-counter-tag">&#128260; Contre-proposition (echange #${trade.counterOfTradeId})</div>` : ""}
+      ${trade.counterOfTradeId ? `<div class="trade-counter-tag">&#128260; Contre-proposition (échange #${trade.counterOfTradeId})</div>` : ""}
       ${unavailableTag}
       <div><strong>${trade.fromPseudo}</strong> offre <strong>${trade.offeredCard.name}</strong>${formatSerial(trade.offeredSerial)} ${requestPart}</div>
       <span class="trade-status ${statusClass}">${STATUS_LABELS[trade.status] || trade.status}</span>
@@ -426,8 +426,8 @@ function renderAllTrades() {
   const outgoing = document.getElementById("outgoing-trades");
   const incomingTrades = allTradesCache.filter((t) => t.direction === "incoming");
   const outgoingTrades = allTradesCache.filter((t) => t.direction === "outgoing");
-  renderTradeGroup(incoming, incomingTrades, "Aucun échange recu.");
-  renderTradeGroup(outgoing, outgoingTrades, "Aucun échange envoye.");
+  renderTradeGroup(incoming, incomingTrades, "Aucun échange reçu.");
+  renderTradeGroup(outgoing, outgoingTrades, "Aucun échange envoyé.");
 
   // Le compteur sur "Recus" met en avant les demandes EN ATTENTE (celles qui
   // demandent une action), pas le total de l'historique.

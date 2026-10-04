@@ -6,14 +6,14 @@
 
 const DISENCHANT_ERRORS = {
   card_not_found: "Carte introuvable.",
-  promo_not_disenchantable: "Cette carte promo ne peut pas etre decraftee.",
+  promo_not_disenchantable: "Cette carte promo ne peut pas être décraftée.",
   card_not_owned: "Tu ne possèdes pas cette carte."
 };
 const CRAFT_ERRORS = {
   card_not_found: "Carte introuvable.",
-  promo_not_craftable: "Cette carte promo ne peut pas etre craftee.",
+  promo_not_craftable: "Cette carte promo ne peut pas être craftée.",
   card_inactive: "Cette carte n'est plus disponible.",
-  insufficient_dust: "Pas assez de poussières d'etoile.",
+  insufficient_dust: "Pas assez de poussières d'étoile.",
   sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
 const FINISH_ERRORS = {

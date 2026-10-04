@@ -858,18 +858,18 @@ async function resetV1() {
 
   const ok = await Confirm.show(
     isUserScoped
-      ? `Ceci va <strong>supprimer definitivement</strong> les tirages, échanges, quêtes et redemptions ` +
-        `de <strong>${targetPseudo}</strong> uniquement, et remettre a zero son solde de boosters/poussières ` +
+      ? `Ceci va <strong>supprimer définitivement</strong> les tirages, échanges, quêtes et redemptions ` +
+        `de <strong>${targetPseudo}</strong> uniquement, et remettre à zéro son solde de boosters/poussières ` +
         `et son compteur de pity. Les autres joueurs ne sont pas affectés.<br><br>Cette action est irréversible.`
-      : "Ceci va <strong>supprimer definitivement</strong> les tirages, échanges, " +
-        "quêtes et redemptions de codes de <strong>TOUS les joueurs</strong>, et remettre a zero le solde de " +
+      : "Ceci va <strong>supprimer définitivement</strong> les tirages, échanges, " +
+        "quêtes et redemptions de codes de <strong>TOUS les joueurs</strong>, et remettre à zéro le solde de " +
         "boosters/poussières et le compteur de pity de chacun. Les comptes Discord et le catalogue de cartes restent intacts.<br><br>" +
         "Cette action est irréversible.",
     { title: isUserScoped ? `Réinitialiser ${targetPseudo} ?` : "Réinitialiser pour la V1 ?", confirmText: "Continuer", dangerous: true }
   );
   if (!ok) return;
 
-  const typed = window.prompt('Tape exactement RESET-V1 pour confirmer definitivement :');
+  const typed = window.prompt('Tape exactement RESET-V1 pour confirmer définitivement :');
   if (typed !== "RESET-V1") {
     if (typed !== null) Toast.error("Confirmation incorrecte, réinitialisation annulée.");
     return;
@@ -885,7 +885,7 @@ async function resetV1() {
       `Réinitialisé${res.scope === "user" ? " (" + res.targetPseudo + ")" : ""} : ${c.pulls || 0} tirages, ${c.trades || 0} échanges, ` +
       `${c.quests || 0} quêtes du jour, ${c.weeklyQuests || 0} quêtes de la semaine, ` +
       `${c.redemptions || 0} redemptions, ${c.boosterInventory || 0} compteurs de pity, ` +
-      `${c.users || 0} compte(s) remis a zéro.`
+      `${c.users || 0} compte(s) remis à zéro.`
     );
   } catch (e) {
     Toast.error(e.code === "user_not_found" ? "Pseudo introuvable." : "Échec de la réinitialisation. (" + e.message + ")");

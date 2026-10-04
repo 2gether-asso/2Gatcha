@@ -91,14 +91,14 @@ function buildVariants(owned) {
 // import partage, pour garder chaque page autonome).
 const DISENCHANT_ERRORS_LOCAL = {
   card_not_found: "Carte introuvable.",
-  promo_not_disenchantable: "Cette carte promo ne peut pas etre decraftee.",
+  promo_not_disenchantable: "Cette carte promo ne peut pas être décraftée.",
   card_not_owned: "Tu ne possèdes pas cette carte."
 };
 const CRAFT_ERRORS_LOCAL = {
   card_not_found: "Carte introuvable.",
-  promo_not_craftable: "Cette carte promo ne peut pas etre craftee.",
+  promo_not_craftable: "Cette carte promo ne peut pas être craftée.",
   card_inactive: "Cette carte n'est plus disponible.",
-  insufficient_dust: "Pas assez de poussières d'etoile."
+  insufficient_dust: "Pas assez de poussières d'étoile."
 };
 const FINISH_ERRORS_LOCAL = {
   card_not_found: "Carte introuvable.",
@@ -116,7 +116,7 @@ const QUALITY_ERRORS_LOCAL = {
 };
 const TRADE_ERRORS_LOCAL = {
   user_not_found: "Aucun joueur ne porte ce pseudo.",
-  cannot_trade_self: "Tu ne peux pas t'echanger une carte avec toi-meme.",
+  cannot_trade_self: "Tu ne peux pas t'échanger une carte avec toi-même.",
   card_not_owned: "Tu ne possèdes pas cette carte.",
   promo_not_tradeable: "Les cartes promo ne sont pas echangeables."
 };
@@ -761,11 +761,11 @@ async function toggleWishlist(cardId, btn) {
     if (wasIn) {
       await API.removeFromWishlist(Session.userId, cardId);
       wishlistSet.delete(cardId);
-      Toast.info("Retiree de ta wishlist.");
+      Toast.info("Retirée de ta wishlist.");
     } else {
       await API.addToWishlist(Session.userId, cardId);
       wishlistSet.add(cardId);
-      Toast.success("Ajoutee a ta wishlist !");
+      Toast.success("Ajoutée à ta wishlist !");
     }
     btn.classList.toggle("active", !wasIn);
     btn.title = !wasIn ? "Retirer de ma wishlist" : "Ajouter a ma wishlist";
@@ -790,11 +790,11 @@ async function toggleShowcase(cardId, btn) {
     if (wasIn) {
       await API.removeFromShowcase(Session.userId, cardId);
       showcaseSet.delete(cardId);
-      Toast.info("Retiree de ta vitrine.");
+      Toast.info("Retirée de ta vitrine.");
     } else {
       await API.addToShowcase(Session.userId, cardId);
       showcaseSet.add(cardId);
-      Toast.success("Ajoutee a ta vitrine !");
+      Toast.success("Ajoutée à ta vitrine !");
     }
     btn.classList.toggle("active", !wasIn);
     btn.title = !wasIn ? "Retirer de ma vitrine" : "Ajouter a ma vitrine";
@@ -851,7 +851,7 @@ function renderStatsAndMilestone() {
     if (next) {
       const missing = next.total - next.owned;
       milestoneEl.style.display = "flex";
-      milestoneEl.innerHTML = `&#127919; Encore <strong>${missing} carte${missing > 1 ? "s" : ""} ${next.name}</strong> pour completer cette rareté !`;
+      milestoneEl.innerHTML = `&#127919; Encore <strong>${missing} carte${missing > 1 ? "s" : ""} ${next.name}</strong> pour compléter cette rareté !`;
     } else {
       milestoneEl.style.display = "flex";
       milestoneEl.innerHTML = `&#127942; Collection complète, félicitations !`;
@@ -1304,7 +1304,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     saveSeen(seenCards);
     renderGrid();
-    Toast.info(count ? `${count} carte${count > 1 ? "s" : ""} marquee${count > 1 ? "s" : ""} comme vue${count > 1 ? "s" : ""}.` : "Rien de nouveau a marquer.");
+    Toast.info(count ? `${count} carte${count > 1 ? "s" : ""} marquée${count > 1 ? "s" : ""} comme vue${count > 1 ? "s" : ""}.` : "Rien de nouveau à marquer.");
   });
   denseBtn.addEventListener("click", (e) => {
     document.body.classList.toggle("dense-view");

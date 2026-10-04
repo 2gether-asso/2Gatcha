@@ -1080,7 +1080,7 @@ async function loadNavBadges() {
       const lastSeenKey = "2gatcha_last_seen_pending_trades";
       const lastSeen = Number(localStorage.getItem(lastSeenKey) || 0);
       if (pendingCount > lastSeen && currentPage() !== "trade.html") {
-        Toast.info(`Nouvelle proposition d'échange recue ! (${pendingCount} en attente)`);
+        Toast.info(`Nouvelle proposition d'échange reçue ! (${pendingCount} en attente)`);
       }
       localStorage.setItem(lastSeenKey, String(pendingCount));
     } catch (e) {
@@ -1150,13 +1150,19 @@ async function loadNavBadges() {
   try {
     let jeuxCount = API._cacheGet("2gatcha_cache_jeux_count", 90 * 1000);
     if (jeuxCount == null) {
-      const [vault, bingo] = await Promise.all([
+      const [vault, bingo, guess, expedition] = await Promise.all([
         API.getVaultStatus(Session.userId).catch(() => null),
-        API.getBingoStatus(Session.userId).catch(() => null)
+        API.getBingoStatus(Session.userId).catch(() => null),
+        API.guessCard(Session.userId, "status").catch(() => null),
+        API.expedition(Session.userId, "status").catch(() => null)
       ]);
+      // Rappels quotidiens (2026-10-04) : quiz du jour pas encore joue,
+      // expedition rentree ou chien de fouille au repos... de quoi revenir.
+      const guessReady = !!(guess && guess.choices && !guess.played);
+      const expeditionReady = !!(expedition && expedition.expedition && expedition.expedition.active && expedition.expedition.ready);
       const vaultReady = !!(vault && !vault.alreadyOpened && vault.userKeys >= vault.keysRequired);
       const bingoReady = !!(bingo && bingo.hasGrid && bingo.allOwned && !bingo.claimed);
-      jeuxCount = [vaultReady, bingoReady].filter(Boolean).length;
+      jeuxCount = [vaultReady, bingoReady, guessReady, expeditionReady].filter(Boolean).length;
       API._cacheSet("2gatcha_cache_jeux_count", jeuxCount);
     }
     document.querySelectorAll('[data-badge-key="jeux"]').forEach((a) => {
@@ -1441,7 +1447,7 @@ function renderHeader() {
         const res = await API.updatePseudo(Session.userId, next.trim());
         Session.setPseudo(res.pseudo);
         document.getElementById("header-pseudo").textContent = res.pseudo;
-        Toast.success("Pseudo mis a jour !");
+        Toast.success("Pseudo mis à jour !");
       } catch (e) {
         Toast.error("Impossible de changer le pseudo (" + e.message + ")");
       }

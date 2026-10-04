@@ -449,6 +449,8 @@ async function submitGuess(cardId) {
   try {
     const res = await API.guessCard(Session.userId, "guess", cardId);
     renderGuess({ ...res, myChoice: cardId });
+    API._cacheSet("2gatcha_cache_jeux_count", null);
+    if (typeof loadNavBadges === "function") loadNavBadges();
     if (res.correct) Toast.success(`Bonne réponse ! +${res.reward.dust} poussières${res.reward.boosters ? " et +1 booster" : ""}.`);
     else Toast.info(`Raté, c'était ${res.answerName}.`);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
@@ -594,6 +596,8 @@ async function claimExpedition() {
   try {
     const res = await API.expedition(Session.userId, "claim");
     const r = res.reward;
+    API._cacheSet("2gatcha_cache_jeux_count", null);
+    if (typeof loadNavBadges === "function") loadNavBadges();
     await renderExpedition(res);
     const zone = document.getElementById("expedition-zone");
     zone.insertAdjacentHTML("afterbegin", `
