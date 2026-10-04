@@ -62,7 +62,7 @@ function buildCardBackEl(cardBackImageId, rarityKey, colorHex) {
   if (colorHex) back.style.setProperty("--shine-color", colorHex);
   const src = API.imageUrl(cardBackImageId);
   back.innerHTML = src
-    ? `<img class="card-back-image" src="${src}" alt="" /><span class="tap-hint" style="position:relative;z-index:1;">Tape pour révéler</span>`
+    ? `<span class="card-back-fill" style="background-image:url('${src}')" aria-hidden="true"></span><img class="card-back-image" src="${src}" alt="" /><span class="tap-hint" style="position:relative;z-index:1;">Tape pour révéler</span>`
     : `<span>?</span><span class="tap-hint">Tape pour révéler</span>`;
   return back;
 }

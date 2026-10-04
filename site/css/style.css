@@ -3532,7 +3532,11 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   letter-spacing: 0.05em;
   animation: skipHintPulse 1.6s ease-in-out infinite;
 }
-.card-back-image { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+/* Dos de carte dessine en 3:4, carte un peu plus haute (illustration +
+   bandeau du nom) : image entiere, centree, sur un fond flou de la meme
+   image qui comble le haut et le bas (jamais rognee sur les cotes). */
+.card-back-image { width: 100%; height: 100%; object-fit: contain; position: absolute; inset: 0; }
+.card-back-fill { position: absolute; inset: -16px; background-size: cover; background-position: center; filter: blur(12px) brightness(0.55); }
 
 /* ========================================================================
    Pile de cartes (reveal one-by-one) : plus lisible qu'une grille dense,
@@ -3859,20 +3863,20 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .collection-card[data-quality="damaged"] img,
 .craft-card[data-quality="damaged"] img,
 .card-modal[data-quality="damaged"] img,
-.card[data-quality="damaged"] img {
+.card[data-quality="damaged"] .card-front img {
   filter: sepia(0.15) saturate(0.25) contrast(1.25) brightness(0.78);
 }
 .collection-card[data-quality="worn"] img,
 .craft-card[data-quality="worn"] img,
 .card-modal[data-quality="worn"] img,
-.card[data-quality="worn"] img {
+.card[data-quality="worn"] .card-front img {
   filter: saturate(0.55) contrast(1.08) brightness(0.9);
 }
 /* "Bon etat" : aucun filtre - c'est le palier neutre de reference. */
 .collection-card[data-quality="mint"] img,
 .craft-card[data-quality="mint"] img,
 .card-modal[data-quality="mint"] img,
-.card[data-quality="mint"] img {
+.card[data-quality="mint"] .card-front img {
   filter: saturate(1.2) contrast(1.07) brightness(1.05);
 }
 .collection-card[data-quality] .card-art::before,
@@ -3963,7 +3967,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .collection-card[data-finish="holo"] img,
 .card-modal[data-finish="holo"] img,
 .craft-card[data-finish="holo"] img,
-.card[data-finish="holo"] img { filter: saturate(1.65) contrast(1.1) brightness(1.04); }
+.card[data-finish="holo"] .card-front img { filter: saturate(1.65) contrast(1.1) brightness(1.04); }
 .collection-card[data-finish="holo"],
 .card-modal[data-finish="holo"],
 .craft-card[data-finish="holo"] { border-color: #a78bfa !important; border-width: 2px; box-shadow: 0 0 18px rgba(167,139,250,0.6); }
@@ -3986,7 +3990,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .collection-card[data-finish="gold"] img,
 .card-modal[data-finish="gold"] img,
 .craft-card[data-finish="gold"] img,
-.card[data-finish="gold"] img { filter: sepia(0.7) saturate(2.4) brightness(1.06) hue-rotate(-8deg); }
+.card[data-finish="gold"] .card-front img { filter: sepia(0.7) saturate(2.4) brightness(1.06) hue-rotate(-8deg); }
 .collection-card[data-finish="gold"],
 .card-modal[data-finish="gold"],
 .craft-card[data-finish="gold"] { border-color: #d4af37 !important; border-width: 2px; box-shadow: 0 0 22px rgba(212,175,55,0.65); }
@@ -4004,7 +4008,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .collection-card[data-finish="ghost"] img,
 .card-modal[data-finish="ghost"] img,
 .craft-card[data-finish="ghost"] img,
-.card[data-finish="ghost"] img { filter: grayscale(0.65) brightness(1.3) contrast(0.78); opacity: 0.85; }
+.card[data-finish="ghost"] .card-front img { filter: grayscale(0.65) brightness(1.3) contrast(0.78); opacity: 0.85; }
 .collection-card[data-finish="ghost"],
 .card-modal[data-finish="ghost"],
 .craft-card[data-finish="ghost"] { border-color: #94a3b8 !important; border-width: 2px; box-shadow: 0 0 20px rgba(148,163,184,0.6); }
@@ -4027,7 +4031,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .collection-card[data-finish="diamond"] img,
 .card-modal[data-finish="diamond"] img,
 .craft-card[data-finish="diamond"] img,
-.card[data-finish="diamond"] img { filter: contrast(1.3) brightness(1.16) saturate(0.8); }
+.card[data-finish="diamond"] .card-front img { filter: contrast(1.3) brightness(1.16) saturate(0.8); }
 .collection-card[data-finish="diamond"],
 .card-modal[data-finish="diamond"],
 .craft-card[data-finish="diamond"] { border-color: #7dd3fc !important; border-width: 2px; box-shadow: 0 0 24px rgba(125,211,252,0.7); }
@@ -4046,7 +4050,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .collection-card[data-finish="rainbow"] img,
 .card-modal[data-finish="rainbow"] img,
 .craft-card[data-finish="rainbow"] img,
-.card[data-finish="rainbow"] img { filter: saturate(1.75) contrast(1.16); }
+.card[data-finish="rainbow"] .card-front img { filter: saturate(1.75) contrast(1.16); }
 .collection-card[data-finish="rainbow"],
 .card-modal[data-finish="rainbow"],
 .craft-card[data-finish="rainbow"] { border-color: #ff6ec7 !important; border-width: 2px; box-shadow: 0 0 28px rgba(255,110,199,0.65); }
