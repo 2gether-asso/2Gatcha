@@ -8,6 +8,7 @@
 //   POST /webhook/admin-season  { discordId, action: 'get' | 'setCard', season?, cardId? }
 
 import { refId, now, ok, fail, userById, isAdmin, firstAttachment, cardSummary } from './common.js';
+import { uniqueRarity } from './unique.js';
 import { setting } from './settings.js';
 
 export const schema = {
@@ -121,6 +122,10 @@ function handleAdmin({ store, body }) {
     const season = /^\d{4}-\d{2}$/.test(body.season || '') ? body.season : seasonId();
     const cardId = Number(body.cardId) || 0;
     if (cardId && !store.get('Cards', cardId)) return fail('card_not_found');
+    // Les cartes Unique ne s'obtiennent qu'au coffre-fort perso.
+    const picked = cardId ? store.get('Cards', cardId) : null;
+    const unique = uniqueRarity(store);
+    if (picked && unique && refId(picked.Rarity) === unique.id) return fail('unique_card_not_allowed');
     const row = store.getAll('SeasonCards').find((r) => r.Season === season);
     if (row) store.update('SeasonCards', row.id, { Card: cardId });
     else store.create('SeasonCards', { Season: season, Card: cardId });

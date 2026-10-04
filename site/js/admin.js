@@ -11,6 +11,9 @@ const STATUS_LABELS = {
 };
 
 let cardsCatalog = [];
+// Cartes proposees dans les choix de recompense (codes, marche noir, niveaux,
+// bingo, saison) : jamais les cartes Unique, reservees au coffre-fort perso.
+const pickableCards = () => cardsCatalog.filter((c) => c.rarity?.key !== "unique");
 let codesCache = [];
 let calendarView = false;
 
@@ -131,7 +134,7 @@ function updateCardPreview() {
 async function loadCardOptions() {
   const res = await API.getCards();
   cardsCatalog = res.cards || [];
-  document.getElementById("card-select").innerHTML = cardsCatalog
+  document.getElementById("card-select").innerHTML = pickableCards()
     .map((c) => `<option value="${c.cardId}">${c.name}${c.isPromo ? " (promo)" : ""}</option>`)
     .join("");
 }
@@ -158,7 +161,7 @@ function populateGiftCardSelect() {
   // qui les excluent) : c'est justement l'outil a utiliser pour offrir une
   // carte secrete a un joueur sans lui faire chercher le Konami code.
   document.getElementById("gift-card-select").innerHTML = cardsCatalog
-    .map((c) => `<option value="${c.cardId}">${c.name}${c.isSecret ? " (secrète)" : c.isPromo ? " (promo)" : ""}</option>`)
+    .map((c) => `<option value="${c.cardId}">${c.name}${c.rarity?.key === "unique" ? " (unique)" : c.isSecret ? " (secrète)" : c.isPromo ? " (promo)" : ""}</option>`)
     .join("");
 }
 
@@ -406,7 +409,7 @@ async function loadBossAdmin() {
 // -----------------------------------------------------------------------
 function populateMarketCardSelect() {
   const select = document.getElementById("market-card-select");
-  select.innerHTML = cardsCatalog
+  select.innerHTML = pickableCards()
     .map((c) => `<option value="${c.cardId}">${c.name}${c.isPromo ? " (promo)" : ""}</option>`)
     .join("");
 }
@@ -444,7 +447,7 @@ async function loadMarketAdmin() {
 // -----------------------------------------------------------------------
 function populateBingoCardSelects() {
   const container = document.getElementById("bingo-card-selects");
-  const options = cardsCatalog.map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
+  const options = pickableCards().map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
   container.innerHTML = Array.from({ length: 9 }, (_, i) => `
     <label>
       Case ${i + 1}
@@ -492,7 +495,7 @@ async function loadLevelRewardsAdmin() {
   try {
     const res = await API.adminListLevelRewards(Session.discordId);
     const cardOptions = `<option value="">— aucune —</option>` +
-      cardsCatalog.map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
+      pickableCards().map((c) => `<option value="${c.cardId}">${c.name}</option>`).join("");
     tbody.innerHTML = res.rows.map((r) => `
       <tr data-level="${r.level}" data-row-id="${r.rowId || ""}">
         <td>${r.level}</td>
@@ -581,7 +584,7 @@ async function loadSeasonAdmin(res) {
   const zone = document.getElementById("season-admin-zone");
   try {
     const data = res || await API.adminGetSeason(Session.discordId);
-    const options = (selected) => `<option value="">— aucune (coffre + boosters au dernier palier) —</option>` + cardsCatalog
+    const options = (selected) => `<option value="">— aucune (coffre + boosters au dernier palier) —</option>` + pickableCards()
       .map((c) => `<option value="${c.cardId}" ${c.cardId === selected ? "selected" : ""}>${settingsEscape(c.name)}${c.isPromo ? " (promo)" : ""}</option>`).join("");
     zone.className = "";
     zone.innerHTML = data.seasons.map((s, i) => `

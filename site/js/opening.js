@@ -34,7 +34,7 @@ let extProgressByExt = new Map();
 let catalogCache = [];
 let lastOpenedExtension = null;
 
-const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3, mythique: 4 };
+const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3, mythique: 4, unique: 5 };
 
 // Attend `ms` millisecondes, sauf si l'utilisateur tape pour accelerer.
 function wait(ms) {
@@ -632,7 +632,7 @@ function showSetSummary(extensionId) {
         <div class="set-summary-row">
           <span class="rarity-dot" style="background:${color};"></span>
           <span>${owned ? c.name : "???"}</span>
-          ${c.isPromo ? '<span class="promo-badge">Promo</span>' : ""}
+          ${c.isPromo && c.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}
         </div>
       `;
     }).join("");

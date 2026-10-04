@@ -11,6 +11,7 @@
 //   auth.js     jeton signe a la connexion + limite de debit
 //   seasons.js  saisons mensuelles (pass de paliers, carte exclusive)
 //   fishing.js  jeu de peche
+//   unique.js   rarete Unique (seulement en completant une ligne du coffre-fort perso)
 //   duplicates.js poussiere passive sur les doublons a l'ouverture des boosters
 // Chaque module expose `routes` ({ 'METHODE chemin': handler }) et, au
 // besoin, `schema` (tables/colonnes creees au demarrage) et `afterWorkflow`.
@@ -31,8 +32,9 @@ import * as settings from './settings.js';
 import * as auth from './auth.js';
 import * as seasons from './seasons.js';
 import * as fishing from './fishing.js';
+import * as unique from './unique.js';
 
-const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing];
+const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique];
 
 export function createNative({ store, withLock, captureError = () => {}, workflowsDir = null }) {
   const routes = new Map();
@@ -47,6 +49,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   const missing = ensureSchema(store, workflowSchemaSpec(store, workflowsDir));
   if (missing.length) console.log('Colonnes des workflows creees :', missing.join(', '));
   auth.init({ store });
+  unique.init({ store });
 
   return {
     has: (method, path) => routes.has(`${method} ${path}`),
@@ -61,6 +64,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Avant chaque action d'un joueur (sous le verrou) : instantane de saison.
     beforeRequest(body = {}, query = {}) {
+      try { unique.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'unique' }); }
       const userId = Number(body.userId || query.userId) || 0;
       if (!userId) return;
       try { seasons.ensureProgress(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'season' }); }

@@ -45,6 +45,20 @@ carte au hasard de l'extension (`open-pack.json`) : verifie que chaque
 extension a au moins une carte par rarete utilisee, sinon la ponderation n'a
 plus d'effet visible.
 
+### Rarete Unique (verte, creee automatiquement)
+
+Au demarrage, l'API cree la rarete `unique` ("Unique", `#22c55e`, poids 0,
+au-dessus de toutes les autres) si elle manque (`api/src/native/unique.js`).
+Il suffit de creer des cartes avec cette rarete dans admin-db : elles sont
+automatiquement marquees `IsPromo` (donc jamais tirees, craftees, echangees
+ni donnees) et ne s'obtiennent qu'en completant une ligne du coffre-fort
+perso : une carte Unique que le joueur n'a pas encore, en parfait etat.
+Chaque ligne completee (table `VaultRewards`) vaut une carte Unique : les
+lignes completees avant la rarete, ou quand il ne restait rien a gagner, sont
+rattrapees a la visite suivante du coffre-fort (des qu'une carte est dispo).
+L'autel ne vise jamais cette rarete. Les cartes promo ne vont pas au
+coffre-fort perso (une seule finition possible).
+
 ### Nouvelle rarete : Mythique (au-dessus de Legendaire)
 
 **Cote code, tout est deja pret** - `Rarities` est lue dynamiquement partout

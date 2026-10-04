@@ -170,7 +170,7 @@
             ${variant.serialNumbers.includes(1) ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
           </div>
           <div class="card-info">
-            <div class="card-name">${name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
+            <div class="card-name">${name}${card.isPromo && card.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}</div>
             ${Coll.rarityBadge(card)}
             <div class="count-badge">x${count}</div>
             ${(canQuickAct || disenchantable) ? `
@@ -470,7 +470,7 @@
               <button class="card-modal-nav next" aria-label="Carte suivante">&#10095;</button>` : ""}
           </div>
           <div class="card-modal-body">
-            <div class="card-modal-name">${escapeHtml(card.name)}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
+            <div class="card-modal-name">${escapeHtml(card.name)}${card.isPromo && card.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}</div>
             <div class="card-modal-artist">${escapeHtml(card.artist || "")}${card.extension ? " &middot; " + escapeHtml(card.extension.name) : ""}</div>
             <div class="card-modal-badges">
               ${Coll.rarityBadge(card)}

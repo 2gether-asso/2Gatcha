@@ -149,6 +149,7 @@ doublons, coup final au boss) sans le modifier.
 | `push.js` | `GET push-config`, `POST push` | notifications push (Web Push) |
 | `seasons.js` | `POST season`, `POST admin-season` | saison mensuelle : paliers d'XP du mois, carte exclusive au dernier palier |
 | `fishing.js` | `POST fishing` | pêche : chaque lancer coûte des poussières (os, clés, boosters, coffres…) |
+| `unique.js` | — (après `personal-vault`) | rareté Unique (verte) : une carte Unique par ligne complète du coffre-fort perso (lignes passées rattrapées), jamais ailleurs |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

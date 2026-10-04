@@ -16,6 +16,7 @@ import * as push from '../src/native/push.js';
 import { parisDay } from '../src/native/common.js';
 import { setting } from '../src/native/settings.js';
 import * as auth from '../src/native/auth.js';
+import * as unique from '../src/native/unique.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-native-${process.pid}.sqlite`);
@@ -314,6 +315,52 @@ await test('coffres : coffres/cles de niveau une seule fois, achat, ouverture av
   assert.equal(call('POST', 'chests', { body: { userId: 1, action: 'open' } }).json.error, 'no_key');
   store.update('Users', 1, { StardustCount: 10 });
   assert.equal(call('POST', 'chests', { body: { userId: 1, action: 'buy' } }).json.error, 'not_enough_dust');
+});
+
+await test('unique : rarete creee, cartes forcees promo, sorties du coffre, une carte a chaque ligne, rattrapage', () => {
+  const rarity = store.getAll('Rarities').find((r) => r.Key === 'unique');
+  assert.ok(rarity, 'rarete creee au demarrage');
+  assert.equal(Number(rarity.Weight) || 0, 0);
+  assert.ok(rarity.SortOrder > Math.max(...store.getAll('Rarities').filter((r) => r.Key !== 'unique').map((r) => r.SortOrder || 0)));
+  // Deux cartes Unique creees "a la main" (sans IsPromo) + une carte promo rangee au coffre.
+  const a = store.create('Cards', { Name: 'Unique A', Rarity: rarity.id, Active: true });
+  const b = store.create('Cards', { Name: 'Unique B', Rarity: rarity.id, Active: true });
+  const promo = store.create('Cards', { Name: 'Promo', Rarity: 1, Active: true, IsPromo: true });
+  const stuck = store.create('Pulls', { User: 1, Card: promo.id, SerialNumber: 1, Finish: 'normal', Quality: 'mint', InVault: true });
+  const r0 = unique.syncUniqueCards(store);
+  assert.deepEqual([r0.promoted, r0.released], [2, 1]);
+  assert.ok(store.get('Cards', a.id).IsPromo && store.get('Cards', b.id).IsPromo);
+  assert.equal(!!store.get('Pulls', stuck.id).InVault, false);
+  const vault = (reward) => { const r = { status: 200, json: { unlocked: true, rows: [], reward } }; native.afterWorkflow('personal-vault', { body: { userId: 1 } }, r); return r.json; };
+  const completeRow = () => store.create('VaultRewards', { User: 1, Card: 1, ClaimedAt: 1 });
+  // Aucune ligne completee : rien n'est du.
+  let j = vault(null);
+  assert.deepEqual([j.uniqueGrants.length, j.unique.total, j.unique.remaining, j.unique.owed], [0, 2, 2, 0]);
+  // Rattrapage : 3 lignes completees avant la rarete, 2 cartes Unique -> 2 donnees, 1 encore due.
+  completeRow(); completeRow(); completeRow();
+  j = vault(null);
+  assert.deepEqual(j.uniqueGrants.map((c) => c.cardId).sort(), [a.id, b.id].sort());
+  assert.equal(j.uniqueGrants[0].rarity.key, 'unique');
+  assert.equal(j.uniqueGrants[0].quality, 'mint');
+  assert.deepEqual([j.unique.remaining, j.unique.owed], [0, 1]);
+  assert.equal(vault(null).uniqueGrants.length, 0, 'rien de plus tant qu il n y a pas de nouvelle carte');
+  // Nouvelle carte Unique creee : la carte due arrive a la visite suivante.
+  const c = store.create('Cards', { Name: 'Unique C', Rarity: rarity.id, Active: true });
+  unique.syncUniqueCards(store);
+  j = vault(null);
+  assert.deepEqual([j.uniqueGrants.length, j.uniqueGrants[0].cardId, j.unique.owed], [1, c.id, 0]);
+  // Ligne completee maintenant, plus aucune carte a gagner : due pour plus tard.
+  completeRow();
+  j = vault({ cardId: 1, boosters: 6, dust: 200 });
+  assert.deepEqual([j.reward.uniqueCard, j.uniqueGrants.length, j.unique.owed], [null, 0, 1]);
+  // Une nouvelle carte + une nouvelle ligne : la ligne du jour prend une carte, l'autre reste due.
+  const d = store.create('Cards', { Name: 'Unique D', Rarity: rarity.id, Active: true, IsPromo: true });
+  completeRow();
+  j = vault({ cardId: 1, boosters: 6, dust: 200 });
+  assert.deepEqual([j.reward.uniqueCard.cardId, j.uniqueGrants.length, j.unique.owed], [d.id, 0, 1]);
+  assert.equal(store.getAll('Pulls').filter((p) => p.User === 1 && String(p.BatchId).startsWith('unique-')).length, 4);
+  // Jamais comme carte de saison.
+  assert.equal(call('POST', 'admin-season', { body: { discordId: ADMIN, action: 'setCard', season: '2026-10', cardId: a.id } }).json.error, 'unique_card_not_allowed');
 });
 
 store.db.close();

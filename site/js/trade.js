@@ -263,7 +263,7 @@ function openTradeCardModal(card, opts) {
       <button class="card-modal-close" aria-label="Fermer">&times;</button>
       <div class="card-art"><img src="${imgSrc}" alt="${card.name}" /></div>
       <div class="card-modal-body">
-        <div class="card-modal-name">${card.name}${card.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
+        <div class="card-modal-name">${card.name}${card.isPromo && card.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}</div>
         <div class="card-modal-artist">${card.artist || ""}${card.extension ? " &middot; " + card.extension.name : ""}</div>
         <div class="card-modal-badges">
           <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">

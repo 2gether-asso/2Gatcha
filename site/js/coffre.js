@@ -1,6 +1,8 @@
 // Coffre-fort perso (coffre.html, 2026-10-02) - voir personal-vault.json.
 // Une ligne = une carte, 6 emplacements (un par finition), parfait etat
-// uniquement. Ligne complete = recompense unique (boosters + poussieres).
+// uniquement. Ligne complete = recompense unique (boosters + poussieres +
+// une carte de rarete Unique, voir api/src/native/unique.js). Cartes promo
+// exclues (une seule finition possible).
 
 const PV_FINISHES = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
 const PV_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
@@ -10,7 +12,8 @@ const PV_ERRORS = {
   slot_filled: "Cet emplacement est déjà occupé.",
   already_stored: "Cette carte est déjà au coffre.",
   not_stored: "Cette carte n'est pas au coffre.",
-  pull_not_owned: "Cet exemplaire ne t'appartient plus."
+  pull_not_owned: "Cet exemplaire ne t'appartient plus.",
+  promo_not_storable: "Les cartes promo ne vont pas au coffre-fort (une seule finition possible)."
 };
 let pvBusy = false;
 
@@ -24,7 +27,7 @@ function pvRender(data) {
   document.getElementById("pv-summary").innerHTML = `
     <div class="stat-tile"><div class="stat-value">${rows.reduce((n, r) => n + r.filled, 0)}</div><div class="stat-label">Cartes protégées</div></div>
     <div class="stat-tile"><div class="stat-value">${complete}</div><div class="stat-label">Lignes complètes</div></div>
-    <div class="pv-reward-note">Ligne complète (6 finitions en parfait état) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>, une seule fois par carte.</div>
+    <div class="pv-reward-note">Ligne complète (6 finitions en parfait état) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>${pvUniqueNote(data.unique)}, une seule fois par carte. Les cartes promo ne vont pas au coffre.</div>
   `;
   const box = document.getElementById("pv-rows");
   if (!rows.length) {
@@ -72,6 +75,48 @@ function pvRender(data) {
   }).join("");
 }
 
+// Carte Unique (verte) offerte a chaque ligne completee, tant qu'il en reste
+// que le joueur n'a pas.
+function pvUniqueNote(u) {
+  if (!u) return "";
+  const waiting = u.owed ? ` · ${u.owed} carte${u.owed > 1 ? "s" : ""} Unique en attente (dès qu'une nouvelle sortira)` : "";
+  if (!u.total) return waiting;
+  return (u.remaining
+    ? ` <span class="pv-unique-note">+ 1 carte Unique &#127808;</span> (${u.remaining} sur ${u.total} encore à gagner)`
+    : ` <span class="pv-unique-note">(toutes les cartes Unique obtenues &#127808;)</span>`) + waiting;
+}
+
+// Revele les cartes une par une (la suivante a la fermeture de la precedente).
+function pvRevealUnique(card, queue = [], label = "Carte Unique obtenue !") {
+  const overlay = document.createElement("div");
+  overlay.className = "unique-reveal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "Carte Unique obtenue");
+  overlay.innerHTML = `
+    <div class="unique-reveal">
+      <div class="unique-reveal-eyebrow">&#127808; ${label}</div>
+      <div class="unique-reveal-card" data-rarity="unique">
+        <img src="${API.imageUrl(card.imageId) || ""}" alt="${card.name}" />
+        <div class="card-info">
+          <div class="card-name">${card.name}</div>
+          <span class="rarity-badge" style="background:#22c55e22;color:var(--rarity-unique);border:1px solid var(--rarity-unique);">Unique ${pvSerial(card.serialNumber)}</span>
+        </div>
+      </div>
+      <div class="unique-reveal-sub">${card.isFirstEver ? "&#127942; Premier exemplaire du serveur ! " : ""}Elle ne s'obtient qu'au coffre-fort. Touche pour continuer.</div>
+    </div>`;
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+    if (queue.length) pvRevealUnique(queue[0], queue.slice(1), label);
+  };
+  overlay.addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(overlay);
+  if (typeof Sfx !== "undefined" && Sfx.reveal) Sfx.reveal("unique");
+  if (typeof confetti === "function") confetti({ particleCount: 200, spread: 130, origin: { y: 0.55 }, colors: ["#22c55e", "#86efac", "#bbf7d0", "#ffffff"] });
+}
+
 async function pvLoad(action, pullId) {
   if (pvBusy) return;
   pvBusy = true;
@@ -87,9 +132,15 @@ async function pvLoad(action, pullId) {
     if (action === "store") Toast.success("Carte rangée au coffre : elle est protégée.");
     if (action === "withdraw") Toast.info("Carte retirée du coffre : elle revient dans ta collection.");
     if (data.reward) {
-      Toast.success(`Ligne ${data.reward.cardName} complète ! +${data.reward.boosters} boosters et +${data.reward.dust} poussières.`);
+      Toast.success(`Ligne ${data.reward.cardName} complète ! +${data.reward.boosters} boosters et +${data.reward.dust} poussières${data.reward.uniqueCard ? ` et la carte Unique ${data.reward.uniqueCard.name}` : ""}.`);
       if (typeof loadNavBadges === "function") loadNavBadges();
     }
+    // Carte de la ligne du jour, puis rattrapage des lignes deja completees.
+    const today = data.reward && data.reward.uniqueCard ? [data.reward.uniqueCard] : [];
+    const catchUp = data.uniqueGrants || [];
+    if (catchUp.length) Toast.success(`Rattrapage : ${catchUp.length} carte${catchUp.length > 1 ? "s" : ""} Unique pour tes lignes déjà complétées !`);
+    const reveals = [...today, ...catchUp];
+    if (reveals.length) pvRevealUnique(reveals[0], reveals.slice(1), today.length ? "Carte Unique obtenue !" : "Rattrapage : carte Unique !");
   } catch (e) {
     Toast.error(PV_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
   } finally {

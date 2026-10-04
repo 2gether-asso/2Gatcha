@@ -23,6 +23,7 @@
   --rarity-epique: #a855f7;
   --rarity-legendaire: #f5a524;
   --rarity-mythique: #ef4444;
+  --rarity-unique: #22c55e;
 
   --success: #4ade80;
   --danger: #fb7185;
@@ -44,7 +45,7 @@
   --text: #f2f2f2; --text-dim: #9a9a9a;
   --border: rgba(255,255,255,0.2); --border-soft: rgba(255,255,255,0.08);
   --accent: #d4d4d4; --accent-2: #a3a3a3; --accent-3: #e5e5e5;
-  --rarity-commune: #8a8a8a; --rarity-rare: #b0b0b0; --rarity-epique: #d9d9d9; --rarity-legendaire: #ffffff; --rarity-mythique: #ef4444;
+  --rarity-commune: #8a8a8a; --rarity-rare: #b0b0b0; --rarity-epique: #d9d9d9; --rarity-legendaire: #ffffff; --rarity-mythique: #ef4444; --rarity-unique: #e5e5e5;
 }
 :root[data-theme="sepia"] {
   --bg-void: #1c140d; --bg-deep: #241a11;
@@ -52,7 +53,7 @@
   --text: #f3e6d0; --text-dim: #c1a887;
   --border: rgba(212,163,89,0.32); --border-soft: rgba(255,235,200,0.1);
   --accent: #d4a359; --accent-2: #b5762f; --accent-3: #e8c078;
-  --rarity-commune: #a89078; --rarity-rare: #8ba888; --rarity-epique: #b58ac0; --rarity-legendaire: #d4a359; --rarity-mythique: #c1440e;
+  --rarity-commune: #a89078; --rarity-rare: #8ba888; --rarity-epique: #b58ac0; --rarity-legendaire: #d4a359; --rarity-mythique: #c1440e; --rarity-unique: #7fa650;
 }
 :root[data-theme="cyberpunk"] {
   --bg-void: #04010a; --bg-deep: #0a0316;
@@ -60,7 +61,7 @@
   --text: #f0f0ff; --text-dim: #b088e8;
   --border: rgba(255,0,200,0.32); --border-soft: rgba(0,255,213,0.14);
   --accent: #ff2ec4; --accent-2: #00ffd5; --accent-3: #ffe600;
-  --rarity-commune: #7dd3fc; --rarity-rare: #00ffd5; --rarity-epique: #ff2ec4; --rarity-legendaire: #ffe600; --rarity-mythique: #ff1f3d;
+  --rarity-commune: #7dd3fc; --rarity-rare: #00ffd5; --rarity-epique: #ff2ec4; --rarity-legendaire: #ffe600; --rarity-mythique: #ff1f3d; --rarity-unique: #39ff88;
 }
 
 * { box-sizing: border-box; }
@@ -5853,7 +5854,7 @@ button.set-chip-claim::before { content: none; }
 .fish-catch-item { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(6,7,15,0.82); border: 1px solid var(--tier-color, var(--border-soft)); font-weight: 800; font-size: 0.85rem; color: #fff; }
 .fish-catch-icon { font-size: 1.3rem; }
 .tier-nothing { --tier-color: #6b7280; } .tier-commune { --tier-color: var(--rarity-commune); } .tier-rare { --tier-color: var(--rarity-rare); }
-.tier-epique { --tier-color: var(--rarity-epique); } .tier-legendaire { --tier-color: var(--rarity-legendaire); } .tier-mythique { --tier-color: var(--rarity-mythique); }
+.tier-epique { --tier-color: var(--rarity-epique); } .tier-legendaire { --tier-color: var(--rarity-legendaire); } .tier-mythique { --tier-color: var(--rarity-mythique); } .tier-unique { --tier-color: var(--rarity-unique); }
 .fish-catch-item.tier-legendaire, .fish-catch-item.tier-mythique { box-shadow: 0 0 18px var(--tier-color); }
 .fish-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .fish-meta { font-size: 0.82rem; color: var(--text-dim); }
@@ -5879,3 +5880,35 @@ button.set-chip-claim::before { content: none; }
 .setting-reset { justify-self: start; padding: 2px 8px; font-size: 0.7rem; }
 .settings-actions { position: sticky; bottom: 8px; display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; padding: 10px; border-radius: 12px; background: var(--bg-panel-solid); border: 1px solid var(--border-soft); }
 .settings-errors { color: var(--danger); font-size: 0.82rem; }
+
+/* Rarete Unique (verte) : seulement en completant une ligne du coffre-fort
+   perso (api/src/native/unique.js). Nom degrade vert anime, halo vert. */
+[data-rarity="unique"] .card-name,
+[data-rarity="unique"] .card-modal-name,
+[data-rarity="unique"] .pull-log-name {
+  background: linear-gradient(120deg, var(--rarity-unique), #d9ffe6, var(--rarity-unique));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: legendaryNameShimmer 3s linear infinite;
+}
+.collection-card:not(.locked)[data-rarity="unique"] {
+  border-color: var(--rarity-unique);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--rarity-unique) 60%, transparent), 0 0 22px color-mix(in srgb, var(--rarity-unique) 38%, transparent), 1.5px 1.5px 0 rgba(0,0,0,0.35);
+}
+.card[data-rarity="unique"] .card-front { border-width: 2px; border-color: var(--rarity-unique); box-shadow: 0 0 26px color-mix(in srgb, var(--rarity-unique) 55%, transparent); }
+.card-modal[data-rarity="unique"] { border-color: var(--rarity-unique); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px color-mix(in srgb, var(--rarity-unique) 55%, transparent), 0 0 46px color-mix(in srgb, var(--rarity-unique) 38%, transparent); }
+
+/* Coffre-fort perso : carte Unique gagnee en completant une ligne */
+.pv-unique-note { color: var(--rarity-unique); font-weight: 700; }
+.unique-reveal-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--rarity-unique) 22%, rgba(4,6,12,0.92)), rgba(4,6,12,0.94) 70%); animation: uniqueFade 0.3s ease both; cursor: pointer; }
+.unique-reveal { display: grid; justify-items: center; gap: 12px; text-align: center; max-width: 340px; }
+.unique-reveal-eyebrow { font-family: var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--rarity-unique); font-size: 0.85rem; }
+.unique-reveal-card { width: min(240px, 66vw); border-radius: 16px; overflow: hidden; border: 2px solid var(--rarity-unique); background: var(--bg-panel-2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--rarity-unique) 50%, transparent), 0 0 60px color-mix(in srgb, var(--rarity-unique) 55%, transparent); animation: uniquePop 0.7s cubic-bezier(.2,.9,.3,1.3) both; }
+.unique-reveal-card img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.unique-reveal-card .card-info { padding: 10px; }
+.unique-reveal-sub { color: var(--text-dim); font-size: 0.85rem; }
+@keyframes uniqueFade { from { opacity: 0; } }
+@keyframes uniquePop { 0% { transform: scale(0.4) rotateY(90deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .unique-reveal-card, .unique-reveal-overlay { animation: none; } }

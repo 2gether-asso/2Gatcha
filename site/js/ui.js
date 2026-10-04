@@ -496,7 +496,8 @@ const Sfx = {
       // Bug reel corrige ici (2026-09-30) : manquait completement, donc tout
       // VRAI tirage mythique (craft/redeem/opening.js/etc.) retombait sur
       // l'accord le plus fade (commune) au lieu du plus impressionnant.
-      mythique: [392, 523.25, 659.25, 783.99, 987.77, 1244.51]
+      mythique: [392, 523.25, 659.25, 783.99, 987.77, 1244.51],
+      unique: [440, 554.37, 659.25, 880, 1108.73, 1318.51]
     };
     const notes = chords[rarityKey] || chords.commune;
     notes.forEach((freq, i) => this._tone(freq, i * 0.055, 0.55, "sine", 0.085));
@@ -508,7 +509,7 @@ const Sfx = {
 
 // Petite icone distinctive par rareté (en plus de la couleur, pour ne pas
 // reposer uniquement sur la teinte).
-const RARITY_ICONS = { commune: "&#9679;", rare: "&#9670;", epique: "&#9733;", legendaire: "&#128081;", mythique: "&#128293;" };
+const RARITY_ICONS = { commune: "&#9679;", rare: "&#9670;", epique: "&#9733;", legendaire: "&#128081;", mythique: "&#128293;", unique: "&#127808;" };
 function rarityIcon(key) {
   return RARITY_ICONS[key] || RARITY_ICONS.commune;
 }
@@ -554,13 +555,14 @@ const TopLoadingBar = {
 // a un z-index superieur au modal plein écran d'ouverture (400) et a son
 // flash legendaire (410) : les effets doivent toujours passer PAR-DESSUS.
 // ---------------------------------------------------------------------------
-const RARITY_PARTICLE_COUNTS = { commune: 5, rare: 12, epique: 24, legendaire: 42, mythique: 64 };
+const RARITY_PARTICLE_COUNTS = { commune: 5, rare: 12, epique: 24, legendaire: 42, mythique: 64, unique: 64 };
 const RARITY_CONFETTI = {
   commune: { particleCount: 0, spread: 0 },
   rare: { particleCount: 45, spread: 65 },
   epique: { particleCount: 80, spread: 90 },
   legendaire: { particleCount: 150, spread: 120 },
-  mythique: { particleCount: 220, spread: 140 }
+  mythique: { particleCount: 220, spread: 140 },
+  unique: { particleCount: 220, spread: 140 }
 };
 
 // Melange une couleur hex avec du blanc (0 = couleur intacte, 1 = blanc
