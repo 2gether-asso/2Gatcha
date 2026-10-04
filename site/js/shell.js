@@ -303,6 +303,9 @@ function renderHeader() {
             <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
               <span class="icon">&#128273;</span><span class="count">0</span>
             </span>
+            <a id="header-ticket-badge" class="stat-chip stat-chip-ticket" href="coffre.html#comptoir" title="Tickets Unique : à échanger au Comptoir Unique (coffre-fort)" style="display:none;">
+              <span class="icon">&#127915;</span><span class="count">0</span>
+            </a>
           </div>
           <div class="global-search" id="global-search">
             <button type="button" class="global-search-trigger" id="global-search-trigger" aria-label="Recherche" title="Rechercher un joueur, une carte...">&#128269;</button>
@@ -723,6 +726,14 @@ async function loadHeaderBoosterBadge() {
         keyBadge.style.display = "none";
         if (keyDivider) keyDivider.style.display = "none";
       }
+    }
+
+    // Tickets Unique (api/src/native/unique.js) : visibles seulement si > 0.
+    const ticketBadge = document.getElementById("header-ticket-badge");
+    if (ticketBadge) {
+      const tickets = status.uniqueTickets || 0;
+      ticketBadge.style.display = tickets > 0 ? "flex" : "none";
+      if (tickets > 0) bumpNumber(ticketBadge.querySelector(".count"), tickets);
     }
 
     if (status.xp) knownProfileLevel = status.xp.level;

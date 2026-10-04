@@ -48,16 +48,24 @@ plus d'effet visible.
 ### Rarete Unique (verte, creee automatiquement)
 
 Au demarrage, l'API cree la rarete `unique` ("Unique", `#22c55e`, poids 0,
-au-dessus de toutes les autres) si elle manque (`api/src/native/unique.js`).
-Il suffit de creer des cartes avec cette rarete dans admin-db : elles sont
-automatiquement marquees `IsPromo` (donc jamais tirees, craftees, echangees
-ni donnees) et ne s'obtiennent qu'en completant une ligne du coffre-fort
-perso : une carte Unique que le joueur n'a pas encore, en parfait etat.
-Chaque ligne completee (table `VaultRewards`) vaut une carte Unique : les
-lignes completees avant la rarete, ou quand il ne restait rien a gagner, sont
-rattrapees a la visite suivante du coffre-fort (des qu'une carte est dispo).
-L'autel ne vise jamais cette rarete. Les cartes promo ne vont pas au
-coffre-fort perso (une seule finition possible).
+au-dessus de toutes les autres) et l'extension `uniques` (inactive : pas de
+booster) si elles manquent (`api/src/native/unique.js`). Il suffit de creer
+des cartes avec cette rarete dans admin-db : elles sont automatiquement
+marquees `IsPromo` (jamais tirees, craftees, echangees ni donnees) et rangees
+dans l'extension Uniques si aucune n'est choisie (elles ne pesent ainsi sur
+la completion d'aucune autre extension). Elles ne s'obtiennent qu'au
+**Comptoir Unique** (page coffre-fort) contre un **Ticket Unique**
+(`Users.UniqueTickets`), gagne a chaque ligne complete du coffre-fort perso.
+L'autel ne vise jamais cette rarete.
+
+### Coffre-fort perso, pieces detachees, niveaux
+
+- `VaultRewards` : une ligne par carte dont la ligne de 6 finitions a ete
+  recompensee. `VaultJokers` (User, Card, Finish, PlacedAt) : pieces
+  detachees posees comme joker (`Users.SpareParts`, gagnees a la peche, max
+  `VaultJokersPerRow` par ligne). Les cartes promo ne vont pas au coffre.
+- `Users.FishingXP` / `Users.DigXP` : niveaux de peche et de fouille (1 a 10,
+  `api/src/native/levels.js`).
 
 ### Nouvelle rarete : Mythique (au-dessus de Legendaire)
 

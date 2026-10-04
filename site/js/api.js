@@ -583,8 +583,11 @@ const API = {
     return this.post("levelRewards", { discordId, action: "adminSet", rows });
   },
 
-  personalVault(userId, action, pullId) {
-    return this.post("personalVault", { userId, action, pullId });
+  uniqueCounter(userId, action, cardId) {
+    return this.post("uniqueCounter", { userId, action, cardId });
+  },
+  personalVault(userId, action, pullId, extra) {
+    return this.post("personalVault", { userId, action, pullId, ...(extra || {}) });
   },
   getVaultStatus(userId) {
     return this.post("vault", { userId, action: "status" });

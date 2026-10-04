@@ -17,6 +17,7 @@ import { parisDay } from '../src/native/common.js';
 import { setting } from '../src/native/settings.js';
 import * as auth from '../src/native/auth.js';
 import * as unique from '../src/native/unique.js';
+import * as levels from '../src/native/levels.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-native-${process.pid}.sqlite`);
@@ -31,7 +32,7 @@ const ADMIN = '785223211730075709';
 
 let passed = 0;
 async function test(name, fn) {
-  try { await fn(); passed++; console.log(' ok  ' + name); } catch (e) { console.log('FAIL ' + name + '\n     ' + (e.stack || e.message).split('\n').slice(0, 3).join('\n     ')); process.exitCode = 1; }
+  try { await fn(); passed++; console.log(' ok  ' + name); } catch (e) { console.log('FAIL ' + name + '\n     ' + (e.stack || e.message).split('\n').slice(0, 10).join('\n     ')); process.exitCode = 1; }
 }
 const user = (id) => store.get('Users', id);
 
@@ -261,8 +262,8 @@ await test('saison : XP du mois, paliers reclames une fois, carte exclusive au d
 });
 
 await test('peche : cout, prises appliquees, limite par jour', () => {
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: 10, FishingDailyCasts: 6, FishingLoot: [{ type: 'key', weight: 1, min: 1, max: 1 }] } } });
-  store.update('Users', 1, { StardustCount: 100, KeyCount: 0, FishingDay: '', FishingCasts: 0 });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: 10, FishingDailyCasts: 6, FishingLevelXpStep: 100000, FishingLoot: [{ type: 'key', weight: 1, min: 1, max: 1 }] } } });
+  store.update('Users', 1, { StardustCount: 100, KeyCount: 0, FishingDay: '', FishingCasts: 0, FishingXP: 0 });
   const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 5 } }).json;
   assert.equal(r.catches.length, 5);
   assert.equal(user(1).StardustCount, 50);
@@ -272,6 +273,7 @@ await test('peche : cout, prises appliquees, limite par jour', () => {
   store.update('Users', 1, { StardustCount: 5 });
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json.error, 'not_enough_dust');
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.table[0].chance, 100);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLevelXpStep' } });
 });
 
 await test('economie : reserve aux admins, totaux coherents', () => {
@@ -317,50 +319,164 @@ await test('coffres : coffres/cles de niveau une seule fois, achat, ouverture av
   assert.equal(call('POST', 'chests', { body: { userId: 1, action: 'buy' } }).json.error, 'not_enough_dust');
 });
 
-await test('unique : rarete creee, cartes forcees promo, sorties du coffre, une carte a chaque ligne, rattrapage', () => {
+await test('unique : rarete + extension creees, cartes forcees promo, ticket par ligne, comptoir, migration', () => {
   const rarity = store.getAll('Rarities').find((r) => r.Key === 'unique');
   assert.ok(rarity, 'rarete creee au demarrage');
   assert.equal(Number(rarity.Weight) || 0, 0);
   assert.ok(rarity.SortOrder > Math.max(...store.getAll('Rarities').filter((r) => r.Key !== 'unique').map((r) => r.SortOrder || 0)));
-  // Deux cartes Unique creees "a la main" (sans IsPromo) + une carte promo rangee au coffre.
+  const ext = store.getAll('Extensions').find((e) => e.Key === 'uniques');
+  assert.ok(ext && ext.Active === false, 'extension Uniques inactive');
+  // Deux cartes Unique creees "a la main" (sans IsPromo ni extension) + une carte promo rangee au coffre.
   const a = store.create('Cards', { Name: 'Unique A', Rarity: rarity.id, Active: true });
-  const b = store.create('Cards', { Name: 'Unique B', Rarity: rarity.id, Active: true });
+  const b = store.create('Cards', { Name: 'Unique B', Rarity: rarity.id, Active: true, Extension: 1 });
   const promo = store.create('Cards', { Name: 'Promo', Rarity: 1, Active: true, IsPromo: true });
   const stuck = store.create('Pulls', { User: 1, Card: promo.id, SerialNumber: 1, Finish: 'normal', Quality: 'mint', InVault: true });
   const r0 = unique.syncUniqueCards(store);
   assert.deepEqual([r0.promoted, r0.released], [2, 1]);
   assert.ok(store.get('Cards', a.id).IsPromo && store.get('Cards', b.id).IsPromo);
+  assert.equal(store.get('Cards', a.id).Extension, ext.id, 'sans extension -> Uniques');
+  assert.equal(store.get('Cards', b.id).Extension, 1, 'extension choisie gardee');
   assert.equal(!!store.get('Pulls', stuck.id).InVault, false);
-  const vault = (reward) => { const r = { status: 200, json: { unlocked: true, rows: [], reward } }; native.afterWorkflow('personal-vault', { body: { userId: 1 } }, r); return r.json; };
-  const completeRow = () => store.create('VaultRewards', { User: 1, Card: 1, ClaimedAt: 1 });
-  // Aucune ligne completee : rien n'est du.
-  let j = vault(null);
-  assert.deepEqual([j.uniqueGrants.length, j.unique.total, j.unique.remaining, j.unique.owed], [0, 2, 2, 0]);
-  // Rattrapage : 3 lignes completees avant la rarete, 2 cartes Unique -> 2 donnees, 1 encore due.
-  completeRow(); completeRow(); completeRow();
-  j = vault(null);
-  assert.deepEqual(j.uniqueGrants.map((c) => c.cardId).sort(), [a.id, b.id].sort());
-  assert.equal(j.uniqueGrants[0].rarity.key, 'unique');
-  assert.equal(j.uniqueGrants[0].quality, 'mint');
-  assert.deepEqual([j.unique.remaining, j.unique.owed], [0, 1]);
-  assert.equal(vault(null).uniqueGrants.length, 0, 'rien de plus tant qu il n y a pas de nouvelle carte');
-  // Nouvelle carte Unique creee : la carte due arrive a la visite suivante.
-  const c = store.create('Cards', { Name: 'Unique C', Rarity: rarity.id, Active: true });
-  unique.syncUniqueCards(store);
-  j = vault(null);
-  assert.deepEqual([j.uniqueGrants.length, j.uniqueGrants[0].cardId, j.unique.owed], [1, c.id, 0]);
-  // Ligne completee maintenant, plus aucune carte a gagner : due pour plus tard.
-  completeRow();
-  j = vault({ cardId: 1, boosters: 6, dust: 200 });
-  assert.deepEqual([j.reward.uniqueCard, j.uniqueGrants.length, j.unique.owed], [null, 0, 1]);
-  // Une nouvelle carte + une nouvelle ligne : la ligne du jour prend une carte, l'autre reste due.
-  const d = store.create('Cards', { Name: 'Unique D', Rarity: rarity.id, Active: true, IsPromo: true });
-  completeRow();
-  j = vault({ cardId: 1, boosters: 6, dust: 200 });
-  assert.deepEqual([j.reward.uniqueCard.cardId, j.uniqueGrants.length, j.unique.owed], [d.id, 0, 1]);
-  assert.equal(store.getAll('Pulls').filter((p) => p.User === 1 && String(p.BatchId).startsWith('unique-')).length, 4);
+
+  const counter = (action, cardId) => call('POST', 'unique-counter', { body: { userId: 1, action, cardId } });
+  store.update('Users', 1, { UniqueTickets: 0 });
+  assert.deepEqual(unique.vaultSummary(store, 1), { total: 2, remaining: 2, tickets: 0 });
+  assert.equal(counter('redeem', a.id).json.error, 'no_ticket');
+  unique.addTicket(store, 1);
+  assert.equal(unique.vaultSummary(store, 1).tickets, 1);
+  // Comptoir : vitrine, echange au choix, deja possedee refusee, carte non Unique refusee.
+  let c = counter('status').json;
+  assert.deepEqual([c.tickets, c.cards.length, c.cards.every((x) => !x.owned)], [1, 2, true]);
+  assert.equal(counter('redeem', promo.id).json.error, 'not_unique_card');
+  c = counter('redeem', b.id).json;
+  assert.equal(c.redeemed, true);
+  assert.deepEqual([c.card.cardId, c.card.rarity.key, c.card.quality, c.card.serialNumber, c.tickets, c.remaining], [b.id, 'unique', 'mint', 1, 0, 1]);
+  assert.ok(c.cards.find((x) => x.cardId === b.id).owned);
+  unique.addTicket(store, 1);
+  assert.equal(counter('redeem', b.id).json.error, 'already_owned');
+  assert.equal(counter('redeem', a.id).json.tickets, 0);
+  // En-tete : compteur de tickets ajoute au statut des boosters.
+  const bs = { status: 200, json: { count: 1 } };
+  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, bs);
+  assert.equal(bs.json.uniqueTickets, 0);
   // Jamais comme carte de saison.
   assert.equal(call('POST', 'admin-season', { body: { discordId: ADMIN, action: 'setCard', season: '2026-10', cardId: a.id } }).json.error, 'unique_card_not_allowed');
+});
+
+await test('coffre-fort perso : rangement, promo refusee, piece detachee (joker), recompense + ticket, remboursement', () => {
+  const vaultCall = (action, extra = {}) => call('POST', 'personal-vault', { body: { userId: 2, action, ...extra } });
+  assert.equal(vaultCall('status').json.unlocked, false);
+  const vaultCard = store.getAll('Cards').find((c) => c.IsVault);
+  store.create('Pulls', { User: 2, Card: vaultCard.id, BatchId: 'vault-test', SerialNumber: 900, Finish: 'rainbow', Quality: 'mint' });
+  const card = store.getAll('Cards').find((c) => c.Active && !c.IsPromo && !c.IsVault);
+  const pull = (finish, quality = 'mint') => store.create('Pulls', { User: 2, Card: card.id, SerialNumber: 800 + store.getAll('Pulls').length, Finish: finish, Quality: quality });
+  const ids = ['normal', 'holo', 'gold', 'ghost'].map((f) => pull(f).id);
+  const worn = pull('diamond', 'worn');
+  for (const id of ids) assert.equal(vaultCall('store', { pullId: id }).status, 200);
+  assert.equal(vaultCall('store', { pullId: worn.id }).json.error, 'not_mint');
+  let row = vaultCall('status').json.rows.find((r) => r.cardId === card.id);
+  assert.deepEqual([row.filled, row.complete], [4, false]);
+  // Pieces detachees : aucune, puis 3 ; 2 max par ligne.
+  store.update('Users', 2, { SpareParts: 0, UniqueTickets: 0 });
+  assert.equal(vaultCall('joker', { cardId: card.id, finish: 'diamond' }).json.error, 'no_spare_part');
+  store.update('Users', 2, { SpareParts: 3 });
+  assert.equal(vaultCall('joker', { cardId: card.id, finish: 'normal' }).json.error, 'slot_filled');
+  let j = vaultCall('joker', { cardId: card.id, finish: 'diamond' }).json;
+  assert.equal(j.spareParts, 2);
+  assert.equal(j.reward, null);
+  const boosters = store.get('Users', 2).BoosterCount || 0;
+  j = vaultCall('joker', { cardId: card.id, finish: 'rainbow' }).json;
+  row = j.rows.find((r) => r.cardId === card.id);
+  assert.deepEqual([row.filled, row.jokers, row.complete, row.claimed], [6, 2, true, true]);
+  assert.deepEqual([j.reward.boosters, j.reward.dust, j.reward.ticket], [6, 200, 1]);
+  assert.equal(store.get('Users', 2).BoosterCount, boosters + 6);
+  assert.equal(j.unique.tickets, 1);
+  // La vraie carte remplace une piece : remboursee, pas de 2e recompense.
+  const rainbow = pull('rainbow');
+  j = vaultCall('store', { pullId: rainbow.id }).json;
+  assert.equal(j.jokerRefunded, true);
+  assert.equal(j.spareParts, 2);
+  assert.equal(j.reward, null);
+  assert.equal(j.rows.find((r) => r.cardId === card.id).jokers, 1);
+  // Limite par ligne sur une autre carte.
+  const other = store.getAll('Cards').find((c) => c.Active && !c.IsPromo && !c.IsVault && c.id !== card.id);
+  store.create('Pulls', { User: 2, Card: other.id, SerialNumber: 777, Finish: 'normal', Quality: 'mint' });
+  store.update('Users', 2, { SpareParts: 5 });
+  vaultCall('joker', { cardId: other.id, finish: 'holo' });
+  vaultCall('joker', { cardId: other.id, finish: 'gold' });
+  assert.equal(vaultCall('joker', { cardId: other.id, finish: 'ghost' }).json.error, 'joker_limit');
+  // Cartes promo : jamais au coffre.
+  const promo = store.getAll('Cards').find((c) => c.IsPromo && !c.IsVault);
+  if (promo) {
+    const pp = store.create('Pulls', { User: 2, Card: promo.id, SerialNumber: 555, Finish: 'normal', Quality: 'mint' });
+    assert.equal(vaultCall('store', { pullId: pp.id }).json.error, 'promo_not_storable');
+    assert.ok(!vaultCall('status').json.rows.some((r) => r.cardId === promo.id));
+  }
+  // Retrait.
+  assert.equal(!!store.get('Pulls', ids[0]).InVault, true);
+  vaultCall('withdraw', { pullId: ids[0] });
+  assert.equal(!!store.get('Pulls', ids[0]).InVault, false);
+});
+
+await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), fouille (XP, bonus de poussieres)', () => {
+  assert.deepEqual([levels.levelFor(0, 20), levels.levelFor(19, 20), levels.levelFor(20, 20), levels.levelFor(60, 20), levels.levelFor(99999, 20)], [1, 1, 2, 3, 10]);
+  for (const key of ['FishingCost', 'FishingDailyCasts', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  // Peche : niveau 1 puis niveau 3 (FishingLevelXpStep 15 -> 45 XP).
+  store.update('Users', 1, { FishingXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 5000 });
+  let st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.deepEqual([st.level.level, st.dailyLimit], [1, 20]);
+  assert.ok(st.table.some((x) => x.type === 'part'), 'piece detachee dans la table');
+  const empty1 = st.table.find((x) => x.type === 'nothing').chance;
+  store.update('Users', 1, { FishingXP: 45 });
+  st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.deepEqual([st.level.level, st.dailyLimit], [3, 24]);
+  assert.ok(st.table.find((x) => x.type === 'nothing').chance < empty1, 'moins de prises vides');
+  const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 5 } }).json;
+  assert.ok(r.xpGained >= 5);
+  assert.equal(store.get('Users', 1).FishingXP, 45 + r.xpGained);
+  // Une piece detachee pechee arrive dans Users.SpareParts.
+  setting(store, 'FishingLoot');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingLoot: [{ type: 'part', weight: 1, min: 1, max: 1 }] } } });
+  const parts = store.get('Users', 1).SpareParts || 0;
+  const r2 = call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json;
+  assert.equal(r2.catches[0].type, 'part');
+  assert.equal(store.get('Users', 1).SpareParts, parts + 1);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
+  // Fouille : XP par case et tresor, bonus de poussieres au niveau 3 (+20 %).
+  store.update('Users', 1, { DigXP: 60 });
+  const before = store.get('Users', 1).StardustCount;
+  const resp = { status: 200, json: { dug: true, revealed: true, dustGained: 50 } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, resp);
+  assert.deepEqual([resp.json.dustGained, resp.json.levelDustBonus], [60, 10]);
+  assert.equal(store.get('Users', 1).StardustCount, before + 10);
+  assert.equal(store.get('Users', 1).DigXP, 66);
+  assert.equal(resp.json.digLevel.level, 3);
+  store.update('Users', 1, { DigXP: 119 });
+  const up = { status: 200, json: { dug: true, revealed: false, dustGained: 0 } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, up);
+  assert.equal(up.json.levelUp, 4);
+  const status = { status: 200, json: { energy: 5 } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'status' } }, status);
+  assert.deepEqual([status.json.digLevel.level, status.json.digLevel.perks.energyBonus], [4, 2]);
+});
+
+await test('unique : migration une seule fois des lignes deja completees en tickets', () => {
+  // Base neuve : joueur 2 avec 3 lignes completees et 1 carte Unique deja recue.
+  const t2 = path.join(os.tmpdir(), `2gatcha-native-mig-${process.pid}.sqlite`);
+  for (const sfx of ['', '-wal', '-shm']) fs.rmSync(t2 + sfx, { force: true });
+  for (const sfx of ['', '-wal']) if (fs.existsSync(tmp + sfx)) fs.copyFileSync(tmp + sfx, t2 + sfx);
+  const s2 = new Store(t2, { lenient: true });
+  s2.getAll('AppSettings').filter((r) => r.Key === 'uniqueTicketsMigrated').forEach((r) => s2.delete('AppSettings', r.id));
+  s2.update('Users', 2, { UniqueTickets: 0 });
+  s2.getAll('VaultRewards').filter((r) => r.User === 2).forEach((r) => s2.delete('VaultRewards', r.id));
+  for (let i = 0; i < 3; i++) s2.create('VaultRewards', { User: 2, Card: i + 1, ClaimedAt: 1 });
+  s2.create('Pulls', { User: 2, Card: 1, BatchId: 'unique-2-1', SerialNumber: 999, Finish: 'normal', Quality: 'mint' });
+  createNative({ store: s2, withLock: (fn) => fn() });
+  assert.equal(s2.get('Users', 2).UniqueTickets, 2);
+  createNative({ store: s2, withLock: (fn) => fn() });
+  assert.equal(s2.get('Users', 2).UniqueTickets, 2, 'pas de double migration');
+  s2.db.close();
+  for (const sfx of ['', '-wal', '-shm']) fs.rmSync(t2 + sfx, { force: true });
 });
 
 store.db.close();

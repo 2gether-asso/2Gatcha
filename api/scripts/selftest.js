@@ -106,7 +106,6 @@ const CASES = [
   ['guess-card', { body: { userId: 1, action: 'status' } }],
   ['expedition', { body: { userId: 1, action: 'start', hours: 2, cardId: 1 } }],
   ['expedition', { body: { userId: 1, action: 'claim' } }],
-  ['personal-vault', { body: { userId: 1, action: 'status' } }],
   ['open-pack', { body: { userId: 1, extensionId: 1, discordId: '785223211730075709', dryRun: true } }],
   ['open-pack', { body: { userId: 1, extensionId: 1 } }],
   ['quests', { body: { userId: 1, action: 'status' } }],

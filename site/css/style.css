@@ -5912,3 +5912,43 @@ button.set-chip-claim::before { content: none; }
 @keyframes uniqueFade { from { opacity: 0; } }
 @keyframes uniquePop { 0% { transform: scale(0.4) rotateY(90deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .unique-reveal-card, .unique-reveal-overlay { animation: none; } }
+
+/* Comptoir Unique (coffre.html) : tickets gagnes au coffre-fort, echanges
+   contre la carte Unique de son choix. */
+.pv-counter { margin: 4px 0 22px; padding: 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--rarity-unique) 45%, transparent); background: linear-gradient(160deg, color-mix(in srgb, var(--rarity-unique) 12%, transparent), rgba(0,0,0,0.18)); }
+.pv-counter-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.pv-counter-head h2 { margin: 0; text-transform: none; color: var(--rarity-unique); }
+.pv-counter-lead { font-size: 0.86rem; color: var(--text-dim); margin: 8px 0 14px; max-width: 65ch; }
+.pv-ticket { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px 7px 14px; border-radius: 6px; background: linear-gradient(135deg, #16a34a, #22c55e 60%, #4ade80); color: #04210f; font-weight: 800; box-shadow: 0 6px 18px -6px rgba(34,197,94,0.7); border-left: 3px dashed rgba(4,33,15,0.45); -webkit-mask: radial-gradient(circle 6px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 6px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat; mask: radial-gradient(circle 6px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 6px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat; }
+.pv-ticket.empty { filter: grayscale(0.8) brightness(0.7); }
+.pv-ticket-icon { font-size: 1.2rem; }
+.pv-ticket-count { font-family: var(--font-display); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.pv-ticket-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.pv-ticket.printing { animation: ticketPrint 0.9s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes ticketPrint { 0% { transform: translateY(-14px) scaleY(0.2); opacity: 0; clip-path: inset(0 0 100% 0); } 60% { opacity: 1; clip-path: inset(0 0 0 0); } 80% { transform: translateY(2px) rotate(-2deg); } 100% { transform: none; } }
+.pv-counter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); gap: 14px; }
+.pv-counter-card { display: grid; gap: 8px; justify-items: stretch; min-width: 0; }
+.pv-counter-card .collection-card img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.pv-counter-card.missing .collection-card img { filter: brightness(0.25) saturate(0) contrast(1.2); }
+.pv-counter-card.missing .collection-card { border-style: dashed; }
+.pv-counter-card .pv-redeem { width: 100%; padding: 8px 10px; font-size: 0.82rem; }
+.pv-counter-owned { text-align: center; font-size: 0.78rem; color: var(--rarity-unique); font-weight: 700; }
+.stat-chip-ticket { color: var(--rarity-unique); text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .pv-ticket.printing { animation: none; } }
+
+/* Coffre-fort perso : piece detachee (joker) */
+.pv-slot.joker { border-style: dashed; border-color: color-mix(in srgb, var(--accent-2) 60%, transparent); }
+.pv-joker-art { display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; font-size: 2.2rem; background: repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 8px, transparent 8px 16px), var(--bg-panel-2); }
+.pv-joker { font-size: 0.75rem; padding: 4px 8px; border-radius: 8px; border: 1px dashed var(--accent-2); background: transparent; color: var(--accent-2); cursor: pointer; }
+.pv-joker:hover { background: color-mix(in srgb, var(--accent-2) 15%, transparent); }
+
+/* Niveaux de metier (jeux.html : peche, fouille) */
+.skill-level { margin: 10px 0 14px; padding: 10px 12px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); display: grid; gap: 6px; }
+.skill-level-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.skill-level-badge { font-size: 0.9rem; }
+.skill-level-badge strong { font-family: var(--font-display); color: var(--accent-2); }
+.skill-level-xp { font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.skill-level-bar { height: 8px; border-radius: 999px; background: rgba(0,0,0,0.35); overflow: hidden; }
+.skill-level-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.5s ease; }
+.skill-level-perks { display: flex; flex-wrap: wrap; gap: 6px; }
+.skill-level-perks span { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-soft); color: var(--text-dim); }

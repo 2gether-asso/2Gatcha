@@ -29,7 +29,7 @@ api/
     backup.js      sauvegardes Azure Blob
     monitoring.js  GlitchTip / Sentry
     native/        fonctionnalités natives + création automatique du schéma
-  workflows/       47 workflows (format JSON : nœuds + connexions)
+  workflows/       46 workflows (format JSON : nœuds + connexions)
   scripts/         tests (schema-test, native-test, selftest), backup, restore
 ```
 
@@ -41,7 +41,7 @@ Le schéma des tables et leurs règles métier sont décrits dans
 ```bash
 cd api
 npm install
-npm test                                  # tests : schéma, natif, 47 workflows
+npm test                                  # tests : schéma, natif, 46 workflows
 SITE_DIR=../site npm start                # http://localhost:8080 (API + site)
 AUTH_MODE=off SITE_DIR=../site npm start  # sans vérification des jetons (dev-login.html)
 ```
@@ -149,7 +149,9 @@ doublons, coup final au boss) sans le modifier.
 | `push.js` | `GET push-config`, `POST push` | notifications push (Web Push) |
 | `seasons.js` | `POST season`, `POST admin-season` | saison mensuelle : paliers d'XP du mois, carte exclusive au dernier palier |
 | `fishing.js` | `POST fishing` | pêche : chaque lancer coûte des poussières (os, clés, boosters, coffres…) |
-| `unique.js` | — (après `personal-vault`) | rareté Unique (verte) : une carte Unique par ligne complète du coffre-fort perso (lignes passées rattrapées), jamais ailleurs |
+| `unique.js` | `POST unique-counter` | rareté Unique (verte) : 1 Ticket Unique par ligne complète du coffre-fort, échangé au Comptoir contre la carte de son choix |
+| `personal-vault.js` | `POST personal-vault` | coffre-fort perso : lignes de 6 finitions, pièces détachées (joker), récompense + ticket |
+| `levels.js` | — (après `dig`) | niveaux de pêche et de fouille (1 à 10) |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

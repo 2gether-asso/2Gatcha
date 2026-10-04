@@ -11,6 +11,8 @@
 //   auth.js     jeton signe a la connexion + limite de debit
 //   seasons.js  saisons mensuelles (pass de paliers, carte exclusive)
 //   fishing.js  jeu de peche
+//   personal-vault.js coffre-fort perso (lignes de finitions, pieces detachees)
+//   levels.js   niveaux de peche et de fouille
 //   unique.js   rarete Unique (seulement en completant une ligne du coffre-fort perso)
 //   duplicates.js poussiere passive sur les doublons a l'ouverture des boosters
 // Chaque module expose `routes` ({ 'METHODE chemin': handler }) et, au
@@ -33,8 +35,10 @@ import * as auth from './auth.js';
 import * as seasons from './seasons.js';
 import * as fishing from './fishing.js';
 import * as unique from './unique.js';
+import * as personalVault from './personal-vault.js';
+import * as levels from './levels.js';
 
-const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique];
+const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels];
 
 export function createNative({ store, withLock, captureError = () => {}, workflowsDir = null }) {
   const routes = new Map();

@@ -36,6 +36,48 @@ let digMaxEnergy = 5;
 let digRegenSeconds = 60;
 let digBusy = false;
 
+// -----------------------------------------------------------------------
+// Niveaux de metier (api/src/native/levels.js) : peche et fouille, 1 a 10.
+// -----------------------------------------------------------------------
+function renderSkillLevel(id, icon, name, info, perks) {
+  const el = document.getElementById(id);
+  if (!el || !info) return;
+  el.hidden = false;
+  const pct = info.next == null ? 100 : Math.min(100, ((info.xp - info.current) / (info.next - info.current)) * 100);
+  el.innerHTML = `
+    <div class="skill-level-head">
+      <span class="skill-level-badge">${icon} ${name} <strong>niv. ${info.level}</strong>${info.level >= info.max ? " (max)" : ""}</span>
+      <span class="skill-level-xp">${info.next == null ? `${info.xp} XP` : `${info.xp - info.current} / ${info.next - info.current} XP`}</span>
+    </div>
+    <div class="skill-level-bar" role="progressbar" aria-label="Progression ${name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="skill-level-fill" style="width:${pct}%"></div></div>
+    <div class="skill-level-perks">${perks.filter(Boolean).map((p) => `<span>${p}</span>`).join("") || "<span>Joue pour monter de niveau : chaque niveau donne un bonus.</span>"}</div>`;
+}
+
+function announceLevelUp(icon, name, level) {
+  Toast.success(`${icon} ${name} : niveau ${level} atteint !`);
+  if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.6 } });
+}
+
+function renderDigLevel(info) {
+  if (!info) return;
+  const p = info.perks || {};
+  renderSkillLevel("dig-level", "&#9935;&#65039;", "Fouille", info, [
+    p.energyBonus ? `+${p.energyBonus} énergie max` : "",
+    p.regenReduction ? `recharge ${Math.round(p.regenReduction * 100)} % plus rapide` : "",
+    p.dustBonus ? `+${Math.round(p.dustBonus * 100)} % de poussières trouvées` : ""
+  ]);
+}
+
+function renderFishLevel(info) {
+  if (!info) return;
+  const p = info.perks || {};
+  renderSkillLevel("fish-level", "&#127907;", "Pêche", info, [
+    p.extraCasts ? `+${p.extraCasts} lancers par jour` : "",
+    p.emptyReduction ? `${Math.round(p.emptyReduction * 100)} % de prises vides en moins` : "",
+    p.rareBoost ? `+${Math.round(p.rareBoost * 100)} % de chances de prises rares` : ""
+  ]);
+}
+
 const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#128142;", booster: "&#127183;", card: "&#127942;", rareCard: "&#127775;" };
 
 async function loadDig() {
@@ -47,6 +89,7 @@ async function loadDig() {
     renderDigEnergy(res.energy, digMaxEnergy, res.secondsUntilNext);
     renderDigBoard(res.tiles || [], res.sniffTile);
     renderKennel(res);
+    renderDigLevel(res.digLevel);
     const regenSeconds = res.regenSeconds || 60;
     const regenLabel = regenSeconds < 60 ? `${regenSeconds}s` : regenSeconds === 60 ? "minute" : `${Math.round(regenSeconds / 60)} min`;
     document.getElementById("dig-intro").textContent =
@@ -235,6 +278,8 @@ async function doDig(tileIndex, tileEl) {
     renderDigEnergy(res.newEnergy, res.maxEnergy || digMaxEnergy, res.secondsUntilNext || null);
     renderDigBoard(res.tiles || [], res.sniffTile);
     announceDogReport(res.dogReport);
+    renderDigLevel(res.digLevel);
+    if (res.levelUp) announceLevelUp("&#9935;&#65039;", "Fouille", res.levelUp);
 
     resultEl.style.display = "block";
     if (res.outcome === "partial") {
@@ -242,7 +287,7 @@ async function doDig(tileIndex, tileEl) {
     } else if (res.outcome === "nothing") {
       resultEl.innerHTML = `&#128269; Rien trouvé sous cette tuile.`;
     } else if (res.outcome === "dust") {
-      resultEl.innerHTML = `&#10024; Trésor libéré : +${res.dustGained} poussières d'étoile !`;
+      resultEl.innerHTML = `&#10024; Trésor libéré : +${res.dustGained} poussières d'étoile !${res.levelDustBonus ? ` <span class="muted">(dont +${res.levelDustBonus} grâce à ton niveau)</span>` : ""}`;
     } else if (res.outcome === "booster") {
       resultEl.innerHTML = `&#127183; Trésor libéré : +1 booster !`;
       if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
@@ -277,7 +322,7 @@ async function doDig(tileIndex, tileEl) {
 // Peche (api/src/native/fishing.js) : chaque lancer coute des poussieres et
 // ramene une prise tiree dans une table ponderee (reglable dans l'admin).
 // -----------------------------------------------------------------------
-const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: "&#129460;", key: "&#128273;", booster: "&#127873;", chest: "&#129520;" };
+const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: "&#129460;", key: "&#128273;", booster: "&#127873;", chest: "&#129520;", part: "&#128297;" };
 let fishState = null;
 let fishBusy = false;
 const fishWait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -290,6 +335,7 @@ function fishCatchText(c) {
 
 function renderFishing(st) {
   fishState = st;
+  renderFishLevel(st.level);
   const left = st.castsLeft == null ? "illimités" : `${st.castsLeft} restant${st.castsLeft > 1 ? "s" : ""} aujourd'hui`;
   document.getElementById("fish-meta").innerHTML = `${st.cost} &#10024; le lancer · ${left} · tu as ${st.stardust} &#10024;`;
   document.getElementById("fish-cast-btn").innerHTML = `&#127907; Lancer (${st.cost} &#10024;)`;
@@ -338,6 +384,8 @@ async function castFishing(count) {
     while (log.children.length > 20) log.lastElementChild.remove();
     fishBusy = false;
     renderFishing(res);
+    if (res.levelUp) announceLevelUp("&#127907;", "Pêche", res.levelUp);
+    if (res.catches.some((c) => c.type === "part")) Toast.info("&#128297; Pièce détachée : utilise-la au coffre-fort perso pour remplir un emplacement, comme un joker.");
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
     fishBusy = false;
