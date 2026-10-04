@@ -1,10 +1,10 @@
 // Logique de la page d'ouverture de booster.
-// Contrat n8n "extensions" (GET) : { extensions: [{ id, name, key, active, packImageId, cardBackImageId }] }
-// Contrat n8n "booster-status" (GET ?userId=...) :
+// Contrat API "extensions" (GET) : { extensions: [{ id, name, key, active, packImageId, cardBackImageId }] }
+// Contrat API "booster-status" (GET ?userId=...) :
 // { count, stardust, extensions: [{ extensionId, name, key, sortOrder, pullsSinceTop }] }
 // (count = solde Générique, commun a toutes les extensions ; c'est
 // l'utilisateur qui choisit avec quelle extension le depenser)
-// Contrat n8n "open-pack" (POST { userId, extensionId }) :
+// Contrat API "open-pack" (POST { userId, extensionId }) :
 // { cards: [...], pity: { pullsSinceTop }, booster: { extensionId, count } }
 // ou, si le stock est a 0 : { error: "no_boosters", count, extensionId }
 //
@@ -23,7 +23,7 @@ let pityThreshold = 0;
 let openQuantity = 1;
 let lastRevealedCards = [];
 // BatchId de chaque booster ouvert dans la session en cours (x1/x5/x10) :
-// sert a reference les VRAIS pulls Grist depuis le backend (notify-reveal,
+// sert a reference les VRAIS pulls en base depuis le backend (notify-reveal,
 // partage) plutot que de lui faire confiance sur des donnees carte envoyees
 // par le client.
 let sessionBatchIds = [];
@@ -103,7 +103,7 @@ function buildCardEl(card, index, cardBackImageId) {
     ? `<span class="new-badge first-ever-badge">&#127942; 1ère obtention du serveur !</span>`
     : card.isNewToPlayer
       ? `<span class="new-badge">Nouvelle !</span>`
-      : `<span class="dupe-badge">×${card.ownedCountAfter}</span>`;
+      : `<span class="dupe-badge">×${card.ownedCountAfter}${card.duplicateDust ? ` · +${card.duplicateDust}&#10024;` : ""}</span>`;
   // Finition ET qualite sont chacune un vrai tirage independant a 10% de
   // sortir mieux que la base (voir open-pack.json) - les deux se voient
   // d'un coup d'oeil des le reveal, pas seulement au survol.
@@ -585,7 +585,7 @@ function renderExtensionPicker() {
           ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" />` : ""}
         </div>
         <div class="ext-name">${ext.name}</div>
-        <div class="ext-count">${progress ? `${progress.owned}/${progress.total} cartes` : "Ouvrir"}</div>
+        <div class="ext-count">${progress ? `${progress.owned}/${progress.total} cartes (${progress.total ? Math.floor((progress.owned / progress.total) * 100) : 0}%)` : "Ouvrir"}</div>
         <div class="pity-row" title="Progression vers la légendaire garantie">
           <span class="pity-icon">${rarityIcon("legendaire")}</span>
           <span class="pity-track"><span class="pity-fill" style="width:${pct}%;"></span></span>
@@ -936,6 +936,7 @@ async function startOpening(ext) {
     // Raretes de booster (2026-10-02) : booster shiny (0.1%) et carte bonus.
     let packShiny = false;
     let bonusCards = 0;
+    let duplicateDust = 0;
     let lastBoosterInfo = null;
     for (let i = 0; i < quantity; i++) {
       const res = await API.openPack(Session.userId, ext.id);
@@ -955,6 +956,7 @@ async function startOpening(ext) {
       if (res.batchId) batchIds.push(res.batchId);
       if (res.pack?.shiny) packShiny = true;
       if (res.pack?.bonusCard) bonusCards++;
+      if (res.duplicateDust) duplicateDust += res.duplicateDust.total || 0;
       lastBoosterInfo = res.booster;
     }
 
@@ -998,6 +1000,7 @@ async function startOpening(ext) {
     if (bonusCards) Toast.info(`&#127873; +${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus dans ce booster !`);
     lastPackTags = [];
     if (packShiny) lastPackTags.push({ kind: "shiny", html: "&#127752; Booster shiny : meilleures cartes", short: "booster shiny" });
+    if (duplicateDust) lastPackTags.push({ kind: "dust", html: `&#10024; +${duplicateDust} poussières (doublons)`, short: `+${duplicateDust} poussières de doublons` });
     if (bonusCards) lastPackTags.push({ kind: "bonus", html: `&#127873; ${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus`, short: `${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus` });
     renderPackTags(lastPackTags);
     pack.classList.add("tearing");

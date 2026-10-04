@@ -1,16 +1,19 @@
-// Moteur d'execution des workflows 2Gatcha (format JSON n8n), sans n8n.
+// Moteur d'execution des workflows 2Gatcha (api/workflows/*.json).
 //
-// Les 47 workflows du dossier n8n/workflows n'utilisent que 6 types de
-// noeuds : webhook, code, if, grist, httpRequest et respondToWebhook. Ce
-// moteur les rejoue avec la meme semantique que n8n ("executionOrder: v1") :
+// Les workflows gardent le format JSON d'origine (concu avec n8n, que le
+// projet n'utilise plus) : noeuds, connexions, expressions "={{ ... }}".
+//
+// Ils n'utilisent que 6 types de
+// noeuds : webhook, code, if, table ("grist"), httpRequest et respondToWebhook. Ce
+// moteur les execute avec la semantique d'origine ("executionOrder: v1") :
 //   - execution en profondeur, branche par branche, les branches etant
 //     ordonnees par position sur le canevas (haut -> bas, puis gauche ->
 //     droite) ;
 //   - un noeud qui ne produit aucun item arrete sa branche, sauf
 //     alwaysOutputData (un item vide {} est alors emis) ;
-//   - les noeuds Grist / httpRequest / if s'executent une fois PAR item ;
+//   - les noeuds de table / httpRequest / if s'executent une fois PAR item ;
 //   - le noeud Respond envoie la reponse HTTP, l'execution continue ensuite.
-// Les acces Grist sont rediriges vers le Store (SQLite + memoire).
+// Les noeuds de table lisent et ecrivent dans le Store (SQLite + memoire).
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
@@ -55,7 +58,7 @@ function compileExpr(code) {
   return fn;
 }
 
-// Evalue un parametre n8n : les chaines commencant par "=" sont des
+// Evalue un parametre de noeud : les chaines commencant par "=" sont des
 // expressions ; un unique bloc {{ }} renvoie la valeur brute (objet, nombre,
 // booleen), sinon le resultat est concatene en texte.
 function evaluate(value, ctx) {
@@ -88,13 +91,13 @@ function evaluate(value, ctx) {
 
 // ----------------------------------------------------------- donnees de run
 // Les sorties d'un noeud sont copiees a chaque lecture par un autre noeud
-// (comme n8n) : un workflow peut modifier les lignes lues sans effet de bord.
-// Les sorties des lectures Grist restent en JSON texte et ne sont
+// : un workflow peut modifier les lignes lues sans effet de bord.
+// Les sorties des lectures de table restent en JSON texte et ne sont
 // reconstruites qu'a la demande.
 class NodeOutput {
   constructor(outputs, jsonText) {
     this.outputs = outputs; // tableau de sorties, chaque sortie = tableau d'items
-    this.jsonText = jsonText || null; // getAll Grist : '[{...},{...}]'
+    this.jsonText = jsonText || null; // lecture de table : '[{...},{...}]'
   }
   items(index = 0) {
     if (this.jsonText != null && index === 0) {
@@ -233,7 +236,7 @@ class Execution {
       case 'n8n-nodes-base.webhook': return { outputs: [items] };
       case 'n8n-nodes-base.code': return this.runCode(node, items);
       case 'n8n-nodes-base.if': return this.runIf(node, items);
-      case 'n8n-nodes-base.grist': return this.runGrist(node, items);
+      case 'n8n-nodes-base.grist': return this.runTable(node, items);
       case 'n8n-nodes-base.httpRequest': return this.runHttp(node, items);
       case 'n8n-nodes-base.respondToWebhook': return this.runRespond(node, items);
       default: throw new Error(`Unsupported node type ${node.type}`);
@@ -295,8 +298,8 @@ class Execution {
     return { outputs: [yes, no] };
   }
 
-  // --- Grist -> Store -------------------------------------------------------
-  runGrist(node, items) {
+  // --- noeuds de table -> Store ------------------------------------------
+  runTable(node, items) {
     const p = node.parameters;
     const op = p.operation || 'getAll';
     const out = [];
@@ -306,7 +309,7 @@ class Execution {
       const ctx = this.context(items, item, cache);
       const table = evaluate(p.tableId, ctx);
       if (op === 'getAll') {
-        // Un getAll par item, comme n8n (les workflows s'assurent d'un seul
+        // Un getAll par item (les workflows s'assurent d'un seul
         // item en entree grace aux noeuds "Sync").
         if (items.length === 1) { jsonText = this.store.getAllJson(table); break; }
         for (const row of this.store.getAll(table)) out.push({ json: row });
@@ -321,7 +324,7 @@ class Execution {
       else if (op === 'delete') {
         String(evaluate(p.rowId, ctx)).split(',').map((s) => s.trim()).filter(Boolean).forEach((id) => this.store.delete(table, id));
         out.push({ json: { success: true } });
-      } else throw new Error(`Unsupported grist operation ${op}`);
+      } else throw new Error(`Unsupported table operation ${op}`);
     }
     if (jsonText != null) {
       return { outputs: [JSON.parse(jsonText).map((json) => ({ json }))], jsonText };

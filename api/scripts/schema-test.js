@@ -19,7 +19,7 @@ function test(name, fn) {
   try { fn(); passed++; console.log(' ok  ' + name); } catch (e) { console.log('FAIL ' + name + '\n     ' + e.message); process.exitCode = 1; }
 }
 
-// Base "importee de Grist" avant le correctif : colonnes vides marquees formule.
+// Base importee de l'ancienne base avant le correctif : colonnes vides marquees formule.
 let store = new Store(tmp);
 store.defineTable('Users', {
   Pseudo: { type: 'Text', isFormula: false, formula: '' },

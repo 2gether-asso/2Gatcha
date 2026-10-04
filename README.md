@@ -1,56 +1,78 @@
 # 2Gatcha
 
-Site d'ouverture de packs et de collection permettant aux membres de l'asso
-de collectionner les creations artistiques (art) produites par l'asso, sous
-forme de cartes a tirer aleatoirement (mecanique type gacha).
+Jeu de cartes à collectionner de l'association 2gether : les créations des
+membres deviennent des cartes à obtenir en ouvrant des boosters (mécanique
+type gacha), à collectionner, échanger, améliorer et utiliser dans des
+mini-jeux.
+
+- Site : <https://gatcha.2gether-asso.fr>
+- API : <https://gatcha-api.2gether-asso.fr>
 
 ## Architecture
 
 ```
-site (HTML/CSS/JS statique)
-   |  fetch (webhooks)
+site/  (HTML/CSS/JS statique, GitHub Pages)
+   |  fetch  /webhook/<chemin>
    v
-n8n  (logique de tirage, "API")
-   |  API REST Grist
+api/   (Node.js, conteneur Docker)
+   |  workflows/*.json  +  src/native/*.js
    v
-Grist (tables Cards/Rarities/Users/Pulls/Config, images en pieces jointes)
+SQLite  (data/2gatcha.sqlite : tables, joueurs, images)
+   |  toutes les 6 h
+   v
+Azure Blob  (sauvegardes)
 ```
 
-- **`/site`** : le site statique (pas de build, ouvrable directement dans un
-  navigateur ou servable par n'importe quel serveur de fichiers statiques).
-- **`/n8n`** : les workflows n8n a importer, qui font office d'API entre le
-  site et Grist.
-- **`/grist`** : le schema des tables Grist a creer, et comment y stocker les
-  images des cartes en pieces jointes.
+| Dossier | Contenu |
+| --- | --- |
+| [`site/`](site) | le site, sans build : HTML, `css/style.css`, `js/` |
+| [`api/`](api) | le serveur : moteur de workflows, base, fonctionnalités natives, administration ([README](api/README.md)) |
+| [`api/workflows/`](api/workflows) | la logique métier des actions du jeu (un fichier JSON par route) |
+| [`docs/SCHEMA.md`](docs/SCHEMA.md) | les tables de la base et leurs règles métier |
 
-## Demarrage rapide
+### Le site
 
-1. **Grist** : cree un document et les 5 tables decrites dans
-   [`grist/SCHEMA.md`](grist/SCHEMA.md), ajoute quelques cartes (avec image en
-   piece jointe) et les raretes.
-2. **n8n** : importe et configure les 6 workflows dans
-   [`n8n/workflows`](n8n/workflows) en suivant [`n8n/README.md`](n8n/README.md).
-3. **Site** : ouvre [`site/js/config.js`](site/js/config.js) et remplace
-   `n8nBaseUrl` par l'URL de tes webhooks n8n.
-4. Ouvre `site/index.html` dans un navigateur (ou heberge le dossier `site`
-   sur un serveur statique / pages de l'asso).
+- `js/config.js` : adresse de l'API (`apiBaseUrl`), application Discord, admins,
+  suivi des erreurs (GlitchTip).
+- `js/api.js` : accès à l'API (lectures fusionnées et mises en cache quelques
+  secondes, lots via `/webhook/batch`).
+- `js/core.js`, `js/ui.js`, `js/shell.js` : socle commun chargé par toutes les
+  pages (session et niveaux, composants d'interface, en-tête et menu).
+- Un script par page : `collection-*.js`, `opening.js`, `trade.js`,
+  `communaute.js`, `jeux.js`, `admin.js`, `admin-db.js`…
+- `sw.js` : service worker des notifications push.
 
-## Parcours utilisateur
+Connexion par Discord (OAuth, réservée aux membres du serveur de l'asso).
 
-1. Choix d'un pseudo sur la page d'accueil (pas de mot de passe, cree/retrouve
-   l'utilisateur via `register-user`).
-2. Ouverture de pack (1 ou 5 cartes) sur `ouverture.html`, avec animation de
-   reveal et couleur selon la rarete.
-3. Consultation de la collection sur `collection.html` : progression globale,
-   filtres par rarete, cartes non decouvertes affichees en silhouette.
+## Développer
 
-## Etat actuel / prochaines etapes possibles
+```bash
+cd api && npm install && npm test          # tests de l'API
+SITE_DIR=../site npm start                 # API + site sur http://localhost:8080
+```
 
-- Le tirage gere un systeme de pity (garantie de la rarete la plus haute
-  au bout d'un certain nombre de tirages), configurable dans la table
-  `Config`.
-- Pas d'authentification forte : adapte a un usage interne d'asso. Voir la
-  section "Limites connues" de [`n8n/README.md`](n8n/README.md) si le site
-  doit etre expose publiquement.
-- Idees d'evolution : classement des membres par nombre de cartes,
-  echange de cartes entre membres, limite de tirages par jour.
+Le site servi par l'API locale lui parle automatiquement. Les pages se testent
+dans un navigateur ; aucun build n'est nécessaire.
+
+## Déployer
+
+Un push sur `main` suffit :
+
+- **site** : GitHub Pages ([`.github/workflows/static.yml`](.github/workflows/static.yml)),
+  avec la version du commit ajoutée aux JS/CSS pour que les navigateurs
+  rechargent les bons fichiers ;
+- **API** : image Docker publiée sur ghcr.io
+  ([`.github/workflows/api-image.yml`](.github/workflows/api-image.yml)), puis
+  sur le serveur `docker compose pull && docker compose up -d`.
+
+Détails (Docker, sauvegardes, variables d'environnement) :
+[`api/README.md`](api/README.md).
+
+## Administrer
+
+- [`site/admin.html`](site/admin.html) : codes événement, dons, équilibrage,
+  extensions, boss, marché noir, bingo, récompenses de niveau, événements,
+  économie, bandeau et maintenance (réservé aux comptes Discord admins).
+- [`site/admin-db.html`](site/admin-db.html) : édition directe des tables et
+  de leur structure, import des images, sauvegardes (mot de passe
+  `ADMIN_TOKEN`).

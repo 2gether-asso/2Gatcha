@@ -1,10 +1,9 @@
 // Configuration du site : adresse de l'API 2Gatcha (api/README.md) et
 // application Discord.
 window.APP_CONFIG = {
-  // API maison (remplace n8n + Grist depuis le 2026-10-04). Le nom
-  // "n8nBaseUrl" est garde pour ne rien casser ailleurs ; quand le conteneur
-  // de l'API sert lui-meme le site, il le reecrit a la volee en "/webhook/".
-  n8nBaseUrl: "https://gatcha-api.2gether-asso.fr/webhook/",
+  // Adresse de l'API 2Gatcha. Quand le conteneur de l'API sert lui-meme le
+  // site, il la reecrit a la volee en "/webhook/" (meme domaine).
+  apiBaseUrl: "https://gatcha-api.2gether-asso.fr/webhook/",
 
   // A adapter : Client ID de ton application Discord (visible dans le
   // Developer Portal, il n'est pas secret). L'URI de redirection ci-dessous
@@ -14,7 +13,7 @@ window.APP_CONFIG = {
   discordScope: "identify guilds",
 
   // Memes ID Discord que la liste `adminDiscordIds` des workflows admin
-  // (n8n/workflows/admin-*.json, executes par l'API). Ne sert ici qu'a
+  // (api/workflows/admin-*.json). Ne sert ici qu'a
   // afficher (ou pas) le lien "Admin" ; la verification qui compte est cote API.
   adminDiscordIds: ["785223211730075709", "184008667690041345"],
 
@@ -23,7 +22,7 @@ window.APP_CONFIG = {
   // https://<cle>@glitchtip.matiboux.com/3 (vide = desactive). La cle
   // publique d'un DSN n'est pas un secret : elle ne permet que d'envoyer des
   // erreurs.
-  glitchtipDsn: "https://glitchtip.matiboux.com/3",
+  glitchtipDsn: "https://335830613bd443a8853dc7e145f41def@glitchtip.matiboux.com/3",
 
   endpoints: {
     discordLogin: "/discord-login",   // POST { code } -> { userId, pseudo, discordUsername, discordAvatar }
@@ -85,6 +84,10 @@ window.APP_CONFIG = {
     adminEconomy: "/admin-economy",     // POST { discordId } -> tableau de bord de l'economie
     pushConfig: "/push-config",         // GET -> { enabled, publicKey }
     chests: "/chests",                 // POST { userId, action: 'status'|'buy'|'open' } -> coffres (page d'ouverture)
+    adminSettings: "/admin-settings",   // POST { discordId, action: 'get'|'set'|'reset', values?, key? } -> reglages du jeu
+    season: "/season",                  // POST { userId, action: 'status'|'claim' } -> saison mensuelle
+    adminSeason: "/admin-season",       // POST { discordId, action: 'get'|'setCard', season?, cardId? }
+    fishing: "/fishing",                // POST { userId, action: 'status'|'cast', count? } -> jeu de peche
     push: "/push"                       // POST { userId, action: 'status'|'subscribe'|'unsubscribe'|'test', subscription? }
   }
 };

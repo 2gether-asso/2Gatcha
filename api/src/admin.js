@@ -1,5 +1,5 @@
 // Routes d'administration de la base (/admin/api/...), utilisees par
-// site/admin-db.html : edition des tables (remplace l'edition dans Grist) et
+// site/admin-db.html : edition des tables (lignes, colonnes, tables) et
 // import des images.
 //
 // Protection : mot de passe ADMIN_TOKEN (variable d'environnement), envoye

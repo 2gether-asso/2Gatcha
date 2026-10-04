@@ -16,14 +16,14 @@ on:
     tags: ["v*"]
     paths:
       - "api/**"
-      - "n8n/workflows/**"
+      - "api/workflows/**"
       - "site/**"
       - ".dockerignore"
       - ".github/workflows/api-image.yml"
   pull_request:
     paths:
       - "api/**"
-      - "n8n/workflows/**"
+      - "api/workflows/**"
       - ".github/workflows/api-image.yml"
   workflow_dispatch:
 
@@ -91,7 +91,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           labels: |
             org.opencontainers.image.title=2gatcha-api
-            org.opencontainers.image.description=API 2Gatcha (remplace n8n + Grist) avec le site
+            org.opencontainers.image.description=API 2Gatcha (base SQLite, workflows de jeu) avec le site
 
       # 1) Build local (amd64) et verification AVANT toute publication : une
       #    image qui ne demarre pas ne devient jamais "latest".
@@ -120,7 +120,7 @@ jobs:
           # dev-login n'est jamais servi.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/dev-login.html)" = "404"
           # Le site servi parle a l'API elle-meme.
-          curl -fsS http://127.0.0.1:8080/js/config.js | grep -q 'n8nBaseUrl: "/webhook/"'
+          curl -fsS http://127.0.0.1:8080/js/config.js | grep -q 'apiBaseUrl: "/webhook/"'
           curl -fsS -o /dev/null http://127.0.0.1:8080/index.html
           docker logs api-smoke
           docker rm -f api-smoke

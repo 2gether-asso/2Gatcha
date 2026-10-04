@@ -3,7 +3,6 @@
 #
 #   cp .env.example .env                    (puis remplir)
 #   docker compose pull && docker compose up -d
-#   docker compose run --rm api npm run import   (import initial depuis Grist)
 #
 # Mettre a jour apres un push sur main : docker compose pull && docker compose up -d
 services:
@@ -22,4 +21,4 @@ services:
       # alors pour le site, `docker compose restart` pour les workflows).
       # dev-login n'est jamais servi.
       # - ../site:/app/site:ro
-      # - ../n8n/workflows:/app/workflows:ro
+      # - ./workflows:/app/workflows:ro

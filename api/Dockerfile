@@ -12,7 +12,7 @@ COPY api/package.json api/package-lock.json ./api/
 RUN cd api && npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY api/src ./api/src
 COPY api/scripts ./api/scripts
-COPY n8n/workflows ./workflows
+COPY api/workflows ./workflows
 COPY site ./site
 WORKDIR /app/api
 VOLUME ["/data"]

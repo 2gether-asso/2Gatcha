@@ -11,28 +11,27 @@
 // L'ancienne attaque du workflow community-boss (une carte, exemplaire au
 // hasard) reste disponible ; le bonus du coup final s'y applique aussi.
 
-import { refId, now, ok, fail, configRow, userById } from './common.js';
+import { refId, now, ok, fail, userById } from './common.js';
+import { setting } from './settings.js';
 
 export const schema = {
   CommunityBoss: { Finisher: { type: 'Ref:Users' } },
   // Colonnes lues/ecrites par l'attaque (le schema les marquait 'a ajouter si absentes').
-  BossContributions: { User: { type: 'Ref:Users' }, Boss: { type: 'Ref:CommunityBoss' }, Damage: { type: 'Numeric' }, Timestamp: { type: 'Numeric' } },
-  Config: { BossFinisherBoosters: { type: 'Numeric' } }
+  BossContributions: { User: { type: 'Ref:Users' }, Boss: { type: 'Ref:CommunityBoss' }, Damage: { type: 'Numeric' }, Timestamp: { type: 'Numeric' } }
 };
 
-export const BOSS_RULES = {
-  finish: { normal: 1, holo: 1.5, gold: 2, ghost: 2.5, diamond: 3, rainbow: 5 },
-  quality: { damaged: 0.75, worn: 1, good: 1.25, mint: 1.5 },
-  volleyStep: 0.1,   // +10 % par carte au-dela de la premiere
-  maxCards: 10       // soit x1,9 pour une salve de 10 cartes
-};
-export const volleyMultiplier = (n) => Math.round((1 + BOSS_RULES.volleyStep * Math.max(0, Math.min(n, BOSS_RULES.maxCards) - 1)) * 100) / 100;
-
-// Config.BossFinisherBoosters : vide ou 0 = 2 boosters (defaut), negatif = desactive.
-function finisherBoosters(store) {
-  const v = Number(configRow(store).BossFinisherBoosters) || 0;
-  return v > 0 ? v : (v < 0 ? 0 : 2);
+// Regles reglables dans l'admin (groupe "Boss").
+export function bossRules(store) {
+  return {
+    finish: setting(store, 'BossFinishMultipliers'),
+    quality: setting(store, 'BossQualityMultipliers'),
+    volleyStep: setting(store, 'BossVolleyStep'),
+    maxCards: setting(store, 'BossMaxCards')
+  };
 }
+export const volleyMultiplier = (n, rules) => Math.round((1 + rules.volleyStep * Math.max(0, Math.min(n, rules.maxCards) - 1)) * 100) / 100;
+
+const finisherBoosters = (store) => Math.max(0, setting(store, 'BossFinisherBoosters'));
 
 function activeBoss(store) {
   return store.tables.has('CommunityBoss') ? store.getAll('CommunityBoss').find((b) => b.Active) : null;
@@ -62,10 +61,11 @@ function handleAttack({ store, body }) {
   if (!boss) return fail('no_active_boss');
   const ids = [...new Set((Array.isArray(body.pullIds) ? body.pullIds : []).map(Number).filter(Boolean))];
   if (!ids.length) return fail('no_cards');
-  if (ids.length > BOSS_RULES.maxCards) return fail('too_many_cards', 400, { maxCards: BOSS_RULES.maxCards });
+  const rules = bossRules(store);
+  if (ids.length > rules.maxCards) return fail('too_many_cards', 400, { maxCards: rules.maxCards });
 
   const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
-  const volley = volleyMultiplier(ids.length);
+  const volley = volleyMultiplier(ids.length, rules);
   const details = [];
   for (const pullId of ids) {
     const pull = store.get('Pulls', pullId);
@@ -76,7 +76,7 @@ function handleAttack({ store, body }) {
     const rarity = rarities.get(refId(card.Rarity));
     const base = Math.max(1, Number(rarity && rarity.DisenchantValue) || 0);
     const finish = pull.Finish || 'normal', quality = pull.Quality || 'damaged';
-    const multiplier = (BOSS_RULES.finish[finish] || 1) * (BOSS_RULES.quality[quality] || 1);
+    const multiplier = (rules.finish[finish] || 1) * (rules.quality[quality] || 1);
     details.push({ pullId, cardId: card.id, name: card.Name, serialNumber: pull.SerialNumber ?? null, finish, quality, rarity: rarity ? rarity.Name : '', base, multiplier, damage: Math.round(base * multiplier * volley) });
   }
 
@@ -102,7 +102,7 @@ function handleAttack({ store, body }) {
 }
 
 function handleLeaderboard({ store, query }) {
-  const rules = { ...BOSS_RULES, finisherBonus: finisherBoosters(store) };
+  const rules = { ...bossRules(store), finisherBonus: finisherBoosters(store) };
   if (!store.tables.has('CommunityBoss') || !store.tables.has('BossContributions')) return ok({ boss: null, top: [], rules });
   const bosses = store.getAll('CommunityBoss');
   const boss = bosses.find((b) => b.Active) || bosses.sort((a, b) => b.id - a.id)[0];

@@ -1,9 +1,11 @@
-# Schema Grist - 2Gatcha
+# Schema de la base - 2Gatcha
 
-Un seul document Grist avec 12 tables de base, plus plusieurs tables
-ajoutees au fil de l'eau (voir plus bas : `Finishes`, `Qualities`,
-`DailyQuests`, `WeeklyQuests`...). Cree-les dans cet ordre (les references
-ont besoin que la table ciblee existe deja) :
+Toutes les donnees du jeu vivent dans la base SQLite de l'API (`api/`), une
+table par entite. Les tables et colonnes manquantes sont creees
+automatiquement au demarrage (voir "Colonnes : creees automatiquement" en bas
+de ce document) ; la structure se modifie depuis `site/admin-db.html`.
+Ce document decrit chaque table et ses regles metier. Tables de base, dans
+l'ordre de leurs references :
 `Rarities` -> `Finishes` -> `Extensions` -> `Cards` -> `Users` -> `Pulls` ->
 `Config` -> `EventCodes` -> `CodeRedemptions` -> `Trades` ->
 `BoosterInventory` -> `Wishlist` -> `ProfileShowcase`.
@@ -33,7 +35,7 @@ decraft, pour que la conversion directe ne soit jamais interessante) :
 
 `Weight`/`DisenchantValue`/`CraftCost` sont editables depuis `admin.html`
 (section "Équilibrage du jeu", tableau "Raretés") via `admin-config.json`
-(action `updateRarity`) - pas besoin d'ouvrir Grist pour un simple
+(action `updateRarity`) - pas besoin d'ouvrir admin-db.html pour un simple
 ajustement de taux/cout.
 
 **Important** : ces poids ne s'expriment que sur les cartes qui existent
@@ -52,7 +54,7 @@ Le front (CSS/JS) a deja tout le traitement visuel prepare pour
 `Key = "mythique"` (rouge, `--rarity-mythique: #ef4444`) : bordure dans la
 collection/la modale/le reveal de pack, degrade sous l'image, texte en
 degrade anime, icone 🔥, flash + particules au reveal (voir plus bas). **Il
-ne reste qu'a ajouter la ligne dans Grist** :
+ne reste qu'a ajouter la ligne (admin-db.html)** :
 
 | Name       | Key       | Weight | ColorHex  | SortOrder | DisenchantValue | CraftCost |
 |------------|-----------|--------|-----------|-----------|-----------------|-----------|
@@ -90,7 +92,7 @@ rarete, peut sortir avec n'importe quelle finition. Utilisee par
 | DropWeight            | Numeric | poids relatif **parmi les finitions speciales uniquement** (ignore pour `normal` - voir le tirage a deux niveaux ci-dessous) |
 | DisenchantMultiplier  | Numeric | multiplie `Rarities.DisenchantValue` quand on decrafte un exemplaire de cette finition (`normal` = 1) |
 
-Valeurs de depart suggerees, ajustables directement dans Grist OU depuis
+Valeurs de depart suggerees, ajustables directement dans admin-db.html OU depuis
 `admin.html` (section "Équilibrage du jeu", tableau "Finitions") via
 `admin-config.json` (action `updateFinish`) - sans toucher au code :
 
@@ -112,7 +114,7 @@ se repartissent entre les finitions speciales au prorata de leur
 `DropWeight` (holo la plus commune des speciales, rainbow la plus rare -
 coherent avec l'echelle de fusion `FINISH_ORDER` de `foil-upgrade.json`/
 `craft.js`). Les 10%/poids ci-dessus sont un point de depart raisonnable, pas
-une valeur figee : modifie les `DropWeight` dans Grist pour retunner sans
+une valeur figee : modifie les `DropWeight` (admin-db.html ou admin.html) pour retunner sans
 redeployer de workflow. Ce tirage ne s'applique qu'aux boosters reels
 (`open-pack.json`) - pas a `craft.json` (toujours `normal`), ni aux codes
 d'evenement, ni a l'autel.
@@ -137,7 +139,7 @@ le palier dominant.
 | DisenchantMultiplier  | Numeric | multiplie `Rarities.DisenchantValue` (et se cumule avec `Finishes.DisenchantMultiplier` si l'exemplaire a aussi une finition speciale) quand on decrafte un exemplaire de cette qualite (`damaged` = 1) |
 
 Valeurs de depart suggerees (`good` largement majoritaire), ajustables
-directement dans Grist OU depuis `admin.html` (section "Équilibrage du
+directement dans admin-db.html OU depuis `admin.html` (section "Équilibrage du
 jeu", tableau "Qualités") via `admin-config.json` (action `updateQuality`) :
 
 | Key      | Name          | DropWeight | DisenchantMultiplier |
@@ -195,11 +197,11 @@ son propre compteur de pity.
 | Extension   | Reference -> Extensions | a quelle extension appartient la carte (utilisee pour le tirage normal) |
 | IsPromo     | Bool                  | si `true`, exclue du tirage normal des boosters : obtenable uniquement via un code d'evenement (`EventCodes`, `RewardType=card`). Une carte promo n'est **ni decraftable, ni craftable, ni echangeable** (`disenchant.json`, `craft.json` et `trade.json` la refusent) |
 | IsSecret    | Bool                  | sous-ensemble des cartes promo, reservees a l'easter egg clef + serrure cachee (voir "Cartes secretes" plus bas). Doit toujours etre pose avec `IsPromo=true` en meme temps : les cartes secretes profitent de l'exclusion tirage/craft/echange deja geree par `IsPromo`, `IsSecret` ne fait que les rendre eligibles a `unlock-secret.json` |
-| Image       | Attachments            | l'image de la carte, uploadee dans Grist    |
+| Image       | Attachments            | l'image de la carte (onglet Images d'admin-db.html) |
 | Active      | Bool                   | si `false`, la carte n'est plus tirable     |
 | FirstObtainedBy | Reference -> Users | vide tant que personne ne l'a obtenue ; rempli une seule fois, par le premier tirage/reclamation qui la sort (`open-pack.json`, `redeem-code.json`) |
 | FirstObtainedAt | DateTime           | date du premier obtention (epoch secondes) |
-| MaxSerial   | Numeric               | **vestige, plus lu par aucun workflow (2026-09-28)** - servait a plafonner le nombre d'exemplaires "dans la nature" par carte ; retire suite a la demande "plus de quota, juste qu'un numero deja tire ne peut plus etre obtenu". Peut etre supprimee de Grist sans impact. Voir "Numeros de serie - plus de quota" plus bas |
+| MaxSerial   | Numeric               | **vestige, plus lu par aucun workflow (2026-09-28)** - servait a plafonner le nombre d'exemplaires "dans la nature" par carte ; retire suite a la demande "plus de quota, juste qu'un numero deja tire ne peut plus etre obtenu". Peut etre supprimee sans impact (bouton Structure d'admin-db.html). Voir "Numeros de serie - plus de quota" plus bas |
 
 ## 4. Users
 
@@ -351,9 +353,9 @@ guilde, son numero redevient immediatement disponible pour un futur tirage
 plutot que de rester "brule" derriere un compteur qui ne redescend jamais.
 **Il n'y a plus de limite globale par carte** (l'ancienne colonne
 `Cards.MaxSerial` et l'erreur `sold_out` associee ont ete retirees de tout
-le code cote n8n) : une carte reste obtenable indefiniment, seule la
+le code cote API) : une carte reste obtenable indefiniment, seule la
 REUTILISATION d'un numero deja en circulation est interdite. La colonne
-`Cards.MaxSerial` peut rester dans Grist (vestige, plus lue par aucun
+`Cards.MaxSerial` peut rester dans la base (vestige, plus lue par aucun
 workflow) ou etre supprimee, au choix.
 
 ## 6. Config
@@ -361,7 +363,7 @@ workflow) ou etre supprimee, au choix.
 Une seule ligne, parametres globaux du gacha (communs a toutes les
 extensions ; seul le compteur de progression vers la pity est par extension,
 voir `BoosterInventory`). Editable depuis `admin.html` (section "Équilibrage
-du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
+du jeu"), pas seulement a la main dans admin-db.html - voir `admin-config.json`.
 
 | Colonne                     | Type                  | Notes                                  |
 |------------------------------|------------------------|------------------------------------------|
@@ -378,7 +380,7 @@ du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
 | BannerEnabled                | Bool                    | **nouvelle colonne** - defaut false/vide ; affiche ou non le bandeau du site (voir "Bandeau du site" plus bas) |
 | BannerType                   | Text                    | **nouvelle colonne** - `info` ou `maintenance` (defaut `info` si vide) ; change juste la couleur/l'icone cote front |
 | BannerMessage                | Text                    | **nouvelle colonne** - texte affiche dans le bandeau ; bandeau invisible si vide meme si `BannerEnabled` est coche |
-| MaintenanceMode               | Bool                    | **nouvelle colonne a creer (2026-09-29)** - defaut false/vide ; separe du bandeau cosmetique ci-dessus : quand actif, redirige tout le trafic NON-ADMIN vers `maintenance.html` (verification cote client dans `main.js` via `Session.isAdmin()`, purement UX - pas une barriere de securite, les endpoints restent joignables). Tant que cette colonne n'existe pas dans Grist, la LECTURE degrade proprement (`maintenanceMode: false`), mais l'ECRITURE (`admin-config.json` action=set) echoue avec une erreur Grist "Bad request" - a creer avant d'utiliser le bouton "Activer le mode maintenance" dans admin.html |
+| MaintenanceMode               | Bool                    | **nouvelle colonne a creer (2026-09-29)** - defaut false/vide ; separe du bandeau cosmetique ci-dessus : quand actif, redirige tout le trafic NON-ADMIN vers `maintenance.html` (verification cote client dans `main.js` via `Session.isAdmin()`, purement UX - pas une barriere de securite, les endpoints restent joignables). Colonne creee automatiquement au demarrage de l'API si elle manque. |
 | ThemeUnlockMonochrome         | Numeric                 | **nouvelle colonne** - defaut 3 si vide ; niveau de deblocage du theme Monochrome |
 | ThemeUnlockSepia              | Numeric                 | **nouvelle colonne** - defaut 5 si vide ; niveau de deblocage du theme Sépia |
 | ThemeUnlockCyberpunk          | Numeric                 | **nouvelle colonne** - defaut 8 si vide ; niveau de deblocage du theme Cyberpunk |
@@ -392,21 +394,10 @@ du jeu"), pas seulement a la main dans Grist - voir `admin-config.json`.
 | SleeveUnlockVintage           | Numeric                 | **nouvelle colonne** - defaut 6 si vide ; niveau de deblocage de la pochette Vintage |
 | SleeveUnlockCarbone           | Numeric                 | **nouvelle colonne** - defaut 10 si vide ; niveau de deblocage de la pochette Carbone |
 
-Toutes les colonnes `Numeric` ci-dessus tolerent une cellule vide dans Grist
-(chaque workflow qui les lit retombe sur la valeur par defaut listee) - pas
-besoin de remplir la ligne existante avant de deployer, seulement d'ajouter
-les colonnes.
-
-**Important, different des autres colonnes `Numeric` ci-dessus** : les 12
-colonnes `ThemeUnlock*`/`FeatureUnlock*`/`SleeveUnlock*` doivent exister dans
-Grist AVANT de sauvegarder depuis `admin.html` (section "Déblocages par
-niveau de profil") - contrairement a la LECTURE (qui tolere une colonne
-absente et retombe sur le defaut cote code), l'API Grist refuse une
-ECRITURE vers une colonne qui n'existe pas ("Invalid column ..."), erreur
-verifiee en conditions reelles. Tant que ces colonnes n'existent pas, la
-lecture (page d'accueil, verrous de fonctionnalites) fonctionne normalement
-avec les valeurs par defaut ci-dessus - seul le formulaire de sauvegarde de
-l'admin echoue.
+Toutes les colonnes `Numeric` ci-dessus tolerent une cellule vide (chaque
+workflow qui les lit retombe sur la valeur par defaut listee). Les colonnes
+elles-memes sont creees automatiquement au demarrage de l'API si elles
+manquent (voir "Colonnes : creees automatiquement" en bas de ce document).
 
 ## Déblocages par niveau de profil
 
@@ -424,7 +415,7 @@ pilotable depuis l'admin. Desormais :
   collection.js, trade.js, `cycleTheme()`) en profite automatiquement.
 - `admin-config.json` (action `get`/`set`, section "Déblocages par niveau de
   profil" de `admin.html`) permet a l'admin d'editer ces 12 valeurs sans
-  toucher Grist directement.
+  toucher la base directement.
 - La page d'accueil (`index.html`) affiche desormais la liste complete
   "Niveau X -> debloque Y", triee par niveau croissant, depuis ce meme
   endpoint public - toujours a jour avec ce que l'admin a configure.
@@ -453,7 +444,7 @@ renvoie aussi `maintenanceMode` dans sa reponse ; `main.js`
 `maintenance.html` (nouvelle page statique, sans header/nav) des que
 `maintenanceMode` est vrai, **sauf pour les admins** (`Session.isAdmin()`,
 meme liste `adminDiscordIds` que partout ailleurs cote front). Purement une
-verification cote client par confort UX - les endpoints n8n restent tous
+verification cote client par confort UX - les routes de l'API restent toutes
 joignables pendant la maintenance, ce n'est pas une barriere de securite.
 `maintenance.html` s'auto-rafraichit toutes les 20s (`get-site-banner`) pour
 revenir automatiquement sur `index.html` des que la maintenance est levee,
@@ -574,7 +565,7 @@ la quete du jour correspondante, dans la meme requete).
 | CraftCount            | Numeric               | nombre de crafts reussis cette semaine, objectif 5 (chaque craft compte, pas de limite a 1/jour) |
 | TradeCount            | Numeric               | nombre de propositions d'echange creees cette semaine, objectif 5 |
 | OpenBoosterCount      | Numeric               | nombre de boosters reels ouverts cette semaine, objectif 5 |
-| LastLoginCountedDate  | Text                  | `AAAA-MM-JJ` (Europe/Paris) du dernier jour ou `LoginCount` a ete incremente - empeche de compter 5 fois la meme journee en rafraichissant la page. **Bug reel trouve et corrige (2026-09-29)** : Grist stockait cette colonne en Date/DateTime plutot que Text (meme piege que `Bingo.Month`), donc la lecture renvoyait un nombre d'epoch-secondes au lieu de la chaine ecrite - la comparaison `string !== number` etait alors TOUJOURS vraie et `LoginCount` s'incrementait a CHAQUE appel (donc a chaque rafraichissement de page) au lieu d'une fois par jour. `weekly-quests.json` normalise desormais la valeur lue avant de comparer (`dateKey()`), quel que soit le type reel de la colonne - verifier/corriger quand meme le type de la colonne dans Grist est recommande mais plus strictement necessaire |
+| LastLoginCountedDate  | Text                  | `AAAA-MM-JJ` (Europe/Paris) du dernier jour ou `LoginCount` a ete incremente - empeche de compter 5 fois la meme journee en rafraichissant la page. **Bug reel trouve et corrige (2026-09-29)** : L'ancienne base stockait cette colonne en Date/DateTime plutot que Text (meme piege que `Bingo.Month`), donc la lecture renvoyait un nombre d'epoch-secondes au lieu de la chaine ecrite - la comparaison `string !== number` etait alors TOUJOURS vraie et `LoginCount` s'incrementait a CHAQUE appel (donc a chaque rafraichissement de page) au lieu d'une fois par jour. `weekly-quests.json` normalise desormais la valeur lue avant de comparer (`dateKey()`), quel que soit le type reel de la colonne - verifier/corriger quand meme le type de la colonne (admin-db.html) est recommande mais plus strictement necessaire |
 | RewardClaimed         | Bool                  | passe a `true` des que 3 des 4 compteurs ci-dessus atteignent 5 la meme semaine ; `Users.BoosterCount` recoit alors +5 automatiquement |
 
 ## 8. CodeRedemptions
@@ -722,7 +713,7 @@ page affiche juste un message de felicitations a la place.
 **`Cards.IsVault`** (Bool, **nouvelle colonne a creer**) : marque LA carte
 qui vit dans le coffre-fort. A poser sur UNE seule carte, en plus de
 `IsPromo=true` (c'est une carte promo, comme les cartes secretes) ; mettre
-aussi son `Finish` de reference sur "rainbow" en Grist si tu veux qu'elle
+aussi son `Finish` de reference sur "rainbow" (admin-db.html) si tu veux qu'elle
 s'affiche deja arc-en-ciel ailleurs, meme si `vault.json` force de toute
 facon `Finish=rainbow` sur la ligne `Pulls` creee a l'ouverture.
 
@@ -763,7 +754,7 @@ serie attribue par le meme suivi "plus petit numero libre", voir "Numeros de
 serie - plus de quota" plus haut). Repond `{ error: 'no_secret_available' }`
 (400) si aucune carte `IsSecret` n'existe encore (la clef est quand meme
 consommee) - **il faut qu'un admin cree/flague au moins une carte
-`IsSecret=true` + `IsPromo=true` dans Grist pour que l'easter egg puisse
+`IsSecret=true` + `IsPromo=true` (admin-db.html) pour que l'easter egg puisse
 jamais donner quelque chose**.
 
 **Serrure cachee** : sur `redeem.html` (page "Code"), cliquer 5 fois sur
@@ -832,10 +823,10 @@ reclamees, empeche de re-donner les memes recompenses a chaque appel.
   newStardust, newBoosterCount }`.
 - `adminList`/`adminSet` `{ discordId, rows? }` (memes `adminDiscordIds`
   hardcodes que partout ailleurs) : `adminList` retourne les 100 paliers
-  (ceux sans ligne Grist remontent a 0/0/vide) avec le `rowId` Grist de
+  (ceux sans ligne remontent a 0/0/vide) avec le `rowId` de
   chaque ligne existante (`null` si le palier n'a pas encore de ligne) ;
   `adminSet` recoit les 100 lignes d'un coup et fait, pour chacune, une
-  creation ou une mise a jour Grist selon que `rowId` est fourni ou non
+  creation ou une mise a jour selon que `rowId` est fourni ou non
   (voir `admin.html`, bouton "Enregistrer les 100 paliers" - un seul appel
   qui met a jour tout d'un coup, pas 100 requetes separees).
 
@@ -880,7 +871,7 @@ craft/decraft), affiche sur le profil (public et prive).
 Le badge selectionne est expose publiquement par `get-public-profile.json`
 (`selectedBadge: { key, name, icon } | null`), a afficher a cote du pseudo
 partout ou il apparait (comme `level`).
-**Le joueur doit ajouter des lignes `BadgeCatalog` a la main dans Grist** -
+**L'admin ajoute les lignes `BadgeCatalog` a la main (admin-db.html)** -
 le workflow ne fait que lire/vendre un catalogue existant, il ne peut pas en
 inventer le contenu.
 
@@ -890,7 +881,7 @@ Feature fusionnee sur demande explicite : au lieu d'un simple compteur de
 dons ("Donations au Grand 2GETHER") ET d'un boss separe ("Boss
 communautaire"), **une seule mecanique** - donner une carte, c'est attaquer
 le boss commun. `CommunityChest` (ancienne table de dons) est **desormais
-superflue/inutilisee** par ce design ; laisse en l'etat dans Grist (pas
+superflue/inutilisee** par ce design ; laisse en l'etat dans la base (pas
 supprimee automatiquement), a nettoyer a la main si tu veux.
 
 | Table              | Colonne         | Type                       | Notes |
@@ -1059,8 +1050,8 @@ quand les 9 sont possedees.
 | BingoClaims | ClaimedAt      | DateTime                | |
 
 **Bug reel trouve et corrige (2026-09-26)** : si `Month` est cree comme un
-type Date/DateTime dans Grist au lieu de Text (piege facile - Grist propose
-volontiers ce type pour une valeur qui ressemble a une date), l'API le
+type Date/DateTime au lieu de Text (piege facile pour une valeur qui
+ressemble a une date), la base le
 renvoie en LECTURE comme un epoch en secondes (nombre), jamais la chaine
 `"AAAA-MM"` ecrite - une comparaison directe `===` echoue alors TOUJOURS,
 et `bingo.json` semble "ne jamais avoir de grille" cote joueur ET cote admin
@@ -1069,7 +1060,7 @@ nouvelle ligne en double au lieu de mettre a jour la precedente). Corrige
 dans `Dispatch Action` par une fonction `monthKey()` qui normalise les deux
 formats (texte ou epoch) avant de comparer - fonctionne desormais quel que
 soit le type reel de la colonne. **Verifie quand meme que `Month` est bien
-en type Text dans Grist** (repasser la colonne en Text si besoin) pour eviter
+en type Text** (bouton Structure d'admin-db.html si besoin) pour eviter
 la confusion a l'avenir.
 
 **Second point a verifier a la main** : si une grille existante affiche des
@@ -1094,150 +1085,77 @@ cardIds?, rewardBoosters? }`) :
 
 ## Images (pieces jointes)
 
-Une cellule `Attachments` renvoie une liste d'ids de pieces jointes. Les
-workflows qui en ont besoin prennent le premier id de la liste (une carte,
-un packet ou un dos de carte = une image) et le renvoient au site sous les
-noms `imageId` (cartes), `packImageId` et `cardBackImageId` (extensions,
-via `get-extensions.json`).
+Les images sont stockees dans la base de l'API elle-meme (table
+`attachments`). Une cellule `Attachments` contient une liste d'ids
+(`["L", id]`) ; les workflows prennent le premier id (une carte, un packet ou
+un dos de carte = une image) et le renvoient au site sous les noms `imageId`
+(cartes), `packImageId` et `cardBackImageId` (extensions, via
+`get-extensions.json`).
 
-Important : l'API de telechargement de Grist exige une authentification, donc
-**pas d'URL publique directe**. Le site n'affiche jamais une URL Grist : il
-appelle `{n8nBaseUrl}/image?id={imageId}`, un workflow n8n dedie
-(`get-image.json`) qui telecharge l'image avec la cle API et la retransmet.
-Ce workflow marche pour n'importe quelle piece jointe du document (l'id est
-unique au niveau du document, pas de la table), donc il sert aussi bien pour
-`Cards.Image` que pour `Extensions.PackImage`/`CardBackImage`. Voir "Pourquoi
-un workflow image a part" dans `/n8n/README.md`.
+Le site affiche une image par `{apiBaseUrl}/image?id={imageId}`, route servie
+directement par l'API (cache navigateur longue duree). Import et
+remplacement : onglet **Images** de `site/admin-db.html` (conversion WebP et
+redimensionnement dans le navigateur). Remplacer une image existante cree
+une nouvelle piece jointe et redirige les lignes qui l'utilisaient (les
+navigateurs gardent l'ancienne en cache).
 
 ## Colonnes DateTime (important pour tout code custom)
 
-L'API Grist represente les colonnes `Date`/`DateTime` comme un **nombre de
-secondes depuis epoch Unix** (pas une chaine ISO), aussi bien en lecture
-qu'en ecriture. Tous les workflows n8n de ce projet utilisent donc
+Les colonnes `Date`/`DateTime` contiennent un **nombre de secondes depuis
+epoch Unix** (pas une chaine ISO). Tous les workflows utilisent donc
 `Math.floor(Date.now() / 1000)` plutot que `new Date().toISOString()`. Si tu
 ajoutes un nouveau champ DateTime, fais pareil.
 
 ## Colonnes liste (Attachments / Reference List)
 
-Grist encode les colonnes de type liste sous la forme `["L", id1, id2, ...]`
-: `"L"` est un marqueur, pas une valeur. Toutes les fonctions `refId`/
-`firstAttachment` des workflows de ce projet gèrent deja ce cas ; reprends
-le meme code si tu ajoutes un node qui lit ce genre de colonne.
-
-**A l'ECRITURE aussi** : envoyer un tableau JS brut (`[4, 5, 6]`) pour une
-colonne Reference List fait echouer l'appel Grist avec `Invalid payload`
-(`CardIds[0] is not a GristObjCode`) - il faut le meme marqueur en sortie :
-`['L', 4, 5, 6]`. Bug reel rencontre dans `bingo.json` (`adminSetGrid`
-renvoyait 500) : construis toujours la valeur a ecrire avec ce marqueur
-plutot que le tableau brut utilise pour la logique JS interne.
+Les colonnes de type liste sont encodees `["L", id1, id2, ...]` : `"L"` est
+un marqueur, pas une valeur. Les fonctions `refId`/`firstAttachment` des
+workflows gerent deja ce cas ; reprends le meme code si tu ajoutes un node
+qui lit ce genre de colonne. A l'ecriture, garde aussi le marqueur
+(`['L', 4, 5, 6]`) plutot qu'un tableau brut.
 
 ## Colonnes booleennes (Toggle) : jamais de `=== true` / `!== true`
 
-Selon la table, l'API Grist peut renvoyer un Toggle sous forme de nombre
-(`1`/`0`/`undefined`) plutot que de vrai booleen JS - `1 === true` vaut
-`false` en JavaScript. Un test d'egalite stricte contre `true`/`false` sur
-une colonne lue depuis Grist est donc **silencieusement faux** des que la
-valeur arrive en `1`/`0` (aucune erreur, juste un mauvais resultat).
-Bugs reels rencontres et corriges pour cette raison : `CommunityBoss.Active`
-(`community-boss.json` - un boss nouvellement cree n'apparaissait jamais
-comme actif), `GuildChestDeposits.Claimed` (`guild-chest.json` - un
-exemplaire deja pioche restait dans le pot commun), `Cards.IsPromo`
-(`open-pack.json`/`get-public-profile.json`), `Cards.IsSecret`
-(`unlock-secret.json`). **Toujours utiliser un test de verite JS**
+Une ancienne donnee importee peut contenir `1`/`0` plutot qu'un vrai booleen
+JS (`1 === true` vaut `false`). **Toujours utiliser un test de verite**
 (`!!valeur` pour "est vrai", `!valeur` pour "est faux/absent") plutot que
-`=== true`/`!== true`/`=== false`/`!== false` sur une colonne Grist -
-reserve l'egalite stricte aux valeurs deja calculees cote code (jamais
-lues telles quelles depuis une ligne Grist).
+`=== true`/`!== true` sur une colonne lue telle quelle depuis une ligne.
 
-## Securite en cas d'acces concurrent (2026-09-30)
+## Acces concurrents
 
-n8n + Grist n'offre ni transaction ni verrou : chaque workflow fait
-"lire -> calculer -> ecrire" en plusieurs etapes non-atomiques. Si deux
-requetes arrivent presque au meme instant (le cas reel : un admin annonce un
-code en direct pendant un evenement, et beaucoup de monde le tape au meme
-moment), les deux peuvent lire le MEME etat "avant" et toutes les deux
-passer un controle de limite (`MaxRedemptions`, `MaxPurchases`, un depot de
-coffre de guilde deja pioche...) qui n'aurait du en laisser passer qu'une.
+L'API execute **une seule action a la fois** (verrou global, voir
+`api/src/server.js`) : deux clics simultanes ne peuvent plus lire le meme
+solde ni depasser une limite (`MaxRedemptions`, `MaxPurchases`, depot de
+coffre de guilde deja pioche...). Les workflows `redeem-code.json`,
+`black-market.json` et `guild-chest.json` contiennent encore un ancien
+mecanisme "verifier apres coup, annuler si conflit" (avec une courte
+attente) : devenu inutile mais sans danger, il peut etre retire plus tard.
 
-**Pattern retenu : verifier apres-coup, annuler si conflit** (plutot qu'un
-vrai verrou, hors de portee sans une vraie base de donnees transactionnelle) :
-1. Ecrire normalement (optimiste), comme avant.
-2. Attendre un court delai (400ms) pour laisser les ecritures concurrentes
-   se deposer.
-3. Relire l'etat REEL et classer tous les concurrents par id Grist croissant
-   (= ordre d'insertion reel, le meme pour tout le monde une fois les
-   ecritures visibles) : les N premiers (N = la limite) gagnent.
-4. Si je ne suis pas dans les gagnants : je supprime ce que j'ai cree/repare
-   ce que j'ai debite, et je reponds l'erreur normale (`code_exhausted`,
-   `offer_exhausted`, `deposit_already_claimed`) - jamais de penalite
-   injuste pour une collision qui n'est pas la faute du joueur (ex: son
-   tirage du jour n'est pas consomme si son coffre de guilde echoue ainsi).
+## Ecrire un workflow : regles du moteur
 
-**Limite assumee** : ce n'est pas une garantie a 100% (deux ecritures
-separees de moins de 400ms pourraient encore, en theorie, se rater toutes
-les deux lors de la relecture), mais ca reduit la fenetre de course de
-"toujours cassee" a "extremement rare" - suffisant pour le volume de trafic
-reel de ce site (une petite association, pas des milliers d'utilisateurs
-simultanes). Un vrai verrou serait plus robuste mais demanderait une
-infrastructure que Grist n'offre pas nativement.
+Le moteur (`api/src/runtime.js`) execute les workflows avec la semantique de
+leur format d'origine :
 
-**Deja applique** : `redeem-code.json` (limite `MaxRedemptions`, annule la
-ligne `CodeRedemptions` + les exemplaires crees), `black-market.json`
-(limite `MaxPurchases`, annule l'exemplaire achete + rembourse les
-poussieres), `guild-chest.json` (deux joueurs qui piochent le meme depot au
-meme instant, annule la reclamation + l'exemplaire en trop du perdant -
-necessite la nouvelle colonne `GuildChestClaims.DepositRowId`, voir "Coffre
-de guilde mystere" plus haut).
+1. **Un noeud de table `getAll` s'execute une fois par item recu en
+   entree.** Ne jamais chainer deux `getAll` directement (A -> B) : si A
+   produit plusieurs lignes, B tournerait plusieurs fois et dupliquerait ses
+   resultats. Intercale un node Code (`mode: runOnceForAllItems`,
+   `return [{ json: {} }];`), comme les nodes "Sync X -> Y" existants.
+2. **Ne jamais lire `$('Noeud')` d'un noeud qui peut ne pas avoir tourne**
+   selon la branche prise : le moteur leve une erreur ("Referenced node is
+   unexecuted") au lieu de renvoyer une liste vide. Determine la branche via
+   un noeud present sur tous les chemins (`Dispatch Action`,
+   `Validate & Prepare`...).
+3. **Une branche qui peut ne produire aucun item doit quand meme mener a une
+   reponse** : sinon le workflow ne repond pas (erreur 500 "Workflow did not
+   respond"). Utiliser `alwaysOutputData` + un noeud If (voir
+   `level-rewards.json`, "If Has Card Rewards").
 
-**Pas encore applique (risque plus faible, laisse de cote pour l'instant)** :
-les numeros de serie ("plus petit numero libre") utilisent le meme genre de
-lecture-puis-ecriture partout (`open-pack.json`, `craft.json`,
-`altar-sacrifice.json`, `dig.json`, `admin-gift.json`, `unlock-secret.json`,
-`vault.json`, `level-rewards.json`...) - deux tirages strictement
-simultanes sur la MEME carte pourraient en theorie recevoir le meme numero.
-Impact plus cosmetique (numerotation en double, pas de duplication de valeur
-economique ni de depassement de limite) et bien plus couteux a corriger
-partout (une douzaine de fichiers) pour un risque bien plus faible en
-pratique - a traiter en suivi si ca devient genant.
+## Colonnes : creees automatiquement
 
-## Chainer des appels Grist dans un workflow (piege n8n)
-
-Un node Grist "classique" (type `getAll`) s'execute **une fois par item recu
-en entree**. Si tu chaines deux nodes Grist getAll directement (A -> B), et
-que A produit plusieurs lignes, B va s'executer plusieurs fois et dupliquer
-ses resultats (bug reel rencontre et corrige dans ce projet : voir les nodes
-"Sync X -> Y" intercales dans les workflows). Regle a suivre pour tout
-nouveau node Grist ajoute a un workflow existant : ne jamais faire pointer un
-node Grist `getAll` directement sur la sortie d'un autre node Grist
-`getAll` ; intercale toujours un node Code (`mode: runOnceForAllItems`,
-`return [{ json: {} }];`) entre les deux pour ramener a un seul item.
-
-## Referencer un noeud qui n'a pas execute (autre piege n8n, 2026-09-30)
-
-Bug reel rencontre en construisant "Securite en cas d'acces concurrent"
-ci-dessus : `redeem-code.json` a deux branches mutuellement exclusives
-(carte / booster), chacune avec son propre node "Insert Redemption ...".
-Un node Code plus loin essayait de savoir laquelle avait tourne en testant
-`$('Insert Redemption Card').all().length > 0` - en supposant qu'un noeud
-jamais execute renverrait simplement une liste vide. **Faux** : n8n leve une
-vraie erreur d'execution ("Error in workflow") des qu'on reference par nom
-un noeud qui n'a PAS execute sur le chemin reellement emprunte, plutot que
-de renvoyer `[]`. Repere en testant pour de vrai (le chemin booster
-plantait, le chemin carte passait - le genre d'asymetrie qu'une simple
-relecture du code ne remarque pas forcement).
-
-**Regle a suivre** : ne jamais faire `$('NomDuNoeud').first()/.all()` sur un
-noeud qui peut ne PAS avoir tourne selon la branche prise. Si plusieurs
-branches se rejoignent plus loin, capture ce dont tu as besoin (un id, un
-type...) au point de jonction ou juste apres l'embranchement conditionnel -
-jamais en revenant lire un noeud specifique a une branche depuis l'aval.
-Determine plutot "quelle branche a tourne" via un noeud qui s'execute
-TOUJOURS (ex: le node de calcul principal type `Validate & Prepare`/
-`Dispatch Action`, present sur tous les chemins), jamais via la presence/
-absence de donnees d'un noeud conditionnel.
-
-## Cle API Grist
-
-Dans Grist: Profil -> "Parametres du compte" -> "Cles API" -> creer une cle.
-Cette cle sert d'identifiant Bearer pour toutes les requetes HTTP faites par
-n8n (voir `/n8n/README.md`).
+Plus besoin de creer des colonnes a la main avant un deploiement : au
+demarrage, l'API cree les colonnes ecrites par les workflows qui manquent
+encore (type deduit du nom) ainsi que les tables/colonnes des fonctionnalites
+natives (`api/src/native`). Pour modifier la structure a la main (renommer,
+changer de type, supprimer, creer une table) : bouton **Structure** de
+`site/admin-db.html`.

@@ -1,5 +1,5 @@
 // Page admin : creation/gestion des codes d'événement.
-// Protection reelle cote n8n (admin-codes.json verifie Session.discordId
+// Protection reelle cote API (admin-codes.json verifie Session.discordId
 // contre une liste codee en dur) ; cote site on se contente de cacher le
 // formulaire si l'appel renvoie "forbidden".
 
@@ -511,6 +511,92 @@ async function loadLevelRewardsAdmin() {
   }
 }
 
+// ---------------------------------------------------------------- reglages
+// Reglages avances (api/src/native/settings.js) : formulaire genere depuis le
+// registre du serveur, groupe par theme.
+let settingsCache = [];
+const settingsEscape = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function settingInput(s) {
+  const id = "setting-" + s.key;
+  if (s.type === "bool") return `<label class="checkbox-inline"><input type="checkbox" id="${id}" data-setting="${s.key}" ${s.value ? "checked" : ""} /> activé</label>`;
+  if (s.type === "json") return `<textarea id="${id}" data-setting="${s.key}" spellcheck="false">${settingsEscape(JSON.stringify(s.value, null, 2))}</textarea>`;
+  return `<input type="number" id="${id}" data-setting="${s.key}" value="${s.value}" ${s.min != null ? `min="${s.min}"` : ""} ${s.max != null ? `max="${s.max}"` : ""} step="${s.step || "any"}" />`;
+}
+
+function renderSettings(list) {
+  settingsCache = list;
+  const groups = [];
+  list.forEach((s) => { let g = groups.find((x) => x.name === s.group); if (!g) groups.push(g = { name: s.group, items: [] }); g.items.push(s); });
+  const zone = document.getElementById("settings-zone");
+  zone.className = "";
+  zone.innerHTML = groups.map((g) => `
+    <div class="settings-group">
+      <h3>${settingsEscape(g.name)}</h3>
+      <div class="settings-grid">${g.items.map((s) => `
+        <div class="setting-field ${s.custom ? "custom" : ""}">
+          <label for="setting-${s.key}">${settingsEscape(s.label)}</label>
+          ${settingInput(s)}
+          <small>${settingsEscape(s.help)}${s.unit ? (s.help ? " · " : "") + settingsEscape(s.unit) : ""} Défaut : ${settingsEscape(s.type === "json" ? "voir « Défaut »" : String(s.def))}.</small>
+          ${s.custom ? `<button type="button" class="btn-ghost setting-reset" data-reset-setting="${s.key}">Défaut</button>` : ""}
+        </div>`).join("")}
+      </div>
+    </div>`).join("") + `
+    <div class="settings-errors" id="settings-errors"></div>
+    <div class="settings-actions"><button type="button" class="btn" id="settings-save-btn">Enregistrer les modifications</button></div>`;
+}
+
+async function loadSettings() {
+  const zone = document.getElementById("settings-zone");
+  try { renderSettings((await API.adminGetSettings(Session.discordId)).settings); }
+  catch (e) { zone.className = "empty-state"; zone.textContent = e.code === "forbidden" ? "Accès réservé aux admins." : "Impossible de charger les réglages."; }
+}
+
+async function saveSettings() {
+  const values = {};
+  const errors = [];
+  document.querySelectorAll("#settings-zone [data-setting]").forEach((el) => {
+    const s = settingsCache.find((x) => x.key === el.dataset.setting);
+    if (!s) return;
+    let v;
+    if (s.type === "bool") v = el.checked;
+    else if (s.type === "json") { try { v = JSON.parse(el.value); } catch (e) { errors.push(`${s.label} : JSON invalide`); return; } }
+    else v = Number(el.value);
+    if (JSON.stringify(v) !== JSON.stringify(s.value)) values[s.key] = v;
+  });
+  const errBox = document.getElementById("settings-errors");
+  if (errors.length) { errBox.innerHTML = errors.map(settingsEscape).join("<br>"); return; }
+  if (!Object.keys(values).length) { Toast.info("Aucune modification."); return; }
+  try {
+    renderSettings((await API.adminSetSettings(Session.discordId, values)).settings);
+    Toast.success(`${Object.keys(values).length} réglage${Object.keys(values).length > 1 ? "s" : ""} enregistré${Object.keys(values).length > 1 ? "s" : ""}.`);
+  } catch (e) {
+    errBox.innerHTML = ((e.data && e.data.errors) || [e.message]).map(settingsEscape).join("<br>");
+    Toast.error("Réglages refusés : corrige les erreurs indiquées.");
+  }
+}
+
+// ---------------------------------------------------------------- saison
+async function loadSeasonAdmin(res) {
+  const zone = document.getElementById("season-admin-zone");
+  try {
+    const data = res || await API.adminGetSeason(Session.discordId);
+    const options = (selected) => `<option value="">— aucune (coffre + boosters au dernier palier) —</option>` + cardsCatalog
+      .map((c) => `<option value="${c.cardId}" ${c.cardId === selected ? "selected" : ""}>${settingsEscape(c.name)}${c.isPromo ? " (promo)" : ""}</option>`).join("");
+    zone.className = "";
+    zone.innerHTML = data.seasons.map((s, i) => `
+      <div class="admin-form season-admin-row">
+        <label>${i === 0 ? "Saison en cours" : "Saison suivante"} : ${settingsEscape(s.label)}
+          <select data-season-card="${s.season}">${options(s.card ? s.card.cardId : null)}</select>
+        </label>
+        <button type="button" data-season-save="${s.season}">Enregistrer</button>
+      </div>`).join("") + `<p class="lead" style="font-size:0.8rem;">${data.participants} joueur${data.participants > 1 ? "s" : ""} dans la saison en cours.</p>`;
+  } catch (e) {
+    zone.className = "empty-state";
+    zone.textContent = "Impossible de charger la saison.";
+  }
+}
+
 // ---------------------------------------------------------------- evenement
 // Week-end evenement (api/src/native/events.js).
 function renderEventAdmin(ev) {
@@ -600,6 +686,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadExtensionsAdmin();
     loadBossAdmin();
     loadEventAdmin();
+    loadSeasonAdmin();
+    document.getElementById("settings-section").addEventListener("toggle", (e) => { if (e.currentTarget.open && !settingsCache.length) loadSettings(); });
+    document.getElementById("settings-zone").addEventListener("click", async (e) => {
+      if (e.target.closest("#settings-save-btn")) { saveSettings(); return; }
+      const reset = e.target.closest("[data-reset-setting]");
+      if (reset) {
+        try { renderSettings((await API.adminResetSetting(Session.discordId, reset.dataset.resetSetting)).settings); Toast.info("Valeur par défaut rétablie."); }
+        catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      }
+    });
+    document.getElementById("season-admin-zone").addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-season-save]");
+      if (!btn) return;
+      const season = btn.dataset.seasonSave;
+      const cardId = Number(document.querySelector(`[data-season-card="${season}"]`).value) || 0;
+      try { await loadSeasonAdmin(await API.adminSetSeasonCard(Session.discordId, season, cardId)); Toast.success("Carte de saison enregistrée."); }
+      catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+    });
     document.getElementById("economy-section").addEventListener("toggle", (e) => { if (e.currentTarget.open) loadEconomy(); });
     document.getElementById("event-form").addEventListener("submit", async (e) => {
       e.preventDefault();

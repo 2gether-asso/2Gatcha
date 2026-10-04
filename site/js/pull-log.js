@@ -1,5 +1,5 @@
 // Logique du journal d'ouvertures (historique complet, toutes sources).
-// Contrat n8n "pull-log" (GET ?userId=...) :
+// Contrat API "pull-log" (GET ?userId=...) :
 //   { log: [{ cardId, cardName, imageId, rarity, extension, source, obtainedAt }], total }
 
 const SOURCE_LABELS = {

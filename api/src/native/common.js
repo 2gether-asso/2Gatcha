@@ -1,9 +1,9 @@
 // Outils partages par les fonctionnalites natives de l'API (api/src/native).
 //
 // Les fonctionnalites natives (2026-10-04) sont ecrites directement en JS
-// contre le Store, au lieu de workflows n8n en JSON : plus simples a ecrire et
+// contre le Store, au lieu de workflows JSON : plus simples a ecrire et
 // a tester. Elles gardent les memes conventions que les workflows : memes
-// adresses /webhook/<chemin>, memes formats Grist (Ref entier, ["L", ...]),
+// adresses /webhook/<chemin>, memes formats de donnees (Ref entier, ["L", ...]),
 // meme verrou global (aucune ecriture concurrente), memes erreurs { error }.
 
 export const refId = (v) => (Array.isArray(v) ? v[1] : v);

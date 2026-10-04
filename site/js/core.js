@@ -130,6 +130,8 @@ const Session = {
   KEY_DISCORD_ID: "2gatcha_discordId",
   KEY_DISCORD_USERNAME: "2gatcha_discordUsername",
   KEY_DISCORD_AVATAR: "2gatcha_discordAvatar",
+  // Jeton signe remis par l'API a la connexion Discord (envoye a chaque requete).
+  KEY_TOKEN: "2gatcha_token",
 
   get userId() {
     return localStorage.getItem(this.KEY_USER_ID);
@@ -146,12 +148,16 @@ const Session = {
   get discordAvatar() {
     return localStorage.getItem(this.KEY_DISCORD_AVATAR);
   },
+  get token() {
+    try { return localStorage.getItem(this.KEY_TOKEN); } catch (e) { return null; }
+  },
   set(data) {
     localStorage.setItem(this.KEY_USER_ID, data.userId);
     localStorage.setItem(this.KEY_PSEUDO, data.pseudo || "");
     localStorage.setItem(this.KEY_DISCORD_ID, data.discordId || "");
     localStorage.setItem(this.KEY_DISCORD_USERNAME, data.discordUsername || "");
     localStorage.setItem(this.KEY_DISCORD_AVATAR, data.discordAvatar || "");
+    if (data.token) localStorage.setItem(this.KEY_TOKEN, data.token);
   },
   setPseudo(pseudo) {
     localStorage.setItem(this.KEY_PSEUDO, pseudo);
@@ -162,6 +168,7 @@ const Session = {
     localStorage.removeItem(this.KEY_DISCORD_ID);
     localStorage.removeItem(this.KEY_DISCORD_USERNAME);
     localStorage.removeItem(this.KEY_DISCORD_AVATAR);
+    localStorage.removeItem(this.KEY_TOKEN);
   },
   isLoggedIn() {
     return !!this.userId;

@@ -164,14 +164,15 @@ async function loadNavBadges() {
   // bougent moins souvent) pour ne pas multiplier les requetes en arriere-
   // plan a chaque changement de page.
   try {
-    const [quests, weekly, levelRewards, streak, sets] = await Promise.all([
+    const [quests, weekly, levelRewards, streak, sets, season] = await Promise.all([
       API.getQuestStatus(Session.userId).catch(() => null),
       API.getWeeklyQuestStatus(Session.userId).catch(() => null),
       API.getLevelRewardsStatus(Session.userId).catch(() => null),
       API.getLoginStreak(Session.userId).catch(() => null),
-      API.getSetRewards(Session.userId).catch(() => null)
+      API.getSetRewards(Session.userId).catch(() => null),
+      API.getSeason(Session.userId).catch(() => null)
     ]);
-    const rewardsCount = [quests?.canClaim, weekly?.canClaim, levelRewards?.hasPending, streak?.canClaim].filter(Boolean).length + ((sets && sets.claimable) || 0);
+    const rewardsCount = [quests?.canClaim, weekly?.canClaim, levelRewards?.hasPending, streak?.canClaim, season?.claimable > 0].filter(Boolean).length + ((sets && sets.claimable) || 0);
     document.querySelectorAll('[data-badge-key="rewards"]').forEach((a) => {
       a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
       if (rewardsCount > 0) {
@@ -799,13 +800,13 @@ function initBackToTop() {
 }
 
 // Prechauffe en tache de fond le cache navigateur de toutes les images de
-// cartes (+ visuels d'extension), depuis la page d'accueil : le workflow n8n
+// cartes (+ visuels d'extension), depuis la page d'accueil : la route
 // "get-image" renvoie desormais un Cache-Control longue duree (voir
 // get-image.json), donc une image deja vue ici est servie par le cache du
-// navigateur, sans nouvel appel n8n, quand l'utilisateur arrive ensuite sur
+// navigateur, sans nouvel appel, quand l'utilisateur arrive ensuite sur
 // la collection/l'ouverture/le journal. Petits lots + requestIdleCallback
 // pour rester en arriere-plan : ne rivalise ni avec le chargement de la page
-// ni avec les vrais appels n8n de l'utilisateur.
+// ni avec les vrais appels de l'utilisateur.
 async function prefetchAllCardImages() {
   try {
     const [cardsRes, extRes] = await Promise.all([API.getCards(), API.getExtensions()]);
@@ -850,7 +851,7 @@ function prefetchShellData() {
       read("trade", "list"), read("quests"), read("weeklyQuests"), read("levelRewards"),
       read("vault"), read("bingo"), read("guessCard"), read("expedition"),
       { name: "eventCalendar" }, read("communityBoss"), read("guildChest"), read("blackMarket", "list"),
-      read("loginStreak"), read("setRewards")
+      read("loginStreak"), read("setRewards"), read("season")
     );
   }
   return API.batch(calls);

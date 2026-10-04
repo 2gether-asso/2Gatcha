@@ -1,10 +1,11 @@
-// API 2Gatcha : remplace n8n + Grist.
+// API 2Gatcha.
 //
-// Memes adresses que les webhooks n8n (/webhook/<chemin>) et memes formats de
-// requete/reponse : cote site, seule l'URL de base change (js/config.js,
-// n8nBaseUrl). Les executions sont serialisees : une seule action a la fois
-// modifie les donnees, ce qui supprime les doubles depenses que n8n
-// permettait (deux clics rapides lisaient le meme solde).
+// Chaque action du jeu est une route /webhook/<chemin> : un workflow
+// (api/workflows/*.json, execute par runtime.js) ou une fonctionnalite native
+// (src/native). Le site ne connait que l'URL de base (js/config.js,
+// apiBaseUrl). Les executions sont serialisees : une seule action a la fois
+// modifie les donnees, ce qui empeche les doubles depenses (deux clics
+// rapides lisant le meme solde).
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -134,11 +135,11 @@ function serveStatic(req, res, pathname) {
   const relPath = path.relative(root, file).split(path.sep).join('/');
   if (BLOCKED_SITE_FILES.has(relPath) || relPath.split('/').some((seg) => seg.startsWith('.'))) return send404(req, res, root);
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
-  // Le site servi par l'API parle a l'API elle-meme : n8nBaseUrl est reecrit
-  // a la volee en "/webhook/" (le fichier du depot garde l'adresse n8n tant
-  // que l'ancien hebergement est utilise).
+  // Le site servi par l'API parle a l'API elle-meme : apiBaseUrl est reecrit
+  // a la volee en "/webhook/" (le fichier du depot garde l'adresse publique,
+  // utilisee par le site heberge sur GitHub Pages).
   if (path.relative(root, file).split(path.sep).join('/') === 'js/config.js' && fs.existsSync(file)) {
-    const js = fs.readFileSync(file, 'utf8').replace(/n8nBaseUrl:\s*"[^"]*"/, `n8nBaseUrl: "${config.siteApiBase}"`);
+    const js = fs.readFileSync(file, 'utf8').replace(/apiBaseUrl:\s*"[^"]*"/, `apiBaseUrl: "${config.siteApiBase}"`);
     send(res, req, 200, { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-cache' }, js);
     return true;
   }
@@ -149,7 +150,7 @@ function serveStatic(req, res, pathname) {
 }
 
 // Images des cartes : servies directement depuis la base (remplace le
-// workflow get-image qui telechargeait la piece jointe depuis Grist).
+// ancien workflow get-image).
 function serveImage(req, res, url) {
   const att = store.getAttachment(url.searchParams.get('id'));
   if (!att) return sendJson(res, req, 404, { error: 'not_found' });
@@ -165,13 +166,14 @@ if (config.backup.sasUrl) {
 
 // Fonctionnalites natives (api/src/native) : routes ecrites directement en
 // JS, bonus appliques apres certains workflows, notifications push.
-const native = createNative({ store, withLock, captureError });
+const native = createNative({ store, withLock, captureError, workflowsDir: config.workflowsDir });
 native.start();
 
 // Execute un workflow sous le verrou et renvoie sa reponse HTTP. hookPath :
 // chemin du webhook, pour les bonus natifs appliques apres coup.
 async function runWorkflow(route, request, hookPath) {
   return withLock(async () => {
+    native.beforeRequest(request.body, request.query);
     const { responded, done } = runner.run(route.wf, request, { unlocked });
     const resp = await responded;
     // L'execution continue apres la reponse (ex. quetes du jour mises a
@@ -184,9 +186,24 @@ async function runWorkflow(route, request, hookPath) {
   });
 }
 
+const READ_ACTIONS = new Set(['status', 'list', 'get']);
+
 // Route native : meme verrou que les workflows.
 async function runNative(method, hookPath, body, query) {
-  return withLock(() => native.run(method, hookPath, { body, query }));
+  return withLock(() => { native.beforeRequest(body, query); return native.run(method, hookPath, { body, query }); });
+}
+
+// Jeton "Authorization: Bearer ..." et adresse du client (derriere un reverse
+// proxy : premiere adresse de X-Forwarded-For).
+function bearer(req) {
+  return String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim() || null;
+}
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+}
+const isWriteRequest = (method, body) => method !== 'GET' && !READ_ACTIONS.has(body && body.action);
+function sendGate(res, req, denied) {
+  sendJson(res, req, denied.status, denied.json, denied.headers || {});
 }
 
 // --------------------------------------------------------------- batch
@@ -195,10 +212,13 @@ async function runNative(method, hookPath, body, query) {
 // appel donne exactement la meme reponse qu'en individuel. Ecritures
 // refusees : GET, ou POST dont l'action est une lecture.
 const BATCH_MAX = 24;
-const READ_ACTIONS = new Set(['status', 'list', 'get']);
 async function handleBatch(req, res, url) {
   const { calls } = await readBody(req);
   if (!Array.isArray(calls) || !calls.length || calls.length > BATCH_MAX) return sendJson(res, req, 400, { error: 'invalid_batch' });
+  const token = bearer(req);
+  // Le lot compte pour une seule lecture dans la limite de debit.
+  const limited = native.gate({ token, ip: clientIp(req), isWrite: false });
+  if (limited) return sendGate(res, req, limited);
   const results = [];
   for (const c of calls) {
     const method = String(c && c.method || 'GET').toUpperCase();
@@ -209,6 +229,8 @@ async function handleBatch(req, res, url) {
     if (!route && !isNative) { results.push({ status: 404, json: { error: 'not_found' } }); continue; }
     if (method !== 'GET' && !READ_ACTIONS.has(body.action)) { results.push({ status: 400, json: { error: 'read_only' } }); continue; }
     const query = c.query && typeof c.query === 'object' ? Object.fromEntries(Object.entries(c.query).map(([k, v]) => [k, String(v)])) : {};
+    const denied = native.gate({ token, body, query, rate: false });
+    if (denied) { results.push({ status: denied.status, json: denied.json }); continue; }
     if (isNative) { results.push(await runNative(method, hookPath, body, query)); continue; }
     const resp = await runWorkflow(route, { headers: req.headers, params: {}, query, body, webhookUrl: `${url.origin}/webhook/${hookPath}`, executionMode: 'production' }, hookPath);
     results.push({ status: resp.status, json: resp.raw ? null : resp.json });
@@ -236,20 +258,27 @@ const server = http.createServer(async (req, res) => {
     if (m) {
       const hookPath = m[1];
       if (req.method === 'GET' && hookPath === 'image') return serveImage(req, res, url);
-      if (native.has(req.method, hookPath)) {
-        const body = req.method === 'POST' ? await readBody(req) : {};
-        const resp = await runNative(req.method, hookPath, body, Object.fromEntries(url.searchParams));
+      const isNativeRoute = native.has(req.method, hookPath);
+      const route = isNativeRoute ? null : routes.get(`${req.method} ${hookPath}`);
+      if (!isNativeRoute && !route) return sendJson(res, req, 404, { code: 404, message: `The requested webhook "${req.method} ${hookPath}" is not registered.` });
+      const body = req.method === 'POST' ? await readBody(req) : {};
+      const query = Object.fromEntries(url.searchParams);
+      const denied = native.gate({ token: bearer(req), ip: clientIp(req), body, query, isWrite: isWriteRequest(req.method, body) });
+      if (denied) {
+        sendGate(res, req, denied);
+        if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${denied.status} (${denied.json.error})`);
+        return;
+      }
+      if (isNativeRoute) {
+        const resp = await runNative(req.method, hookPath, body, query);
         sendJson(res, req, resp.status, resp.json);
         if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${resp.status} ${Date.now() - started}ms (natif)`);
         return;
       }
-      const route = routes.get(`${req.method} ${hookPath}`);
-      if (!route) return sendJson(res, req, 404, { code: 404, message: `The requested webhook "${req.method} ${hookPath}" is not registered.` });
-      const body = req.method === 'POST' ? await readBody(req) : {};
       const request = {
         headers: req.headers,
         params: {},
-        query: Object.fromEntries(url.searchParams),
+        query,
         body,
         webhookUrl: `${url.origin}${url.pathname}`,
         executionMode: 'production'
@@ -275,7 +304,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(config.port, () => {
   const tables = store.stats();
   console.log(`2Gatcha API sur le port ${config.port} - ${routes.size} workflows, ${Object.keys(tables).length} tables (${config.dbPath})`);
-  if (!Object.keys(tables).length) console.warn('Base vide : lance d\'abord `npm run import` (voir README).');
+  if (!Object.keys(tables).length) console.warn('Base vide : restaure une sauvegarde (npm run restore, voir README).');
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { server.close(); process.exit(0); });

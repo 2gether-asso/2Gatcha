@@ -1,5 +1,5 @@
 // Logique de la page de reclamation de code d'événement.
-// Contrat attendu du webhook n8n "redeem-code" (POST { userId, code }):
+// Contrat de la route "redeem-code" (POST { userId, code }):
 // { "type": "booster", "quantity": 3, "newBoosterCount": 5 }
 // ou
 // { "type": "card", "cards": [ { cardId, name, artist, description, imageId,

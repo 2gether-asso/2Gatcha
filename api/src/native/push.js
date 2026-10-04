@@ -10,6 +10,7 @@
 
 import { refId, now, ok, fail, userById, parisDay, parisHour } from './common.js';
 import { eventState } from './events.js';
+import { setting } from './settings.js';
 
 export const schema = {
   AppSettings: { Key: { type: 'Text' }, Value: { type: 'Text' } },
@@ -17,11 +18,10 @@ export const schema = {
   NotificationLog: { User: { type: 'Ref:Users' }, Kind: { type: 'Text' }, RefKey: { type: 'Text' }, SentAt: { type: 'Numeric' } }
 };
 
-const QUIET_START = 22, QUIET_END = 9;
 let webpush = null;
 let vapid = null;
 
-function setting(store, key) {
+function vapidSetting(store, key) {
   const row = store.getAll('AppSettings').find((r) => r.Key === key);
   return row ? row.Value : null;
 }
@@ -33,8 +33,8 @@ function setSetting(store, key, value) {
 // Charge web-push et les cles VAPID (generees une seule fois).
 export async function init({ store }) {
   try { webpush = (await import('web-push')).default; } catch (e) { console.warn('web-push absent : notifications push desactivees.'); return false; }
-  let pub = process.env.VAPID_PUBLIC_KEY || setting(store, 'vapidPublicKey');
-  let priv = process.env.VAPID_PRIVATE_KEY || setting(store, 'vapidPrivateKey');
+  let pub = process.env.VAPID_PUBLIC_KEY || vapidSetting(store, 'vapidPublicKey');
+  let priv = process.env.VAPID_PRIVATE_KEY || vapidSetting(store, 'vapidPrivateKey');
   if (!pub || !priv) {
     const keys = webpush.generateVAPIDKeys();
     pub = keys.publicKey; priv = keys.privateKey;
@@ -100,7 +100,8 @@ export function collect({ store, hour: forcedHour } = {}) {
   const jobs = pendingTests.splice(0).flatMap((n) => subs.filter((s) => refId(s.User) === n.userId).map((s) => ({ sub: s, payload: n })));
   if (!subs.length) return jobs;
   const hour = forcedHour != null ? forcedHour : parisHour();
-  const quiet = hour >= QUIET_START || hour < QUIET_END;
+  const qs = setting(store, 'PushQuietStart'), qe = setting(store, 'PushQuietEnd');
+  const quiet = qs === qe ? false : (qs > qe ? (hour >= qs || hour < qe) : (hour >= qs && hour < qe));
   if (quiet) return jobs;
   const log = store.getAll('NotificationLog');
   const sent = new Set(log.map((l) => `${refId(l.User)}|${l.Kind}|${l.RefKey}`));

@@ -3,7 +3,7 @@
 //   - Images : import groupe par extension (association par nom de fichier
 //     d'origine), remplacement unitaire ; conversion WebP + redimensionnement
 //     faits ICI, dans le navigateur, avant l'envoi.
-//   - Tables : edition directe des lignes (remplace l'edition dans Grist).
+//   - Tables : edition directe des lignes et de la structure (colonnes, tables).
 
 const ADB_URL_KEY = "2gatcha_admin_api_url";
 const ADB_TOKEN_KEY = "2gatcha_admin_token";
@@ -29,12 +29,11 @@ function adbLoad(key) {
   try { return localStorage.getItem(key) || ""; } catch (e) { return ""; }
 }
 
-// Adresse de l'API par defaut : celle du site si elle pointe deja vers l'API
-// maison (pas vers n8n), sinon l'origine de la page (conteneur qui sert
-// aussi le site).
+// Adresse de l'API par defaut : celle du site (js/config.js), sinon l'origine
+// de la page (conteneur qui sert aussi le site).
 function defaultApiUrl() {
-  const base = (window.APP_CONFIG && window.APP_CONFIG.n8nBaseUrl) || "";
-  if (base && !base.includes("n8n.")) {
+  const base = (window.APP_CONFIG && window.APP_CONFIG.apiBaseUrl) || "";
+  if (base) {
     try { return new URL(base, window.location.href).origin; } catch (e) {}
   }
   return window.location.origin;
@@ -427,7 +426,7 @@ async function deleteRow(id) {
 }
 
 // ------------------------------------------------------------- structure
-// Types proposes (memes noms que Grist). Ref / RefList demandent la table visee.
+// Types de colonne proposes. Ref / RefList demandent la table visee.
 const ADB_TYPES = [
   ["Text", "Texte"], ["Numeric", "Nombre"], ["Int", "Entier"], ["Bool", "Oui / non"],
   ["DateTime", "Date et heure"], ["Date", "Date"], ["Choice", "Choix"], ["ChoiceList", "Liste de choix"],
@@ -476,7 +475,7 @@ function renderSchema() {
   document.getElementById("adb-schema-cols").innerHTML = ids.map((id) => {
     const def = cols[id];
     const state = isFormulaCol(def)
-      ? `<span class="adb-tag adb-tag-warn" title="${escapeHtml(def.formula)}">formule Grist</span> <button type="button" class="btn-ghost adb-mini" data-col-action="unformula">Convertir en données</button>`
+      ? `<span class="adb-tag adb-tag-warn" title="${escapeHtml(def.formula)}">formule</span> <button type="button" class="btn-ghost adb-mini" data-col-action="unformula">Convertir en données</button>`
       : `<span class="adb-tag adb-tag-ok">données</span>`;
     return `<tr data-schema-col="${escapeHtml(id)}">
       <td><input type="text" class="adb-col-name" value="${escapeHtml(id)}" aria-label="Nom de la colonne ${escapeHtml(id)}" /></td>
@@ -555,7 +554,7 @@ async function saveColumn(tr) {
 
 async function unformulaColumn(id) {
   const def = adb.columns[id];
-  const ok = await Confirm.show(`<p>La colonne <code>${escapeHtml(id)}</code> était calculée dans Grist par la formule <code>${escapeHtml(def.formula)}</code>, que l'API ne sait pas exécuter. La convertir en colonne de données garde ses valeurs actuelles et permet aux workflows et à cette page de l'écrire.</p>`, { title: "Convertir en données", confirmText: "Convertir" });
+  const ok = await Confirm.show(`<p>La colonne <code>${escapeHtml(id)}</code> était calculée par la formule <code>${escapeHtml(def.formula)}</code>, que l'API ne sait pas exécuter. La convertir en colonne de données garde ses valeurs actuelles et permet aux workflows et à cette page de l'écrire.</p>`, { title: "Convertir en données", confirmText: "Convertir" });
   if (!ok) return;
   try {
     await adbFetch(`${tablePath()}/columns/${encodeURIComponent(id)}`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ formula: false }) });

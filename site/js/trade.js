@@ -1,5 +1,5 @@
 // Logique de la page d'échanges.
-// Contrat n8n "trade" (POST { userId, action, ... }) :
+// Contrat API "trade" (POST { userId, action, ... }) :
 // - action=create { toPseudo, offeredCardId, offeredPullId, requestedCardId } -> { tradeId, status }
 // - action=counter { originalTradeId, offeredCardId, offeredPullId, requestedCardId } -> { tradeId, status }
 // - action=list -> { trades: [{ tradeId, direction, fromPseudo, toPseudo,
@@ -26,7 +26,7 @@ const TRADE_ERROR_MESSAGES = {
 // re-cliquer sur un bouton qui echouera a nouveau.
 const STALE_STATE_ERRORS = new Set(["offer_no_longer_available", "pull_not_owned", "cards_no_longer_available", "trade_not_pending", "trade_not_found"]);
 
-// Memes echelles que collection.js/craft.js (voir grist/SCHEMA.md) : la
+// Memes echelles que collection.js/craft.js (voir docs/SCHEMA.md) : la
 // carte OFFERTE est un exemplaire precis (deja choisi via OfferedPull), donc
 // son finish/quality reels sont connus et affichables - indispensable pour
 // juger si un echange est equitable (demande explicite : "plus de details").
@@ -64,7 +64,7 @@ function committedPullIds() {
     .map((t) => t.offeredPullId));
 }
 
-// Un clic = une requete : les appels n8n prennent plusieurs secondes, un
+// Un clic = une requete : un appel peut prendre un instant, un
 // double-clic declenchait jusqu'ici un second appel (erreur "n'est plus en
 // attente", voire XP comptee deux fois si les deux passaient en meme temps).
 const inFlightTrades = new Set();

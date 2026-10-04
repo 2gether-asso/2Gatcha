@@ -14,6 +14,8 @@ import { Store } from '../src/store.js';
 import { createNative } from '../src/native/index.js';
 import * as push from '../src/native/push.js';
 import { parisDay } from '../src/native/common.js';
+import { setting } from '../src/native/settings.js';
+import * as auth from '../src/native/auth.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-native-${process.pid}.sqlite`);
@@ -163,6 +165,112 @@ await test('boss : attaque en salve sur des exemplaires precis, multiplicateurs,
   assert.equal(store.get('CommunityBoss', boss.id).Active, false);
   assert.equal(call('POST', 'boss-attack', { body: { userId: 1, pullIds: [b.id] } }).json.error, 'no_active_boss');
   assert.ok(call('GET', 'boss-leaderboard', {}).json.rules.finish.rainbow === 5);
+});
+
+await test('doublons : poussiere passive a l ouverture (5 commune, 10 au-dela)', () => {
+  const cards = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo);
+  const commune = cards.find((c) => store.get('Rarities', c.Rarity).Key === 'commune');
+  const rare = cards.find((c) => store.get('Rarities', c.Rarity).Key !== 'commune');
+  const fresh = store.create('Cards', { Name: 'Nouvelle', Active: true, Rarity: commune.Rarity, Extension: commune.Extension });
+  store.create('Pulls', { User: 1, Card: commune.id, SerialNumber: 4001, BatchId: 'old' });
+  store.create('Pulls', { User: 1, Card: rare.id, SerialNumber: 4002, BatchId: 'old' });
+  const batchId = '1-999';
+  const mk = (c, k) => ({ cardId: c.id, rarity: { key: k } });
+  const resp = { status: 200, json: { batchId, cards: [mk(commune, 'commune'), mk(rare, 'rare'), mk(fresh, 'commune'), mk(fresh, 'commune')] } };
+  const dust = user(1).StardustCount || 0;
+  native.afterWorkflow('open-pack', { body: { userId: 1 } }, resp);
+  assert.deepEqual(resp.json.cards.map((c) => c.duplicateDust || 0), [5, 10, 0, 5]);
+  assert.equal(resp.json.duplicateDust.total, 20);
+  assert.equal(user(1).StardustCount, dust + 20);
+});
+
+await test('reglages : defauts, modification validee, remise a zero, lus par les modules', () => {
+  assert.equal(call('POST', 'admin-settings', { body: { discordId: 'x', action: 'get' } }).status, 403);
+  const list = call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'get' } }).json.settings;
+  assert.ok(list.length > 30 && list.find((x) => x.key === 'FishingCost').value === 30);
+  const bad = call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: -5, LoginStreakRewards: [{ dust: 1 }] } } });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.json.errors.length, 2);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SetRewardDust: 777, SpecialFinishChance: 0.25, FishingDailyCasts: 0 } } });
+  assert.equal(setting(store, 'SetRewardDust'), 777);
+  assert.equal(setting(store, 'SpecialFinishChance'), 0.25);
+  assert.equal(store.getAll('Config')[0].SpecialFinishChance, 0.25);
+  assert.equal(setting(store, 'FishingDailyCasts'), 0);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SetRewardDust' } });
+  assert.equal(setting(store, 'SetRewardDust'), 300);
+});
+
+await test('auth : jeton signe, identite verifiee, jeton falsifie ou d un autre refuse', () => {
+  const token = auth.issueToken(store, user(1));
+  assert.equal(auth.verifyToken(token).u, 1);
+  assert.equal(auth.authorize({ token: null, body: {}, query: {} }), null);
+  assert.equal(auth.authorize({ token: null, body: { userId: 1 }, query: {} }).json.error, 'auth_required');
+  assert.equal(auth.authorize({ token, body: { userId: 1, action: 'status' }, query: {} }), null);
+  assert.equal(auth.authorize({ token, body: { userId: 2 }, query: {} }).status, 403);
+  assert.equal(auth.authorize({ token, body: { fromUserId: 2 }, query: {} }).status, 403);
+  assert.equal(auth.authorize({ token, body: {}, query: { userId: '1' } }), null);
+  const forged = token.split('.')[0] + '.' + 'A'.repeat(43);
+  assert.equal(auth.authorize({ token: forged, body: { userId: 1 }, query: {} }).json.error, 'auth_invalid');
+  const other = auth.issueToken(store, user(2));
+  assert.equal(auth.authorize({ token: other, body: { userId: 1 }, query: {} }).status, 403);
+  store.update('Users', 1, { DiscordId: '785223211730075709' });
+  const adminTok = auth.issueToken(store, user(1));
+  assert.equal(auth.authorize({ token: adminTok, body: { discordId: '785223211730075709' }, query: {} }), null);
+  assert.equal(auth.authorize({ token: other, body: { discordId: '785223211730075709' }, query: {} }).status, 403);
+  // Jeton remis a la connexion
+  const resp = { status: 200, json: { userId: 1, pseudo: 'x' } };
+  native.afterWorkflow('discord-login', { body: {} }, resp);
+  assert.equal(auth.verifyToken(resp.json.token).u, 1);
+});
+
+await test('limite de debit : actions et lectures comptees a part', () => {
+  auth._resetRateLimits();
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { RateLimitWritesPerMinute: 5 } } });
+  let blocked = null;
+  for (let i = 0; i < 6; i++) blocked = auth.rateLimit(store, 'u:42', true) || blocked;
+  assert.equal(blocked.status, 429);
+  assert.equal(auth.rateLimit(store, 'u:42', false), null);
+  assert.equal(auth.rateLimit(store, 'u:43', true), null);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'RateLimitWritesPerMinute' } });
+  auth._resetRateLimits();
+});
+
+await test('saison : XP du mois, paliers reclames une fois, carte exclusive au dernier', () => {
+  const card = store.getAll('Cards').find((c) => c.Active);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SeasonTiers: 3, SeasonXpPerTier: 100, SeasonRewards: [{ dust: 10 }, { boosters: 1 }, { chests: 1, keys: 1 }] } } });
+  assert.equal(call('POST', 'admin-season', { body: { discordId: ADMIN, action: 'setCard', cardId: card.id } }).json.seasons[0].card.cardId, card.id);
+  store.update('Users', 1, { XP: 1000 });
+  native.beforeRequest({ userId: 1 }, {});
+  let st = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.xp, 0);
+  assert.equal(call('POST', 'season', { body: { userId: 1, action: 'claim' } }).json.error, 'nothing_to_claim');
+  store.update('Users', 1, { XP: 1250 });
+  st = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
+  assert.deepEqual([st.xp, st.reached, st.claimable], [250, 2, 2]);
+  const u0 = user(1);
+  const c = call('POST', 'season', { body: { userId: 1, action: 'claim' } }).json;
+  assert.deepEqual(c.reward, { dust: 10, boosters: 1, chests: 0, keys: 0 });
+  assert.equal(user(1).StardustCount, (u0.StardustCount || 0) + 10);
+  store.update('Users', 1, { XP: 1400 });
+  const pulls = store.getAll('Pulls').length;
+  const last = call('POST', 'season', { body: { userId: 1, action: 'claim' } }).json;
+  assert.equal(last.card.cardId, card.id);
+  assert.equal(store.getAll('Pulls').length, pulls + 1);
+  assert.equal(call('POST', 'season', { body: { userId: 1, action: 'claim' } }).json.error, 'nothing_to_claim');
+});
+
+await test('peche : cout, prises appliquees, limite par jour', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: 10, FishingDailyCasts: 6, FishingLoot: [{ type: 'key', weight: 1, min: 1, max: 1 }] } } });
+  store.update('Users', 1, { StardustCount: 100, KeyCount: 0, FishingDay: '', FishingCasts: 0 });
+  const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 5 } }).json;
+  assert.equal(r.catches.length, 5);
+  assert.equal(user(1).StardustCount, 50);
+  assert.equal(user(1).KeyCount, 5);
+  assert.equal(r.castsLeft, 1);
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 2 } }).json.error, 'daily_limit');
+  store.update('Users', 1, { StardustCount: 5 });
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json.error, 'not_enough_dust');
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.table[0].chance, 100);
 });
 
 await test('economie : reserve aux admins, totaux coherents', () => {

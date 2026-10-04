@@ -1,7 +1,7 @@
-// Stockage de l'API 2Gatcha : remplace Grist.
+// Stockage de l'API 2Gatcha (SQLite + memoire).
 //
-// Les donnees gardent EXACTEMENT la forme que renvoyait l'API Grist (et donc
-// le noeud Grist de n8n) : une ligne = { id, ...colonnes }, References en
+// Format des lignes (celui qu'attendent les workflows) : une ligne =
+// { id, ...colonnes }, References en
 // entier (0 = vide), RefList/Attachments/ChoiceList en ["L", ...], dates en
 // epoch secondes. C'est ce qui permet de reutiliser telle quelle toute la
 // logique metier des workflows.
@@ -23,7 +23,7 @@ function baseType(type) {
   return String(type || 'Any').split(':')[0];
 }
 
-// Conversion des valeurs ecrites, comme le fait Grist a la reception
+// Conversion des valeurs ecrites selon le type de la colonne
 // (ex. "12" -> 12 dans une colonne Numeric, true -> true dans un Toggle).
 export function coerce(type, value) {
   const t = baseType(type);
@@ -37,7 +37,7 @@ export function coerce(type, value) {
       if (value === '') return t === 'Date' || t === 'DateTime' ? null : 0;
       if (typeof value === 'boolean') return value ? 1 : 0;
       const n = Number(value);
-      if (Number.isNaN(n)) return value; // Grist garde la valeur invalide telle quelle
+      if (Number.isNaN(n)) return value; // valeur invalide gardee telle quelle
       return t === 'Int' ? Math.trunc(n) : n;
     }
     case 'Bool':
@@ -93,7 +93,7 @@ export class Store {
     this.tables = new Map();
     for (const { name, columns } of this.db.prepare('SELECT name, columns FROM meta_tables').all()) {
       const cols = JSON.parse(columns);
-      // Grist marque "formule" toute colonne vide jamais remplie (formule
+      // Une colonne "formule" a formule vide (heritage de l'ancienne base,
       // vide) : ce sont en fait des colonnes de donnees. Corrige une fois
       // pour toutes en base (bases importees avant ce correctif).
       let fixed = false;
@@ -140,7 +140,7 @@ export class Store {
     return raw ? JSON.parse(raw) : null;
   }
 
-  // Grist refuse les colonnes inconnues et les colonnes formules : meme
+  // Colonnes inconnues et colonnes formules refusees :
   // comportement ici, pour reperer tout de suite une colonne manquante.
   prepareFields(t, fields) {
     const out = {};
@@ -323,7 +323,7 @@ export class Store {
   }
 
   // Une piece jointe peut exister SANS contenu (data NULL) : image connue
-  // (nom d'origine, cartes qui l'utilisent) mais perdue cote Grist a
+  // (nom d'origine, cartes qui l'utilisent) mais perdue lors de
   // l'import, a re-importer depuis la page d'administration.
   getAttachment(id) {
     const a = this.stmt.getAttachment.get(Number(id));
@@ -414,7 +414,7 @@ export function convertValue(fromType, toType, v) {
 }
 
 // Valeur par defaut d'une colonne a la creation d'une ligne. Les "trigger
-// formulas" Grist les plus courantes (NOW(), date du jour) sont imitees ; les
+// formulas" les plus courantes (NOW(), date du jour) sont imitees ; les
 // autres formules Python ne peuvent pas etre executees ici.
 function defaultFor(col) {
   const f = String(col.formula || '').trim();

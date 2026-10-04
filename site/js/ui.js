@@ -600,7 +600,7 @@ function contrastRatio(hex1, hex2) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-// Les couleurs de rareté viennent de Grist et ne sont pas garanties d'avoir
+// Les couleurs de rareté viennent de la base (admin) et ne sont pas garanties d'avoir
 // un contraste suffisant utilisees comme TEXTE sur fond sombre (le bleu
 // "rare" par defaut, par exemple, echoue de justesse le seuil WCAG AA).
 // Eclaircit progressivement jusqu'au seuil (4.5:1) sans jamais toucher a la

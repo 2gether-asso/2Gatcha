@@ -327,8 +327,9 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst d = $('Dispatch Action').first().json;\nif (!d.cardLevels || !d.cardLevels.length) return [];\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst usedSerials = {};\npulls.forEach((p) => { const cid = refId(p.Card); if (!usedSerials[cid]) usedSerials[cid] = new Set(); if (p.SerialNumber != null) usedSerials[cid].add(p.SerialNumber); });\nfunction nextSerialFor(cid) { if (!usedSerials[cid]) usedSerials[cid] = new Set(); const used = usedSerials[cid]; for (let n = 1; ; n++) { if (!used.has(n)) { used.add(n); return n; } } }\nreturn d.cardLevels.map((cl) => ({ json: {\n  docId: d.docId, userId: d.userId, cardId: cl.cardId, level: cl.level,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `levelup-${d.userId}-${cl.level}-${Date.now()}`,\n  serialNumber: nextSerialFor(cl.cardId)\n} }));"
-      }
+        "jsCode": "function refId(v) { return Array.isArray(v) ? v[1] : v; }\nconst d = $('Dispatch Action').first().json;\n// Palier sans carte : aucun item -> alwaysOutputData + \"If Has Card Rewards\"\n// envoient directement vers la reponse (sinon le workflow ne repondait pas).\nif (!d.cardLevels || !d.cardLevels.length) return [];\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null);\nconst usedSerials = {};\npulls.forEach((p) => { const cid = refId(p.Card); if (!usedSerials[cid]) usedSerials[cid] = new Set(); if (p.SerialNumber != null) usedSerials[cid].add(p.SerialNumber); });\nfunction nextSerialFor(cid) { if (!usedSerials[cid]) usedSerials[cid] = new Set(); const used = usedSerials[cid]; for (let n = 1; ; n++) { if (!used.has(n)) { used.add(n); return n; } } }\nreturn d.cardLevels.map((cl) => ({ json: {\n  docId: d.docId, userId: d.userId, cardId: cl.cardId, level: cl.level,\n  obtainedAt: Math.floor(Date.now() / 1000),\n  batchId: `levelup-${d.userId}-${cl.level}-${Date.now()}`,\n  serialNumber: nextSerialFor(cl.cardId)\n} }));"
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "create-pull-level",
@@ -638,6 +639,37 @@
         "responseBody": "={{ $json }}",
         "options": {}
       }
+    },
+    {
+      "id": "if-has-card-rewards",
+      "name": "If Has Card Rewards",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        640,
+        60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.cardId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -813,7 +845,7 @@
       "main": [
         [
           {
-            "node": "Create Pull",
+            "node": "If Has Card Rewards",
             "type": "main",
             "index": 0
           }
@@ -956,6 +988,24 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Has Card Rewards": {
+      "main": [
+        [
+          {
+            "node": "Create Pull",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Claim Response",
             "type": "main",
             "index": 0
           }

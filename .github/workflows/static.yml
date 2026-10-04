@@ -37,11 +37,19 @@ jobs:
         # dev-login.html contourne la connexion Discord pour les tests locaux :
         # ne doit jamais atterrir sur le site public.
         run: rm -f site/dev-login.html site/js/dev-login.js
+      - name: Cache-busting (version du commit sur les JS/CSS)
+        # GitHub Pages sert tout avec max-age=600 : sans ca, un navigateur
+        # peut combiner le nouvel HTML avec un ancien JS pendant 10 minutes
+        # ("API.xxx is not a function"). Chaque deploiement change l'URL.
+        run: |
+          V="${GITHUB_SHA::7}"
+          find site -name '*.html' -exec sed -i -E "s#(src|href)=\"(js/[^\"?]+\.js|css/[^\"?]+\.css)\"#\1=\"\2?v=$V\"#g" {} +
+          grep -c "?v=$V" site/index.html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Seul le dossier site/ contient le site statique publiable
-          # (grist/ et n8n/ ne sont que de la doc/config, pas a servir).
+          # (api/ et docs/ ne sont pas a servir).
           path: './site'
       - name: Deploy to GitHub Pages
         id: deployment

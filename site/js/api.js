@@ -1,7 +1,7 @@
-// Petite couche d'accès a l'API 2Gatcha (memes adresses que les anciens webhooks n8n). Toutes les reponses sont du JSON.
+// Petite couche d'acces a l'API 2Gatcha (routes /webhook/<chemin>). Toutes les reponses sont du JSON.
 const API = {
   base() {
-    return window.APP_CONFIG.n8nBaseUrl.replace(/\/$/, "");
+    return window.APP_CONFIG.apiBaseUrl.replace(/\/$/, "");
   },
 
   url(name, query) {
@@ -10,10 +10,10 @@ const API = {
     return this.base() + path + qs;
   },
 
-  // n8n injoignable (2026-10-02) : un vrai echec reseau ("Failed to fetch",
+  // API injoignable (2026-10-02) : un vrai echec reseau ("Failed to fetch",
   // pas une erreur HTTP renvoyee par un workflow) declenche une verification
   // rapide ; si le serveur ne repond toujours pas, le joueur bascule sur la
-  // page de maintenance, qui le ramene automatiquement des que n8n revient -
+  // page de maintenance, qui le ramene automatiquement des que l'API revient -
   // plutot qu'une page a moitie cassee couverte de toasts d'erreur.
   _offlineCheck: null,
   async _fetch(url, opts) {
@@ -116,10 +116,11 @@ const API = {
       try {
         const res = await this._fetch(this.base() + "/batch", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this._headers({ "Content-Type": "application/json" }),
           body: JSON.stringify({ calls: todo.map((c) => ({ path: window.APP_CONFIG.endpoints[c.name].replace(/^\//, ""), method: c.method, query: c.query, body: c.body })) })
         });
         if (res.status === 404) throw Object.assign(new Error("batch_unsupported"), { unsupported: true });
+        if (res.status === 429) { this._onRejected(res, await res.json().catch(() => ({}))); }
         if (!res.ok) throw new Error("batch_failed");
         const { results } = await res.json();
         todo.forEach((c, i) => {
@@ -129,6 +130,7 @@ const API = {
           entry.ts = Date.now();
           if (r.status >= 200 && r.status < 300) resolve(r.json);
           else {
+            if (r.status === 401) this._onRejected({ status: 401 }, r.json || {});
             const err = new Error((r.json && r.json.error) || `Erreur API (${c.name}): ${r.status}`);
             err.code = r.json && r.json.error;
             this._memo.delete(c.key);
@@ -167,18 +169,40 @@ const API = {
     }
   },
 
+  // En-tetes communs : jeton signe du joueur connecte (voir api/src/native/auth.js).
+  _headers(extra) {
+    const h = { ...(extra || {}) };
+    const token = typeof Session !== "undefined" ? Session.token : null;
+    if (token) h.Authorization = "Bearer " + token;
+    return h;
+  },
+
+  // Reponse refusee : session invalide (on deconnecte et on propose de se
+  // reconnecter) ou trop de requetes (message, une fois par minute).
+  _onRejected(res, data) {
+    if (res.status === 401 && typeof Session !== "undefined" && Session.isLoggedIn()) {
+      Session.clear();
+      if (!/index\.html$|\/$/.test(location.pathname) || !location.search.includes("relogin")) location.replace("index.html?relogin=1");
+    } else if (res.status === 429 && typeof Toast !== "undefined" && Date.now() - (this._lastRateToast || 0) > 60000) {
+      this._lastRateToast = Date.now();
+      Toast.error(`Doucement ! Trop d'actions d'affilée : réessaie dans ${data.retryAfter || 60} s.`);
+    }
+  },
+
   async _post(name, body) {
     if (typeof TopLoadingBar !== "undefined") TopLoadingBar.start();
     try {
       const res = await this._fetch(this.url(name), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this._headers({ "Content-Type": "application/json" }),
         body: JSON.stringify(body || {})
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        this._onRejected(res, data);
         const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
+        err.data = data;
         throw err;
       }
       return data;
@@ -193,16 +217,18 @@ const API = {
 
   async _get(name, query) {
     // "_ts" force une URL differente a chaque appel : evite qu'un cache
-    // (navigateur ou CDN devant n8n) ne reserve indefiniment une vieille
+    // (navigateur ou CDN devant l'API) ne reserve indefiniment une vieille
     // reponse pour des endpoints dont la valeur change (stock de boosters...).
     if (typeof TopLoadingBar !== "undefined") TopLoadingBar.start();
     try {
       const bustedQuery = { ...(query || {}), _ts: Date.now() };
-      const res = await this._fetch(this.url(name, bustedQuery), { cache: "no-store" });
+      const res = await this._fetch(this.url(name, bustedQuery), { cache: "no-store", headers: this._headers() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        this._onRejected(res, data);
         const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
+        err.data = data;
         throw err;
       }
       return data;
@@ -213,7 +239,7 @@ const API = {
 
   // Petit cache navigateur (sessionStorage, par onglet) pour les donnees qui
   // changent rarement (catalogue de cartes, liste des joueurs) : evite de
-  // refaire l'aller-retour Grist a chaque changement de page.
+  // refaire l'aller-retour a chaque changement de page.
   _cacheGet(key, ttlMs) {
     try {
       const cached = JSON.parse(sessionStorage.getItem(key) || "null");
@@ -606,6 +632,30 @@ const API = {
   },
   getPushConfig() {
     return this.get("pushConfig");
+  },
+  adminGetSettings(discordId) {
+    return this.post("adminSettings", { discordId, action: "get" });
+  },
+  adminSetSettings(discordId, values) {
+    return this.post("adminSettings", { discordId, action: "set", values });
+  },
+  adminResetSetting(discordId, key) {
+    return this.post("adminSettings", { discordId, action: "reset", key });
+  },
+  getSeason(userId) {
+    return this.post("season", { userId, action: "status" });
+  },
+  claimSeason(userId) {
+    return this.post("season", { userId, action: "claim" });
+  },
+  adminGetSeason(discordId) {
+    return this.post("adminSeason", { discordId, action: "get" });
+  },
+  adminSetSeasonCard(discordId, season, cardId) {
+    return this.post("adminSeason", { discordId, action: "setCard", season, cardId });
+  },
+  fishing(userId, action, count) {
+    return this.post("fishing", { userId, action, count });
   },
   chests(userId, action) {
     return this.post("chests", { userId, action });

@@ -11,7 +11,7 @@ function getInitialTab() {
 }
 
 function setActiveTab(tab) {
-  ["dig", "guess", "expedition", "bingo", "vault"].forEach((key) => {
+  ["dig", "guess", "expedition", "fish", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
@@ -20,13 +20,14 @@ function setActiveTab(tab) {
   if (tab === "dig") loadDig();
   if (tab === "guess") loadGuess();
   if (tab === "expedition") loadExpedition();
+  if (tab === "fish") loadFishing();
   if (tab === "bingo") loadBingo();
   if (tab === "vault") loadVault();
 }
 
 // -----------------------------------------------------------------------
 // Fouille : grille de 16 tuiles a creuser. Certains tresors sont etales sur
-// plusieurs tuiles (voir grist/SCHEMA.md) - une tuile "partielle" le signale
+// plusieurs tuiles (voir docs/SCHEMA.md) - une tuile "partielle" le signale
 // discretement (une fissure de plus, pas la position exacte des autres
 // tuiles du meme tresor) sans jamais reveler ce qui est cache ailleurs.
 // -----------------------------------------------------------------------
@@ -269,6 +270,81 @@ async function doDig(tileIndex, tileEl) {
     Toast.error(e.code === "no_energy" ? "Plus assez d'énergie." : e.code === "tile_already_dug" ? "Cette tuile est déjà creusée." : ("Erreur. (" + e.message + ")"));
   } finally {
     digBusy = false;
+  }
+}
+
+// -----------------------------------------------------------------------
+// Peche (api/src/native/fishing.js) : chaque lancer coute des poussieres et
+// ramene une prise tiree dans une table ponderee (reglable dans l'admin).
+// -----------------------------------------------------------------------
+const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: "&#129460;", key: "&#128273;", booster: "&#127873;", chest: "&#129520;" };
+let fishState = null;
+let fishBusy = false;
+const fishWait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function fishCatchText(c) {
+  if (c.type === "nothing") return c.label;
+  if (c.type === "dust") return `+${c.amount} poussières`;
+  return `${c.amount > 1 ? c.amount + " × " : ""}${c.label}`;
+}
+
+function renderFishing(st) {
+  fishState = st;
+  const left = st.castsLeft == null ? "illimités" : `${st.castsLeft} restant${st.castsLeft > 1 ? "s" : ""} aujourd'hui`;
+  document.getElementById("fish-meta").innerHTML = `${st.cost} &#10024; le lancer · ${left} · tu as ${st.stardust} &#10024;`;
+  document.getElementById("fish-cast-btn").innerHTML = `&#127907; Lancer (${st.cost} &#10024;)`;
+  document.getElementById("fish-cast-btn").disabled = fishBusy || st.stardust < st.cost || st.castsLeft === 0;
+  document.getElementById("fish-cast5-btn").innerHTML = `Lancer ×5 (${st.cost * 5} &#10024;)`;
+  document.getElementById("fish-cast5-btn").disabled = fishBusy || st.stardust < st.cost * 5 || (st.castsLeft != null && st.castsLeft < 5);
+  document.getElementById("fish-table").innerHTML = `<thead><tr><th>Prise</th><th>Quantité</th><th>Chance</th></tr></thead><tbody>${st.table.map((x) => `
+    <tr class="fish-row-${x.tier}"><td>${FISH_ICONS[x.type] || ""} ${x.label}</td><td>${x.type === "nothing" ? "—" : (x.min === x.max || x.max == null ? (x.min || 1) : `${x.min} à ${x.max}`)}</td><td>${x.chance} %</td></tr>`).join("")}</tbody>`;
+}
+
+async function loadFishing() {
+  try { renderFishing(await API.fishing(Session.userId, "status")); }
+  catch (e) { document.getElementById("fish-status").textContent = "Impossible de charger la pêche."; }
+}
+
+async function castFishing(count) {
+  if (fishBusy || !fishState) return;
+  fishBusy = true;
+  renderFishing(fishState);
+  const scene = document.getElementById("fish-scene");
+  const status = document.getElementById("fish-status");
+  const catchEl = document.getElementById("fish-catch");
+  catchEl.hidden = true;
+  scene.classList.remove("bite", "caught");
+  scene.classList.add("casting");
+  status.textContent = "La ligne file…";
+  try {
+    const request = API.fishing(Session.userId, "cast", count);
+    await fishWait(700);
+    scene.classList.replace("casting", "waiting");
+    status.textContent = "On attend que ça morde…";
+    const [res] = await Promise.all([request, fishWait(900 + Math.random() * 1100)]);
+    scene.classList.replace("waiting", "bite");
+    status.textContent = "Ça mord !";
+    if (typeof Sfx !== "undefined" && Sfx.click) Sfx.click();
+    await fishWait(550);
+    scene.classList.replace("bite", "caught");
+    const best = res.catches.reduce((a, c) => (["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(c.tier) > ["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(a.tier) ? c : a), res.catches[0]);
+    catchEl.hidden = false;
+    catchEl.className = "fish-catch tier-" + best.tier;
+    catchEl.innerHTML = res.catches.map((c) => `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}</span>`).join("");
+    status.textContent = res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" ? "Pas de chance…" : "Belle prise !");
+    if (["epique", "legendaire", "mythique"].includes(best.tier) && typeof confetti === "function") confetti({ particleCount: best.tier === "mythique" ? 180 : 90, spread: 90, origin: { y: 0.55 } });
+    const log = document.getElementById("fish-log");
+    log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join(""));
+    while (log.children.length > 20) log.lastElementChild.remove();
+    fishBusy = false;
+    renderFishing(res);
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } catch (e) {
+    fishBusy = false;
+    scene.classList.remove("casting", "waiting", "bite");
+    status.textContent = "Prêt à pêcher";
+    Toast.error({ not_enough_dust: "Pas assez de poussières.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
+    loadFishing();
   }
 }
 
@@ -615,6 +691,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-dig-btn").addEventListener("click", () => setActiveTab("dig"));
   document.getElementById("tab-guess-btn").addEventListener("click", () => setActiveTab("guess"));
   document.getElementById("tab-expedition-btn").addEventListener("click", () => setActiveTab("expedition"));
+  document.getElementById("tab-fish-btn").addEventListener("click", () => setActiveTab("fish"));
+  document.getElementById("fish-cast-btn").addEventListener("click", () => castFishing(1));
+  document.getElementById("fish-cast5-btn").addEventListener("click", () => castFishing(5));
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));
   document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);

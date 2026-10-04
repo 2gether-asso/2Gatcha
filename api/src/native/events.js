@@ -7,6 +7,7 @@
 //   POST /webhook/admin-event  { discordId, action: 'get' | 'set', active, label, dustMultiplier, finishMultiplier, endsAt }
 
 import { refId, now, ok, fail, configRow, isAdmin } from './common.js';
+import { setting } from './settings.js';
 
 export const schema = {
   Config: {
@@ -15,9 +16,6 @@ export const schema = {
   }
 };
 
-// Chance de base d'une finition speciale a l'ouverture (open-pack.json,
-// SPECIAL_FINISH_CHANCE) : le bonus d'evenement la multiplie.
-const BASE_SPECIAL_FINISH_CHANCE = 0.10;
 
 export function eventState(store) {
   const cfg = configRow(store);
@@ -72,7 +70,8 @@ function boostDust(store, ev, userId, json, gained) {
 
 function boostFinishes(store, ev, json) {
   if (ev.finishMultiplier <= 1 || !Array.isArray(json.cards) || !json.batchId) return;
-  const extra = Math.min(0.9, BASE_SPECIAL_FINISH_CHANCE * (ev.finishMultiplier - 1));
+  // Chance de base (reglage SpecialFinishChance, lu aussi par open-pack) x bonus.
+  const extra = Math.min(0.9, setting(store, 'SpecialFinishChance') * (ev.finishMultiplier - 1));
   const finishes = store.tables.has('Finishes') ? store.getAll('Finishes').filter((f) => f.Key !== 'normal' && (f.DropWeight || 0) > 0) : [];
   const total = finishes.reduce((s, f) => s + (f.DropWeight || 0), 0);
   if (!total) return;

@@ -26,7 +26,7 @@ const MARKET_ERRORS = {
   sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
 
-// Echelles finish/quality (voir grist/SCHEMA.md, meme ordre que partout
+// Echelles finish/quality (voir docs/SCHEMA.md, meme ordre que partout
 // ailleurs) : utilisees pour afficher une pile DISTINCTE par variante sur
 // une vignette de depot du coffre, pour que le joueur choisisse VRAIMENT
 // quel exemplaire il donne (pas un exemplaire au hasard parmi ses
@@ -413,7 +413,7 @@ async function attackBoss() {
 // Coffre de guilde
 // -----------------------------------------------------------------------
 // Le pot commun exclut TOUJOURS les propres depots du joueur (on ne pioche
-// jamais sa propre carte, voir grist/SCHEMA.md "Coffre de guilde mystere") :
+// jamais sa propre carte, voir docs/SCHEMA.md "Coffre de guilde mystere") :
 // avec peu de joueurs actifs, deposer puis voir "0 carte disponible" peut
 // donner l'impression que le coffre est casse alors que c'est simplement
 // qu'aucun AUTRE joueur n'a encore rien depose. On separe donc clairement

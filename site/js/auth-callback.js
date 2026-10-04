@@ -1,5 +1,5 @@
 // Page de retour du flux OAuth Discord (redirect_uri).
-// Recupere ?code=... dans l'URL, l'échange cote n8n (discord-login.json) et
+// Recupere ?code=... dans l'URL, l'échange cote API (discord-login.json) et
 // stocke la session avant de revenir a l'accueil.
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -28,7 +28,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       pseudo: res.pseudo,
       discordId: res.discordId,
       discordUsername: res.discordUsername,
-      discordAvatar: res.discordAvatar
+      discordAvatar: res.discordAvatar,
+      token: res.token
     });
     try { sessionStorage.setItem("2gatcha_just_logged_in", "1"); } catch (e) {}
     window.location.href = "index.html";

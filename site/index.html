@@ -74,6 +74,18 @@
         </div>
       </div>
 
+      <div class="panel season-panel" id="season-panel" style="display:none;">
+        <div class="season-head">
+          <h2 id="season-title">&#127942; Saison</h2>
+          <span class="season-ends" id="season-ends"></span>
+        </div>
+        <p class="lead" style="font-size:0.85rem;" id="season-lead">Gagne de l'XP ce mois-ci (boosters, craft, jeux…) pour débloquer les paliers. Tout repart à zéro le 1er du mois.</p>
+        <div class="season-progress"><div class="season-progress-fill" id="season-progress-fill"></div></div>
+        <div class="season-xp" id="season-xp"></div>
+        <ol class="season-tiers" id="season-tiers" aria-label="Paliers de la saison"></ol>
+        <button type="button" class="btn" id="season-claim-btn" style="display:none;">Récupérer les récompenses</button>
+      </div>
+
       <div class="panel" id="streak-panel" style="display:none;">
         <h2>&#128293; Série de connexion</h2>
         <p class="lead" style="font-size:0.85rem;" id="streak-lead">Un cadeau par jour, de plus en plus gros sur 7 jours. Un jour manqué et la série repart au jour 1.</p>
@@ -132,7 +144,7 @@
               <!-- 12 cases (2026-09-30, etait 8), 5 types de lots ; les tailles
                    ne sont pas egales - chaque type garde au total exactement
                    la meme probabilite que dans daily-wheel.json (voir
-                   grist/SCHEMA.md), juste repartie sur plusieurs cases pour
+                   docs/SCHEMA.md), juste repartie sur plusieurs cases pour
                    l'effet visuel d'une vraie roue a 12 secteurs. -->
               <path class="wheel-seg wheel-seg-small" d="M 100,100 L 100,10 A 90,90 0 0,1 145,22.1 Z" />
               <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 145,22.1 A 90,90 0 0,1 177.9,55 Z" />
@@ -214,6 +226,9 @@
     });
 
     const params = new URLSearchParams(window.location.search);
+    if (params.get("relogin")) {
+      Toast.info("Ta session a expiré ou n'est plus valide : reconnecte-toi avec Discord.");
+    }
     if (params.get("error") === "not_in_guild") {
       Toast.error("Ce compte Discord ne fait pas partie du serveur de l'asso, connexion refusee.");
     } else if (params.get("error")) {
@@ -255,7 +270,8 @@
         { name: "recentPulls" }, { name: "leaderboard" },
         { name: "achievements", query: { userId: Session.userId } },
         { name: "dailyWheel", body: { userId: Session.userId, action: "status" } },
-        { name: "loginStreak", body: { userId: Session.userId, action: "status" } }
+        { name: "loginStreak", body: { userId: Session.userId, action: "status" } },
+        { name: "season", body: { userId: Session.userId, action: "status" } }
       ]);
       prefetchAllCardImages();
 
@@ -562,6 +578,58 @@
         document.getElementById("achievements-grid").innerHTML = `<div class="empty-state">Impossible de charger les succès.</div>`;
       });
 
+      // Saison mensuelle (api/src/native/seasons.js) : paliers d'XP du mois,
+      // carte exclusive au dernier palier.
+      const seasonPanel = document.getElementById("season-panel");
+      const seasonRewardLabel = (r) => [
+        r.boosters ? `${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : "",
+        r.chests ? `${r.chests} coffre${r.chests > 1 ? "s" : ""}` : "",
+        r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "",
+        r.dust ? `${r.dust} poussières` : ""
+      ].filter(Boolean).join(" + ");
+      const seasonRewardIcon = (r) => (r.chests ? "&#129520;" : r.keys ? "&#128273;" : r.boosters ? "&#127873;" : "&#10024;");
+      function renderSeason(st) {
+        if (!st || !st.enabled) { seasonPanel.style.display = "none"; return; }
+        seasonPanel.style.display = "block";
+        document.getElementById("season-title").innerHTML = `&#127942; Saison ${st.label}`;
+        const left = Math.max(0, st.endsAt - Math.floor(Date.now() / 1000));
+        const days = Math.floor(left / 86400), hours = Math.floor((left % 86400) / 3600);
+        document.getElementById("season-ends").textContent = days ? `fin dans ${days} j ${hours} h` : `fin dans ${hours} h`;
+        const total = st.tiers.length * st.xpPerTier;
+        document.getElementById("season-progress-fill").style.width = Math.min(100, (st.xp / total) * 100) + "%";
+        const next = st.tiers.find((t) => !t.reached);
+        document.getElementById("season-xp").innerHTML = next
+          ? `<strong>${st.xp} XP</strong> ce mois-ci · palier ${next.tier} à ${next.xp} XP (encore ${next.xp - st.xp})`
+          : `<strong>${st.xp} XP</strong> ce mois-ci · tous les paliers sont atteints !`;
+        document.getElementById("season-tiers").innerHTML = st.tiers.map((t) => `
+          <li class="season-tier ${t.claimed ? "claimed" : t.reached ? "reached" : ""}${t.card ? " season-tier-card" : ""}" title="Palier ${t.tier} (${t.xp} XP) : ${seasonRewardLabel(t.reward)}${t.card ? " + la carte " + t.card.name : ""}">
+            <span class="season-tier-num">${t.tier}</span>
+            ${t.card ? `<img src="${API.imageUrl(t.card.imageId) || PLACEHOLDER_IMG}" alt="${t.card.name}" class="season-card-img" />` : `<span class="season-tier-icon" aria-hidden="true">${t.claimed ? "&#10003;" : seasonRewardIcon(t.reward)}</span>`}
+            <span class="season-tier-reward">${t.card ? t.card.name : seasonRewardLabel(t.reward)}</span>
+          </li>`).join("");
+        const btn = document.getElementById("season-claim-btn");
+        btn.style.display = st.claimable ? "" : "none";
+        btn.textContent = `Récupérer ${st.claimable} palier${st.claimable > 1 ? "s" : ""}`;
+      }
+      API.getSeason(Session.userId).then(renderSeason).catch(() => {});
+      document.getElementById("season-claim-btn").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try {
+          const res = await API.claimSeason(Session.userId);
+          const parts = seasonRewardLabel(res.reward);
+          Toast.success(`&#127942; ${res.claimedTiers} palier${res.claimedTiers > 1 ? "s" : ""} de saison : ${parts || "récompense"}${res.card ? " + la carte " + res.card.name + " !" : ""}`);
+          if (typeof confetti === "function") confetti({ particleCount: res.card ? 220 : 100, spread: 110, origin: { y: 0.6 } });
+          renderSeason(res);
+          loadHeaderBoosterBadge();
+          loadNavBadges();
+        } catch (err) {
+          Toast.error("Erreur. (" + err.message + ")");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
       // Serie de connexion (api/src/native/streak.js) : 7 cases, un cadeau
       // par jour (fuseau Paris), la 7e plus genereuse.
       const streakPanel = document.getElementById("streak-panel");
@@ -639,7 +707,7 @@
       // exact des <path> dessines dans le SVG (2026-09-30, etait 8 cases/3
       // types). Le NOMBRE de cases par type est purement cosmetique : la
       // vraie probabilite vient entierement de daily-wheel.json (voir
-      // grist/SCHEMA.md), le front tire juste une case au hasard PARMI
+      // docs/SCHEMA.md), le front tire juste une case au hasard PARMI
       // celles du type deja decide par le serveur pour savoir ou s'arreter.
       const WHEEL_SEGMENTS = [
         { type: "small", start: 0, end: 30 },
@@ -683,7 +751,7 @@
       }
 
       // Libelle + son + confettis par type de lot (5 paliers depuis le
-      // 2026-09-30 - voir grist/SCHEMA.md "Roue de la fortune quotidienne").
+      // 2026-09-30 - voir docs/SCHEMA.md "Roue de la fortune quotidienne").
       const WHEEL_PRIZE_META = {
         stardust: (p) => ({ label: `+${p.amount} poussières d'étoile !`, sfx: "rare", confetti: { particleCount: 80, spread: 80 } }),
         booster: (p) => ({ label: `+${p.amount} booster${p.amount > 1 ? "s" : ""} !`, sfx: "legendaire", confetti: { particleCount: 110, spread: 90 } }),

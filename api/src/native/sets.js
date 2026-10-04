@@ -5,16 +5,15 @@
 //   POST /webhook/set-rewards  { userId, action: 'status' | 'claim', extensionId? }
 //   GET  /webhook/set-completions?pseudo=...   (profil public)
 
-import { refId, now, ok, fail, configRow, userById, userPulls } from './common.js';
+import { refId, now, ok, fail, userById, userPulls } from './common.js';
+import { setting } from './settings.js';
 
 export const schema = {
-  SetCompletions: { User: { type: 'Ref:Users' }, Extension: { type: 'Ref:Extensions' }, ClaimedAt: { type: 'Numeric' }, Boosters: { type: 'Numeric' }, Dust: { type: 'Numeric' } },
-  Config: { SetRewardBoosters: { type: 'Numeric' }, SetRewardDust: { type: 'Numeric' } }
+  SetCompletions: { User: { type: 'Ref:Users' }, Extension: { type: 'Ref:Extensions' }, ClaimedAt: { type: 'Numeric' }, Boosters: { type: 'Numeric' }, Dust: { type: 'Numeric' } }
 };
 
 function rewardFor(store) {
-  const cfg = configRow(store);
-  return { boosters: cfg.SetRewardBoosters || 3, dust: cfg.SetRewardDust || 300 };
+  return { boosters: setting(store, 'SetRewardBoosters'), dust: setting(store, 'SetRewardDust') };
 }
 
 // Etat de chaque extension pour un joueur.
