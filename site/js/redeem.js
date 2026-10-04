@@ -64,7 +64,7 @@ function buildCardEl(card, index) {
 }
 
 // A partir d'epique (pas seulement legendaire) : le flash plein ecran suit
-// desormais la VRAIE couleur de la rarete (hexToRgba, main.js) et son
+// desormais la VRAIE couleur de la rarete (hexToRgba, ui.js) et son
 // intensite grandit avec le palier - jamais fige sur l'orange legendaire.
 const RARITY_FLASH_TIERS = {
   epique: { alpha: 0.4, duration: "0.7s", brightness: 1.6, className: "tier-epique" },
@@ -73,7 +73,7 @@ const RARITY_FLASH_TIERS = {
 };
 const RARITY_FLASH_TOASTS = { legendaire: "Légendaire !", mythique: "Mythique !" };
 function celebrateRarity(key, cardEl, colorHex) {
-  // Particules proportionnelles a la rareté (spawnRarityBurst, main.js),
+  // Particules proportionnelles a la rareté (spawnRarityBurst, ui.js),
   // toujours au-dessus de tout (z-index:420).
   spawnRarityBurst(key, colorHex, cardEl);
   const tier = RARITY_FLASH_TIERS[key];

@@ -1294,7 +1294,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.isGift }}",
+              "leftValue": "={{ $('Pick Pulls To Swap').first().json.isGift }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",

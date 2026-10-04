@@ -1,7 +1,6 @@
 // Logique de la page Jeux : fouille, devine la carte, expedition, bingo de
 // collection et coffre-fort.
 
-let digTimer = null;
 
 // Memorise le dernier onglet visite (QoL 2026-09-30) : revenir sur "Jeux"
 // rouvrait toujours "Fouille" par defaut, meme si on passait le plus clair
@@ -23,11 +22,6 @@ function setActiveTab(tab) {
   if (tab === "expedition") loadExpedition();
   if (tab === "bingo") loadBingo();
   if (tab === "vault") loadVault();
-}
-
-function formatDuration(seconds) {
-  const m = Math.ceil(seconds / 60);
-  return m <= 1 ? "moins d'une minute" : `${m} min`;
 }
 
 // -----------------------------------------------------------------------
@@ -137,7 +131,7 @@ function renderDigBoard(tiles, sniffTile) {
 
 // Petite volee de terre au moment du coup de pioche (embellissement,
 // 2026-09-30) : reutilise le calque de particules partage (getParticleLayer,
-// main.js, deja utilise par les eclats de foil a l'ouverture de booster)
+// ui.js, deja utilise par les eclats de foil a l'ouverture de booster)
 // plutot que d'en creer un nouveau conteneur fixe de plus.
 function spawnDigDustBurst(tileEl) {
   if (!tileEl || typeof getParticleLayer !== "function") return;
@@ -267,7 +261,7 @@ async function doDig(tileIndex, tileEl) {
 
     if (res.boardCleared) {
       setTimeout(() => {
-        Toast.info("Plateau entièrement fouillé — un nouveau vient d'apparaître !");
+        Toast.info("Tous les trésors sont trouvés : nouvelle grille !");
         loadDig();
       }, 1400);
     }
@@ -449,7 +443,6 @@ async function submitGuess(cardId) {
   try {
     const res = await API.guessCard(Session.userId, "guess", cardId);
     renderGuess({ ...res, myChoice: cardId });
-    API._cacheSet("2gatcha_cache_jeux_count", null);
     if (typeof loadNavBadges === "function") loadNavBadges();
     if (res.correct) Toast.success(`Bonne réponse ! +${res.reward.dust} poussières${res.reward.boosters ? " et +1 booster" : ""}.`);
     else Toast.info(`Raté, c'était ${res.answerName}.`);
@@ -596,7 +589,6 @@ async function claimExpedition() {
   try {
     const res = await API.expedition(Session.userId, "claim");
     const r = res.reward;
-    API._cacheSet("2gatcha_cache_jeux_count", null);
     if (typeof loadNavBadges === "function") loadNavBadges();
     await renderExpedition(res);
     const zone = document.getElementById("expedition-zone");

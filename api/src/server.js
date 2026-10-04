@@ -162,6 +162,45 @@ if (config.backup.sasUrl) {
   backups = { backup, ...startBackupSchedule({ store, backup, hours: config.backup.hours, retentionDays: config.backup.retentionDays }) };
 }
 
+// Execute un workflow sous le verrou et renvoie sa reponse HTTP.
+async function runWorkflow(route, request) {
+  return withLock(async () => {
+    const { responded, done } = runner.run(route.wf, request, { unlocked });
+    const resp = await responded;
+    // L'execution continue apres la reponse (ex. quetes du jour mises a
+    // jour apres l'ouverture d'un booster) : on la laisse finir avant de
+    // passer a la requete suivante.
+    done.then(() => {}, () => {});
+    await done;
+    return resp;
+  });
+}
+
+// --------------------------------------------------------------- batch
+// POST /webhook/batch { calls: [{ path, method, query, body }] } : plusieurs
+// LECTURES en une seule requete HTTP (pastilles du menu, en-tete...). Chaque
+// appel donne exactement la meme reponse qu'en individuel. Ecritures
+// refusees : GET, ou POST dont l'action est une lecture.
+const BATCH_MAX = 24;
+const READ_ACTIONS = new Set(['status', 'list', 'get']);
+async function handleBatch(req, res, url) {
+  const { calls } = await readBody(req);
+  if (!Array.isArray(calls) || !calls.length || calls.length > BATCH_MAX) return sendJson(res, req, 400, { error: 'invalid_batch' });
+  const results = [];
+  for (const c of calls) {
+    const method = String(c && c.method || 'GET').toUpperCase();
+    const hookPath = String(c && c.path || '').replace(/^\/+|\/+$/g, '');
+    const route = routes.get(`${method} ${hookPath}`);
+    const body = c && c.body && typeof c.body === 'object' ? c.body : {};
+    if (!route) { results.push({ status: 404, json: { error: 'not_found' } }); continue; }
+    if (method !== 'GET' && !READ_ACTIONS.has(body.action)) { results.push({ status: 400, json: { error: 'read_only' } }); continue; }
+    const query = c.query && typeof c.query === 'object' ? Object.fromEntries(Object.entries(c.query).map(([k, v]) => [k, String(v)])) : {};
+    const resp = await runWorkflow(route, { headers: req.headers, params: {}, query, body, webhookUrl: `${url.origin}/webhook/${hookPath}`, executionMode: 'production' });
+    results.push({ status: resp.status, json: resp.raw ? null : resp.json });
+  }
+  return sendJson(res, req, 200, { results });
+}
+
 const handleAdmin = createAdmin({ store, withLock, token: config.adminToken, sendJson, backups, workflowsDir: config.workflowsDir });
 
 const server = http.createServer(async (req, res) => {
@@ -171,6 +210,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') return send(res, req, 204, {}, '');
     if (url.pathname.startsWith('/admin/api/')) return await handleAdmin(req, res, url);
     if (url.pathname === '/health') return sendJson(res, req, 200, { ok: true, workflows: routes.size, tables: store.stats(), backups: backups ? { enabled: true, lastBackupAt: backups.status.lastBackup?.at || null, lastError: backups.status.lastError } : { enabled: false } });
+
+    if (url.pathname === '/webhook/batch' && req.method === 'POST') {
+      await handleBatch(req, res, url);
+      if (process.env.LOG_REQUESTS !== '0') console.log(`POST /webhook/batch ${Date.now() - started}ms`);
+      return;
+    }
 
     const m = url.pathname.match(/^\/webhook\/(.+?)\/?$/);
     if (m) {
@@ -187,16 +232,7 @@ const server = http.createServer(async (req, res) => {
         webhookUrl: `${url.origin}${url.pathname}`,
         executionMode: 'production'
       };
-      const response = await withLock(async () => {
-        const { responded, done } = runner.run(route.wf, request, { unlocked });
-        const resp = await responded;
-        // L'execution continue apres la reponse (ex. quetes du jour mises a
-        // jour apres l'ouverture d'un booster) : on la laisse finir avant de
-        // passer a la requete suivante.
-        done.then(() => {}, () => {});
-        await done;
-        return resp;
-      });
+      const response = await runWorkflow(route, request);
       if (response.raw) send(res, req, response.status, response.headers || {}, response.raw);
       else sendJson(res, req, response.status, response.json, response.headers || {});
       if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${response.status} ${Date.now() - started}ms`);

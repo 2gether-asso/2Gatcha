@@ -454,7 +454,7 @@ function updateBulkCancelBar() {
 
 // Notifie quand un envoi passe de "en attente" a "accepte"/"refuse" depuis
 // la derniere visite (l'inverse - une nouvelle demande RECUE - est deja
-// gere globalement dans main.js/loadNavBadges).
+// gere globalement dans shell.js/loadNavBadges).
 const TRADE_STATUS_SEEN_KEY = "2gatcha_trade_status_seen";
 function checkOutgoingStatusChanges(trades) {
   let seen = {};

@@ -96,7 +96,7 @@ window.APP_CONFIG = {
       autoSessionTracking: false, // GlitchTip ne gere pas les sessions
       environment: window.location.hostname
     });
-    // Joueur connecte (memes cles que Session, main.js) : retrouver qui a
+    // Joueur connecte (memes cles que Session, core.js) : retrouver qui a
     // rencontre l'erreur.
     try {
       var userId = localStorage.getItem("2gatcha_userId");

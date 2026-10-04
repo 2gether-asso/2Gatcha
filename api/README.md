@@ -118,6 +118,19 @@ Traefik, nginx) qui gère le HTTPS.
 5. **Fin de maintenance**, puis désactive les workflows dans n8n (garde-les
    quelques jours en secours, sans les réactiver : les données divergeraient).
 
+## Lectures groupées (`/webhook/batch`)
+
+`POST /webhook/batch` avec `{ "calls": [{ "path": "quests", "method": "POST", "body": { "userId": 1, "action": "status" } }, { "path": "site-banner" }] }`
+exécute jusqu'à 24 **lectures** en une seule requête HTTP et renvoie
+`{ "results": [{ "status", "json" }] }`, dans l'ordre. Chaque résultat est
+identique à l'appel individuel. Les écritures sont refusées : seuls les `GET`
+et les `POST` dont l'action est `status`, `list` ou `get` sont acceptés.
+
+Le site s'en sert pour tout ce qui est commun aux pages (en-tête, pastilles du
+menu, bandeau, paliers de niveau) : une requête au lieu d'une vingtaine. Face à
+une ancienne API sans cette route, il repasse automatiquement aux appels
+individuels.
+
 ## Page d'administration de la base
 
 `site/admin-db.html` (lien depuis la page Admin) parle directement à l'API,

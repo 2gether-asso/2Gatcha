@@ -63,7 +63,7 @@
     document.querySelectorAll(".binder-swatch").forEach((s) => s.classList.toggle("active", (s.dataset.accent || "") === (hex || "")));
   }
 
-  // Pochettes : verrouillees selon le niveau (SLEEVE_UNLOCK_LEVEL, main.js,
+  // Pochettes : verrouillees selon le niveau (SLEEVE_UNLOCK_LEVEL, core.js,
   // pilotable par l'admin ; data-level de l'HTML en repli).
   function sleeveLevel(sw) {
     return (typeof SLEEVE_UNLOCK_LEVEL !== "undefined" && SLEEVE_UNLOCK_LEVEL[sw.dataset.sleeve] != null)
@@ -148,11 +148,11 @@
       const checked = inBulk && bulkSelected.has(navKey);
       const up = upgrades(card, owned, finish, quality);
       return `
-        <div class="collection-card ${inBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}" tabindex="0" role="button" aria-label="Voir la carte ${name}">
+        <div class="collection-card ${inBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}">
           ${isNew && i === 0 ? '<span class="new-badge">New</span>' : ""}
           ${inBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-key="${navKey}" ${checked ? "checked" : ""} aria-label="Sélectionner ${name}" /></label>` : `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>`}
-          <div class="card-art">
-            <img src="${imgSrc}" alt="${name}" loading="lazy" />
+          <div class="card-art" tabindex="0" role="button" aria-label="Voir la carte ${name}">
+            <img src="${imgSrc}" alt="" loading="lazy" />
             ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
             <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
             ${variant.serialNumbers.includes(1) ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
@@ -289,8 +289,9 @@
     });
     container.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
-      const tile = e.target.closest(".collection-card[data-nav-key]");
-      if (!tile || e.target !== tile) return;
+      const art = e.target.closest(".card-art[role=button]");
+      const tile = art && art.closest(".collection-card[data-nav-key]");
+      if (!tile || e.target !== art) return;
       e.preventDefault();
       showCardModal(tile.dataset.navKey, visibleNavKeys());
     });
@@ -374,7 +375,7 @@
     }
     function go(delta) { renderAt((index + delta + navList.length) % navList.length, delta > 0 ? "left" : "right"); }
     function close() { overlay.remove(); syncScrollLock(); document.removeEventListener("keydown", onKey); }
-    // Echap est gere globalement par main.js (retire l'overlay) : on se
+    // Echap est gere globalement par ui.js (retire l'overlay) : on se
     // desinscrit si l'overlay a deja disparu.
     function onKey(e) {
       if (!document.body.contains(overlay)) { document.removeEventListener("keydown", onKey); return; }

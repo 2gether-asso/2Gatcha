@@ -42,7 +42,125 @@ const API = {
     })();
   },
 
+  // --- lectures partagees (refonte 2026-10-04) ----------------------------
+  // Une meme LECTURE (GET, ou POST dont l'action est status/list/get) lancee
+  // plusieurs fois en meme temps par differents bouts de la page (en-tete,
+  // pastilles du menu, page elle-meme) ne part qu'une fois, et son resultat
+  // reste valable quelques secondes. Toute ECRITURE vide ce cache : on ne
+  // relit jamais un solde perime apres une action.
+  READ_ACTIONS: ["status", "list", "get"],
+  MEMO_MS: 5000,
+  _memo: new Map(),
+  _stable(v) {
+    if (Array.isArray(v)) return "[" + v.map((x) => this._stable(x)).join(",") + "]";
+    if (v && typeof v === "object") return "{" + Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => JSON.stringify(k) + ":" + this._stable(v[k])).join(",") + "}";
+    return JSON.stringify(v === undefined ? null : v);
+  },
+  _readKey(method, name, payload) {
+    return method + " " + name + " " + this._stable(payload || {});
+  },
+  _isRead(method, body) {
+    return method === "GET" || this.READ_ACTIONS.includes(body && body.action);
+  },
+  _shared(key, fn) {
+    const hit = this._memo.get(key);
+    if (hit && (hit.pending || Date.now() - hit.ts < this.MEMO_MS)) return hit.promise;
+    const entry = { pending: true, ts: Date.now(), promise: null };
+    entry.promise = fn().then((data) => {
+      entry.pending = false;
+      entry.ts = Date.now();
+      return data;
+    }, (err) => {
+      if (this._memo.get(key) === entry) this._memo.delete(key);
+      throw err;
+    });
+    this._memo.set(key, entry);
+    return entry.promise;
+  },
+  // names (optionnel) : n'oublie que les lectures de ces endpoints.
+  invalidate(names) {
+    if (!names) { this._memo.clear(); return; }
+    for (const key of [...this._memo.keys()]) {
+      if (names.includes(key.split(" ")[1])) this._memo.delete(key);
+    }
+  },
+
+  // Plusieurs lectures en UNE requete HTTP (route /webhook/batch de l'API).
+  // calls : [{ name, query } | { name, body }]. Chaque resultat alimente le
+  // cache ci-dessus : les appels individuels identiques faits ensuite par la
+  // page repondent instantanement. Ancienne API sans /batch : appels
+  // individuels, en parallele.
+  _batchSupported: true,
+  async batch(calls) {
+    const list = calls.map((c) => {
+      const method = c.body ? "POST" : "GET";
+      return { ...c, method, key: this._readKey(method, c.name, method === "GET" ? c.query : c.body) };
+    });
+    const individual = (c) => (c.method === "GET" ? this.get(c.name, c.query) : this.post(c.name, c.body));
+    const todo = list.filter((c) => {
+      const hit = this._memo.get(c.key);
+      return !(hit && (hit.pending || Date.now() - hit.ts < this.MEMO_MS));
+    });
+    if (todo.length && this._batchSupported) {
+      // Entrees "en cours" posees tout de suite : un appel individuel lance
+      // pendant le batch attend son resultat au lieu de repartir.
+      const resolvers = new Map();
+      todo.forEach((c) => {
+        let resolve, reject;
+        const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+        promise.catch(() => {});
+        const entry = { pending: true, ts: Date.now(), promise };
+        this._memo.set(c.key, entry);
+        resolvers.set(c.key, { entry, resolve, reject });
+      });
+      try {
+        const res = await this._fetch(this.base() + "/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ calls: todo.map((c) => ({ path: window.APP_CONFIG.endpoints[c.name].replace(/^\//, ""), method: c.method, query: c.query, body: c.body })) })
+        });
+        if (res.status === 404) throw Object.assign(new Error("batch_unsupported"), { unsupported: true });
+        if (!res.ok) throw new Error("batch_failed");
+        const { results } = await res.json();
+        todo.forEach((c, i) => {
+          const r = results[i] || { status: 500, json: {} };
+          const { entry, resolve, reject } = resolvers.get(c.key);
+          entry.pending = false;
+          entry.ts = Date.now();
+          if (r.status >= 200 && r.status < 300) resolve(r.json);
+          else {
+            const err = new Error((r.json && r.json.error) || `Erreur API (${c.name}): ${r.status}`);
+            err.code = r.json && r.json.error;
+            this._memo.delete(c.key);
+            reject(err);
+          }
+        });
+      } catch (e) {
+        if (e.unsupported) this._batchSupported = false;
+        // Repli : chaque lecture repart en individuel.
+        todo.forEach((c) => {
+          const { resolve, reject } = resolvers.get(c.key);
+          this._memo.delete(c.key);
+          individual(c).then(resolve, reject);
+        });
+      }
+    }
+    return Promise.all(list.map((c) => individual(c).catch(() => null)));
+  },
+
   async post(name, body) {
+    if (this._isRead("POST", body)) return this._shared(this._readKey("POST", name, body), () => this._post(name, body));
+    this.invalidate();
+    try {
+      return await this._post(name, body);
+    } finally {
+      // Une ecriture peut avoir change n'importe quelle lecture faite pendant
+      // qu'elle tournait.
+      this.invalidate();
+    }
+  },
+
+  async _post(name, body) {
     if (typeof TopLoadingBar !== "undefined") TopLoadingBar.start();
     try {
       const res = await this._fetch(this.url(name), {
@@ -62,7 +180,11 @@ const API = {
     }
   },
 
-  async get(name, query) {
+  get(name, query) {
+    return this._shared(this._readKey("GET", name, query), () => this._get(name, query));
+  },
+
+  async _get(name, query) {
     // "_ts" force une URL differente a chaque appel : evite qu'un cache
     // (navigateur ou CDN devant n8n) ne reserve indefiniment une vieille
     // reponse pour des endpoints dont la valeur change (stock de boosters...).

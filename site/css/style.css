@@ -455,8 +455,19 @@ main {
   pointer-events: none;
   transition: background 0.6s ease;
 }
+/* Mobile : le halo deborde de 40px de chaque cote, ce qui faisait glisser
+   toute la page de ~20px a l'horizontale (overflow-x du body ignore par
+   certains navigateurs mobiles). Debord vertical seulement. */
+@media (max-width: 640px) {
+  .panel::before { left: 0; right: 0; }
+}
 
 h1 { font-size: 2rem; margin-top: 0; font-weight: 800; }
+/* Liens dans un texte courant : soulignes, pas seulement colores. */
+.lead a, .adb-help a { text-decoration: underline; text-underline-offset: 2px; }
+/* Illustrations cliquables (vignette du classeur, booster) : focus clavier visible. */
+.collection-card .card-art[role="button"]:focus-visible,
+.extension-tile .ext-art[role="button"]:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; border-radius: 10px; }
 /* Chip "ticket de jeton" : le seul flourish vraiment marque de la page,
    le reste reste sobre pour ne pas le concurrencer. */
 .hero-eyebrow {
@@ -1250,29 +1261,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
    Ouverture de booster
    ======================================================================== */
 
-.booster-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 28px;
-  padding: 20px 0 10px;
-}
-
-/* Stock : 10 pastilles + minuteur */
-.booster-stock {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.stock-label {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text);
-}
-
 /* Compteur "credits de borne d'arcade" (page boosters) : le nombre lui-meme
    ressort fort, le mot "disponible(s)" reste discret a cote. */
 .credit-counter {
@@ -1470,16 +1458,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .quantity-picker button.active { outline: 2px solid var(--accent-2); }
 .quantity-picker button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.booster-pack.bursting {
-  animation: boosterBurst 0.5s cubic-bezier(.2,.9,.3,1) forwards;
-}
-
-@keyframes boosterBurst {
-  0% { transform: scale(1.05); opacity: 1; filter: brightness(1.4); }
-  60% { transform: scale(1.5); opacity: 0.7; filter: brightness(2.2); }
-  100% { transform: scale(2.2); opacity: 0; filter: brightness(3); }
-}
-
 .burst-flash {
   position: fixed;
   inset: 0;
@@ -1568,29 +1546,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   pointer-events: none;
   background: radial-gradient(circle at 50% 40%, var(--shine-color, transparent), transparent 70%);
   mix-blend-mode: screen;
-}
-/* Une seule declaration d'opacity par regle : une animation remplace
-   entierement une valeur statique sur la meme propriete (jamais un
-   melange), donc l'intensite par palier doit vivre DANS chaque keyframe. */
-.shine-rare::after { animation: cardBackShinePulseRare 2s ease-in-out infinite; }
-.shine-epique::after { animation: cardBackShinePulseEpique 1.6s ease-in-out infinite; }
-.shine-legendaire::after { animation: cardBackShinePulseLegendaire 1.2s ease-in-out infinite; }
-.shine-mythique::after { animation: cardBackShinePulseMythique 1s ease-in-out infinite; }
-@keyframes cardBackShinePulseRare {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.35; }
-}
-@keyframes cardBackShinePulseEpique {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.55; }
-}
-@keyframes cardBackShinePulseLegendaire {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.85; }
-}
-@keyframes cardBackShinePulseMythique {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
 }
 
 .card-front {
@@ -1855,13 +1810,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   font-weight: 600;
 }
 
-.serial-badge {
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  margin-top: 2px;
-}
-
 .card-quick-action {
   display: inline-flex;
   align-items: center;
@@ -2114,21 +2062,21 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .admin-section-body h3:first-child { margin-top: 4px; }
 
 /* --- Formulaires generiques (trade / admin) --- */
-.trade-form, .admin-form {
+.admin-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin: 20px 0;
   align-items: end;
 }
-.trade-form label, .admin-form label {
+.admin-form label {
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-size: 0.85rem;
   color: var(--text-dim);
 }
-.trade-form select,
+
 .admin-form select,
 .admin-form input[type="text"],
 .admin-form input[type="number"],
@@ -2141,7 +2089,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   font-size: 0.95rem;
   font-family: var(--font-body);
 }
-.trade-form button, .admin-form button { grid-column: -2 / -1; }
+.admin-form button { grid-column: -2 / -1; }
 
 /* Panneau imbrique (suggestions, formulaire de creation d'echange...) :
    version allegee de .panel pour un encart DANS un .panel deja existant -
@@ -2536,10 +2484,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   background: var(--bg-panel-solid);
   color: var(--text-dim);
 }
-.trade-status-pending { color: var(--accent-2); }
-.trade-status-accepted { color: #4ade80; }
-.trade-status-declined,
-.trade-status-cancelled { color: #fb7185; }
 
 /* --- Journal d'ouvertures --- */
 .pull-log-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
@@ -3273,14 +3217,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    le display:flex ci-dessus l'emporterait sur le display:none par defaut
    de [hidden] (une regle d'auteur bat toujours la feuille de style navigateur). */
 .card-modal-overlay[hidden] { display: none; }
-.image-lightbox-overlay { cursor: zoom-out; }
-.image-lightbox-img {
-  max-width: min(90vw, 420px);
-  max-height: 85vh;
-  border-radius: 16px;
-  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
-  animation: modalPopIn 0.2s cubic-bezier(.2,.9,.3,1.3) both;
-}
 @keyframes modalFadeIn { to { opacity: 1; } }
 .card-modal {
   width: min(480px, 100%);
@@ -3580,14 +3516,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   60% { transform: scale(1.16) rotate(1deg); opacity: 1; filter: brightness(1.9); }
   100% { transform: scale(1.22); opacity: 0; filter: brightness(2.2); }
 }
-.pack-half {
-  position: absolute;
-  top: 0;
-  width: 50%;
-  height: 100%;
-  background: inherit;
-  pointer-events: none;
-}
 
 .reveal-grid.hearthstone .card { cursor: pointer; }
 .reveal-grid.hearthstone .card:not(.revealed):hover .card-inner { transform: rotateY(-8deg) scale(1.03); }
@@ -3751,25 +3679,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   z-index: 401;
 }
 
-/* ========================================================================
-   Craft / Decraft
-   ======================================================================== */
-.stardust-hero {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: linear-gradient(135deg, rgba(244, 114, 182, 0.18), rgba(139, 92, 246, 0.14));
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  font-family: var(--font-display);
-  font-weight: 700;
-}
-.stardust-hero .sd-icon { font-size: 1.6rem; }
-.stardust-hero .sd-count { font-size: 1.4rem; }
-.stardust-hero .sd-label { color: var(--text-dim); font-weight: 500; font-size: 0.82rem; }
-
 /* Onglets Décrafter/Crafter : evite d'empiler deux grilles completes sur la
    meme page, ce qui rendait la page interminable a parcourir. */
 /* Sur mobile, 5 onglets (craft.html) ou 4 (communaute.html) depassent
@@ -3835,26 +3744,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 
 /* Autel de sacrifice (onglet craft.html). */
 .altar-tiers { display: flex; flex-direction: column; gap: 14px; }
-.altar-tier {
-  background: var(--bg-panel-2);
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  padding: 18px 20px;
-}
-.altar-tier-path { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.altar-tier-badge {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.9rem;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1.5px solid;
-  background: var(--bg-panel-solid);
-}
-.altar-tier-arrow { color: var(--text-dim); font-size: 1.1rem; }
-.altar-tier-maxed { color: var(--text-dim); font-size: 0.85rem; font-style: italic; }
-.altar-tier-info { color: var(--text-dim); font-size: 0.82rem; margin: 10px 0; }
-.altar-open-btn { margin-top: 12px; }
 
 /* ========================================================================
    Finitions (foil upgrade) : fusionner des doublons identiques en une
@@ -4232,48 +4121,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   .collection-card.dust-dissolve { animation: none; opacity: 0.3; }
 }
 
-.altar-picker { margin-top: 14px; }
-.altar-picker-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-.altar-picker-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--bg-panel-solid);
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  padding: 8px 12px;
-}
-.altar-picker-row img { width: 36px; height: 48px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
-.altar-picker-name { flex: 1; font-size: 0.85rem; min-width: 0; }
-.altar-picker-owned { color: var(--text-dim); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
-.altar-picker-stepper { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.altar-step-btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 0.9rem;
-  line-height: 1;
-}
-.altar-step-count { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
-.altar-picker-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-soft);
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-.altar-picker-footer .btn-ghost { margin-left: auto; }
 .craft-toolbar .filters { margin: 0; }
 .checkbox-inline {
   display: flex;
@@ -4437,20 +4284,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 .code-form input[type="text"] { letter-spacing: 0.12em; }
 .redeem-card { flex-direction: column; text-align: center; }
 
-/* ========================================================================
-   Apercu de carte a cote des selects (trade.html)
-   ======================================================================== */
-.card-preview-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.card-preview-row select,
-.card-preview-row .fancy-select {
-  flex: 1;
-  min-width: 0;
-}
-.card-preview-row .fancy-select-trigger { width: 100%; }
 .card-preview-thumb {
   width: 44px;
   height: 58px;
@@ -4460,7 +4293,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   flex-shrink: 0;
   background: var(--bg-panel-2);
 }
-
 
 /* ========================================================================
    Mini bar chart (admin - repartition des raretes)
@@ -4556,7 +4388,6 @@ body.cinema-mode .coll-summary,
 body.cinema-mode #unused-dust-reminder { display: none !important; }
 body.cinema-mode main { max-width: none; padding: 24px; }
 body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow: none; }
-.cinema-toggle-btn { position: fixed; top: 16px; right: 16px; z-index: 60; }
 
 .back-to-top {
   position: fixed;
@@ -5162,7 +4993,8 @@ body.hide-stats #stats-block { display: none; }
 .preview-tool-form { display: flex; flex-direction: column; gap: 12px; }
 .preview-tool-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-dim); }
 .preview-tool-stage { display: flex; justify-content: center; }
-.preview-tool-stage .card { width: 260px; }
+.preview-tool-stage .card { width: min(260px, 100%); }
+@media (max-width: 720px) { .preview-tool-layout { grid-template-columns: 1fr; } }
 
 /* ========================================================================
    Grands ecrans : le contenu ne doit pas rester ecrase au centre d'un vide,
@@ -5216,7 +5048,7 @@ body.hide-stats #stats-block { display: none; }
 
   .extension-picker { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
   .craft-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-  .trade-form, .admin-form { grid-template-columns: 1fr; }
+  .admin-form { grid-template-columns: 1fr; }
   .reveal-grid { gap: 14px; }
   .pack-modal-overlay { padding: 12px; }
   .pack-modal-stage { gap: 18px; padding: 6px 2px 20px; }

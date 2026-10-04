@@ -53,7 +53,7 @@ function getInitialTab() {
   try { return localStorage.getItem(LAST_TAB_KEY) || "calendar"; } catch (e) { return "calendar"; }
 }
 
-// Signaux courants (voir CommunauteSignals, main.js) : onglets visibles et
+// Signaux courants (voir CommunauteSignals, shell.js) : onglets visibles et
 // pastilles de nouveaute.
 let communauteSignals = null;
 
@@ -479,7 +479,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // cours = pas d'onglet Boss, etc.). Hors connexion, on garde l'affichage
   // complet (les panneaux expliquent qu'il faut se connecter).
   if (Session.isLoggedIn()) {
-    try { communauteSignals = await CommunauteSignals.fetch(true); } catch (e) { communauteSignals = null; }
+    try { communauteSignals = await CommunauteSignals.fetch(); } catch (e) { communauteSignals = null; }
   }
   let initial = getInitialTab();
   if (communauteSignals) {

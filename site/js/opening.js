@@ -18,7 +18,6 @@ let isBusy = false;
 let skipToken = null;
 let extensionsCache = [];
 let boosterCount = 0;
-let pendingReveals = 0;
 let pityByExt = new Map();
 let pityThreshold = 0;
 let openQuantity = 1;
@@ -291,11 +290,11 @@ function onAllRevealed() {
 // provoquait un blocage de la page). L'effet est donc isole a un calque de
 // flash plein écran + un filtre sur la carte elle-meme uniquement.
 //
-// Les particules (spawnRarityBurst, main.js) sont sur un calque a
+// Les particules (spawnRarityBurst, ui.js) sont sur un calque a
 // z-index:420, au-dessus du modal d'ouverture (400) et du flash legendaire
 // (410) : elles restent visibles par-dessus toute la modale plein écran.
 // A partir d'epique (pas seulement legendaire) : le flash plein ecran suit
-// desormais la VRAIE couleur de la rarete (hexToRgba, main.js) et son
+// desormais la VRAIE couleur de la rarete (hexToRgba, ui.js) et son
 // intensite grandit avec le palier - jamais fige sur l'orange legendaire.
 // Rare est desormais le palier d'entree de la "vraie" animation autour de la
 // carte (demande explicite, 2026-09-30, en remplacement de l'idee des eclats
@@ -484,8 +483,8 @@ function renderExtensionPicker() {
     const pityLabel = pityThreshold ? `${pity} / ${pityThreshold}` : `${pity} tirage${pity > 1 ? "s" : ""}`;
     const progress = extProgressByExt.get(ext.id);
     return `
-      <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster ' + ext.name.replace(/"/g, "&quot;") + '"'}>
-        <div class="ext-art">
+      <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}">
+        <div class="ext-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster ' + ext.name.replace(/"/g, "&quot;") + '"'}>
           ${img ? `<img class="ext-art-front" src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
           ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" />` : ""}
         </div>
@@ -507,7 +506,7 @@ function renderExtensionPicker() {
       openModalFor(Number(tile.dataset.extId));
     });
     tile.addEventListener("keydown", (e) => {
-      if ((e.key !== "Enter" && e.key !== " ") || e.target.closest(".set-summary-link")) return;
+      if ((e.key !== "Enter" && e.key !== " ") || !e.target.closest(".ext-art")) return;
       e.preventDefault();
       openModalFor(Number(tile.dataset.extId));
     });
@@ -707,7 +706,7 @@ function closeModal() {
 // Embellissement (2026-09-30) : petits eclats de foil qui explosent depuis
 // le pack au moment exact de la dechirure (classe .tearing), en plus du
 // flash/tremblement deja en place. Reutilise la meme couche partagee que
-// spawnRarityBurst (main.js) pour ne pas dupliquer un conteneur fixe de plus.
+// spawnRarityBurst (ui.js) pour ne pas dupliquer un conteneur fixe de plus.
 function spawnFoilShards(originEl) {
   const rect = originEl.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;

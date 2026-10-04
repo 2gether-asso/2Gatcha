@@ -184,7 +184,9 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/shell.js"></script>
   <script>
     function refreshLoginUI() {
       const loginZone = document.getElementById("login-zone");
@@ -240,6 +242,13 @@
     }
 
     if (Session.isLoggedIn()) {
+      // Lectures propres a l'accueil, groupees en une requete (le gabarit
+      // commun - solde, quetes, paliers - est deja parti avec shell.js).
+      API.batch([
+        { name: "recentPulls" }, { name: "leaderboard" },
+        { name: "achievements", query: { userId: Session.userId } },
+        { name: "dailyWheel", body: { userId: Session.userId, action: "status" } }
+      ]);
       prefetchAllCardImages();
 
       // Pass de combat (free) : barre de progression vers le prochain
