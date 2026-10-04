@@ -197,6 +197,8 @@ const Coll = (() => {
     rarities: [],
     extensions: [],
     stats: { owned: 0, total: 0 },
+    sets: [],               // recompenses de set complet (api/src/native/sets.js)
+    collectionValue: 0,
     offline: false,
     loaded: false
   };
@@ -207,6 +209,12 @@ const Coll = (() => {
   let mode = "binder";
 
   function registerPane(name, pane) { panes[name] = pane; }
+
+  // Carte decouverte = possedee en collection OU rangee au coffre-fort : une
+  // carte mise a l'abri reste comptee dans la progression et les stats.
+  function isDiscovered(cardId) {
+    return state.ownedMap.has(cardId) || state.protectedMap.has(cardId);
+  }
 
   function isLocked(m) {
     const lock = MODES[m] && MODES[m].lock;
@@ -223,7 +231,7 @@ const Coll = (() => {
     if (filters.artist) out = out.filter((c) => (c.artist || "") === filters.artist);
     if (filters.search) {
       const q = normalize(filters.search);
-      out = out.filter((c) => (!ownedOnlySearch || state.ownedMap.has(c.cardId)) && normalize(c.name).includes(q));
+      out = out.filter((c) => (!ownedOnlySearch || isDiscovered(c.cardId)) && normalize(c.name).includes(q));
     }
     return out;
   }
@@ -232,25 +240,26 @@ const Coll = (() => {
   async function fetchAll() {
     const OFFLINE_CACHE_KEY = "2gatcha_offline_collection_" + Session.userId;
     try {
-      const [collection, status, catalog, wishlist, showcase] = await Promise.all([
+      const [collection, status, catalog, wishlist, showcase, sets] = await Promise.all([
         API.getCollection(Session.userId),
         API.getBoosterStatus(Session.userId).catch(() => ({ stardust: 0 })),
         API.getCards().catch(() => ({ cards: [] })),
         API.listWishlist(Session.userId).catch(() => ({ wishlist: [] })),
-        API.listShowcase(Session.userId).catch(() => ({ showcase: [] }))
+        API.listShowcase(Session.userId).catch(() => ({ showcase: [] })),
+        API.getSetRewards(Session.userId).catch(() => ({ sets: [] }))
       ]);
       try { localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(collection)); } catch (e) {}
-      return { collection, status, catalog, wishlist, showcase, offline: false };
+      return { collection, status, catalog, wishlist, showcase, sets, offline: false };
     } catch (e) {
       // Reseau coupe : derniere collection connue plutot qu'un ecran vide.
       let cached = null;
       try { cached = JSON.parse(localStorage.getItem(OFFLINE_CACHE_KEY) || "null"); } catch (e2) {}
       if (!cached) throw e;
-      return { collection: cached, status: { stardust: 0 }, catalog: { cards: [] }, wishlist: { wishlist: [] }, showcase: { showcase: [] }, offline: true };
+      return { collection: cached, status: { stardust: 0 }, catalog: { cards: [] }, wishlist: { wishlist: [] }, showcase: { showcase: [] }, sets: { sets: [] }, offline: true };
     }
   }
 
-  function ingest({ collection, status, catalog, wishlist, showcase, offline }) {
+  function ingest({ collection, status, catalog, wishlist, showcase, sets, offline }) {
     const catalogById = new Map((catalog.cards || []).map((c) => [c.cardId, c]));
     state.cards = (collection.cards || []).map((c) => {
       const cat = catalogById.get(c.cardId);
@@ -284,8 +293,9 @@ const Coll = (() => {
     state.qualityMultipliers = catalog.qualityMultipliers || {};
     state.wishlist = new Set((wishlist.wishlist || []).map((w) => w.cardId));
     state.showcase = new Set((showcase.showcase || []).map((s) => s.cardId));
-    state.stats = collection.stats || { owned: state.ownedMap.size, total: state.cards.length };
+    state.stats = { owned: state.cards.filter((c) => isDiscovered(c.cardId)).length, total: (collection.stats && collection.stats.total) || state.cards.length };
     state.offline = offline;
+    state.sets = (sets && sets.sets) || [];
 
     const rarityByKey = new Map();
     const extById = new Map();
@@ -334,6 +344,62 @@ const Coll = (() => {
     renderRarityProgress();
     renderStats();
     renderDustReminder();
+    renderSetRewards();
+  }
+
+  // Sets complets dont la recompense n'a pas encore ete reclamee.
+  function renderSetRewards() {
+    const el = document.getElementById("set-reward-banner");
+    const ready = state.sets.filter((x) => x.complete && !x.claimed);
+    if (!ready.length) { el.style.display = "none"; return; }
+    el.style.display = "";
+    el.innerHTML = ready.map((x) => `
+      <div class="set-reward-row">
+        <span>&#127942; <strong>Set complet : ${escapeHtml(x.name)}</strong> (${x.total} cartes) ! Récompense : ${x.reward.boosters} booster${x.reward.boosters > 1 ? "s" : ""} + ${x.reward.dust} poussières, et un badge sur ton profil.</span>
+        <button type="button" class="btn" data-claim-set="${x.extensionId}">&#127873; Réclamer</button>
+      </div>`).join("");
+  }
+
+  async function claimSet(extensionId, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const res = await API.claimSetReward(Session.userId, extensionId);
+      Toast.success(`&#127942; Set ${res.name} complété : +${res.boosters} booster${res.boosters > 1 ? "s" : ""} et +${res.dust} poussières !`);
+      if (typeof confetti === "function") confetti({ particleCount: 180, spread: 120, origin: { y: 0.5 } });
+      await refresh();
+      if (typeof loadNavBadges === "function") loadNavBadges();
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      Toast.error({ set_incomplete: "Il manque encore des cartes à ce set.", already_claimed: "Récompense déjà récupérée." }[e.code] || ("Erreur. (" + e.message + ")"));
+    }
+  }
+
+  // Valeur estimee (poussieres au decraft) de tous les exemplaires possedes,
+  // coffre-fort compris ; un point par jour garde en local pour l'evolution.
+  function computeValue() {
+    let value = 0;
+    const add = (card, finish, quality) => {
+      if (!card || card.isPromo || card.rarity?.disenchantValue == null) return;
+      value += estimateDust(card.rarity.disenchantValue, finish, quality);
+    };
+    state.ownedMap.forEach((o, id) => (o.copies || []).forEach((c) => add(state.byId.get(id), finishOf(c), qualityOf(c))));
+    state.protectedMap.forEach((copies, id) => copies.forEach((c) => add(state.byId.get(id), finishOf(c), "mint")));
+    return value;
+  }
+  function valueTrend(value) {
+    if (state.offline) return null;
+    const key = "2gatcha_coll_value_" + Session.userId;
+    let hist = {};
+    try { hist = JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) {}
+    const today = new Date().toISOString().slice(0, 10);
+    hist[today] = value;
+    const daysKept = Object.keys(hist).sort().slice(-40);
+    hist = Object.fromEntries(daysKept.map((d) => [d, hist[d]]));
+    try { localStorage.setItem(key, JSON.stringify(hist)); } catch (e) {}
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const ref = daysKept.filter((d) => d < today && d >= weekAgo)[0] || daysKept.filter((d) => d < today).slice(-1)[0];
+    if (!ref) return null;
+    return { delta: value - hist[ref], since: ref };
   }
 
   function rarityBuckets() {
@@ -343,7 +409,7 @@ const Coll = (() => {
       if (!byRarity.has(key)) byRarity.set(key, { key, name: c.rarity?.name || key, colorHex: c.rarity?.colorHex || "#9aa0b4", sortOrder: c.rarity?.sortOrder || 0, total: 0, owned: 0 });
       const entry = byRarity.get(key);
       entry.total++;
-      if (state.ownedMap.has(c.cardId)) entry.owned++;
+      if (isDiscovered(c.cardId)) entry.owned++;
     });
     return [...byRarity.values()].sort((a, b) => a.sortOrder - b.sortOrder);
   }
@@ -365,25 +431,31 @@ const Coll = (() => {
   function renderStats() {
     let totalCopies = 0;
     let bestRarity = null;
+    let discovered = 0;
     state.cards.forEach((c) => {
-      const owned = state.ownedMap.get(c.cardId);
-      if (!owned) return;
-      totalCopies += owned.count;
+      if (!isDiscovered(c.cardId)) return;
+      discovered++;
+      // Exemplaires au coffre inclus : ils appartiennent toujours au joueur.
+      totalCopies += (state.ownedMap.get(c.cardId)?.count || 0) + (state.protectedMap.get(c.cardId) || []).length;
       if (!bestRarity || (c.rarity?.sortOrder || 0) > bestRarity.sortOrder) bestRarity = { name: c.rarity?.name || "Commune", sortOrder: c.rarity?.sortOrder || 0, colorHex: c.rarity?.colorHex || "#9aa0b4" };
     });
     const buckets = rarityBuckets();
     const legendary = buckets.find((r) => normalize(r.name) === "legendaire");
     const legendaryShare = totalCopies && legendary ? Math.round((legendary.owned / totalCopies) * 100) : 0;
-    const duplicates = totalCopies - state.ownedMap.size;
+    const duplicates = totalCopies - discovered;
     // Halo du panel : couleur de la carte la plus rare possedee.
+    const value = computeValue();
+    state.collectionValue = value;
+    const trend = valueTrend(value);
     const panelEl = document.querySelector(".panel");
     if (panelEl && bestRarity) panelEl.style.setProperty("--rarity-glow", bestRarity.colorHex);
     document.getElementById("stats-grid").innerHTML = `
-      <div class="stat-tile"><div class="stat-value">${state.ownedMap.size}</div><div class="stat-label">Cartes uniques</div></div>
+      <div class="stat-tile"><div class="stat-value">${discovered}</div><div class="stat-label">Cartes uniques</div></div>
       <div class="stat-tile"><div class="stat-value">${totalCopies}</div><div class="stat-label">Exemplaires au total</div></div>
       <div class="stat-tile"><div class="stat-value">${duplicates}</div><div class="stat-label">Doublons</div></div>
       <div class="stat-tile"><div class="stat-value" style="color:${bestRarity?.colorHex || "inherit"};">${bestRarity ? escapeHtml(bestRarity.name) : "-"}</div><div class="stat-label">Meilleur pull</div></div>
-      <div class="stat-tile"><div class="stat-value">${legendaryShare}%</div><div class="stat-label">Part de légendaires</div></div>`;
+      <div class="stat-tile"><div class="stat-value">${legendaryShare}%</div><div class="stat-label">Part de légendaires</div></div>
+      <div class="stat-tile coll-value-tile" title="Total des poussières que rapporterait le décraft de tous tes exemplaires (coffre-fort compris)"><div class="stat-value">&#10024; ${value.toLocaleString("fr-FR")}</div><div class="stat-label">Valeur estimée${trend && trend.delta ? ` <span class="coll-value-trend ${trend.delta > 0 ? "up" : "down"}">${trend.delta > 0 ? "+" : ""}${trend.delta.toLocaleString("fr-FR")} depuis le ${new Date(trend.since).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>` : ""}</div></div>`;
 
     const milestoneEl = document.getElementById("milestone-banner");
     const next = buckets.filter((r) => r.owned < r.total).sort((a, b) => (a.total - a.owned) - (b.total - b.owned))[0];
@@ -399,7 +471,7 @@ const Coll = (() => {
   // Poussieres qui dorment : assez pour crafter au moins une carte manquante.
   function renderDustReminder() {
     const el = document.getElementById("unused-dust-reminder");
-    const missing = state.cards.filter((c) => c.inCatalog && !c.isPromo && !state.ownedMap.has(c.cardId) && c.rarity?.craftCost != null);
+    const missing = state.cards.filter((c) => c.inCatalog && !c.isPromo && !isDiscovered(c.cardId) && c.rarity?.craftCost != null);
     const affordable = missing.filter((c) => state.stardust >= c.rarity.craftCost);
     if (!affordable.length || mode === "craft" || isLocked("craft")) { el.style.display = "none"; return; }
     const cheapest = Math.min(...affordable.map((c) => c.rarity.craftCost));
@@ -607,6 +679,10 @@ const Coll = (() => {
     });
     document.getElementById("artist-filter").addEventListener("change", (e) => { filters.artist = e.target.value; renderActive(); });
     document.getElementById("reset-filters-btn").addEventListener("click", resetFilters);
+    document.getElementById("set-reward-banner").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-claim-set]");
+      if (btn) claimSet(Number(btn.dataset.claimSet), btn);
+    });
     document.getElementById("unused-dust-reminder").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-goto-mode]");
       if (!btn) return;
@@ -626,7 +702,7 @@ const Coll = (() => {
     FINISH_ORDER, FINISH_LABELS, FINISH_LABELS_LONG, QUALITY_ORDER, QUALITY_LABELS,
     state, filters, prefs,
     get mode() { return mode; },
-    registerPane, setMode, isLocked, refresh, renderActive, updateCounts, renderSummary,
+    registerPane, setMode, isLocked, isDiscovered, claimSet, refresh, renderActive, updateCounts, renderSummary,
     filterCards, errorText, estimateDust, buildVariants, copiesToSpend, attachTilt,
     normalize, escapeHtml, serial, finishOf, qualityOf, isPrecious, rarityBadge,
     loadPrefs, savePrefs, loadSet, saveSet

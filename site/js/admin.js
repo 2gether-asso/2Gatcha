@@ -511,6 +511,81 @@ async function loadLevelRewardsAdmin() {
   }
 }
 
+// ---------------------------------------------------------------- evenement
+// Week-end evenement (api/src/native/events.js).
+function renderEventAdmin(ev) {
+  const el = document.getElementById("event-admin-current");
+  const perks = [];
+  if (ev.dustMultiplier > 1) perks.push(`poussières x${ev.dustMultiplier}`);
+  if (ev.finishMultiplier > 1) perks.push(`finitions x${ev.finishMultiplier}`);
+  el.className = ev.active ? "reward-banner" : "empty-state";
+  el.innerHTML = ev.active
+    ? `&#127881; <strong>${ev.label}</strong> en cours${perks.length ? " : " + perks.join(", ") : ""}${ev.endsAt ? " · fin le " + new Date(ev.endsAt * 1000).toLocaleString("fr-FR") : ""}`
+    : "Aucun événement en cours.";
+  document.getElementById("event-stop-btn").style.display = ev.active ? "" : "none";
+}
+async function loadEventAdmin() {
+  try { renderEventAdmin(await API.adminGetEvent(Session.discordId)); } catch (e) { document.getElementById("event-admin-current").textContent = "Impossible de charger l'événement."; }
+  // Par defaut : fin dimanche 23:59.
+  const ends = document.getElementById("event-ends");
+  if (!ends.value) {
+    const d = new Date();
+    d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+    d.setHours(23, 59, 0, 0);
+    ends.value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+}
+
+// ---------------------------------------------------------------- economie
+// Tableau de bord (api/src/native/economy.js), charge a l'ouverture.
+function econBars(days, key, label) {
+  const max = Math.max(1, ...days.map((d) => d[key]));
+  return `
+    <div class="econ-chart">
+      <div class="econ-chart-title">${label} <span>(max ${max})</span></div>
+      <div class="econ-bars">${days.map((d) => `<span class="econ-bar" style="height:${Math.round((d[key] / max) * 100)}%" title="${new Date(d.day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} : ${d[key]}"></span>`).join("")}</div>
+      <div class="econ-axis"><span>${new Date(days[0].day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
+    </div>`;
+}
+async function loadEconomy() {
+  const el = document.getElementById("economy-zone");
+  el.className = "";
+  el.innerHTML = '<div class="loading-row"><div class="spinner"></div></div>';
+  try {
+    const e = await API.adminGetEconomy(Session.discordId);
+    const t = e.totals;
+    const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+    const list = (rows, fn) => rows.length ? `<ol class="econ-list">${rows.map(fn).join("")}</ol>` : '<p class="lead" style="font-size:0.8rem;">—</p>';
+    el.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-tile"><div class="stat-value">${fmt(t.players)}</div><div class="stat-label">Joueurs</div></div>
+        <div class="stat-tile"><div class="stat-value">${t.active1d} / ${t.active7d} / ${t.active30d}</div><div class="stat-label">Actifs 24 h / 7 j / 30 j</div></div>
+        <div class="stat-tile"><div class="stat-value">${fmt(t.stardust)}</div><div class="stat-label">Poussières en circulation</div></div>
+        <div class="stat-tile"><div class="stat-value">${fmt(t.boostersUnopened)}</div><div class="stat-label">Boosters non ouverts</div></div>
+        <div class="stat-tile"><div class="stat-value">${fmt(t.keys)}</div><div class="stat-label">Clés en circulation</div></div>
+        <div class="stat-tile"><div class="stat-value">${fmt(t.copies)}</div><div class="stat-label">Exemplaires en circulation</div></div>
+        <div class="stat-tile"><div class="stat-value">${fmt(t.collectionValue)}</div><div class="stat-label">Valeur totale (décraft)</div></div>
+        <div class="stat-tile"><div class="stat-value">${t.cardsNeverObtained} / ${t.playableCards}</div><div class="stat-label">Cartes jamais sorties</div></div>
+      </div>
+      <div class="econ-charts">
+        ${econBars(e.days, "boosters", "Boosters ouverts par jour")}
+        ${econBars(e.days, "cards", "Cartes obtenues par jour")}
+        ${econBars(e.days, "activePlayers", "Joueurs actifs par jour")}
+        ${econBars(e.days, "newPlayers", "Nouveaux joueurs par jour")}
+      </div>
+      <div class="econ-columns">
+        <div><h3>Sources des cartes (30 j)</h3>${list(e.sources, (s) => `<li><span>${s.source}</span><strong>${fmt(s.count)}</strong></li>`)}</div>
+        <div><h3>Plus riches en poussières</h3>${list(e.richest, (r) => `<li><span>${r.pseudo}</span><strong>${fmt(r.value)}</strong></li>`)}</div>
+        <div><h3>Boosters en réserve</h3>${list(e.boosterHoarders, (r) => `<li><span>${r.pseudo}</span><strong>${fmt(r.value)}</strong></li>`)}</div>
+        <div><h3>Cartes les plus répandues</h3>${list(e.mostCommonCards, (c) => `<li><span>${c.name} <small>${c.rarity}</small></span><strong>${c.copies}</strong></li>`)}</div>
+        <div><h3>Cartes les plus rares</h3>${list(e.rarestCards, (c) => `<li><span>${c.name} <small>${c.rarity}</small></span><strong>${c.copies}</strong></li>`)}</div>
+      </div>`;
+  } catch (err) {
+    el.className = "empty-state";
+    el.textContent = err.code === "forbidden" ? "Accès réservé aux admins." : "Impossible de charger l'économie.";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
@@ -524,6 +599,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadConfig();
     loadExtensionsAdmin();
     loadBossAdmin();
+    loadEventAdmin();
+    document.getElementById("economy-section").addEventListener("toggle", (e) => { if (e.currentTarget.open) loadEconomy(); });
+    document.getElementById("event-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const endsAt = Math.floor(new Date(document.getElementById("event-ends").value).getTime() / 1000);
+      if (!endsAt || endsAt * 1000 < Date.now()) { Toast.error("La date de fin doit être dans le futur."); return; }
+      try {
+        const ev = await API.adminSetEvent(Session.discordId, {
+          active: true,
+          label: document.getElementById("event-label").value.trim(),
+          dustMultiplier: Number(document.getElementById("event-dust").value) || 1,
+          finishMultiplier: Number(document.getElementById("event-finish").value) || 1,
+          endsAt
+        });
+        renderEventAdmin(ev);
+        Toast.success("Événement lancé !");
+      } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+    });
+    document.getElementById("event-stop-btn").addEventListener("click", async () => {
+      if (!(await Confirm.show("Arrêter l'événement en cours maintenant ?", { title: "Arrêter l'événement", confirmText: "Arrêter", dangerous: true }))) return;
+      try { renderEventAdmin(await API.adminSetEvent(Session.discordId, { active: false })); Toast.info("Événement arrêté."); } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+    });
     populateMarketCardSelect();
     updateMarketCardPreview();
     loadMarketAdmin();

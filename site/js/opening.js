@@ -84,6 +84,21 @@ function buildCardEl(card, index, cardBackImageId) {
   inner.className = "card-inner";
   inner.appendChild(buildCardBackEl(cardBackImageId, card.rarity?.key, color));
 
+  // Butin de coffre qui n'est pas une carte (poussieres, boosters) : meme
+  // carte a retourner, face avant illustree.
+  if (card.lootType) {
+    const front = document.createElement("div");
+    front.className = "card-face card-front loot-front loot-" + card.lootType;
+    front.innerHTML = `
+      <div class="card-art loot-art"><span class="loot-icon" aria-hidden="true">${card.lootType === "dust" ? "&#10024;" : "&#127873;"}</span></div>
+      <div class="card-info">
+        <div class="card-name">${card.name}</div>
+        <div class="card-artist">Trouvé dans le coffre</div>
+        <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${card.rarity.name}</span>
+      </div>`;
+    inner.appendChild(front);
+    wrap.appendChild(inner);
+  } else {
   const dupeBadge = card.isFirstEver
     ? `<span class="new-badge first-ever-badge">&#127942; 1ère obtention du serveur !</span>`
     : card.isNewToPlayer
@@ -100,6 +115,7 @@ function buildCardEl(card, index, cardBackImageId) {
   front.className = "card-face card-front";
   front.innerHTML = `
     ${dupeBadge}
+    ${card.isBonusCard ? '<span class="bonus-card-ribbon">&#127873; Carte bonus</span>' : ""}
     <div class="card-art">
       <img src="${imgSrc}" alt="${card.name}" />
       ${finishBadge}
@@ -116,16 +132,21 @@ function buildCardEl(card, index, cardBackImageId) {
   `;
   inner.appendChild(front);
   wrap.appendChild(inner);
+  }
 
   // Pile de cartes : seule la carte "active" (au sommet, voir layoutStack)
   // reagit au clic. Premier tap : revele la carte, qui reste affichee tant
   // qu'on ne re-tape pas dessus. Deuxieme tap (carte deja revelee) : fait
   // avancer la pile vers la suivante - plus d'avancement automatique, il
   // faut un clic explicite pour que la carte parte dans la collection.
-  const flip = () => {
+  // quiet : revelation de masse ("Tout reveler") - ni son de rarete ni
+  // celebration, sauf pour la derniere (meilleure) carte.
+  const flip = (quiet) => {
     if (wrap.dataset.active !== "true") return;
+    const rowMode = !!(wrap.parentElement && wrap.parentElement.classList.contains("row-reveal"));
     if (!wrap.classList.contains("revealed")) {
       wrap.classList.add("revealed");
+      if (quiet === true) { renderStackPips(); return; }
       Sfx.flip();
       setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
       // celebrateRarity lit getBoundingClientRect() (spawnRarityBurst) : lu a
@@ -139,9 +160,12 @@ function buildCardEl(card, index, cardBackImageId) {
       renderStackPips();
       return;
     }
+    // Vue en ligne : jamais advanceStack() (qui remettait les cartes en pile
+    // par-dessus la grille, d'ou les cartes superposees) - on agrandit.
+    if (rowMode) { zoomRevealedCard(wrap); return; }
     advanceStack();
   };
-  wrap.addEventListener("click", flip);
+  wrap.addEventListener("click", () => flip(false));
   wrap._flip = flip;
   attachCardShine(wrap);
   return wrap;
@@ -231,23 +255,91 @@ function advanceStack() {
   if (stackIndex >= stackCardEls.length) onAllRevealed();
 }
 
+// Loupe sur une carte de la vue en ligne : la face avant en grand.
+function zoomRevealedCard(cardEl) {
+  const front = cardEl.querySelector(".card-front");
+  if (!front) return;
+  const overlay = document.createElement("div");
+  overlay.className = "reveal-zoom-overlay";
+  overlay.innerHTML = `<div class="card revealed reveal-zoom-card" data-rarity="${cardEl.dataset.rarity}" data-finish="${cardEl.dataset.finish}" data-quality="${cardEl.dataset.quality}"><div class="card-inner"><div class="${front.className}">${front.innerHTML}</div></div></div>`;
+  const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey, true); };
+  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+  overlay.addEventListener("click", close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+}
+
+// Resume du butin apres la revelation (surtout utile en x5 / x10 / coffre).
+function renderRevealSummary() {
+  const el = document.getElementById("reveal-summary");
+  if (!el) return;
+  const items = lastRevealedCards || [];
+  if (items.length < 2) { el.hidden = true; el.innerHTML = ""; return; }
+  const cards = items.filter((c) => !c.lootType);
+  const order = ["mythique", "legendaire", "epique", "rare", "commune"];
+  const counts = {};
+  const colors = {};
+  cards.forEach((c) => { const k = c.rarity?.key || "commune"; counts[k] = (counts[k] || 0) + 1; colors[k] = c.rarity?.colorHex || "#9aa0b4"; });
+  const pills = order.filter((k) => counts[k]).map((k) => `<span class="summary-pill" style="--pill-color:${colors[k]};">${rarityIcon(k)} ${counts[k]} ${cards.find((c) => (c.rarity?.key || "commune") === k).rarity?.name || k}</span>`);
+  items.filter((c) => c.lootType).forEach((c) => pills.push(`<span class="summary-pill" style="--pill-color:${c.rarity.colorHex};">${c.lootType === "dust" ? "&#10024;" : "&#127873;"} ${c.name}</span>`));
+  const notable = [];
+  const seen = new Set();
+  cards.forEach((c) => {
+    const reasons = [];
+    if (c.isFirstEver) reasons.push("1ère du serveur");
+    else if (c.isNewToPlayer) reasons.push("nouvelle");
+    if ((RARITY_ORDER[c.rarity?.key || "commune"] ?? 0) >= (RARITY_ORDER.epique ?? 2)) reasons.push(c.rarity.name);
+    if (c.finish && c.finish !== "normal") reasons.push(FINISH_LABELS[c.finish] || c.finish);
+    if (c.serialNumber === 1) reasons.push("#001");
+    if (c.isBonusCard) reasons.push("bonus");
+    const key = c.cardId + ":" + reasons.join();
+    if (!reasons.length || seen.has(key)) return;
+    seen.add(key);
+    notable.push(`<li style="--pill-color:${c.rarity?.colorHex || "#9aa0b4"};"><strong>${c.name}</strong> <span>${reasons.join(" · ")}</span></li>`);
+  });
+  const fresh = cards.filter((c) => c.isNewToPlayer).length;
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="summary-head"><strong>${items.length} objet${items.length > 1 ? "s" : ""}</strong>${fresh ? ` · <span class="summary-new">${fresh} nouvelle${fresh > 1 ? "s" : ""} carte${fresh > 1 ? "s" : ""}</span>` : ""}</div>
+    <div class="summary-pills">${pills.join("")}</div>
+    ${notable.length ? `<ul class="summary-notable">${notable.slice(0, 12).join("")}</ul>` : ""}
+    <p class="summary-hint">Clique sur une carte pour la voir en grand.</p>`;
+}
+
+// Etiquettes visibles pendant toute la revelation (le toast seul passait
+// inapercu) : booster shiny, cartes bonus, ou contenu d'un coffre.
+function renderPackTags(tags) {
+  const el = document.getElementById("pack-tags");
+  if (!el) return;
+  el.innerHTML = (tags || []).map((t) => `<span class="pack-tag pack-tag-${t.kind}">${t.html}</span>`).join("");
+}
+let lastPackTags = [];
+
+function resetRevealView() {
+  const stage = document.querySelector("#pack-modal-overlay .pack-modal-stage");
+  if (stage) stage.classList.remove("reveal-row");
+  const sum = document.getElementById("reveal-summary");
+  if (sum) { sum.hidden = true; sum.innerHTML = ""; }
+}
+
 function onAllRevealed() {
   const btn = document.getElementById("reveal-all-btn");
   if (btn) btn.remove();
   isBusy = false;
+  renderRevealSummary();
   const hint = document.getElementById("booster-hint");
 
   // Recap de session (utile surtout apres un x5) : repartition par rarete
   // du lot qui vient d'etre revele, + rappel du solde restant.
   if (lastRevealedCards.length > 1) {
     const counts = {};
-    lastRevealedCards.forEach((c) => {
+    lastRevealedCards.filter((c) => !c.lootType).forEach((c) => {
       const key = c.rarity?.key || "commune";
       counts[key] = (counts[key] || 0) + 1;
     });
     const order = ["mythique", "legendaire", "epique", "rare", "commune"];
     const parts = order.filter((k) => counts[k]).map((k) => `${counts[k]} ${rarityIcon(k)}`);
-    if (hint) hint.innerHTML = `Terminé : ${parts.join(" · ")}`;
+    if (hint) hint.innerHTML = `Terminé : ${parts.join(" · ")}${lastPackTags.length ? " · " + lastPackTags.map((t) => t.short).join(" · ") : ""}`;
   } else if (hint) {
     hint.textContent = "Toutes les cartes sont révélées !";
   }
@@ -272,7 +364,11 @@ function onAllRevealed() {
   // boosters d'affilee) ne devrait pas demander de fermer/rouvrir la modale
   // a chaque fois.
   const openAnotherBtn = document.getElementById("open-another-btn");
-  if (openAnotherBtn) {
+  if (openAnotherBtn && lastOpenMode === "chest") {
+    const can = chestState && chestState.chests > 0 && chestState.keys > 0;
+    openAnotherBtn.innerHTML = can ? `&#129520; Ouvrir un autre coffre (${chestState.chests} restant${chestState.chests > 1 ? "s" : ""})` : "";
+    openAnotherBtn.style.display = can ? "inline-flex" : "none";
+  } else if (openAnotherBtn) {
     if (lastOpenedExtension && boosterCount > 0) {
       const icon = String.fromCodePoint(128257);
       openAnotherBtn.textContent = `${icon} Ouvrir un autre (${boosterCount} restant${boosterCount > 1 ? "s" : ""})`;
@@ -610,6 +706,11 @@ function openModalFor(extensionId) {
   if (isBusy || boosterCount < 1) return;
   const ext = extensionById(extensionId);
   if (!ext) return;
+  lastOpenMode = "pack";
+  renderPackTags([]);
+  lastPackTags = [];
+  resetRevealView();
+  document.getElementById("booster-pack").classList.remove("chest-pack");
 
   const overlay = document.getElementById("pack-modal-overlay");
   const pack = document.getElementById("booster-pack");
@@ -731,6 +832,85 @@ function spawnFoilShards(originEl) {
   }
 }
 
+// Bouton "Tout reveler" (boosters et coffres) : bascule la pile en grille.
+function addRevealAllButton(grid) {
+  const revealAllBtn = document.createElement("button");
+  revealAllBtn.id = "reveal-all-btn";
+  revealAllBtn.className = "btn-secondary";
+  revealAllBtn.textContent = "Tout révéler";
+  revealAllBtn.addEventListener("click", () => {
+    // "Tout révéler" bascule la pile en ligne : les cartes se posent
+    // cote a cote (mise en page normale de .reveal-grid, plus de pile).
+    // FLIP (First-Last-Invert-Play) : on capture la position actuelle de
+    // chaque carte AVANT de changer les classes, pour animer un vrai
+    // glissement pile -> ligne plutot qu'un saut instantane (stacked ->
+    // row-reveal recalcule toute la grille CSS d'un coup, sans
+    // transition possible directement sur cette bascule).
+    revealAllBtn.disabled = true;
+    const firstRects = stackCardEls.map((el) => el.getBoundingClientRect());
+
+    // Si le joueur avait deja retourne quelques cartes a la main avant
+    // de cliquer "Tout révéler", elles portent .discarded (envolees sur
+    // le cote, invisibles) : on les remet dans le rang avec les autres.
+    stackCardEls.forEach((el) => {
+      el.classList.remove("discarded");
+      el.style.transform = "";
+      el.style.filter = "";
+      el.dataset.active = "true";
+    });
+    grid.classList.remove("stacked");
+    grid.classList.add("row-reveal");
+    const stageEl = document.querySelector("#pack-modal-overlay .pack-modal-stage");
+    if (stageEl) stageEl.classList.add("reveal-row");
+    // Meilleures cartes en tete de grille (l'ordre de revelation, lui,
+    // reste croissant pour finir sur la meilleure).
+    const rank = (i) => (RARITY_ORDER[lastRevealedCards[i].rarity?.key || "commune"] ?? 0) * 10 + (lastRevealedCards[i].isNewToPlayer ? 1 : 0);
+    stackCardEls.map((el, i) => ({ el, i })).sort((a, b) => rank(b.i) - rank(a.i)).forEach(({ el }) => grid.appendChild(el));
+    const progress = document.getElementById("stack-progress");
+    if (progress) progress.textContent = "";
+    const pips = document.getElementById("stack-pips");
+    if (pips) pips.innerHTML = "";
+
+    // Reflow force : necessaire pour lire la position FINALE (en ligne)
+    // juste apres avoir bascule les classes ci-dessus.
+    void grid.offsetWidth;
+    stackCardEls.forEach((el, i) => {
+      const last = el.getBoundingClientRect();
+      const dx = firstRects[i].left - last.left;
+      const dy = firstRects[i].top - last.top;
+      if (!dx && !dy) return;
+      el.style.transition = "none";
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      void el.offsetWidth;
+      el.style.transition = "transform 0.5s cubic-bezier(.2,.8,.2,1)";
+      el.style.transform = "";
+    });
+
+    // Ordre de reveal trie par rareté croissante (garde la meilleure
+    // carte du lot pour la fin, avec une pause suspendue juste avant)
+    // plutot que l'ordre brut du tirage - convention courante des jeux
+    // gacha pour finir sur un point culminant au lieu d'un flip uniforme.
+    const order = stackCardEls.map((_, i) => i).filter((i) => !stackCardEls[i].classList.contains("revealed"));
+    order.sort((a, b) => (RARITY_ORDER[lastRevealedCards[a].rarity?.key || "commune"] ?? 0) - (RARITY_ORDER[lastRevealedCards[b].rarity?.key || "commune"] ?? 0));
+    let totalDelay = 0;
+    order.forEach((idx, k) => {
+      const delay = k * 90 + (k === order.length - 1 && order.length > 1 ? 550 : 0);
+      totalDelay = Math.max(totalDelay, delay);
+      setTimeout(() => stackCardEls[idx]._flip(k !== order.length - 1), delay);
+    });
+    stackIndex = stackCardEls.length;
+    // Le recap "Termine : ..." doit attendre la fin du zoom cinematique de
+    // la derniere carte (epique+, voir heroZoom) avant de s'afficher -
+    // sinon il apparait par-dessus une carte encore en train de grossir,
+    // ce qui casse net l'effet de point culminant qu'on cherche a creer.
+    const lastKey = order.length ? (lastRevealedCards[order[order.length - 1]].rarity?.key || "commune") : "commune";
+    const lastTier = RARITY_FLASH_TIERS[lastKey];
+    const lastTierMs = lastTier ? parseFloat(lastTier.duration) * 1000 : 0;
+    setTimeout(onAllRevealed, totalDelay + Math.max(500, lastTierMs + 250));
+  });
+  grid.after(revealAllBtn);
+}
+
 async function startOpening(ext) {
   isBusy = true;
   lastOpenedExtension = ext;
@@ -816,6 +996,10 @@ async function startOpening(ext) {
     await wait(750);
     pack.classList.remove("charging", "charging-special", "charging-legendaire", "charging-epique", "charging-rare", "charging-mythique");
     if (bonusCards) Toast.info(`&#127873; +${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus dans ce booster !`);
+    lastPackTags = [];
+    if (packShiny) lastPackTags.push({ kind: "shiny", html: "&#127752; Booster shiny : meilleures cartes", short: "booster shiny" });
+    if (bonusCards) lastPackTags.push({ kind: "bonus", html: `&#127873; ${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus`, short: `${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus` });
+    renderPackTags(lastPackTags);
     pack.classList.add("tearing");
     if (chargeRing) chargeRing.classList.remove("active");
     spawnFoilShards(pack);
@@ -849,79 +1033,8 @@ async function startOpening(ext) {
     });
     layoutStack();
 
-    if (allCards.length) {
-      const revealAllBtn = document.createElement("button");
-      revealAllBtn.id = "reveal-all-btn";
-      revealAllBtn.className = "btn-secondary";
-      revealAllBtn.textContent = "Tout révéler";
-      revealAllBtn.addEventListener("click", () => {
-        // "Tout révéler" bascule la pile en ligne : les cartes se posent
-        // cote a cote (mise en page normale de .reveal-grid, plus de pile).
-        // FLIP (First-Last-Invert-Play) : on capture la position actuelle de
-        // chaque carte AVANT de changer les classes, pour animer un vrai
-        // glissement pile -> ligne plutot qu'un saut instantane (stacked ->
-        // row-reveal recalcule toute la grille CSS d'un coup, sans
-        // transition possible directement sur cette bascule).
-        revealAllBtn.disabled = true;
-        const firstRects = stackCardEls.map((el) => el.getBoundingClientRect());
-
-        // Si le joueur avait deja retourne quelques cartes a la main avant
-        // de cliquer "Tout révéler", elles portent .discarded (envolees sur
-        // le cote, invisibles) : on les remet dans le rang avec les autres.
-        stackCardEls.forEach((el) => {
-          el.classList.remove("discarded");
-          el.style.transform = "";
-          el.style.filter = "";
-          el.dataset.active = "true";
-        });
-        grid.classList.remove("stacked");
-        grid.classList.add("row-reveal");
-        const progress = document.getElementById("stack-progress");
-        if (progress) progress.textContent = "";
-        const pips = document.getElementById("stack-pips");
-        if (pips) pips.innerHTML = "";
-
-        // Reflow force : necessaire pour lire la position FINALE (en ligne)
-        // juste apres avoir bascule les classes ci-dessus.
-        void grid.offsetWidth;
-        stackCardEls.forEach((el, i) => {
-          const last = el.getBoundingClientRect();
-          const dx = firstRects[i].left - last.left;
-          const dy = firstRects[i].top - last.top;
-          if (!dx && !dy) return;
-          el.style.transition = "none";
-          el.style.transform = `translate(${dx}px, ${dy}px)`;
-          void el.offsetWidth;
-          el.style.transition = "transform 0.5s cubic-bezier(.2,.8,.2,1)";
-          el.style.transform = "";
-        });
-
-        // Ordre de reveal trie par rareté croissante (garde la meilleure
-        // carte du lot pour la fin, avec une pause suspendue juste avant)
-        // plutot que l'ordre brut du tirage - convention courante des jeux
-        // gacha pour finir sur un point culminant au lieu d'un flip uniforme.
-        const order = stackCardEls.map((_, i) => i).filter((i) => !stackCardEls[i].classList.contains("revealed"));
-        order.sort((a, b) => (RARITY_ORDER[lastRevealedCards[a].rarity?.key || "commune"] ?? 0) - (RARITY_ORDER[lastRevealedCards[b].rarity?.key || "commune"] ?? 0));
-        let totalDelay = 0;
-        order.forEach((idx, k) => {
-          const delay = k * 90 + (k === order.length - 1 && order.length > 1 ? 550 : 0);
-          totalDelay = Math.max(totalDelay, delay);
-          setTimeout(() => stackCardEls[idx]._flip(), delay);
-        });
-        stackIndex = stackCardEls.length;
-        // Le recap "Termine : ..." doit attendre la fin du zoom cinematique de
-        // la derniere carte (epique+, voir heroZoom) avant de s'afficher -
-        // sinon il apparait par-dessus une carte encore en train de grossir,
-        // ce qui casse net l'effet de point culminant qu'on cherche a creer.
-        const lastKey = order.length ? (lastRevealedCards[order[order.length - 1]].rarity?.key || "commune") : "commune";
-        const lastTier = RARITY_FLASH_TIERS[lastKey];
-        const lastTierMs = lastTier ? parseFloat(lastTier.duration) * 1000 : 0;
-        setTimeout(onAllRevealed, totalDelay + Math.max(500, lastTierMs + 250));
-      });
-      grid.after(revealAllBtn);
-    } else {
-      onAllRevealed();
-    }
+    if (allCards.length) addRevealAllButton(grid);
+    else onAllRevealed();
 
     flash.classList.remove("flash-active");
     if (lastBoosterInfo) {
@@ -940,12 +1053,182 @@ async function startOpening(ext) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Coffres (api/src/native/chests.js) : achetes contre des poussieres ou
+// gagnes tous les 5 niveaux, ouverts avec une clef (une clef tous les 10
+// niveaux). S'ouvrent dans la meme scene qu'un booster : charge, ouverture,
+// pile de cartes a retourner ; poussieres et boosters sont des cartes
+// speciales de la pile.
+// ---------------------------------------------------------------------------
+let chestState = null;
+let lastOpenMode = "pack";
+const CHEST_ERRORS = { not_enough_dust: "Pas assez de poussières.", no_chest: "Tu n'as pas de coffre.", no_key: "Il te faut une clé pour ouvrir un coffre." };
+
+function renderChests() {
+  const panel = document.getElementById("chest-panel");
+  if (!panel || !chestState) return;
+  const st = chestState;
+  panel.style.display = "";
+  document.getElementById("chest-count").innerHTML = `&#129520; ${st.chests} coffre${st.chests > 1 ? "s" : ""}`;
+  document.getElementById("chest-keys").innerHTML = `&#128273; ${st.keys} clé${st.keys > 1 ? "s" : ""}`;
+  document.getElementById("chest-next").textContent = `Prochain coffre offert au niveau ${st.nextChestLevel}, prochaine clé au niveau ${st.nextKeyLevel} (tu es niveau ${st.level}).`;
+  const openBtn = document.getElementById("chest-open-btn");
+  openBtn.disabled = !(st.chests > 0 && st.keys > 0);
+  openBtn.title = st.chests < 1 ? "Aucun coffre" : st.keys < 1 ? "Il te faut une clé" : "";
+  const buyBtn = document.getElementById("chest-buy-btn");
+  buyBtn.innerHTML = `Acheter un coffre (${st.cost} &#10024;)`;
+  buyBtn.disabled = st.stardust < st.cost;
+  buyBtn.title = st.stardust < st.cost ? `Il te faut ${st.cost} poussières (tu en as ${st.stardust})` : "";
+}
+
+function announceLevelGrant(g) {
+  if (!g) return;
+  const parts = [];
+  if (g.chests) parts.push(`${g.chests} coffre${g.chests > 1 ? "s" : ""}`);
+  if (g.keys) parts.push(`${g.keys} clé${g.keys > 1 ? "s" : ""}`);
+  Toast.success(`&#127881; Récompense de niveau : +${parts.join(" et ")} !`);
+}
+
+async function loadChests() {
+  try {
+    chestState = await API.chests(Session.userId, "status");
+    renderChests();
+    announceLevelGrant(chestState.levelGrant);
+    if (chestState.levelGrant) loadHeaderBoosterBadge();
+  } catch (e) { /* panneau facultatif */ }
+}
+
+async function buyChest(btn) {
+  const cost = chestState ? chestState.cost : 100;
+  if (!(await Confirm.show(`Acheter un coffre pour <strong>${cost} poussières d'étoile</strong> ?`, { title: "Acheter un coffre", confirmText: "Acheter" }))) return;
+  btn.disabled = true;
+  try {
+    chestState = await API.chests(Session.userId, "buy");
+    Toast.success("&#129520; Coffre acheté !");
+    loadHeaderBoosterBadge();
+  } catch (e) {
+    Toast.error(CHEST_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+  }
+  renderChests();
+}
+
+// Meme modale que les boosters, avec un coffre a la place du pack.
+function openChestModal() {
+  if (isBusy || !chestState || chestState.chests < 1 || chestState.keys < 1) return;
+  lastOpenMode = "chest";
+  lastPackTags = [];
+  renderPackTags([]);
+  resetRevealView();
+  const overlay = document.getElementById("pack-modal-overlay");
+  const pack = document.getElementById("booster-pack");
+  const grid = document.getElementById("reveal-grid");
+  grid.innerHTML = "";
+  grid.classList.remove("row-reveal");
+  grid.classList.add("stacked");
+  stackCardEls = [];
+  stackIndex = 0;
+  ["stack-progress", "stack-pips"].forEach((id) => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
+  const oldRevealAll = document.getElementById("reveal-all-btn");
+  if (oldRevealAll) oldRevealAll.remove();
+  pack.classList.remove("locked", "charging", "tearing", "pack-shiny", "charging-special");
+  pack.classList.add("chest-pack");
+  pack.style.visibility = "visible";
+  pack.style.setProperty("--pity-ratio", "0");
+  pack.innerHTML = `<div class="booster-emoji chest-emoji">&#129520;</div><div class="booster-title">Coffre</div><div class="booster-sub">&#128273; 1 clé</div>`;
+  document.getElementById("booster-hint").textContent = "Tape sur le coffre pour l'ouvrir avec une clé";
+  pack.onclick = () => { if (!isBusy) { Sfx.click(); startChestOpening(); } };
+  crossfadeModalBackground(null);
+  attachPackTilt(pack);
+  const qtyPicker = document.getElementById("quantity-picker");
+  if (qtyPicker) qtyPicker.style.display = "none";
+  const openAnotherBtn = document.getElementById("open-another-btn");
+  if (openAnotherBtn) openAnotherBtn.style.display = "none";
+  const stageEl = overlay.querySelector(".pack-modal-stage");
+  if (stageEl) stageEl.classList.remove("closing");
+  overlay.hidden = false;
+  syncScrollLock();
+  startAmbientParticles();
+}
+
+// Butin du coffre -> cartes de la pile (poussieres et boosters en cartes speciales).
+function chestItemsToCards(items) {
+  return items.map((it) => {
+    if (it.type === "dust") return { lootType: "dust", cardId: 0, name: `+${it.amount} poussières`, rarity: { key: "commune", name: "Poussières", colorHex: "#f472b6" } };
+    if (it.type === "booster") return { lootType: "booster", cardId: 0, name: `+${it.count} booster${it.count > 1 ? "s" : ""}`, rarity: { key: "rare", name: "Booster", colorHex: "#22d3ee" } };
+    return it.card;
+  });
+}
+
+async function startChestOpening() {
+  isBusy = true;
+  const pack = document.getElementById("booster-pack");
+  const flash = document.getElementById("burst-flash");
+  const grid = document.getElementById("reveal-grid");
+  const hint = document.getElementById("booster-hint");
+  pack.classList.add("charging");
+  try {
+    const res = await API.chests(Session.userId, "open");
+    chestState = res;
+    const cards = chestItemsToCards(res.items || []);
+    const realCards = cards.filter((c) => !c.lootType);
+    const best = realCards.reduce((b, c) => Math.max(b, RARITY_ORDER[c.rarity?.key || "commune"] ?? 0), 0);
+    if (best >= (RARITY_ORDER.epique ?? 2)) pack.classList.add("charging-special");
+    const chargeRing = document.getElementById("charge-ring");
+    if (chargeRing) {
+      chargeRing.style.setProperty("--charge-ring-color", "#f5a524");
+      chargeRing.classList.remove("active");
+      void chargeRing.offsetWidth;
+      chargeRing.classList.add("active");
+    }
+    await wait(750);
+    pack.classList.remove("charging", "charging-special");
+    pack.classList.add("tearing");
+    if (chargeRing) chargeRing.classList.remove("active");
+    spawnFoilShards(pack);
+    flash.classList.add("flash-active");
+    await wait(750);
+    pack.classList.remove("tearing");
+    pack.style.visibility = "hidden";
+    await wait(250);
+    hint.textContent = "Tape sur chaque objet pour le révéler";
+    lastPackTags = [{ kind: "chest", html: `&#129520; Coffre : ${res.items.length} objet${res.items.length > 1 ? "s" : ""}`, short: "coffre ouvert" }];
+    renderPackTags(lastPackTags);
+    realCards.forEach((card) => {
+      const before = ownedCountMap.get(card.cardId) || 0;
+      card.isNewToPlayer = before === 0;
+      card.ownedCountAfter = before + 1;
+      ownedCountMap.set(card.cardId, before + 1);
+    });
+    lastRevealedCards = cards;
+    sessionBatchIds = [];
+    stackIndex = 0;
+    stackCardEls = cards.map((card, i) => { const el = buildCardEl(card, i, null); grid.appendChild(el); return el; });
+    layoutStack();
+    if (cards.length > 1) addRevealAllButton(grid);
+    flash.classList.remove("flash-active");
+    renderChests();
+    boosterCount = res.newBoosterCount ?? boosterCount;
+    renderBoosterCountLabel();
+    loadHeaderBoosterBadge();
+  } catch (e) {
+    pack.classList.remove("charging", "tearing");
+    pack.style.visibility = "visible";
+    Toast.error(CHEST_ERRORS[e.code] || ("Erreur lors de l'ouverture du coffre. (" + e.message + ")"));
+    isBusy = false;
+    closeModal();
+    loadChests();
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
     return;
   }
   document.getElementById("booster-zone").style.display = "block";
+  loadChests();
+  document.getElementById("chest-buy-btn").addEventListener("click", (e) => buyChest(e.currentTarget));
+  document.getElementById("chest-open-btn").addEventListener("click", openChestModal);
 
   const overlay = document.getElementById("pack-modal-overlay");
   document.getElementById("pack-modal-close").addEventListener("click", closeModal);
@@ -968,6 +1251,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn) {
     openAnotherBtn.addEventListener("click", () => {
+      if (lastOpenMode === "chest") {
+        if (isBusy) return;
+        Sfx.click();
+        openChestModal();
+        startChestOpening();
+        return;
+      }
       if (isBusy || !lastOpenedExtension || boosterCount < 1) return;
       Sfx.click();
       openModalFor(lastOpenedExtension.id);

@@ -195,6 +195,7 @@ async function loadBoss() {
   try {
     await ensureCollectionLoaded();
     const res = await API.getBossStatus(Session.userId);
+    loadBossLeaderboard();
     if (!res.active) {
       document.getElementById("boss-no-active").style.display = "block";
       document.getElementById("boss-active-zone").style.display = "none";
@@ -207,45 +208,204 @@ async function loadBoss() {
     const pct = res.maxHp ? Math.max(0, Math.round((res.currentHp / res.maxHp) * 100)) : 0;
     document.getElementById("boss-hp-fill").style.width = pct + "%";
     document.getElementById("boss-hp-label").textContent = `${res.currentHp} / ${res.maxHp} PV`;
+    bossState = res;
+    renderBossRules();
     renderBossGrid();
   } catch (e) {
     Toast.error("Impossible de charger le boss.");
   }
 }
 
-function renderBossGrid() {
-  const grid = document.getElementById("boss-card-grid");
-  let donatable = allCards.filter((c) => !c.isPromo && ownedMap.has(c.cardId));
-  if (bossSearchQuery) {
-    const q = normalize(bossSearchQuery);
-    donatable = donatable.filter((c) => normalize(c.name).includes(q));
+// Classement des degats (api/src/native/boss.js) : boss actif, sinon le
+// dernier vaincu, avec le joueur qui a porte le coup final.
+async function loadBossLeaderboard() {
+  const el = document.getElementById("boss-leaderboard");
+  try {
+    const lb = await API.getBossLeaderboard(Session.userId);
+    if (lb.rules) { bossRules = lb.rules; renderBossRules(); if (bossState) renderBossGrid(); }
+    if (!lb.boss || !lb.top.length) { el.style.display = "none"; return; }
+    const medals = ["&#129351;", "&#129352;", "&#129353;"];
+    const meIn = lb.me && lb.top.some((e) => e.userId === lb.me.userId);
+    el.style.display = "";
+    el.innerHTML = `
+      <h3>&#127942; Classement ${lb.boss.active ? "en cours" : "du dernier boss"} : ${lb.boss.bossName}</h3>
+      ${!lb.boss.active && lb.boss.finisher ? `<p class="boss-finisher">&#9876;&#65039; Coup final porté par <strong>${lb.boss.finisher}</strong></p>` : lb.boss.active && lb.finisherBonus ? `<p class="boss-finisher">&#9876;&#65039; Le coup final rapporte <strong>+${lb.finisherBonus} boosters</strong> en plus de la récompense commune.</p>` : ""}
+      <ol class="boss-ranking">
+        ${lb.top.map((e) => `<li class="${lb.me && e.userId === lb.me.userId ? "me" : ""}"><span class="boss-rank">${medals[e.rank - 1] || e.rank}</span><span class="boss-pseudo">${e.pseudo}</span><span class="boss-dmg">${e.damage.toLocaleString("fr-FR")} dégâts</span><span class="boss-hits">${e.hits} carte${e.hits > 1 ? "s" : ""}</span></li>`).join("")}
+      </ol>
+      ${lb.me && !meIn ? `<p class="boss-me">Ta place : ${lb.me.rank}e sur ${lb.participants} (${lb.me.damage} dégâts)</p>` : ""}`;
+  } catch (e) {
+    el.style.display = "none";
   }
-  grid.innerHTML = donatable.length
-    ? donatable.map((c) => donatableCardTile(c, "Attaquer", "btn-danger boss-attack-btn")).join("")
-    : `<div class="empty-state">Aucune carte à donner ne correspond.</div>`;
-  grid.querySelectorAll(".boss-attack-btn").forEach((btn) => {
-    btn.addEventListener("click", () => attackBoss(Number(btn.dataset.cardId)));
-  });
 }
 
-async function attackBoss(cardId) {
-  const card = allCards.find((c) => c.cardId === cardId);
+// Attaque en salve (api/src/native/boss.js) : le joueur choisit les
+// exemplaires precis qu'il sacrifie ; degats = base de rarete x finition x
+// etat, le tout x multiplicateur de salve. Memes regles que le serveur
+// (renvoyees par boss-leaderboard), donc l'apercu est exact.
+let bossRules = { finish: { normal: 1, holo: 1.5, gold: 2, ghost: 2.5, diamond: 3, rainbow: 5 }, quality: { damaged: 0.75, worn: 1, good: 1.25, mint: 1.5 }, volleyStep: 0.1, maxCards: 10 };
+let bossState = null;
+const bossSelection = new Map(); // cle de variante -> quantite
+const BOSS_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const BOSS_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+
+const bossVolley = (n) => Math.round((1 + bossRules.volleyStep * Math.max(0, Math.min(n, bossRules.maxCards) - 1)) * 100) / 100;
+const bossSerial = (n) => "#" + String(n ?? "?").padStart(3, "0");
+function bossCardBase(card) { return Math.max(1, Number(card.rarity?.disenchantValue) || 0); }
+function bossCopyMultiplier(finish, quality) { return (bossRules.finish[finish] || 1) * (bossRules.quality[quality] || 1); }
+
+// Variantes possedees (non promo) : une entree par carte + finition + etat.
+function bossVariants() {
+  const out = [];
+  allCards.filter((c) => !c.isPromo && ownedMap.has(c.cardId)).forEach((card) => {
+    const owned = ownedMap.get(card.cardId);
+    const groups = new Map();
+    (owned.copies || []).forEach((cp) => {
+      const finish = cp.finish || "normal", quality = cp.quality || "damaged";
+      const key = card.cardId + "::" + finish + "::" + quality;
+      if (!groups.has(key)) groups.set(key, { key, card, finish, quality, copies: [], totalOwned: owned.count });
+      groups.get(key).copies.push(cp);
+    });
+    groups.forEach((g) => {
+      // Exemplaires sacrifies en premier : numeros les plus hauts, le #001 en dernier.
+      g.copies.sort((a, b) => (a.serialNumber === 1) - (b.serialNumber === 1) || (b.serialNumber || 0) - (a.serialNumber || 0));
+      g.perCard = bossCardBase(card) * bossCopyMultiplier(g.finish, g.quality);
+      out.push(g);
+    });
+  });
+  return out;
+}
+
+function bossSelectedCount() { let n = 0; bossSelection.forEach((q) => { n += q; }); return n; }
+
+function renderBossRules() {
+  const el = document.getElementById("boss-rules");
+  if (!el) return;
+  const f = Object.entries(bossRules.finish).filter(([, m]) => m !== 1).map(([k, m]) => `${BOSS_FINISH_LABELS[k] || k} ×${m}`).join(" · ");
+  const q = Object.entries(bossRules.quality).map(([k, m]) => `${BOSS_QUALITY_LABELS[k] || k} ×${m}`).join(" · ");
+  el.innerHTML = `
+    <span class="boss-rule"><strong>Finition</strong> ${f}</span>
+    <span class="boss-rule"><strong>État</strong> ${q}</span>
+    <span class="boss-rule"><strong>Salve</strong> +${Math.round(bossRules.volleyStep * 100)} % par carte en plus, jusqu'à ×${bossVolley(bossRules.maxCards)} (${bossRules.maxCards} cartes)</span>`;
+}
+
+function renderBossGrid() {
+  const grid = document.getElementById("boss-card-grid");
+  const dupesOnly = document.getElementById("boss-dupes-only")?.checked;
+  let variants = bossVariants();
+  if (dupesOnly) variants = variants.filter((v) => v.totalOwned > 1);
+  if (bossSearchQuery) {
+    const q = normalize(bossSearchQuery);
+    variants = variants.filter((v) => normalize(v.card.name).includes(q));
+  }
+  variants.sort((a, b) => b.perCard - a.perCard || a.card.name.localeCompare(b.card.name));
+  const full = bossSelectedCount() >= bossRules.maxCards;
+  grid.innerHTML = variants.length ? variants.map((v) => {
+    const qty = bossSelection.get(v.key) || 0;
+    // On garde toujours au moins un exemplaire de la carte (doublons seulement).
+    const maxQty = dupesOnly ? Math.min(v.copies.length, v.totalOwned - 1) : v.copies.length;
+    const lastCopy = v.totalOwned - qty <= 0;
+    return `
+      <div class="craft-card boss-variant ${qty ? "selected" : ""}" data-card-id="${v.card.cardId}" data-rarity="${v.card.rarity?.key || "commune"}" data-finish="${v.finish}" data-quality="${v.quality}">
+        <div class="card-art">
+          <img src="${API.imageUrl(v.card.imageId) || PLACEHOLDER_IMG}" alt="${v.card.name}" loading="lazy" />
+          ${v.finish !== "normal" ? `<span class="finish-indicator" data-finish="${v.finish}">${BOSS_FINISH_LABELS[v.finish]}</span>` : ""}
+          <span class="quality-indicator" data-quality="${v.quality}">${BOSS_QUALITY_LABELS[v.quality]}</span>
+        </div>
+        <div class="card-info">
+          <div class="card-name">${v.card.name}</div>
+          <div class="owned-count">x${v.copies.length}${v.totalOwned > v.copies.length ? ` · ${v.totalOwned} en tout` : ""}</div>
+          <div class="boss-dmg-chip">&#9876;&#65039; ${Math.round(v.perCard)} / carte</div>
+          <div class="qty-stepper">
+            <button type="button" class="qty-btn" data-boss-qty="-1" data-key="${v.key}" aria-label="Retirer" ${qty <= 0 ? "disabled" : ""}>&minus;</button>
+            <span class="qty-value">${qty}</span>
+            <button type="button" class="qty-btn" data-boss-qty="1" data-key="${v.key}" aria-label="Ajouter" ${qty >= maxQty || full ? "disabled" : ""}>+</button>
+          </div>
+          ${qty && lastCopy ? '<div class="boss-warn">Ton dernier exemplaire</div>' : ""}
+        </div>
+      </div>`;
+  }).join("") : `<div class="empty-state">${dupesOnly ? "Aucun doublon à donner. Décoche « Seulement mes doublons » pour voir toutes tes cartes." : "Aucune carte à donner ne correspond."}</div>`;
+  renderBossTray();
+}
+
+// Plan exact de la salve : quels exemplaires partent et combien ils frappent.
+function bossPlan() {
+  const byKey = new Map(bossVariants().map((v) => [v.key, v]));
+  const n = bossSelectedCount();
+  const volley = bossVolley(n);
+  const lines = [];
+  bossSelection.forEach((qty, key) => {
+    const v = byKey.get(key);
+    if (!v || !qty) return;
+    const copies = v.copies.slice(0, qty);
+    lines.push({ v, copies, each: Math.round(v.perCard * volley) });
+  });
+  const total = lines.reduce((s, l) => s + l.each * l.copies.length, 0);
+  return { lines, n, volley, total };
+}
+
+function renderBossTray() {
+  const tray = document.getElementById("boss-tray");
+  if (!tray || !bossState) return;
+  const plan = bossPlan();
+  const hp = bossState.currentHp || 0, maxHp = bossState.maxHp || 1;
+  const after = Math.max(0, hp - plan.total);
+  const precious = plan.lines.flatMap((l) => l.copies.filter((c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint").map((c) => `${l.v.card.name} ${bossSerial(c.serialNumber)}`));
+  tray.innerHTML = `
+    <h3>&#9876;&#65039; Ton attaque</h3>
+    ${plan.n ? `
+      <ul class="boss-tray-lines">${plan.lines.map((l) => `
+        <li>
+          <span><strong>${l.copies.length}× ${l.v.card.name}</strong><small>${l.v.finish !== "normal" ? BOSS_FINISH_LABELS[l.v.finish] + " · " : ""}${BOSS_QUALITY_LABELS[l.v.quality]} · ${l.copies.map((c) => bossSerial(c.serialNumber)).join(", ")}</small></span>
+          <span class="boss-tray-dmg">${(l.each * l.copies.length).toLocaleString("fr-FR")}</span>
+        </li>`).join("")}
+      </ul>
+      <div class="boss-tray-row"><span>Multiplicateur de salve (${plan.n} carte${plan.n > 1 ? "s" : ""})</span><strong>×${plan.volley.toLocaleString("fr-FR")}</strong></div>
+      <div class="boss-tray-row boss-tray-total"><span>Dégâts</span><strong>${plan.total.toLocaleString("fr-FR")}</strong></div>
+      <div class="boss-tray-hp" title="PV du boss après l'attaque">
+        <div class="boss-tray-hp-bar"><span class="boss-tray-hp-after" style="width:${(after / maxHp) * 100}%"></span><span class="boss-tray-hp-hit" style="width:${(Math.min(plan.total, hp) / maxHp) * 100}%"></span></div>
+        <small>${after > 0 ? `PV après : ${after.toLocaleString("fr-FR")} / ${maxHp.toLocaleString("fr-FR")}` : `&#127942; Ce coup achève le boss !${bossRules.finisherBonus ? ` (+${bossRules.finisherBonus} boosters pour le coup final)` : ""}`}</small>
+      </div>
+      ${precious.length ? `<div class="boss-warn">&#9888; Exemplaires précieux dans la salve : ${precious.join(", ")}</div>` : ""}
+      <div class="boss-tray-actions">
+        <button type="button" class="btn-ghost" id="boss-clear-btn">Vider</button>
+        <button type="button" class="btn-danger" id="boss-attack-btn">Attaquer (${plan.n} carte${plan.n > 1 ? "s" : ""})</button>
+      </div>`
+    : `<p class="boss-tray-empty">Ajoute des cartes avec <strong>+</strong> : jusqu'à ${bossRules.maxCards} par salve. Plus la salve est grande, plus chaque carte frappe fort.</p>`}`;
+  const clear = document.getElementById("boss-clear-btn");
+  if (clear) clear.addEventListener("click", () => { bossSelection.clear(); renderBossGrid(); });
+  const attack = document.getElementById("boss-attack-btn");
+  if (attack) attack.addEventListener("click", () => attackBoss());
+}
+
+async function attackBoss() {
+  const plan = bossPlan();
+  if (!plan.n) return;
+  const list = plan.lines.map((l) => `<li>${l.copies.length}× ${l.v.card.name} (${l.copies.map((c) => bossSerial(c.serialNumber)).join(", ")}) — ${(l.each * l.copies.length).toLocaleString("fr-FR")}</li>`).join("");
   const ok = await Confirm.show(
-    `Donner <strong>${card?.name || "cette carte"}</strong> pour attaquer le boss ? L'exemplaire sera définitivement détruit.`,
+    `Sacrifier ces <strong>${plan.n} carte${plan.n > 1 ? "s" : ""}</strong> pour infliger <strong>${plan.total.toLocaleString("fr-FR")} dégâts</strong> (salve ×${plan.volley}) ?<ul style="text-align:left;margin:8px 0;font-size:0.85rem;">${list}</ul>Les exemplaires seront définitivement détruits.`,
     { title: "Attaquer le boss ?", confirmText: "Attaquer", dangerous: true }
   );
   if (!ok) return;
+  const btn = document.getElementById("boss-attack-btn");
+  if (btn) btn.disabled = true;
   try {
-    const res = await API.attackBoss(Session.userId, cardId);
+    const res = await API.bossAttack(Session.userId, plan.lines.flatMap((l) => l.copies.map((c) => c.pullId)));
+    bossSelection.clear();
     if (res.defeated) {
-      Toast.success(`Boss vaincu ! +${res.rewardBoosters} boosters pour tous les participants !`);
-      if (typeof confetti === "function") confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 } });
+      Toast.success(`&#127942; ${res.bossName} est vaincu ! +${res.rewardBoosters} boosters pour tous les participants !`);
+      if (res.finisherBonus) Toast.success(`&#9876;&#65039; Coup final ! +${res.finisherBonus.boosters} boosters bonus pour toi.`);
+      if (typeof confetti === "function") confetti({ particleCount: 220, spread: 130, origin: { y: 0.5 } });
     } else {
-      Toast.success(`-${res.damage} PV (${card?.name})`);
+      Toast.success(`&#9876;&#65039; -${res.damage.toLocaleString("fr-FR")} PV (salve ×${res.volleyMultiplier}) !`);
     }
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    allCards = [];
     await loadBoss();
   } catch (e) {
-    Toast.error(BOSS_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    if (btn) btn.disabled = false;
+    const msg = { no_active_boss: "Le boss n'est plus actif.", card_not_owned: "Un exemplaire n'est plus dans ta collection : recharge la page.", too_many_cards: `${bossRules.maxCards} cartes maximum par salve.`, promo_not_donatable: "Les cartes promo ne peuvent pas être données." };
+    Toast.error(msg[e.code] || BOSS_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }
 
@@ -502,6 +662,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     clearTimeout(bossSearchTimer);
     bossSearchTimer = setTimeout(() => { bossSearchQuery = e.target.value; renderBossGrid(); }, 200);
   });
+  document.getElementById("boss-card-grid").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-boss-qty]");
+    if (!btn) return;
+    const key = btn.dataset.key;
+    const next = Math.max(0, (bossSelection.get(key) || 0) + Number(btn.dataset.bossQty));
+    if (next) bossSelection.set(key, next); else bossSelection.delete(key);
+    renderBossGrid();
+  });
+  document.getElementById("boss-dupes-only").addEventListener("change", () => { bossSelection.clear(); renderBossGrid(); });
   let chestSearchTimer = null;
   document.getElementById("chest-search-input").addEventListener("input", (e) => {
     clearTimeout(chestSearchTimer);

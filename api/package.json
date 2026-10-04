@@ -10,12 +10,13 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "import": "node --disable-warning=ExperimentalWarning scripts/import-grist.js",
-    "test": "node --disable-warning=ExperimentalWarning scripts/schema-test.js && node --disable-warning=ExperimentalWarning scripts/selftest.js",
+    "test": "node --disable-warning=ExperimentalWarning scripts/schema-test.js && node --disable-warning=ExperimentalWarning scripts/native-test.js && node --disable-warning=ExperimentalWarning scripts/selftest.js",
     "compare": "node scripts/compare.js",
     "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
     "restore": "node --disable-warning=ExperimentalWarning scripts/restore.js"
   },
   "dependencies": {
-    "@sentry/node": "^11.4.0"
+    "@sentry/node": "^11.4.0",
+    "web-push": "^3.6.7"
   }
 }

@@ -698,44 +698,64 @@ async function bulkCancel() {
 // Suggestions d'échange : parmi les autres joueurs, qui possède en double
 // une carte qu'on n'a pas du tout ? Verification bornee (au plus 15 autres
 // joueurs) pour ne pas multiplier les requetes sur une grosse asso.
+// Correspondances d'echange (api/src/native/matches.js) : ses doublons dans
+// ta wishlist, tes doublons dans la sienne. Un seul appel ; "Proposer"
+// pre-remplit le formulaire (cible, carte offerte, carte demandee).
+let tradeMatches = [];
+function matchCardChip(c) {
+  const color = (c.rarity && c.rarity.colorHex) || "#9aa0b4";
+  return `<span class="match-card" style="--chip-color:${color};" title="${c.rarity ? c.rarity.name : ""}"><img src="${API.imageUrl(c.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />${c.name}</span>`;
+}
 async function loadTradeSuggestions() {
   const zone = document.getElementById("trade-suggestions");
   if (!zone) return;
   try {
-    const [usersRes, myCollection] = await Promise.all([
-      API.listUsers(),
-      API.getCollection(Session.userId)
-    ]);
-    const myOwnedIds = new Set((myCollection.owned || []).map((o) => o.cardId));
-    const others = (usersRes.users || [])
-      .filter((u) => String(u.userId) !== String(Session.userId) && u.pseudo)
-      .slice(0, 15);
-    if (!others.length) { zone.style.display = "none"; return; }
-
-    const profiles = await Promise.all(
-      others.map((u) => API.getPublicProfile(u.pseudo).then((p) => ({ pseudo: u.pseudo, profile: p })).catch(() => null))
-    );
-
-    const suggestions = [];
-    profiles.filter(Boolean).forEach(({ pseudo, profile }) => {
-      (profile.cards || []).forEach((c) => {
-        if (c.count > 1 && !c.isPromo && !myOwnedIds.has(c.cardId)) {
-          suggestions.push({ pseudo, cardName: c.name, colorHex: c.rarity?.colorHex });
-        }
-      });
-    });
-
-    if (!suggestions.length) { zone.style.display = "none"; return; }
+    const res = await API.getTradeMatches(Session.userId);
+    tradeMatches = res.matches || [];
+    if (!tradeMatches.length) {
+      zone.style.display = res.wishlistSize ? "none" : "block";
+      document.getElementById("trade-suggestions-list").innerHTML = res.wishlistSize ? "" : `<p class="lead" style="font-size:0.85rem;margin:0;">Ajoute des cartes à ta wishlist (étoile sur une carte manquante de ta collection) : on te dira qui les a en double.</p>`;
+      return;
+    }
     zone.style.display = "block";
-    document.getElementById("trade-suggestions-list").innerHTML = suggestions.slice(0, 8).map((s) => `
-      <div class="suggestion-row">
-        <span>&#128161; <strong>${s.pseudo}</strong> a un doublon de <strong style="color:${s.colorHex || "inherit"};">${s.cardName}</strong> que tu n'as pas.</span>
-        <a class="btn-ghost" href="profile.html?pseudo=${encodeURIComponent(s.pseudo)}">Voir son profil</a>
-      </div>
-    `).join("");
+    document.getElementById("trade-suggestions-list").innerHTML = tradeMatches.map((m, i) => `
+      <div class="match-row${m.mutual ? " match-mutual" : ""}">
+        <div class="match-head">
+          <strong>${m.pseudo}</strong>
+          ${m.mutual ? '<span class="match-tag">&#129309; échange gagnant-gagnant</span>' : m.wishlistMatch ? '<span class="match-tag">&#11088; dans ta wishlist</span>' : ""}
+        </div>
+        ${m.theyHave.length ? `<div class="match-line"><span>A en double${m.wishlistMatch ? " (ta wishlist)" : ""} :</span> ${m.theyHave.map(matchCardChip).join("")}</div>` : ""}
+        ${m.iHave.length ? `<div class="match-line"><span>Cherche (tes doublons) :</span> ${m.iHave.map(matchCardChip).join("")}</div>` : ""}
+        <div class="match-actions">
+          ${m.theyHave.length ? `<button type="button" class="btn-secondary" data-match="${i}">&#8644; Proposer un échange</button>` : ""}
+          <a class="btn-ghost" href="profile.html?pseudo=${encodeURIComponent(m.pseudo)}">Voir son profil</a>
+        </div>
+      </div>`).join("");
   } catch (e) {
     zone.style.display = "none";
   }
+}
+
+// Pre-remplit le formulaire avec une correspondance : cible, carte demandee
+// (son doublon), carte offerte (ton doublon qu'il cherche, sinon rien).
+async function prefillFromMatch(m) {
+  const target = document.getElementById("target-select");
+  target.value = m.pseudo;
+  if (target._fancyRefresh) target._fancyRefresh();
+  await updateRequestedCardOptionsForTarget(m.pseudo);
+  const requested = document.getElementById("requested-card-select");
+  if (m.theyHave[0]) requested.value = String(m.theyHave[0].cardId);
+  if (requested._fancyRefresh) requested._fancyRefresh();
+  updateCardPreview("requested-card-select", "requested-card-preview");
+  const offered = document.getElementById("offered-card-select");
+  const give = m.iHave.find((c) => [...offered.options].some((o) => o.value === String(c.cardId)));
+  if (give) {
+    offered.value = String(give.cardId);
+    if (offered._fancyRefresh) offered._fancyRefresh();
+    offered.dispatchEvent(new Event("change"));
+  }
+  document.getElementById("create-trade-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  Toast.info(`Échange pré-rempli avec ${m.pseudo} : vérifie puis envoie.`);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -767,6 +787,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   document.getElementById("requested-card-select").addEventListener("change", () => updateCardPreview("requested-card-select", "requested-card-preview"));
   document.getElementById("target-select").addEventListener("change", (e) => updateRequestedCardOptionsForTarget(e.target.value));
+  document.getElementById("trade-suggestions-list").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-match]");
+    if (btn) prefillFromMatch(tradeMatches[Number(btn.dataset.match)]);
+  });
   document.getElementById("offer-duplicates-only").addEventListener("change", renderOfferedCardOptions);
   document.getElementById("offer-missing-only").addEventListener("change", renderOfferedCardOptions);
   enhanceSelect(document.getElementById("offered-card-select"));

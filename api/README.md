@@ -118,6 +118,35 @@ Traefik, nginx) qui gère le HTTPS.
 5. **Fin de maintenance**, puis désactive les workflows dans n8n (garde-les
    quelques jours en secours, sans les réactiver : les données divergeraient).
 
+## Fonctionnalités natives (`src/native/`)
+
+À côté des workflows n8n, certaines fonctionnalités sont écrites directement
+en JS contre la base. Elles gardent les mêmes adresses `/webhook/<chemin>`, le
+même verrou (aucune double dépense) et **créent elles-mêmes leurs tables et
+colonnes au démarrage** : rien à créer à la main.
+
+| Module | Routes | Rôle |
+| --- | --- | --- |
+| `sets.js` | `POST set-rewards`, `GET set-completions` | récompense unique par set complet (coffre-fort compris) |
+| `matches.js` | `POST trade-matches` | doublons des joueurs × wishlists |
+| `streak.js` | `POST login-streak` | cadeau quotidien sur un cycle de 7 jours |
+| `events.js` | `GET event-status`, `POST admin-event` | week-ends événement (poussières ×N, finitions ×N), appliqués après les workflows |
+| `boss.js` | `POST boss-attack`, `GET boss-leaderboard` | attaque en salve sur des exemplaires précis, multiplicateurs, classement, bonus du coup final |
+| `economy.js` | `POST admin-economy` | tableau de bord de l'économie (admin) |
+| `chests.js` | `POST chests` | coffres (achat, 1 coffre / 5 niveaux, 1 clé / 10 niveaux, ouverture avec une clé) |
+| `push.js` | `GET push-config`, `POST push` | notifications push (Web Push) |
+
+Réglages facultatifs dans la ligne `Config` (vide = valeur par défaut) :
+`SetRewardBoosters` (3), `SetRewardDust` (300), `ChestCost` (100),
+`BossFinisherBoosters` (2, négatif = désactivé). Les admins des routes natives
+sont ceux de `ADMIN_DISCORD_IDS` (par défaut les deux mêmes que les workflows).
+
+**Notifications push** : les clés VAPID sont générées au premier démarrage et
+gardées en base (table `AppSettings`) ; `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`
+permettent de les imposer. Envoi chaque minute, jamais entre 22 h et 9 h, une
+seule fois par événement. Sur iPhone, le site doit être ajouté à l'écran
+d'accueil pour recevoir des notifications.
+
 ## Lectures groupées (`/webhook/batch`)
 
 `POST /webhook/batch` avec `{ "calls": [{ "path": "quests", "method": "POST", "body": { "userId": 1, "action": "status" } }, { "path": "site-banner" }] }`

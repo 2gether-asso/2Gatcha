@@ -15,6 +15,7 @@ import { WorkflowRunner } from './runtime.js';
 import { createAdmin } from './admin.js';
 import { AzureBackup, startBackupSchedule } from './backup.js';
 import { initMonitoring, captureError, flushMonitoring } from './monitoring.js';
+import { createNative } from './native/index.js';
 
 // Suivi des erreurs (GlitchTip) le plus tot possible.
 await initMonitoring(config.monitoring);
@@ -162,8 +163,14 @@ if (config.backup.sasUrl) {
   backups = { backup, ...startBackupSchedule({ store, backup, hours: config.backup.hours, retentionDays: config.backup.retentionDays }) };
 }
 
-// Execute un workflow sous le verrou et renvoie sa reponse HTTP.
-async function runWorkflow(route, request) {
+// Fonctionnalites natives (api/src/native) : routes ecrites directement en
+// JS, bonus appliques apres certains workflows, notifications push.
+const native = createNative({ store, withLock, captureError });
+native.start();
+
+// Execute un workflow sous le verrou et renvoie sa reponse HTTP. hookPath :
+// chemin du webhook, pour les bonus natifs appliques apres coup.
+async function runWorkflow(route, request, hookPath) {
   return withLock(async () => {
     const { responded, done } = runner.run(route.wf, request, { unlocked });
     const resp = await responded;
@@ -172,8 +179,14 @@ async function runWorkflow(route, request) {
     // passer a la requete suivante.
     done.then(() => {}, () => {});
     await done;
+    if (hookPath) native.afterWorkflow(hookPath, request, resp);
     return resp;
   });
+}
+
+// Route native : meme verrou que les workflows.
+async function runNative(method, hookPath, body, query) {
+  return withLock(() => native.run(method, hookPath, { body, query }));
 }
 
 // --------------------------------------------------------------- batch
@@ -191,11 +204,13 @@ async function handleBatch(req, res, url) {
     const method = String(c && c.method || 'GET').toUpperCase();
     const hookPath = String(c && c.path || '').replace(/^\/+|\/+$/g, '');
     const route = routes.get(`${method} ${hookPath}`);
+    const isNative = native.has(method, hookPath);
     const body = c && c.body && typeof c.body === 'object' ? c.body : {};
-    if (!route) { results.push({ status: 404, json: { error: 'not_found' } }); continue; }
+    if (!route && !isNative) { results.push({ status: 404, json: { error: 'not_found' } }); continue; }
     if (method !== 'GET' && !READ_ACTIONS.has(body.action)) { results.push({ status: 400, json: { error: 'read_only' } }); continue; }
     const query = c.query && typeof c.query === 'object' ? Object.fromEntries(Object.entries(c.query).map(([k, v]) => [k, String(v)])) : {};
-    const resp = await runWorkflow(route, { headers: req.headers, params: {}, query, body, webhookUrl: `${url.origin}/webhook/${hookPath}`, executionMode: 'production' });
+    if (isNative) { results.push(await runNative(method, hookPath, body, query)); continue; }
+    const resp = await runWorkflow(route, { headers: req.headers, params: {}, query, body, webhookUrl: `${url.origin}/webhook/${hookPath}`, executionMode: 'production' }, hookPath);
     results.push({ status: resp.status, json: resp.raw ? null : resp.json });
   }
   return sendJson(res, req, 200, { results });
@@ -221,6 +236,13 @@ const server = http.createServer(async (req, res) => {
     if (m) {
       const hookPath = m[1];
       if (req.method === 'GET' && hookPath === 'image') return serveImage(req, res, url);
+      if (native.has(req.method, hookPath)) {
+        const body = req.method === 'POST' ? await readBody(req) : {};
+        const resp = await runNative(req.method, hookPath, body, Object.fromEntries(url.searchParams));
+        sendJson(res, req, resp.status, resp.json);
+        if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${resp.status} ${Date.now() - started}ms (natif)`);
+        return;
+      }
       const route = routes.get(`${req.method} ${hookPath}`);
       if (!route) return sendJson(res, req, 404, { code: 404, message: `The requested webhook "${req.method} ${hookPath}" is not registered.` });
       const body = req.method === 'POST' ? await readBody(req) : {};
@@ -232,7 +254,7 @@ const server = http.createServer(async (req, res) => {
         webhookUrl: `${url.origin}${url.pathname}`,
         executionMode: 'production'
       };
-      const response = await runWorkflow(route, request);
+      const response = await runWorkflow(route, request, hookPath);
       if (response.raw) send(res, req, response.status, response.headers || {}, response.raw);
       else sendJson(res, req, response.status, response.json, response.headers || {});
       if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${response.status} ${Date.now() - started}ms`);

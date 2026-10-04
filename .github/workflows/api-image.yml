@@ -48,7 +48,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: npm test (base d'essai, 40+ endpoints)
+      - name: Dependances (@sentry/node, web-push)
+        working-directory: api
+        run: npm ci --no-audit --no-fund
+      - name: npm test (base d'essai, 40+ endpoints, fonctionnalites natives)
         working-directory: api
         run: npm test
 

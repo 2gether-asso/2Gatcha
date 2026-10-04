@@ -50,11 +50,20 @@
               <div class="hp-track-bar"><div id="boss-hp-fill" class="hp-track-fill"></div></div>
               <div class="hp-track-labels"><span id="boss-hp-label"></span></div>
             </div>
-            <p class="lead" style="font-size:0.85rem;">Donne une carte non-promo (doublon de préférence) pour l'attaquer : elle sera détruite et infligera des dégâts selon sa rareté.</p>
-            <div class="craft-toolbar">
-              <input type="text" id="boss-search-input" placeholder="Rechercher une carte à donner..." autocomplete="off" aria-label="Rechercher une carte" />
+            <p class="lead" style="font-size:0.85rem;">Choisis exactement les exemplaires que tu sacrifies : chaque carte frappe selon sa rareté, sa finition et son état, et plus ta salve compte de cartes, plus le multiplicateur grimpe. Les cartes données sont détruites.</p>
+            <div id="boss-rules" class="boss-rules"></div>
+            <div class="boss-attack-layout">
+              <div class="boss-attack-main">
+                <div class="craft-toolbar">
+                  <input type="text" id="boss-search-input" placeholder="Rechercher une carte à donner..." autocomplete="off" aria-label="Rechercher une carte" />
+                  <label class="checkbox-inline"><input type="checkbox" id="boss-dupes-only" checked /> Seulement mes doublons</label>
+                </div>
+                <div id="boss-card-grid" class="craft-grid"></div>
+              </div>
+              <aside id="boss-tray" class="boss-tray" aria-live="polite"></aside>
             </div>
-            <div id="boss-card-grid" class="craft-grid"></div>
+          </div>
+          <div id="boss-leaderboard" class="boss-leaderboard" style="display:none;">
           </div>
         </div>
       </div>

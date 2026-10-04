@@ -152,7 +152,14 @@ const API = {
     if (this._isRead("POST", body)) return this._shared(this._readKey("POST", name, body), () => this._post(name, body));
     this.invalidate();
     try {
-      return await this._post(name, body);
+      const data = await this._post(name, body);
+      // Bonus d'un week-end evenement (api/src/native/events.js) : annonce.
+      if (data && data.eventBonus && typeof Toast !== "undefined") {
+        const b = data.eventBonus;
+        if (b.dust) Toast.success(`&#127881; ${b.label} : +${b.dust} poussières bonus !`);
+        else if (b.finishes) Toast.success(`&#127881; ${b.label} : ${b.finishes} finition${b.finishes > 1 ? "s" : ""} améliorée${b.finishes > 1 ? "s" : ""} !`);
+      }
+      return data;
     } finally {
       // Une ecriture peut avoir change n'importe quelle lecture faite pendant
       // qu'elle tournait.
@@ -558,5 +565,52 @@ const API = {
   },
   openVault(userId) {
     return this.post("vault", { userId, action: "open" });
+  },
+
+  // --- fonctionnalites natives (2026-10-04) ---
+  getSetRewards(userId) {
+    return this.post("setRewards", { userId, action: "status" });
+  },
+  claimSetReward(userId, extensionId) {
+    return this.post("setRewards", { userId, action: "claim", extensionId });
+  },
+  getSetCompletions(pseudo) {
+    return this.get("setCompletions", { pseudo });
+  },
+  getTradeMatches(userId) {
+    return this.post("tradeMatches", { userId, action: "list" });
+  },
+  getLoginStreak(userId) {
+    return this.post("loginStreak", { userId, action: "status" });
+  },
+  claimLoginStreak(userId) {
+    return this.post("loginStreak", { userId, action: "claim" });
+  },
+  getEventStatus() {
+    return this.get("eventStatus");
+  },
+  adminGetEvent(discordId) {
+    return this.post("adminEvent", { discordId, action: "get" });
+  },
+  adminSetEvent(discordId, params) {
+    return this.post("adminEvent", { discordId, action: "set", ...params });
+  },
+  bossAttack(userId, pullIds) {
+    return this.post("bossAttack", { userId, pullIds });
+  },
+  getBossLeaderboard(userId) {
+    return this.get("bossLeaderboard", { userId });
+  },
+  adminGetEconomy(discordId) {
+    return this.post("adminEconomy", { discordId, action: "get" });
+  },
+  getPushConfig() {
+    return this.get("pushConfig");
+  },
+  chests(userId, action) {
+    return this.post("chests", { userId, action });
+  },
+  pushAction(userId, action, subscription) {
+    return this.post("push", { userId, action, subscription });
   }
 };

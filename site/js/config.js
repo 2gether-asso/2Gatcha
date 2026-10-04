@@ -72,7 +72,20 @@ window.APP_CONFIG = {
     bingo: "/bingo",                   // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
     levelRewards: "/level-rewards",    // POST { userId, action: 'status'|'claim' } | { discordId, action: 'adminList'|'adminSet', rows? }
     personalVault: "/personal-vault", // POST { userId, action: 'status'|'store'|'withdraw', pullId? } -> { unlocked, rows, boostersPerRow, dustPerRow, reward }
-    vault: "/vault"                    // POST { userId, action: 'status'|'open' } -> { card, keysRequired, userKeys, alreadyOpened } | { opened, card, serialNumber, newKeyCount }
+    vault: "/vault",                   // POST { userId, action: 'status'|'open' } -> { card, keysRequired, userKeys, alreadyOpened } | { opened, card, serialNumber, newKeyCount }
+    // Fonctionnalites natives de l'API (api/src/native, 2026-10-04)
+    setRewards: "/set-rewards",         // POST { userId, action: 'status'|'claim', extensionId? }
+    setCompletions: "/set-completions", // GET ?pseudo=... -> { sets: [{ extensionId, name, claimedAt }] }
+    tradeMatches: "/trade-matches",     // POST { userId, action: 'list' } -> { matches }
+    loginStreak: "/login-streak",       // POST { userId, action: 'status'|'claim' }
+    eventStatus: "/event-status",       // GET -> { active, label, dustMultiplier, finishMultiplier, endsAt }
+    adminEvent: "/admin-event",         // POST { discordId, action: 'get'|'set', ... }
+    bossLeaderboard: "/boss-leaderboard", // GET ?userId=... -> { boss, top, me, participants, rules }
+    bossAttack: "/boss-attack",         // POST { userId, pullIds } -> attaque en salve sur des exemplaires precis
+    adminEconomy: "/admin-economy",     // POST { discordId } -> tableau de bord de l'economie
+    pushConfig: "/push-config",         // GET -> { enabled, publicKey }
+    chests: "/chests",                 // POST { userId, action: 'status'|'buy'|'open' } -> coffres (page d'ouverture)
+    push: "/push"                       // POST { userId, action: 'status'|'subscribe'|'unsubscribe'|'test', subscription? }
   }
 };
 

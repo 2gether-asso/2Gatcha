@@ -132,7 +132,8 @@ function renderNotifDropdown() {
           </span>
         </div>
       `).join("")
-    : `<div class="notif-empty">Rien de nouveau pour l'instant.</div>`);
+    : `<div class="notif-empty">Rien de nouveau pour l'instant.</div>`) + `<div id="push-toggle-row"></div>`;
+  if (typeof PushNotifs !== "undefined") PushNotifs.renderRow(document.getElementById("push-toggle-row"));
   const clearBtn = document.getElementById("notif-clear-btn");
   if (clearBtn) {
     clearBtn.addEventListener("click", (e) => {

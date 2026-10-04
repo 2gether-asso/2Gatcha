@@ -268,13 +268,13 @@
     const wished = state.wishlist.has(card.cardId);
     // Carte jamais obtenue : nom visible (on la vise), image floutee comme au classeur.
     return `
-      <div class="craft-card ${canAfford ? "" : "unavailable"} ${cBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${owned ? "" : "coll-missing"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
+      <div class="craft-card ${canAfford ? "" : "unavailable"} ${cBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${Coll.isDiscovered(card.cardId) ? "" : "coll-missing"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
         ${cBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-craft-bulk-id="${card.cardId}" ${checked ? "checked" : ""} ${canAfford ? "" : "disabled"} aria-label="Sélectionner ${escapeHtml(card.name)}" /></label>` : ""}
         ${wished ? `<span class="coll-wish-flag" title="Dans ta wishlist">&#9733;</span>` : ""}
         <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(card.name)}" loading="lazy" />
         <div class="card-info">
           <div class="card-name">${escapeHtml(card.name)}</div>
-          <div class="owned-count">${owned ? `Possédée x${owned.count}` : "<strong>Manquante</strong>"}</div>
+          <div class="owned-count">${owned ? `Possédée x${owned.count}` : state.protectedMap.has(card.cardId) ? "&#128274; Au coffre-fort" : "<strong>Manquante</strong>"}</div>
           <div class="craft-cost">${cost} poussières</div>
           ${!canAfford ? `<div class="craft-missing">Il te manque ${cost - state.stardust} poussières</div>` : ""}
           ${showStepper ? `
@@ -290,11 +290,11 @@
 
   function renderCraft() {
     let list = Coll.filterCards(craftableCards());
-    if (hideOwned) list = list.filter((c) => !state.ownedMap.has(c.cardId));
+    if (hideOwned) list = list.filter((c) => !Coll.isDiscovered(c.cardId));
     // A portee d'abord, puis manquantes, puis wishlist, puis cout croissant.
     list = [...list].sort((a, b) =>
       ((state.stardust >= craftCost(a) ? 0 : 1) - (state.stardust >= craftCost(b) ? 0 : 1)) ||
-      ((state.ownedMap.has(a.cardId) ? 1 : 0) - (state.ownedMap.has(b.cardId) ? 1 : 0)) ||
+      ((Coll.isDiscovered(a.cardId) ? 1 : 0) - (Coll.isDiscovered(b.cardId) ? 1 : 0)) ||
       ((state.wishlist.has(b.cardId) ? 1 : 0) - (state.wishlist.has(a.cardId) ? 1 : 0)) ||
       (craftCost(a) - craftCost(b)) || a.name.localeCompare(b.name));
     [...cSelected].forEach((id) => { const c = cardOf(id); if (!c || state.stardust < craftCost(c)) cSelected.delete(id); });
@@ -641,7 +641,7 @@
   Coll.registerPane("craft", {
     render: renderCraft,
     // Cartes manquantes que le solde permet deja de crafter.
-    count: () => craftableCards().filter((c) => !state.ownedMap.has(c.cardId) && state.stardust >= craftCost(c)).length,
+    count: () => craftableCards().filter((c) => !Coll.isDiscovered(c.cardId) && state.stardust >= craftCost(c)).length,
     reset() { hideOwned = false; cBulk = false; cSelected.clear(); cQty.clear(); $("craft-bulk-toggle").classList.remove("active"); },
     showMissingOnly() { hideOwned = true; }
   });

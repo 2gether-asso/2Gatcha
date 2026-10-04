@@ -52,6 +52,7 @@
           <div id="milestone-banner" class="milestone-banner" style="display:none;"></div>
         </div>
         <div id="unused-dust-reminder" class="milestone-banner" style="display:none;"></div>
+        <div id="set-reward-banner" class="set-reward-banner" style="display:none;"></div>
 
         <!-- Modes de la page (ancres #classeur, #decrafter, #crafter, #autel, #finitions, #qualite) -->
         <nav class="tabs coll-modes" role="tablist" aria-label="Modes de la collection">
@@ -88,11 +89,31 @@
               <button type="button" class="btn-secondary" id="favorites-toggle">&#9733; Favoris uniquement</button>
               <button type="button" class="btn-secondary" id="mark-seen-btn">&#10003; Tout marquer comme vu</button>
             </div>
+            <div class="toolbar-group" data-only-mode="binder">
+              <select id="finish-filter" aria-label="Filtrer par finition">
+                <option value="">Toutes les finitions</option>
+                <option value="normal">Normal</option>
+                <option value="holo">Holo</option>
+                <option value="gold">Doré</option>
+                <option value="ghost">Ghost</option>
+                <option value="diamond">Diamant</option>
+                <option value="rainbow">Arc-en-ciel</option>
+              </select>
+              <select id="quality-filter" aria-label="Filtrer par état">
+                <option value="">Tous les états</option>
+                <option value="damaged">Abîmé</option>
+                <option value="worn">Usé</option>
+                <option value="good">Bon état</option>
+                <option value="mint">Parfait état</option>
+              </select>
+              <button type="button" class="btn-secondary" id="first-serial-toggle" title="Seulement les premiers exemplaires en circulation">#001</button>
+            </div>
             <div class="toolbar-group" data-only-mode="craft">
               <button type="button" class="btn-secondary" id="hide-owned-toggle">&#128269; Manquantes uniquement</button>
             </div>
             <div class="toolbar-divider" aria-hidden="true" data-only-mode="binder"></div>
             <div class="toolbar-group" data-only-mode="binder">
+              <button type="button" class="btn-secondary" id="album-toggle" title="Album : une extension, page par page, avec les emplacements vides numérotés">&#128214; Album</button>
               <button type="button" class="btn-secondary" id="dense-toggle" title="Grille compacte : plus de cartes visibles à l'écran">&#9638; Grille compacte</button>
               <button type="button" class="btn-secondary" id="cinema-toggle" title="Plein écran : masque le menu et les stats pour ne garder que les cartes">&#128065; Plein écran</button>
             </div>

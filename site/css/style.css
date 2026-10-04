@@ -5594,3 +5594,210 @@ button.coll-rarity-row.active { border-color: var(--border); background: rgba(13
   .coll-dust { flex: 1 1 100%; }
   .coll-pane-actions > button { flex: 1 1 auto; }
 }
+
+/* ========================================================================
+   Fonctionnalites du 2026-10-04 (api/src/native) : evenement, notifications,
+   serie de connexion, sets complets, album, correspondances d'echange,
+   classement du boss, economie, coffres, revelation en grille.
+   ======================================================================== */
+/* Bandeau d'evenement */
+.beta-banner.banner-event {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-3) 22%, transparent), color-mix(in srgb, var(--rarity-legendaire) 18%, transparent));
+  border-bottom: 1px solid color-mix(in srgb, var(--rarity-legendaire) 40%, transparent);
+  color: var(--text);
+}
+
+/* Notifications push (menu des notifications) */
+.push-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--border-soft); font-size: 0.8rem; }
+.push-row small { display: block; color: var(--text-dim); font-size: 0.7rem; margin-top: 2px; }
+.push-row .push-toggle-btn { padding: 5px 10px; font-size: 0.75rem; flex-shrink: 0; }
+.push-row-muted { color: var(--text-dim); display: block; }
+
+/* Serie de connexion (accueil) */
+.streak-days { list-style: none; padding: 0; margin: 12px 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.streak-day { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; border-radius: 10px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); font-size: 0.68rem; text-align: center; min-width: 0; }
+.streak-day-num { font-family: var(--font-display); color: var(--text-dim); }
+.streak-day-icon { font-size: 1.1rem; }
+.streak-day-reward { color: var(--text-dim); line-height: 1.2; overflow-wrap: anywhere; }
+.streak-day.streak-claimed { opacity: 0.55; }
+.streak-day.streak-claimed .streak-day-icon { color: var(--success); }
+.streak-day.streak-today { border-color: var(--accent-3); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-3) 35%, transparent); }
+.streak-day.streak-today .streak-day-reward { color: var(--text); font-weight: 700; }
+.streak-day.streak-big { background: linear-gradient(160deg, color-mix(in srgb, var(--rarity-legendaire) 18%, var(--bg-panel-2)), var(--bg-panel-2)); }
+@media (max-width: 480px) { .streak-day-reward { font-size: 0.6rem; } }
+
+/* Sets complets (collection) */
+.set-reward-banner { display: grid; gap: 8px; margin: 12px 0; }
+.set-reward-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 16px; border-radius: 12px; background: linear-gradient(120deg, color-mix(in srgb, var(--rarity-legendaire) 20%, var(--bg-panel-2)), var(--bg-panel-2)); border: 1px solid color-mix(in srgb, var(--rarity-legendaire) 45%, transparent); font-size: 0.88rem; }
+.set-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: 0.72rem; font-family: var(--font-body); font-weight: 700; margin-left: 8px; }
+.set-chip-done { background: color-mix(in srgb, var(--rarity-legendaire) 18%, transparent); color: var(--rarity-legendaire); }
+button.set-chip-claim { background: linear-gradient(135deg, var(--rarity-legendaire), #ffd166); color: #1a1200; border: none; box-shadow: none; cursor: pointer; text-shadow: none; }
+button.set-chip-claim::before { content: none; }
+.coll-value-trend { display: block; font-size: 0.68rem; margin-top: 2px; }
+.coll-value-trend.up { color: var(--success); }
+.coll-value-trend.down { color: var(--danger); }
+
+/* Album par extension (classeur) */
+.album { display: grid; gap: 14px; }
+.album-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.album-head select { background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text); padding: 8px 12px; border-radius: 10px; font-family: var(--font-body); }
+.album-progress { color: var(--text-dim); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.album-spread { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 18px; }
+.album-page { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; border-radius: 14px; background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(0,0,0,0.25)); border: 1px solid var(--border-soft); box-shadow: inset 0 0 0 6px rgba(0,0,0,0.12); }
+.album-slot { position: relative; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; min-width: 0; }
+.album-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 2px dashed color-mix(in srgb, var(--slot-color) 45%, transparent); background: color-mix(in srgb, var(--slot-color) 6%, transparent); color: var(--text-dim); }
+.album-empty .album-q { font-family: var(--font-display); font-size: 1.4rem; opacity: 0.5; }
+.album-empty .album-num { position: static; background: none; }
+.album-owned { cursor: pointer; border: 2px solid color-mix(in srgb, var(--slot-color) 70%, transparent); box-shadow: 0 6px 18px -10px var(--slot-color); transition: transform 0.15s ease; }
+.album-owned:hover, .album-owned:focus-visible { transform: translateY(-2px); outline: none; }
+.album-owned img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.album-num { position: absolute; top: 4px; left: 4px; font-family: var(--font-display); font-size: 0.62rem; padding: 1px 6px; border-radius: 999px; background: rgba(6,7,15,0.75); color: var(--text); }
+.album-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; font-size: 0.66rem; font-weight: 700; background: linear-gradient(transparent, rgba(6,7,15,0.9)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.album-count { position: absolute; top: 4px; right: 4px; font-size: 0.62rem; font-weight: 800; padding: 1px 6px; border-radius: 999px; background: rgba(6,7,15,0.75); }
+.album-owned .finish-indicator { top: auto !important; bottom: 22px; left: 4px; }
+.album-vault { border-color: var(--success); }
+.album-nav { display: flex; align-items: center; justify-content: center; gap: 14px; font-variant-numeric: tabular-nums; }
+.album-nav button { padding: 6px 14px; }
+
+/* Correspondances d'echange */
+.match-row { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; background: var(--bg-panel); border: 1px solid var(--border-soft); }
+.match-row.match-mutual { border-color: color-mix(in srgb, var(--success) 50%, transparent); }
+.match-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.match-tag { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.match-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 0.82rem; color: var(--text-dim); }
+.match-card { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 2px; border-radius: 999px; background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--chip-color) 55%, transparent); color: var(--text); font-size: 0.78rem; }
+.match-card img { width: 22px; height: 29px; object-fit: cover; border-radius: 4px; }
+.match-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Classement du boss */
+.boss-leaderboard { margin-top: 24px; padding: 16px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.boss-leaderboard h3 { margin: 0 0 8px; font-size: 1rem; }
+.boss-finisher, .boss-me { font-size: 0.82rem; color: var(--text-dim); margin: 6px 0; }
+.boss-ranking { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+.boss-ranking li { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 8px; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.boss-ranking li:nth-child(odd) { background: rgba(255,255,255,0.03); }
+.boss-ranking li.me { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.boss-rank { text-align: center; font-weight: 800; }
+.boss-dmg { font-weight: 700; }
+.boss-hits { color: var(--text-dim); font-size: 0.75rem; }
+@media (max-width: 480px) { .boss-ranking li { grid-template-columns: 28px 1fr auto; } .boss-hits { display: none; } }
+
+/* Economie (admin) */
+.econ-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; margin: 18px 0; }
+.econ-chart { padding: 12px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.econ-chart-title { font-size: 0.82rem; font-weight: 700; margin-bottom: 8px; }
+.econ-chart-title span { color: var(--text-dim); font-weight: 400; }
+.econ-bars { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+.econ-bar { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0; background: linear-gradient(var(--accent-2), var(--accent)); }
+.econ-axis { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-dim); margin-top: 4px; }
+.econ-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
+.econ-columns h3 { font-size: 0.9rem; margin: 0 0 6px; }
+.econ-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 3px; font-size: 0.82rem; }
+.econ-list li { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.econ-list small { color: var(--text-dim); }
+
+/* Coffres (page d'ouverture) */
+.chest-panel { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; margin-top: 28px; padding: 18px 20px; border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--rarity-legendaire) 14%, var(--bg-panel-2)), var(--bg-panel-2)); border: 1px solid color-mix(in srgb, var(--rarity-legendaire) 35%, transparent); }
+.chest-visual { font-size: 3rem; filter: drop-shadow(0 6px 14px rgba(245,165,36,0.35)); }
+.chest-body h2 { margin: 0 0 4px; font-size: 1.15rem; }
+.chest-desc, .chest-next { margin: 0; font-size: 0.82rem; color: var(--text-dim); }
+.chest-stock { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.chest-chip { padding: 3px 10px; border-radius: 999px; background: rgba(6,7,15,0.45); border: 1px solid var(--border-soft); font-weight: 700; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.chest-actions { display: grid; gap: 8px; }
+@media (max-width: 640px) { .chest-panel { grid-template-columns: 1fr; text-align: center; } .chest-stock { justify-content: center; } }
+.booster-pack.chest-pack { background: linear-gradient(160deg, #7c4a1e, #3b2410); border-color: #f5a524; }
+.booster-pack.chest-pack .chest-emoji { font-size: 4rem; }
+
+/* Etiquettes pendant la revelation (shiny, bonus, coffre) */
+.pack-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.pack-tag { padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 800; animation: modalPopIn 0.35s cubic-bezier(.2,.9,.3,1.3) both; }
+.pack-tag-shiny { background: linear-gradient(90deg, #ff6ec7, #ffd76e, #7dd3fc, #a78bfa); color: #1a0f22; }
+.pack-tag-bonus { background: color-mix(in srgb, var(--accent-2) 22%, transparent); color: var(--accent-2); border: 1px solid var(--accent-2); }
+.pack-tag-chest { background: color-mix(in srgb, var(--rarity-legendaire) 22%, transparent); color: var(--rarity-legendaire); border: 1px solid var(--rarity-legendaire); }
+.bonus-card-ribbon { position: absolute; top: 34px; right: -2px; z-index: 3; padding: 2px 8px; border-radius: 6px 0 0 6px; background: var(--accent-2); color: #031018; font-size: 0.6rem; font-weight: 800; }
+.loot-art { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, color-mix(in srgb, var(--accent-3) 30%, transparent), transparent 70%); }
+.loot-booster .loot-art { background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent 70%); }
+.loot-icon { font-size: 3.4rem; }
+
+/* Face avant d'une carte revelee : exactement la taille de la carte.
+   .card-front { position: relative } la laissait grandir avec son contenu
+   (image + nom), environ 23 % plus haute que la carte : en grille ("Tout
+   reveler"), chaque carte chevauchait celle du dessous. */
+.reveal-grid .card-front { position: absolute; inset: 0; }
+.reveal-grid .card-front .card-info { flex: 1; min-height: 0; overflow: hidden; }
+
+/* Badges d'une carte revelee : bas de l'illustration (ils couvraient la
+   finition / l'etat en haut, et se chevauchaient entre eux). */
+.reveal-grid .card-front > .new-badge,
+.reveal-grid .card-front > .dupe-badge { top: calc(76% - 26px); }
+
+/* "Tout reveler" : grille compacte et lisible, meilleures cartes d'abord */
+.pack-modal-stage.reveal-row .booster-stage,
+.pack-modal-stage.reveal-row .quantity-picker { display: none !important; }
+.reveal-grid.row-reveal { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
+.reveal-grid.row-reveal .card.revealed { cursor: zoom-in; }
+.reveal-grid.row-reveal .card-artist { display: none; }
+.reveal-grid.row-reveal .card-name { font-size: 0.68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reveal-grid.row-reveal .rarity-badge { font-size: 0.56rem; padding: 1px 6px; }
+.reveal-grid.row-reveal .card-info { padding: 4px 6px 6px; }
+.reveal-grid.row-reveal .quality-indicator:not([data-quality="mint"]) { display: none; }
+.reveal-grid.row-reveal .finish-indicator, .reveal-grid.row-reveal .quality-indicator { font-size: 0.52rem; }
+.reveal-grid.row-reveal .new-badge.first-ever-badge { font-size: 0; left: 6px; right: auto; padding: 2px 6px; }
+.reveal-grid.row-reveal .new-badge.first-ever-badge::after { content: "\1F3C6  1\E8 re"; font-size: 0.56rem; }
+.reveal-grid.row-reveal .new-badge, .reveal-grid.row-reveal .dupe-badge { font-size: 0.56rem; padding: 1px 6px; }
+.reveal-grid.row-reveal .card-front > .dupe-badge, .reveal-grid.row-reveal .card-front > .new-badge:not(.first-ever-badge) { left: auto; right: 6px; }
+.reveal-grid.row-reveal .serial-one-badge { font-size: 0.56rem; padding: 1px 6px; top: 4px; }
+.reveal-grid.row-reveal .bonus-card-ribbon { top: 22px; font-size: 0.5rem; }
+.reveal-grid.row-reveal .card-aura-ring { display: none; }
+.reveal-grid.row-reveal .card.hero-zoom .card-inner { animation: none; }
+.reveal-grid.row-reveal .loot-icon { font-size: 2.2rem; }
+@media (max-width: 480px) { .reveal-grid.row-reveal { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
+
+/* Resume du butin */
+.reveal-summary { width: 100%; padding: 12px 14px; border-radius: 14px; background: rgba(6,7,15,0.55); border: 1px solid var(--border-soft); display: grid; gap: 8px; }
+.reveal-summary[hidden] { display: none; }
+.summary-head { font-size: 0.9rem; }
+.summary-new { color: var(--accent-3); font-weight: 700; }
+.summary-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.summary-pill { padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; background: color-mix(in srgb, var(--pill-color) 16%, transparent); border: 1px solid color-mix(in srgb, var(--pill-color) 60%, transparent); }
+.summary-notable { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 4px 12px; font-size: 0.8rem; }
+.summary-notable li { border-left: 3px solid var(--pill-color); padding-left: 8px; }
+.summary-notable span { color: var(--text-dim); }
+.summary-hint { margin: 0; font-size: 0.72rem; color: var(--text-dim); }
+
+/* Loupe sur une carte de la grille */
+.reveal-zoom-overlay { position: fixed; inset: 0; z-index: 450; display: flex; align-items: center; justify-content: center; background: rgba(4,5,12,0.82); cursor: zoom-out; }
+.reveal-zoom-card { width: min(300px, 80vw); opacity: 1; transform: none; animation: modalPopIn 0.25s cubic-bezier(.2,.9,.3,1.3) both; }
+.reveal-zoom-card .card-inner { transform: none !important; }
+.reveal-zoom-card .card-front { transform: none; position: absolute; inset: 0; }
+
+/* Boss : attaque en salve (communaute.js, api/src/native/boss.js) */
+.boss-rules { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+.boss-rule { font-size: 0.74rem; padding: 3px 10px; border-radius: 999px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text-dim); }
+.boss-rule strong { color: var(--text); margin-right: 4px; }
+.boss-attack-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+.boss-tray { position: sticky; top: calc(var(--header-h, 64px) + 12px); padding: 16px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-soft)); display: grid; gap: 10px; }
+.boss-tray h3 { margin: 0; font-size: 1rem; }
+.boss-tray-empty { margin: 0; font-size: 0.82rem; color: var(--text-dim); }
+.boss-tray-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 280px; overflow-y: auto; }
+.boss-tray-lines li { display: flex; justify-content: space-between; gap: 8px; font-size: 0.82rem; }
+.boss-tray-lines small { display: block; color: var(--text-dim); font-size: 0.7rem; }
+.boss-tray-dmg { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.boss-tray-row { display: flex; justify-content: space-between; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.boss-tray-total { font-size: 1.05rem; padding-top: 6px; border-top: 1px solid var(--border-soft); }
+.boss-tray-total strong { color: var(--danger); }
+.boss-tray-hp { display: grid; gap: 4px; }
+.boss-tray-hp small { font-size: 0.74rem; color: var(--text-dim); }
+.boss-tray-hp-bar { position: relative; display: flex; height: 10px; border-radius: 999px; background: rgba(0,0,0,0.35); overflow: hidden; }
+.boss-tray-hp-after { background: linear-gradient(90deg, #ef4444, #f97316); }
+.boss-tray-hp-hit { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.55) 0 4px, rgba(239,68,68,0.6) 4px 8px); animation: navDotPop 0.3s ease; }
+.boss-tray-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.boss-warn { font-size: 0.72rem; color: var(--rarity-legendaire); }
+.boss-dmg-chip { font-size: 0.74rem; font-weight: 800; color: var(--danger); margin: 2px 0 6px; }
+.boss-variant.selected { outline: 2px solid var(--danger); outline-offset: 2px; }
+.boss-variant .card-art { position: relative; }
+@media (max-width: 860px) {
+  .boss-attack-layout { grid-template-columns: 1fr; }
+  .boss-tray { position: sticky; bottom: 70px; top: auto; z-index: 3; box-shadow: 0 -10px 30px -12px rgba(0,0,0,0.8); }
+  .boss-tray-lines { max-height: 120px; }
+}

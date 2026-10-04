@@ -190,7 +190,12 @@
 
         // Sets completes (bonus de sets complets) : un badge par extension
         // entierement collectionnee, affiche publiquement sur le profil.
-        const completedSets = res.completedSets || [];
+        // + sets dont la recompense a ete reclamee (api/src/native/sets.js).
+        const completedSets = [...(res.completedSets || [])];
+        try {
+          const claimed = await API.getSetCompletions(pseudo);
+          (claimed.sets || []).forEach((s) => { if (!completedSets.some((c) => c.name === s.name)) completedSets.push({ name: s.name }); });
+        } catch (e) { /* facultatif */ }
         if (completedSets.length) {
           document.getElementById("profile-sets-zone").style.display = "block";
           document.getElementById("profile-sets-badges").innerHTML = completedSets.map((s) => `

@@ -164,12 +164,14 @@ async function loadNavBadges() {
   // bougent moins souvent) pour ne pas multiplier les requetes en arriere-
   // plan a chaque changement de page.
   try {
-    const [quests, weekly, levelRewards] = await Promise.all([
+    const [quests, weekly, levelRewards, streak, sets] = await Promise.all([
       API.getQuestStatus(Session.userId).catch(() => null),
       API.getWeeklyQuestStatus(Session.userId).catch(() => null),
-      API.getLevelRewardsStatus(Session.userId).catch(() => null)
+      API.getLevelRewardsStatus(Session.userId).catch(() => null),
+      API.getLoginStreak(Session.userId).catch(() => null),
+      API.getSetRewards(Session.userId).catch(() => null)
     ]);
-    const rewardsCount = [quests?.canClaim, weekly?.canClaim, levelRewards?.hasPending].filter(Boolean).length;
+    const rewardsCount = [quests?.canClaim, weekly?.canClaim, levelRewards?.hasPending, streak?.canClaim].filter(Boolean).length + ((sets && sets.claimable) || 0);
     document.querySelectorAll('[data-badge-key="rewards"]').forEach((a) => {
       a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
       if (rewardsCount > 0) {
@@ -526,6 +528,90 @@ async function checkMaintenanceMode() {
   }
 }
 
+// Week-end evenement (api/src/native/events.js) : bandeau festif tant qu'il dure.
+async function loadEventBanner() {
+  const el = document.getElementById("site-header");
+  if (!el) return;
+  try {
+    const ev = await API.getEventStatus();
+    if (!ev || !ev.active) return;
+    const perks = [];
+    if (ev.dustMultiplier > 1) perks.push(`poussières x${ev.dustMultiplier}`);
+    if (ev.finishMultiplier > 1) perks.push(`finitions x${ev.finishMultiplier}`);
+    const until = ev.endsAt ? " · jusqu'au " + new Date(ev.endsAt * 1000).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" }) : "";
+    const label = String(ev.label || "Événement").replace(/[<>&"]/g, "");
+    el.insertAdjacentHTML("afterbegin", `<div class="beta-banner banner-event">&#127881; <strong>${label}</strong>${perks.length ? " : " + perks.join(", ") : ""}${until}</div>`);
+    syncHeaderOffset();
+  } catch (e) { /* purement cosmetique */ }
+}
+
+// ---------------------------------------------------------------------------
+// Notifications push sur cet appareil (sw.js + api/src/native/push.js) :
+// interrupteur dans le menu des notifications de l'en-tete.
+// ---------------------------------------------------------------------------
+const PushNotifs = {
+  supported() {
+    return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && window.isSecureContext;
+  },
+  async registration() {
+    return navigator.serviceWorker.register("sw.js");
+  },
+  async subscription() {
+    if (!this.supported()) return null;
+    const reg = await navigator.serviceWorker.getRegistration();
+    return reg ? reg.pushManager.getSubscription() : null;
+  },
+  keyBytes(base64) {
+    const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+    const raw = atob((base64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  },
+  async enable() {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") throw new Error(permission === "denied" ? "Notifications bloquées dans les réglages du navigateur." : "Autorisation non accordée.");
+    const config = await API.getPushConfig();
+    if (!config.enabled || !config.publicKey) throw new Error("Notifications indisponibles sur le serveur.");
+    const reg = await this.registration();
+    await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: this.keyBytes(config.publicKey) });
+    await API.pushAction(Session.userId, "subscribe", sub.toJSON());
+    await API.pushAction(Session.userId, "test", sub.toJSON());
+  },
+  async disable() {
+    const sub = await this.subscription();
+    if (!sub) return;
+    await API.pushAction(Session.userId, "unsubscribe", { endpoint: sub.endpoint }).catch(() => {});
+    await sub.unsubscribe();
+  },
+  // Ligne affichee en bas du menu des notifications.
+  async renderRow(container) {
+    if (!container || !Session.isLoggedIn()) return;
+    if (!this.supported()) {
+      const ios = /iPhone|iPad/.test(navigator.userAgent);
+      container.innerHTML = `<div class="push-row push-row-muted">&#128242; ${ios ? "Sur iPhone, ajoute d'abord le site à l'écran d'accueil pour recevoir des notifications." : "Ce navigateur ne gère pas les notifications."}</div>`;
+      return;
+    }
+    const sub = await this.subscription().catch(() => null);
+    container.innerHTML = `
+      <div class="push-row">
+        <span>&#128242; Notifications sur cet appareil<small>Expédition rentrée, quiz du jour, échange reçu, boss, événements…</small></span>
+        <button type="button" class="${sub ? "btn-ghost" : "btn-secondary"} push-toggle-btn">${sub ? "Désactiver" : "Activer"}</button>
+      </div>`;
+    container.querySelector(".push-toggle-btn").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        if (sub) { await this.disable(); Toast.info("Notifications désactivées sur cet appareil."); }
+        else { await this.enable(); Toast.success("Notifications activées : une notification de test arrive dans la minute."); }
+      } catch (err) {
+        Toast.error(err.message || "Impossible d'activer les notifications.");
+      }
+      this.renderRow(container);
+    });
+  }
+};
+
 async function loadSiteBanner() {
   const el = document.getElementById("site-header");
   if (!el) return;
@@ -755,7 +841,7 @@ async function prefetchAllCardImages() {
 // cascade et souvent en double. Les fonctions qui en ont besoin (en-tete,
 // loadNavBadges...) gardent leurs appels habituels, servis par ce prefetch.
 function prefetchShellData() {
-  const calls = [{ name: "siteBanner" }, { name: "unlockConfig" }];
+  const calls = [{ name: "siteBanner" }, { name: "unlockConfig" }, { name: "eventStatus" }];
   if (Session.isLoggedIn()) {
     const userId = Session.userId;
     const read = (name, action = "status") => ({ name, body: { userId, action } });
@@ -763,7 +849,8 @@ function prefetchShellData() {
       { name: "boosterStatus", query: { userId } },
       read("trade", "list"), read("quests"), read("weeklyQuests"), read("levelRewards"),
       read("vault"), read("bingo"), read("guessCard"), read("expedition"),
-      { name: "eventCalendar" }, read("communityBoss"), read("guildChest"), read("blackMarket", "list")
+      { name: "eventCalendar" }, read("communityBoss"), read("guildChest"), read("blackMarket", "list"),
+      read("loginStreak"), read("setRewards")
     );
   }
   return API.batch(calls);
@@ -778,6 +865,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
   syncHeaderOffset();
   loadSiteBanner();
+  loadEventBanner();
   loadUnlockConfig();
   initHeaderShrink();
   initBackToTop();

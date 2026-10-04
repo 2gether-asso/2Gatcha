@@ -20,7 +20,7 @@
     <div class="panel">
       <span class="hero-eyebrow">&#127915; Distributeur à boosters</span>
       <h1 class="hero-title">Ouverture de <span class="hero-highlight">booster</span></h1>
-      <p class="lead">Un booster contient 5 cartes. Les boosters s'obtiennent uniquement en réclamant un code d'événement. Tape sur un pack pour l'ouvrir.</p>
+      <p class="lead">Un booster contient 5 cartes. Tape sur un pack pour l'ouvrir. Plus bas : les coffres, à ouvrir avec une clé.</p>
 
       <div id="guest-warning" style="display:none;">
         <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
@@ -38,6 +38,23 @@
           <a href="pull-log.html" class="btn-ghost">&#128220; Mon journal d'ouvertures</a>
         </div>
         <div class="extension-picker" id="extension-picker" style="margin-top:20px;"></div>
+
+        <section class="chest-panel" id="chest-panel" style="display:none;" aria-labelledby="chest-title">
+          <div class="chest-visual" aria-hidden="true">&#129520;</div>
+          <div class="chest-body">
+            <h2 id="chest-title">Coffres</h2>
+            <p class="chest-desc">Un coffre s'ouvre avec une clé et contient à coup sûr des poussières, souvent une carte (parfois deux), parfois des boosters.</p>
+            <div class="chest-stock">
+              <span class="chest-chip" id="chest-count">&#129520; 0 coffre</span>
+              <span class="chest-chip" id="chest-keys">&#128273; 0 clé</span>
+            </div>
+            <p class="chest-next" id="chest-next"></p>
+          </div>
+          <div class="chest-actions">
+            <button type="button" class="btn" id="chest-open-btn">Ouvrir un coffre</button>
+            <button type="button" class="btn-secondary" id="chest-buy-btn">Acheter un coffre</button>
+          </div>
+        </section>
       </div>
     </div>
   </main>
@@ -66,6 +83,8 @@
       </div>
 
       <div id="booster-hint" class="booster-hint"></div>
+      <div id="pack-tags" class="pack-tags" aria-live="polite"></div>
+      <div id="reveal-summary" class="reveal-summary" hidden></div>
 
       <div id="reveal-grid" class="reveal-grid hearthstone stacked"></div>
       <div id="stack-pips" class="stack-pips"></div>

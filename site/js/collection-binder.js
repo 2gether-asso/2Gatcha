@@ -16,6 +16,13 @@
   let sortMode = prefs.sortMode || "extension";
   let missingOnly = !!prefs.missingOnly;
   let favoritesOnly = false;
+  // Filtres par variante (finition, etat, #001) et vue Album.
+  let finishFilter = "";
+  let qualityFilter = "";
+  let firstOnly = false;
+  let albumMode = !!prefs.albumMode;
+  let albumExt = null;
+  let albumPage = 0;
   let bulkSelectMode = false;
   const bulkSelected = new Set();
   const favorites = Coll.loadSet(FAVORITES_KEY);
@@ -44,6 +51,11 @@
       quality: canAct && !!nextQuality && state.level >= FEATURE_UNLOCK_LEVEL.quality && (owned.qualityCounts?.[quality] || 0) >= 3
     };
   }
+  const variantFilterActive = () => !!(finishFilter || qualityFilter || firstOnly);
+  function variantMatches(finish, quality, serials) {
+    return (!finishFilter || finish === finishFilter) && (!qualityFilter || quality === qualityFilter) && (!firstOnly || serials.includes(1));
+  }
+
   function canDisenchant(card) {
     return (!card.isPromo || card.isSecret) && card.rarity?.disenchantValue != null;
   }
@@ -89,7 +101,7 @@
   // ---------------------------------------------------------------- vignettes
   function protectedTilesHtml(card) {
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
-    return (state.protectedMap.get(card.cardId) || []).map((c) => `
+    return (state.protectedMap.get(card.cardId) || []).filter((c) => variantMatches(Coll.finishOf(c), "mint", c.serialNumber === 1 ? [1] : [])).map((c) => `
       <a class="collection-card protected-card" href="coffre.html" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${Coll.finishOf(c)}" data-quality="mint" title="Rangée dans ton coffre-fort : clique pour la gérer">
         <div class="card-art">
           <img src="${imgSrc}" alt="${escapeHtml(card.name)}" loading="lazy" />
@@ -141,7 +153,7 @@
     const isNew = !!(owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(card.cardId));
     const name = escapeHtml(card.name);
 
-    return Coll.buildVariants(owned).map((variant, i) => {
+    return Coll.buildVariants(owned).filter((v) => variantMatches(v.finish, v.quality, v.serialNumbers)).map((variant, i) => {
       const { finish, quality, count } = variant;
       const navKey = navKeyOf(card.cardId, finish, quality);
       const inBulk = bulkSelectMode && bulkEligible;
@@ -177,8 +189,15 @@
   // ---------------------------------------------------------------- grille
   function visibleCards() {
     let cards = Coll.filterCards(state.cards, { ownedOnlySearch: true });
-    if (missingOnly) cards = cards.filter((c) => !state.ownedMap.has(c.cardId) && !state.protectedMap.has(c.cardId));
+    if (missingOnly) cards = cards.filter((c) => !Coll.isDiscovered(c.cardId));
     if (favoritesOnly) cards = cards.filter((c) => favorites.has(c.cardId));
+    if (variantFilterActive()) {
+      cards = cards.filter((c) => {
+        const owned = state.ownedMap.get(c.cardId);
+        if (owned && Coll.buildVariants(owned).some((v) => variantMatches(v.finish, v.quality, v.serialNumbers))) return true;
+        return (state.protectedMap.get(c.cardId) || []).some((cp) => variantMatches(Coll.finishOf(cp), "mint", cp.serialNumber === 1 ? [1] : []));
+      });
+    }
     return cards;
   }
 
@@ -195,12 +214,22 @@
       (num(a) - num(b)));
   }
 
+  // Badge de set complet sur l'en-tete d'une extension (api/src/native/sets.js).
+  function setChip(extKey) {
+    const set = state.sets.find((x) => x.key === extKey);
+    if (!set || !set.complete) return "";
+    return set.claimed
+      ? `<span class="set-chip set-chip-done" title="Set complet, récompense récupérée">&#127942; Complet</span>`
+      : `<button type="button" class="set-chip set-chip-claim" data-claim-set="${set.extensionId}" title="Récupérer la récompense du set complet">&#127873; Récompense</button>`;
+  }
+
   function render() {
+    if (albumMode) { renderAlbum(); return; }
     const container = $("collection-grid");
     const now = Math.floor(Date.now() / 1000);
     const cards = visibleCards();
     if (!cards.length) {
-      container.innerHTML = `<div class="empty-state">Aucune carte ne correspond.${missingOnly && !state.cards.some((c) => !state.ownedMap.has(c.cardId)) ? " Il ne te manque aucune carte !" : ""}</div>`;
+      container.innerHTML = `<div class="empty-state">Aucune carte ne correspond.${missingOnly && !state.cards.some((c) => !Coll.isDiscovered(c.cardId)) ? " Il ne te manque aucune carte !" : ""}</div>`;
       updateBulkBar();
       return;
     }
@@ -220,7 +249,7 @@
     const isDense = document.body.classList.contains("dense-view");
     const showHeadings = groups.length > 1;
     container.innerHTML = groups.map((group) => {
-      const ownedCount = group.cards.filter((c) => state.ownedMap.has(c.cardId)).length;
+      const ownedCount = group.cards.filter((c) => Coll.isDiscovered(c.cardId)).length;
       const collapsed = showHeadings && collapsedExtensions.has(group.key);
       return `
         <div class="collection-ext-group ${collapsed ? "collapsed" : ""}" data-ext-key="${escapeHtml(group.key)}">
@@ -229,6 +258,7 @@
               <button type="button" class="ext-fold-toggle" aria-label="${collapsed ? "Déplier" : "Plier"} ${escapeHtml(group.name)}" aria-expanded="${!collapsed}">&#9662;</button>
               <span class="ext-heading-name">${escapeHtml(group.name)}</span>
               <span class="ext-heading-count">${ownedCount}/${group.cards.length}</span>
+              ${setChip(group.key)}
             </h2>` : ""}
           <div class="collection-grid ${isDense ? "dense" : ""}">${group.cards.flatMap((c) => cardTilesHtml(c, now)).join("")}</div>
         </div>`;
@@ -245,6 +275,9 @@
   function wireGrid() {
     const container = $("collection-grid");
     container.addEventListener("click", (e) => {
+      const claim = e.target.closest("[data-claim-set]");
+      if (claim) { e.stopPropagation(); Coll.claimSet(Number(claim.dataset.claimSet), claim); return; }
+      if (albumClick(e)) return;
       const heading = e.target.closest(".collection-extension-heading");
       if (heading) {
         const groupEl = heading.closest(".collection-ext-group");
@@ -289,6 +322,11 @@
     });
     container.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
+      if (albumMode) {
+        const slot = e.target.closest(".album-slot[data-nav-key]");
+        if (slot && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); slot.click(); }
+        return;
+      }
       const art = e.target.closest(".card-art[role=button]");
       const tile = art && art.closest(".collection-card[data-nav-key]");
       if (!tile || e.target !== art) return;
@@ -302,6 +340,103 @@
       cb.closest(".collection-card").classList.toggle("selected", cb.checked);
       updateBulkBar();
     });
+  }
+
+  // ---------------------------------------------------------------- album
+  // Une extension a la fois, page par page (9 emplacements, 18 en double page
+  // sur grand ecran), dans l'ordre du catalogue : chaque emplacement vide
+  // porte son numero (#014), comme un vrai classeur.
+  function albumExtensions() {
+    return state.extensions.filter((x) => state.cards.some((c) => c.extension?.id === x.id));
+  }
+  function albumCards() {
+    return state.cards.filter((c) => c.extension?.id === albumExt).sort((a, b) => (state.cardNumber.get(a.cardId) || 0) - (state.cardNumber.get(b.cardId) || 0));
+  }
+  const albumPerView = () => (window.innerWidth >= 1100 ? 18 : 9);
+
+  function albumSlot(card) {
+    const num = Coll.serial(state.cardNumber.get(card.cardId) || 0);
+    const owned = state.ownedMap.get(card.cardId);
+    const vault = state.protectedMap.get(card.cardId) || [];
+    const color = card.rarity?.colorHex || "#9aa0b4";
+    if (!owned && !vault.length) {
+      return `<div class="album-slot album-empty" style="--slot-color:${color};" title="Carte ${num} pas encore découverte"><span class="album-num">${num}</span><span class="album-q">?</span></div>`;
+    }
+    const variants = owned ? Coll.buildVariants(owned) : [];
+    const best = variants[variants.length - 1];
+    const finish = best ? best.finish : Coll.finishOf(vault[0]);
+    const count = (owned ? owned.count : 0) + vault.length;
+    const navKey = best ? navKeyOf(card.cardId, best.finish, best.quality) : "";
+    return `
+      <div class="album-slot album-owned ${owned ? "" : "album-vault"}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" style="--slot-color:${color};" ${navKey ? `data-nav-key="${navKey}" role="button" tabindex="0" aria-label="Voir la carte ${escapeHtml(card.name)}"` : ""}>
+        <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />
+        <span class="album-num">${num}</span>
+        ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
+        <span class="album-name">${escapeHtml(card.name)}</span>
+        <span class="album-count">${owned ? "x" + count : "&#128274; coffre"}</span>
+      </div>`;
+  }
+
+  function renderAlbum() {
+    const container = $("collection-grid");
+    const exts = albumExtensions();
+    if (!exts.length) { container.innerHTML = `<div class="empty-state">Aucune extension.</div>`; return; }
+    if (Coll.filters.extension && exts.some((x) => String(x.id) === Coll.filters.extension)) albumExt = Number(Coll.filters.extension);
+    if (!exts.some((x) => x.id === albumExt)) albumExt = exts[0].id;
+    const cards = albumCards();
+    const per = albumPerView();
+    const pages = Math.max(1, Math.ceil(cards.length / per));
+    albumPage = Math.min(Math.max(0, albumPage), pages - 1);
+    const slice = cards.slice(albumPage * per, albumPage * per + per);
+    const sheets = [];
+    for (let i = 0; i < slice.length; i += 9) sheets.push(slice.slice(i, i + 9));
+    const ext = exts.find((x) => x.id === albumExt);
+    const ownedCount = cards.filter((c) => Coll.isDiscovered(c.cardId)).length;
+    container.innerHTML = `
+      <div class="album">
+        <div class="album-head">
+          <select id="album-ext" aria-label="Extension de l'album">${exts.map((x) => `<option value="${x.id}" ${x.id === albumExt ? "selected" : ""}>${escapeHtml(x.name)}</option>`).join("")}</select>
+          <span class="album-progress">${ownedCount}/${cards.length} cartes</span>
+          ${setChip(ext && ext.key)}
+        </div>
+        <div class="album-spread">${sheets.map((sheet) => `<div class="album-page">${sheet.map(albumSlot).join("")}</div>`).join("")}</div>
+        <div class="album-nav">
+          <button type="button" class="btn-secondary" data-album-page="-1" ${albumPage === 0 ? "disabled" : ""} aria-label="Page précédente">&#10094;</button>
+          <span>Page ${albumPage + 1} / ${pages}</span>
+          <button type="button" class="btn-secondary" data-album-page="1" ${albumPage >= pages - 1 ? "disabled" : ""} aria-label="Page suivante">&#10095;</button>
+        </div>
+      </div>`;
+    container.querySelectorAll(".album-owned[data-finish]:not([data-finish='normal'])").forEach(Coll.attachTilt);
+    $("album-ext").addEventListener("change", (e) => { albumExt = Number(e.target.value); albumPage = 0; renderAlbum(); });
+  }
+
+  function albumPageBy(delta) {
+    albumPage += delta;
+    renderAlbum();
+  }
+
+  // Clics dans l'album (true si traite).
+  function albumClick(e) {
+    if (!albumMode) return false;
+    const nav = e.target.closest("[data-album-page]");
+    if (nav) { albumPageBy(Number(nav.dataset.albumPage)); return true; }
+    const slot = e.target.closest(".album-slot[data-nav-key]");
+    if (slot) {
+      const keys = [...document.querySelectorAll("#collection-grid .album-slot[data-nav-key]")].map((x) => x.dataset.navKey);
+      showCardModal(slot.dataset.navKey, keys);
+      return true;
+    }
+    return true;
+  }
+
+  function setAlbumMode(on) {
+    albumMode = on;
+    albumPage = 0;
+    Coll.savePrefs({ albumMode: on });
+    $("album-toggle").classList.toggle("active", on);
+    $("album-toggle").setAttribute("aria-pressed", String(on));
+    document.body.classList.toggle("album-view", on);
+    render();
   }
 
   // ---------------------------------------------------------------- modale
@@ -649,6 +784,10 @@
     favoritesOnly = false;
     bulkSelectMode = false;
     bulkSelected.clear();
+    finishFilter = ""; qualityFilter = ""; firstOnly = false;
+    $("finish-filter").value = ""; $("quality-filter").value = "";
+    $("first-serial-toggle").classList.remove("active");
+    if (albumMode) { albumMode = false; document.body.classList.remove("album-view"); $("album-toggle").classList.remove("active"); Coll.savePrefs({ albumMode: false }); }
     document.body.classList.remove("dense-view", "cinema-mode");
     applyBinderAccent("");
     Coll.savePrefs({ sortMode, missingOnly, denseView: false, binderAccent: "" });
@@ -719,6 +858,26 @@
         $("cinema-toggle").classList.remove("active");
       }
     });
+    $("finish-filter").addEventListener("change", (e) => { finishFilter = e.target.value; render(); });
+    $("quality-filter").addEventListener("change", (e) => { qualityFilter = e.target.value; render(); });
+    $("first-serial-toggle").addEventListener("click", (e) => { firstOnly = !firstOnly; e.currentTarget.classList.toggle("active", firstOnly); render(); });
+    $("album-toggle").addEventListener("click", () => setAlbumMode(!albumMode));
+    if (albumMode) { $("album-toggle").classList.add("active"); document.body.classList.add("album-view"); }
+    // Fleches gauche/droite : pages de l'album (hors modale et hors champ de saisie).
+    document.addEventListener("keydown", (e) => {
+      if (!albumMode || Coll.mode !== "binder" || document.querySelector(".card-modal-overlay")) return;
+      if (/INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || "")) return;
+      if (e.key === "ArrowRight") albumPageBy(1);
+      else if (e.key === "ArrowLeft") albumPageBy(-1);
+    });
+    let albumTouchX = null;
+    $("collection-grid").addEventListener("touchstart", (e) => { if (albumMode) albumTouchX = e.touches[0].clientX; }, { passive: true });
+    $("collection-grid").addEventListener("touchend", (e) => {
+      if (!albumMode || albumTouchX == null) return;
+      const dx = e.changedTouches[0].clientX - albumTouchX;
+      albumTouchX = null;
+      if (Math.abs(dx) > 60) albumPageBy(dx < 0 ? 1 : -1);
+    }, { passive: true });
     $("bulk-select-toggle").addEventListener("click", () => setBulkMode(!bulkSelectMode));
     $("bulk-disenchant-btn").addEventListener("click", bulkDisenchant);
   });

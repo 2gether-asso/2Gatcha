@@ -74,6 +74,13 @@
         </div>
       </div>
 
+      <div class="panel" id="streak-panel" style="display:none;">
+        <h2>&#128293; Série de connexion</h2>
+        <p class="lead" style="font-size:0.85rem;" id="streak-lead">Un cadeau par jour, de plus en plus gros sur 7 jours. Un jour manqué et la série repart au jour 1.</p>
+        <ol class="streak-days" id="streak-days" aria-label="Cadeaux des 7 jours"></ol>
+        <button type="button" class="btn" id="streak-claim-btn" style="display:none;">Récupérer le cadeau du jour</button>
+      </div>
+
       <div class="panel" id="wheel-panel" style="display:none;">
         <h2>&#127920; Roue de la fortune</h2>
         <p class="lead" style="font-size:0.85rem;">Un tirage gratuit par jour : poussières d'étoile, parfois un booster.</p>
@@ -247,7 +254,8 @@
       API.batch([
         { name: "recentPulls" }, { name: "leaderboard" },
         { name: "achievements", query: { userId: Session.userId } },
-        { name: "dailyWheel", body: { userId: Session.userId, action: "status" } }
+        { name: "dailyWheel", body: { userId: Session.userId, action: "status" } },
+        { name: "loginStreak", body: { userId: Session.userId, action: "status" } }
       ]);
       prefetchAllCardImages();
 
@@ -552,6 +560,43 @@
         }
       }).catch(() => {
         document.getElementById("achievements-grid").innerHTML = `<div class="empty-state">Impossible de charger les succès.</div>`;
+      });
+
+      // Serie de connexion (api/src/native/streak.js) : 7 cases, un cadeau
+      // par jour (fuseau Paris), la 7e plus genereuse.
+      const streakPanel = document.getElementById("streak-panel");
+      const streakRewardLabel = (r) => [r.boosters ? `${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : "", r.dust ? `${r.dust} &#10024;` : ""].filter(Boolean).join(" + ");
+      function renderStreak(st) {
+        streakPanel.style.display = "block";
+        document.getElementById("streak-days").innerHTML = st.days.map((d) => `
+          <li class="streak-day streak-${d.state}${d.day === 7 ? " streak-big" : ""}" title="Jour ${d.day} : ${streakRewardLabel(d.reward).replace(/&#10024;/g, "poussières")}">
+            <span class="streak-day-num">J${d.day}</span>
+            <span class="streak-day-icon" aria-hidden="true">${d.state === "claimed" ? "&#10003;" : d.reward.boosters ? "&#127873;" : "&#10024;"}</span>
+            <span class="streak-day-reward">${streakRewardLabel(d.reward)}</span>
+          </li>`).join("");
+        const btn = document.getElementById("streak-claim-btn");
+        btn.style.display = st.canClaim ? "" : "none";
+        document.getElementById("streak-lead").innerHTML = st.claimedToday
+          ? `Cadeau du jour récupéré (jour ${st.day}/7). Reviens demain pour la suite !`
+          : st.broken ? "Ta série s'est interrompue : elle repart au jour 1. Reviens chaque jour pour la faire grimper !"
+          : `Jour ${st.day}/7 : ton cadeau t'attend.`;
+      }
+      API.getLoginStreak(Session.userId).then(renderStreak).catch(() => {});
+      document.getElementById("streak-claim-btn").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try {
+          const res = await API.claimLoginStreak(Session.userId);
+          Toast.success(`&#128293; Jour ${res.day} : +${streakRewardLabel(res.reward).replace(/&#10024;/g, "poussières")} !`);
+          if (res.reward.boosters && typeof confetti === "function") confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
+          renderStreak(res);
+          loadHeaderBoosterBadge();
+          loadNavBadges();
+        } catch (err) {
+          Toast.error(err.code === "already_claimed" ? "Cadeau déjà récupéré aujourd'hui." : "Erreur. (" + err.message + ")");
+        } finally {
+          btn.disabled = false;
+        }
       });
 
       // Roue de la fortune quotidienne : une vraie roue (SVG) qui tourne et
