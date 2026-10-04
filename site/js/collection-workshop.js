@@ -565,8 +565,10 @@
       const card = cardOf(cardId);
       if (!card || card.isPromo) return;
       const counts = (kind === "finish" ? owned.finishCounts : owned.qualityCounts) || {};
+      // Une piece detachee (pechee) peut remplacer un des exemplaires.
+      const minNeed = need - (state.spareParts > 0 ? 1 : 0);
       for (let i = 0; i < order.length - 1; i++) {
-        if ((counts[order[i]] || 0) >= need) out.push({ card, from: order[i], to: order[i + 1], available: counts[order[i]], need });
+        if ((counts[order[i]] || 0) >= minNeed) out.push({ card, from: order[i], to: order[i + 1], available: counts[order[i]], need, withPart: (counts[order[i]] || 0) < need });
       }
     });
     return out.sort((a, b) => a.card.name.localeCompare(b.card.name) || (order.indexOf(a.from) - order.indexOf(b.from)));
@@ -593,7 +595,7 @@
             <span aria-hidden="true">&#8594;</span>
             <span class="${tag}-tag" data-${tag}="${u.to}">${labels[u.to]}</span>
           </div>
-          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (${u.need} requis${u.available >= u.need * 2 ? ` · ${Math.floor(u.available / u.need)} fusions possibles` : ""})</div>
+          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (${u.need} requis${u.withPart ? " · avec une pièce détachée &#128297;" : u.available >= u.need * 2 ? ` · ${Math.floor(u.available / u.need)} fusions possibles` : ""})</div>
         </div>
         <button type="button" class="btn-secondary" data-fuse="${kind}" data-card-id="${u.card.cardId}" data-from="${u.from}">${kind === "finish" ? "Fusionner" : "Restaurer"}</button>
       </div>`).join("");
@@ -609,12 +611,12 @@
     const selection = await FusionPicker.open(isFinish ? {
       title: "Fusionner en " + labels[to],
       intro: `Choisis les <strong>5 exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> à sacrifier, et le numéro que gardera le nouvel exemplaire <strong>${labels[to]}</strong>. La meilleure qualité sacrifiée est conservée.`,
-      copies, required: 5,
+      copies, required: 5, parts: state.spareParts,
       otherRank: (c) => FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c))
     } : {
       title: "Restaurer en " + labels[to],
       intro: `Choisis les <strong>3 exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> à consommer, et le numéro que gardera le nouvel exemplaire <strong>${labels[to]}</strong>. La meilleure finition consommée est conservée.`,
-      copies, required: 3,
+      copies, required: 3, parts: state.spareParts,
       otherRank: (c) => FUSION_FINISH_RANK.indexOf(Coll.finishOf(c)),
       confirmText: "Restaurer"
     });
@@ -623,7 +625,7 @@
       const res = isFinish
         ? await API.foilUpgrade(Session.userId, cardId, from, selection)
         : await API.repairCardQuality(Session.userId, cardId, from, selection);
-      Toast.success(`${card?.name || "Carte"} passe en ${labels[isFinish ? res.toFinish : res.toQuality] || labels[to]} !`);
+      Toast.success(`${card?.name || "Carte"} passe en ${labels[isFinish ? res.toFinish : res.toQuality] || labels[to]} !${res.partsUsed ? " (une pièce détachée utilisée)" : ""}`);
       if (typeof confetti === "function") confetti({ particleCount: isFinish ? 130 : 100, spread: isFinish ? 100 : 90, origin: { y: 0.5 } });
       await Coll.refresh();
     } catch (e) {

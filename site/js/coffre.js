@@ -13,13 +13,9 @@ const PV_ERRORS = {
   already_stored: "Cette carte est déjà au coffre.",
   not_stored: "Cette carte n'est pas au coffre.",
   pull_not_owned: "Cet exemplaire ne t'appartient plus.",
-  no_spare_part: "Tu n'as pas de pièce détachée (elles se pêchent).",
-  joker_limit: "Plus de pièce détachée possible sur cette ligne.",
-  jokers_disabled: "Les pièces détachées sont désactivées.",
   promo_not_storable: "Les cartes promo ne vont pas au coffre-fort (une seule finition possible)."
 };
 let pvBusy = false;
-let pvJokers = { parts: 0, perRow: 0 };
 
 function pvSerial(n) {
   return n != null ? `#${String(n).padStart(3, "0")}` : "";
@@ -27,13 +23,11 @@ function pvSerial(n) {
 
 function pvRender(data) {
   const rows = data.rows || [];
-  pvJokers = { parts: data.spareParts || 0, perRow: data.jokersPerRow || 0 };
   const complete = rows.filter((r) => r.complete).length;
   document.getElementById("pv-summary").innerHTML = `
     <div class="stat-tile"><div class="stat-value">${rows.reduce((n, r) => n + r.filled, 0)}</div><div class="stat-label">Cartes protégées</div></div>
     <div class="stat-tile"><div class="stat-value">${complete}</div><div class="stat-label">Lignes complètes</div></div>
-    <div class="stat-tile pv-parts-tile" title="Pièces détachées : pêchées, elles remplissent un emplacement vide comme un joker"><div class="stat-value">&#128297; ${data.spareParts || 0}</div><div class="stat-label">Pièces détachées</div></div>
-    <div class="pv-reward-note">Ligne complète (6 finitions en parfait état) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>${pvUniqueNote(data.unique)}, une seule fois par carte. Les cartes promo ne vont pas au coffre.${data.jokersPerRow ? ` Une <strong>pièce détachée</strong> &#128297; (pêche) remplit un emplacement vide, ${data.jokersPerRow} max par ligne ; ranger plus tard la vraie carte te la rend.` : ""}</div>
+    <div class="pv-reward-note">Ligne complète (6 finitions en parfait état) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>${pvUniqueNote(data.unique)}, une seule fois par carte. Les cartes promo ne vont pas au coffre.</div>
   `;
   const box = document.getElementById("pv-rows");
   if (!rows.length) {
@@ -64,28 +58,17 @@ function pvRender(data) {
           </div>
         </div>`;
       }
-      if (slot.joker) {
-        const realOne = slot.candidates.slice().sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0))[0];
-        return `<div class="pv-slot filled joker" data-finish="${f}">
-          <div class="pv-joker-art" aria-hidden="true">&#128297;</div>
-          <div class="pv-slot-foot">
-            <span class="pv-slot-label">${PV_FINISH_LABELS[f]} · pièce</span>
-            ${realOne ? `<button type="button" class="pv-store" data-pull-id="${realOne.pullId}" title="Ranger la vraie carte : la pièce te revient">Ranger ${pvSerial(realOne.serialNumber)}</button>` : ""}
-          </div>
-        </div>`;
-      }
-      const canJoker = !slot.candidates.length && pvJokers.perRow && pvJokers.parts > 0 && r.jokers < pvJokers.perRow;
       const best = slot.candidates.slice().sort((a, b) => (b.serialNumber === 1) - (a.serialNumber === 1) || (a.serialNumber || 0) - (b.serialNumber || 0))[0];
       return `<div class="pv-slot empty ${best ? "available" : ""}" data-finish="${f}">
         <span class="pv-slot-label">${PV_FINISH_LABELS[f]}</span>
-        ${best ? `<button type="button" class="pv-store" data-pull-id="${best.pullId}" title="Ranger ${pvSerial(best.serialNumber)}">Ranger ${pvSerial(best.serialNumber)}</button>` : canJoker ? `<button type="button" class="pv-joker" data-card-id="${r.cardId}" data-finish="${f}" title="Remplir avec une pièce détachée">&#128297; Pièce</button>` : `<span class="pv-slot-missing">&mdash;</span>`}
+        ${best ? `<button type="button" class="pv-store" data-pull-id="${best.pullId}" title="Ranger ${pvSerial(best.serialNumber)}">Ranger ${pvSerial(best.serialNumber)}</button>` : `<span class="pv-slot-missing">&mdash;</span>`}
       </div>`;
     }).join("");
     return `<div class="pv-row ${r.complete ? "complete" : ""}">
       <div class="pv-row-head">
         <span class="pv-row-name">${r.name}</span>
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${r.rarity?.name || ""}</span>
-        <span class="pv-row-progress">${r.filled}/6${r.jokers ? ` (dont ${r.jokers} &#128297;)` : ""} ${r.claimed ? "&#10004; récompense reçue" : ""}</span>
+        <span class="pv-row-progress">${r.filled}/6 ${r.claimed ? "&#10004; récompense reçue" : ""}</span>
       </div>
       <div class="pv-slots">${slots}</div>
     </div>`;
@@ -193,11 +176,11 @@ function pvRevealUnique(card, queue = [], label = "Carte Unique obtenue !") {
   if (typeof confetti === "function") confetti({ particleCount: 200, spread: 130, origin: { y: 0.55 }, colors: ["#22c55e", "#86efac", "#bbf7d0", "#ffffff"] });
 }
 
-async function pvLoad(action, pullId, extra = {}) {
+async function pvLoad(action, pullId) {
   if (pvBusy) return;
   pvBusy = true;
   try {
-    const data = await API.personalVault(Session.userId, action || "status", pullId, extra);
+    const data = await API.personalVault(Session.userId, action || "status", pullId);
     if (!data.unlocked) {
       document.getElementById("pv-locked").style.display = "block";
       document.getElementById("pv-zone").style.display = "none";
@@ -205,8 +188,7 @@ async function pvLoad(action, pullId, extra = {}) {
     }
     document.getElementById("pv-zone").style.display = "block";
     pvRender(data);
-    if (action === "store") Toast.success(data.jokerRefunded ? "Carte rangée : la pièce détachée te revient." : "Carte rangée au coffre : elle est protégée.");
-    if (action === "joker") Toast.success("Pièce détachée posée.");
+    if (action === "store") Toast.success("Carte rangée au coffre : elle est protégée.");
     if (action === "withdraw") Toast.info("Carte retirée du coffre : elle revient dans ta collection.");
     if (data.reward) {
       Toast.success(`Ligne ${data.reward.cardName} complète ! +${data.reward.boosters} boosters, +${data.reward.dust} poussières${data.reward.ticket ? " et un Ticket Unique 🎫" : ""}.`);
@@ -229,12 +211,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("pv-rows").addEventListener("click", (e) => {
     const store = e.target.closest(".pv-store");
     const withdraw = e.target.closest(".pv-withdraw");
-    const joker = e.target.closest(".pv-joker");
-    if (joker) {
-      Confirm.show("Poser une pièce détachée sur cet emplacement ? Elle ne se retire pas, mais ranger plus tard la vraie carte te la rendra.", { title: "Pièce détachée", confirmText: "Poser" })
-        .then((go) => { if (go) pvLoad("joker", null, { cardId: Number(joker.dataset.cardId), finish: joker.dataset.finish }); });
-      return;
-    }
     if (store) pvLoad("store", Number(store.dataset.pullId));
     else if (withdraw) pvLoad("withdraw", Number(withdraw.dataset.pullId));
   });

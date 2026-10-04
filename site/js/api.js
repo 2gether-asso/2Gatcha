@@ -586,8 +586,8 @@ const API = {
   uniqueCounter(userId, action, cardId) {
     return this.post("uniqueCounter", { userId, action, cardId });
   },
-  personalVault(userId, action, pullId, extra) {
-    return this.post("personalVault", { userId, action, pullId, ...(extra || {}) });
+  personalVault(userId, action, pullId) {
+    return this.post("personalVault", { userId, action, pullId });
   },
   getVaultStatus(userId) {
     return this.post("vault", { userId, action: "status" });

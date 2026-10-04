@@ -5936,11 +5936,6 @@ button.set-chip-claim::before { content: none; }
 .stat-chip-ticket { color: var(--rarity-unique); text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .pv-ticket.printing { animation: none; } }
 
-/* Coffre-fort perso : piece detachee (joker) */
-.pv-slot.joker { border-style: dashed; border-color: color-mix(in srgb, var(--accent-2) 60%, transparent); }
-.pv-joker-art { display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; font-size: 2.2rem; background: repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 8px, transparent 8px 16px), var(--bg-panel-2); }
-.pv-joker { font-size: 0.75rem; padding: 4px 8px; border-radius: 8px; border: 1px dashed var(--accent-2); background: transparent; color: var(--accent-2); cursor: pointer; }
-.pv-joker:hover { background: color-mix(in srgb, var(--accent-2) 15%, transparent); }
 
 /* Niveaux de metier (jeux.html : peche, fouille) */
 .skill-level { margin: 10px 0 14px; padding: 10px 12px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); display: grid; gap: 6px; }
@@ -5952,3 +5947,7 @@ button.set-chip-claim::before { content: none; }
 .skill-level-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.5s ease; }
 .skill-level-perks { display: flex; flex-wrap: wrap; gap: 6px; }
 .skill-level-perks span { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-soft); color: var(--text-dim); }
+
+/* Atelier : piece detachee dans le choix des exemplaires */
+.fusion-part { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--accent-2); font-size: 0.85rem; cursor: pointer; }
+.fusion-part input { accent-color: var(--accent-2); }

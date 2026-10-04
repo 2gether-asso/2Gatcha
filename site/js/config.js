@@ -71,7 +71,7 @@ window.APP_CONFIG = {
     bingo: "/bingo",                   // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
     levelRewards: "/level-rewards",    // POST { userId, action: 'status'|'claim' } | { discordId, action: 'adminList'|'adminSet', rows? }
     uniqueCounter: "/unique-counter",   // POST { userId, action: 'status'|'redeem', cardId? } -> { tickets, cards, remaining }
-    personalVault: "/personal-vault", // POST { userId, action: 'status'|'store'|'withdraw'|'joker', pullId?, cardId?, finish? } -> { unlocked, rows, boostersPerRow, dustPerRow, reward }
+    personalVault: "/personal-vault", // POST { userId, action: 'status'|'store'|'withdraw', pullId? } -> { unlocked, rows, boostersPerRow, dustPerRow, reward }
     vault: "/vault",                   // POST { userId, action: 'status'|'open' } -> { card, keysRequired, userKeys, alreadyOpened } | { opened, card, serialNumber, newKeyCount }
     // Fonctionnalites natives de l'API (api/src/native, 2026-10-04)
     setRewards: "/set-rewards",         // POST { userId, action: 'status'|'claim', extensionId? }

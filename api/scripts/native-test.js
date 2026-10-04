@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Store } from '../src/store.js';
 import { createNative } from '../src/native/index.js';
+import { WorkflowRunner } from '../src/runtime.js';
 import * as push from '../src/native/push.js';
 import { parisDay } from '../src/native/common.js';
 import { setting } from '../src/native/settings.js';
@@ -373,48 +374,32 @@ await test('unique : rarete + extension creees, cartes forcees promo, ticket par
   assert.equal(call('POST', 'admin-season', { body: { discordId: ADMIN, action: 'setCard', season: '2026-10', cardId: a.id } }).json.error, 'unique_card_not_allowed');
 });
 
-await test('coffre-fort perso : rangement, promo refusee, piece detachee (joker), recompense + ticket, remboursement', () => {
+await test('coffre-fort perso : rangement, promo refusee, recompense + ticket, retrait', () => {
   const vaultCall = (action, extra = {}) => call('POST', 'personal-vault', { body: { userId: 2, action, ...extra } });
   assert.equal(vaultCall('status').json.unlocked, false);
   const vaultCard = store.getAll('Cards').find((c) => c.IsVault);
   store.create('Pulls', { User: 2, Card: vaultCard.id, BatchId: 'vault-test', SerialNumber: 900, Finish: 'rainbow', Quality: 'mint' });
   const card = store.getAll('Cards').find((c) => c.Active && !c.IsPromo && !c.IsVault);
   const pull = (finish, quality = 'mint') => store.create('Pulls', { User: 2, Card: card.id, SerialNumber: 800 + store.getAll('Pulls').length, Finish: finish, Quality: quality });
-  const ids = ['normal', 'holo', 'gold', 'ghost'].map((f) => pull(f).id);
-  const worn = pull('diamond', 'worn');
+  const ids = ['normal', 'holo', 'gold', 'ghost', 'diamond'].map((f) => pull(f).id);
+  const worn = pull('rainbow', 'worn');
+  store.update('Users', 2, { UniqueTickets: 0 });
   for (const id of ids) assert.equal(vaultCall('store', { pullId: id }).status, 200);
   assert.equal(vaultCall('store', { pullId: worn.id }).json.error, 'not_mint');
+  assert.equal(vaultCall('store', { pullId: ids[0] }).json.error, 'already_stored');
   let row = vaultCall('status').json.rows.find((r) => r.cardId === card.id);
-  assert.deepEqual([row.filled, row.complete], [4, false]);
-  // Pieces detachees : aucune, puis 3 ; 2 max par ligne.
-  store.update('Users', 2, { SpareParts: 0, UniqueTickets: 0 });
-  assert.equal(vaultCall('joker', { cardId: card.id, finish: 'diamond' }).json.error, 'no_spare_part');
-  store.update('Users', 2, { SpareParts: 3 });
-  assert.equal(vaultCall('joker', { cardId: card.id, finish: 'normal' }).json.error, 'slot_filled');
-  let j = vaultCall('joker', { cardId: card.id, finish: 'diamond' }).json;
-  assert.equal(j.spareParts, 2);
-  assert.equal(j.reward, null);
+  assert.deepEqual([row.filled, row.complete], [5, false]);
   const boosters = store.get('Users', 2).BoosterCount || 0;
-  j = vaultCall('joker', { cardId: card.id, finish: 'rainbow' }).json;
+  const j = vaultCall('store', { pullId: pull('rainbow').id }).json;
   row = j.rows.find((r) => r.cardId === card.id);
-  assert.deepEqual([row.filled, row.jokers, row.complete, row.claimed], [6, 2, true, true]);
+  assert.deepEqual([row.filled, row.complete, row.claimed], [6, true, true]);
   assert.deepEqual([j.reward.boosters, j.reward.dust, j.reward.ticket], [6, 200, 1]);
   assert.equal(store.get('Users', 2).BoosterCount, boosters + 6);
   assert.equal(j.unique.tickets, 1);
-  // La vraie carte remplace une piece : remboursee, pas de 2e recompense.
-  const rainbow = pull('rainbow');
-  j = vaultCall('store', { pullId: rainbow.id }).json;
-  assert.equal(j.jokerRefunded, true);
-  assert.equal(j.spareParts, 2);
-  assert.equal(j.reward, null);
-  assert.equal(j.rows.find((r) => r.cardId === card.id).jokers, 1);
-  // Limite par ligne sur une autre carte.
-  const other = store.getAll('Cards').find((c) => c.Active && !c.IsPromo && !c.IsVault && c.id !== card.id);
-  store.create('Pulls', { User: 2, Card: other.id, SerialNumber: 777, Finish: 'normal', Quality: 'mint' });
-  store.update('Users', 2, { SpareParts: 5 });
-  vaultCall('joker', { cardId: other.id, finish: 'holo' });
-  vaultCall('joker', { cardId: other.id, finish: 'gold' });
-  assert.equal(vaultCall('joker', { cardId: other.id, finish: 'ghost' }).json.error, 'joker_limit');
+  // Retirer puis remettre : pas de 2e recompense.
+  vaultCall('withdraw', { pullId: ids[0] });
+  assert.equal(!!store.get('Pulls', ids[0]).InVault, false);
+  assert.equal(vaultCall('store', { pullId: ids[0] }).json.reward, null);
   // Cartes promo : jamais au coffre.
   const promo = store.getAll('Cards').find((c) => c.IsPromo && !c.IsVault);
   if (promo) {
@@ -422,13 +407,44 @@ await test('coffre-fort perso : rangement, promo refusee, piece detachee (joker)
     assert.equal(vaultCall('store', { pullId: pp.id }).json.error, 'promo_not_storable');
     assert.ok(!vaultCall('status').json.rows.some((r) => r.cardId === promo.id));
   }
-  // Retrait.
-  assert.equal(!!store.get('Pulls', ids[0]).InVault, true);
-  vaultCall('withdraw', { pullId: ids[0] });
-  assert.equal(!!store.get('Pulls', ids[0]).InVault, false);
 });
 
-await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), fouille (XP, bonus de poussieres)', () => {
+await test('piece detachee : remplace un exemplaire en Finitions (4 + 1) et en Qualite (2 + 1)', async () => {
+  const runner = new WorkflowRunner({ store, overrides: {}, log: { error: () => {} } });
+  const wfs = new Map();
+  for (const f of ['foil-upgrade.json', 'card-quality-repair.json']) {
+    const wf = JSON.parse(fs.readFileSync(path.join(here, '../workflows', f), 'utf8'));
+    wfs.set(f, wf);
+  }
+  const run = async (f, body) => { const { responded, done } = runner.run(wfs.get(f), { headers: {}, params: {}, query: {}, body, webhookUrl: '', executionMode: 'production' }); const r = await responded; await done; return r; };
+  const card = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && !c.IsVault)[2];
+  const mk = (finish, quality) => store.create('Pulls', { User: 1, Card: card.id, SerialNumber: 700 + store.getAll('Pulls').length, Finish: finish, Quality: quality }).id;
+  // Finitions : 4 holo + 1 piece -> 1 dore.
+  const holos = [1, 2, 3, 4].map(() => mk('holo', 'good'));
+  store.update('Users', 1, { SpareParts: 0 });
+  let r = await run('foil-upgrade.json', { userId: 1, cardId: card.id, fromFinish: 'holo', pullIds: holos, parts: 1 });
+  assert.equal(r.json.error, 'no_spare_part');
+  r = await run('foil-upgrade.json', { userId: 1, cardId: card.id, fromFinish: 'holo', pullIds: holos });
+  assert.equal(r.json.error, 'not_enough_duplicates', 'sans piece il en faut 5');
+  store.update('Users', 1, { SpareParts: 2 });
+  r = await run('foil-upgrade.json', { userId: 1, cardId: card.id, fromFinish: 'holo', pullIds: holos, parts: 1 });
+  assert.equal(r.json.upgraded, true);
+  assert.deepEqual([r.json.toFinish, r.json.partsUsed, r.json.spareParts], ['gold', 1, 1]);
+  assert.equal(store.get('Users', 1).SpareParts, 1);
+  assert.ok(holos.every((id) => !store.get('Pulls', id)), 'les 4 exemplaires consommes');
+  // Qualite : 2 uses + 1 piece -> 1 bon etat (cout par defaut 3).
+  const worn = [1, 2].map(() => mk('normal', 'worn'));
+  r = await run('card-quality-repair.json', { userId: 1, cardId: card.id, fromQuality: 'worn', pullIds: worn, parts: 1 });
+  assert.equal(r.json.repaired, true);
+  assert.deepEqual([r.json.toQuality, r.json.partsUsed, r.json.spareParts], ['good', 1, 0]);
+  assert.equal(store.get('Users', 1).SpareParts, 0);
+  // Sans piece, le compte normal reste exige.
+  const worn2 = [1, 2].map(() => mk('normal', 'worn'));
+  r = await run('card-quality-repair.json', { userId: 1, cardId: card.id, fromQuality: 'worn', pullIds: worn2 });
+  assert.equal(r.json.error, 'not_enough_duplicates');
+});
+
+await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), fouille (XP, bonus de poussieres, chenil)', () => {
   assert.deepEqual([levels.levelFor(0, 20), levels.levelFor(19, 20), levels.levelFor(20, 20), levels.levelFor(60, 20), levels.levelFor(99999, 20)], [1, 1, 2, 3, 10]);
   for (const key of ['FishingCost', 'FishingDailyCasts', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
   // Peche : niveau 1 puis niveau 3 (FishingLevelXpStep 15 -> 45 XP).
@@ -468,6 +484,7 @@ await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), foui
   const status = { status: 200, json: { energy: 5 } };
   native.afterWorkflow('dig', { body: { userId: 1, action: 'status' } }, status);
   assert.deepEqual([status.json.digLevel.level, status.json.digLevel.perks.energyBonus], [4, 2]);
+  assert.ok(Math.abs(status.json.digLevel.perks.dogSpeed - 0.15) < 1e-9);
 });
 
 await test('unique : migration une seule fois des lignes deja completees en tickets', () => {

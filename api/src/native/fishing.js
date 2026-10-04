@@ -4,8 +4,9 @@
 // lancers par jour (FishingDailyCasts, 0 = illimite).
 // Niveau de peche (1 a 10, voir levels.js) : 1 XP par lancer + bonus selon la
 // prise ; chaque niveau donne +2 lancers par jour, moins de prises vides et
-// plus de prises rares. Piece detachee (Users.SpareParts) : joker du
-// coffre-fort perso (remplit un emplacement, voir personal-vault.js).
+// plus de prises rares. Piece detachee (Users.SpareParts) : remplace un des
+// exemplaires consommes en Finitions ou Qualite (foil-upgrade.json,
+// card-quality-repair.json).
 //   POST /webhook/fishing  { userId, action: 'status' | 'cast', count?: 1..5 }
 
 import { ok, fail, userById, parisDay } from './common.js';
@@ -92,3 +93,10 @@ function handleFishing({ store, body }) {
 }
 
 export const routes = { 'POST fishing': handleFishing };
+
+// Solde de pieces detachees avec le statut des boosters (atelier, en-tete).
+export function afterWorkflow({ store, path, request, response }) {
+  if (path !== 'booster-status' || response.status !== 200 || !response.json) return;
+  const user = store.get('Users', Number((request.query || {}).userId));
+  if (user) response.json.spareParts = Number(user.SpareParts) || 0;
+}

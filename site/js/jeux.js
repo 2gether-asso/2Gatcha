@@ -64,7 +64,8 @@ function renderDigLevel(info) {
   renderSkillLevel("dig-level", "&#9935;&#65039;", "Fouille", info, [
     p.energyBonus ? `+${p.energyBonus} énergie max` : "",
     p.regenReduction ? `recharge ${Math.round(p.regenReduction * 100)} % plus rapide` : "",
-    p.dustBonus ? `+${Math.round(p.dustBonus * 100)} % de poussières trouvées` : ""
+    p.dustBonus ? `+${Math.round(p.dustBonus * 100)} % de poussières trouvées` : "",
+    p.dogSpeed ? `chien ${Math.round(p.dogSpeed * 100)} % plus rapide, plus de flair` : ""
   ]);
 }
 
@@ -385,7 +386,7 @@ async function castFishing(count) {
     fishBusy = false;
     renderFishing(res);
     if (res.levelUp) announceLevelUp("&#127907;", "Pêche", res.levelUp);
-    if (res.catches.some((c) => c.type === "part")) Toast.info("&#128297; Pièce détachée : utilise-la au coffre-fort perso pour remplir un emplacement, comme un joker.");
+    if (res.catches.some((c) => c.type === "part")) Toast.info("&#128297; Pièce détachée : dans l'atelier (Finitions ou Qualité), elle remplace un des exemplaires à consommer.");
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
     fishBusy = false;

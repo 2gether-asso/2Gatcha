@@ -46,7 +46,7 @@ export const REGISTRY = {
   FishingLevelXpStep: { ...int('XP pour le niveau 2 de pêche', 15, 'Pêche', 'Chaque niveau suivant demande ce palier en plus (15, 45, 90…). 1 XP par lancer, plus selon la prise.', 1), storage: 'app' },
   FishingLoot: {
     label: 'Table des prises', type: 'json', group: 'Pêche', storage: 'app',
-    help: 'Liste de prises : type (nothing, dust, bone, key, booster, chest, part = pièce détachée), poids (chance relative), min/max (quantité).',
+    help: 'Liste de prises : type (nothing, dust, bone, key, booster, chest, part = pièce détachée, remplace un exemplaire en Finitions / Qualité), poids (chance relative), min/max (quantité).',
     def: [
       { type: 'nothing', weight: 28, label: 'Une vieille botte' },
       { type: 'dust', weight: 30, min: 10, max: 45 },
@@ -94,7 +94,6 @@ export const REGISTRY = {
   DigLevelXpStep: { ...int('XP pour le niveau 2 de fouille', 20, 'Fouille', 'Chaque niveau suivant demande ce palier en plus (20, 60, 120…). 1 XP par case, +5 par trésor.', 1), storage: 'config' },
   VaultBoostersPerRow: { ...int('Coffre-fort : boosters par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
-  VaultJokersPerRow: { ...int('Pièces détachées max par ligne', 2, 'Coffre-fort perso', 'Une pièce détachée (pêche) remplit un emplacement comme un joker. 0 = désactivé.', 0, 6), storage: 'app' },
 
   // --- Notifications
   PushQuietStart: { ...int('Pas de notification à partir de (heure)', 22, 'Notifications', 'Heure de Paris.', 0, 23), storage: 'app' },

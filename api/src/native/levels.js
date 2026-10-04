@@ -6,7 +6,9 @@
 //   - XP : 1 par case creusee, +5 par tresor degage (Users.DigXP) ;
 //   - +1 energie max tous les 2 niveaux, recharge -5 % par niveau (lus par
 //     dig.json depuis Users.DigXP) ;
-//   - +10 % de poussieres trouvees par niveau au-dessus du 1.
+//   - +10 % de poussieres trouvees par niveau au-dessus du 1 ;
+//   - chenil : le chien creuse 5 % plus vite et a +3 points de flair par
+//     niveau (lus par dig.json).
 // Peche : voir fishing.js (XP par lancer, lancers en plus, meilleures prises).
 
 import { setting } from './settings.js';
@@ -34,7 +36,7 @@ export function levelInfo(xp, step) {
 }
 
 export function digPerks(level) {
-  return { energyBonus: Math.floor(level / 2), regenReduction: 0.05 * (level - 1), dustBonus: 0.1 * (level - 1) };
+  return { energyBonus: Math.floor(level / 2), regenReduction: 0.05 * (level - 1), dustBonus: 0.1 * (level - 1), dogSpeed: 0.05 * (level - 1), dogFlair: 0.03 * (level - 1) };
 }
 
 export function digLevel(store, user) {

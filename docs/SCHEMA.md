@@ -61,9 +61,9 @@ L'autel ne vise jamais cette rarete.
 ### Coffre-fort perso, pieces detachees, niveaux
 
 - `VaultRewards` : une ligne par carte dont la ligne de 6 finitions a ete
-  recompensee. `VaultJokers` (User, Card, Finish, PlacedAt) : pieces
-  detachees posees comme joker (`Users.SpareParts`, gagnees a la peche, max
-  `VaultJokersPerRow` par ligne). Les cartes promo ne vont pas au coffre.
+  recompensee. Les cartes promo ne vont pas au coffre.
+- `Users.SpareParts` : pieces detachees (pechees). Dans l'atelier Finitions
+  ou Qualite, une piece remplace UN des exemplaires a consommer (5 -> 4, 3 -> 2).
 - `Users.FishingXP` / `Users.DigXP` : niveaux de peche et de fouille (1 a 10,
   `api/src/native/levels.js`).
 

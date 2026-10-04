@@ -195,8 +195,12 @@ const Confirm = {
 // Resout { pullIds, keepPullId } ou null si annule.
 // ---------------------------------------------------------------------------
 const FusionPicker = {
-  open({ title, intro, copies, required, otherRank, confirmText = "Fusionner" }) {
+  // parts : pieces detachees disponibles (pechees) ; cochee, une piece
+  // remplace un des exemplaires requis.
+  open({ title, intro, copies, required: baseRequired, otherRank, confirmText = "Fusionner", parts = 0 }) {
     return new Promise((resolve) => {
+      let usePart = parts > 0 && copies.length < baseRequired;
+      let required = baseRequired - (usePart ? 1 : 0);
       const FIN = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
       const QUA = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
       const sorted = [...copies].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999));
@@ -220,6 +224,7 @@ const FusionPicker = {
                 <label class="fusion-keep" title="Le nouvel exemplaire portera ce numéro"><input type="radio" name="fusion-keep" data-keep="${c.pullId}" /> garder ce n°</label>
               </div>`).join("")}
           </div>
+          ${parts > 0 ? `<label class="fusion-part"><input type="checkbox" data-use-part ${usePart ? "checked" : ""} ${copies.length < baseRequired ? "disabled" : ""} /> &#128297; Utiliser une <strong>pièce détachée</strong> à la place d'un exemplaire <span class="muted">(il t'en reste ${parts})</span></label>` : ""}
           <div class="fusion-picker-count"></div>
           <div class="confirm-actions">
             <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
@@ -245,6 +250,17 @@ const FusionPicker = {
           (lost.length ? ` · <span class="fusion-warning">&#9888; tu sacrifies ${lost.map(serial).join(", ")} (précieux)</span>` : "");
         okBtn.disabled = selected.size !== required;
       };
+      const partBox = overlay.querySelector("[data-use-part]");
+      if (partBox) partBox.addEventListener("change", () => {
+        usePart = partBox.checked;
+        required = baseRequired - (usePart ? 1 : 0);
+        // Trop d'exemplaires coches : on retire le plus precieux a garder.
+        while (selected.size > required) {
+          const drop = [...byDefault].reverse().find((c) => selected.has(c.pullId));
+          selected.delete(drop.pullId);
+        }
+        refresh();
+      });
       overlay.querySelectorAll("[data-pick]").forEach((cb) => cb.addEventListener("change", () => {
         const id = Number(cb.dataset.pick);
         if (cb.checked) selected.add(id); else selected.delete(id);
@@ -254,7 +270,7 @@ const FusionPicker = {
       const finish = (result) => { overlay.remove(); syncScrollLock(); resolve(result); };
       overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
       overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
-      okBtn.addEventListener("click", () => finish({ pullIds: [...selected], keepPullId: keep }));
+      okBtn.addEventListener("click", () => finish({ pullIds: [...selected], keepPullId: keep, parts: usePart ? 1 : 0 }));
       document.body.appendChild(overlay);
       syncScrollLock();
       refresh();

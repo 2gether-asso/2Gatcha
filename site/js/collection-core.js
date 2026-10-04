@@ -40,7 +40,8 @@ const Coll = (() => {
       promo_not_upgradable: "Cette carte promo ne peut pas être fusionnée.",
       card_inactive: "Cette carte n'est plus disponible.",
       invalid_finish: "Cette finition ne peut pas être fusionnée davantage.",
-      not_enough_duplicates: "Il te faut 5 exemplaires identiques pour fusionner.",
+      not_enough_duplicates: "Il te faut 5 exemplaires identiques pour fusionner (ou 4 et une pièce détachée).",
+      no_spare_part: "Tu n'as plus de pièce détachée (elles se pêchent).",
       sold_out: SOLD_OUT
     },
     quality: {
@@ -48,7 +49,8 @@ const Coll = (() => {
       promo_not_repairable: "Cette carte promo ne peut pas être restaurée.",
       card_inactive: "Cette carte n'est plus disponible.",
       invalid_quality: "Cette qualité ne peut pas être restaurée davantage.",
-      not_enough_duplicates: "Il te faut 3 exemplaires identiques pour restaurer.",
+      not_enough_duplicates: "Il te faut 3 exemplaires identiques pour restaurer (ou 2 et une pièce détachée).",
+      no_spare_part: "Tu n'as plus de pièce détachée (elles se pêchent).",
       sold_out: SOLD_OUT
     },
     trade: {
@@ -287,6 +289,7 @@ const Coll = (() => {
     state.ownedMap = new Map((collection.owned || []).map((o) => [o.cardId, o]));
     state.protectedMap = new Map((collection.protectedCards || []).map((o) => [o.cardId, o.copies || []]));
     state.stardust = status.stardust || 0;
+    state.spareParts = status.spareParts || 0;
     state.level = status.xp?.level || state.level || 1;
     knownProfileLevel = state.level;
     state.finishMultipliers = catalog.finishMultipliers || {};
