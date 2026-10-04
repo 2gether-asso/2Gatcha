@@ -1,0 +1,139 @@
+# Construit l'image Docker de l'API 2Gatcha (api/ + workflows + site) et la
+# publie sur GitHub Container Registry : ghcr.io/2gether-asso/2gatcha-api.
+#
+# Tags publies :
+#   - latest            : derniere version de main (utilisee en production)
+#   - sha-<commit>      : chaque build, pour revenir a une version precise
+#   - 1.2.3 / 1.2       : quand un tag git v1.2.3 est pousse
+#
+# L'image embarque le site et les workflows : en production, mettre a jour =
+# `docker compose pull && docker compose up -d` (voir api/README.md).
+name: API - image Docker
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+    paths:
+      - "api/**"
+      - "n8n/workflows/**"
+      - "site/**"
+      - ".dockerignore"
+      - ".github/workflows/api-image.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - "n8n/workflows/**"
+      - ".github/workflows/api-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# Un seul build a la fois par branche : un nouveau push annule le precedent.
+concurrency:
+  group: api-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/2gatcha-api
+
+jobs:
+  test:
+    name: Tests du moteur
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: npm test (base d'essai, 40+ endpoints)
+        working-directory: api
+        run: npm test
+
+  image:
+    name: Build & push
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Retirer les fichiers de test
+        # dev-login contourne la connexion Discord : jamais dans l'image
+        # (deja exclus par .dockerignore, ceinture et bretelles).
+        run: rm -f site/dev-login.html site/js/dev-login.js
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Connexion a ghcr.io
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags et labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # Les noms d'image ghcr doivent etre en minuscules.
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=2gatcha-api
+            org.opencontainers.image.description=API 2Gatcha (remplace n8n + Grist) avec le site
+
+      # 1) Build local (amd64) et verification AVANT toute publication : une
+      #    image qui ne demarre pas ne devient jamais "latest".
+      - name: Build de test (amd64, local)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: api/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: 2gatcha-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verifier que l'image demarre
+        run: |
+          docker run -d --name api-smoke -p 8080:8080 -e DB_PATH=/tmp/test.sqlite 2gatcha-api:ci
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/health
+          echo
+          # Les workflows sont charges.
+          curl -fsS http://127.0.0.1:8080/health | grep -Eq '"workflows":[1-9][0-9]*'
+          # dev-login n'est jamais servi.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/dev-login.html)" = "404"
+          # Le site servi parle a l'API elle-meme.
+          curl -fsS http://127.0.0.1:8080/js/config.js | grep -q 'n8nBaseUrl: "/webhook/"'
+          curl -fsS -o /dev/null http://127.0.0.1:8080/index.html
+          docker logs api-smoke
+          docker rm -f api-smoke
+
+      # 2) Build multi-architecture et publication (le cache rend ce second
+      #    build quasi instantane pour amd64).
+      - name: Build multi-architecture et publication
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: api/Dockerfile
+          # amd64 + arm64 : serveur classique comme Raspberry Pi / instance ARM.
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

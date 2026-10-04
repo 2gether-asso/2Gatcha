@@ -23,15 +23,38 @@ GRIST_API_KEY=... npm run import           # copie des données Grist -> data/2g
 SITE_DIR=../site npm start                 # http://localhost:8080 (API + site)
 ```
 
-## Héberger avec Docker
+## Héberger avec Docker (image ghcr.io)
+
+À chaque push sur `main` qui touche `api/`, `n8n/workflows/` ou `site/`,
+GitHub Actions ([.github/workflows/api-image.yml](../.github/workflows/api-image.yml))
+lance les tests du moteur, construit l'image, vérifie qu'elle démarre, puis la
+publie sur **`ghcr.io/2gether-asso/2gatcha-api`** (`latest`, `sha-<commit>`,
+et `1.2.3` pour un tag git `v1.2.3`). Image amd64 et arm64.
+
+Sur le serveur, pas besoin du dépôt : seuls `docker-compose.yml` et `.env`
+sont nécessaires.
 
 ```bash
-cd api
-cp .env.example .env          # puis remplir les secrets Discord et la clé Grist
-docker compose up -d --build
+mkdir 2gatcha && cd 2gatcha                 # y copier docker-compose.yml et .env.example
+cp .env.example .env                        # puis remplir
+docker compose pull && docker compose up -d
 ```
 
-La base vit dans `api/data/2gatcha.sqlite` (volume). Pour la sauvegarder, il
+Mise à jour après un push : `docker compose pull && docker compose up -d`.
+Pour revenir à une version précise, mets `API_TAG=sha-abc1234` dans `.env`.
+
+**Accès à l'image** : un paquet ghcr d'organisation est privé par défaut. Deux
+options :
+- le rendre public (GitHub > organisation 2gether-asso > Packages >
+  2gatcha-api > Package settings > Change visibility) ;
+- ou se connecter sur le serveur avec un jeton GitHub ayant le droit
+  `read:packages` : `docker login ghcr.io -u <pseudo>`.
+
+Si la publication échoue avec une erreur de permission, autorise l'écriture
+des paquets par les workflows : dépôt > Settings > Actions > General >
+Workflow permissions.
+
+La base vit dans `data/2gatcha.sqlite` (volume). Pour la sauvegarder, il
 suffit de copier ce fichier, idéalement API arrêtée, ou avec
 `sqlite3 2gatcha.sqlite ".backup save.sqlite"`.
 
@@ -39,14 +62,14 @@ suffit de copier ce fichier, idéalement API arrêtée, ou avec
 d'administration et le site, derrière ton reverse proxy habituel (Caddy,
 Traefik, nginx) qui gère le HTTPS.
 
-- `site/` et `n8n/workflows/` sont **montés en lecture seule** depuis le dépôt.
-  Après un `git pull`, le site est à jour immédiatement ; pour une
-  modification de workflow, il faut un `docker compose restart`.
+- Le site et les workflows sont **embarqués dans l'image**. Option : si le
+  dépôt est cloné sur le serveur, les lignes commentées du `docker-compose.yml`
+  montent `site/` et `n8n/workflows/` du dépôt à la place.
 - Le site servi par le conteneur parle automatiquement à l'API : le serveur
   réécrit à la volée `n8nBaseUrl` en `/webhook/` dans `js/config.js` (réglable
   avec `SITE_API_BASE`). Le fichier du dépôt n'a donc pas besoin d'être modifié.
 - `dev-login.html`, `js/dev-login.js` et les fichiers cachés (`.git`, `.env`…)
-  ne sont **jamais servis**, même s'ils sont présents dans le dossier monté.
+  ne sont **jamais servis** (ni présents dans l'image, ni servis depuis un dossier monté).
 
 ## Bascule depuis n8n
 

@@ -1,21 +1,25 @@
-# Lancement : depuis le dossier api/
-#   cp .env.example .env   (puis remplir)
-#   docker compose up -d --build
+# Production : image publiee par GitHub Actions (.github/workflows/api-image.yml)
+# a chaque push sur main. Elle embarque l'API, les workflows et le site.
+#
+#   cp .env.example .env                    (puis remplir)
+#   docker compose pull && docker compose up -d
 #   docker compose run --rm api npm run import   (import initial depuis Grist)
+#
+# Mettre a jour apres un push sur main : docker compose pull && docker compose up -d
 services:
   api:
-    build:
-      context: ..
-      dockerfile: api/Dockerfile
+    # API_TAG=sha-abc1234 dans .env pour figer (ou revenir a) une version precise.
+    image: ghcr.io/2gether-asso/2gatcha-api:${API_TAG:-latest}
+    pull_policy: always
     restart: unless-stopped
     env_file: .env
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:
       - ./data:/data
-      # Site monte en lecture seule : un `git pull` suffit a le mettre a jour,
-      # sans reconstruire l'image (dev-login n'est jamais servi).
-      - ../site:/app/site:ro
-      # Workflows (logique metier) montes aussi : apres un `git pull`, un
-      # `docker compose restart` suffit a appliquer une modification.
-      - ../n8n/workflows:/app/workflows:ro
+      # Optionnel, si le depot est clone sur le serveur : servir le site et les
+      # workflows du depot plutot que ceux de l'image (un `git pull` suffit
+      # alors pour le site, `docker compose restart` pour les workflows).
+      # dev-login n'est jamais servi.
+      # - ../site:/app/site:ro
+      # - ../n8n/workflows:/app/workflows:ro

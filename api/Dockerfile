@@ -1,5 +1,5 @@
-# Image de l'API 2Gatcha. Construite depuis la RACINE du depot (voir
-# docker-compose.yml) pour embarquer les workflows et, en option, le site.
+# Image de l'API 2Gatcha, construite depuis la RACINE du depot (contexte ..)
+# par GitHub Actions (.github/workflows/api-image.yml) : API + workflows + site.
 FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production \
