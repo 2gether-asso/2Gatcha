@@ -54,6 +54,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   if (missing.length) console.log('Colonnes des workflows creees :', missing.join(', '));
   auth.init({ store });
   unique.init({ store });
+  fishing.init({ store });
 
   return {
     has: (method, path) => routes.has(`${method} ${path}`),

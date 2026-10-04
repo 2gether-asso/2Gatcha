@@ -64,6 +64,9 @@ L'autel ne vise jamais cette rarete.
   recompensee. Les cartes promo ne vont pas au coffre.
 - `Users.SpareParts` : pieces detachees (pechees). Dans l'atelier Finitions
   ou Qualite, une piece remplace UN des exemplaires a consommer (5 -> 4, 3 -> 2).
+- `Users.Worms` : vers de terre, cout d'un lancer de peche ; gagnes a la fin
+  d'une grille de fouille (joueur ou chien) : `WormsPerBoard` + `WormsPerLeftoverTile`
+  par case jamais creusee. Stock de depart offert une fois (`StarterWorms`).
 - `Users.FishingXP` / `Users.DigXP` : niveaux de peche et de fouille (1 a 10,
   `api/src/native/levels.js`) ; `FishingWeek`/`FishingWeekXP`, `DigWeek`/`DigWeekXP` :
   XP de la semaine (classement des metiers) ; `FishingRecords` : carnet de peche (JSON).

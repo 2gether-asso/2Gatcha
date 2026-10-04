@@ -303,6 +303,9 @@ function renderHeader() {
             <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
               <span class="icon">&#128273;</span><span class="count">0</span>
             </span>
+            <a id="header-worm-badge" class="stat-chip stat-chip-worm" href="jeux.html#peche" title="Vers de terre : un par lancer de pêche (trouvés à la fin d'une grille de fouille)" style="display:none;">
+              <span class="icon">&#129713;</span><span class="count">0</span>
+            </a>
             <a id="header-part-badge" class="stat-chip stat-chip-part" href="collection.html#finitions" title="Pièces détachées : remplacent un exemplaire dans l'atelier Finitions / Qualité" style="display:none;">
               <span class="icon">&#128297;</span><span class="count">0</span>
             </a>
@@ -731,6 +734,13 @@ async function loadHeaderBoosterBadge() {
       }
     }
 
+    // Vers de terre (fouille -> peche) : visibles seulement si > 0.
+    const wormBadge = document.getElementById("header-worm-badge");
+    if (wormBadge) {
+      const worms = status.worms || 0;
+      wormBadge.style.display = worms > 0 ? "flex" : "none";
+      if (worms > 0) bumpNumber(wormBadge.querySelector(".count"), worms);
+    }
     // Pieces detachees (pechees) : visibles seulement si > 0.
     const partBadge = document.getElementById("header-part-badge");
     if (partBadge) {

@@ -7,6 +7,8 @@
 // de son temps sur "Coffre-fort".
 const LAST_TAB_KEY = "2gatcha_last_tab_jeux";
 function getInitialTab() {
+  if (location.hash === "#peche") return "fish";
+  if (location.hash === "#fouille") return "dig";
   try { return localStorage.getItem(LAST_TAB_KEY) || "dig"; } catch (e) { return "dig"; }
 }
 
@@ -280,6 +282,7 @@ function announceDogReport(r) {
     if (r.dust) parts.push(`+${r.dust} poussières`);
     if (r.boosters) parts.push(`+${r.boosters} booster${r.boosters > 1 ? "s" : ""}`);
     if (r.keys) parts.push(`+${r.keys} &#128273;`);
+    if (r.worms) parts.push(`+${r.worms} vers de terre &#129713;`);
     (r.cards || []).forEach((c) => parts.push(`&#127183; ${c.name}${c.serialNumber != null ? " #" + String(c.serialNumber).padStart(3, "0") : ""}`));
     showDogPostcard(r, parts);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
@@ -363,6 +366,10 @@ async function doDig(tileIndex, tileEl) {
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     }
 
+    if (res.wormsFound) {
+      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">&#129713; +${res.wormsFound} vers de terre dans la terre qui restait${res.leftoverTiles ? ` (${res.leftoverTiles} case${res.leftoverTiles > 1 ? "s" : ""} jamais creusée${res.leftoverTiles > 1 ? "s" : ""})` : ""} : de quoi pêcher !</div>`);
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    }
     if (res.boardCleared) {
       setTimeout(() => {
         Toast.info("Tous les trésors sont trouvés : nouvelle grille !");
@@ -416,11 +423,12 @@ function renderFishing(st) {
   renderFishWeather(st.weather);
   renderFishBook(st.records);
   const left = st.castsLeft == null ? "illimités" : `${st.castsLeft} restant${st.castsLeft > 1 ? "s" : ""} aujourd'hui`;
-  document.getElementById("fish-meta").innerHTML = `${st.cost} &#10024; le lancer · ${left} · tu as ${st.stardust} &#10024;`;
-  document.getElementById("fish-cast-btn").innerHTML = `&#127907; Lancer (${st.cost} &#10024;)`;
-  document.getElementById("fish-cast-btn").disabled = fishBusy || st.stardust < st.cost || st.castsLeft === 0;
-  document.getElementById("fish-cast5-btn").innerHTML = `Lancer ×5 (${st.cost * 5} &#10024;)`;
-  document.getElementById("fish-cast5-btn").disabled = fishBusy || st.stardust < st.cost * 5 || (st.castsLeft != null && st.castsLeft < 5);
+  const worms = st.worms ?? 0;
+  document.getElementById("fish-meta").innerHTML = `${st.cost} &#129713; le lancer · ${left} · tu as <strong>${worms} ver${worms > 1 ? "s" : ""} de terre</strong>${worms < st.cost ? " · termine une grille de fouille pour en trouver" : ""}`;
+  document.getElementById("fish-cast-btn").innerHTML = `&#127907; Lancer (${st.cost} &#129713;)`;
+  document.getElementById("fish-cast-btn").disabled = fishBusy || worms < st.cost || st.castsLeft === 0;
+  document.getElementById("fish-cast5-btn").innerHTML = `Lancer ×5 (${st.cost * 5} &#129713;)`;
+  document.getElementById("fish-cast5-btn").disabled = fishBusy || worms < st.cost * 5 || (st.castsLeft != null && st.castsLeft < 5);
   document.getElementById("fish-table").innerHTML = `<thead><tr><th>Prise</th><th>Quantité</th><th>Chance</th></tr></thead><tbody>${st.table.map((x) => `
     <tr class="fish-row-${x.tier}"><td>${FISH_ICONS[x.type] || ""} ${x.label}</td><td>${x.type === "nothing" ? "—" : (x.min === x.max || x.max == null ? (x.min || 1) : `${x.min} à ${x.max}`)}</td><td>${x.chance} %</td></tr>`).join("")}</tbody>`;
 }
@@ -475,7 +483,7 @@ async function castFishing(count) {
     fishBusy = false;
     scene.classList.remove("casting", "waiting", "bite");
     status.textContent = "Prêt à pêcher";
-    Toast.error({ not_enough_dust: "Pas assez de poussières.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille, il y en a dans la terre qui reste.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
     loadFishing();
   }
 }
@@ -824,6 +832,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-guess-btn").addEventListener("click", () => setActiveTab("guess"));
   document.getElementById("tab-expedition-btn").addEventListener("click", () => setActiveTab("expedition"));
   document.getElementById("tab-fish-btn").addEventListener("click", () => setActiveTab("fish"));
+  // Lien de l'en-tete vers la peche alors qu'on est deja sur la page.
+  window.addEventListener("hashchange", () => { if (location.hash === "#peche") setActiveTab("fish"); else if (location.hash === "#fouille") setActiveTab("dig"); });
   document.getElementById("fish-cast-btn").addEventListener("click", () => castFishing(1));
   document.getElementById("fish-cast5-btn").addEventListener("click", () => castFishing(5));
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));

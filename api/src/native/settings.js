@@ -41,7 +41,10 @@ export const REGISTRY = {
   ChestSpecialFinishChance: { ...pct('Chance de finition spéciale (cartes du coffre)', 0.15, 'Coffres', ''), storage: 'app' },
 
   // --- Peche
-  FishingCost: { ...int('Prix d’un lancer (poussières)', 30, 'Pêche', '', 1), storage: 'app' },
+  FishingCost: { ...int('Vers de terre par lancer', 1, 'Pêche', 'Les vers se trouvent dans la terre restante à la fin d’une fouille.', 1), storage: 'app' },
+  WormsPerBoard: { ...int('Vers par grille de fouille terminée', 2, 'Pêche', 'Gagnés quand tous les trésors d’une grille sont trouvés (joueur ou chien).'), storage: 'app' },
+  WormsPerLeftoverTile: { ...int('Vers par case de terre restante', 2, 'Pêche', 'En plus, pour chaque case jamais creusée à la fin de la grille.'), storage: 'app' },
+  StarterWorms: { ...int('Vers offerts au lancement', 5, 'Pêche', 'Donnés une seule fois à chaque joueur existant, pour pouvoir pêcher tout de suite.'), storage: 'app' },
   FishingDailyCasts: { ...int('Lancers par jour', 20, 'Pêche', '0 = illimité. +2 par niveau de pêche au-dessus du 1.'), storage: 'app' },
   FishingLevelXpStep: { ...int('XP pour le niveau 2 de pêche', 15, 'Pêche', 'Chaque niveau suivant demande ce palier en plus (15, 45, 90…). 1 XP par lancer, plus selon la prise.', 1), storage: 'app' },
   FishingLoot: {

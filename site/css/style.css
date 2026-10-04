@@ -6088,3 +6088,7 @@ button.set-chip-claim::before { content: none; }
 .skills-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; font-weight: 600; }
 .skills-level { font-size: 0.72rem; color: var(--text-dim); }
 .skills-xp { font-weight: 700; color: var(--accent-2); }
+
+/* Vers de terre (fouille -> peche) */
+.stat-chip-worm { color: #d9a58a; text-decoration: none; }
+.dig-worms { margin-top: 6px; color: #d9a58a; font-weight: 700; animation: modalPopIn 0.35s cubic-bezier(.2,.9,.3,1.3) both; }

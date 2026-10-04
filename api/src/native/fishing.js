@@ -1,4 +1,6 @@
-// Jeu de peche (page Jeux) : chaque lancer coute des poussieres et ramene
+// Jeu de peche (page Jeux) : chaque lancer coute des vers de terre (Users.Worms,
+// trouves dans la terre restante a la fin d'une grille de fouille, voir
+// afterWorkflow) et ramene
 // une prise tiree dans une table ponderee (reglage FishingLoot) : rien,
 // poussieres, os (chien de fouille), cle, booster ou coffre. Limite de
 // lancers par jour (FishingDailyCasts, 0 = illimite).
@@ -17,7 +19,7 @@ import { setting } from './settings.js';
 import { levelInfo, weeklyXpFields } from './levels.js';
 
 export const schema = {
-  Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' } }
+  Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' }, Worms: { type: 'Numeric' } }
 };
 
 const LABELS = { nothing: 'Rien du tout', dust: 'Poussières', bone: 'Os', key: 'Clé', booster: 'Booster', chest: 'Coffre', part: 'Pièce détachée' };
@@ -88,6 +90,7 @@ function statusOf(store, user) {
     dailyLimit: daily,
     castsLeft: daily > 0 ? Math.max(0, daily - casts) : null,
     stardust: Number(user.StardustCount) || 0,
+    worms: Number(user.Worms) || 0,
     spareParts: Number(user.SpareParts) || 0,
     level,
     table: lootTable(store, level.perks, weather).map(({ type, label, chance, min, max, tier }) => ({ type, label, chance: Math.round(chance * 1000) / 10, min, max, tier }))
@@ -101,12 +104,12 @@ function handleFishing({ store, body }) {
   if (body.action !== 'cast') return ok(st);
   const count = Math.min(5, Math.max(1, Number(body.count) || 1));
   if (st.castsLeft != null && st.castsLeft < count) return fail('daily_limit', 400, st);
-  if (st.stardust < st.cost * count) return fail('not_enough_dust', 400, st);
+  if (st.worms < st.cost * count) return fail('not_enough_worms', 400, st);
   const weather = weatherOf();
   const table = lootTable(store, st.level.perks, weather);
   const records = readRecords(user);
   if (!table.length) return fail('no_loot_table');
-  const fields = { StardustCount: st.stardust - st.cost * count, FishingDay: parisDay(0), FishingCasts: st.castsToday + count };
+  const fields = { Worms: st.worms - st.cost * count, FishingDay: parisDay(0), FishingCasts: st.castsToday + count };
   const catches = [];
   let xp = 0;
   for (let i = 0; i < count; i++) {
@@ -127,14 +130,43 @@ function handleFishing({ store, body }) {
   fields.FishingRecords = JSON.stringify(records);
   user = store.update('Users', user.id, fields);
   const after = statusOf(store, user);
-  return ok({ catches, xpGained: xp, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, ...after });
+  return ok({ catches, xpGained: xp, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, newWorms: user.Worms, ...after });
 }
 
 export const routes = { 'POST fishing': handleFishing };
 
-// Solde de pieces detachees avec le statut des boosters (atelier, en-tete).
+// Une seule fois : quelques vers offerts a chaque joueur existant.
+export function init({ store }) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === 'starterWormsGiven')) return;
+  const n = setting(store, 'StarterWorms');
+  let users = 0;
+  if (n > 0 && store.tables.has('Users')) {
+    for (const u of store.getAll('Users')) { store.update('Users', u.id, { Worms: (Number(u.Worms) || 0) + n }); users++; }
+  }
+  store.create('AppSettings', { Key: 'starterWormsGiven', Value: JSON.stringify({ at: now(), worms: n, users }) });
+  if (users) console.log(`Vers de terre : ${n} offerts a ${users} joueur(s)`);
+}
+
 export function afterWorkflow({ store, path, request, response }) {
-  if (path !== 'booster-status' || response.status !== 200 || !response.json) return;
-  const user = store.get('Users', Number((request.query || {}).userId));
-  if (user) response.json.spareParts = Number(user.SpareParts) || 0;
+  if (response.status !== 200 || !response.json) return;
+  // Soldes (pieces detachees, vers) avec le statut des boosters (en-tete, atelier).
+  if (path === 'booster-status') {
+    const user = store.get('Users', Number((request.query || {}).userId));
+    if (user) { response.json.spareParts = Number(user.SpareParts) || 0; response.json.worms = Number(user.Worms) || 0; }
+    return;
+  }
+  // Fouille : grille terminee (par le joueur ou le chien) -> vers de terre,
+  // selon la terre restante.
+  if (path !== 'dig') return;
+  const user = store.get('Users', Number((request.body || {}).userId));
+  if (!user) return;
+  const json = response.json;
+  const perBoard = setting(store, 'WormsPerBoard');
+  const perTile = setting(store, 'WormsPerLeftoverTile');
+  const mine = json.boardCleared ? perBoard + perTile * (Number(json.leftoverTiles) || 0) : 0;
+  const dog = json.dogReport && json.dogReport.boards ? perBoard * json.dogReport.boards + perTile * (Number(json.dogReport.leftover) || 0) : 0;
+  if (mine) json.wormsFound = mine;
+  if (dog) json.dogReport.worms = dog;
+  if (mine + dog) store.update('Users', user.id, { Worms: (Number(user.Worms) || 0) + mine + dog });
+  json.worms = (Number(user.Worms) || 0) + mine + dog;
 }

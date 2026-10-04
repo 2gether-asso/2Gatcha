@@ -201,7 +201,7 @@ await test('doublons : poussiere passive a l ouverture (5 commune, 10 au-dela)',
 await test('reglages : defauts, modification validee, remise a zero, lus par les modules', () => {
   assert.equal(call('POST', 'admin-settings', { body: { discordId: 'x', action: 'get' } }).status, 403);
   const list = call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'get' } }).json.settings;
-  assert.ok(list.length > 30 && list.find((x) => x.key === 'FishingCost').value === 30);
+  assert.ok(list.length > 30 && list.find((x) => x.key === 'FishingCost').value === 1);
   const bad = call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: -5, LoginStreakRewards: [{ dust: 1 }] } } });
   assert.equal(bad.status, 400);
   assert.equal(bad.json.errors.length, 2);
@@ -275,15 +275,15 @@ await test('saison : XP du mois, paliers reclames une fois, carte exclusive au d
 
 await test('peche : cout, prises appliquees, limite par jour', () => {
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: 10, FishingDailyCasts: 6, FishingLevelXpStep: 100000, FishingLoot: [{ type: 'key', weight: 1, min: 1, max: 1 }] } } });
-  store.update('Users', 1, { StardustCount: 100, KeyCount: 0, FishingDay: '', FishingCasts: 0, FishingXP: 0 });
+  store.update('Users', 1, { Worms: 100, KeyCount: 0, FishingDay: '', FishingCasts: 0, FishingXP: 0 });
   const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 5 } }).json;
   assert.equal(r.catches.length, 5);
-  assert.equal(user(1).StardustCount, 50);
+  assert.equal(user(1).Worms, 50, 'le lancer coute des vers');
   assert.equal(user(1).KeyCount, 5);
   assert.equal(r.castsLeft, 1);
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 2 } }).json.error, 'daily_limit');
-  store.update('Users', 1, { StardustCount: 5 });
-  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json.error, 'not_enough_dust');
+  store.update('Users', 1, { Worms: 5 });
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json.error, 'not_enough_worms');
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.table[0].chance, 100);
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLevelXpStep' } });
 });
@@ -449,7 +449,7 @@ await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), foui
   assert.deepEqual([levels.levelFor(0, 20), levels.levelFor(19, 20), levels.levelFor(20, 20), levels.levelFor(60, 20), levels.levelFor(99999, 20)], [1, 1, 2, 3, 10]);
   for (const key of ['FishingCost', 'FishingDailyCasts', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
   // Peche : niveau 1 puis niveau 3 (FishingLevelXpStep 15 -> 45 XP).
-  store.update('Users', 1, { FishingXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 5000 });
+  store.update('Users', 1, { FishingXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 5000, Worms: 5000 });
   let st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
   assert.deepEqual([st.level.level, st.dailyLimit], [1, 20]);
   assert.ok(st.table.some((x) => x.type === 'part'), 'piece detachee dans la table');
@@ -494,7 +494,7 @@ await test('embellissements : meteo, carnet de peche, classement des metiers, re
   assert.ok(['soleil', 'pluie', 'brume', 'orage'].includes(weatherOf().key));
   for (const key of ['FishingCost', 'FishingDailyCasts', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingLoot: [{ type: 'dust', weight: 1, min: 10, max: 10 }] } } });
-  store.update('Users', 2, { FishingRecords: '', FishingWeek: '', FishingWeekXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 1000 });
+  store.update('Users', 2, { FishingRecords: '', FishingWeek: '', FishingWeekXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 1000, Worms: 1000 });
   let r = call('POST', 'fishing', { body: { userId: 2, action: 'cast' } }).json;
   assert.equal(r.catches[0].first, true);
   assert.equal(r.weather.key, weatherOf().key);
@@ -528,6 +528,27 @@ await test('embellissements : meteo, carnet de peche, classement des metiers, re
   const reg = call('POST', 'unique-counter', { body: { userId: 1, action: 'status' } }).json.cards.find((x) => x.cardId === old.id);
   assert.deepEqual(reg.owners.map((o) => o.userId), [2]);
   assert.ok('pseudo' in owned.owners[0]);
+});
+
+await test('vers de terre : terre restante d une grille (joueur et chien), stock de depart une fois', () => {
+  store.update('Users', 1, { Worms: 0 });
+  const done = { status: 200, json: { dug: true, boardCleared: true, leftoverTiles: 2, dustGained: 0, dogReport: { tiles: 5, boards: 1, leftover: 1 } } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, done);
+  assert.equal(done.json.wormsFound, 2 + 2 * 2, '2 par grille + 2 par case restante');
+  assert.equal(done.json.dogReport.worms, 2 + 2 * 1, 'grille terminee par le chien');
+  assert.equal(store.get('Users', 1).Worms, 10);
+  const plain = { status: 200, json: { dug: true, boardCleared: false, dustGained: 0, dogReport: null } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, plain);
+  assert.equal(plain.json.wormsFound, undefined);
+  assert.equal(store.get('Users', 1).Worms, 10);
+  const bs = { status: 200, json: { count: 1 } };
+  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, bs);
+  assert.equal(bs.json.worms, 10);
+  // Stock de depart : une seule fois.
+  assert.ok(store.getAll('AppSettings').some((r) => r.Key === 'starterWormsGiven'));
+  const before = store.get('Users', 2).Worms || 0;
+  createNative({ store, withLock: (fn) => fn() });
+  assert.equal(store.get('Users', 2).Worms || 0, before, 'pas de second cadeau');
 });
 
 await test('unique : migration une seule fois des lignes deja completees en tickets', () => {
