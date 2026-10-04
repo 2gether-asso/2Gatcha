@@ -25,7 +25,7 @@ const API = {
     }
   },
   _handleOffline() {
-    if (location.pathname.endsWith("maintenance.html") || this._offlineCheck) return;
+    if (location.pathname.endsWith("maintenance.html") || document.body.hasAttribute("data-no-maintenance") || this._offlineCheck) return;
     this._offlineCheck = (async () => {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 6000);

@@ -1480,7 +1480,9 @@ function renderHeader() {
 // juste un confort pour ne pas laisser les joueurs sur une page a moitie
 // fonctionnelle pendant une maintenance.
 async function checkMaintenanceMode() {
-  if (location.pathname.endsWith("maintenance.html")) return;
+  // Pages exemptees (data-no-maintenance, ex. admin-db.html : protegee par
+  // son propre mot de passe, indispensable PENDANT une maintenance).
+  if (location.pathname.endsWith("maintenance.html") || document.body.hasAttribute("data-no-maintenance")) return;
   try {
     const res = await API.getSiteBanner();
     if (res.maintenanceMode && !Session.isAdmin()) {

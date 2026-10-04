@@ -1,0 +1,6 @@
+api/data
+api/.env
+**/node_modules
+.git
+site/dev-login.html
+site/js/dev-login.js

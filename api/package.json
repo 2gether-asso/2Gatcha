@@ -1,0 +1,16 @@
+{
+  "name": "2gatcha-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API 2Gatcha autonome : remplace n8n + Grist (SQLite, zero dependance).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "import": "node --disable-warning=ExperimentalWarning scripts/import-grist.js",
+    "test": "node --disable-warning=ExperimentalWarning scripts/selftest.js",
+    "compare": "node scripts/compare.js"
+  }
+}

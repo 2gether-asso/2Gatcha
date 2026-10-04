@@ -1,6 +1,9 @@
 // Configuration du site - a adapter avec l'URL de ton instance n8n et ton
 // application Discord (voir n8n/README.md, section "Discord").
 window.APP_CONFIG = {
+  // Bascule vers l'API maison (api/README.md) : remplacer par l'adresse de
+  // l'API, ex. "https://api.gatcha.2gether-asso.fr/webhook/", ou "/webhook/"
+  // si le conteneur de l'API sert aussi le site.
   n8nBaseUrl: "https://n8n.matiboux.com/webhook/",
 
   // A adapter : Client ID de ton application Discord (visible dans le

@@ -1,0 +1,21 @@
+# Lancement : depuis le dossier api/
+#   cp .env.example .env   (puis remplir)
+#   docker compose up -d --build
+#   docker compose run --rm api npm run import   (import initial depuis Grist)
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - ./data:/data
+      # Site monte en lecture seule : un `git pull` suffit a le mettre a jour,
+      # sans reconstruire l'image (dev-login n'est jamais servi).
+      - ../site:/app/site:ro
+      # Workflows (logique metier) montes aussi : apres un `git pull`, un
+      # `docker compose restart` suffit a appliquer une modification.
+      - ../n8n/workflows:/app/workflows:ro

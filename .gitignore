@@ -13,3 +13,6 @@ site/js/dev-login.js
 Thumbs.db
 .vscode/
 .idea/
+
+# API : modele de configuration a versionner (les vrais secrets vont dans api/.env)
+!api/.env.example
