@@ -4,118 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Craft &amp; Décraft - 2Gatcha</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Craft / décraft font désormais partie de la page collection (2026-10-04).
+       Redirection en gardant ?cardId=... et l'onglet visé (#crafter, #autel...). -->
+  <script>
+    (function () {
+      var hash = window.location.hash || "#decrafter";
+      window.location.replace("collection.html" + window.location.search + hash);
+    })();
+  </script>
+  <noscript><meta http-equiv="refresh" content="0; url=collection.html#decrafter" /></noscript>
 </head>
 <body>
-  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
-  <header id="site-header"></header>
-
-  <main id="main-content">
-    <div class="panel">
-      <h1>&#10024; Craft &amp; Décraft</h1>
-      <p class="lead">
-        Décrafte une carte que tu possèdes en trop pour recevoir des
-        poussières d'étoile, puis utilise-les pour crafter la carte de ton
-        choix. Les cartes promo ne sont ni decraftables ni craftables.
-      </p>
-
-      <div id="guest-warning" style="display:none;">
-        <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
-      </div>
-
-      <div id="craft-zone" style="display:none;">
-        <div class="stardust-hero">
-          <span class="sd-icon">&#10024;</span>
-          <div>
-            <div id="stardust-amount" class="sd-count">...</div>
-            <div class="sd-label">poussières d'étoile</div>
-          </div>
-        </div>
-
-        <div id="unused-dust-reminder" class="milestone-banner" style="display:none;"></div>
-
-        <div class="tabs" role="tablist">
-          <button type="button" class="tab active" id="tab-disenchant-btn" role="tab" aria-selected="true">&#9851; Décrafter</button>
-          <button type="button" class="tab" id="tab-craft-btn" role="tab" aria-selected="false">&#10024; Crafter</button>
-          <button type="button" class="tab" id="tab-altar-btn" role="tab" aria-selected="false">&#128293; Autel</button>
-          <button type="button" class="tab" id="tab-finish-btn" role="tab" aria-selected="false">&#127752; Finitions</button>
-          <button type="button" class="tab" id="tab-quality-btn" role="tab" aria-selected="false">&#129521; Qualité</button>
-        </div>
-
-        <div class="craft-toolbar">
-          <input type="text" id="craft-search-input" placeholder="Rechercher une carte..." autocomplete="off" aria-label="Rechercher une carte" />
-          <div class="filters" id="craft-rarity-filters"></div>
-          <label id="hide-owned-label" class="checkbox-inline" style="display:none;">
-            <input type="checkbox" id="hide-owned-toggle" />
-            Cacher les cartes déjà possédées
-          </label>
-        </div>
-
-        <div id="disenchant-pane">
-          <div class="actions" style="margin-top:0;align-items:center;">
-            <p class="lead" style="flex:1;margin:0;font-size:0.85rem;">Triées par nombre de doublons, les plus gros stocks d'abord.</p>
-            <button type="button" class="btn-ghost" id="select-all-disenchant-btn" style="display:none;">Tout sélectionner</button>
-            <button type="button" class="btn-ghost" id="bulk-select-toggle">Sélection multiple</button>
-          </div>
-          <div id="bulk-disenchant-bar" class="bulk-action-bar" style="display:none;">
-            <span id="bulk-disenchant-summary"></span>
-            <button type="button" class="btn-danger" id="bulk-disenchant-btn">Décrafter la sélection</button>
-          </div>
-          <div id="disenchant-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
-          <div id="disenchant-grid" class="craft-grid"></div>
-        </div>
-
-        <div id="craft-pane" style="display:none;">
-          <div class="actions" style="margin-top:0;align-items:center;">
-            <p class="lead" style="flex:1;margin:0;font-size:0.85rem;">Triées par cout croissant ; les cartes que tu peux te permettre dès maintenant sont en avant.</p>
-            <button type="button" class="btn-ghost" id="select-all-craft-btn" style="display:none;">Tout sélectionner</button>
-            <button type="button" class="btn-ghost" id="craft-bulk-select-toggle">Sélection multiple</button>
-          </div>
-          <div id="bulk-craft-bar" class="bulk-action-bar" style="display:none;">
-            <span id="bulk-craft-summary"></span>
-            <button type="button" class="btn-secondary" id="bulk-craft-btn">Crafter la sélection</button>
-          </div>
-          <div id="craft-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
-          <div id="craft-grid" class="craft-grid"></div>
-        </div>
-
-        <div id="altar-pane" style="display:none;">
-          <p class="lead" style="font-size:0.85rem;">
-            Pose 3 exemplaires d'une même rareté sur l'autel pour tenter d'obtenir une carte
-            aléatoire de la rareté supérieure. 50% de réussite ; en cas d'échec, les cartes
-            sont perdues mais l'autel te laisse un os &#129460;.
-          </p>
-          <div id="altar-tiers" class="altar-root"></div>
-        </div>
-
-        <div id="finish-pane" style="display:none;">
-          <p class="lead" style="font-size:0.85rem;">
-            Fusionne 5 exemplaires identiques (même carte, même finition) pour obtenir 1
-            exemplaire de la finition supérieure : Normal &rarr; Holographique &rarr; Doré
-            &rarr; Ghost Rare &rarr; Diamant &rarr; Arc-en-ciel. Toujours garanti, pas de hasard.
-          </p>
-          <div id="finish-tiers" class="finish-tiers"></div>
-        </div>
-
-        <div id="quality-pane" style="display:none;">
-          <p class="lead" style="font-size:0.85rem;">
-            Fusionne 3 exemplaires identiques (même carte, même qualité) pour obtenir 1
-            exemplaire de la qualité supérieure : Abîmé &rarr; Usé &rarr; Bon état
-            &rarr; Parfait état. Toujours garanti, pas de hasard.
-          </p>
-          <div id="quality-tiers" class="finish-tiers"></div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/main.js"></script>
-  <script src="js/craft.js"></script>
+  <p><a href="collection.html#decrafter">Le craft et le décraft sont maintenant dans Ma collection.</a></p>
 </body>
 </html>

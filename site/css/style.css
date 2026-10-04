@@ -4551,7 +4551,9 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    ======================================================================== */
 body.cinema-mode header#site-header,
 body.cinema-mode .bottom-nav,
-body.cinema-mode #stats-block { display: none !important; }
+body.cinema-mode #stats-block,
+body.cinema-mode .coll-summary,
+body.cinema-mode #unused-dust-reminder { display: none !important; }
 body.cinema-mode main { max-width: none; padding: 24px; }
 body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow: none; }
 .cinema-toggle-btn { position: fixed; top: 16px; right: 16px; z-index: 60; }
@@ -5657,3 +5659,106 @@ body.hide-stats #stats-block { display: none; }
 .adb-img-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adb-img-size, .adb-img-usage { color: var(--text-dim); overflow: hidden; }
 .adb-replace { justify-self: start; padding: 4px 10px; font-size: 0.75rem; margin-top: 4px; cursor: pointer; }
+
+/* ========================================================================
+   Page collection fusionnee (Classeur + Atelier, 2026-10-04)
+   collection-core.js / collection-binder.js / collection-workshop.js
+   ======================================================================== */
+.coll-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  margin-bottom: 8px;
+}
+.coll-summary-progress { flex: 1 1 280px; min-width: 0; }
+.coll-summary-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.coll-summary-line #progress-label { font-weight: 700; font-variant-numeric: tabular-nums; }
+.coll-stats-toggle { padding: 4px 10px; font-size: 0.78rem; }
+/* Solde de poussieres : meme habillage que l'ancien .stardust-hero, en compact. */
+.coll-dust {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(244, 114, 182, 0.18), rgba(139, 92, 246, 0.14));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.coll-dust .sd-icon { font-size: 1.4rem; }
+.coll-dust .sd-count { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.coll-dust .sd-label { color: var(--text-dim); font-weight: 500; font-size: 0.75rem; font-family: var(--font-body); }
+
+/* Lignes de rarete cliquables (filtrent la grille). */
+button.coll-rarity-row {
+  width: 100%;
+  background: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+  text-shadow: none;
+  color: inherit;
+  padding: 3px 6px;
+  margin: 0 -6px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  transform: none !important;
+}
+button.coll-rarity-row::before { content: none; }
+button.coll-rarity-row:hover { background: rgba(255, 255, 255, 0.04); }
+button.coll-rarity-row.active { border-color: var(--border); background: rgba(139, 92, 246, 0.1); }
+
+#unused-dust-reminder { justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.coll-reminder-btn { padding: 6px 12px; font-size: 0.8rem; }
+
+.coll-modes { margin: 18px 0 12px; }
+.coll-mode .tab-count { vertical-align: 1px; }
+.coll-mode.active .tab-count { background: var(--accent); color: #fff; }
+
+.coll-pane-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 12px;
+}
+.coll-pane-actions .coll-pane-help { flex: 1 1 260px; }
+.coll-pane-help { margin: 0 0 12px; font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
+.coll-pane-actions .coll-pane-help { margin: 0; }
+
+/* Rechargement silencieux apres une action : on garde la grille visible. */
+#collection-zone.coll-busy .coll-pane { opacity: 0.6; pointer-events: none; transition: opacity 0.15s; }
+
+/* Mise en evidence via ?cardId=... (recherche globale). */
+.collection-card.highlighted {
+  outline: 3px solid var(--accent-2);
+  outline-offset: 2px;
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.45);
+}
+
+/* Atelier : carte encore jamais obtenue (craft), dernier exemplaire (decraft). */
+.craft-card { position: relative; }
+.craft-card.coll-missing .owned-count strong { color: var(--accent-2); }
+.craft-card .coll-last-copies { color: var(--accent-3); font-weight: 600; }
+.coll-wish-flag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(6, 7, 15, 0.75);
+  color: #facc15;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .coll-dust { flex: 1 1 100%; }
+  .coll-pane-actions > button { flex: 1 1 auto; }
+}

@@ -155,6 +155,7 @@ qu'on la convertisse en données depuis « Structure ».
 | `SITE_API_BASE` | adresse de l'API injectée dans le `js/config.js` servi (défaut `/webhook/`) |
 | `ALLOWED_ORIGINS` | origines CORS autorisées (`*` par défaut) |
 | `ADMIN_TOKEN` | mot de passe de `admin-db.html` (vide = administration désactivée) |
+| `SENTRY_DSN` | suivi des erreurs GlitchTip : DSN complet du projet API (`https://<clé>@glitchtip.matiboux.com/2`), vide = désactivé |
 | `DISCORD_CLIENT_SECRET`, `DISCORD_WEBHOOK_URL` | secrets injectés dans les nœuds « Set Config » à la place des `CHANGE-MOI` |
 | `AZURE_BACKUP_SAS_URL` | URL SAS du conteneur Azure Blob des sauvegardes (vide = désactivées) |
 | `BACKUP_PREFIX`, `BACKUP_INTERVAL_HOURS`, `BACKUP_RETENTION_DAYS` | dossier, fréquence (h) et conservation (jours) des sauvegardes |

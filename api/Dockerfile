@@ -7,7 +7,9 @@ ENV NODE_ENV=production \
     DB_PATH=/data/2gatcha.sqlite \
     WORKFLOWS_DIR=/app/workflows \
     SITE_DIR=/app/site
-COPY api/package.json ./api/
+COPY api/package.json api/package-lock.json ./api/
+# Seule dependance : @sentry/node (suivi des erreurs, inactif sans SENTRY_DSN).
+RUN cd api && npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY api/src ./api/src
 COPY api/scripts ./api/scripts
 COPY n8n/workflows ./workflows

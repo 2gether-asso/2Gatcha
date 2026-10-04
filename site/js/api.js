@@ -150,8 +150,9 @@ const API = {
     return this.post("notifyReveal", { userId, batchIds, action: "auto" });
   },
 
-  disenchantCard(userId, cardId, finish, quality) {
-    return this.post("disenchant", { userId, cardId, finish, quality });
+  // pullId (optionnel) : exemplaire precis a decrafter.
+  disenchantCard(userId, cardId, finish, quality, pullId) {
+    return this.post("disenchant", { userId, cardId, finish, quality, pullId });
   },
 
   craftCard(userId, cardId) {

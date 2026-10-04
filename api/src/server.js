@@ -14,9 +14,23 @@ import { Store } from './store.js';
 import { WorkflowRunner } from './runtime.js';
 import { createAdmin } from './admin.js';
 import { AzureBackup, startBackupSchedule } from './backup.js';
+import { initMonitoring, captureError, flushMonitoring } from './monitoring.js';
+
+// Suivi des erreurs (GlitchTip) le plus tot possible.
+await initMonitoring(config.monitoring);
+process.on('uncaughtException', async (err) => {
+  console.error(err);
+  captureError(err, { kind: 'uncaughtException' });
+  await flushMonitoring();
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.error(err);
+  captureError(err instanceof Error ? err : new Error(String(err)), { kind: 'unhandledRejection' });
+});
 
 const store = new Store(config.dbPath);
-const runner = new WorkflowRunner({ store, overrides: config.overrides });
+const runner = new WorkflowRunner({ store, overrides: config.overrides, onError: captureError });
 
 // --------------------------------------------------------------- workflows
 function loadWorkflows(dir) {
@@ -193,7 +207,10 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, req, 404, { error: 'not_found' });
   } catch (err) {
     console.error(err);
-    if (!res.headersSent) sendJson(res, req, err.status || err.httpCode || 500, { error: err.message });
+    const status = err.status || err.httpCode || 500;
+    // Les 4xx sont des erreurs de saisie (colonne inconnue...), pas des pannes.
+    if (status >= 500) captureError(err, { method: req.method, path: req.url && req.url.split('?')[0] });
+    if (!res.headersSent) sendJson(res, req, status, { error: err.message });
   }
 });
 

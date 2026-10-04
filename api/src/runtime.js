@@ -119,10 +119,12 @@ function itemsAccessor(items) {
 
 // --------------------------------------------------------------- execution
 export class WorkflowRunner {
-  constructor({ store, overrides = {}, log = console, fetchImpl = fetch }) {
+  // onError(err, { workflow, node }) : erreur d'execution (suivi GlitchTip).
+  constructor({ store, overrides = {}, log = console, fetchImpl = fetch, onError = null }) {
     this.store = store;
     this.overrides = overrides;
     this.log = log;
+    this.onError = onError;
     this.fetch = fetchImpl;
   }
 
@@ -162,6 +164,7 @@ class Execution {
         if (!this.response) this.resolveResponse({ status: 500, json: { message: 'Workflow did not respond' } });
       } catch (err) {
         this.runner.log.error(`[${this.wf.name}] ${err.nodeName ? `noeud "${err.nodeName}" : ` : ''}${err.stack || err.message}`);
+        if (this.runner.onError) this.runner.onError(err, { workflow: this.wf.name, node: err.nodeName });
         if (!this.response) this.resolveResponse({ status: 500, json: { message: 'Error in workflow', error: err.message } });
       }
     })();

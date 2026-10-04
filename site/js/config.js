@@ -18,6 +18,13 @@ window.APP_CONFIG = {
   // afficher (ou pas) le lien "Admin" ; la verification qui compte est cote API.
   adminDiscordIds: ["785223211730075709", "184008667690041345"],
 
+  // Suivi des erreurs du site dans GlitchTip (projet "2Gatcha Website").
+  // Coller le DSN COMPLET affiche par GlitchTip, avec sa cle publique :
+  // https://<cle>@glitchtip.matiboux.com/3 (vide = desactive). La cle
+  // publique d'un DSN n'est pas un secret : elle ne permet que d'envoyer des
+  // erreurs.
+  glitchtipDsn: "https://glitchtip.matiboux.com/3",
+
   endpoints: {
     discordLogin: "/discord-login",   // POST { code } -> { userId, pseudo, discordUsername, discordAvatar }
     updatePseudo: "/update-pseudo",   // POST { userId, pseudo } -> { userId, pseudo }
@@ -68,3 +75,33 @@ window.APP_CONFIG = {
     vault: "/vault"                    // POST { userId, action: 'status'|'open' } -> { card, keysRequired, userKeys, alreadyOpened } | { opened, card, serialNumber, newKeyCount }
   }
 };
+
+// Suivi des erreurs (GlitchTip, compatible Sentry) : SDK navigateur officiel
+// charge en asynchrone (ne bloque pas l'affichage), empreinte SRI verifiee.
+// config.js est le premier script de chaque page : c'est le point le plus tot.
+(function initErrorTracking() {
+  var dsn = window.APP_CONFIG.glitchtipDsn;
+  // Un DSN sans cle publique (https://<cle>@...) serait refuse par le SDK.
+  if (!dsn || dsn.indexOf("@") === -1 || /^(localhost|127\.)/.test(window.location.hostname)) return;
+  var s = document.createElement("script");
+  s.src = "https://browser.sentry-cdn.com/11.4.0/bundle.tracing.min.js";
+  s.integrity = "sha384-leCZtyH0v+/d38CQgHkDf/buaYk8uIH2vrAwzlLXVLKTcrvUWEUGan36c9ooM12N";
+  s.crossOrigin = "anonymous";
+  s.async = true;
+  s.onload = function () {
+    if (!window.Sentry) return;
+    window.Sentry.init({
+      dsn: dsn,
+      tracesSampleRate: 0.01, // 1 % des chargements de page
+      autoSessionTracking: false, // GlitchTip ne gere pas les sessions
+      environment: window.location.hostname
+    });
+    // Joueur connecte (memes cles que Session, main.js) : retrouver qui a
+    // rencontre l'erreur.
+    try {
+      var userId = localStorage.getItem("2gatcha_userId");
+      if (userId) window.Sentry.setUser({ id: userId, username: localStorage.getItem("2gatcha_pseudo") || undefined });
+    } catch (e) { /* stockage bloque : erreurs anonymes */ }
+  };
+  document.head.appendChild(s);
+})();

@@ -8,6 +8,9 @@ site/js/dev-login.js
 .env.*
 *.local
 
+# Dependances npm
+node_modules/
+
 # OS / editeurs
 .DS_Store
 Thumbs.db

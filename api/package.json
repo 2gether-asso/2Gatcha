@@ -2,7 +2,7 @@
   "name": "2gatcha-api",
   "version": "1.0.0",
   "private": true,
-  "description": "API 2Gatcha autonome : remplace n8n + Grist (SQLite, zero dependance).",
+  "description": "API 2Gatcha autonome : remplace n8n + Grist (SQLite ; seule dependance : @sentry/node, optionnelle).",
   "type": "module",
   "engines": {
     "node": ">=22.13"
@@ -14,5 +14,8 @@
     "compare": "node scripts/compare.js",
     "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
     "restore": "node --disable-warning=ExperimentalWarning scripts/restore.js"
+  },
+  "dependencies": {
+    "@sentry/node": "^11.4.0"
   }
 }
