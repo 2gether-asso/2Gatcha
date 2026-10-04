@@ -80,7 +80,7 @@ export function syncUniqueCards(store) {
       if (Object.keys(fix).length) { store.update('Cards', c.id, fix); promoted++; }
     }
   }
-  if (store.tables.has('Pulls') && store.table('Pulls').columns.InVault) {
+  if (store.tables.has('Pulls') && store.tables.has('Cards') && store.table('Pulls').columns.InVault) {
     const promo = new Set(store.getAll('Cards').filter((c) => c.IsPromo).map((c) => c.id));
     for (const p of store.getAll('Pulls')) {
       if (p.InVault && promo.has(refId(p.Card))) { store.update('Pulls', p.id, { InVault: false }); released++; }
@@ -98,7 +98,7 @@ function migrateTickets(store) {
     const completed = new Map();
     for (const r of store.getAll('VaultRewards')) completed.set(refId(r.User), (completed.get(refId(r.User)) || 0) + 1);
     const received = new Map();
-    for (const p of store.getAll('Pulls')) if (String(p.BatchId || '').startsWith('unique-')) received.set(refId(p.User), (received.get(refId(p.User)) || 0) + 1);
+    for (const p of (store.tables.has('Pulls') ? store.getAll('Pulls') : [])) if (String(p.BatchId || '').startsWith('unique-')) received.set(refId(p.User), (received.get(refId(p.User)) || 0) + 1);
     for (const [userId, n] of completed) {
       const owed = Math.max(0, n - (received.get(userId) || 0));
       const user = store.get('Users', userId);
@@ -128,7 +128,7 @@ export function beforeRequest({ store }) {
 
 function uniqueCards(store) {
   const rarity = uniqueRarity(store);
-  if (!rarity) return [];
+  if (!rarity || !store.tables.has('Cards')) return [];
   return store.getAll('Cards').filter((c) => refId(c.Rarity) === rarity.id && c.Active !== false);
 }
 

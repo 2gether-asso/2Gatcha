@@ -36,6 +36,16 @@ async function test(name, fn) {
 }
 const user = (id) => store.get('Users', id);
 
+await test('demarrage sur une base vide (test de l image Docker)', () => {
+  const t0 = path.join(os.tmpdir(), `2gatcha-native-empty-${process.pid}.sqlite`);
+  for (const sfx of ['', '-wal', '-shm']) fs.rmSync(t0 + sfx, { force: true });
+  const s0 = new Store(t0, { lenient: true });
+  const n0 = createNative({ store: s0, withLock: (fn) => fn() });
+  n0.beforeRequest({ userId: 1 }, {});
+  s0.db.close();
+  for (const sfx of ['', '-wal', '-shm']) fs.rmSync(t0 + sfx, { force: true });
+});
+
 await test('schema : tables et colonnes creees au demarrage', () => {
   for (const t of ['SetCompletions', 'PushSubscriptions', 'NotificationLog', 'AppSettings']) assert.ok(store.tables.has(t), t);
   assert.ok(store.table('Users').columns.LoginStreak);
