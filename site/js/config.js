@@ -56,6 +56,8 @@ window.APP_CONFIG = {
     guildChest: "/guild-chest",        // POST { userId, action: 'status'|'deposit'|'draw', cardId? }
     blackMarket: "/black-market",      // POST { userId, action: 'list'|'buy'|'adminCreate', offerId?, discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }
     adminGift: "/admin-gift",          // POST { discordId, targetUserId, giftType: 'card'|'booster'|'dust', cardId?, finish?, quality?, quantity? } -> { gifted, giftType, quantity, ... } | { error }
+    guessCard: "/guess-card",        // POST { userId, action: 'status'|'guess', cardId? }
+    expedition: "/expedition",       // POST { userId, action: 'status'|'start'|'claim', hours?, cardId? }
     dig: "/dig",                       // POST { userId, action: 'status'|'dig' }
     bingo: "/bingo",                   // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
     levelRewards: "/level-rewards",    // POST { userId, action: 'status'|'claim' } | { discordId, action: 'adminList'|'adminSet', rows? }

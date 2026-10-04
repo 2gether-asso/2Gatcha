@@ -377,6 +377,12 @@ const API = {
   getDigStatus(userId) {
     return this.post("dig", { userId, action: "status" });
   },
+  guessCard(userId, action, cardId) {
+    return this.post("guessCard", { userId, action, cardId });
+  },
+  expedition(userId, action, extra) {
+    return this.post("expedition", { userId, action, ...(extra || {}) });
+  },
   dig(userId, tileIndex) {
     return this.post("dig", { userId, action: "dig", tileIndex });
   },

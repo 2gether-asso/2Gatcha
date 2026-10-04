@@ -21,6 +21,8 @@
 
       <div class="tabs" role="tablist">
         <button type="button" class="tab active" id="tab-dig-btn" role="tab" aria-selected="true">&#9935; Fouille</button>
+        <button type="button" class="tab" id="tab-guess-btn" role="tab" aria-selected="false">&#10067; Devine la carte</button>
+        <button type="button" class="tab" id="tab-expedition-btn" role="tab" aria-selected="false">&#129517; Expédition</button>
         <button type="button" class="tab" id="tab-bingo-btn" role="tab" aria-selected="false">&#127922; Bingo</button>
         <button type="button" class="tab" id="tab-vault-btn" role="tab" aria-selected="false" style="display:none;">&#128274; Coffre-fort</button>
       </div>
@@ -53,6 +55,25 @@
           <div id="dig-board" class="dig-board"></div>
         </div>
         <div id="dig-result" class="dig-result" style="display:none;"></div>
+      </div>
+
+      <div id="guess-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Chaque jour, une nouvelle carte à reconnaître à partir d'un zoom sur son illustration — la même pour tout le monde. Un seul essai par jour : une bonne réponse rapporte des poussières et allonge ta série.</p>
+        <div class="guess-game">
+          <div class="guess-frame" id="guess-frame">
+            <img id="guess-img" class="guess-img" src="" alt="Illustration mystère" />
+          </div>
+          <div class="guess-side">
+            <div class="guess-streak" id="guess-streak"></div>
+            <div class="guess-choices" id="guess-choices"><div class="skeleton-line">Chargement...</div></div>
+            <div class="guess-result" id="guess-result" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="expedition-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Envoie une de tes cartes en expédition, puis reviens récupérer son butin. Plus l'expédition est longue, plus elle rapporte — et une carte plus rare ramène davantage de poussières. La carte reste dans ta collection pendant ce temps.</p>
+        <div id="expedition-zone"><div class="skeleton-line">Chargement...</div></div>
       </div>
 
       <div id="bingo-pane" style="display:none;">

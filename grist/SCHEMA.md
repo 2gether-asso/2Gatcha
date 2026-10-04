@@ -214,6 +214,11 @@ son propre compteur de pity.
 | StardustCount         | Numeric   | defaut 0, monnaie de craft/decraft (voir plus bas), globale (pas par extension) |
 | BoosterCount          | Numeric   | defaut 0, solde **generique** de boosters (voir "Economie des boosters" plus bas) |
 | LastWheelSpinDate     | Text      | vide par defaut ; `AAAA-MM-JJ` (fuseau Paris) du dernier tirage a la roue de la fortune quotidienne (`daily-wheel.json`) - permet un seul tirage par jour |
+| GuessDate             | Text      | **nouvelle colonne (2026-10-04)** - vide par defaut ; `AAAA-MM-JJ` (fuseau Paris) de la derniere partie de "Devine la carte" (`guess-card.json`) - un seul essai par jour |
+| GuessStreak           | Numeric   | **nouvelle colonne (2026-10-04)** - defaut 0 ; serie de bonnes reponses consecutives a "Devine la carte" (0 = rate le dernier jour joue) ; tous les 7 jours de serie = +1 booster |
+| ExpeditionUntil       | Numeric   | **nouvelle colonne (2026-10-04)** - defaut 0 ; epoch secondes du retour de l'expedition en cours (`expedition.json`), 0 = aucune expedition |
+| ExpeditionDuration    | Numeric   | **nouvelle colonne (2026-10-04)** - defaut 0 ; duree en heures de l'expedition en cours (2, 8 ou 24) |
+| ExpeditionCard        | Numeric   | **nouvelle colonne (2026-10-04)** - defaut 0 ; id (`Cards.id`) de la carte envoyee en expedition (simple nombre, pas une reference ; la carte n'est pas bloquee) |
 | XP                    | Numeric   | defaut 0, experience cumulee (niveaux de profil, voir plus bas) |
 | SelectedBadge         | Text      | vide par defaut ; `Key` du badge cosmetique affiche sur le profil (voir "Badges" plus bas) - doit correspondre a un badge que le joueur possede (`UserBadges`) |
 | DigEnergy             | Numeric   | defaut 5 (plein), energie du mini-jeu de fouille (voir "Mini-jeu de fouille" plus bas) |

@@ -5529,3 +5529,64 @@ body.hide-stats #stats-block { display: none; }
 .pv-withdraw { background: rgba(255,255,255,0.12); color: #fff; opacity: 0; transition: opacity 0.15s; }
 .pv-slot.filled:hover .pv-withdraw, .pv-slot.filled:focus-within .pv-withdraw { opacity: 1; }
 @media (hover: none) { .pv-withdraw { opacity: 1; } }
+
+/* ===== Devine la carte (jeux.html, 2026-10-04) ===== */
+.guess-game { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.guess-frame { position: relative; width: 100%; aspect-ratio: 3 / 4; max-width: 100%; border-radius: 14px; overflow: hidden; border: 2px solid var(--border-soft); background: var(--bg-panel-2); box-shadow: inset 0 0 40px rgba(0,0,0,0.5); }
+.guess-frame::after { content: "?"; position: absolute; top: 8px; right: 10px; font: 700 1.4rem/1 "Bungee", sans-serif; color: rgba(255,255,255,0.85); text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+.guess-frame.revealed::after { content: none; }
+.guess-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 1.2s cubic-bezier(.2,.8,.2,1); }
+.guess-side { display: grid; gap: 14px; }
+.guess-streak { display: flex; flex-direction: column; gap: 2px; font-size: 1rem; }
+.guess-streak-next { font-size: 0.8rem; opacity: 0.7; }
+.guess-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 420px) { .guess-choices { grid-template-columns: minmax(0, 1fr); } }
+.guess-choice { padding: 12px 10px; border-radius: 12px; border: 2px solid var(--border-soft); background: var(--bg-panel-2); color: var(--text); text-shadow: none; font-family: var(--font-body); font-size: 0.95rem; font-weight: 700; text-transform: none; cursor: pointer; transition: border-color .15s, transform .15s; }
+.guess-choice:not(:disabled):hover { border-color: #8b5cf6; transform: translateY(-2px); }
+.guess-choice:disabled { cursor: default; opacity: 0.55; }
+.guess-choice.right { opacity: 1; border-color: #22c55e; background: rgba(34,197,94,0.15); color: #4ade80; }
+.guess-choice.wrong { opacity: 1; border-color: #ef4444; background: rgba(239,68,68,0.12); color: #fca5a5; }
+.guess-result { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border-soft); }
+.guess-result.win { border-color: #22c55e88; background: rgba(34,197,94,0.1); }
+.guess-result.lose { border-color: #f59e0b66; background: rgba(245,158,11,0.08); }
+.guess-next { margin-top: 4px; font-size: 0.8rem; opacity: 0.7; }
+@media (max-width: 640px) { .guess-game { grid-template-columns: minmax(0, 1fr); } .guess-frame { max-width: 220px; margin-inline: auto; } }
+
+/* ===== Expedition (jeux.html, 2026-10-04) ===== */
+.expe-setup { display: grid; gap: 10px; }
+.expe-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.expe-pick { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.expe-preview { width: 84px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; border: 2px solid var(--border-soft); background: var(--bg-panel-2); }
+.expe-pick-side { display: grid; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.expe-pick-side select { max-width: 100%; background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: 0.95rem; font-family: var(--font-body); }
+.expe-bonus { font-size: 0.85rem; color: #4ade80; }
+.expe-durations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .expe-durations { grid-template-columns: minmax(0, 1fr); } }
+.expe-duration { display: grid; justify-content: stretch; justify-items: start; align-content: start; gap: 2px; text-align: left; padding: 12px; font-family: var(--font-body); font-size: 0.95rem; text-transform: none; text-shadow: none; letter-spacing: 0; border-radius: 12px; border: 2px solid var(--border-soft); background: var(--bg-panel-2); color: inherit; cursor: pointer; transition: border-color .15s, transform .15s; }
+.expe-duration:hover { border-color: #22d3ee; transform: translateY(-2px); }
+.expe-duration-h { font: 700 1.3rem/1.1 "Bungee", sans-serif; }
+.expe-duration-name { font-weight: 700; }
+.expe-duration-loot { font-size: 0.78rem; opacity: 0.75; }
+.expe-active { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.expe-explorer { width: 120px; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; border: 2px solid var(--expe-color); box-shadow: 0 0 18px color-mix(in srgb, var(--expe-color) 50%, transparent); animation: expe-bob 3s ease-in-out infinite; }
+.expe-explorer img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.expe-active.ready .expe-explorer { animation: expe-ready 1.2s ease-in-out infinite; }
+@keyframes expe-bob { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-6px) rotate(1deg); } }
+@keyframes expe-ready { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .expe-explorer, .expe-active.ready .expe-explorer { animation: none; } }
+.expe-info { display: grid; gap: 6px; flex: 1 1 240px; min-width: 0; }
+.expe-title { font-weight: 800; font-size: 1.05rem; }
+.expe-sub, .expe-countdown { font-size: 0.85rem; opacity: 0.8; font-variant-numeric: tabular-nums; }
+.expe-progress { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.expe-progress-fill { height: 100%; width: 0; background: linear-gradient(90deg, #8b5cf6, #22d3ee); transition: width 1s linear; }
+.expe-active.ready .expe-progress-fill { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.expe-info .btn { justify-self: start; }
+.expe-report { margin-bottom: 16px; padding: 12px 14px; border-radius: 12px; border: 1px solid #22c55e88; background: rgba(34,197,94,0.1); display: grid; gap: 4px; }
+.expe-report-title { font-weight: 700; }
+.expe-report-bonus { opacity: 0.75; font-size: 0.85rem; }
+
+/* ===== Flair du chien sur le plateau de fouille (2026-10-04) ===== */
+.dig-tile.sniffed { box-shadow: 0 0 0 2px #fbbf24, 0 0 16px rgba(251,191,36,0.55); animation: dig-sniff 1.6s ease-in-out infinite; }
+.dig-sniff-paw { position: absolute; top: 4px; right: 5px; font-size: 1rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); pointer-events: none; }
+@keyframes dig-sniff { 0%, 100% { box-shadow: 0 0 0 2px #fbbf24, 0 0 10px rgba(251,191,36,0.4); } 50% { box-shadow: 0 0 0 2px #fbbf24, 0 0 22px rgba(251,191,36,0.75); } }
+@media (prefers-reduced-motion: reduce) { .dig-tile.sniffed { animation: none; } }

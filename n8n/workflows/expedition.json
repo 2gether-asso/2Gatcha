@@ -1,0 +1,619 @@
+{
+  "name": "2Gatcha - expedition",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "e5f6a7b8-expe-0000-000000000000",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "expedition",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "position": [
+        -1800,
+        300
+      ]
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nconst now = new Date();\nconst fmt = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d);\nreturn [{ json: {\n  docId: 'cRP1WgZQv7KmwmVrUbuEF8',\n  userId: Number(body.userId),\n  action: (body.action || 'status').toString(),\n  today: fmt(now),\n  yesterday: fmt(new Date(now.getTime() - 86400000)),\n  now: Math.floor(now.getTime() / 1000),\n  hours: Number(body.hours) || 0,\n  cardId: body.cardId != null ? Number(body.cardId) : null\n} }];"
+      },
+      "position": [
+        -1600,
+        300
+      ]
+    },
+    {
+      "id": "get-users",
+      "name": "Get Users",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      },
+      "position": [
+        -1400,
+        300
+      ]
+    },
+    {
+      "id": "sync-1",
+      "name": "Sync Get Users -> Get Pulls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "position": [
+        -1200,
+        300
+      ]
+    },
+    {
+      "id": "get-pulls",
+      "name": "Get Pulls",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Pulls",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      },
+      "position": [
+        -1000,
+        300
+      ]
+    },
+    {
+      "id": "sync-2",
+      "name": "Sync Get Pulls -> Get Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "position": [
+        -800,
+        300
+      ]
+    },
+    {
+      "id": "get-cards",
+      "name": "Get Cards",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Cards",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      },
+      "position": [
+        -600,
+        300
+      ]
+    },
+    {
+      "id": "sync-3",
+      "name": "Sync Get Cards -> Get Rarities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {} }];"
+      },
+      "position": [
+        -400,
+        300
+      ]
+    },
+    {
+      "id": "get-rarities",
+      "name": "Get Rarities",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Rarities",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      },
+      "position": [
+        -200,
+        300
+      ]
+    },
+    {
+      "id": "compute",
+      "name": "Compute",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Expedition (2026-10-04) : jeu d'attente. Le joueur envoie une de ses\n// cartes explorer pendant 2h, 8h ou 24h (une seule expedition a la fois),\n// puis revient recuperer le butin, tire au sort AU RETOUR (pas au depart :\n// rien a deviner en inspectant le reseau). La carte n'est pas bloquee (pure\n// mise en scene), mais sa rarete augmente les poussieres rapportees.\nfunction refId(v) { return Array.isArray(v) ? v[1] : v; }\nfunction firstAttachment(v) { if (!Array.isArray(v) || !v.length) return null; const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }\nfunction levelForXp(xp) { xp = xp || 0; return Math.floor((25 + Math.sqrt(625 + 100 * xp)) / 50); }\nconst rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));\n\n// Paliers de duree : poussieres min/max, chance d'un booster, booster garanti.\nconst DURATIONS = {\n  2:  { dust: [20, 40],   boosterChance: 0.05, guaranteed: 0, label: 'Balade' },\n  8:  { dust: [70, 120],  boosterChance: 0.25, guaranteed: 0, label: 'Expédition' },\n  24: { dust: [200, 300], boosterChance: 0.30, guaranteed: 1, label: 'Grande aventure' }\n};\nconst RARITY_BONUS = { commune: 1, rare: 1.1, epique: 1.2, legendaire: 1.35, mythique: 1.5 };\nconst XP_PER_EXPEDITION = 5;\nconst STORIES = [\n  'a fouille une crypte oubliee', 'a traverse une foret enchantee', 'a negocie avec un marchand ambulant',\n  'a escalade une montagne de cartes', 'a explore une epave engloutie', 'a dechiffre une carte au tresor',\n  'a survecu a une tempete de poussiere d\\'etoile', 'a sauve un dragon (enfin, un lezard)'\n];\n\nconst cfg = $('Set Config').first().json;\nconst users = $('Get Users').all().map((i) => i.json).filter((r) => r.id != null);\nconst pulls = $('Get Pulls').all().map((i) => i.json).filter((r) => r.id != null && !r.InVault);\nconst cards = $('Get Cards').all().map((i) => i.json).filter((r) => r.id != null);\nconst rarities = $('Get Rarities').all().map((i) => i.json).filter((r) => r.id != null);\nconst user = users.find((u) => u.id === cfg.userId);\nif (!user) return [{ json: { ok: false, error: 'user_not_found' } }];\n\nconst rarityById = {}; rarities.forEach((r) => { rarityById[r.id] = r; });\nfunction cardInfo(cardId) {\n  const c = cards.find((x) => x.id === cardId);\n  if (!c) return null;\n  const r = rarityById[refId(c.Rarity)];\n  return { cardId: c.id, name: c.Name, imageId: firstAttachment(c.Image), rarity: r ? { key: r.Key, name: r.Name, colorHex: r.ColorHex } : null };\n}\nconst until = user.ExpeditionUntil || 0;\nconst hours = user.ExpeditionDuration || 0;\nconst explorer = user.ExpeditionCard ? cardInfo(Number(user.ExpeditionCard)) : null;\nconst durations = Object.entries(DURATIONS).map(([h, d]) => ({ hours: Number(h), label: d.label, dust: d.dust, boosterChance: d.boosterChance, guaranteed: d.guaranteed }));\nconst state = until > 0 ? { active: true, until, hours, explorer, secondsLeft: Math.max(0, until - cfg.now), ready: cfg.now >= until } : { active: false };\nconst base = { now: cfg.now, durations, rarityBonus: RARITY_BONUS, expedition: state };\n\nif (cfg.action === 'status') return [{ json: { ok: true, shouldUpdate: false, payload: base } }];\n\nif (cfg.action === 'start') {\n  if (until > 0) return [{ json: { ok: false, error: 'already_running' } }];\n  if (!DURATIONS[cfg.hours]) return [{ json: { ok: false, error: 'invalid_duration' } }];\n  const owns = pulls.some((p) => refId(p.User) === cfg.userId && refId(p.Card) === cfg.cardId);\n  if (!owns) return [{ json: { ok: false, error: 'card_not_owned' } }];\n  const newUntil = cfg.now + cfg.hours * 3600;\n  // Depart : on n'ecrit QUE les colonnes de l'expedition (noeud dedie), pour\n  // ne jamais ecraser un solde modifie entre-temps par une autre action.\n  const update = { ExpeditionUntil: newUntil, ExpeditionDuration: cfg.hours, ExpeditionCard: cfg.cardId };\n  return [{ json: { ok: true, shouldUpdate: true, startOnly: true, userId: cfg.userId, update,\n    payload: { ...base, expedition: { active: true, until: newUntil, hours: cfg.hours, explorer: cardInfo(cfg.cardId), secondsLeft: cfg.hours * 3600, ready: false } } } }];\n}\n\nif (cfg.action === 'claim') {\n  if (!until) return [{ json: { ok: false, error: 'no_expedition' } }];\n  if (cfg.now < until) return [{ json: { ok: false, error: 'not_ready' } }];\n  const d = DURATIONS[hours] || DURATIONS[2];\n  const bonus = RARITY_BONUS[explorer?.rarity?.key] || 1;\n  const dust = Math.round(rand(d.dust[0], d.dust[1]) * bonus);\n  const boosters = d.guaranteed + (Math.random() < d.boosterChance ? 1 : 0);\n  const newXp = (user.XP || 0) + XP_PER_EXPEDITION;\n  const levelsGained = levelForXp(newXp) - levelForXp(user.XP || 0);\n  const update = { ExpeditionUntil: 0, ExpeditionDuration: 0, ExpeditionCard: 0,\n    StardustCount: (user.StardustCount || 0) + dust, BoosterCount: (user.BoosterCount || 0) + boosters + levelsGained, XP: newXp };\n  const story = STORIES[Math.floor(Math.random() * STORIES.length)];\n  return [{ json: { ok: true, shouldUpdate: true, userId: cfg.userId, update,\n    payload: { ...base, expedition: { active: false }, reward: { dust, boosters, levelsGained, bonus, story, explorer },\n      newStardust: update.StardustCount, newBoosterCount: update.BoosterCount, xp: { total: newXp, level: levelForXp(newXp) } } } }];\n}\nreturn [{ json: { ok: false, error: 'unknown_action' } }];"
+      },
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "id": "if-ok",
+      "name": "If Ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "position": [
+        400,
+        500
+      ]
+    },
+    {
+      "id": "if-update",
+      "name": "If Should Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.shouldUpdate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "id": "if-start",
+      "name": "If Start Only",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.startOnly === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "id": "update-user-start",
+      "name": "Update User Start",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Compute').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "ExpeditionUntil",
+              "fieldValue": "={{ $('Compute').first().json.update.ExpeditionUntil }}"
+            },
+            {
+              "fieldId": "ExpeditionDuration",
+              "fieldValue": "={{ $('Compute').first().json.update.ExpeditionDuration }}"
+            },
+            {
+              "fieldId": "ExpeditionCard",
+              "fieldValue": "={{ $('Compute').first().json.update.ExpeditionCard }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      },
+      "position": [
+        1000,
+        500
+      ]
+    },
+    {
+      "id": "update-user",
+      "name": "Update User",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $('Set Config').first().json.docId }}",
+        "tableId": "Users",
+        "rowId": "={{ $('Compute').first().json.userId }}",
+        "dataToSend": "defineInNode",
+        "fieldsToSend": {
+          "properties": [
+            {
+              "fieldId": "ExpeditionUntil",
+              "fieldValue": "={{ $('Compute').first().json.update.ExpeditionUntil }}"
+            },
+            {
+              "fieldId": "ExpeditionDuration",
+              "fieldValue": "={{ $('Compute').first().json.update.ExpeditionDuration }}"
+            },
+            {
+              "fieldId": "ExpeditionCard",
+              "fieldValue": "={{ $('Compute').first().json.update.ExpeditionCard }}"
+            },
+            {
+              "fieldId": "StardustCount",
+              "fieldValue": "={{ $('Compute').first().json.update.StardustCount }}"
+            },
+            {
+              "fieldId": "BoosterCount",
+              "fieldValue": "={{ $('Compute').first().json.update.BoosterCount }}"
+            },
+            {
+              "fieldId": "XP",
+              "fieldValue": "={{ $('Compute').first().json.update.XP }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gristApi": {
+          "id": "Yoc8FS9lCXpWBRrk",
+          "name": "Grist account"
+        }
+      },
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "id": "format",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: $('Compute').first().json.payload }];"
+      },
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "position": [
+        1600,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Get Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Users -> Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Users -> Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Get Pulls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pulls": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Pulls -> Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Pulls -> Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Get Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cards": {
+      "main": [
+        [
+          {
+            "node": "Sync Get Cards -> Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Get Cards -> Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Get Rarities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rarities": {
+      "main": [
+        [
+          {
+            "node": "Compute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute": {
+      "main": [
+        [
+          {
+            "node": "If Ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Ok": {
+      "main": [
+        [
+          {
+            "node": "If Should Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Should Update": {
+      "main": [
+        [
+          {
+            "node": "If Start Only",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Start Only": {
+      "main": [
+        [
+          {
+            "node": "Update User Start",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User Start": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,4 +1,5 @@
-// Logique de la page Jeux : Mini-jeu de fouille + Bingo de collection.
+// Logique de la page Jeux : fouille, devine la carte, expedition, bingo de
+// collection et coffre-fort.
 
 let digTimer = null;
 
@@ -11,13 +12,15 @@ function getInitialTab() {
 }
 
 function setActiveTab(tab) {
-  ["dig", "bingo", "vault"].forEach((key) => {
+  ["dig", "guess", "expedition", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
   });
   try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
   if (tab === "dig") loadDig();
+  if (tab === "guess") loadGuess();
+  if (tab === "expedition") loadExpedition();
   if (tab === "bingo") loadBingo();
   if (tab === "vault") loadVault();
 }
@@ -47,7 +50,7 @@ async function loadDig() {
     digMaxEnergy = res.maxEnergy || 5;
     digRegenSeconds = res.regenSeconds || 60;
     renderDigEnergy(res.energy, digMaxEnergy, res.secondsUntilNext);
-    renderDigBoard(res.tiles || []);
+    renderDigBoard(res.tiles || [], res.sniffTile);
     renderKennel(res);
     const regenSeconds = res.regenSeconds || 60;
     const regenLabel = regenSeconds < 60 ? `${regenSeconds}s` : regenSeconds === 60 ? "minute" : `${Math.round(regenSeconds / 60)} min`;
@@ -114,7 +117,8 @@ function digTileContent(tile) {
   return { cls: "dug partial", html: `<span class="dig-partial-icon">${icon}</span><span class="dig-remaining">-${tile.treasure.remaining}</span>`, reward: tile.treasure.reward };
 }
 
-function renderDigBoard(tiles) {
+// sniffTile : tuile a tresor signalee par le chien quand il est actif.
+function renderDigBoard(tiles, sniffTile) {
   const board = document.getElementById("dig-board");
   board.innerHTML = tiles.map((t, i) => {
     const { cls, html, reward } = digTileContent(t);
@@ -123,7 +127,8 @@ function renderDigBoard(tiles) {
     // unique motif de terre repete a l'identique sur les 16 tuiles - evite
     // l'effet "papier peint" d'un sol parfaitement uniforme.
     const variant = (i % 4) + 1;
-    return `<button type="button" class="dig-tile ${cls}" data-tile-index="${i}" data-variant="${variant}" ${reward ? `data-reward="${reward}"` : ""} ${disabled ? "disabled" : ""} aria-label="${t.dug ? "Tuile creusée" : "Creuser cette tuile"}">${html}</button>`;
+    const sniffed = !t.dug && i === sniffTile;
+    return `<button type="button" class="dig-tile ${cls} ${sniffed ? "sniffed" : ""}" title="${sniffed ? "Le chien flaire quelque chose ici !" : ""}" data-tile-index="${i}" data-variant="${variant}" ${reward ? `data-reward="${reward}"` : ""} ${disabled ? "disabled" : ""} aria-label="${t.dug ? "Tuile creusée" : "Creuser cette tuile"}">${html}${sniffed ? `<span class="dig-sniff-paw" aria-hidden="true">&#128062;</span>` : ""}</button>`;
   }).join("");
   board.querySelectorAll(".dig-tile:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", () => doDig(Number(btn.dataset.tileIndex), btn));
@@ -160,7 +165,7 @@ function spawnDigDustBurst(tileEl) {
 // ---------------------------------------------------------------------
 // Chenil (2026-10-02) : un os (achete ici contre des poussieres, ou laisse
 // par un sacrifice rate a l'autel) envoie le chien creuser a ta place pendant
-// 2 h, une tuile toutes les 10 min, sans energie. Ses trouvailles sont
+// 2 h, une tuile toutes les 5 min (2026-10-04), sans energie. Ses trouvailles sont
 // creditees a ton retour (voir dig.json "Chien de fouille").
 // ---------------------------------------------------------------------
 let kennelTimer = null;
@@ -174,7 +179,10 @@ function renderKennel(res) {
   const buyBtn = document.getElementById("dig-buy-bone-btn");
   buyBtn.innerHTML = `Acheter un os (${res.boneCost} &#10024;)`;
   const useBtn = document.getElementById("dig-use-bone-btn");
-  useBtn.disabled = bones < 1 || left > 0;
+  // Os cumulables (2026-10-04) : redonner un os prolonge la sortie de 2 h,
+  // tant que le chien n'a pas deja plus de 10 h devant lui.
+  useBtn.disabled = bones < 1 || left > 10 * 3600;
+  useBtn.innerHTML = left > 0 ? "&#129460; Prolonger de 2 h" : "&#129460; Lancer le chien";
   document.getElementById("dig-kennel-dog").classList.toggle("digging", left > 0);
   const text = document.getElementById("dig-kennel-text");
   if (kennelTimer) { clearInterval(kennelTimer); kennelTimer = null; }
@@ -182,12 +190,14 @@ function renderKennel(res) {
     let remaining = left;
     const render = () => {
       const h = Math.floor(remaining / 3600), m = Math.floor((remaining % 3600) / 60);
-      text.textContent = `Le chien creuse pour toi encore ${h ? h + " h " : ""}${m} min (1 tuile toutes les 10 min).`;
+      text.textContent = `Le chien creuse pour toi encore ${h ? h + " h " : ""}${m} min (1 tuile toutes les ${Math.round((res.dogInterval || 300) / 60)} min). Il flaire les trésors et te montre où creuser 🐾`;
     };
     render();
     kennelTimer = setInterval(() => { remaining -= 30; if (remaining <= 0) { clearInterval(kennelTimer); kennelTimer = null; loadDig(); return; } render(); }, 30000);
   } else {
-    text.textContent = bones ? "Donne-lui un os et il creusera 2 h pour toi, sans énergie." : "Un os permet d'envoyer le chien creuser 2 h à ta place.";
+    text.textContent = bones
+      ? "Donne-lui un os : il creuse 2 h pour toi sans énergie (24 tuiles), flaire les trésors, rapporte les cartes trouvées et te montre où creuser."
+      : "Un os envoie le chien creuser 2 h à ta place : 24 tuiles, du flair pour les trésors et les vraies cartes rapportées.";
   }
   announceDogReport(res.dogReport);
 }
@@ -198,6 +208,7 @@ function announceDogReport(r) {
     if (r.dust) parts.push(`+${r.dust} poussières`);
     if (r.boosters) parts.push(`+${r.boosters} booster${r.boosters > 1 ? "s" : ""}`);
     if (r.keys) parts.push(`+${r.keys} &#128273;`);
+    (r.cards || []).forEach((c) => parts.push(`&#127183; ${c.name}${c.serialNumber != null ? " #" + String(c.serialNumber).padStart(3, "0") : ""}`));
     Toast.success(`&#128021; Le chien a creusé ${r.tiles} tuile${r.tiles > 1 ? "s" : ""}${parts.length ? " : " + parts.join(", ") : " (rien trouvé)"}.`);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   }
@@ -207,12 +218,12 @@ async function kennelAction(kind, btn) {
   btn.disabled = true;
   try {
     if (kind === "buy") { await API.buyBone(Session.userId); Toast.success("&#129460; Os acheté !"); }
-    else { await API.useBone(Session.userId); Toast.success("&#128021; Le chien part creuser pour 2 h !"); }
+    else { await API.useBone(Session.userId); Toast.success(btn.textContent.includes("Prolonger") ? "&#128021; 2 h de fouille en plus !" : "&#128021; Le chien part creuser pour 2 h !"); }
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     await loadDig();
   } catch (e) {
     btn.disabled = false;
-    const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Le chien creuse déjà !" };
+    const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Le chien creuse déjà !", dog_max_time: "Le chien a déjà assez de travail pour le moment." };
     Toast.error(msg[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }
@@ -227,7 +238,7 @@ async function doDig(tileIndex, tileEl) {
     digEnergy = res.newEnergy;
     digBusy = false;
     renderDigEnergy(res.newEnergy, res.maxEnergy || digMaxEnergy, res.secondsUntilNext || null);
-    renderDigBoard(res.tiles || []);
+    renderDigBoard(res.tiles || [], res.sniffTile);
     announceDogReport(res.dogReport);
 
     resultEl.style.display = "block";
@@ -379,15 +390,242 @@ async function openVault() {
   }
 }
 
+// -----------------------------------------------------------------------
+// Devine la carte (guess-card.json) : un zoom quotidien sur l'illustration
+// d'une carte, 4 propositions, un seul essai. La reponse n'arrive du
+// serveur qu'une fois le jeu du jour joue.
+// -----------------------------------------------------------------------
+let guessBusy = false;
+
+function renderGuess(data) {
+  const img = document.getElementById("guess-img");
+  img.src = API.imageUrl(data.imageId) || "";
+  const frame = document.getElementById("guess-frame");
+  const z = data.zoom || { scale: 3, x: 50, y: 50 };
+  // Une fois joue, on dezoome pour devoiler l'illustration entiere.
+  img.style.transformOrigin = `${z.x}% ${z.y}%`;
+  img.style.transform = data.played ? "scale(1)" : `scale(${z.scale})`;
+  frame.classList.toggle("revealed", !!data.played);
+
+  const next = data.boosterEvery - ((data.streak || 0) % data.boosterEvery);
+  document.getElementById("guess-streak").innerHTML = `<span>&#128293; Série : <strong>${data.streak || 0}</strong> jour${(data.streak || 0) > 1 ? "s" : ""}</span>` +
+    `<span class="guess-streak-next">Booster bonus dans ${next} bonne${next > 1 ? "s" : ""} réponse${next > 1 ? "s" : ""} d'affilée</span>`;
+
+  const box = document.getElementById("guess-choices");
+  box.innerHTML = data.choices.map((c) => {
+    let cls = "";
+    if (data.played) {
+      if (c.cardId === data.answerCardId) cls = "right";
+      else if (c.cardId === data.myChoice) cls = "wrong";
+    }
+    return `<button type="button" class="guess-choice ${cls}" data-card-id="${c.cardId}" ${data.played ? "disabled" : ""}>${c.name}</button>`;
+  }).join("");
+
+  const res = document.getElementById("guess-result");
+  if (data.played) {
+    res.style.display = "block";
+    res.className = `guess-result ${data.correct ? "win" : "lose"}`;
+    const rw = data.reward;
+    res.innerHTML = data.correct
+      ? `&#127881; Bravo, c'était <strong>${data.answerName}</strong> !${rw ? ` +${rw.dust} poussières${rw.boosters ? ` et +${rw.boosters} booster` : ""}.` : ""}`
+      : `C'était <strong>${data.answerName}</strong>.${rw ? ` +${rw.dust} poussières de consolation.` : ""}`;
+    res.innerHTML += `<div class="guess-next">Nouvelle carte demain !</div>`;
+  } else {
+    res.style.display = "none";
+  }
+}
+
+async function loadGuess() {
+  try {
+    renderGuess(await API.guessCard(Session.userId, "status"));
+  } catch (e) {
+    document.getElementById("guess-choices").innerHTML = `<div class="empty-state">Jeu indisponible pour le moment.</div>`;
+  }
+}
+
+async function submitGuess(cardId) {
+  if (guessBusy) return;
+  guessBusy = true;
+  try {
+    const res = await API.guessCard(Session.userId, "guess", cardId);
+    renderGuess({ ...res, myChoice: cardId });
+    if (res.correct) Toast.success(`Bonne réponse ! +${res.reward.dust} poussières${res.reward.boosters ? " et +1 booster" : ""}.`);
+    else Toast.info(`Raté, c'était ${res.answerName}.`);
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } catch (e) {
+    Toast.error(e.code === "already_played" ? "Tu as déjà joué aujourd'hui." : ("Erreur. (" + e.message + ")"));
+    loadGuess();
+  } finally {
+    guessBusy = false;
+  }
+}
+
+// -----------------------------------------------------------------------
+// Expedition (expedition.json) : une carte part 2h / 8h / 24h, butin tire
+// au retour. Une seule expedition a la fois.
+// -----------------------------------------------------------------------
+let expeditionTimer = null;
+let expeditionBusy = false;
+let expeditionOwned = null;
+const EXPEDITION_RARITY_ORDER = ["mythique", "legendaire", "epique", "rare", "commune"];
+
+function formatLongDuration(seconds) {
+  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
+  if (h) return `${h} h ${String(m).padStart(2, "0")}`;
+  if (m) return `${m} min ${String(s).padStart(2, "0")}`;
+  return `${s} s`;
+}
+
+async function expeditionOwnedCards() {
+  if (expeditionOwned) return expeditionOwned;
+  const col = await API.getCollection(Session.userId);
+  const ownedIds = new Set((col.owned || []).filter((o) => o.count > 0).map((o) => o.cardId));
+  expeditionOwned = (col.cards || []).filter((c) => ownedIds.has(c.cardId)).sort((a, b) =>
+    EXPEDITION_RARITY_ORDER.indexOf(a.rarity?.key) - EXPEDITION_RARITY_ORDER.indexOf(b.rarity?.key) || a.name.localeCompare(b.name));
+  return expeditionOwned;
+}
+
+async function renderExpedition(data) {
+  clearInterval(expeditionTimer);
+  const zone = document.getElementById("expedition-zone");
+  const ex = data.expedition || { active: false };
+  if (ex.active) {
+    const card = ex.explorer;
+    const color = card?.rarity?.colorHex || "#9aa0b4";
+    const endAt = Date.now() + (ex.secondsLeft || 0) * 1000;
+    zone.innerHTML = `
+      <div class="expe-active ${ex.ready ? "ready" : ""}">
+        <div class="expe-explorer" style="--expe-color:${color}">
+          <img src="${API.imageUrl(card?.imageId) || ""}" alt="${card?.name || ""}" />
+        </div>
+        <div class="expe-info">
+          <div class="expe-title">${card?.name || "Ton explorateur"} est en route</div>
+          <div class="expe-sub">${ex.hours} h d'expédition</div>
+          <div class="expe-progress"><div class="expe-progress-fill" id="expe-fill"></div></div>
+          <div class="expe-countdown" id="expe-countdown"></div>
+          <button type="button" class="btn" id="expe-claim-btn" ${ex.ready ? "" : "disabled"}>&#127873; Récupérer le butin</button>
+        </div>
+      </div>`;
+    const total = ex.hours * 3600;
+    const tick = () => {
+      const left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+      const fill = document.getElementById("expe-fill");
+      if (!fill) { clearInterval(expeditionTimer); return; }
+      fill.style.width = `${Math.min(100, 100 * (1 - left / total))}%`;
+      document.getElementById("expe-countdown").textContent = left > 0 ? `Retour dans ${formatLongDuration(left)}` : "De retour ! Le butin t'attend.";
+      if (left <= 0) {
+        document.getElementById("expe-claim-btn").disabled = false;
+        zone.querySelector(".expe-active").classList.add("ready");
+        clearInterval(expeditionTimer);
+      }
+    };
+    tick();
+    expeditionTimer = setInterval(tick, 1000);
+    document.getElementById("expe-claim-btn").addEventListener("click", claimExpedition);
+    return;
+  }
+
+  let cards = [];
+  try { cards = await expeditionOwnedCards(); } catch (e) {}
+  if (!cards.length) {
+    zone.innerHTML = `<div class="empty-state">Il te faut au moins une carte pour partir en expédition.</div>`;
+    return;
+  }
+  const bonus = data.rarityBonus || {};
+  zone.innerHTML = `
+    <div class="expe-setup">
+      <label class="expe-label" for="expe-card">Explorateur</label>
+      <div class="expe-pick">
+        <img id="expe-preview" class="expe-preview" src="" alt="" />
+        <div class="expe-pick-side">
+          <select id="expe-card">${cards.map((c) => `<option value="${c.cardId}">${c.name} — ${c.rarity?.name || "Commune"}</option>`).join("")}</select>
+          <div class="expe-bonus" id="expe-bonus"></div>
+        </div>
+      </div>
+      <div class="expe-label">Durée</div>
+      <div class="expe-durations">
+        ${data.durations.map((d) => `
+          <button type="button" class="expe-duration" data-hours="${d.hours}">
+            <span class="expe-duration-h">${d.hours} h</span>
+            <span class="expe-duration-name">${d.label}</span>
+            <span class="expe-duration-loot">${d.dust[0]}–${d.dust[1]} poussières</span>
+            <span class="expe-duration-loot">${d.guaranteed ? `1 booster garanti + ${Math.round(d.boosterChance * 100)}% d'en avoir un 2e` : `${Math.round(d.boosterChance * 100)}% de chance de booster`}</span>
+          </button>`).join("")}
+      </div>
+    </div>`;
+  const select = document.getElementById("expe-card");
+  const updatePreview = () => {
+    const c = cards.find((x) => x.cardId === Number(select.value));
+    document.getElementById("expe-preview").src = API.imageUrl(c?.imageId) || "";
+    const b = bonus[c?.rarity?.key] || 1;
+    document.getElementById("expe-bonus").textContent = b > 1 ? `Bonus de rareté : +${Math.round((b - 1) * 100)}% de poussières` : "Pas de bonus de rareté";
+  };
+  select.addEventListener("change", updatePreview);
+  updatePreview();
+  zone.querySelectorAll(".expe-duration").forEach((btn) => btn.addEventListener("click", () => startExpedition(Number(btn.dataset.hours), Number(select.value))));
+}
+
+async function loadExpedition() {
+  try {
+    await renderExpedition(await API.expedition(Session.userId, "status"));
+  } catch (e) {
+    document.getElementById("expedition-zone").innerHTML = `<div class="empty-state">Expéditions indisponibles pour le moment.</div>`;
+  }
+}
+
+async function startExpedition(hours, cardId) {
+  if (expeditionBusy) return;
+  expeditionBusy = true;
+  try {
+    const res = await API.expedition(Session.userId, "start", { hours, cardId });
+    Toast.success(`C'est parti pour ${hours} h d'expédition !`);
+    await renderExpedition(res);
+  } catch (e) {
+    Toast.error({ already_running: "Une expédition est déjà en cours.", card_not_owned: "Tu ne possèdes plus cette carte." }[e.code] || ("Erreur. (" + e.message + ")"));
+    loadExpedition();
+  } finally {
+    expeditionBusy = false;
+  }
+}
+
+async function claimExpedition() {
+  if (expeditionBusy) return;
+  expeditionBusy = true;
+  try {
+    const res = await API.expedition(Session.userId, "claim");
+    const r = res.reward;
+    await renderExpedition(res);
+    const zone = document.getElementById("expedition-zone");
+    zone.insertAdjacentHTML("afterbegin", `
+      <div class="expe-report">
+        <div class="expe-report-title">&#129517; ${r.explorer?.name || "Ton explorateur"} ${r.story} !</div>
+        <div class="expe-report-loot">+${r.dust} poussières${r.boosters ? ` · +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""}${r.bonus > 1 ? ` <span class="expe-report-bonus">(bonus rareté +${Math.round((r.bonus - 1) * 100)}%)</span>` : ""}</div>
+      </div>`);
+    Toast.success(`Butin : +${r.dust} poussières${r.boosters ? ` et +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""} !`);
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } catch (e) {
+    Toast.error(e.code === "not_ready" ? "L'expédition n'est pas encore rentrée." : ("Erreur. (" + e.message + ")"));
+    loadExpedition();
+  } finally {
+    expeditionBusy = false;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
     return;
   }
   document.getElementById("tab-dig-btn").addEventListener("click", () => setActiveTab("dig"));
+  document.getElementById("tab-guess-btn").addEventListener("click", () => setActiveTab("guess"));
+  document.getElementById("tab-expedition-btn").addEventListener("click", () => setActiveTab("expedition"));
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));
   document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
+  document.getElementById("guess-choices").addEventListener("click", (e) => {
+    const btn = e.target.closest(".guess-choice");
+    if (btn && !btn.disabled) submitGuess(Number(btn.dataset.cardId));
+  });
   document.getElementById("vault-open-btn").addEventListener("click", openVault);
   document.getElementById("dig-buy-bone-btn").addEventListener("click", (e) => kennelAction("buy", e.currentTarget));
   document.getElementById("dig-use-bone-btn").addEventListener("click", (e) => kennelAction("use", e.currentTarget));
