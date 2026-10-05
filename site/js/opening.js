@@ -1230,8 +1230,7 @@ async function startChestOpening() {
       const before = ownedCountMap.get(card.cardId) || 0;
       card.isNewToPlayer = before === 0;
       card.ownedCountAfter = before + 1;
-      // Simulation : la collection reelle ne bouge pas.
-      if (!sim) ownedCountMap.set(card.cardId, before + 1);
+      ownedCountMap.set(card.cardId, before + 1);
     });
     lastRevealedCards = cards;
     sessionBatchIds = [];
