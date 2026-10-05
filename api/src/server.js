@@ -17,6 +17,7 @@ import { createAdmin } from './admin.js';
 import { AzureBackup, startBackupSchedule } from './backup.js';
 import { initMonitoring, captureError, flushMonitoring } from './monitoring.js';
 import { createNative } from './native/index.js';
+import { isInvalidGrant } from './native/auth.js';
 
 // Suivi des erreurs (GlitchTip) le plus tot possible.
 await initMonitoring(config.monitoring);
@@ -32,7 +33,8 @@ process.on('unhandledRejection', (err) => {
 });
 
 const store = new Store(config.dbPath);
-const runner = new WorkflowRunner({ store, overrides: config.overrides, onError: captureError });
+// Code OAuth Discord deja utilise : cas normal (voir auth.js), pas une erreur a suivre.
+const runner = new WorkflowRunner({ store, overrides: config.overrides, onError: (err, ctx) => { if (!isInvalidGrant(err && err.message)) captureError(err, ctx); } });
 
 // --------------------------------------------------------------- workflows
 function loadWorkflows(dir) {

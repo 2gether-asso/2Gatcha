@@ -55,6 +55,38 @@
             <button type="button" class="btn-secondary" id="chest-buy-btn">Acheter un coffre</button>
           </div>
         </section>
+
+        <!-- Simulateur (admins, js/opening-sim.js) : pur calcul cote API. -->
+        <details class="sim-panel" id="sim-panel" hidden>
+          <summary><span aria-hidden="true">&#129514;</span> Simulation d'ouverture <span class="sim-badge">admin</span></summary>
+          <p class="sim-desc">Teste des modificateurs sans rien gagner ni dépenser : pas de booster consommé, pas de carte ajoutée, pas d'XP, pas d'annonce. Les valeurs vides reprennent les réglages actuels.</p>
+          <form id="sim-form" class="admin-form sim-form">
+            <label>Extension <select id="sim-ext"></select></label>
+            <label>Boosters à simuler <input type="number" id="sim-boosters" min="1" max="5000" value="500" /></label>
+            <label>Finition spéciale (%) <input type="number" id="sim-finish" min="0" max="100" step="0.1" /></label>
+            <label>Booster shiny (%) <input type="number" id="sim-shiny" min="0" max="100" step="0.01" /></label>
+            <label>Carte bonus (%) <input type="number" id="sim-bonus" min="0" max="100" step="0.1" /></label>
+            <label>Pity déjà accumulée <input type="number" id="sim-startpity" min="0" value="0" /></label>
+            <fieldset class="sim-rarities">
+              <legend>Multiplicateur par rareté (1 = normal, 0 = jamais)</legend>
+              <div id="sim-mults" class="sim-mults"></div>
+            </fieldset>
+            <div class="sim-checks">
+              <label class="sim-check"><input type="checkbox" id="sim-pity" checked /> Pity active</label>
+              <label class="sim-check"><input type="checkbox" id="sim-event" /> Appliquer l'événement en cours</label>
+            </div>
+            <div class="sim-actions">
+              <button type="button" class="btn-ghost" id="sim-reset">Réinitialiser</button>
+              <button type="button" class="btn-secondary" id="sim-visual">&#127183; Ouvrir en simulation</button>
+              <button type="submit" class="btn" id="sim-run">Lancer les statistiques</button>
+            </div>
+          </form>
+          <div id="sim-mode-banner" class="sim-mode-banner" hidden>
+            <span>&#129514; Mode simulation actif : clique sur un booster ci-dessus pour l'ouvrir sans rien gagner.</span>
+            <button type="button" class="btn-ghost" id="sim-mode-off">Quitter</button>
+          </div>
+          <div id="sim-results" class="sim-results" aria-live="polite"></div>
+        </details>
       </div>
     </div>
   </main>
@@ -103,5 +135,6 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/opening.js"></script>
+  <script src="js/opening-sim.js"></script>
 </body>
 </html>

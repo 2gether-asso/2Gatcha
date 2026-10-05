@@ -22,6 +22,7 @@
 //   social.js   fiche carte, alertes de liste de souhaits, mur de profil
 //   garden.js   jardin (appats dores pour la peche)
 //   community-dig.js grande fouille commune de la semaine
+//   simulator.js simulateur d'ouverture de boosters (admins, sans ecriture)
 //   duplicates.js poussiere passive sur les doublons a l'ouverture des boosters
 // Chaque module expose `routes` ({ 'METHODE chemin': handler }) et, au
 // besoin, `schema` (tables/colonnes creees au demarrage) et `afterWorkflow`.
@@ -53,9 +54,10 @@ import * as rules from './rules.js';
 import * as social from './social.js';
 import * as garden from './garden.js';
 import * as communityDig from './community-dig.js';
+import * as simulator from './simulator.js';
 
 const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
-  challenges, achievements, cosmetics, rules, social, garden, communityDig];
+  challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements];
 

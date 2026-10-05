@@ -98,12 +98,68 @@ function renderBottomNav() {
   // chevauchaient sur mobile (chaque <a> ne pouvait pas retrecir sous la
   // largeur de son mot le plus long). Les icones emoji restent assez
   // parlantes seules, et aria-label garde le nom accessible.
-  el.innerHTML = visibleNavItems().map((item) => `
+  // 2026-10-05 : 12 icones serrees sur 390px -> 4 destinations principales
+  // avec libelle + "Plus" qui ouvre un panneau avec le reste.
+  const items = visibleNavItems();
+  const PRIMARY = ["index.html", "ouverture.html", "collection.html", "jeux.html"];
+  const main = items.filter((i) => PRIMARY.includes(i.href));
+  const more = items.filter((i) => !PRIMARY.includes(i.href));
+  const link = (item) => `
     <a href="${item.href}" class="${item.href === page ? "active" : ""}" data-badge-key="${item.badgeKey || ""}" aria-label="${item.label}">
       <span class="bn-icon">${item.icon}</span>
-      <span class="sr-only">${item.label}</span>
-    </a>
-  `).join("");
+      <span class="bn-label">${BN_SHORT[item.href] || item.label}</span>
+    </a>`;
+  el.innerHTML = main.map(link).join("") + (more.length ? `
+    <button type="button" class="bn-more ${more.some((i) => i.href === page) ? "active" : ""}" id="bn-more-btn" aria-expanded="false" aria-controls="bn-sheet">
+      <span class="bn-icon">&#9776;</span><span class="bn-label">Plus</span>
+    </button>
+    <div class="bn-sheet" id="bn-sheet" hidden>${more.map(link).join("")}</div>` : "");
+  const btn = el.querySelector("#bn-more-btn");
+  const sheetEl = el.querySelector("#bn-sheet");
+  if (sheetEl) new MutationObserver(syncBottomMoreDot).observe(sheetEl, { childList: true, subtree: true });
+  if (btn) btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const sheet = el.querySelector("#bn-sheet");
+    sheet.hidden = !sheet.hidden;
+    btn.setAttribute("aria-expanded", String(!sheet.hidden));
+  });
+  document.addEventListener("click", (e) => {
+    const sheet = el.querySelector("#bn-sheet");
+    if (sheet && !sheet.hidden && !e.target.closest(".bn-sheet")) { sheet.hidden = true; btn?.setAttribute("aria-expanded", "false"); }
+  });
+}
+const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "craft.html": "Atelier", "admin.html": "Admin" };
+
+// Pastille sur "Plus" quand un element du panneau en a une.
+function syncBottomMoreDot() {
+  const btn = document.getElementById("bn-more-btn");
+  if (!btn) return;
+  btn.querySelectorAll(".nav-dot").forEach((d) => d.remove());
+  const dots = document.querySelectorAll("#bn-sheet .nav-dot");
+  if (dots.length) {
+    const d = document.createElement("span");
+    d.className = "nav-dot";
+    d.textContent = String(dots.length);
+    btn.querySelector(".bn-icon").appendChild(d);
+  }
+}
+
+// Nombres compacts pour l'en-tete : 12 395 -> 12,4k (valeur exacte en infobulle).
+function compactNumber(n) {
+  n = Number(n) || 0;
+  if (n < 10000) return n;
+  if (n < 1000000) return (n / 1000).toFixed(n < 100000 ? 1 : 0).replace(".", ",") + "k";
+  return (n / 1000000).toFixed(1).replace(".", ",") + "M";
+}
+function setCount(el, n) {
+  if (!el) return;
+  const chip = el.closest(".stat-chip");
+  if (chip) {
+    if (!chip.dataset.label) chip.dataset.label = chip.title || "";
+    chip.title = `${chip.dataset.label} : ${Number(n || 0).toLocaleString("fr-FR")}`;
+  }
+  const v = window.innerWidth < 1100 ? compactNumber(n) : Number(n) || 0;
+  if (typeof v === "number") bumpNumber(el, v); else el.textContent = v;
 }
 
 // ---------------------------------------------------------------------------
@@ -206,6 +262,7 @@ async function loadNavBadges() {
       return;
     }
   }
+  syncBottomMoreDot();
   // Liste de souhaits : une carte souhaitee est disponible quelque part.
   let wishCount = 0;
   try { wishCount = (await API.wishlistAlerts(Session.userId)).count || 0; } catch (e) { wishCount = 0; }
@@ -219,6 +276,7 @@ async function loadNavBadges() {
       (a.querySelector(".bn-icon") || a).appendChild(dot);
     }
   });
+  syncBottomMoreDot();
 
   // Meme principe pour le nombre de boosters disponibles : un rappel visuel
   // sur l'onglet, pas seulement le badge du header (moins visible sur
@@ -386,7 +444,6 @@ function renderHeader() {
               <span class="icon">&#127915;</span><span class="count">0</span>
             </a>
             </span>
-            <button type="button" class="stats-more-btn" id="stats-more-btn" aria-expanded="false" aria-controls="header-stats-extra" title="Autres ressources" hidden>&#127890;<span id="stats-more-count"></span></button>
           </div>
           <div class="global-search" id="global-search">
             <button type="button" class="global-search-trigger" id="global-search-trigger" aria-label="Recherche" title="Rechercher un joueur, une carte...">&#128269;</button>
@@ -766,7 +823,7 @@ async function loadHeaderBoosterBadge() {
       badge.innerHTML = `<span class="icon">&#127183;</span><span class="count">...</span>`;
       countEl = badge.querySelector(".count");
     }
-    bumpNumber(countEl, status.count);
+    setCount(countEl, status.count);
 
     if (dustBadge) {
       let dustEl = dustBadge.querySelector(".count");
@@ -774,7 +831,7 @@ async function loadHeaderBoosterBadge() {
         dustBadge.innerHTML = `<span class="icon">&#10024;</span><span class="count">...</span>`;
         dustEl = dustBadge.querySelector(".count");
       }
-      bumpNumber(dustEl, status.stardust || 0);
+      setCount(dustEl, status.stardust || 0);
     }
 
     // Clefs secretes : uniquement visibles quand on en possede au moins une
@@ -815,7 +872,7 @@ async function loadHeaderBoosterBadge() {
     if (wormBadge) {
       const worms = status.worms || 0;
       wormBadge.style.display = worms > 0 ? "flex" : "none";
-      if (worms > 0) bumpNumber(wormBadge.querySelector(".count"), worms);
+      if (worms > 0) setCount(wormBadge.querySelector(".count"), worms);
     }
     // Decorations equipees (boutique) : couleur du pseudo, cadre de l'avatar, titre.
     if (status.decor) {
@@ -829,14 +886,14 @@ async function loadHeaderBoosterBadge() {
     if (partBadge) {
       const parts = status.spareParts || 0;
       partBadge.style.display = parts > 0 ? "flex" : "none";
-      if (parts > 0) bumpNumber(partBadge.querySelector(".count"), parts);
+      if (parts > 0) setCount(partBadge.querySelector(".count"), parts);
     }
     // Tickets Unique (api/src/native/unique.js) : visibles seulement si > 0.
     const ticketBadge = document.getElementById("header-ticket-badge");
     if (ticketBadge) {
       const tickets = status.uniqueTickets || 0;
       ticketBadge.style.display = tickets > 0 ? "flex" : "none";
-      if (tickets > 0) bumpNumber(ticketBadge.querySelector(".count"), tickets);
+      if (tickets > 0) setCount(ticketBadge.querySelector(".count"), tickets);
     }
 
     syncStatsMore();

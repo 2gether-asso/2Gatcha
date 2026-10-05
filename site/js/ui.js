@@ -57,7 +57,19 @@ const Toast = {
     }
   },
   success(msg) { this.show(msg, "success"); NotificationHistory.add("success", msg); },
-  error(msg) { this.show(msg, "error"); NotificationHistory.add("error", msg); },
+  error(msg) {
+    // Erreur "deja recupere" juste renvoyee par l'API (voir API.BENIGN_ERRORS) :
+    // message doux + rafraichissement des pastilles, plutot qu'une erreur brute.
+    const b = typeof API !== "undefined" && API._lastBenign;
+    if (b && Date.now() - b.at < 3000) {
+      API._lastBenign = null;
+      this.info(API.BENIGN_ERRORS[b.code]);
+      if (typeof loadNavBadges === "function") loadNavBadges();
+      window.dispatchEvent(new CustomEvent("api:claimed", { detail: { benign: true } }));
+      return;
+    }
+    this.show(msg, "error"); NotificationHistory.add("error", msg);
+  },
   info(msg) { this.show(msg, "info"); NotificationHistory.add("info", msg); }
 };
 

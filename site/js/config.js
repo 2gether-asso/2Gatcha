@@ -98,6 +98,7 @@ window.APP_CONFIG = {
     bossLeaderboard: "/boss-leaderboard", // GET ?userId=... -> { boss, top, me, participants, rules }
     bossAttack: "/boss-attack",         // POST { userId, pullIds } -> attaque en salve sur des exemplaires precis
     adminEconomy: "/admin-economy",     // POST { discordId } -> tableau de bord de l'economie
+    adminSimulate: "/admin-simulate",   // POST { discordId, action: 'config'|'run'|'pack', extensionId, boosters, modifiers } (aucune ecriture)
     pushConfig: "/push-config",         // GET -> { enabled, publicKey }
     chests: "/chests",                 // POST { userId, action: 'status'|'buy'|'open' } -> coffres (page d'ouverture)
     adminSettings: "/admin-settings",   // POST { discordId, action: 'get'|'set'|'reset', values?, key? } -> reglages du jeu
@@ -107,6 +108,23 @@ window.APP_CONFIG = {
     push: "/push"                       // POST { userId, action: 'status'|'subscribe'|'unsubscribe'|'test', subscription? }
   }
 };
+
+// Transitions de page natives (@view-transition, style.css) : quand une
+// navigation est interrompue, Chrome rejette les promesses de la transition ;
+// personne ne les ecoutait, d'ou des "unhandledrejection" (GlitchTip #6).
+(function silenceViewTransitions() {
+  var quiet = function (e) {
+    var vt = e && e.viewTransition;
+    if (!vt) return;
+    ["ready", "finished", "updateCallbackDone"].forEach(function (k) { if (vt[k] && vt[k].catch) vt[k].catch(function () {}); });
+  };
+  window.addEventListener("pagereveal", quiet);
+  window.addEventListener("pageswap", quiet);
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e.reason;
+    if (r && (r.name === "InvalidStateError" || r.name === "AbortError") && /transition/i.test(String(r.message))) e.preventDefault();
+  });
+})();
 
 // Suivi des erreurs (GlitchTip, compatible Sentry) : SDK navigateur officiel
 // charge en asynchrone (ne bloque pas l'affichage), empreinte SRI verifiee.
@@ -126,7 +144,10 @@ window.APP_CONFIG = {
       dsn: dsn,
       tracesSampleRate: 0.01, // 1 % des chargements de page
       autoSessionTracking: false, // GlitchTip ne gere pas les sessions
-      environment: window.location.hostname
+      environment: window.location.hostname,
+      // Bruit sans consequence pour le joueur : transition de page annulee
+      // (navigation interrompue), extensions du navigateur.
+      ignoreErrors: [/Transition was aborted/i, /ViewTransition/i, /Transition was skipped/i, /ResizeObserver loop/i]
     });
     // Joueur connecte (memes cles que Session, core.js) : retrouver qui a
     // rencontre l'erreur.

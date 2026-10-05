@@ -98,8 +98,18 @@ export function rateLimit(store, key, isWrite) {
 
 export function _resetRateLimits() { windows.clear(); }
 
+// Refus de Discord pour un code OAuth a usage unique deja consomme.
+export const isInvalidGrant = (msg) => /oauth2\/token.*invalid_grant/.test(String(msg || ''));
+
 // Jeton remis a la connexion Discord.
 export function afterWorkflow({ store, path, response }) {
+  // Code OAuth deja utilise ou expire (page de retour rechargee, bouton
+  // retour, robot qui rejoue l'URL - GlitchTip #5) : erreur propre, pas un 500.
+  if (path === 'discord-login' && isInvalidGrant(response.json && response.json.error)) {
+    response.status = 400;
+    response.json = { error: 'invalid_code' };
+    return;
+  }
   if (path !== 'discord-login' || response.status !== 200 || !response.json || !response.json.userId) return;
   const user = store.get('Users', Number(response.json.userId));
   if (user) response.json.token = issueToken(store, user);

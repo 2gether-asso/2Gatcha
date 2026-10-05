@@ -24,8 +24,10 @@
     renderChallenges(current.challenges);
   }
 
+  let centerClaiming = false;
   async function claim(list, btn) {
     if (btn) btn.disabled = true;
+    centerClaiming = true;
     const { done, failed } = await RewardsCenter.claimAll(list);
     if (done.length) {
       Toast.success(`&#127873; ${done.length} récompense${done.length > 1 ? "s" : ""} récupérée${done.length > 1 ? "s" : ""} !`);
@@ -34,6 +36,10 @@
     if (failed.length) Toast.error(`${failed.length} récompense${failed.length > 1 ? "s n'ont" : " n'a"} pas pu être récupérée${failed.length > 1 ? "s" : ""}.`);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     if (typeof loadNavBadges === "function") loadNavBadges();
+    // Les autres panneaux de l'accueil (serie, saison, quetes...) gardaient
+    // leurs anciens boutons "Recuperer" -> "Nothing to claim" au clic.
+    if (done.length) { centerClaiming = false; setTimeout(() => location.reload(), 1300); return; }
+    centerClaiming = false;
     await renderCenter();
   }
 
@@ -60,6 +66,14 @@
     $("challenges-claim").hidden = !st.claimable;
   }
 
+  // Recuperation faite depuis un autre panneau : le centre se met a jour.
+  let refreshTimer = null;
+  window.addEventListener("api:claimed", () => {
+    if (centerClaiming) return;
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(renderCenter, 400);
+  });
+
   document.addEventListener("DOMContentLoaded", () => {
     renderCenter();
     $("rc-claim-all")?.addEventListener("click", (e) => current && claim(current.items, e.currentTarget));
@@ -77,14 +91,21 @@
       catch (err) { btn.disabled = false; Toast.error(err.code === "too_many_picks" ? "Tu as déjà choisi 3 défis." : "Erreur. (" + err.message + ")"); }
     });
     $("challenges-claim")?.addEventListener("click", async (e) => {
-      e.currentTarget.disabled = true;
+      // e.currentTarget vaut null apres le premier await (GlitchTip #17) :
+      // on garde le bouton dans une variable.
+      const btn = e.currentTarget;
+      btn.disabled = true;
       try {
         const res = await API.challenges(Session.userId, "claim");
         Toast.success(`&#127919; Défis : +${res.reward.dust} poussières${res.reward.boosters ? ` et +${res.reward.boosters} booster` : ""} !`);
-        renderCenter();
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
-      e.currentTarget.disabled = false;
+      } catch (err) {
+        // Deja recupere (ex. via "Tout recuperer") : message doux (API.BENIGN_ERRORS).
+        Toast.error("Erreur. (" + err.message + ")");
+      }
+      btn.disabled = false;
+      // Dans tous les cas, le panneau se remet a jour (bouton masque si plus rien).
+      renderCenter();
     });
   });
 })();

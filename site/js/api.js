@@ -203,14 +203,21 @@ const API = {
         const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
         err.data = data;
+        // "Deja recupere" (bouton reste affiche apres une recuperation
+        // ailleurs, double clic...) : pas une vraie erreur pour le joueur.
+        if (this.BENIGN_ERRORS[data.error]) this._lastBenign = { code: data.error, at: Date.now() };
         throw err;
       }
       this._announce(data);
+      // Une recuperation a eu lieu : les pages peuvent rafraichir leurs boutons.
+      if (body && /claim|redeem/.test(String(body.action || ""))) window.dispatchEvent(new CustomEvent("api:claimed", { detail: { name, body } }));
       return data;
     } finally {
       if (typeof TopLoadingBar !== "undefined") TopLoadingBar.stop();
     }
   },
+
+  BENIGN_ERRORS: { nothing_to_claim: "Rien à récupérer : c'est déjà fait.", already_claimed: "Déjà récupéré.", already_rerolled: "Déjà fait aujourd'hui.", goal_not_reached: "L'objectif n'est pas encore atteint." },
 
   // Annonces renvoyees par l'API apres une action (defi accompli, succes
   // secret, objectif commun atteint...) : un toast chacune.
@@ -695,6 +702,10 @@ const API = {
   },
   adminGetEconomy(discordId) {
     return this.post("adminEconomy", { discordId, action: "get" });
+  },
+  // Simulateur d'ouverture (admins) : pur calcul, rien n'est ajoute ni consomme.
+  adminSimulate(discordId, action, params = {}) {
+    return this.post("adminSimulate", { discordId, action, ...params });
   },
   getPushConfig() {
     return this.get("pushConfig");

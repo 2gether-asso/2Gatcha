@@ -39,6 +39,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.location.href = "index.html?error=not_in_guild";
       return;
     }
+    // Code Discord a usage unique deja utilise (page rechargee, bouton retour...).
+    if (e.code === "invalid_code") {
+      if (Session.isLoggedIn()) { window.location.href = "index.html"; return; }
+      statusLabel.textContent = "Lien de connexion expiré.";
+      errorZone.innerHTML = `<div class="error-box">Ce lien de connexion Discord a déjà servi. Retourne à la <a href="index.html">page d'accueil</a> et clique à nouveau sur « Se connecter avec Discord ».</div>`;
+      return;
+    }
     errorZone.innerHTML = `<div class="error-box">${e.message}. Retourne à la <a href="index.html">page d'accueil</a> et réessaie.</div>`;
   }
 });

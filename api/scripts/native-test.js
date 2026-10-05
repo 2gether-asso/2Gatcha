@@ -822,6 +822,38 @@ await test('unique : migration une seule fois des lignes deja completees en tick
   for (const sfx of ['', '-wal', '-shm']) fs.rmSync(t2 + sfx, { force: true });
 });
 
+await test('simulateur admin : aucune ecriture, admin seulement, multiplicateurs pris en compte', () => {
+  assert.equal(call('POST', 'admin-simulate', { body: { discordId: '1', action: 'config' } }).status, 403);
+  const conf = call('POST', 'admin-simulate', { body: { discordId: ADMIN, action: 'config' } }).json;
+  assert.ok(conf.rarities.length && conf.extensions.length);
+  const ext = conf.extensions.find((e) => store.getAll('Cards').some((c) => c.Active && !c.IsPromo && (Array.isArray(c.Extension) ? c.Extension[1] : c.Extension) === e.id));
+  const snap = () => ['Pulls', 'Users', 'EconomyDaily'].map((t) => (store.tables.has(t) ? JSON.stringify(store.getAll(t)) : '')).join('|');
+  const before = snap();
+  const top = conf.rarities[conf.rarities.length - 1].key;
+  const mult = Object.fromEntries(conf.rarities.map((r) => [r.key, r.key === top ? 1 : 0]));
+  const r = call('POST', 'admin-simulate', { body: { discordId: ADMIN, action: 'run', extensionId: ext.id, boosters: 200, modifiers: { rarityMultipliers: mult, specialFinishChance: 1, shinyChance: 0, bonusCardChance: 0 } } }).json;
+  assert.equal(r.simulated, true);
+  assert.equal(r.cards, 1000);
+  assert.equal(r.rarities.find((x) => x.key === top).expected, 100);
+  assert.equal(r.finishes.find((x) => x.key === 'normal').count, 0);
+  const pack = call('POST', 'admin-simulate', { body: { discordId: ADMIN, action: 'pack', extensionId: ext.id } }).json;
+  assert.ok(pack.cards.length >= 5 && pack.batchId === null);
+  assert.equal(snap(), before, 'aucune ecriture');
+});
+
+await test('discord-login : code OAuth deja utilise = 400 invalid_code, non signale', async () => {
+  const reported = [];
+  const fetchImpl = async () => new Response('{"error": "invalid_grant", "error_description": "Invalid \\"code\\" in request."}', { status: 400 });
+  const runner = new WorkflowRunner({ store, overrides: {}, log: { error: () => {} }, fetchImpl, onError: (err) => { if (!auth.isInvalidGrant(err.message)) reported.push(err); } });
+  const wf = JSON.parse(fs.readFileSync(path.join(here, '../workflows/discord-login.json'), 'utf8'));
+  const { responded, done } = runner.run(wf, { headers: {}, params: {}, query: {}, body: { code: 'deja-utilise' }, webhookUrl: '', executionMode: 'production' });
+  const resp = await responded; await done;
+  native.afterWorkflow('discord-login', { body: { code: 'deja-utilise' } }, resp);
+  assert.equal(resp.status, 400);
+  assert.deepEqual(resp.json, { error: 'invalid_code' });
+  assert.equal(reported.length, 0);
+});
+
 store.db.close();
 clean();
 console.log(process.exitCode ? '\nNatif : echec(s).' : `\nNatif : ${passed} tests passes.`);

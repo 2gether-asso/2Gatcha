@@ -160,6 +160,7 @@ doublons, coup final au boss) sans le modifier.
 | `social.js` | `GET card-info`, `POST wishlist-alerts`, `GET`/`POST profile-wall` | fiche carte enrichie, alertes de liste de souhaits, mur et stats du profil |
 | `garden.js` | `POST garden` | jardin : vers et appâts dorés pour la pêche |
 | `community-dig.js` | `POST community-dig` | grande fouille commune de la semaine (grand trésor partagé) |
+| `simulator.js` | `POST admin-simulate` | simulateur d'ouverture de boosters pour les admins (modificateurs de rareté, finition, shiny, carte bonus, pity) : pur calcul, aucune écriture |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

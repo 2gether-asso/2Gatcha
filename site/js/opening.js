@@ -35,6 +35,16 @@ let ownedCountMap = new Map();
 let extProgressByExt = new Map();
 let catalogCache = [];
 let lastOpenedExtension = null;
+// Simulateur admin (2026-10-05, js/opening-sim.js) : quand il est actif, les
+// ouvertures passent par /admin-simulate (modificateurs) au lieu d'open-pack :
+// aucun booster consomme, aucune carte ni XP, aucune annonce Discord.
+let simMode = null;
+function setSimMode(modifiers) {
+  simMode = modifiers || null;
+  document.body.classList.toggle("sim-mode", !!simMode);
+  renderExtensionPicker();
+}
+const usableBoosters = () => (simMode ? OPEN_ALL_MAX : boosterCount);
 
 const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3, mythique: 4, unique: 5 };
 
@@ -345,7 +355,7 @@ function onAllRevealed() {
   } else if (hint) {
     hint.textContent = "Toutes les cartes sont révélées !";
   }
-  if (boosterCount > 0) {
+  if (boosterCount > 0 && lastOpenMode !== "sim") {
     Toast.info(`Il te reste ${boosterCount} booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}.`);
   }
 
@@ -371,7 +381,10 @@ function onAllRevealed() {
     openAnotherBtn.innerHTML = can ? `&#129520; Ouvrir un autre coffre (${chestState.chests} restant${chestState.chests > 1 ? "s" : ""})` : "";
     openAnotherBtn.style.display = can ? "inline-flex" : "none";
   } else if (openAnotherBtn) {
-    if (lastOpenedExtension && boosterCount > 0) {
+    if (lastOpenedExtension && lastOpenMode === "sim") {
+      openAnotherBtn.textContent = `${String.fromCodePoint(129514)} Simuler un autre booster`;
+      openAnotherBtn.style.display = "inline-flex";
+    } else if (lastOpenedExtension && boosterCount > 0) {
       const icon = String.fromCodePoint(128257);
       openAnotherBtn.textContent = `${icon} Ouvrir un autre (${boosterCount} restant${boosterCount > 1 ? "s" : ""})`;
       openAnotherBtn.style.display = "inline-flex";
@@ -572,7 +585,7 @@ function renderExtensionPicker() {
     el.innerHTML = `<div class="empty-state">Aucune extension configuree pour l'instant.</div>`;
     return;
   }
-  const disabled = boosterCount < 1;
+  const disabled = usableBoosters() < 1;
   el.innerHTML = extensionsCache.map((ext) => {
     const img = API.imageUrl(ext.packImageId);
     const backImg = API.imageUrl(ext.cardBackImageId);
@@ -705,10 +718,10 @@ async function refreshStatus() {
 // Ouvre le modal sur le pack de l'extension choisie, pret a etre tape pour
 // demarrer l'ouverture (le tirage reel n'a pas encore eu lieu a ce stade).
 function openModalFor(extensionId) {
-  if (isBusy || boosterCount < 1) return;
+  if (isBusy || usableBoosters() < 1) return;
   const ext = extensionById(extensionId);
   if (!ext) return;
-  lastOpenMode = "pack";
+  lastOpenMode = simMode ? "sim" : "pack";
   renderPackTags([]);
   lastPackTags = [];
   resetRevealView();
@@ -769,18 +782,19 @@ function openModalFor(extensionId) {
     qtyPicker.querySelectorAll("button").forEach((b) => {
       // "Tout ouvrir" (2026-10-05) : tous les boosters, jusqu'a OPEN_ALL_MAX.
       if (b.dataset.qty === "all") {
-        const n = Math.min(boosterCount, OPEN_ALL_MAX);
+        const n = Math.min(usableBoosters(), OPEN_ALL_MAX);
         b.textContent = `Tout ouvrir (${n})`;
         b.dataset.count = String(n);
-        b.disabled = boosterCount < 2;
+        b.disabled = usableBoosters() < 2;
         b.classList.remove("active");
         return;
       }
       const qty = Number(b.dataset.qty);
       b.classList.toggle("active", qty === 1);
-      b.disabled = qty > boosterCount;
+      b.disabled = qty > usableBoosters();
     });
   }
+  renderPackTags(simMode ? [{ kind: "sim", html: "&#129514; Simulation : rien n'est gagné ni dépensé" }] : []);
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn) openAnotherBtn.style.display = "none";
 
@@ -941,7 +955,8 @@ async function startOpening(ext) {
     // x1 ou x5 : on ouvre les boosters demandes a la suite (chaque appel
     // reste un tirage independant cote backend), puis on révélé tout
     // ensemble pour ne pas repeter l'animation de dechirure N fois.
-    const quantity = Math.min(openQuantity, boosterCount);
+    const sim = simMode;
+    const quantity = Math.min(openQuantity, usableBoosters());
     const allCards = [];
     const batchIds = [];
     // Raretes de booster (2026-10-02) : booster shiny (0.1%) et carte bonus.
@@ -950,7 +965,9 @@ async function startOpening(ext) {
     let duplicateDust = 0;
     let lastBoosterInfo = null;
     for (let i = 0; i < quantity; i++) {
-      const res = await API.openPack(Session.userId, ext.id);
+      const res = sim
+        ? await API.adminSimulate(Session.discordId, "pack", { extensionId: ext.id, modifiers: sim })
+        : await API.openPack(Session.userId, ext.id);
       if (res.error === "no_boosters") {
         if (i === 0) {
           pack.classList.remove("charging");
@@ -964,7 +981,7 @@ async function startOpening(ext) {
         break;
       }
       allCards.push(...(res.cards || []));
-      if (res.batchId) batchIds.push(res.batchId);
+      if (res.batchId && !sim) batchIds.push(res.batchId);
       if (res.pack?.shiny) packShiny = true;
       if (res.pack?.bonusCard) bonusCards++;
       if (res.duplicateDust) duplicateDust += res.duplicateDust.total || 0;
@@ -1009,7 +1026,7 @@ async function startOpening(ext) {
     await wait(750);
     pack.classList.remove("charging", "charging-special", "charging-legendaire", "charging-epique", "charging-rare", "charging-mythique");
     if (bonusCards) Toast.info(`&#127873; +${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus dans ce booster !`);
-    lastPackTags = [];
+    lastPackTags = sim ? [{ kind: "sim", html: "&#129514; Simulation", short: "simulation" }] : [];
     if (packShiny) lastPackTags.push({ kind: "shiny", html: "&#127752; Booster shiny : meilleures cartes", short: "booster shiny" });
     if (duplicateDust) lastPackTags.push({ kind: "dust", html: `&#10024; +${duplicateDust} poussières (doublons)`, short: `+${duplicateDust} poussières de doublons` });
     if (bonusCards) lastPackTags.push({ kind: "bonus", html: `&#127873; ${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus`, short: `${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus` });
@@ -1030,11 +1047,13 @@ async function startOpening(ext) {
     // Marque chaque carte comme nouvelle ou doublon AVANT de construire les
     // elements : incremente au fil du lot pour gerer aussi les doublons
     // internes a un x5 (deux fois la meme carte dans le meme paquet).
+    // Simulation : compteur sur une copie, la collection reelle ne bouge pas.
+    const counts = sim ? new Map(ownedCountMap) : ownedCountMap;
     allCards.forEach((card) => {
-      const before = ownedCountMap.get(card.cardId) || 0;
+      const before = counts.get(card.cardId) || 0;
       card.isNewToPlayer = before === 0;
       card.ownedCountAfter = before + 1;
-      ownedCountMap.set(card.cardId, before + 1);
+      counts.set(card.cardId, before + 1);
     });
 
     lastRevealedCards = allCards;
@@ -1211,7 +1230,8 @@ async function startChestOpening() {
       const before = ownedCountMap.get(card.cardId) || 0;
       card.isNewToPlayer = before === 0;
       card.ownedCountAfter = before + 1;
-      ownedCountMap.set(card.cardId, before + 1);
+      // Simulation : la collection reelle ne bouge pas.
+      if (!sim) ownedCountMap.set(card.cardId, before + 1);
     });
     lastRevealedCards = cards;
     sessionBatchIds = [];
@@ -1272,7 +1292,7 @@ document.addEventListener("DOMContentLoaded", () => {
         startChestOpening();
         return;
       }
-      if (isBusy || !lastOpenedExtension || boosterCount < 1) return;
+      if (isBusy || !lastOpenedExtension || usableBoosters() < 1) return;
       Sfx.click();
       openModalFor(lastOpenedExtension.id);
       startOpening(lastOpenedExtension);
