@@ -197,10 +197,16 @@ const Confirm = {
 const FusionPicker = {
   // parts : pieces detachees disponibles (pechees) ; cochee, une piece
   // remplace un des exemplaires requis.
-  open({ title, intro, copies, required: baseRequired, otherRank, confirmText = "Fusionner", parts = 0 }) {
+  // dustPerCopy / stardust : exemplaires manquants payes en poussieres
+  // (restauration de qualite uniquement).
+  open({ title, intro, copies, required: baseRequired, otherRank, confirmText = "Fusionner", parts = 0, dustPerCopy = 0, stardust = 0 }) {
     return new Promise((resolve) => {
-      let usePart = parts > 0 && copies.length < baseRequired;
-      let required = baseRequired - (usePart ? 1 : 0);
+      const maxDust = dustPerCopy > 0 ? Math.min(baseRequired - 1, Math.floor(stardust / dustPerCopy)) : 0;
+      // Piece cochee d'office seulement si les poussieres ne suffisent pas a combler.
+      let usePart = parts > 0 && copies.length + maxDust < baseRequired;
+      const partForced = parts > 0 && copies.length + maxDust < baseRequired;
+      let dustCopies = Math.max(0, Math.min(maxDust, baseRequired - (usePart ? 1 : 0) - copies.length));
+      let required = baseRequired - (usePart ? 1 : 0) - dustCopies;
       const FIN = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
       const QUA = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
       const sorted = [...copies].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999));
@@ -224,7 +230,8 @@ const FusionPicker = {
                 <label class="fusion-keep" title="Le nouvel exemplaire portera ce numéro"><input type="radio" name="fusion-keep" data-keep="${c.pullId}" /> garder ce n°</label>
               </div>`).join("")}
           </div>
-          ${parts > 0 ? `<label class="fusion-part"><input type="checkbox" data-use-part ${usePart ? "checked" : ""} ${copies.length < baseRequired ? "disabled" : ""} /> &#128297; Utiliser une <strong>pièce détachée</strong> à la place d'un exemplaire <span class="muted">(il t'en reste ${parts})</span></label>` : ""}
+          ${parts > 0 ? `<label class="fusion-part"><input type="checkbox" data-use-part ${usePart ? "checked" : ""} ${partForced ? "disabled" : ""} /> &#128297; Utiliser une <strong>pièce détachée</strong> à la place d'un exemplaire <span class="muted">(il t'en reste ${parts})</span></label>` : ""}
+          ${maxDust > 0 ? `<label class="fusion-part fusion-dust">&#10024; Payer en poussières <select data-dust-copies>${Array.from({ length: maxDust + 1 }, (_, n) => `<option value="${n}" ${n === dustCopies ? "selected" : ""}>${n} exemplaire${n > 1 ? "s" : ""}${n ? ` (${n * dustPerCopy} ✨)` : ""}</option>`).join("")}</select> <span class="muted">(${dustPerCopy} ✨ chacun, tu as ${stardust} ✨)</span></label>` : ""}
           <div class="fusion-picker-count"></div>
           <div class="confirm-actions">
             <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
@@ -250,10 +257,23 @@ const FusionPicker = {
           (lost.length ? ` · <span class="fusion-warning">&#9888; tu sacrifies ${lost.map(serial).join(", ")} (précieux)</span>` : "");
         okBtn.disabled = selected.size !== required;
       };
+      const trimSelection = () => {
+        while (selected.size > required) {
+          const drop = [...byDefault].reverse().find((c) => selected.has(c.pullId));
+          selected.delete(drop.pullId);
+        }
+      };
+      const dustSel = overlay.querySelector("[data-dust-copies]");
+      if (dustSel) dustSel.addEventListener("change", () => {
+        dustCopies = Number(dustSel.value) || 0;
+        required = Math.max(1, baseRequired - (usePart ? 1 : 0) - dustCopies);
+        trimSelection();
+        refresh();
+      });
       const partBox = overlay.querySelector("[data-use-part]");
       if (partBox) partBox.addEventListener("change", () => {
         usePart = partBox.checked;
-        required = baseRequired - (usePart ? 1 : 0);
+        required = Math.max(1, baseRequired - (usePart ? 1 : 0) - dustCopies);
         // Trop d'exemplaires coches : on retire le plus precieux a garder.
         while (selected.size > required) {
           const drop = [...byDefault].reverse().find((c) => selected.has(c.pullId));
@@ -270,7 +290,7 @@ const FusionPicker = {
       const finish = (result) => { overlay.remove(); syncScrollLock(); resolve(result); };
       overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
       overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
-      okBtn.addEventListener("click", () => finish({ pullIds: [...selected], keepPullId: keep, parts: usePart ? 1 : 0 }));
+      okBtn.addEventListener("click", () => finish({ pullIds: [...selected], keepPullId: keep, parts: usePart ? 1 : 0, dustCopies }));
       document.body.appendChild(overlay);
       syncScrollLock();
       refresh();
@@ -818,7 +838,7 @@ const LevelUpModal = {
       <div class="levelup-card">
         <div class="levelup-icon" aria-hidden="true">${icon}</div>
         <div class="levelup-eyebrow">${name}</div>
-        <div class="levelup-level">Niveau ${level}</div>
+        <div class="levelup-level">${typeof level === "number" ? "Niveau " + level : level}</div>
         ${tool ? `<div class="levelup-tool">Nouvel outil : <strong>${tool}</strong></div>` : ""}
         <ul class="levelup-perks">${perks.filter(Boolean).map((p) => `<li>${p}</li>`).join("")}</ul>
         <button type="button" class="btn levelup-close">Super !</button>

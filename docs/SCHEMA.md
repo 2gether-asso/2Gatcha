@@ -67,6 +67,14 @@ L'autel ne vise jamais cette rarete.
 - `Users.Worms` : vers de terre, cout d'un lancer de peche ; gagnes a la fin
   d'une grille de fouille (joueur ou chien) : `WormsPerBoard` + `WormsPerLeftoverTile`
   par case jamais creusee. Stock de depart offert une fois (`StarterWorms`).
+- Lot 2026-10-05 (tout est cree au demarrage) : `EconomyDaily` (journal de
+  l'economie), `WeeklyChallenges`, `CommunityGoals`, `ThemeClaims`,
+  `UserCosmetics`, `ProfileWall`, `CommunityDig` ; colonnes `Users` :
+  HiddenStats/HiddenAchievements (JSON), EquippedTitle/Frame/Color, GoldBait,
+  GardenPlots (JSON), CDigDay/CDigCount, BoneWeek/BonesBoughtWeek,
+  WeatherDay/WeatherKey, RushDay, DigDay/DigDayCount, DigPrestige,
+  FishingPrestige, TourneyKey/TourneyCasts/TourneyScore ; `SeasonProgress.BonusClaimed` ;
+  `BlackMarketOffers.Label/Auto/Week` (offres automatiques).
 - `Users.FishingXP` / `Users.DigXP` : niveaux de peche et de fouille (1 a 10,
   `api/src/native/levels.js`) ; `FishingWeek`/`FishingWeekXP`, `DigWeek`/`DigWeekXP` :
   XP de la semaine (classement des metiers) ; `FishingRecords` : carnet de peche (JSON).

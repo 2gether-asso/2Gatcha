@@ -557,16 +557,25 @@
 
   // ======================================================== Finitions / Qualité
   // Fusions deterministes : 5 identiques (finition) ou 3 identiques (etat).
+  // Recherche par nom (2026-10-05) ; en Qualite, avec une recherche, toutes les
+  // cartes restaurables apparaissent (les exemplaires manquants peuvent se
+  // payer en poussieres).
+  const fusionSearch = { finish: "", quality: "" };
+  let repairDustPerCopy = 60;
+  API.getEconomyRules(Session.isLoggedIn() ? Session.userId : undefined).then((r) => { repairDustPerCopy = r.repairDustPerCopy || 60; }).catch(() => {});
   function fusionList(kind) {
     const order = kind === "finish" ? FINISH_ORDER : QUALITY_ORDER;
     const need = kind === "finish" ? 5 : 3;
+    const q = (fusionSearch[kind] || "").trim().toLowerCase();
     const out = [];
     state.ownedMap.forEach((owned, cardId) => {
       const card = cardOf(cardId);
       if (!card || card.isPromo) return;
+      if (q && !card.name.toLowerCase().includes(q)) return;
       const counts = (kind === "finish" ? owned.finishCounts : owned.qualityCounts) || {};
-      // Une piece detachee (pechee) peut remplacer un des exemplaires.
-      const minNeed = need - (state.spareParts > 0 ? 1 : 0);
+      // Une piece detachee (pechee) peut remplacer un des exemplaires ; en
+      // Qualite, une recherche montre aussi les cartes a 1 exemplaire.
+      const minNeed = kind === "quality" && q ? 1 : need - (state.spareParts > 0 ? 1 : 0);
       for (let i = 0; i < order.length - 1; i++) {
         if ((counts[order[i]] || 0) >= minNeed) out.push({ card, from: order[i], to: order[i + 1], available: counts[order[i]], need, withPart: (counts[order[i]] || 0) < need });
       }
@@ -576,6 +585,15 @@
 
   function renderFusions(kind) {
     const el = $(kind === "finish" ? "finish-tiers" : "quality-tiers");
+    if (!el.previousElementSibling || !el.previousElementSibling.classList.contains("fusion-search")) {
+      const input = document.createElement("input");
+      input.type = "search";
+      input.className = "fusion-search";
+      input.placeholder = kind === "finish" ? "Rechercher une carte à fusionner…" : "Rechercher une carte à restaurer (même à 1 exemplaire)…";
+      input.setAttribute("aria-label", "Rechercher une carte");
+      input.addEventListener("input", () => { fusionSearch[kind] = input.value; renderFusions(kind); });
+      el.parentNode.insertBefore(input, el);
+    }
     const list = fusionList(kind);
     const labels = kind === "finish" ? FINISH_LABELS_LONG : QUALITY_LABELS;
     const tag = kind === "finish" ? "finish" : "quality";
@@ -595,7 +613,7 @@
             <span aria-hidden="true">&#8594;</span>
             <span class="${tag}-tag" data-${tag}="${u.to}">${labels[u.to]}</span>
           </div>
-          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (${u.need} requis${u.withPart ? " · avec une pièce détachée &#128297;" : u.available >= u.need * 2 ? ` · ${Math.floor(u.available / u.need)} fusions possibles` : ""})</div>
+          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (${u.need} requis${u.withPart ? (kind === "quality" ? " · compléter avec une pièce &#128297; ou des poussières &#10024;" : " · avec une pièce détachée &#128297;") : u.available >= u.need * 2 ? ` · ${Math.floor(u.available / u.need)} fusions possibles` : ""})</div>
         </div>
         <button type="button" class="btn-secondary" data-fuse="${kind}" data-card-id="${u.card.cardId}" data-from="${u.from}">${kind === "finish" ? "Fusionner" : "Restaurer"}</button>
       </div>`).join("");
@@ -616,13 +634,14 @@
     } : {
       title: "Restaurer en " + labels[to],
       intro: `Choisis les <strong>3 exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> à consommer, et le numéro que gardera le nouvel exemplaire <strong>${labels[to]}</strong>. La meilleure finition consommée est conservée.`,
-      copies, required: 3, parts: state.spareParts,
+      copies, required: 3, parts: state.spareParts, dustPerCopy: repairDustPerCopy, stardust: state.stardust,
       otherRank: (c) => FUSION_FINISH_RANK.indexOf(Coll.finishOf(c)),
       confirmText: "Restaurer"
     });
     if (!selection) return;
     try {
       if (selection.parts) await screwPartAnimation();
+      if (selection.dustCopies) Toast.info(`&#10024; ${selection.dustCopies * repairDustPerCopy} poussières à la place de ${selection.dustCopies} exemplaire${selection.dustCopies > 1 ? "s" : ""}.`);
       const res = isFinish
         ? await API.foilUpgrade(Session.userId, cardId, from, selection)
         : await API.repairCardQuality(Session.userId, cardId, from, selection);

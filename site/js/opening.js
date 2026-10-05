@@ -21,6 +21,8 @@ let boosterCount = 0;
 let pityByExt = new Map();
 let pityThreshold = 0;
 let openQuantity = 1;
+// Plafond de "Tout ouvrir" : reste sous la limite d'actions par minute de l'API.
+const OPEN_ALL_MAX = 30;
 let lastRevealedCards = [];
 // BatchId de chaque booster ouvert dans la session en cours (x1/x5/x10) :
 // sert a reference les VRAIS pulls en base depuis le backend (notify-reveal,
@@ -765,6 +767,15 @@ function openModalFor(extensionId) {
     qtyPicker.style.display = "flex";
     openQuantity = 1;
     qtyPicker.querySelectorAll("button").forEach((b) => {
+      // "Tout ouvrir" (2026-10-05) : tous les boosters, jusqu'a OPEN_ALL_MAX.
+      if (b.dataset.qty === "all") {
+        const n = Math.min(boosterCount, OPEN_ALL_MAX);
+        b.textContent = `Tout ouvrir (${n})`;
+        b.dataset.count = String(n);
+        b.disabled = boosterCount < 2;
+        b.classList.remove("active");
+        return;
+      }
       const qty = Number(b.dataset.qty);
       b.classList.toggle("active", qty === 1);
       b.disabled = qty > boosterCount;
@@ -1244,7 +1255,7 @@ document.addEventListener("DOMContentLoaded", () => {
     qtyPicker.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", () => {
         if (isBusy || btn.disabled) return;
-        openQuantity = Number(btn.dataset.qty);
+        openQuantity = btn.dataset.qty === "all" ? Number(btn.dataset.count) || 1 : Number(btn.dataset.qty);
         qtyPicker.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
       });
     });

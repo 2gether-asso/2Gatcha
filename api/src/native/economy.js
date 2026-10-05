@@ -6,6 +6,82 @@
 // courbes comptent donc les cartes ENCORE en circulation obtenues ce jour-la.
 
 import { refId, now, ok, fail, isAdmin, parisDay } from './common.js';
+import { setting } from './settings.js';
+
+// Journal de l'economie (2026-10-05) : chaque variation de BoosterCount /
+// StardustCount / Worms d'un joueur est cumulee par jour et par source (le
+// chemin de la requete en cours). Alimente par index.js (store.update).
+export const schema = {
+  EconomyDaily: {
+    Day: { type: 'Text' }, Source: { type: 'Text' },
+    BoostersIn: { type: 'Numeric' }, BoostersOut: { type: 'Numeric' },
+    DustIn: { type: 'Numeric' }, DustOut: { type: 'Numeric' },
+    WormsIn: { type: 'Numeric' }, WormsOut: { type: 'Numeric' }
+  }
+};
+
+const LEDGER = [['BoosterCount', 'Boosters'], ['StardustCount', 'Dust'], ['Worms', 'Worms']];
+const ledgerIndexes = new WeakMap(); // store -> ("jour|source" -> id)
+
+export function record(store, source, before, after) {
+  if (!before || !after || !store.tables.has('EconomyDaily')) return;
+  const deltas = {};
+  for (const [col, name] of LEDGER) {
+    const d = (Number(after[col]) || 0) - (Number(before[col]) || 0);
+    if (d > 0) deltas[name + 'In'] = d;
+    else if (d < 0) deltas[name + 'Out'] = -d;
+  }
+  if (!Object.keys(deltas).length) return;
+  const day = parisDay(0);
+  const key = `${day}|${source || 'autre'}`;
+  let ledgerIndex = ledgerIndexes.get(store);
+  if (!ledgerIndex) {
+    ledgerIndex = new Map(store.getAll('EconomyDaily').map((r) => [`${r.Day}|${r.Source}`, r.id]));
+    ledgerIndexes.set(store, ledgerIndex);
+  }
+  const id = ledgerIndex.get(key);
+  const row = id ? store.get('EconomyDaily', id) : null;
+  if (!row) {
+    const created = store.create('EconomyDaily', { Day: day, Source: source || 'autre', ...deltas });
+    ledgerIndex.set(key, created.id);
+  } else {
+    const fields = {};
+    for (const [k, v] of Object.entries(deltas)) fields[k] = (Number(row[k]) || 0) + v;
+    store.update('EconomyDaily', row.id, fields);
+  }
+}
+
+function flows(store, activePlayers) {
+  if (!store.tables.has('EconomyDaily')) return null;
+  const rows = store.getAll('EconomyDaily');
+  const days = Array.from({ length: 14 }, (_, i) => parisDay(-13 + i));
+  const sum = (list, k) => list.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+  const daily = days.map((day) => {
+    const list = rows.filter((r) => r.Day === day);
+    return { day, boostersIn: sum(list, 'BoostersIn'), boostersOut: sum(list, 'BoostersOut'), dustIn: sum(list, 'DustIn'), dustOut: sum(list, 'DustOut'), wormsIn: sum(list, 'WormsIn'), wormsOut: sum(list, 'WormsOut') };
+  });
+  const week = rows.filter((r) => days.slice(-7).includes(r.Day));
+  const bySource = new Map();
+  week.forEach((r) => {
+    const x = bySource.get(r.Source) || { source: r.Source, boostersIn: 0, boostersOut: 0, dustIn: 0, dustOut: 0 };
+    x.boostersIn += Number(r.BoostersIn) || 0; x.boostersOut += Number(r.BoostersOut) || 0;
+    x.dustIn += Number(r.DustIn) || 0; x.dustOut += Number(r.DustOut) || 0;
+    bySource.set(r.Source, x);
+  });
+  const w = daily.slice(-7);
+  const boostersPerPlayerDay = sum(w, 'boostersIn') / 7 / Math.max(1, activePlayers);
+  const dustRatio = sum(w, 'dustIn') / Math.max(1, sum(w, 'dustOut'));
+  const alerts = [];
+  const maxB = setting(store, 'EconomyAlertBoostersPerPlayer');
+  if (boostersPerPlayerDay > maxB) alerts.push(`Inflation de boosters : ${boostersPerPlayerDay.toFixed(1)} créés par joueur actif et par jour (seuil ${maxB}).`);
+  const maxR = setting(store, 'EconomyAlertDustRatio');
+  if (dustRatio > maxR) alerts.push(`Les poussières s'accumulent : ${dustRatio.toFixed(1)} gagnées pour 1 dépensée cette semaine (seuil ${maxR}).`);
+  if (sum(w, 'boostersIn') > 0 && sum(w, 'boostersOut') < sum(w, 'boostersIn') / 3) alerts.push('Les boosters gagnés sont peu ouverts : les réserves des joueurs grossissent.');
+  return {
+    daily, sources: [...bySource.values()].sort((a, b) => (b.boostersIn + b.dustIn / 100) - (a.boostersIn + a.dustIn / 100)),
+    boostersPerPlayerDay: Math.round(boostersPerPlayerDay * 10) / 10, dustRatio: Math.round(dustRatio * 10) / 10, alerts
+  };
+}
 
 // Source d'un exemplaire d'apres son BatchId (voir les workflows).
 function sourceOf(batchId) {
@@ -88,7 +164,8 @@ function handleEconomy({ store, body }) {
     richest: top('StardustCount'),
     boosterHoarders: top('BoosterCount'),
     mostCommonCards: playable.map(cardRow).sort((a, b) => b.copies - a.copies).slice(0, 8),
-    rarestCards: playable.map(cardRow).filter((c) => c.copies > 0).sort((a, b) => a.copies - b.copies).slice(0, 8)
+    rarestCards: playable.map(cardRow).filter((c) => c.copies > 0).sort((a, b) => a.copies - b.copies).slice(0, 8),
+    flows: flows(store, activeSince(7 * 86400))
   });
 }
 

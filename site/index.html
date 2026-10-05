@@ -51,7 +51,23 @@
 
     </div>
 
+    <div class="panel rewards-center" id="rewards-center" hidden>
+      <div class="rc-head">
+        <h2>&#127873; À récupérer</h2>
+        <button type="button" class="btn" id="rc-claim-all" hidden>Tout récupérer</button>
+      </div>
+      <ul class="rc-items" id="rc-items"></ul>
+      <ul class="rc-deadlines" id="rc-deadlines" aria-label="Bientôt fini"></ul>
+    </div>
+
     <div class="home-grid">
+      <div class="panel challenges-panel" id="challenges-panel" style="display:none;">
+        <span id="defis" class="anchor"></span>
+        <h2>&#127919; Défis de la semaine</h2>
+        <p class="lead" style="font-size:0.85rem;" id="challenges-sub"></p>
+        <ul class="challenges-list" id="challenges-list"></ul>
+        <button type="button" class="btn" id="challenges-claim" hidden>Récupérer les défis accomplis</button>
+      </div>
       <div class="panel" id="pass-panel" style="display:none;">
         <div class="actions" style="margin-top:0;align-items:center;">
           <h2 style="flex:1;margin:0;">&#127942; Progression</h2>
@@ -75,6 +91,7 @@
       </div>
 
       <div class="panel season-panel" id="season-panel" style="display:none;">
+        <span id="saison" class="anchor"></span>
         <div class="season-head">
           <h2 id="season-title">&#127942; Saison</h2>
           <span class="season-ends" id="season-ends"></span>
@@ -206,6 +223,7 @@
   <script src="js/core.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/home-extras.js"></script>
   <script>
     function refreshLoginUI() {
       const loginZone = document.getElementById("login-zone");
@@ -600,7 +618,7 @@
         const next = st.tiers.find((t) => !t.reached);
         document.getElementById("season-xp").innerHTML = next
           ? `<strong>${st.xp} XP</strong> ce mois-ci · palier ${next.tier} à ${next.xp} XP (encore ${next.xp - st.xp})`
-          : `<strong>${st.xp} XP</strong> ce mois-ci · tous les paliers sont atteints !`;
+          : `<strong>${st.xp} XP</strong> ce mois-ci · tous les paliers sont atteints ! ${st.bonus ? `Paliers bonus : +${st.bonus.dustPerTier} &#10024; toutes les ${st.xpPerTier} XP (prochain à ${st.bonus.nextXp} XP) · titre « ${st.bonus.title} » débloqué au dernier palier.` : ""}`;
         document.getElementById("season-tiers").innerHTML = st.tiers.map((t) => `
           <li class="season-tier ${t.claimed ? "claimed" : t.reached ? "reached" : ""}${t.card ? " season-tier-card" : ""}" title="Palier ${t.tier} (${t.xp} XP) : ${seasonRewardLabel(t.reward)}${t.card ? " + la carte " + t.card.name : ""}">
             <span class="season-tier-num">${t.tier}</span>
@@ -619,6 +637,7 @@
           const res = await API.claimSeason(Session.userId);
           const parts = seasonRewardLabel(res.reward);
           Toast.success(`&#127942; ${res.claimedTiers} palier${res.claimedTiers > 1 ? "s" : ""} de saison : ${parts || "récompense"}${res.card ? " + la carte " + res.card.name + " !" : ""}`);
+          if (res.title) setTimeout(() => Toast.success(`&#128081; Nouveau titre : « ${res.title} » (à équiper dans la boutique)`), 900);
           if (typeof confetti === "function") confetti({ particleCount: res.card ? 220 : 100, spread: 110, origin: { y: 0.6 } });
           renderSeason(res);
           loadHeaderBoosterBadge();

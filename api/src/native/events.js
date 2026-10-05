@@ -4,7 +4,7 @@
 // (decraft, fouille, expedition, ouverture de booster) : aucun workflow n'a
 // besoin d'etre modifie.
 //   GET  /webhook/event-status
-//   POST /webhook/admin-event  { discordId, action: 'get' | 'set', active, label, dustMultiplier, finishMultiplier, endsAt }
+//   POST /webhook/admin-event  { discordId, action: 'get' | 'set', active, label, dustMultiplier, finishMultiplier, fishingRare, wormsMultiplier, endsAt }
 
 import { refId, now, ok, fail, configRow, isAdmin } from './common.js';
 import { setting } from './settings.js';
@@ -12,7 +12,8 @@ import { setting } from './settings.js';
 export const schema = {
   Config: {
     EventActive: { type: 'Bool' }, EventLabel: { type: 'Text' }, EventDustMultiplier: { type: 'Numeric' },
-    EventFinishMultiplier: { type: 'Numeric' }, EventEndsAt: { type: 'Numeric' }
+    EventFinishMultiplier: { type: 'Numeric' }, EventEndsAt: { type: 'Numeric' },
+    EventFishingRare: { type: 'Numeric' }, EventWormsMultiplier: { type: 'Numeric' }
   }
 };
 
@@ -26,6 +27,9 @@ export function eventState(store) {
     label: cfg.EventLabel || 'Événement',
     dustMultiplier: Math.max(1, Number(cfg.EventDustMultiplier) || 1),
     finishMultiplier: Math.max(1, Number(cfg.EventFinishMultiplier) || 1),
+    // Semaine de la peche / chasse aux vers (2026-10-05).
+    fishingRare: Math.max(1, Number(cfg.EventFishingRare) || 1),
+    wormsMultiplier: Math.max(1, Number(cfg.EventWormsMultiplier) || 1),
     endsAt: endsAt || null
   };
 }
@@ -43,6 +47,8 @@ function handleAdmin({ store, body }) {
       EventLabel: String(body.label || '').slice(0, 80),
       EventDustMultiplier: Math.min(5, Math.max(1, Number(body.dustMultiplier) || 1)),
       EventFinishMultiplier: Math.min(5, Math.max(1, Number(body.finishMultiplier) || 1)),
+      EventFishingRare: Math.min(5, Math.max(1, Number(body.fishingRare) || 1)),
+      EventWormsMultiplier: Math.min(5, Math.max(1, Number(body.wormsMultiplier) || 1)),
       EventEndsAt: Number(body.endsAt) || 0
     };
     if (cfg) store.update('Config', cfg.id, fields); else store.create('Config', fields);

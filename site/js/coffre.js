@@ -34,7 +34,8 @@ function pvApplyView(rows) {
     rarity: (a, b) => ((b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0)) || (b.filled - a.filled) || a.name.localeCompare(b.name),
     name: (a, b) => a.name.localeCompare(b.name)
   };
-  return rows.filter(keep).sort(sorters[v.sort] || sorters.progress);
+  const q = (document.getElementById("pv-search")?.value || "").trim().toLowerCase();
+  return rows.filter(keep).filter((r) => !q || r.name.toLowerCase().includes(q)).sort(sorters[v.sort] || sorters.progress);
 }
 let pvLastData = null;
 
@@ -288,6 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const view = pvView();
   document.getElementById("pv-sort").value = view.sort;
   document.getElementById("pv-filter").value = view.filter;
+  document.getElementById("pv-search").addEventListener("input", () => { if (pvLastData) pvRender(pvLastData); });
   ["pv-sort", "pv-filter"].forEach((id) => document.getElementById(id).addEventListener("change", () => {
     try { localStorage.setItem(PV_VIEW_KEY, JSON.stringify({ sort: document.getElementById("pv-sort").value, filter: document.getElementById("pv-filter").value })); } catch (e) {}
     if (pvLastData) pvRender(pvLastData);

@@ -13,6 +13,7 @@ import { ok, fail, isAdmin, configRow } from './common.js';
 
 const pct = (label, def, group, help) => ({ label, type: 'number', def, min: 0, max: 1, step: 0.001, group, help, unit: 'probabilité (0 à 1)' });
 const int = (label, def, group, help, min = 0, max = 100000) => ({ label, type: 'number', def, min, max, step: 1, group, help });
+const num = (label, def, group, help, min = 0, max = 100) => ({ label, type: 'number', def, min, max, step: 0.05, group, help });
 
 export const REGISTRY = {
   // --- Securite
@@ -46,6 +47,10 @@ export const REGISTRY = {
   WormsPerLeftoverTile: { ...int('Vers par case de terre restante', 2, 'Pêche', 'En plus, pour chaque case jamais creusée à la fin de la grille.'), storage: 'app' },
   StarterWorms: { ...int('Vers offerts au lancement', 5, 'Pêche', 'Donnés une seule fois à chaque joueur existant, pour pouvoir pêcher tout de suite.'), storage: 'app' },
   FishingDailyCasts: { ...int('Lancers par jour', 20, 'Pêche', '0 = illimité. +2 par niveau de pêche au-dessus du 1.'), storage: 'app' },
+  FishingTourneyPrizes: { label: 'Tournoi de pêche : poussières des premiers', type: 'json', group: 'Pêche', storage: 'app', help: 'Liste : poussières du 1er, du 2e, du 3e… Le 1er reçoit aussi le titre « Roi de la pêche ».', def: [500, 300, 150] },
+  GardenGrowHours: { ...int('Jardin : heures de pousse', 4, 'Pêche', '', 1, 48), storage: 'app' },
+  GardenPlantCost: { ...int('Jardin : prix d’une plantation (poussières)', 10, 'Pêche', ''), storage: 'app' },
+  GardenBaitChance: { ...pct('Jardin : chance d’un appât doré par récolte', 0.5, 'Pêche', 'Un appât doré supprime les prises vides et multiplie les prises rares pour un lancer.'), storage: 'app' },
   FishingLevelXpStep: { ...int('XP pour le niveau 2 de pêche', 15, 'Pêche', 'Chaque niveau suivant demande ce palier en plus (15, 45, 90…). 1 XP par lancer, plus selon la prise.', 1), storage: 'app' },
   FishingLoot: {
     label: 'Table des prises', type: 'json', group: 'Pêche', storage: 'app',
@@ -69,10 +74,60 @@ export const REGISTRY = {
     label: 'Récompenses des paliers', type: 'json', group: 'Saison', storage: 'app',
     help: 'Un objet par palier (dans l’ordre) : dust, boosters, chests, keys. Le dernier palier donne aussi la carte de la saison si elle est choisie.',
     def: [
-      { dust: 50 }, { boosters: 1 }, { dust: 80 }, { chests: 1 }, { dust: 120 },
-      { boosters: 2 }, { dust: 150 }, { keys: 1 }, { boosters: 2, dust: 150 }, { chests: 1, boosters: 3 }
+      { dust: 50 }, { dust: 70 }, { boosters: 1 }, { dust: 100 }, { chests: 1 },
+      { dust: 150 }, { boosters: 1 }, { keys: 1 }, { dust: 200 }, { chests: 1, boosters: 1 }
     ]
   },
+
+  SeasonBonusTierDust: { ...int('Poussières par palier bonus', 50, 'Saison', 'Après le dernier palier, chaque tranche d’XP supplémentaire rapporte ces poussières (à répétition).'), storage: 'app' },
+
+  // --- Defis, objectif commun, succes, collections (2026-10-05)
+  ChallengeBonusBoosters: { ...int('Défis : boosters si les 3 défis sont accomplis', 1, 'Défis et objectifs', ''), storage: 'app' },
+  CommunityGoalScale: { ...num('Objectif commun : difficulté', 1, 'Défis et objectifs', '1 = normal, 2 = deux fois plus dur (l’objectif s’adapte aussi au nombre de joueurs).', 0.2, 10), storage: 'app' },
+  CommunityGoalDust: { ...int('Objectif commun : poussières par participant', 250, 'Défis et objectifs', ''), storage: 'app' },
+  CommunityGoalWorms: { ...int('Objectif commun : vers par participant', 5, 'Défis et objectifs', ''), storage: 'app' },
+  HiddenAchievementDust: { ...int('Succès secret : poussières', 50, 'Défis et objectifs', 'Gagnées à chaque succès secret débloqué.'), storage: 'app' },
+  ThemeRewardDust: { ...int('Collection thématique : poussières', 300, 'Défis et objectifs', 'En plus du titre, à chaque collection thématique réclamée.'), storage: 'app' },
+  CommunityDigPerDay: { ...int('Grande fouille : coups de pioche par jour', 5, 'Défis et objectifs', ''), storage: 'app' },
+  GrandTreasureDust: { ...int('Grande fouille : poussières du grand trésor (par participant)', 150, 'Défis et objectifs', ''), storage: 'app' },
+  GrandTreasureBoosters: { ...int('Grande fouille : boosters du grand trésor (par participant)', 1, 'Défis et objectifs', 'Le découvreur en reçoit un de plus.'), storage: 'app' },
+
+  // --- Boutique de cosmetiques
+  CosmeticsCatalog: {
+    label: 'Catalogue de la boutique', type: 'json', group: 'Boutique', storage: 'app',
+    help: 'Liste d’objets : key (unique), type (title, frame, color), label, price (poussières). Pour un cadre ou une couleur, la key doit correspondre à un style existant (frame-bronze, frame-silver, frame-gold, frame-neon, color-emerald, color-gold, color-rainbow).',
+    def: [
+      { key: 'title-dimanche', type: 'title', label: 'Pêcheur du dimanche', price: 300 },
+      { key: 'title-fouineur', type: 'title', label: 'Fouineur', price: 300 },
+      { key: 'title-collection', type: 'title', label: 'Collectionneur', price: 600 },
+      { key: 'title-mecene', type: 'title', label: 'Mécène', price: 1000 },
+      { key: 'title-legende', type: 'title', label: 'Légende de 2gether', price: 3000 },
+      { key: 'frame-bronze', type: 'frame', label: 'Cadre bronze', price: 500 },
+      { key: 'frame-silver', type: 'frame', label: 'Cadre argent', price: 1200 },
+      { key: 'frame-gold', type: 'frame', label: 'Cadre or', price: 2500 },
+      { key: 'frame-neon', type: 'frame', label: 'Cadre néon', price: 2000 },
+      { key: 'color-emerald', type: 'color', label: 'Pseudo émeraude', price: 800 },
+      { key: 'color-gold', type: 'color', label: 'Pseudo or', price: 1500 },
+      { key: 'color-rainbow', type: 'color', label: 'Pseudo arc-en-ciel', price: 4000 }
+    ]
+  },
+
+  // --- Economie
+  TradeTaxPerCard: { ...int('Taxe d’échange (poussières par carte)', 10, 'Économie', 'Payée par celui qui propose l’échange. 0 = pas de taxe.'), storage: 'app' },
+  BoneWeeklyIncrease: { ...num('Hausse du prix de l’os par achat dans la semaine', 0.25, 'Économie', '0,25 = +25 % par os acheté, remis à zéro le lundi.', 0, 5), storage: 'app' },
+  DuplicateDustCapCopies: { ...int('Doublons : exemplaires avant plafond', 10, 'Économie', 'À partir de ce nombre d’exemplaires, un doublon ne rapporte plus que 1 poussière. 0 = pas de plafond.'), storage: 'app' },
+  FishingFullRewardsPerDay: { ...int('Pêche : lancers à plein rendement par jour', 15, 'Économie', 'Au-delà, poussières divisées par 2 et objets moins fréquents. 0 = désactivé.'), storage: 'app' },
+  DigFullRewardsPerDay: { ...int('Fouille : cases à plein rendement par jour', 40, 'Économie', 'Au-delà, poussières trouvées divisées par 2. 0 = désactivé.'), storage: 'app' },
+  WeatherRerollCost: { ...int('Relance de la météo de pêche (poussières)', 80, 'Économie', 'Une fois par jour.'), storage: 'app' },
+  ExpeditionRushCost: { ...int('Retour accéléré d’expédition (poussières)', 120, 'Économie', 'Divise le temps restant par 2, une fois par jour.'), storage: 'app' },
+  RepairDustPerCopy: { ...int('Restauration : poussières par exemplaire manquant', 60, 'Économie', 'Dans l’atelier Qualité, des exemplaires manquants peuvent être payés en poussières (au moins une vraie carte).', 1), storage: 'config' },
+  MarketAutoEnabled: { label: 'Marché noir automatique', type: 'bool', def: true, group: 'Économie', storage: 'app', help: 'Chaque lundi, des offres sont générées automatiquement (comme le bingo du mois).' },
+  MarketAutoOffers: { ...int('Marché noir : offres par semaine', 4, 'Économie', '', 1, 12), storage: 'app' },
+  MarketPriceMultiplier: { ...num('Marché noir : prix (× coût de craft)', 1.5, 'Économie', '', 0.2, 10), storage: 'app' },
+  MarketDealMultiplier: { ...num('Marché noir : prix du coup de cœur (× coût de craft)', 0.8, 'Économie', '', 0.1, 10), storage: 'app' },
+  MarketMaxPurchases: { ...int('Marché noir : achats max par offre', 3, 'Économie', '', 1, 50), storage: 'app' },
+  EconomyAlertBoostersPerPlayer: { ...num('Alerte : boosters créés par joueur actif et par jour', 3, 'Économie', 'Au-delà, alerte dans le tableau de bord de l’économie.', 0.5, 100), storage: 'app' },
+  EconomyAlertDustRatio: { ...num('Alerte : poussières gagnées pour 1 dépensée', 3, 'Économie', '', 1, 100), storage: 'app' },
 
   // --- Serie de connexion
   LoginStreakRewards: {

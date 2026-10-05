@@ -205,10 +205,22 @@ const API = {
         err.data = data;
         throw err;
       }
+      this._announce(data);
       return data;
     } finally {
       if (typeof TopLoadingBar !== "undefined") TopLoadingBar.stop();
     }
+  },
+
+  // Annonces renvoyees par l'API apres une action (defi accompli, succes
+  // secret, objectif commun atteint...) : un toast chacune.
+  _announce(data) {
+    if (!data || !Array.isArray(data.notices) || typeof Toast === "undefined") return;
+    data.notices.forEach((n, i) => setTimeout(() => {
+      Toast.success(`${n.icon || "&#11088;"} ${n.label}`);
+      if (n.kind === "achievement" && typeof confetti === "function") confetti({ particleCount: 70, spread: 80, origin: { y: 0.3 } });
+    }, 400 + i * 900));
+    if (typeof loadNavBadges === "function") setTimeout(() => loadNavBadges(), 600);
   },
 
   get(name, query) {
@@ -583,6 +595,54 @@ const API = {
     return this.post("levelRewards", { discordId, action: "adminSet", rows });
   },
 
+  challenges(userId, action = "status", extra = {}) {
+    return this.post("challenges", { userId, action, ...extra });
+  },
+  communityGoal(userId, action = "status") {
+    return this.post("communityGoal", { userId, action });
+  },
+  themes(userId, action = "status", key) {
+    return this.post("themes", { userId, action, key });
+  },
+  getHiddenAchievements(userId) {
+    return this.get("hiddenAchievements", { userId });
+  },
+  cosmetics(userId, action = "status", extra = {}) {
+    return this.post("cosmetics", { userId, action, ...extra });
+  },
+  reroll(userId, kind, current) {
+    return this.post("reroll", { userId, kind, current });
+  },
+  getEconomyRules(userId) {
+    return this.get("economyRules", { userId });
+  },
+  getCardInfo(cardId, userId) {
+    return this.get("cardInfo", userId ? { cardId, userId } : { cardId });
+  },
+  wishlistAlerts(userId) {
+    return this.post("wishlistAlerts", { userId, action: "status" });
+  },
+  getProfileWall(profileId) {
+    return this.get("profileWall", { profileId });
+  },
+  postProfileWall(userId, profileId, text) {
+    return this.post("profileWall", { userId, action: "post", profileId, text });
+  },
+  deleteProfileWall(userId, messageId) {
+    return this.post("profileWall", { userId, action: "delete", messageId });
+  },
+  garden(userId, action = "status", extra = {}) {
+    return this.post("garden", { userId, action, ...extra });
+  },
+  communityDig(userId, action = "status", tile) {
+    return this.post("communityDig", { userId, action, tile });
+  },
+  prestige(userId, skill) {
+    return this.post("prestige", { userId, skill });
+  },
+  getFishingTournament(userId) {
+    return this.get("fishingTournament", userId ? { userId } : {});
+  },
   getSkillsLeaderboard() {
     return this.get("skillsLeaderboard");
   },
@@ -660,8 +720,8 @@ const API = {
   adminSetSeasonCard(discordId, season, cardId) {
     return this.post("adminSeason", { discordId, action: "setCard", season, cardId });
   },
-  fishing(userId, action, count) {
-    return this.post("fishing", { userId, action, count });
+  fishing(userId, action, count, bait) {
+    return this.post("fishing", { userId, action, count, bait: !!bait });
   },
   chests(userId, action) {
     return this.post("chests", { userId, action });

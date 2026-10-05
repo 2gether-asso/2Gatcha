@@ -425,6 +425,13 @@
               <label>Nom affiché <input type="text" id="event-label" maxlength="80" placeholder="ex: Week-end des étoiles" required /></label>
               <label>Poussières (multiplicateur) <input type="number" id="event-dust" min="1" max="5" step="0.5" value="2" /></label>
               <label>Finitions à l'ouverture (multiplicateur) <input type="number" id="event-finish" min="1" max="5" step="0.5" value="1" /></label>
+              <label>Pêche : prises rares (multiplicateur) <input type="number" id="event-fishing" min="1" max="5" step="0.5" value="1" /></label>
+              <label>Vers de terre trouvés (multiplicateur) <input type="number" id="event-worms" min="1" max="5" step="0.5" value="1" /></label>
+              <div class="event-presets">Modèles :
+                <button type="button" class="btn-ghost" data-event-preset="stars">Week-end des étoiles</button>
+                <button type="button" class="btn-ghost" data-event-preset="fishing">Semaine de la pêche</button>
+                <button type="button" class="btn-ghost" data-event-preset="worms">Chasse aux vers</button>
+              </div>
               <label>Fin de l'événement <input type="datetime-local" id="event-ends" required /></label>
               <button type="submit">Lancer l'événement</button>
             </form>

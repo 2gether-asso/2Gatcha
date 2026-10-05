@@ -9,6 +9,7 @@
 // - action=cancel { tradeId } -> { tradeId, status }
 
 const TRADE_ERROR_MESSAGES = {
+  not_enough_dust_tax: "Pas assez de poussières pour payer la taxe d’échange.",
   user_not_found: "Aucun joueur ne porte ce pseudo.",
   cannot_trade_self: "Tu ne peux pas t'échanger une carte avec toi-même.",
   card_not_owned: "Tu ne possèdes pas cette carte.",
@@ -738,6 +739,60 @@ async function loadTradeSuggestions() {
 
 // Pre-remplit le formulaire avec une correspondance : cible, carte demandee
 // (son doublon), carte offerte (ton doublon qu'il cherche, sinon rien).
+// Lien direct (2026-10-05) : trade.html?to=Pseudo&offer=cardId&request=cardId
+// (fiche carte, alertes de liste de souhaits) : le formulaire est pre-rempli.
+async function prefillFromUrl() {
+  const p = new URLSearchParams(location.search);
+  const to = p.get("to");
+  if (!to) return;
+  const target = document.getElementById("target-select");
+  if (![...target.options].some((o) => o.value === to)) return;
+  target.value = to;
+  if (target._fancyRefresh) target._fancyRefresh();
+  await updateRequestedCardOptionsForTarget(to);
+  const offer = p.get("offer"), request = p.get("request");
+  if (request) {
+    const requested = document.getElementById("requested-card-select");
+    if ([...requested.options].some((o) => o.value === request)) { requested.value = request; if (requested._fancyRefresh) requested._fancyRefresh(); updateCardPreview("requested-card-select", "requested-card-preview"); }
+  }
+  if (offer) {
+    const offered = document.getElementById("offered-card-select");
+    if (![...offered.options].some((o) => o.value === offer)) {
+      ["offer-duplicates-only", "offer-missing-only"].forEach((id) => { const cb = document.getElementById(id); if (cb && cb.checked) cb.checked = false; });
+      renderOfferedCardOptions();
+    }
+    if ([...offered.options].some((o) => o.value === offer)) { offered.value = offer; if (offered._fancyRefresh) offered._fancyRefresh(); offered.dispatchEvent(new Event("change")); }
+  }
+  document.getElementById("create-trade-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  Toast.info(`Échange pré-rempli avec ${to} : vérifie puis envoie.`);
+}
+
+// Alertes de liste de souhaits : cartes souhaitees disponibles ailleurs.
+async function loadWishAlerts() {
+  try {
+    const res = await API.wishlistAlerts(Session.userId);
+    const box = document.getElementById("wish-alerts");
+    if (!res.items.length) { box.hidden = true; return; }
+    box.hidden = false;
+    document.getElementById("wish-alerts-list").innerHTML = res.items.map((it) => `
+      <li class="wish-alert">
+        <img src="${API.imageUrl(it.card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />
+        <div><strong>${it.card.name}</strong>
+          <div class="wish-alert-where">${it.where.map((w) => `<a href="${w.url}">${w.label}</a>`).join(" · ")}</div>
+        </div>
+      </li>`).join("");
+  } catch (e) { /* facultatif */ }
+}
+
+// Taxe d'echange (api/src/native/rules.js) : affichee sous le formulaire.
+async function loadTradeTax() {
+  try {
+    const r = await API.getEconomyRules(Session.userId);
+    const note = document.getElementById("trade-tax-note");
+    if (r.tradeTaxPerCard > 0) { note.hidden = false; note.innerHTML = `&#10024; Taxe d'échange : <strong>${r.tradeTaxPerCard} poussières par carte</strong> (payée par celui qui propose).`; }
+  } catch (e) { /* facultatif */ }
+}
+
 async function prefillFromMatch(m) {
   const target = document.getElementById("target-select");
   target.value = m.pseudo;
@@ -780,6 +835,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     Toast.error("Impossible de charger tes cartes. (" + e.message + ")");
   }
   loadTrades();
+  loadWishAlerts();
+  loadTradeTax();
 
   document.getElementById("offered-card-select").addEventListener("change", () => {
     updateCardPreview("offered-card-select", "offered-card-preview");
@@ -797,6 +854,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   enhanceSelect(document.getElementById("offered-pull-select"));
   enhanceSelect(document.getElementById("requested-card-select"));
   enhanceSelect(document.getElementById("target-select"));
+  prefillFromUrl();
 
   document.getElementById("tab-incoming-btn").addEventListener("click", () => setActiveTradeTab("incoming"));
   document.getElementById("tab-outgoing-btn").addEventListener("click", () => setActiveTradeTab("outgoing"));
@@ -811,8 +869,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!offeredCardId || !offeredPullId || !toPseudo) return;
 
     try {
-      await API.createTrade(Session.userId, toPseudo, offeredCardId, offeredPullId, requestedCardId);
-      Toast.success("Échange proposé !");
+      const created = await API.createTrade(Session.userId, toPseudo, offeredCardId, offeredPullId, requestedCardId);
+      Toast.success(`Échange proposé !${created && created.taxPaid ? ` (taxe : ${created.taxPaid} poussières)` : ""}`);
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       await refreshAfterMutation();
     } catch (err) {
       Toast.error(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));

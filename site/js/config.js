@@ -71,6 +71,20 @@ window.APP_CONFIG = {
     bingo: "/bingo",                   // POST { userId, action: 'status'|'claim'|'adminSetGrid', discordId?, month?, cardIds?, rewardBoosters? }
     levelRewards: "/level-rewards",    // POST { userId, action: 'status'|'claim' } | { discordId, action: 'adminList'|'adminSet', rows? }
     skillsLeaderboard: "/skills-leaderboard", // GET -> { week, fishing, dig }
+    challenges: "/challenges",          // POST { userId, action: 'status'|'pick'|'claim', keys? }
+    communityGoal: "/community-goal",   // POST { userId, action: 'status'|'claim' }
+    themes: "/themes",                  // POST { userId, action: 'status'|'claim', key? }
+    hiddenAchievements: "/achievements-hidden", // GET ?userId=
+    cosmetics: "/cosmetics",            // POST { userId, action: 'status'|'buy'|'equip', key?, type? }
+    reroll: "/reroll",                  // POST { userId, kind: 'weather'|'expedition' }
+    economyRules: "/economy-rules",     // GET ?userId= -> prix des relances, taxe, os
+    cardInfo: "/card-info",             // GET ?cardId=&userId=
+    wishlistAlerts: "/wishlist-alerts", // POST { userId }
+    profileWall: "/profile-wall",       // GET ?profileId= | POST { userId, action: 'post'|'delete' }
+    garden: "/garden",                  // POST { userId, action: 'status'|'plant'|'harvest' }
+    communityDig: "/community-dig",     // POST { userId, action: 'status'|'dig', tile? }
+    prestige: "/prestige",              // POST { userId, skill: 'fishing'|'dig' }
+    fishingTournament: "/fishing-tournament", // GET ?userId=
     uniqueCounter: "/unique-counter",   // POST { userId, action: 'status'|'redeem', cardId? } -> { tickets, cards, remaining }
     personalVault: "/personal-vault", // POST { userId, action: 'status'|'store'|'withdraw', pullId? } -> { unlocked, rows, boostersPerRow, dustPerRow, reward }
     vault: "/vault",                   // POST { userId, action: 'status'|'open' } -> { card, keysRequired, userKeys, alreadyOpened } | { opened, card, serialNumber, newKeyCount }

@@ -9,10 +9,12 @@
 
 import { refId, now, ok, fail, userById, isAdmin, firstAttachment, cardSummary } from './common.js';
 import { uniqueRarity } from './unique.js';
+import { grantCosmetic } from './cosmetics.js';
 import { setting } from './settings.js';
 
 export const schema = {
-  SeasonProgress: { User: { type: 'Ref:Users' }, Season: { type: 'Text' }, StartXP: { type: 'Numeric' }, ClaimedTier: { type: 'Numeric' } },
+  SeasonProgress: {
+    BonusClaimed: { type: 'Numeric' }, User: { type: 'Ref:Users' }, Season: { type: 'Text' }, StartXP: { type: 'Numeric' }, ClaimedTier: { type: 'Numeric' } },
   SeasonCards: { Season: { type: 'Text' }, Card: { type: 'Ref:Cards' } }
 };
 
@@ -68,6 +70,11 @@ function statusOf(store, user) {
   const claimed = row ? Number(row.ClaimedTier) || 0 : 0;
   const reached = Math.min(tiersCount, Math.floor(xp / perTier));
   const card = seasonCard(store, season);
+  // Paliers bonus (2026-10-05) : au-dela du dernier palier, chaque tranche de
+  // SeasonXpPerTier XP rapporte SeasonBonusTierDust poussieres.
+  const bonusReached = xp > tiersCount * perTier ? Math.floor((xp - tiersCount * perTier) / perTier) : 0;
+  const bonusClaimed = row ? Number(row.BonusClaimed) || 0 : 0;
+  const bonus = { reached: bonusReached, claimed: bonusClaimed, dustPerTier: setting(store, 'SeasonBonusTierDust'), nextXp: (tiersCount + bonusReached + 1) * perTier, title: `Champion de saison ${seasonLabel(season)}` };
   const tiers = Array.from({ length: tiersCount }, (_, i) => ({
     tier: i + 1,
     xp: (i + 1) * perTier,
@@ -76,7 +83,7 @@ function statusOf(store, user) {
     reached: i + 1 <= reached,
     claimed: i + 1 <= claimed
   }));
-  return { enabled, season, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpPerTier: perTier, reached, claimed, claimable: Math.max(0, reached - claimed), tiers, card };
+  return { enabled, season, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpPerTier: perTier, reached, claimed, claimable: Math.max(0, reached - claimed) + Math.max(0, bonusReached - bonusClaimed), tiers, card, bonus };
 }
 
 function grant(store, user, reward) {
@@ -111,9 +118,14 @@ function handleSeason({ store, body }) {
     for (const k of Object.keys(total)) total[k] += Number(t.reward[k]) || 0;
     if (t.card) card = { ...t.card, serialNumber: giveCard(store, user, t.card.cardId, st.season) };
   }
+  // Dernier palier : titre exclusif de la saison.
+  let title = null;
+  if (st.reached === st.tiers.length && st.claimed < st.tiers.length && grantCosmetic(store, user.id, `season-${st.season}`, { type: 'title', label: st.bonus.title })) title = st.bonus.title;
+  const bonusTiers = Math.max(0, st.bonus.reached - st.bonus.claimed);
+  total.dust += bonusTiers * st.bonus.dustPerTier;
   user = grant(store, user, total);
-  store.update('SeasonProgress', row.id, { ClaimedTier: st.reached });
-  return ok({ claimedTiers: st.reached - st.claimed, reward: total, card, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, ...statusOf(store, user) });
+  store.update('SeasonProgress', row.id, { ClaimedTier: st.reached, BonusClaimed: st.bonus.reached });
+  return ok({ claimedTiers: st.reached - st.claimed, bonusTiers, title, reward: total, card, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, ...statusOf(store, user) });
 }
 
 function handleAdmin({ store, body }) {

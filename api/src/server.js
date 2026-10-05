@@ -173,7 +173,10 @@ native.start();
 // chemin du webhook, pour les bonus natifs appliques apres coup.
 async function runWorkflow(route, request, hookPath) {
   return withLock(async () => {
-    native.beforeRequest(request.body, request.query);
+    native.beforeRequest(request.body, request.query, hookPath);
+    // Regles natives verifiees AVANT le workflow (taxe d'echange, prix de l'os...).
+    const blocked = hookPath ? native.beforeWorkflow(hookPath, request) : null;
+    if (blocked) { native.endRequest(); return blocked; }
     const { responded, done } = runner.run(route.wf, request, { unlocked });
     const resp = await responded;
     // L'execution continue apres la reponse (ex. quetes du jour mises a
@@ -182,6 +185,7 @@ async function runWorkflow(route, request, hookPath) {
     done.then(() => {}, () => {});
     await done;
     if (hookPath) native.afterWorkflow(hookPath, request, resp);
+    native.endRequest();
     return resp;
   });
 }
@@ -190,7 +194,10 @@ const READ_ACTIONS = new Set(['status', 'list', 'get']);
 
 // Route native : meme verrou que les workflows.
 async function runNative(method, hookPath, body, query) {
-  return withLock(() => { native.beforeRequest(body, query); return native.run(method, hookPath, { body, query }); });
+  return withLock(() => {
+    native.beforeRequest(body, query, hookPath);
+    try { return native.run(method, hookPath, { body, query }); } finally { native.endRequest(); }
+  });
 }
 
 // Jeton "Authorization: Bearer ..." et adresse du client (derriere un reverse

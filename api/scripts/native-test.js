@@ -19,6 +19,9 @@ import { setting } from '../src/native/settings.js';
 import * as auth from '../src/native/auth.js';
 import * as unique from '../src/native/unique.js';
 import * as levels from '../src/native/levels.js';
+import * as achievements from '../src/native/achievements.js';
+import * as rules from '../src/native/rules.js';
+import { now } from '../src/native/common.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-native-${process.pid}.sqlite`);
@@ -182,6 +185,7 @@ await test('boss : attaque en salve sur des exemplaires precis, multiplicateurs,
 });
 
 await test('doublons : poussiere passive a l ouverture (5 commune, 10 au-dela)', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DuplicateDustCapCopies: 0 } } });
   const cards = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo);
   const commune = cards.find((c) => store.get('Rarities', c.Rarity).Key === 'commune');
   const rare = cards.find((c) => store.get('Rarities', c.Rarity).Key !== 'commune');
@@ -549,6 +553,254 @@ await test('vers de terre : terre restante d une grille (joueur et chien), stock
   const before = store.get('Users', 2).Worms || 0;
   createNative({ store, withLock: (fn) => fn() });
   assert.equal(store.get('Users', 2).Worms || 0, before, 'pas de second cadeau');
+});
+
+await test('journal de l economie : variations par source, tableau de bord et alertes', () => {
+  native.beforeRequest({ userId: 1 }, {}, 'garden');
+  const before = store.get('Users', 1).StardustCount || 0;
+  store.update('Users', 1, { StardustCount: before + 77 });
+  store.update('Users', 1, { StardustCount: before + 70 });
+  native.endRequest();
+  const row = store.getAll('EconomyDaily').find((r) => r.Source === 'garden' && r.Day === parisDay(0));
+  assert.ok(row && row.DustIn >= 77 && row.DustOut >= 7, 'entrees et sorties cumulees');
+  const eco = call('POST', 'admin-economy', { body: { discordId: ADMIN } }).json;
+  assert.equal(eco.flows.daily.length, 14);
+  assert.ok(eco.flows.sources.some((x) => x.source === 'garden'));
+  assert.ok(Array.isArray(eco.flows.alerts));
+});
+
+await test('defis de la semaine : 5 proposes, 3 choisis, progression, recompenses et bonus', () => {
+  let st = call('POST', 'challenges', { body: { userId: 2, action: 'status' } }).json;
+  assert.equal(st.offered.length, 5);
+  assert.equal(st.picksLeft, 3);
+  // On force une offre connue pour tester.
+  const row = store.getAll('WeeklyChallenges').find((r) => refIdOf(r.User) === 2 && r.Week === st.week);
+  store.update('WeeklyChallenges', row.id, { Offered: JSON.stringify(['craft2', 'open10', 'repair1', 'fusion1', 'trade1']), Picked: '[]', Progress: '{}', Claimed: '[]', BonusClaimed: false });
+  assert.equal(call('POST', 'challenges', { body: { userId: 2, action: 'pick', keys: ['craft2', 'repair1', 'fusion1', 'open10'] } }).json.error, 'too_many_picks');
+  st = call('POST', 'challenges', { body: { userId: 2, action: 'pick', keys: ['craft2', 'repair1', 'fusion1'] } }).json;
+  assert.equal(st.picksLeft, 0);
+  const emit = (path, json) => { const r = { status: 200, json }; native.afterWorkflow(path, { body: { userId: 2 }, query: {} }, r); return r.json; };
+  native.beforeRequest({ userId: 2 }, {}, 'craft');
+  emit('craft', { crafted: true });
+  const res = emit('craft', { crafted: true });
+  native.endRequest();
+  assert.ok((res.notices || []).some((n) => n.kind === 'challenge'), 'defi accompli annonce');
+  emit('card-quality-repair', { repaired: true });
+  emit('foil-upgrade', { upgraded: true });
+  emit('open-pack', { cards: [1, 2, 3, 4, 5].map((cardId) => ({ cardId, rarity: { key: 'commune' } })), batchId: 'x' });
+  st = call('POST', 'challenges', { body: { userId: 2, action: 'status' } }).json;
+  assert.equal(st.offered.find((c) => c.key === 'open10').progress, 0, 'pas de progression sans choix');
+  assert.equal(st.claimable, 3);
+  const dust = store.get('Users', 2).StardustCount || 0;
+  const boosters = store.get('Users', 2).BoosterCount || 0;
+  const c = call('POST', 'challenges', { body: { userId: 2, action: 'claim' } }).json;
+  assert.deepEqual(c.reward, { dust: 100 + 150 + 200, boosters: 1 });
+  assert.equal(store.get('Users', 2).StardustCount, dust + 450);
+  assert.equal(store.get('Users', 2).BoosterCount, boosters + 1);
+  assert.equal(call('POST', 'challenges', { body: { userId: 2, action: 'claim' } }).json.error, 'nothing_to_claim');
+});
+
+await test('objectif commun : progression de tous, annonce, part de chaque participant', () => {
+  let g = call('POST', 'community-goal', { body: { userId: 1, action: 'status' } }).json;
+  const row = store.getAll('CommunityGoals').find((r) => r.Week === g.week);
+  store.update('CommunityGoals', row.id, { Type: 'treasure', Target: 3, Progress: 0, Contrib: '{}', Claimed: '[]' });
+  assert.equal(call('POST', 'community-goal', { body: { userId: 1, action: 'claim' } }).json.error, 'goal_not_reached');
+  const dig = (uid) => native.afterWorkflow('dig', { body: { userId: uid, action: 'dig' } }, { status: 200, json: { dug: true, revealed: true, dustGained: 0 } });
+  dig(1); dig(2);
+  native.beforeRequest({ userId: 1 }, {}, 'dig');
+  const last = { status: 200, json: { dug: true, revealed: true, dustGained: 0 } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, last);
+  native.endRequest();
+  assert.ok((last.json.notices || []).some((n) => n.kind === 'goal'));
+  g = call('POST', 'community-goal', { body: { userId: 2, action: 'status' } }).json;
+  assert.deepEqual([g.reached, g.participants, g.claimable], [true, 2, true]);
+  const worms = store.get('Users', 2).Worms || 0;
+  call('POST', 'community-goal', { body: { userId: 2, action: 'claim' } });
+  assert.equal(store.get('Users', 2).Worms, worms + 5);
+  assert.equal(call('POST', 'community-goal', { body: { userId: 2, action: 'claim' } }).json.error, 'nothing_to_claim');
+});
+
+await test('succes caches et collections thematiques', () => {
+  const dust = store.get('Users', 2).StardustCount || 0;
+  const n = achievements.onEvents(store, [{ userId: 2, type: 'board', n: 1, meta: { leftover: 3 } }]);
+  assert.equal(n[0].kind, 'achievement');
+  assert.equal(store.get('Users', 2).StardustCount, dust + 50);
+  assert.equal(achievements.onEvents(store, [{ userId: 2, type: 'board', n: 1, meta: { leftover: 3 } }]).length, 0, 'une seule fois');
+  for (let i = 0; i < 10; i++) achievements.onEvents(store, [{ userId: 2, type: 'fishCatch:nothing', n: 1, meta: {} }]);
+  const hidden = call('GET', 'achievements-hidden', { query: { userId: '2' } }).json;
+  assert.ok(hidden.achievements.find((a) => a.key === 'boots10').unlocked);
+  assert.equal(hidden.achievements.find((a) => a.key === 'lucky').label, '???');
+  // Collection thematique : 5 cartes dorees.
+  const cards = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo).slice(0, 5);
+  cards.forEach((c, i) => store.create('Pulls', { User: 2, Card: c.id, SerialNumber: 900 + i, Finish: 'gold', Quality: 'good' }));
+  let th = call('POST', 'themes', { body: { userId: 2, action: 'status' } }).json;
+  assert.equal(th.themes.length, 8);
+  assert.ok(th.themes.find((t) => t.key === 'gold5').done);
+  th = call('POST', 'themes', { body: { userId: 2, action: 'claim', key: 'gold5' } }).json;
+  assert.equal(th.claimedNow[0].title, 'Doré sur tranche');
+  const cos = call('POST', 'cosmetics', { body: { userId: 2, action: 'status' } }).json;
+  assert.ok(cos.earned.some((e) => e.key === 'theme-gold5'));
+});
+
+await test('boutique : achat, equipement, decorations, refus', () => {
+  store.update('Users', 2, { StardustCount: 700 });
+  assert.equal(call('POST', 'cosmetics', { body: { userId: 2, action: 'buy', key: 'title-legende' } }).json.error, 'not_enough_dust');
+  let r = call('POST', 'cosmetics', { body: { userId: 2, action: 'buy', key: 'frame-bronze' } }).json;
+  assert.equal(r.stardust, 200);
+  assert.equal(call('POST', 'cosmetics', { body: { userId: 2, action: 'buy', key: 'frame-bronze' } }).json.error, 'already_owned');
+  assert.equal(call('POST', 'cosmetics', { body: { userId: 2, action: 'equip', type: 'frame', key: 'frame-gold' } }).json.error, 'not_owned');
+  r = call('POST', 'cosmetics', { body: { userId: 2, action: 'equip', type: 'frame', key: 'frame-bronze' } }).json;
+  call('POST', 'cosmetics', { body: { userId: 2, action: 'equip', type: 'title', key: 'theme-gold5' } });
+  const bs = { status: 200, json: {} };
+  native.afterWorkflow('booster-status', { query: { userId: '2' }, body: {} }, bs);
+  assert.deepEqual([bs.json.decor.frame, bs.json.decor.title], ['frame-bronze', 'Doré sur tranche']);
+});
+
+await test('economie : taxe d echange, prix de l os, marche noir automatique, relances', () => {
+  store.update('Users', 1, { StardustCount: 5 });
+  const tradeReq = { body: { userId: 1, action: 'create', offeredCardId: 1, requestedCardId: 2 } };
+  assert.equal(native.beforeWorkflow('trade', tradeReq).json.error, 'not_enough_dust_tax');
+  store.update('Users', 1, { StardustCount: 100 });
+  assert.equal(native.beforeWorkflow('trade', tradeReq), null);
+  const tr = { status: 200, json: { tradeId: 5, status: 'pending' } };
+  native.afterWorkflow('trade', tradeReq, tr);
+  assert.equal(tr.json.taxPaid, 20);
+  assert.equal(store.get('Users', 1).StardustCount, 80);
+  // Os : prix de base puis +25 %.
+  store.update('Users', 1, { StardustCount: 1000, BoneWeek: '', BonesBoughtWeek: 0 });
+  const st = { status: 200, json: {} };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'status' } }, st);
+  assert.equal(st.json.boneCost, 150);
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'buyBone' } }, { status: 200, json: {} });
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'status' } }, st);
+  assert.equal(st.json.boneCost, 188);
+  store.update('Users', 1, { StardustCount: 100 });
+  assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'buyBone' } }).json.error, 'not_enough_dust');
+  // Marche noir automatique : une fois par semaine.
+  store.getAll('BlackMarketOffers').forEach((o) => store.delete('BlackMarketOffers', o.id));
+  const created = rules.generateMarket(store, 'test-week');
+  assert.equal(created, 4);
+  assert.equal(rules.generateMarket(store, 'test-week'), 0);
+  const offers = store.getAll('BlackMarketOffers').filter((o) => o.Auto && o.Active);
+  assert.equal(offers.length, 4);
+  assert.equal(offers.filter((o) => o.Label).length, 1, 'un coup de coeur');
+  // Relances.
+  store.update('Users', 1, { StardustCount: 500, WeatherDay: '', RushDay: '', ExpeditionUntil: now() + 3600 });
+  const w = call('POST', 'reroll', { body: { userId: 1, kind: 'weather' } }).json;
+  assert.ok(w.rerolled);
+  assert.equal(call('POST', 'reroll', { body: { userId: 1, kind: 'weather' } }).json.error, 'already_rerolled');
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.weather.key, w.weather);
+  const e = call('POST', 'reroll', { body: { userId: 1, kind: 'expedition' } }).json;
+  assert.ok(e.expeditionUntil <= now() + 1801);
+  assert.equal(store.get('Users', 1).StardustCount, 500 - 80 - 120);
+});
+
+await test('jardin, appat dore, grande fouille commune', () => {
+  store.update('Users', 1, { StardustCount: 100, GardenPlots: '', GoldBait: 0, Worms: 10 });
+  let g = call('POST', 'garden', { body: { userId: 1, action: 'plant' } }).json;
+  assert.equal(g.planted, 4);
+  assert.equal(call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json.error, 'nothing_ready');
+  const plots = JSON.parse(store.get('Users', 1).GardenPlots).map(() => ({ plantedAt: now() - 5 * 3600 }));
+  store.update('Users', 1, { GardenPlots: JSON.stringify(plots) });
+  g = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  assert.equal(g.harvested, 4);
+  assert.ok(g.gained.worms >= 4);
+  // Appat dore : pas de prise vide.
+  store.update('Users', 1, { GoldBait: 5, FishingDay: '', FishingCasts: 0, Worms: 20 });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingLoot: [{ type: 'nothing', weight: 1000 }, { type: 'dust', weight: 1, min: 3, max: 3 }] } } });
+  const f = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 5, bait: true } }).json;
+  assert.ok(f.catches.every((c) => c.type !== 'nothing'));
+  assert.equal(store.get('Users', 1).GoldBait, 0);
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', bait: true } }).json.error, 'not_enough_bait');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
+  // Grande fouille : 5 coups par jour, grand tresor partage.
+  store.update('Users', 1, { CDigDay: '', CDigCount: 0 });
+  store.update('Users', 2, { CDigDay: '', CDigCount: 0 });
+  let cd = call('POST', 'community-dig', { body: { userId: 2, action: 'status' } }).json;
+  const row = store.getAll('CommunityDig').find((r) => r.Week === cd.week);
+  const board = JSON.parse(row.Board);
+  const grand = board.tiles.findIndex((t) => t.r && t.r.kind === 'grand');
+  const empty = board.tiles.map((t, i) => (t.r ? null : i)).filter((i) => i != null);
+  call('POST', 'community-dig', { body: { userId: 2, action: 'dig', tile: empty[0] } });
+  const b2 = store.get('Users', 2).BoosterCount || 0;
+  const b1 = store.get('Users', 1).BoosterCount || 0;
+  cd = call('POST', 'community-dig', { body: { userId: 1, action: 'dig', tile: grand } }).json;
+  assert.equal(cd.found.kind, 'grand');
+  assert.equal(store.get('Users', 2).BoosterCount, b2 + 1, 'participant recompense');
+  assert.equal(store.get('Users', 1).BoosterCount, b1 + 2, 'decouvreur : un de plus');
+  for (let i = 1; i < 5; i++) call('POST', 'community-dig', { body: { userId: 1, action: 'dig', tile: empty[i] } });
+  assert.equal(call('POST', 'community-dig', { body: { userId: 1, action: 'dig', tile: empty[6] } }).json.error, 'no_digs_left');
+});
+
+await test('prestige, tournoi de peche, rendements decroissants', () => {
+  store.update('Users', 1, { FishingXP: 0, FishingPrestige: 0 });
+  assert.equal(call('POST', 'prestige', { body: { userId: 1, skill: 'fishing' } }).json.error, 'not_max_level');
+  store.update('Users', 1, { FishingXP: 99999 });
+  const p = call('POST', 'prestige', { body: { userId: 1, skill: 'fishing' } }).json;
+  assert.deepEqual([p.prestiged, p.prestige], [true, 1]);
+  assert.equal(store.get('Users', 1).FishingXP, 0);
+  const st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.level.prestige, 1);
+  assert.ok(Math.abs(st.level.perks.rareBoost - 0.03) < 1e-9);
+  const t = call('GET', 'fishing-tournament', { query: {} }).json;
+  assert.ok('active' in t && Array.isArray(t.prizes) && t.casts === 10);
+  // Fouille : au-dela du plein rendement, poussieres divisees par 2.
+  store.update('Users', 1, { DigDay: parisDay(0), DigDayCount: 40, DigXP: 0, DigPrestige: 0 });
+  const r = { status: 200, json: { dug: true, revealed: true, dustGained: 40 } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, r);
+  assert.equal(r.json.reducedRewards, true);
+  assert.equal(r.json.dustGained, 20);
+});
+
+await test('saison : paliers bonus et titre de champion', () => {
+  const season = call('POST', 'season', { body: { userId: 2, action: 'status' } }).json;
+  const prog = store.getAll('SeasonProgress').find((x) => refIdOf(x.User) === 2 && x.Season === season.season);
+  store.update('SeasonProgress', prog.id, { ClaimedTier: 0, BonusClaimed: 0, StartXP: 0 });
+  store.update('Users', 2, { XP: season.xpPerTier * (season.tiers.length + 2) + 5 });
+  const s = call('POST', 'season', { body: { userId: 2, action: 'claim' } }).json;
+  assert.equal(s.bonusTiers, 2);
+  assert.ok(s.title && s.title.startsWith('Champion de saison'));
+  assert.ok(call('POST', 'cosmetics', { body: { userId: 2, action: 'status' } }).json.earned.some((e) => e.key === 'season-' + season.season));
+});
+
+await test('social : fiche carte, alertes de liste de souhaits, mur, profil', () => {
+  const card = store.getAll('Cards').find((c) => c.Active && !c.IsPromo && !c.IsVault);
+  const info = call('GET', 'card-info', { query: { cardId: String(card.id), userId: '1' } }).json;
+  assert.ok(info.copies >= 1 && info.sources.length >= 1 && Array.isArray(info.owners));
+  if (!store.tables.has('Wishlist')) store.defineTable('Wishlist', { User: { type: 'Any' }, Card: { type: 'Any' } });
+  const wished = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && !c.IsVault).slice(-1)[0];
+  store.create('Wishlist', { User: 1, Card: wished.id });
+  store.create('Pulls', { User: 2, Card: wished.id, SerialNumber: 991, Finish: 'normal', Quality: 'good' });
+  store.create('Pulls', { User: 2, Card: wished.id, SerialNumber: 992, Finish: 'normal', Quality: 'good' });
+  const alerts = call('POST', 'wishlist-alerts', { body: { userId: 1 } }).json;
+  assert.ok(alerts.items.some((i) => i.card.cardId === wished.id && i.where.some((w) => w.kind === 'player')));
+  assert.ok(call('GET', 'card-info', { query: { cardId: String(wished.id), userId: '2' } }).json.wishedBy.some((w) => w.userId === 1));
+  store.getAll('ProfileWall').forEach((m) => store.delete('ProfileWall', m.id));
+  let wall = call('POST', 'profile-wall', { body: { userId: 1, action: 'post', profileId: 2, text: '  Bravo pour ta collection !  ' } }).json;
+  assert.equal(wall.messages[0].text, 'Bravo pour ta collection !');
+  assert.equal(call('POST', 'profile-wall', { body: { userId: 1, action: 'post', profileId: 2, text: 'encore' } }).json.error, 'slow_down');
+  assert.equal(call('POST', 'profile-wall', { body: { userId: 1, action: 'post', profileId: 2, text: '   ' } }).json.error, 'empty_message');
+  wall = call('POST', 'profile-wall', { body: { userId: 2, action: 'delete', messageId: wall.messages[0].id } }).json;
+  assert.equal(wall.messages.length, 0, 'le proprietaire du profil peut effacer');
+  const prof = { status: 200, json: {} };
+  native.afterWorkflow('public-profile', { query: { pseudo: store.get('Users', 2).Pseudo }, body: {} }, prof);
+  assert.ok(prof.json.extras && prof.json.extras.skills && Array.isArray(prof.json.extras.hidden));
+});
+
+await test('atelier : restauration avec des poussieres a la place d exemplaires', async () => {
+  const runner = new WorkflowRunner({ store, overrides: {}, log: { error: () => {} } });
+  const wf = JSON.parse(fs.readFileSync(path.join(here, '../workflows/card-quality-repair.json'), 'utf8'));
+  const run = async (body) => { const { responded, done } = runner.run(wf, { headers: {}, params: {}, query: {}, body, webhookUrl: '', executionMode: 'production' }); const r = await responded; await done; return r; };
+  const card = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && !c.IsVault)[4];
+  const one = store.create('Pulls', { User: 1, Card: card.id, SerialNumber: 950, Finish: 'normal', Quality: 'damaged' }).id;
+  store.update('Users', 1, { StardustCount: 50 });
+  let r = await run({ userId: 1, cardId: card.id, fromQuality: 'damaged', pullIds: [one], dustCopies: 2 });
+  assert.equal(r.json.error, 'not_enough_dust');
+  store.update('Users', 1, { StardustCount: 500 });
+  r = await run({ userId: 1, cardId: card.id, fromQuality: 'damaged', pullIds: [one], dustCopies: 2 });
+  assert.equal(r.json.repaired, true);
+  assert.equal(r.json.dustSpent, 120);
+  assert.equal(store.get('Users', 1).StardustCount, 380);
 });
 
 await test('unique : migration une seule fois des lignes deja completees en tickets', () => {

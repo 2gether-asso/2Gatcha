@@ -6,19 +6,24 @@
 // rouvrait toujours "Fouille" par defaut, meme si on passait le plus clair
 // de son temps sur "Coffre-fort".
 const LAST_TAB_KEY = "2gatcha_last_tab_jeux";
+// Ancre d'URL de chaque onglet (2026-10-05) : jeux.html#peche, #jardin...
+const TAB_HASH = { dig: "fouille", guess: "devine", expedition: "expedition", fish: "peche", garden: "jardin", bingo: "bingo", vault: "coffre-fort" };
+const HASH_TAB = Object.fromEntries(Object.entries(TAB_HASH).map(([k, v]) => [v, k]));
 function getInitialTab() {
-  if (location.hash === "#peche") return "fish";
-  if (location.hash === "#fouille") return "dig";
+  const fromHash = HASH_TAB[location.hash.slice(1)];
+  if (fromHash) return fromHash;
   try { return localStorage.getItem(LAST_TAB_KEY) || "dig"; } catch (e) { return "dig"; }
 }
 
 function setActiveTab(tab) {
-  ["dig", "guess", "expedition", "fish", "bingo", "vault"].forEach((key) => {
+  ["dig", "guess", "expedition", "fish", "garden", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
   });
   try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
+  if (TAB_HASH[tab] && location.hash !== "#" + TAB_HASH[tab]) history.replaceState(null, "", "#" + TAB_HASH[tab]);
+  if (tab === "garden") loadGarden();
   if (tab === "dig") loadDig();
   if (tab === "guess") loadGuess();
   if (tab === "expedition") loadExpedition();
@@ -80,11 +85,103 @@ function renderSkillLevel(id, icon, name, info, perks, tool) {
   const pct = info.next == null ? 100 : Math.min(100, ((info.xp - info.current) / (info.next - info.current)) * 100);
   el.innerHTML = `
     <div class="skill-level-head">
-      <span class="skill-level-badge">${icon} ${name} <strong>niv. ${info.level}</strong>${info.level >= info.max ? " (max)" : ""}${tool ? ` <span class="skill-tool tool-${tool.key}">${tool.name}</span>` : ""}</span>
+      <span class="skill-level-badge">${icon} ${name} <strong>niv. ${info.level}</strong>${info.level >= info.max ? " (max)" : ""}${info.prestige ? ` <span class="skill-stars" title="Prestige ${info.prestige}">${"★".repeat(Math.min(info.prestige, 5))}${info.prestige > 5 ? "×" + info.prestige : ""}</span>` : ""}${tool ? ` <span class="skill-tool tool-${tool.key}">${tool.name}</span>` : ""}</span>
       <span class="skill-level-xp">${info.next == null ? `${info.xp} XP` : `${info.xp - info.current} / ${info.next - info.current} XP`}</span>
     </div>
     <div class="skill-level-bar" role="progressbar" aria-label="Progression ${name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="skill-level-fill" style="width:${pct}%"></div></div>
-    <div class="skill-level-perks">${perks.filter(Boolean).map((p) => `<span>${p}</span>`).join("") || "<span>Joue pour monter de niveau : chaque niveau donne un bonus.</span>"}</div>`;
+    <div class="skill-level-perks">${perks.filter(Boolean).map((p) => `<span>${p}</span>`).join("") || "<span>Joue pour monter de niveau : chaque niveau donne un bonus.</span>"}</div>
+    ${info.level >= info.max ? `<button type="button" class="btn-secondary skill-prestige" data-prestige="${id === "dig-level" ? "dig" : "fishing"}">&#11088; Passer en prestige (repartir niv. 1, bonus permanent)</button>` : ""}`;
+}
+
+// Prestige (api/src/native/levels.js) : niveau 10 -> niveau 1 + une etoile.
+async function doPrestige(skill) {
+  const name = skill === "dig" ? "la fouille" : "la pêche";
+  const bonus = skill === "dig" ? "+5 % de poussières trouvées" : "+3 % de prises rares";
+  if (!(await Confirm.show(`Repartir du niveau 1 en ${name} contre une étoile de prestige permanente (${bonus} par étoile) ? Les bonus de niveau sont à regagner.`, { title: "Prestige", confirmText: "Passer en prestige" }))) return;
+  try {
+    const res = await API.prestige(Session.userId, skill);
+    LevelUpModal.show({ icon: "&#11088;", name: skill === "dig" ? "Fouille" : "Pêche", level: `Prestige ${res.prestige}`, perks: [bonus + " (permanent)", "Retour au niveau 1 : tous les bonus de niveau sont à regagner"] });
+    if (skill === "dig") loadDig(); else loadFishing();
+  } catch (e) { Toast.error(e.code === "not_max_level" ? "Il faut être niveau 10." : "Erreur. (" + e.message + ")"); }
+}
+
+// Prix des relances payantes (api/src/native/rules.js).
+let economyRules = null;
+async function loadEconomyRules(force) {
+  if (!economyRules || force) { try { economyRules = await API.getEconomyRules(Session.userId); } catch (e) { economyRules = null; } }
+  return economyRules;
+}
+
+async function rerollWeather() {
+  const r = await loadEconomyRules();
+  if (!r) return;
+  if (!(await Confirm.show(`Changer la météo de ta pêche pour aujourd'hui contre ${r.weatherRerollCost} poussières ? (une fois par jour)`, { title: "Changer la météo", confirmText: "Changer" }))) return;
+  try {
+    await API.reroll(Session.userId, "weather", fishState && fishState.weather && fishState.weather.key);
+    await loadEconomyRules(true);
+    Toast.success("&#127780;&#65039; La météo a changé !");
+    loadFishing();
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } catch (e) { Toast.error({ already_rerolled: "Déjà fait aujourd'hui.", not_enough_dust: "Pas assez de poussières." }[e.code] || "Erreur. (" + e.message + ")"); }
+}
+
+async function renderFishExtras(st) {
+  const box = document.getElementById("fish-extras");
+  if (!box) return;
+  const r = await loadEconomyRules();
+  const parts = [];
+  if (st.event) parts.push(`<span class="fish-chip fish-chip-event">&#127881; ${st.event.label}${st.event.fishingRare > 1 ? ` : prises rares ×${st.event.fishingRare}` : ""}${st.event.wormsMultiplier > 1 ? ` · vers ×${st.event.wormsMultiplier}` : ""}</span>`);
+  if (st.tourney && st.tourney.active) parts.push(`<a class="fish-chip fish-chip-tourney" href="communaute.html#metiers">&#127942; Tournoi du week-end : ${st.tourney.score} pts · ${Math.max(0, st.tourney.max - st.tourney.casts)} lancer${st.tourney.max - st.tourney.casts > 1 ? "s" : ""} comptant encore</a>`);
+  if (st.goldBait > 0) parts.push(`<label class="fish-chip fish-bait"><input type="checkbox" id="fish-bait" /> &#10024;&#129713; Appât doré (${st.goldBait})</label>`);
+  if (r) parts.push(`<button type="button" class="fish-chip fish-reroll" id="fish-reroll-btn" ${r.weatherRerolledToday ? "disabled" : ""}>&#127780;&#65039; ${r.weatherRerolledToday ? "Météo déjà changée aujourd'hui" : `Changer la météo (${r.weatherRerollCost} ✨)`}</button>`);
+  if (st.fullRewardsLeft != null) parts.push(`<span class="fish-chip ${st.fullRewardsLeft ? "" : "fish-chip-warn"}">${st.fullRewardsLeft ? `Plein rendement : encore ${st.fullRewardsLeft} lancer${st.fullRewardsLeft > 1 ? "s" : ""}` : "Rendement réduit pour aujourd'hui"}</span>`);
+  const keepBait = document.getElementById("fish-bait")?.checked;
+  box.innerHTML = parts.join("");
+  if (keepBait && document.getElementById("fish-bait")) document.getElementById("fish-bait").checked = true;
+}
+
+// -----------------------------------------------------------------------
+// Jardin (api/src/native/garden.js) : 4 parcelles, vers et appats dores.
+// -----------------------------------------------------------------------
+let gardenTimer = null;
+function renderGarden(st) {
+  document.getElementById("garden-meta").innerHTML = `&#129713; <strong>${st.worms}</strong> vers · &#10024;&#129713; <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte`;
+  const t = Date.now() / 1000;
+  document.getElementById("garden-plots").innerHTML = st.plots.map((p) => {
+    if (!p.planted) return `<div class="garden-plot empty"><span class="garden-soil" aria-hidden="true"></span><span class="garden-label">Parcelle libre</span></div>`;
+    const pct = Math.min(100, Math.round(((t - p.plantedAt) / (p.readyAt - p.plantedAt)) * 100));
+    const stage = pct >= 100 ? "&#127803;" : pct >= 60 ? "&#127807;" : pct >= 25 ? "&#127793;" : "&#127792;";
+    const left = Math.max(0, Math.round(p.readyAt - t));
+    return `<div class="garden-plot ${pct >= 100 ? "ready" : ""}"><span class="garden-plant" aria-hidden="true">${stage}</span>
+      <div class="challenge-bar"><div style="width:${pct}%"></div></div>
+      <span class="garden-label">${pct >= 100 ? "Prête à récolter !" : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
+  }).join("");
+  document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < st.plantCost;
+  document.getElementById("garden-harvest-btn").disabled = !st.readyCount;
+  document.getElementById("garden-harvest-btn").innerHTML = `&#129530; Tout récolter${st.readyCount ? ` (${st.readyCount})` : ""}`;
+  clearInterval(gardenTimer);
+  if (st.plots.some((p) => p.planted && !p.ready)) gardenTimer = setInterval(() => renderGarden(st), 30000);
+}
+
+async function loadGarden() {
+  try { renderGarden(await API.garden(Session.userId)); }
+  catch (e) { document.getElementById("garden-meta").textContent = "Impossible de charger le jardin."; }
+}
+
+async function gardenAction(action) {
+  try {
+    const res = await API.garden(Session.userId, action);
+    renderGarden(res);
+    if (action === "plant") Toast.success(`&#127793; ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
+    else {
+      const g = res.gained;
+      Toast.success(`&#129530; Récolte : +${g.worms} vers${g.bait ? `, +${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}` : ""}${g.dust ? `, +${g.dust} &#10024;` : ""} !`);
+      if (g.bait && typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
+    }
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } catch (e) {
+    Toast.error({ not_enough_dust: "Pas assez de poussières.", nothing_ready: "Rien n'est prêt.", no_free_plot: "Toutes les parcelles sont occupées." }[e.code] || "Erreur. (" + e.message + ")");
+  }
 }
 
 function announceLevelUp(icon, name, level, info) {
@@ -366,6 +463,7 @@ async function doDig(tileIndex, tileEl) {
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     }
 
+    if (res.reducedRewards) resultEl.insertAdjacentHTML("beforeend", `<div class="dig-reduced">Rendement réduit : plus de poussières à plein tarif aujourd'hui (reviens demain).</div>`);
     if (res.wormsFound) {
       resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">&#129713; +${res.wormsFound} vers de terre dans la terre qui restait${res.leftoverTiles ? ` (${res.leftoverTiles} case${res.leftoverTiles > 1 ? "s" : ""} jamais creusée${res.leftoverTiles > 1 ? "s" : ""})` : ""} : de quoi pêcher !</div>`);
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
@@ -419,6 +517,7 @@ function renderFishWeather(w) {
 
 function renderFishing(st) {
   fishState = st;
+  renderFishExtras(st);
   renderFishLevel(st.level);
   renderFishWeather(st.weather);
   renderFishBook(st.records);
@@ -450,7 +549,8 @@ async function castFishing(count) {
   scene.classList.add("casting");
   status.textContent = "La ligne file…";
   try {
-    const request = API.fishing(Session.userId, "cast", count);
+    const useBait = !!document.getElementById("fish-bait")?.checked;
+    const request = API.fishing(Session.userId, "cast", count, useBait);
     await fishWait(700);
     scene.classList.replace("casting", "waiting");
     status.textContent = "On attend que ça morde…";
@@ -469,7 +569,7 @@ async function castFishing(count) {
       catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}${c.first ? ' <span class="fish-new">1re !</span>' : c.record ? ' <span class="fish-new">record !</span>' : ""}</span>`);
       if (typeof Sfx !== "undefined" && Sfx.click && res.catches.length > 1) Sfx.click();
     }
-    status.textContent = res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" ? "Pas de chance…" : "Belle prise !");
+    status.textContent = (res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" ? "Pas de chance…" : "Belle prise !")) + (res.baitUsed ? " (appât doré)" : "") + (res.reducedRewards ? " · rendement réduit" : "");
     if (["epique", "legendaire", "mythique"].includes(best.tier) && typeof confetti === "function") confetti({ particleCount: best.tier === "mythique" ? 180 : 90, spread: 90, origin: { y: 0.55 } });
     const log = document.getElementById("fish-log");
     log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join(""));
@@ -483,7 +583,7 @@ async function castFishing(count) {
     fishBusy = false;
     scene.classList.remove("casting", "waiting", "bite");
     status.textContent = "Prêt à pêcher";
-    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille, il y en a dans la terre qui reste.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.", not_enough_bait: "Plus assez d'appâts dorés.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
     loadFishing();
   }
 }
@@ -696,6 +796,20 @@ async function expeditionOwnedCards() {
   return expeditionOwned;
 }
 
+// Retour accelere (api/src/native/rules.js) : temps restant / 2, une fois par jour.
+async function rushExpedition() {
+  const r = await loadEconomyRules(true);
+  if (!r) return;
+  if (r.expeditionRushedToday) { Toast.info("Déjà accéléré aujourd'hui."); return; }
+  if (!(await Confirm.show(`Diviser par deux le temps restant de l'expédition contre ${r.expeditionRushCost} poussières ? (une fois par jour)`, { title: "Accélérer le retour", confirmText: "Accélérer" }))) return;
+  try {
+    await API.reroll(Session.userId, "expedition");
+    Toast.success("&#9889; Ton explorateur presse le pas !");
+    loadExpedition();
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } catch (e) { Toast.error({ already_rerolled: "Déjà fait aujourd'hui.", not_enough_dust: "Pas assez de poussières.", no_expedition: "Aucune expédition en cours." }[e.code] || "Erreur. (" + e.message + ")"); }
+}
+
 async function renderExpedition(data) {
   clearInterval(expeditionTimer);
   const zone = document.getElementById("expedition-zone");
@@ -715,6 +829,7 @@ async function renderExpedition(data) {
           <div class="expe-progress"><div class="expe-progress-fill" id="expe-fill"></div></div>
           <div class="expe-countdown" id="expe-countdown"></div>
           <button type="button" class="btn" id="expe-claim-btn" ${ex.ready ? "" : "disabled"}>&#127873; Récupérer le butin</button>
+          ${ex.ready ? "" : `<button type="button" class="btn-secondary" id="expe-rush-btn">&#9889; Accélérer le retour</button>`}
         </div>
       </div>`;
     const total = ex.hours * 3600;
@@ -733,6 +848,7 @@ async function renderExpedition(data) {
     tick();
     expeditionTimer = setInterval(tick, 1000);
     document.getElementById("expe-claim-btn").addEventListener("click", claimExpedition);
+    document.getElementById("expe-rush-btn")?.addEventListener("click", rushExpedition);
     return;
   }
 
@@ -833,7 +949,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-expedition-btn").addEventListener("click", () => setActiveTab("expedition"));
   document.getElementById("tab-fish-btn").addEventListener("click", () => setActiveTab("fish"));
   // Lien de l'en-tete vers la peche alors qu'on est deja sur la page.
-  window.addEventListener("hashchange", () => { if (location.hash === "#peche") setActiveTab("fish"); else if (location.hash === "#fouille") setActiveTab("dig"); });
+  window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
+  document.getElementById("tab-garden-btn").addEventListener("click", () => setActiveTab("garden"));
+  document.getElementById("garden-plant-btn").addEventListener("click", () => gardenAction("plant"));
+  document.getElementById("garden-harvest-btn").addEventListener("click", () => gardenAction("harvest"));
+  document.getElementById("fish-extras").addEventListener("click", (e) => { if (e.target.closest("#fish-reroll-btn")) rerollWeather(); });
+  document.addEventListener("click", (e) => { const b = e.target.closest("[data-prestige]"); if (b) doPrestige(b.dataset.prestige); });
   document.getElementById("fish-cast-btn").addEventListener("click", () => castFishing(1));
   document.getElementById("fish-cast5-btn").addEventListener("click", () => castFishing(5));
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));

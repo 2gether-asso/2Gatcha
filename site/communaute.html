@@ -27,6 +27,7 @@
         <button type="button" class="tab" id="tab-boss-btn" role="tab" aria-selected="false">&#128128; Boss</button>
         <button type="button" class="tab" id="tab-chest-btn" role="tab" aria-selected="false">&#127873; Coffre de guilde</button>
         <button type="button" class="tab" id="tab-market-btn" role="tab" aria-selected="false">&#127761; Marché noir</button>
+        <button type="button" class="tab" id="tab-together-btn" role="tab" aria-selected="false">&#129309; Ensemble</button>
         <button type="button" class="tab" id="tab-skills-btn" role="tab" aria-selected="false">&#127942; Métiers</button>
       </div>
 
@@ -99,7 +100,20 @@
         </div>
       </div>
 
+      <div id="together-pane" style="display:none;">
+        <div class="goal-card" id="goal-card"><div class="loading-row"><div class="spinner"></div></div></div>
+        <h2 class="together-title">&#127959;&#65039; Grande fouille de la semaine</h2>
+        <p class="lead" style="font-size:0.85rem;">Une grande grille que tout le monde creuse ensemble. Chaque trésor revient à celui qui le déterre ; le <strong>grand trésor</strong> récompense <strong>tous</strong> les participants de la semaine.</p>
+        <div class="cdig-meta" id="cdig-meta"></div>
+        <div class="cdig-board" id="cdig-board" role="grid" aria-label="Grande fouille commune"></div>
+        <div class="cdig-side">
+          <div><h3>Les plus actifs</h3><ol class="cdig-top" id="cdig-top"></ol></div>
+          <div><h3>Dernières trouvailles</h3><ul class="cdig-log" id="cdig-log"></ul></div>
+        </div>
+      </div>
+
       <div id="skills-pane" style="display:none;">
+        <div class="tourney-card" id="tourney-card"></div>
         <p class="lead" style="font-size:0.85rem;">Les meilleurs pêcheurs et fouilleurs de la semaine (XP gagnée depuis lundi). Le premier de chaque métier porte la couronne jusqu'à lundi prochain.</p>
         <div id="skills-boards" class="skills-boards"><div class="loading-row"><div class="spinner"></div></div></div>
       </div>

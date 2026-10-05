@@ -18,16 +18,25 @@ export function afterWorkflow({ store, path, request, response }) {
   const common = setting(store, 'DuplicateDustCommon');
   const other = setting(store, 'DuplicateDustOther');
   // Cartes possedees AVANT ce booster (ses propres exemplaires ont son BatchId).
-  const owned = new Set(store.getAll('Pulls').filter((p) => refId(p.User) === userId && p.BatchId !== json.batchId).map((p) => refId(p.Card)));
+  const mine = store.getAll('Pulls').filter((p) => refId(p.User) === userId && p.BatchId !== json.batchId);
+  const owned = new Set(mine.map((p) => refId(p.Card)));
+  // Au-dela de DuplicateDustCapCopies exemplaires d'une meme carte, un doublon
+  // ne rapporte plus que 1 poussiere (2026-10-05).
+  const copies = new Map();
+  mine.forEach((p) => copies.set(refId(p.Card), (copies.get(refId(p.Card)) || 0) + 1));
+  const cap = setting(store, 'DuplicateDustCapCopies');
   let total = 0, count = 0;
   for (const card of json.cards) {
     if (owned.has(card.cardId)) {
-      const dust = (card.rarity && card.rarity.key === 'commune') ? common : other;
+      const n = copies.get(card.cardId) || 0;
+      copies.set(card.cardId, n + 1);
+      const dust = cap > 0 && n >= cap ? 1 : (card.rarity && card.rarity.key === 'commune') ? common : other;
       card.duplicateDust = dust;
       total += dust;
       count++;
     } else {
       owned.add(card.cardId);
+      copies.set(card.cardId, 1);
     }
   }
   if (!total) return;

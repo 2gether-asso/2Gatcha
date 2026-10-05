@@ -11,6 +11,9 @@
 import { refId, now, ok, fail, userById, parisDay, parisHour } from './common.js';
 import { eventState } from './events.js';
 import { setting } from './settings.js';
+import { seasonId, seasonEnd } from './seasons.js';
+import { challengeState, goalState } from './challenges.js';
+import { tourneyKey } from './fishing.js';
 
 export const schema = {
   AppSettings: { Key: { type: 'Text' }, Value: { type: 'Text' } },
@@ -88,6 +91,22 @@ function dueFor(store, user, sinceSub, ctx) {
       out.push({ kind: 'trade', key: String(tr.id), title: '🔄 Nouvelle proposition d’échange', body: `${ctx.pseudo.get(refId(tr.FromUser)) || 'Un joueur'} te propose un échange.`, url: 'trade.html' });
     }
   }
+  // Rappels de fin de delai (2026-10-05).
+  if (ctx.seasonEndsIn > 0 && ctx.seasonEndsIn < 48 * 3600 && ctx.seasonPlayers.has(user.id)) {
+    out.push({ kind: 'season-end', key: ctx.season, title: '🏆 La saison se termine bientôt', body: 'Moins de 2 jours pour finir tes paliers et récupérer tes récompenses de saison.', url: 'index.html' });
+  }
+  if (ctx.dow === 0 && ctx.hour >= 18) {
+    try {
+      const ch = challengeState(store, user);
+      const open = ch.offered.filter((c) => c.picked && !c.claimed);
+      if (open.length) out.push({ kind: 'challenges-end', key: ch.week, title: '🎯 Derniers jours pour tes défis', body: ch.claimable ? 'Des défis accomplis t’attendent : récupère-les avant ce soir minuit.' : `Plus que quelques heures pour finir tes ${open.length} défi(s) de la semaine.`, url: 'index.html' });
+    } catch (e) { /* defis indisponibles */ }
+  }
+  try {
+    const goal = goalState(store, user.id);
+    if (goal.claimable) out.push({ kind: 'goal', key: goal.week, title: '🤝 Objectif commun atteint !', body: 'La communauté a réussi : viens récupérer ta part.', url: 'communaute.html#ensemble' });
+  } catch (e) { /* objectif indisponible */ }
+  if (ctx.tourney && ctx.hour >= 10) out.push({ kind: 'tourney', key: ctx.tourney, title: '🎣 Tournoi de pêche ce week-end', body: 'Tes 10 premiers lancers du week-end comptent : vise les prises rares !', url: 'jeux.html#peche' });
   if (ctx.boss) out.push({ kind: 'boss', key: String(ctx.boss.id), title: `💀 ${ctx.boss.BossName || 'Un boss'} attaque !`, body: 'Un nouveau boss communautaire est apparu : donne des cartes pour l’abattre.', url: 'communaute.html' });
   if (ctx.event) out.push({ kind: 'event', key: `${ctx.event.label}:${ctx.event.endsAt || ''}`, title: `🎉 ${ctx.event.label}`, body: ctx.eventText, url: 'index.html' });
   return out;
@@ -109,8 +128,13 @@ export function collect({ store, hour: forcedHour } = {}) {
   const evParts = [];
   if (ev.dustMultiplier > 1) evParts.push(`poussières x${ev.dustMultiplier}`);
   if (ev.finishMultiplier > 1) evParts.push(`finitions x${ev.finishMultiplier}`);
+  const season = seasonId();
   const ctx = {
     hour, today: parisDay(0), yesterday: parisDay(-1),
+    dow: new Date(parisDay(0) + 'T12:00:00Z').getUTCDay(),
+    season, seasonEndsIn: seasonEnd(season) - now(),
+    seasonPlayers: new Set(store.tables.has('SeasonProgress') ? store.getAll('SeasonProgress').filter((r) => r.Season === season).map((r) => refId(r.User)) : []),
+    tourney: tourneyKey(),
     trades: store.tables.has('Trades') ? store.getAll('Trades').filter((tr) => tr.Status === 'pending') : [],
     pseudo: new Map(store.getAll('Users').map((u) => [u.id, u.Pseudo])),
     boss: store.tables.has('CommunityBoss') ? store.getAll('CommunityBoss').find((b) => b.Active) : null,

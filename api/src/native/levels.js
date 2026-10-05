@@ -14,8 +14,16 @@
 // Classement des metiers (page Communaute) : XP gagnee dans la semaine (lundi
 // heure de Paris), meilleurs pecheurs et fouilleurs.
 //   GET /webhook/skills-leaderboard -> { week, fishing: [...], dig: [...] }
+//
+// Prestige : au niveau 10, on peut repartir du niveau 1 contre une etoile
+// permanente (+3 % de prises rares a la peche, +5 % de poussieres a la
+// fouille par etoile).
+//   POST /webhook/prestige { userId, skill: 'fishing' | 'dig' }
+//
+// Rendements decroissants : au-dela de DigFullRewardsPerDay cases creusees
+// dans la journee, les poussieres trouvees sont divisees par 2.
 
-import { ok, parisDay } from './common.js';
+import { ok, fail, userById, parisDay } from './common.js';
 import { setting } from './settings.js';
 
 export const MAX_LEVEL = 10;
@@ -24,7 +32,9 @@ export const schema = {
   Users: {
     DigXP: { type: 'Numeric' }, FishingXP: { type: 'Numeric' },
     DigWeek: { type: 'Text' }, DigWeekXP: { type: 'Numeric' },
-    FishingWeek: { type: 'Text' }, FishingWeekXP: { type: 'Numeric' }
+    FishingWeek: { type: 'Text' }, FishingWeekXP: { type: 'Numeric' },
+    DigPrestige: { type: 'Numeric' }, FishingPrestige: { type: 'Numeric' },
+    DigDay: { type: 'Text' }, DigDayCount: { type: 'Numeric' }
   }
 };
 
@@ -68,7 +78,7 @@ function board(store, kind, step) {
     .slice(0, 10)
     .map((x, i) => ({
       rank: i + 1, userId: x.u.id, pseudo: x.u.Pseudo, discordId: x.u.DiscordId || null, discordAvatar: x.u.DiscordAvatar || null,
-      weekXp: x.xp, level: levelFor(x.u[kind + 'XP'], step)
+      weekXp: x.xp, level: levelFor(x.u[kind + 'XP'], step), prestige: Number(x.u[kind + 'Prestige']) || 0
     }));
 }
 
@@ -80,16 +90,30 @@ function handleLeaderboard({ store }) {
   });
 }
 
-export const routes = { 'GET skills-leaderboard': handleLeaderboard };
+const PRESTIGE = { fishing: { xp: 'FishingXP', prestige: 'FishingPrestige', step: 'FishingLevelXpStep' }, dig: { xp: 'DigXP', prestige: 'DigPrestige', step: 'DigLevelXpStep' } };
 
-export function digPerks(level) {
-  return { energyBonus: Math.floor(level / 2), regenReduction: 0.05 * (level - 1), dustBonus: 0.1 * (level - 1), dogSpeed: 0.05 * (level - 1), dogFlair: 0.03 * (level - 1) };
+function handlePrestige({ store, body }) {
+  const user = userById(store, body.userId);
+  if (!user) return fail('unknown_user', 404);
+  const p = PRESTIGE[body.skill];
+  if (!p) return fail('invalid_skill');
+  if (levelFor(user[p.xp], setting(store, p.step)) < MAX_LEVEL) return fail('not_max_level');
+  const stars = (Number(user[p.prestige]) || 0) + 1;
+  store.update('Users', user.id, { [p.xp]: 0, [p.prestige]: stars });
+  return ok({ prestiged: true, skill: body.skill, prestige: stars });
+}
+
+export const routes = { 'GET skills-leaderboard': handleLeaderboard, 'POST prestige': handlePrestige };
+
+export function digPerks(level, prestige = 0) {
+  return { energyBonus: Math.floor(level / 2), regenReduction: 0.05 * (level - 1), dustBonus: 0.1 * (level - 1) + 0.05 * prestige, dogSpeed: 0.05 * (level - 1), dogFlair: 0.03 * (level - 1), prestigeBonus: 0.05 * prestige };
 }
 
 export function digLevel(store, user) {
   const step = setting(store, 'DigLevelXpStep');
   const info = levelInfo(user.DigXP, step);
-  return { ...info, perks: digPerks(info.level) };
+  const prestige = Number(user.DigPrestige) || 0;
+  return { ...info, prestige, perks: digPerks(info.level, prestige) };
 }
 
 export function afterWorkflow({ store, path, request, response }) {
@@ -101,13 +125,21 @@ export function afterWorkflow({ store, path, request, response }) {
   const before = digLevel(store, user);
   if (body.action === 'dig' && json.dug) {
     const gained = 1 + (json.revealed ? 5 : 0);
-    const fields = { DigXP: (Number(user.DigXP) || 0) + gained, ...weeklyXpFields(user, 'Dig', gained) };
+    const today = parisDay(0);
+    const digsToday = (user.DigDay === today ? Number(user.DigDayCount) || 0 : 0) + 1;
+    const fields = { DigXP: (Number(user.DigXP) || 0) + gained, ...weeklyXpFields(user, 'Dig', gained), DigDay: today, DigDayCount: digsToday };
     const bonus = json.dustGained > 0 ? Math.round(json.dustGained * before.perks.dustBonus) : 0;
-    if (bonus) {
-      fields.StardustCount = (Number(user.StardustCount) || 0) + bonus;
-      json.dustGained += bonus;
-      json.levelDustBonus = bonus;
+    let dustDelta = bonus;
+    if (bonus) { json.dustGained += bonus; json.levelDustBonus = bonus; }
+    const full = setting(store, 'DigFullRewardsPerDay');
+    if (full > 0 && digsToday > full && json.dustGained > 0) {
+      const cut = Math.floor(json.dustGained / 2);
+      json.dustGained -= cut;
+      dustDelta -= cut;
+      json.reducedRewards = true;
     }
+    if (dustDelta) fields.StardustCount = Math.max(0, (Number(user.StardustCount) || 0) + dustDelta);
+    json.fullRewardsLeft = full > 0 ? Math.max(0, full - digsToday) : null;
     const after = store.update('Users', user.id, fields);
     json.digLevel = digLevel(store, after);
     if (json.digLevel.level > before.level) json.levelUp = json.digLevel.level;

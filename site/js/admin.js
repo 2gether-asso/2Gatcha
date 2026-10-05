@@ -607,13 +607,31 @@ function renderEventAdmin(ev) {
   const perks = [];
   if (ev.dustMultiplier > 1) perks.push(`poussières x${ev.dustMultiplier}`);
   if (ev.finishMultiplier > 1) perks.push(`finitions x${ev.finishMultiplier}`);
+  if (ev.fishingRare > 1) perks.push(`pêche : prises rares x${ev.fishingRare}`);
+  if (ev.wormsMultiplier > 1) perks.push(`vers x${ev.wormsMultiplier}`);
   el.className = ev.active ? "reward-banner" : "empty-state";
   el.innerHTML = ev.active
     ? `&#127881; <strong>${ev.label}</strong> en cours${perks.length ? " : " + perks.join(", ") : ""}${ev.endsAt ? " · fin le " + new Date(ev.endsAt * 1000).toLocaleString("fr-FR") : ""}`
     : "Aucun événement en cours.";
   document.getElementById("event-stop-btn").style.display = ev.active ? "" : "none";
 }
+// Modeles d'evenements (2026-10-05).
+const EVENT_PRESETS = {
+  stars: { label: "Week-end des étoiles", dust: 2, finish: 1, fishing: 1, worms: 1 },
+  fishing: { label: "Semaine de la pêche", dust: 1, finish: 1, fishing: 1.5, worms: 2 },
+  worms: { label: "Chasse aux vers", dust: 1, finish: 1, fishing: 1, worms: 3 }
+};
+function applyEventPreset(key) {
+  const p = EVENT_PRESETS[key];
+  if (!p) return;
+  document.getElementById("event-label").value = p.label;
+  document.getElementById("event-dust").value = p.dust;
+  document.getElementById("event-finish").value = p.finish;
+  document.getElementById("event-fishing").value = p.fishing;
+  document.getElementById("event-worms").value = p.worms;
+}
 async function loadEventAdmin() {
+  document.querySelectorAll("[data-event-preset]").forEach((b) => b.addEventListener("click", () => applyEventPreset(b.dataset.eventPreset)));
   try { renderEventAdmin(await API.adminGetEvent(Session.discordId)); } catch (e) { document.getElementById("event-admin-current").textContent = "Impossible de charger l'événement."; }
   // Par defaut : fin dimanche 23:59.
   const ends = document.getElementById("event-ends");
@@ -636,6 +654,28 @@ function econBars(days, key, label) {
       <div class="econ-axis"><span>${new Date(days[0].day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
     </div>`;
 }
+// Journal de l'economie (inflation) : creations / depenses par jour et source.
+function econFlows(f, fmt) {
+  if (!f) return "";
+  return `
+    <h3 style="margin-top:20px;">&#128200; Inflation : créations et dépenses</h3>
+    ${f.alerts.length ? `<div class="econ-alerts">${f.alerts.map((a) => `<div class="econ-alert">&#9888;&#65039; ${a}</div>`).join("")}</div>` : '<div class="econ-ok">&#9989; Aucune alerte : l\'économie semble équilibrée.</div>'}
+    <div class="stats-grid">
+      <div class="stat-tile"><div class="stat-value">${f.boostersPerPlayerDay}</div><div class="stat-label">Boosters créés / joueur actif / jour (7 j)</div></div>
+      <div class="stat-tile"><div class="stat-value">${f.dustRatio}</div><div class="stat-label">Poussières gagnées pour 1 dépensée (7 j)</div></div>
+    </div>
+    <div class="econ-charts">
+      ${econBars(f.daily, "boostersIn", "Boosters créés par jour")}
+      ${econBars(f.daily, "boostersOut", "Boosters ouverts / dépensés par jour")}
+      ${econBars(f.daily, "dustIn", "Poussières gagnées par jour")}
+      ${econBars(f.daily, "dustOut", "Poussières dépensées par jour")}
+    </div>
+    <div class="table-scroll"><table class="econ-table">
+      <thead><tr><th>Source (7 j)</th><th>Boosters +</th><th>Boosters −</th><th>Poussières +</th><th>Poussières −</th></tr></thead>
+      <tbody>${f.sources.map((s) => `<tr><td>${s.source}</td><td>${fmt(s.boostersIn)}</td><td>${fmt(s.boostersOut)}</td><td>${fmt(s.dustIn)}</td><td>${fmt(s.dustOut)}</td></tr>`).join("") || '<tr><td colspan="5">Pas encore de données (le journal démarre avec cette version).</td></tr>'}</tbody>
+    </table></div>`;
+}
+
 async function loadEconomy() {
   const el = document.getElementById("economy-zone");
   el.className = "";
@@ -668,7 +708,8 @@ async function loadEconomy() {
         <div><h3>Boosters en réserve</h3>${list(e.boosterHoarders, (r) => `<li><span>${r.pseudo}</span><strong>${fmt(r.value)}</strong></li>`)}</div>
         <div><h3>Cartes les plus répandues</h3>${list(e.mostCommonCards, (c) => `<li><span>${c.name} <small>${c.rarity}</small></span><strong>${c.copies}</strong></li>`)}</div>
         <div><h3>Cartes les plus rares</h3>${list(e.rarestCards, (c) => `<li><span>${c.name} <small>${c.rarity}</small></span><strong>${c.copies}</strong></li>`)}</div>
-      </div>`;
+      </div>
+      ${econFlows(e.flows, fmt)}`;
   } catch (err) {
     el.className = "empty-state";
     el.textContent = err.code === "forbidden" ? "Accès réservé aux admins." : "Impossible de charger l'économie.";
@@ -718,6 +759,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           label: document.getElementById("event-label").value.trim(),
           dustMultiplier: Number(document.getElementById("event-dust").value) || 1,
           finishMultiplier: Number(document.getElementById("event-finish").value) || 1,
+          fishingRare: Number(document.getElementById("event-fishing").value) || 1,
+          wormsMultiplier: Number(document.getElementById("event-worms").value) || 1,
           endsAt
         });
         renderEventAdmin(ev);

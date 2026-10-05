@@ -66,6 +66,7 @@ const NAV_ITEMS = [
   // Craft / decraft : modes de la page collection depuis la fusion (2026-10-04).
   { href: "collection.html#decrafter", label: "Craft & décraft", icon: "&#10024;", auth: true, group: "collection" },
   { href: "coffre.html", label: "Coffre-fort perso", icon: "&#128274;", auth: true, group: "collection" },
+  { href: "boutique.html", label: "Boutique", icon: "&#128717;&#65039;", auth: true, group: "collection" },
   { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true, badgeKey: "communaute" },
   { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
@@ -105,6 +106,81 @@ function renderBottomNav() {
   `).join("");
 }
 
+// ---------------------------------------------------------------------------
+// Centre de recompenses (2026-10-05) : tout ce qui se reclame, d'ou que ca
+// vienne, avec un bouton "Tout recuperer". Partage par la pastille du menu
+// (Accueil) et le panneau de la page d'accueil. Chaque entree : { key, icon,
+// label, claim() }. "deadlines" : ce qui se termine bientot.
+// ---------------------------------------------------------------------------
+const RewardsCenter = {
+  async collect() {
+    const uid = Session.userId;
+    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes] = await Promise.all([
+      API.getQuestStatus(uid).catch(() => null),
+      API.getWeeklyQuestStatus(uid).catch(() => null),
+      API.getLevelRewardsStatus(uid).catch(() => null),
+      API.getLoginStreak(uid).catch(() => null),
+      API.getSetRewards(uid).catch(() => null),
+      API.getSeason(uid).catch(() => null),
+      API.challenges(uid).catch(() => null),
+      API.communityGoal(uid).catch(() => null),
+      API.themes(uid).catch(() => null)
+    ]);
+    const items = [];
+    if (streak?.canClaim) items.push({ key: "streak", icon: "&#128293;", label: `Cadeau de connexion (jour ${streak.day || ""})`, claim: () => API.claimLoginStreak(uid) });
+    if (quests?.canClaim) items.push({ key: "quests", icon: "&#9989;", label: "Quêtes du jour terminées", claim: () => API.claimQuestReward(uid) });
+    if (weekly?.canClaim) items.push({ key: "weekly", icon: "&#128197;", label: "Quêtes de la semaine terminées", claim: () => API.claimWeeklyQuestReward(uid) });
+    if (levelRewards?.hasPending) items.push({ key: "level", icon: "&#11088;", label: "Récompenses de niveau", claim: () => API.claimLevelRewards(uid) });
+    if (season?.claimable > 0) items.push({ key: "season", icon: "&#127942;", label: `Saison : ${season.claimable} palier${season.claimable > 1 ? "s" : ""} à récupérer`, claim: () => API.claimSeason(uid) });
+    (sets?.sets || []).filter((x) => x.complete && !x.claimed).forEach((x) => items.push({ key: "set-" + x.extensionId, icon: "&#128218;", label: `Set complet : ${x.name}`, claim: () => API.claimSetReward(uid, x.extensionId) }));
+    if (challenges?.claimable > 0) items.push({ key: "challenges", icon: "&#127919;", label: `Défis de la semaine : ${challenges.claimable} récompense${challenges.claimable > 1 ? "s" : ""}`, claim: () => API.challenges(uid, "claim") });
+    if (goal?.claimable) items.push({ key: "goal", icon: "&#129309;", label: `Objectif commun réussi : ${goal.reward.dust} ✨ + ${goal.reward.worms} vers`, claim: () => API.communityGoal(uid, "claim") });
+    if (themes?.claimable > 0) items.push({ key: "themes", icon: "&#127912;", label: `Collection thématique terminée (+ titre)`, claim: () => API.themes(uid, "claim") });
+    const deadlines = [];
+    const t = Math.floor(Date.now() / 1000);
+    const left = (end) => { const h = Math.max(0, Math.round((end - t) / 3600)); return h >= 48 ? `${Math.round(h / 24)} j` : `${h} h`; };
+    if (season?.enabled && season.endsAt - t < 3 * 86400) deadlines.push({ icon: "&#127942;", label: `La saison ${season.label} se termine dans ${left(season.endsAt)}`, url: "index.html#saison" });
+    if (challenges && challenges.endsAt - t < 2 * 86400) {
+      const open = challenges.offered.filter((c) => c.picked && !c.done).length;
+      if (open || challenges.picksLeft) deadlines.push({ icon: "&#127919;", label: `Défis de la semaine : fin dans ${left(challenges.endsAt)}${open ? ` (${open} à finir)` : ""}`, url: "index.html#defis" });
+    }
+    if (goal && !goal.reached && goal.endsAt - t < 2 * 86400) deadlines.push({ icon: "&#129309;", label: `Objectif commun : ${goal.progress}/${goal.target} ${goal.unit}, fin dans ${left(goal.endsAt)}`, url: "communaute.html#ensemble" });
+    return { items, deadlines, challenges, goal };
+  },
+  async claimAll(items) {
+    const done = [], failed = [];
+    for (const it of items) {
+      try { await it.claim(); done.push(it); } catch (e) { failed.push(it); }
+    }
+    return { done, failed };
+  }
+};
+
+// En-tete compact (2026-10-05) : sur les ecrans moyens et petits, les
+// ressources secondaires (clefs, vers, pieces, tickets) se rangent derriere un
+// bouton sac a dos au lieu de faire deborder la barre.
+function syncStatsMore() {
+  const extra = document.getElementById("header-stats-extra");
+  const btn = document.getElementById("stats-more-btn");
+  if (!extra || !btn) return;
+  const visible = [...extra.children].filter((c) => c.style.display !== "none").length;
+  btn.hidden = !visible;
+  document.getElementById("stats-more-count").textContent = visible ? String(visible) : "";
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("#stats-more-btn");
+  const extra = document.getElementById("header-stats-extra");
+  if (!extra) return;
+  if (btn) {
+    const open = !extra.classList.contains("open");
+    extra.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", String(open));
+  } else if (!e.target.closest || !e.target.closest("#header-stats-extra")) {
+    extra.classList.remove("open");
+    document.getElementById("stats-more-btn")?.setAttribute("aria-expanded", "false");
+  }
+});
+
 // Petite pastille rouge sur l'onglet Échanges (nav du bas + nav du haut)
 // quand au moins un échange entrant est en attente de reponse.
 async function loadNavBadges() {
@@ -130,12 +206,16 @@ async function loadNavBadges() {
       return;
     }
   }
+  // Liste de souhaits : une carte souhaitee est disponible quelque part.
+  let wishCount = 0;
+  try { wishCount = (await API.wishlistAlerts(Session.userId)).count || 0; } catch (e) { wishCount = 0; }
   document.querySelectorAll('[data-badge-key="trade"]').forEach((a) => {
     a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
-    if (pendingCount > 0) {
+    if (pendingCount > 0 || wishCount > 0) {
       const dot = document.createElement("span");
-      dot.className = "nav-dot";
-      dot.textContent = pendingCount > 9 ? "9+" : String(pendingCount);
+      dot.className = "nav-dot" + (pendingCount ? "" : " nav-dot-wish");
+      dot.textContent = pendingCount ? (pendingCount > 9 ? "9+" : String(pendingCount)) : "★";
+      dot.title = pendingCount ? "Échanges en attente" : `${wishCount} carte${wishCount > 1 ? "s" : ""} de ta liste de souhaits disponible${wishCount > 1 ? "s" : ""}`;
       (a.querySelector(".bn-icon") || a).appendChild(dot);
     }
   });
@@ -164,15 +244,7 @@ async function loadNavBadges() {
   // bougent moins souvent) pour ne pas multiplier les requetes en arriere-
   // plan a chaque changement de page.
   try {
-    const [quests, weekly, levelRewards, streak, sets, season] = await Promise.all([
-      API.getQuestStatus(Session.userId).catch(() => null),
-      API.getWeeklyQuestStatus(Session.userId).catch(() => null),
-      API.getLevelRewardsStatus(Session.userId).catch(() => null),
-      API.getLoginStreak(Session.userId).catch(() => null),
-      API.getSetRewards(Session.userId).catch(() => null),
-      API.getSeason(Session.userId).catch(() => null)
-    ]);
-    const rewardsCount = [quests?.canClaim, weekly?.canClaim, levelRewards?.hasPending, streak?.canClaim, season?.claimable > 0].filter(Boolean).length + ((sets && sets.claimable) || 0);
+    const rewardsCount = (await RewardsCenter.collect()).items.length;
     document.querySelectorAll('[data-badge-key="rewards"]').forEach((a) => {
       a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
       if (rewardsCount > 0) {
@@ -300,6 +372,7 @@ function renderHeader() {
               <span class="icon">&#10024;</span><span class="count">...</span>
             </span>
             <span id="header-key-divider" class="stat-divider" aria-hidden="true" style="display:none;"></span>
+            <span class="stats-extra" id="header-stats-extra">
             <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
               <span class="icon">&#128273;</span><span class="count">0</span>
             </span>
@@ -312,6 +385,8 @@ function renderHeader() {
             <a id="header-ticket-badge" class="stat-chip stat-chip-ticket" href="coffre.html#comptoir" title="Tickets Unique : à échanger au Comptoir Unique (coffre-fort)" style="display:none;">
               <span class="icon">&#127915;</span><span class="count">0</span>
             </a>
+            </span>
+            <button type="button" class="stats-more-btn" id="stats-more-btn" aria-expanded="false" aria-controls="header-stats-extra" title="Autres ressources" hidden>&#127890;<span id="stats-more-count"></span></button>
           </div>
           <div class="global-search" id="global-search">
             <button type="button" class="global-search-trigger" id="global-search-trigger" aria-label="Recherche" title="Rechercher un joueur, une carte...">&#128269;</button>
@@ -335,6 +410,7 @@ function renderHeader() {
             </button>
             <div class="user-menu-dropdown" id="user-menu-dropdown">
               <button id="edit-pseudo-btn" type="button">&#9998; Modifier le pseudo</button>
+              <a href="boutique.html">&#128717;&#65039; Boutique (titres, cadres)</a>
               <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}">&#128100; Voir mon profil</a>
               <button id="copy-profile-link-btn" type="button">&#128279; Copier le lien de mon profil</button>
               <button id="mute-toggle-btn" type="button">${Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif"}</button>
@@ -741,6 +817,13 @@ async function loadHeaderBoosterBadge() {
       wormBadge.style.display = worms > 0 ? "flex" : "none";
       if (worms > 0) bumpNumber(wormBadge.querySelector(".count"), worms);
     }
+    // Decorations equipees (boutique) : couleur du pseudo, cadre de l'avatar, titre.
+    if (status.decor) {
+      const p = document.getElementById("header-pseudo");
+      if (p) { p.className = status.decor.color ? "decor-" + status.decor.color : ""; p.title = status.decor.title || ""; }
+      const av = document.querySelector("#user-menu-trigger .avatar");
+      if (av) av.className = "avatar" + (status.decor.frame ? " decor-" + status.decor.frame : "");
+    }
     // Pieces detachees (pechees) : visibles seulement si > 0.
     const partBadge = document.getElementById("header-part-badge");
     if (partBadge) {
@@ -756,6 +839,7 @@ async function loadHeaderBoosterBadge() {
       if (tickets > 0) bumpNumber(ticketBadge.querySelector(".count"), tickets);
     }
 
+    syncStatsMore();
     if (status.xp) knownProfileLevel = status.xp.level;
     if (levelBadge && status.xp) {
       levelBadge.textContent = `Niv. ${status.xp.level}`;
@@ -882,7 +966,8 @@ function prefetchShellData() {
       read("trade", "list"), read("quests"), read("weeklyQuests"), read("levelRewards"),
       read("vault"), read("bingo"), read("guessCard"), read("expedition"),
       { name: "eventCalendar" }, read("communityBoss"), read("guildChest"), read("blackMarket", "list"),
-      read("loginStreak"), read("setRewards"), read("season")
+      read("loginStreak"), read("setRewards"), read("season"),
+      read("challenges"), read("communityGoal"), read("themes"), read("wishlistAlerts")
     );
   }
   return API.batch(calls);

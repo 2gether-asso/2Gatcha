@@ -480,6 +480,7 @@
             </div>
             ${owned ? `<div class="card-modal-stats"><span>Possédée &times;${copies.length}${owned.count > copies.length ? ` (${owned.count} toutes variantes)` : ""}</span>${serials.length ? `<span>${serials.map(Coll.serial).join(", ")}</span>` : ""}</div>` : ""}
             ${card.description ? `<p class="card-modal-description">${escapeHtml(card.description)}</p>` : ""}
+            <div class="card-modal-info" data-card-info="${card.cardId}" aria-live="polite"><div class="card-info-loading">Chargement des infos…</div></div>
             ${card.firstObtainedBy ? `<div class="first-obtainer-badge">&#127942; ${isFirstObtainer ? "C'est toi qui as" : `<strong>${escapeHtml(card.firstObtainedBy)}</strong> a`} obtenu cette carte en premier sur le serveur !</div>` : ""}
             <div class="card-modal-actions">
               ${disenchantable ? `<button type="button" class="btn-ghost" data-modal-act="disenchant">&#9851; Décrafter (${card.isSecret ? "+1 booster" : "+" + Coll.estimateDust(card.rarity.disenchantValue, finish, quality)})</button>` : ""}
@@ -507,6 +508,27 @@
         }
       }));
       if (finish !== "normal") Coll.attachTilt(overlay.querySelector(".card-modal"));
+      loadCardInfo(overlay, card, owned);
+    }
+    // Fiche enrichie (api/src/native/social.js) : circulation, proprietaires,
+    // ou l'obtenir, et qui la cherche (proposer un echange en 2 clics).
+    async function loadCardInfo(root, card, owned) {
+      const box = root.querySelector(`[data-card-info="${card.cardId}"]`);
+      if (!box) return;
+      try {
+        const info = await API.getCardInfo(card.cardId, Session.isLoggedIn() ? Session.userId : null);
+        if (!document.body.contains(box)) return;
+        const canOffer = owned && owned.count > 1 && !card.isPromo;
+        box.innerHTML = `
+          <div class="card-info-row"><strong>${info.copies}</strong> exemplaire${info.copies > 1 ? "s" : ""} en circulation · <strong>${info.ownersCount}</strong> propriétaire${info.ownersCount > 1 ? "s" : ""}</div>
+          ${info.owners.length ? `<div class="card-info-owners">${info.owners.map((o) => `<a class="card-info-owner" href="profile.html?pseudo=${encodeURIComponent(o.pseudo)}" title="${escapeHtml(o.pseudo)} : ${o.count} exemplaire${o.count > 1 ? "s" : ""}">${o.avatar ? `<img src="${o.avatar}" alt="" />` : escapeHtml(o.pseudo.slice(0, 1))}<span>×${o.count}</span></a>`).join("")}</div>` : ""}
+          <details class="card-info-sources"><summary>Où l'obtenir ?</summary><ul>${info.sources.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul></details>
+          ${info.wishedBy.length ? `<div class="card-info-wishers"><span>&#11088; Elle est dans la liste de souhaits de :</span>${info.wishedBy.map((w) => canOffer
+            ? `<a class="btn-secondary card-info-offer" href="trade.html?to=${encodeURIComponent(w.pseudo)}&offer=${card.cardId}">Proposer à ${escapeHtml(w.pseudo)}</a>`
+            : `<span class="card-info-wisher">${escapeHtml(w.pseudo)}</span>`).join("")}</div>` : ""}`;
+      } catch (e) {
+        box.innerHTML = "";
+      }
     }
     function go(delta) { renderAt((index + delta + navList.length) % navList.length, delta > 0 ? "left" : "right"); }
     function close() { overlay.remove(); syncScrollLock(); document.removeEventListener("keydown", onKey); }

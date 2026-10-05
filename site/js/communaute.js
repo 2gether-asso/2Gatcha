@@ -49,7 +49,12 @@ function normalize(str) {
 
 // Memorise le dernier onglet visite (QoL 2026-09-30).
 const LAST_TAB_KEY = "2gatcha_last_tab_communaute";
+// Ancre d'URL de chaque onglet (2026-10-05) : communaute.html#ensemble...
+const TAB_HASH = { calendar: "calendrier", boss: "boss", chest: "coffre", market: "marche", together: "ensemble", skills: "metiers" };
+const HASH_TAB = Object.fromEntries(Object.entries(TAB_HASH).map(([k, v]) => [v, k]));
 function getInitialTab() {
+  const fromHash = HASH_TAB[location.hash.slice(1)];
+  if (fromHash) return fromHash;
   try { return localStorage.getItem(LAST_TAB_KEY) || "calendar"; } catch (e) { return "calendar"; }
 }
 
@@ -79,17 +84,85 @@ function setActiveTab(tab) {
     renderTabDots();
     if (typeof loadNavBadges === "function") loadNavBadges();
   }
-  ["calendar", "boss", "chest", "market", "skills"].forEach((key) => {
+  ["calendar", "boss", "chest", "market", "together", "skills"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
   });
   try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
+  if (TAB_HASH[tab] && location.hash !== "#" + TAB_HASH[tab]) history.replaceState(null, "", "#" + TAB_HASH[tab]);
+  if (tab === "together") loadTogether();
   if (tab === "calendar") loadCalendar();
   if (tab === "boss") loadBoss();
   if (tab === "chest") loadChest();
   if (tab === "market") loadMarket();
-  if (tab === "skills") loadSkills();
+  if (tab === "skills") { loadSkills(); loadTourney(); }
+}
+
+// --- Ensemble : objectif commun + grande fouille (api/src/native) ---------
+const CDIG_ICON = { dust: "&#10024;", worms: "&#129713;", bait: "&#127907;", booster: "&#127873;", part: "&#128297;", grand: "&#128081;" };
+function renderGoal(g) {
+  const box = document.getElementById("goal-card");
+  const pct = Math.round((g.progress / Math.max(1, g.target)) * 100);
+  const days = Math.max(0, Math.ceil((g.endsAt - Date.now() / 1000) / 86400));
+  box.innerHTML = `
+    <div class="goal-head"><span class="goal-icon" aria-hidden="true">${g.icon}</span><div><h2>Objectif commun : ${skillsEscape(g.label)}</h2>
+      <div class="goal-sub">${g.progress} / ${g.target} ${skillsEscape(g.unit)} · ${g.participants} participant${g.participants > 1 ? "s" : ""} · fin dans ${days} j</div></div></div>
+    <div class="goal-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>
+    <div class="goal-foot">
+      <span>Récompense pour chaque participant : <strong>${g.reward.dust} &#10024; + ${g.reward.worms} vers</strong>. Ta part : ${g.mine} ${skillsEscape(g.unit)}.</span>
+      ${g.claimable ? '<button type="button" class="btn" id="goal-claim-btn">Récupérer ma part</button>' : g.claimed ? "<span class=\"goal-done\">&#10004; Récupéré</span>" : g.reached ? "<span>Objectif atteint (participe pour avoir ta part la semaine prochaine)</span>" : ""}
+    </div>
+    ${g.top.length ? `<div class="goal-top">${g.top.map((t) => `<span>${skillsEscape(t.pseudo)} <strong>${t.n}</strong></span>`).join("")}</div>` : ""}`;
+}
+function renderCommunityDig(st) {
+  document.getElementById("cdig-meta").innerHTML = `Coups de pioche aujourd'hui : <strong>${st.digsLeft} / ${st.perDay}</strong> · trésors restants : ${st.treasuresLeft} · ${st.participants} participant${st.participants > 1 ? "s" : ""}${st.grand ? ` · &#128081; grand trésor trouvé par <strong>${skillsEscape(st.grand.by)}</strong> !` : ` · grand trésor : ${st.reward.dust} &#10024; + ${st.reward.boosters} booster pour chacun`}`;
+  document.getElementById("cdig-board").innerHTML = st.tiles.map((t, i) => t.dug
+    ? `<span class="cdig-tile dug ${t.reward ? "found reward-" + t.reward : ""}" title="${t.by ? "Creusé par " + skillsEscape(t.by) : ""}">${t.reward ? CDIG_ICON[t.reward] || "" : ""}</span>`
+    : `<button type="button" class="cdig-tile" data-cdig="${i}" ${st.digsLeft ? "" : "disabled"} aria-label="Creuser la case ${i + 1}"></button>`).join("");
+  document.getElementById("cdig-top").innerHTML = st.top.map((t) => `<li>${skillsEscape(t.pseudo)} <strong>${t.n}</strong></li>`).join("") || "<li>Personne pour l'instant.</li>";
+  document.getElementById("cdig-log").innerHTML = st.log.map((l) => `<li><strong>${skillsEscape(l.pseudo)}</strong> a trouvé ${skillsEscape(l.label)}</li>`).join("") || "<li>Aucune trouvaille pour l'instant.</li>";
+}
+async function loadTogether() {
+  if (!Session.isLoggedIn()) return;
+  API.communityGoal(Session.userId).then(renderGoal).catch(() => { document.getElementById("goal-card").innerHTML = ""; });
+  API.communityDig(Session.userId).then(renderCommunityDig).catch(() => { document.getElementById("cdig-meta").textContent = "Impossible de charger la grande fouille."; });
+}
+async function digCommunity(tile, btn) {
+  btn.disabled = true;
+  try {
+    const res = await API.communityDig(Session.userId, "dig", tile);
+    renderCommunityDig(res);
+    if (res.found) {
+      if (res.found.kind === "grand") {
+        Toast.success(`&#128081; GRAND TRÉSOR ! Les ${res.found.shared.participants} participants reçoivent ${res.found.shared.dust} &#10024; et ${res.found.shared.boosters} booster (et toi un de plus) !`);
+        if (typeof confetti === "function") confetti({ particleCount: 250, spread: 150, origin: { y: 0.5 } });
+      } else Toast.success(`${CDIG_ICON[res.found.kind] || ""} Tu as trouvé ${res.found.label} !`);
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    }
+  } catch (e) {
+    btn.disabled = false;
+    Toast.error({ no_digs_left: "Plus de coups de pioche aujourd'hui : reviens demain !", tile_already_dug: "Quelqu'un vient de creuser ici." }[e.code] || "Erreur. (" + e.message + ")");
+    loadTogether();
+  }
+}
+
+// --- Tournoi de peche du week-end (Metiers) -------------------------------
+async function loadTourney() {
+  const box = document.getElementById("tourney-card");
+  try {
+    const t = await API.getFishingTournament(Session.isLoggedIn() ? Session.userId : undefined);
+    const last = t.lastWinners && t.lastWinners.length ? `<div class="tourney-last">Dernier tournoi : ${t.lastWinners.map((w, i) => `${["&#129351;", "&#129352;", "&#129353;"][i] || ""} ${skillsEscape(w.pseudo)} (${w.score} pts)`).join(" · ")}</div>` : "";
+    if (!t.active) {
+      const d = t.nextStart ? new Date(t.nextStart + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : "samedi";
+      box.innerHTML = `<h3>&#127907; Tournoi de pêche</h3><p>Prochain tournoi : <strong>${d}</strong> et dimanche. Tes ${t.casts} premiers lancers du week-end comptent (points selon la rareté). Prix : ${t.prizes.map((p) => p + " ✨").join(" / ")} et le titre « Roi de la pêche ».</p>${last}`;
+      return;
+    }
+    box.innerHTML = `<h3>&#127907; Tournoi de pêche en cours !</h3>
+      <p>Tes ${t.casts} premiers lancers du week-end comptent. ${t.me ? `Toi : <strong>${t.me.score} pts</strong> (${t.me.casts}/${t.casts} lancers).` : ""} Prix : ${t.prizes.map((p) => p + " ✨").join(" / ")}.</p>
+      ${t.board.length ? `<ol class="skills-list">${t.board.map((r) => `<li class="skills-row ${r.rank === 1 ? "champion" : ""}"><span class="skills-rank">${r.rank === 1 ? "&#128081;" : r.rank}</span><span class="skills-avatar">${r.avatar ? `<img src="${r.avatar}" alt="" />` : skillsEscape((r.pseudo || "?").slice(0, 1))}</span><span class="skills-name">${skillsEscape(r.pseudo)}</span><span class="skills-level">${r.casts}/${t.casts}</span><span class="skills-xp">${r.score} pts</span></li>`).join("")}</ol>` : "<p>Personne n'a encore lancé sa ligne.</p>"}
+      <a class="btn-secondary" href="jeux.html#peche">Aller pêcher</a>${last}`;
+  } catch (e) { box.innerHTML = ""; }
 }
 
 // Classement des metiers (api/src/native/levels.js) : XP de la semaine.
@@ -107,7 +180,7 @@ async function loadSkills() {
             <span class="skills-rank">${r.rank === 1 ? "&#128081;" : r.rank}</span>
             <span class="skills-avatar">${r.discordAvatar ? `<img src="${r.discordAvatar}" alt="" />` : skillsEscape((r.pseudo || "?").slice(0, 1))}</span>
             <a class="skills-name" href="profile.html?pseudo=${encodeURIComponent(r.pseudo || "")}">${skillsEscape(r.pseudo || "?")}</a>
-            <span class="skills-level">niv. ${r.level}</span>
+            <span class="skills-level">niv. ${r.level}${r.prestige ? ` <span class="skill-stars">${"★".repeat(Math.min(r.prestige, 3))}</span>` : ""}</span>
             <span class="skills-xp">${r.weekXp} XP</span>
           </li>`).join("")}</ol>` : `<div class="empty-state">Personne cette semaine : à toi de jouer !</div>`}
       </div>`;
@@ -630,6 +703,7 @@ async function loadMarket() {
         <div class="craft-card" data-rarity="${o.card.rarity?.key || "commune"}">
           <img src="${imgSrc}" alt="${o.card.name}" loading="lazy" />
           <div class="card-info">
+            ${o.label ? `<div class="market-label">&#128150; ${o.label}</div>` : ""}
             <div class="card-name">${o.card.name}</div>
             <div class="craft-cost">${o.cost} poussières${o.remaining != null ? ` · ${o.remaining} restant${o.remaining > 1 ? "s" : ""}` : ""}</div>
             <button class="btn-secondary market-buy-btn" data-offer-id="${o.offerId}">Acheter</button>
@@ -673,7 +747,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById(`tab-${key}-btn`).style.display = communauteSignals[key].active ? "" : "none";
     });
     const firstUnseen = CommunauteSignals.TABS.find((k) => CommunauteSignals.isUnseen(k, communauteSignals[k]));
-    if (!communauteSignals[initial] || !communauteSignals[initial].active) initial = firstUnseen || "chest";
+    // Onglets sans signal (Ensemble, Metiers) : toujours disponibles.
+    if (CommunauteSignals.TABS.includes(initial) && (!communauteSignals[initial] || !communauteSignals[initial].active)) initial = firstUnseen || "chest";
     renderTabDots();
   }
   setActiveTab(initial);
@@ -683,6 +758,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-chest-btn").addEventListener("click", () => setActiveTab("chest"));
   document.getElementById("tab-market-btn").addEventListener("click", () => setActiveTab("market"));
   document.getElementById("tab-skills-btn").addEventListener("click", () => setActiveTab("skills"));
+  document.getElementById("tab-together-btn").addEventListener("click", () => setActiveTab("together"));
+  window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
+  document.getElementById("cdig-board").addEventListener("click", (e) => { const b = e.target.closest("[data-cdig]"); if (b) digCommunity(Number(b.dataset.cdig), b); });
+  document.getElementById("goal-card").addEventListener("click", async (e) => {
+    if (!e.target.closest("#goal-claim-btn")) return;
+    try { const res = await API.communityGoal(Session.userId, "claim"); renderGoal(res); Toast.success(`&#129309; +${res.claimedNow.dust} poussières et +${res.claimedNow.worms} vers !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); }
+    catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+  });
 
   let bossSearchTimer = null;
   document.getElementById("boss-search-input").addEventListener("input", (e) => {

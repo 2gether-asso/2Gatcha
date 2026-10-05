@@ -148,10 +148,18 @@ doublons, coup final au boss) sans le modifier.
 | `duplicates.js` | — (après `open-pack`) | poussière passive pour chaque doublon à l'ouverture |
 | `push.js` | `GET push-config`, `POST push` | notifications push (Web Push) |
 | `seasons.js` | `POST season`, `POST admin-season` | saison mensuelle : paliers d'XP du mois, carte exclusive au dernier palier |
-| `fishing.js` | `POST fishing` (+ après `dig`) | pêche : 1 ver de terre par lancer (vers trouvés dans la terre restante en fin de grille de fouille), météo du jour, carnet, pièces détachées |
+| `fishing.js` | `POST fishing`, `GET fishing-tournament` (+ après `dig`) | pêche : 1 ver par lancer, météo (relançable), carnet, appât doré, tournoi du week-end, rendements décroissants |
 | `unique.js` | `POST unique-counter` | rareté Unique (verte) : 1 Ticket Unique par ligne complète du coffre-fort, échangé au Comptoir contre la carte de son choix |
 | `personal-vault.js` | `POST personal-vault` | coffre-fort perso : lignes de 6 finitions, récompense + Ticket Unique |
-| `levels.js` | `GET skills-leaderboard` (+ après `dig`) | niveaux de pêche et de fouille (1 à 10, chenil compris), classement de la semaine |
+| `levels.js` | `GET skills-leaderboard`, `POST prestige` (+ après `dig`) | niveaux de pêche et de fouille (1 à 10, chenil compris), prestige, classement de la semaine, rendements décroissants de la fouille |
+| `activity.js` | — | bus d'activité : chaque action devient des événements (défis, objectif commun, succès secrets) ; annonces renvoyées dans `notices` |
+| `challenges.js` | `POST challenges`, `POST community-goal` | défis de la semaine (5 proposés, 3 choisis) et objectif commun |
+| `achievements.js` | `POST themes`, `GET achievements-hidden` | collections thématiques (titres) et succès secrets |
+| `cosmetics.js` | `POST cosmetics` | boutique : titres, cadres d'avatar, couleurs de pseudo |
+| `rules.js` | `POST reroll`, `GET economy-rules` | taxe d'échange, prix de l'os qui monte, marché noir automatique, relances payantes (météo, expédition) |
+| `social.js` | `GET card-info`, `POST wishlist-alerts`, `GET`/`POST profile-wall` | fiche carte enrichie, alertes de liste de souhaits, mur et stats du profil |
+| `garden.js` | `POST garden` | jardin : vers et appâts dorés pour la pêche |
+| `community-dig.js` | `POST community-dig` | grande fouille commune de la semaine (grand trésor partagé) |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |
@@ -165,6 +173,8 @@ coffre-fort perso, notifications), modifiables dans Admin > « Réglages
 avancés », avec bornes vérifiées côté serveur. Un réglage jamais modifié
 garde sa valeur par défaut. Ceux lus par les workflows sont des colonnes de
 la ligne `Config` ; les autres sont gardés dans `AppSettings`.
+
+**Journal de l'économie** : toute variation de boosters, poussières ou vers d'un joueur est cumulée par jour et par source (table `EconomyDaily`, voir `index.js`) ; le tableau de bord de l'admin affiche les flux et des alertes d'inflation.
 
 **Saisons** : chaque mois (heure de Paris) repart de zéro. L'XP de départ est
 notée à la première action du joueur dans le mois ; chaque palier

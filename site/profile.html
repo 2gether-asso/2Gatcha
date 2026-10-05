@@ -30,6 +30,7 @@
               <span id="profile-level-badge" class="level-badge" style="display:none;"></span>
               <span id="profile-selected-badge" class="level-badge" style="display:none;"></span>
             </div>
+            <div id="profile-title-line" class="decor-title" hidden></div>
             <p id="profile-member-since" class="profile-meta"></p>
           </div>
           <div id="profile-complete-badge" class="reward-banner" style="display:none;">&#127942; Collection complète !</div>
@@ -50,6 +51,7 @@
           <div id="profile-showcase-grid" class="showcase-grid"></div>
         </div>
 
+        <div id="profile-extras" class="profile-extras"></div>
         <div id="profile-stats" class="stats-grid"></div>
         <div id="profile-rarity-breakdown" class="rarity-progress-list"></div>
 
@@ -62,6 +64,15 @@
         <h2 style="margin-top:24px;">Collection publique</h2>
         <p class="lead" style="font-size:0.8rem;">Le badge <span class="dupe-badge" style="position:static;display:inline-flex;">×N</span> indique une carte possédée en plusieurs exemplaires : ce joueur a peut-être un doublon à échanger.</p>
         <div id="profile-grid" class="collection-grid"></div>
+
+        <section id="profile-wall" class="profile-wall" hidden>
+          <h2>&#128172; Mur</h2>
+          <form id="wall-form" class="wall-form" hidden>
+            <input type="text" id="wall-input" maxlength="280" placeholder="Laisser un message…" aria-label="Message" />
+            <button type="submit" class="btn">Envoyer</button>
+          </form>
+          <ul class="wall-list" id="wall-list"></ul>
+        </section>
       </div>
     </div>
   </main>
@@ -72,6 +83,7 @@
   <script src="js/core.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/profile-extras.js"></script>
   <script>
     // Memes echelles que collection.js/craft.js (voir docs/SCHEMA.md) : le
     // profil public doit montrer le meme traitement visuel (filtre image,
@@ -167,6 +179,7 @@
             `Membre depuis ${d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
         }
         if (res.isComplete) document.getElementById("profile-complete-badge").style.display = "block";
+        if (typeof renderProfileExtras === "function") renderProfileExtras(res);
 
         if (res.level) {
           const levelBadge = document.getElementById("profile-level-badge");
