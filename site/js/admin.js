@@ -83,7 +83,7 @@ function renderCodesCalendar(codes) {
 function renderCodes() {
   renderCodesTable(codesCache);
   renderCodesCalendar(codesCache);
-  document.getElementById("codes-table").style.display = calendarView ? "none" : "table";
+  document.getElementById("codes-table").style.display = calendarView ? "none" : "";
   document.getElementById("codes-calendar").style.display = calendarView ? "flex" : "none";
 }
 

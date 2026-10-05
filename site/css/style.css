@@ -939,8 +939,8 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
    tuiles il reste a trouver pour ce tresor). */
 .dig-remaining {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: 3px;
+  right: 3px;
   min-width: 18px;
   height: 18px;
   padding: 0 4px;
@@ -6458,3 +6458,71 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 .sim-best img { grid-row: 1 / 3; width: 34px; height: 48px; object-fit: cover; border-radius: 4px; }
 .sim-best-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sim-best-meta { font-size: 0.78rem; color: var(--text-dim); }
+
+/* --- Passe "tout rentre" (2026-10-05) : audit 320 -> 1920 px --- */
+/* Serie de connexion : recompense compacte (1 🃏 / 150 ✨), une par ligne. */
+.streak-day-reward { display: flex; flex-direction: column; align-items: center; gap: 1px; overflow-wrap: normal; }
+.streak-day-reward > span { white-space: nowrap; }
+@media (max-width: 380px) { .streak-days { gap: 4px; } .streak-day { padding: 6px 1px; font-size: 0.62rem; } }
+
+/* Atelier (finitions / qualite) : sur mobile, le bouton passe sous la carte. */
+.finish-upgrade-path { flex-wrap: wrap; row-gap: 4px; }
+@media (max-width: 560px) {
+  .finish-upgrade-row { flex-wrap: wrap; padding: 12px; gap: 10px 12px; }
+  .finish-upgrade-row .finish-upgrade-info { flex: 1 1 calc(100% - 70px); }
+  .finish-upgrade-row > button, .finish-upgrade-row > .btn, .finish-upgrade-row > .btn-secondary { flex: 1 1 100%; width: 100%; }
+}
+
+/* Journal d'ouvertures : sur mobile, l'heure passe sous le nom. */
+@media (max-width: 480px) {
+  .pull-log-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "img info src" "img time src"; gap: 2px 10px; padding: 8px 10px; }
+  .pull-log-row img { grid-area: img; }
+  .pull-log-info { grid-area: info; }
+  .pull-log-source { grid-area: src; }
+  .pull-log-time { grid-area: time; font-size: 0.7rem; }
+  .pull-log-name { overflow-wrap: anywhere; }
+}
+
+/* Autel : libelle des emplacements vides. */
+.altar-slot.empty { padding: 0 4px; text-align: center; overflow-wrap: anywhere; line-height: 1.2; }
+@media (max-width: 400px) { .altar-slot.empty { font-size: 0.66rem; } }
+
+/* Coffre de guilde : le bouton "Deposer" passe sous les etiquettes si la carte est etroite. */
+.chest-variant-row { flex-wrap: wrap; }
+.chest-variant-tags { flex: 1 1 auto; min-width: 0; }
+.chest-variant-tags .finish-tag, .chest-variant-tags .quality-tag { white-space: nowrap; }
+.chest-variant-row .chest-deposit-btn { margin-left: auto; }
+
+/* Resume de la collection : valeur longue ("Legendaire") dans une tuile etroite. */
+.stat-tile .stat-value { font-size: clamp(0.95rem, 0.8rem + 0.6vw, 1.25rem); overflow-wrap: anywhere; hyphens: auto; }
+
+/* Comptoir Unique : le halo du dome ne doit pas elargir la page. */
+.pv-counter-card { overflow: hidden; }
+.pv-counter, .pv-counter-grid { max-width: 100%; }
+
+/* Tableaux admin : defilent dans leur cadre au lieu d'elargir le panneau. */
+.admin-table { max-width: 100%; }
+.admin-section-body, .admin-section { min-width: 0; }
+
+/* Plateau d'attaque du boss : reste au-dessus de la barre du bas sur mobile. */
+@media (max-width: 860px) { .boss-tray { bottom: calc(var(--nav-bottom-h) + env(safe-area-inset-bottom, 0px) + 8px); } }
+
+/* Boutons des ateliers sur tres petit ecran. */
+@media (max-width: 360px) { .btn, .btn-secondary { padding-left: 12px; padding-right: 12px; } }
+
+/* Formulaires admin : les colonnes ne s'elargissent plus selon le contenu
+   (listes aux options longues) -> rien ne sort du panneau sur mobile. */
+.admin-form { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.admin-form > *, .admin-form label { min-width: 0; }
+.admin-form select, .admin-form input, .admin-form textarea, .admin-form button { max-width: 100%; min-width: 0; }
+.admin-form button { white-space: normal; }
+/* Graphique des raretes (admin) : colonnes qui retrecissent sur petit ecran. */
+.rarity-chart { gap: clamp(4px, 2vw, 14px); }
+.rarity-chart .bar-col { min-width: 0; }
+.rarity-chart .bar-label { max-width: 100%; overflow-wrap: anywhere; }
+/* Tres petits ecrans : cesure propre plutot qu'un mot coupe au hasard. */
+@media (max-width: 400px) {
+  .altar-slot.empty { overflow-wrap: normal; hyphens: auto; -webkit-hyphens: auto; font-size: 0.62rem; }
+  .streak-day-reward { font-size: clamp(0.55rem, 2.7vw, 0.68rem); }
+  .streak-day-reward > span { white-space: normal; }
+}
