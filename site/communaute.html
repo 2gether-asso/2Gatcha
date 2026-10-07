@@ -118,10 +118,17 @@
         <details class="auction-sell" id="auction-sell">
           <summary>&#128176; Vendre un exemplaire</summary>
           <form id="auction-form" class="auction-form">
-            <label>Exemplaire <input type="search" id="auction-search" placeholder="Filtrer par nom…" autocomplete="off" /></label>
-            <div id="auction-pull" class="auction-pick" role="radiogroup" aria-label="Exemplaire à vendre"></div>
-            <label>Prix de départ (poussières) <input type="number" id="auction-price" min="10" step="10" value="100" /></label>
-            <button type="submit" class="btn">Mettre en vente</button>
+            <div class="auction-pick-toolbar">
+              <input type="search" id="auction-search" placeholder="Rechercher une carte…" autocomplete="off" aria-label="Rechercher une carte" />
+              <select id="auction-rarity" aria-label="Rareté"><option value="">Toutes raretés</option></select>
+              <label class="auction-dupes"><input type="checkbox" id="auction-dupes" checked /> Doublons seulement</label>
+            </div>
+            <div id="auction-pull" class="auction-pick" role="listbox" aria-label="Exemplaire à vendre"></div>
+            <div class="auction-sell-bar">
+              <div class="auction-sell-preview" id="auction-sell-preview"><span class="muted">Choisis un exemplaire ci-dessus.</span></div>
+              <label class="auction-price-field">Prix de départ <span class="auction-price-input"><input type="number" id="auction-price" min="10" step="10" value="100" /> &#10024;</span></label>
+              <button type="submit" class="btn" id="auction-submit" disabled>Mettre en vente</button>
+            </div>
           </form>
         </details>
         <div class="auction-list" id="auction-list"><div class="loading-row"><div class="spinner"></div></div></div>

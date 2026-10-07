@@ -7105,7 +7105,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .collection-card .rarity-badge { margin: 0; }
 .collection-card .count-badge { font-size: 0.74rem; font-weight: 700; color: var(--text-dim); }
 .collection-card .quick-actions-row { width: 100%; gap: 4px; margin-top: 2px; }
-.collection-card .card-quick-action { width: 28px; height: 28px; padding: 0; font-size: 0.78rem; border-radius: 8px; }
+.collection-card .card-quick-action:not(.quick-craft-btn) { width: 28px; height: 28px; padding: 0; font-size: 0.78rem; border-radius: 8px; }
 @media (hover: hover) and (pointer: fine) {
   .collection-card .quick-actions-row { opacity: 0.35; transition: opacity 0.15s; }
   .collection-card:hover .quick-actions-row, .collection-card:focus-within .quick-actions-row { opacity: 1; }
@@ -7114,7 +7114,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 @media (max-width: 560px) {
   .collection-grid:not(.dense), .craft-grid:not(#chest-card-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
   .collection-card .card-name { font-size: 0.78rem; }
-  .collection-card .card-quick-action { width: 26px; height: 26px; }
+  .collection-card .card-quick-action:not(.quick-craft-btn) { width: 26px; height: 26px; }
 }
 
 /* =====================================================================
@@ -7275,3 +7275,177 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .trade-side-extra .checkbox-inline { justify-self: start !important; }
 /* Comptoir Unique : le halo du dome reste dans la grille sans couper les boutons. */
 .pv-counter-grid { overflow: hidden; padding: 6px; margin: -6px; }
+
+/* Bouton texte "Crafter (cout)" des cartes manquantes : pleine largeur, pas une icone carree. */
+.collection-card .quick-craft-btn { width: 100%; height: auto; padding: 6px 10px; margin-top: 2px; font-size: 0.78rem; font-weight: 700; border-radius: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: none; }
+
+/* --- Bouton "Crafter (cout)" des cartes manquantes : accent rose lisible --- */
+.collection-card .quick-craft-btn { background: color-mix(in srgb, var(--accent-3) 14%, var(--bg-panel-2)); color: #fbcfe8; border: 1px solid color-mix(in srgb, var(--accent-3) 60%, transparent); }
+.collection-card .quick-craft-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-3) 26%, var(--bg-panel-2)); color: #fff; }
+
+/* =====================================================================
+   ENCHERES : vendre un exemplaire, selecteur visuel (2026-10-07)
+   ===================================================================== */
+.auction-form { display: grid !important; grid-template-columns: 1fr !important; gap: 12px; margin-top: 12px; }
+.auction-pick-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.auction-pick-toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; padding: 9px 12px; }
+.auction-pick-toolbar select { padding: 9px 12px; }
+.auction-dupes { display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; color: var(--text-dim); cursor: pointer; white-space: nowrap; }
+.auction-pick {
+  display: grid !important; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important; gap: 10px !important;
+  max-height: 360px; overflow-y: auto; padding: 10px !important; border-radius: 14px;
+  background: rgba(0,0,0,0.22) !important; border: 1px solid var(--border-soft); scrollbar-width: thin;
+}
+.auction-pick-card {
+  display: grid; gap: 4px; padding: 6px; border-radius: 12px; text-align: center;
+  background: var(--bg-panel-2); color: var(--text); font: inherit; font-weight: 600;
+  border: 2px solid color-mix(in srgb, var(--r, #888) 55%, transparent); box-shadow: none; cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.auction-pick-card::before { display: none; }
+.auction-pick-card:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--r, var(--accent)); filter: none; }
+.auction-pick-card.selected { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 35%, transparent); background: color-mix(in srgb, var(--accent-2) 10%, var(--bg-panel-2)); }
+.auction-pick-card.selected::after { content: "✓"; position: absolute; top: 4px; right: 6px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 0.72rem; background: var(--accent-2); color: #04121a; }
+.apc-art { position: relative; display: block; border-radius: 8px; overflow: hidden; aspect-ratio: 3 / 4; background: rgba(0,0,0,0.3); }
+.apc-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.apc-art .finish-indicator, .apc-art .quality-indicator { font-size: 0.52rem; padding: 1px 5px; bottom: 4px; }
+.apc-art .finish-indicator { left: 4px; }
+.apc-art .quality-indicator { right: 4px; }
+.apc-count { position: absolute; top: 4px; left: 4px; font-size: 0.6rem; font-weight: 800; padding: 1px 6px; border-radius: 999px; background: rgba(8,9,22,0.75); color: var(--text); }
+.apc-name { font-size: 0.74rem; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apc-meta { font-size: 0.66rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.apc-empty, .apc-more { grid-column: 1 / -1; text-align: center; font-size: 0.84rem; margin: 8px 0; }
+.auction-sell-bar {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
+  padding: 10px 12px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft);
+}
+.auction-sell-preview { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 0.86rem; }
+.auction-sell-preview img { width: 40px; height: 54px; object-fit: cover; border-radius: 6px; border: 2px solid var(--r, #888); flex-shrink: 0; }
+.auction-sell-preview span { display: grid; min-width: 0; }
+.auction-sell-preview strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auction-sell-preview small { color: var(--text-dim); font-size: 0.74rem; overflow-wrap: anywhere; }
+.auction-price-field { display: grid; gap: 4px; font-size: 0.74rem; color: var(--text-dim); }
+.auction-price-input { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; }
+.auction-price-input input { width: 110px; padding: 8px 10px; font-weight: 700; }
+.auction-sell-bar .btn { white-space: nowrap; }
+@media (max-width: 640px) {
+  .auction-pick { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; max-height: 330px; }
+  .auction-sell-bar { grid-template-columns: 1fr auto; }
+  .auction-sell-preview { grid-column: 1 / -1; }
+  .auction-price-input input { width: 100%; }
+}
+.auction-form label.auction-dupes { display: inline-flex; flex-direction: row; }
+.auction-pick-toolbar select { width: auto; flex: 0 1 200px; min-width: 0; }
+.apc-art .finish-indicator { top: 4px; bottom: auto; left: auto; right: 4px; }
+.apc-art .quality-indicator { right: auto; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.auction-pick-card.selected::after { top: auto; bottom: 6px; right: 6px; }
+@media (max-width: 360px) { .auction-pick { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* =====================================================================
+   HIERARCHIE VISUELLE DES CARTES (2026-10-07)
+   Plus la rarete monte, plus la carte "brille" : cadre plus epais, halo
+   plus large, bandeau du nom plus colore, puis cadre anime (legendaire,
+   mythique). A l'inverse, une commune reste sobre et un peu terne.
+   Meme logique pour les finitions : un liseré interieur de plus en plus
+   vif sur l'illustration, jusqu'a l'arc-en-ciel anime.
+   ===================================================================== */
+[data-rarity="commune"] { --tier-frame: 1px; --tier-frame-a: 45%; --tier-glow: 0px; --tier-glow-a: 0%; --tier-info: 0%; }
+[data-rarity="rare"] { --tier-frame: 2px; --tier-frame-a: 75%; --tier-glow: 14px; --tier-glow-a: 35%; --tier-info: 12%; }
+[data-rarity="epique"] { --tier-frame: 2px; --tier-frame-a: 95%; --tier-glow: 20px; --tier-glow-a: 55%; --tier-info: 20%; }
+[data-rarity="legendaire"] { --tier-frame: 3px; --tier-frame-a: 100%; --tier-glow: 28px; --tier-glow-a: 70%; --tier-info: 26%; }
+[data-rarity="mythique"] { --tier-frame: 3px; --tier-frame-a: 100%; --tier-glow: 36px; --tier-glow-a: 80%; --tier-info: 30%; }
+[data-rarity="unique"] { --tier-frame: 3px; --tier-frame-a: 100%; --tier-glow: 30px; --tier-glow-a: 75%; --tier-info: 26%; }
+
+/* --- Cadre et halo, gradues --- */
+.collection-card:not(.locked)[data-rarity],
+.craft-card[data-rarity],
+.album-slot.album-owned[data-rarity],
+.reveal-grid .card[data-rarity] .card-front {
+  border: var(--tier-frame) solid color-mix(in srgb, var(--r) var(--tier-frame-a), rgba(255,255,255,0.06)) !important;
+  border-image: none !important;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 0 var(--tier-glow) color-mix(in srgb, var(--r) var(--tier-glow-a), transparent), 0 12px 26px -18px rgba(0,0,0,0.9) !important;
+}
+/* Bandeau du nom teinte par la rarete (rien pour une commune). */
+.collection-card:not(.locked)[data-rarity] .card-info,
+.craft-card[data-rarity] .card-info,
+.reveal-grid .card[data-rarity] .card-front .card-info {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--r) var(--tier-info), var(--bg-panel-2)), var(--bg-panel-2));
+}
+/* Commune : sobre et un peu terne. */
+.collection-card:not(.locked)[data-rarity="commune"] .card-name,
+.craft-card[data-rarity="commune"] .card-name,
+.reveal-grid .card[data-rarity="commune"] .card-name { color: var(--text-dim); font-weight: 600; }
+.collection-card:not(.locked)[data-rarity="commune"]:not(:hover),
+.craft-card[data-rarity="commune"]:not(:hover) { filter: saturate(0.85) brightness(0.95); }
+/* Epique : nom colore. */
+.collection-card:not(.locked)[data-rarity="epique"] .card-name,
+.craft-card[data-rarity="epique"] .card-name,
+.reveal-grid .card[data-rarity="epique"] .card-name { color: color-mix(in srgb, var(--rarity-epique) 55%, #fff); }
+/* Legendaire, mythique, unique : nom en degrade metallique. */
+.collection-card:not(.locked)[data-rarity="legendaire"] .card-name, .craft-card[data-rarity="legendaire"] .card-name, .reveal-grid .card[data-rarity="legendaire"] .card-name {
+  background: linear-gradient(90deg, #ffd76e, #fff3c4, #f5a524); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.collection-card:not(.locked)[data-rarity="mythique"] .card-name, .craft-card[data-rarity="mythique"] .card-name, .reveal-grid .card[data-rarity="mythique"] .card-name {
+  background: linear-gradient(90deg, #ff6b6b, #ffd1d1, #ff2e63); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.collection-card:not(.locked)[data-rarity="unique"] .card-name, .craft-card[data-rarity="unique"] .card-name {
+  background: linear-gradient(90deg, #4ade80, #d1fae5, #22c55e); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* --- Cadre anime : legendaire (or), mythique (feu), unique (emeraude) --- */
+@property --tier-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes tierSpin { to { --tier-angle: 360deg; } }
+@keyframes tierPulse { 50% { box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 0 calc(var(--tier-glow) * 1.5) color-mix(in srgb, var(--r) 90%, transparent), 0 12px 26px -18px rgba(0,0,0,0.9); } }
+.collection-card:not(.locked)[data-rarity="legendaire"], .craft-card[data-rarity="legendaire"], .reveal-grid .card[data-rarity="legendaire"] .card-front {
+  border-color: transparent !important;
+  background: linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box, conic-gradient(from var(--tier-angle), #f5a524, #fff3c4, #d4af37, #f5a524, #ffe08a, #f5a524) border-box !important;
+  animation: tierSpin 6s linear infinite;
+}
+.collection-card:not(.locked)[data-rarity="mythique"], .craft-card[data-rarity="mythique"], .reveal-grid .card[data-rarity="mythique"] .card-front {
+  border-color: transparent !important;
+  background: linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box, conic-gradient(from var(--tier-angle), #ff2e63, #ff9a3c, #ffd1d1, #ff2e63, #b5179e, #ff2e63) border-box !important;
+  animation: tierSpin 4s linear infinite, tierPulse 2.6s ease-in-out infinite;
+}
+.collection-card:not(.locked)[data-rarity="unique"], .craft-card[data-rarity="unique"] {
+  border-color: transparent !important;
+  background: linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box, conic-gradient(from var(--tier-angle), #22c55e, #d1fae5, #10b981, #22c55e) border-box !important;
+  animation: tierSpin 5s linear infinite;
+}
+
+/* --- Finitions : lisere interieur de plus en plus vif sur l'illustration --- */
+.collection-card[data-finish] .card-art, .craft-card[data-finish] .card-art, .reveal-grid .card[data-finish] .card-front .card-art, .card-modal[data-finish] .card-art { outline-offset: -2px; }
+.collection-card[data-finish="holo"] .card-art, .craft-card[data-finish="holo"] .card-art, .reveal-grid .card[data-finish="holo"] .card-front .card-art { outline: 2px solid rgba(167,139,250,0.55); }
+.collection-card[data-finish="gold"] .card-art, .craft-card[data-finish="gold"] .card-art, .reveal-grid .card[data-finish="gold"] .card-front .card-art { outline: 2px solid rgba(234,179,8,0.75); }
+.collection-card[data-finish="ghost"] .card-art, .craft-card[data-finish="ghost"] .card-art, .reveal-grid .card[data-finish="ghost"] .card-front .card-art { outline: 2px dashed rgba(203,213,225,0.7); }
+.collection-card[data-finish="diamond"] .card-art, .craft-card[data-finish="diamond"] .card-art, .reveal-grid .card[data-finish="diamond"] .card-front .card-art { outline: 2px solid rgba(186,230,253,0.9); animation: finishGlint 2.4s ease-in-out infinite; }
+.collection-card[data-finish="rainbow"] .card-art, .craft-card[data-finish="rainbow"] .card-art, .reveal-grid .card[data-finish="rainbow"] .card-front .card-art { outline: 2px solid #ff6ec7; animation: finishRainbowRing 3s linear infinite; }
+@keyframes finishGlint { 50% { outline-color: #ffffff; filter: brightness(1.12); } }
+@keyframes finishRainbowRing { 0% { outline-color: #ff6ec7; } 20% { outline-color: #ffd76e; } 40% { outline-color: #4ade80; } 60% { outline-color: #7dd3fc; } 80% { outline-color: #a78bfa; } 100% { outline-color: #ff6ec7; } }
+/* Puces de finition qui brillent selon leur prestige. */
+.finish-indicator[data-finish="gold"] { box-shadow: 0 0 8px rgba(234,179,8,0.5); }
+.finish-indicator[data-finish="diamond"] { box-shadow: 0 0 10px rgba(125,211,252,0.7); }
+.finish-indicator[data-finish="rainbow"] { box-shadow: 0 0 12px rgba(255,110,199,0.7); }
+
+/* L'arc-en-ciel garde son cadre multicolore, meme sur une legendaire. */
+.collection-card:not(.locked)[data-finish="rainbow"], .craft-card[data-finish="rainbow"], .reveal-grid .card[data-finish="rainbow"] .card-front {
+  border-color: transparent !important;
+  background: linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box, conic-gradient(from var(--tier-angle), #ff6ec7, #ffd76e, #7dd3fc, #a78bfa, #4ade80, #ff6ec7) border-box !important;
+  animation: tierSpin 3s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collection-card, .craft-card, .reveal-grid .card .card-front, .collection-card .card-art, .craft-card .card-art { animation: none !important; }
+}
+
+/* Lisere de finition sur le calque de reflet (au-dessus de l'image, l'outline etant masque). */
+.collection-card[data-finish="holo"] .card-art::after, .craft-card[data-finish="holo"] .card-art::after, .card-modal[data-finish="holo"] .card-art::after, .reveal-grid .card[data-finish="holo"] .card-art::after { box-shadow: inset 0 0 0 2px rgba(167,139,250,0.75), inset 0 0 18px rgba(167,139,250,0.35); }
+.collection-card[data-finish="gold"] .card-art::after, .craft-card[data-finish="gold"] .card-art::after, .card-modal[data-finish="gold"] .card-art::after, .reveal-grid .card[data-finish="gold"] .card-art::after { box-shadow: inset 0 0 0 2px rgba(234,179,8,0.9), inset 0 0 22px rgba(234,179,8,0.35); }
+.collection-card[data-finish="ghost"] .card-art::after, .craft-card[data-finish="ghost"] .card-art::after, .card-modal[data-finish="ghost"] .card-art::after, .reveal-grid .card[data-finish="ghost"] .card-art::after { box-shadow: inset 0 0 0 2px rgba(203,213,225,0.6), inset 0 0 26px rgba(226,232,240,0.35); }
+.collection-card[data-finish="diamond"] .card-art::after, .craft-card[data-finish="diamond"] .card-art::after, .card-modal[data-finish="diamond"] .card-art::after, .reveal-grid .card[data-finish="diamond"] .card-art::after { box-shadow: inset 0 0 0 2px rgba(224,242,254,0.95), inset 0 0 26px rgba(125,211,252,0.5); }
+.collection-card[data-finish="rainbow"] .card-art::after, .craft-card[data-finish="rainbow"] .card-art::after, .card-modal[data-finish="rainbow"] .card-art::after, .reveal-grid .card[data-finish="rainbow"] .card-art::after { box-shadow: inset 0 0 0 2px rgba(255,110,199,0.9), inset 0 0 30px rgba(255,215,110,0.35); }
+.collection-card[data-finish] .card-art, .craft-card[data-finish] .card-art, .reveal-grid .card[data-finish] .card-front .card-art { outline: none !important; }
+/* Une finition speciale reste attirante meme sur une commune. */
+.collection-card:not(.locked)[data-rarity="commune"]:not([data-finish="normal"]), .craft-card[data-rarity="commune"]:not([data-finish="normal"]) { filter: none !important; }
+/* Nom avec badge Promo : pas tronque (sinon le badge est coupe). */
+.collection-card .card-name:has(.promo-badge) { white-space: normal; overflow: visible; }
+@media (max-width: 400px) { .auction-sell-bar { grid-template-columns: 1fr; } .auction-sell-bar .btn { width: 100%; } .auction-price-input input { width: 100%; } }

@@ -11,6 +11,9 @@
   const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
   let data = null;
   let copies = [];
+  let selectedPull = null;
+  const RANK = { holo: 1, gold: 2, ghost: 3, diamond: 4, rainbow: 5 };
+  const QRANK = { damaged: 0, worn: 1, good: 2, mint: 3 };
   let timer = null;
 
   function left(t) {
@@ -43,24 +46,61 @@
     $("auction-history").innerHTML = data.history.length ? data.history.map((a) => `<li>${a.status === "sold" ? (a.mine ? "&#128176; Vendu" : "&#127942; Acheté") : a.status === "unsold" ? "&#8617;&#65039; Invendu (rendu)" : "&#10006; Retiré"} : ${esc(a.card?.name || "?")} ${esc(variant(a))}${a.status === "sold" ? ` pour <strong>${a.currentBid} &#10024;</strong>` : ""}</li>`).join("") : "<li class=\"muted\">Rien pour l’instant.</li>";
   }
 
+  // Selecteur visuel (2026-10-07) : vignettes cliquables, filtres, prix conseille.
   async function loadCopies() {
     try {
       const [col, cat] = await Promise.all([API.getCollection(Session.userId), API.getCards()]);
       const cards = new Map((cat.cards || []).map((c) => [c.cardId, c]));
+      const fm = cat.finishMultipliers || {}, qm = cat.qualityMultipliers || {};
+      const insured = new Set(col.insuredPullIds || []);
+      const rarities = new Map();
       copies = [];
       (col.owned || []).forEach((o) => (o.copies || []).forEach((c) => {
         const card = cards.get(o.cardId);
-        if (!card || card.isPromo || (col.insuredPullIds || []).includes(c.pullId)) return;
-        copies.push({ pullId: c.pullId, name: card.name, label: `${card.name} · ${card.rarity?.name || ""}${c.finish && c.finish !== "normal" ? " · " + FINISH[c.finish] : ""} · ${QUALITY[c.quality || "damaged"]} ${serial(c.serialNumber)}${o.count > 1 ? ` (×${o.count})` : ""}` });
+        if (!card || card.isPromo || insured.has(c.pullId)) return;
+        const finish = c.finish || "normal", quality = c.quality || "damaged";
+        if (card.rarity) rarities.set(card.rarity.key, card.rarity);
+        const value = Math.round((card.rarity?.disenchantValue || 0) * (fm[finish] ?? 1) * (qm[quality] ?? 1));
+        copies.push({
+          pullId: c.pullId, card, finish, quality, serialNumber: c.serialNumber, count: o.count, value,
+          label: `${card.name} · ${card.rarity?.name || ""}${finish !== "normal" ? " · " + FINISH[finish] : ""} · ${QUALITY[quality]} ${serial(c.serialNumber)}`
+        });
       }));
-      copies.sort((a, b) => a.label.localeCompare(b.label, "fr"));
+      // Les plus belles d'abord : rarete, finition, etat, puis nom.
+      copies.sort((a, b) => ((b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0)) || ((RANK[b.finish] || 0) - (RANK[a.finish] || 0)) || (QRANK[b.quality] - QRANK[a.quality]) || a.card.name.localeCompare(b.card.name, "fr"));
+      $("auction-rarity").innerHTML = '<option value="">Toutes raretés</option>' + [...rarities.values()].sort((a, b) => (b.sortOrder || 0) - (a.sortOrder || 0)).map((r) => `<option value="${r.key}">${esc(r.name)}</option>`).join("");
       renderCopies();
     } catch (e) { /* collection indisponible */ }
   }
   function renderCopies() {
     const q = ($("auction-search").value || "").toLowerCase();
-    const list = copies.filter((c) => !q || c.label.toLowerCase().includes(q)).slice(0, 200);
-    $("auction-pull").innerHTML = list.length ? list.map((c) => `<label class="auction-pick-item"><input type="radio" name="auction-pull" value="${c.pullId}" /> <span>${esc(c.label)}</span></label>`).join("") : '<p class="muted">Aucun exemplaire.</p>';
+    const rarity = $("auction-rarity").value;
+    const dupes = $("auction-dupes").checked;
+    const list = copies.filter((c) => (!q || c.card.name.toLowerCase().includes(q)) && (!rarity || c.card.rarity?.key === rarity) && (!dupes || c.count > 1));
+    $("auction-pull").innerHTML = list.length ? list.slice(0, 120).map((c) => `
+      <button type="button" class="auction-pick-card ${selectedPull === c.pullId ? "selected" : ""}" data-pull="${c.pullId}" data-rarity="${esc(c.card.rarity?.key || "commune")}" data-finish="${c.finish}" role="option" aria-selected="${selectedPull === c.pullId}" title="${esc(c.label)}">
+        <span class="apc-art">
+          <img src="${API.imageUrl(c.card.imageId) || ""}" alt="" loading="lazy" />
+          ${c.finish !== "normal" ? `<span class="finish-indicator" data-finish="${c.finish}">${FINISH[c.finish]}</span>` : ""}
+          <span class="quality-indicator" data-quality="${c.quality}">${QUALITY[c.quality]}</span>
+          ${c.count > 1 ? `<span class="apc-count">×${c.count}</span>` : ""}
+        </span>
+        <span class="apc-name">${esc(c.card.name)}</span>
+        <span class="apc-meta">${serial(c.serialNumber) || "&nbsp;"}</span>
+      </button>`).join("") + (list.length > 120 ? `<p class="muted apc-more">${list.length - 120} autres : affine la recherche.</p>` : "")
+      : `<p class="muted apc-empty">${dupes ? "Aucun doublon ne correspond. Décoche « Doublons seulement » pour voir toutes tes cartes." : "Aucun exemplaire ne correspond."}</p>`;
+  }
+  function selectCopy(pullId) {
+    selectedPull = pullId;
+    const c = copies.find((x) => x.pullId === pullId);
+    document.querySelectorAll(".auction-pick-card").forEach((b) => { const on = Number(b.dataset.pull) === pullId; b.classList.toggle("selected", on); b.setAttribute("aria-selected", String(on)); });
+    $("auction-submit").disabled = !c;
+    if (!c) { $("auction-sell-preview").innerHTML = '<span class="muted">Choisis un exemplaire ci-dessus.</span>'; return; }
+    const suggested = Math.max(10, Math.round((c.value * 1.5) / 10) * 10);
+    $("auction-price").value = suggested;
+    $("auction-sell-preview").innerHTML = `
+      <img src="${API.imageUrl(c.card.imageId) || ""}" alt="" style="--r:${esc(c.card.rarity?.colorHex || "#888")}" />
+      <span><strong>${esc(c.card.name)}</strong><small>${esc(c.card.rarity?.name || "")}${c.finish !== "normal" ? " · " + FINISH[c.finish] : ""} · ${QUALITY[c.quality]} ${serial(c.serialNumber)}</small><small>Décraft ≈ ${c.value} &#10024; · prix conseillé ${suggested} &#10024;</small></span>`;
   }
 
   window.loadAuctions = async function () {
@@ -79,9 +119,12 @@
   document.addEventListener("DOMContentLoaded", () => {
     if (!$("auction-list")) return;
     $("auction-search").addEventListener("input", renderCopies);
+    $("auction-rarity").addEventListener("change", renderCopies);
+    $("auction-dupes").addEventListener("change", renderCopies);
+    $("auction-pull").addEventListener("click", (e) => { const b = e.target.closest("[data-pull]"); if (b) selectCopy(Number(b.dataset.pull)); });
     $("auction-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const pullId = Number((document.querySelector('input[name="auction-pull"]:checked') || {}).value);
+      const pullId = selectedPull;
       const startPrice = Number($("auction-price").value);
       if (!pullId) { Toast.error("Choisis un exemplaire."); return; }
       const label = copies.find((c) => c.pullId === pullId)?.label || "cet exemplaire";
@@ -91,6 +134,7 @@
         data = await API.auctions(Session.userId, "create", { pullId, startPrice });
         render();
         copies = copies.filter((c) => c.pullId !== pullId);
+        selectCopy(null);
         renderCopies();
         Toast.success("&#128296; Ta carte est aux enchères !");
       } catch (err) { Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
