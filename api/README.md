@@ -168,6 +168,7 @@ doublons, coup final au boss) sans le modifier.
 | `market.js` | `POST contracts`, `POST auctions`, `GET exchange-rates`, `POST insurance`, `POST booster-shop` | contrats de collection, enchères, cours du décraft, assurance des exemplaires, boutique de boosters, restaurations répétées plus chères |
 | `boosts.js` | – | bonus personnels appliqués après les workflows (heure de chance, dé, talents, maîtrise, cours du décraft, cartes ★, niveau d'expédition) |
 | `insights.js` | `GET what-now`, `GET my-stats`, `GET player-card` | « que faire maintenant ? », statistiques perso (grand livre des poussières), carte de joueur au survol |
+| `shop.js` | `POST shop` | boutique d'objets et de bonus (vers, appâts, os, coffres, clés, pièces, élixir de chance, potion d'XP, café du fouilleur, engrais, boussole), plafonds par semaine, catalogue `ShopCatalog` réglable |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

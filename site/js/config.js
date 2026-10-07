@@ -101,6 +101,7 @@ window.APP_CONFIG = {
     exchangeRates: "/exchange-rates",   // GET
     insurance: "/insurance",            // POST { userId, pullId, action: 'insure'|'remove' }
     boosterShop: "/booster-shop",       // POST { userId, action: 'status'|'buy' }
+    shop: "/shop",                     // POST { userId, action: 'status'|'buy', key? } (objets et bonus)
     whatNow: "/what-now",               // GET ?userId=
     myStats: "/my-stats",               // GET ?userId=
     playerCard: "/player-card",         // GET ?pseudo=

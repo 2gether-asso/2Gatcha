@@ -15,24 +15,53 @@
   <header id="site-header"></header>
 
   <main id="main-content">
-    <div class="panel">
-      <h1>&#128717;&#65039; Boutique</h1>
-      <p class="lead">
-        Quelques boosters par semaine, des contrats de collection pour tes doublons,
-        et des cosmétiques (titres, cadres, couleurs de pseudo) purement décoratifs.
-        Certains titres ne s'achètent pas : ils se gagnent (saison, maîtrises,
-        constellations, tournoi de pêche).
-      </p>
+    <div class="panel shop-page">
+      <div class="shop-head">
+        <div>
+          <h1>&#128717;&#65039; Boutique</h1>
+          <p class="lead">Dépense tes poussières : ressources, bonus, boosters de la semaine, contrats de collection et cosmétiques. Le stock de chaque objet se renouvelle chaque lundi.</p>
+        </div>
+        <div class="shop-wallet" id="shop-wallet" aria-live="polite"></div>
+      </div>
       <div id="shop-guest" class="error-box" style="display:none">Connecte-toi pour accéder à la boutique.</div>
       <div id="shop-zone" style="display:none">
-        <div class="market-duo">
-          <section class="shop-section booster-shop" id="booster-shop"><h2>&#127183; Boosters de la semaine</h2><div id="booster-shop-body"></div></section>
-          <section class="shop-section contracts" id="contracts"><h2>&#128221; Contrats de collection</h2><p class="lead" style="font-size:0.85rem;">Donne les cartes demandées (tes doublons sont proposés en premier) et reçois la récompense. Nouveaux contrats chaque lundi.</p><div class="contracts-grid" id="contracts-grid"></div></section>
-        </div>
-        <div class="shop-preview" id="shop-preview" aria-live="polite"></div>
-        <div class="shop-section"><h2>&#128081; Titres</h2><div class="shop-grid" id="shop-title"></div></div>
-        <div class="shop-section"><h2>&#128444;&#65039; Cadres d'avatar</h2><div class="shop-grid" id="shop-frame"></div></div>
-        <div class="shop-section"><h2>&#127912; Couleurs de pseudo</h2><div class="shop-grid" id="shop-color"></div></div>
+        <nav class="shop-nav" aria-label="Rayons de la boutique">
+          <a href="#offres">&#127183; Boosters</a>
+          <a href="#ressources">&#129520; Ressources</a>
+          <a href="#bonus">&#129514; Bonus</a>
+          <a href="#contrats">&#128221; Contrats</a>
+          <a href="#cosmetiques">&#127912; Cosmétiques</a>
+        </nav>
+
+        <section class="shop-section" id="offres">
+          <h2>&#127183; Boosters de la semaine</h2>
+          <div id="booster-shop"><div id="booster-shop-body"></div></div>
+        </section>
+
+        <section class="shop-section" id="ressources">
+          <h2>&#129520; Ressources</h2>
+          <div class="shop-items" id="shop-resources"></div>
+        </section>
+
+        <section class="shop-section" id="bonus">
+          <h2>&#129514; Bonus</h2>
+          <div class="shop-items" id="shop-boosts"></div>
+        </section>
+
+        <section class="shop-section contracts" id="contrats">
+          <h2>&#128221; Contrats de collection</h2>
+          <p class="shop-section-lead">Donne les cartes demandées contre une récompense. Tes doublons sont proposés en premier. Nouveaux contrats chaque lundi.</p>
+          <div class="contracts-grid" id="contracts-grid"></div>
+        </section>
+
+        <section class="shop-section" id="cosmetiques">
+          <h2>&#127912; Cosmétiques</h2>
+          <p class="shop-section-lead">Purement décoratifs : ils s'affichent sur ton profil, dans l'en-tête et les classements. Certains titres se gagnent (saison, maîtrises, constellations, tournoi de pêche).</p>
+          <div class="shop-preview" id="shop-preview" aria-live="polite"></div>
+          <h3 class="shop-sub">&#128081; Titres</h3><div class="shop-grid" id="shop-title"></div>
+          <h3 class="shop-sub">&#128444;&#65039; Cadres d'avatar</h3><div class="shop-grid" id="shop-frame"></div>
+          <h3 class="shop-sub">&#127912; Couleurs de pseudo</h3><div class="shop-grid" id="shop-color"></div>
+        </section>
       </div>
     </div>
   </main>

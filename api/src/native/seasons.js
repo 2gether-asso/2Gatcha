@@ -83,7 +83,12 @@ function statusOf(store, user) {
     reached: i + 1 <= reached,
     claimed: i + 1 <= claimed
   }));
-  return { enabled, season, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpPerTier: perTier, reached, claimed, claimable: Math.max(0, reached - claimed) + Math.max(0, bonusReached - bonusClaimed), tiers, card, bonus };
+  // Bonus de fin de saison : compte a part (le site l'affiche comme tel) et
+  // jamais propose quand il est regle a 0 poussiere (2026-10-07).
+  const bonusClaimable = bonus.dustPerTier > 0 ? Math.max(0, bonusReached - bonusClaimed) : 0;
+  bonus.claimable = bonusClaimable;
+  const tierClaimable = Math.max(0, reached - claimed);
+  return { enabled, season, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpPerTier: perTier, reached, claimed, tierClaimable, claimable: tierClaimable + bonusClaimable, complete: reached === tiersCount, tiers, card, bonus };
 }
 
 function grant(store, user, reward) {

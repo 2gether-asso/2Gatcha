@@ -317,6 +317,50 @@ await test('notifications : preferences par categorie', () => {
   assert.equal(r.kinds.find((k) => k.key === 'garden').on, true);
 });
 
+await test('boutique d objets : achat, plafond hebdo, effets, potion de savoir, elixir de chance', () => {
+  store.update('Users', 1, { StardustCount: 5000, ShopItemsWeek: '', ShopItemsBought: '{}', Worms: 0, LuckCharges: 0, XpBoostUntil: 0, GardenPlots: '[]', ExpeditionUntil: 0 });
+  const st = call('POST', 'shop', { body: { userId: 1 } }).json;
+  assert.ok(st.items.length >= 10);
+  let r = call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } }).json;
+  assert.equal(r.paid, 60);
+  assert.equal(user(1).Worms, 10);
+  for (let i = 0; i < 4; i++) call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } });
+  assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } }).json.error, 'weekly_cap');
+  assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'fertilizer' } }).json.error, 'nothing_growing');
+  assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'compass' } }).json.error, 'no_expedition');
+  // Potion de savoir : XP x2 pendant 1 h.
+  store.update('Users', 1, { XP: 100 });
+  call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'xp1h' } });
+  assert.ok(user(1).XpBoostUntil > now() + 3500);
+  native.beforeRequest({ userId: 1 }, {}, 'reroll');
+  store.update('Users', 1, { XP: 110 });
+  native.endRequest();
+  assert.equal(user(1).XP, 120);
+  // Elixir de chance : une charge consommee par booster.
+  call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'luck5' } });
+  assert.equal(user(1).LuckCharges, 5);
+  native.afterWorkflow('open-pack', { body: { userId: 1, extensionId: 1 } }, { status: 200, json: { cards: [], batchId: 'x-1' } });
+  assert.equal(user(1).LuckCharges, 4);
+  store.update('Users', 1, { XpBoostUntil: 0 });
+});
+
+await test('saison : bonus de fin de saison compte a part, ignore a 0 poussiere', () => {
+  const s = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
+  if (!s.enabled) return;
+  const per = s.xpPerTier, n = s.tiers.length;
+  const row = store.getAll('SeasonProgress').find((r) => refIdOf(r.User) === 1 && r.Season === s.season);
+  store.update('SeasonProgress', row.id, { ClaimedTier: n, BonusClaimed: 0 });
+  store.update('Users', 1, { XP: (Number(row.StartXP) || 0) + per * (n + 2) });
+  let st = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.tierClaimable, 0);
+  assert.ok(st.bonus.claimable > 0 && st.bonus.claimable === st.bonus.reached - st.bonus.claimed);
+  assert.equal(st.complete, true);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SeasonBonusTierDust: 0 } } });
+  st = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.claimable, 0, 'bonus a 0 : rien a recuperer');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SeasonBonusTierDust' } });
+});
+
 store.db.close();
 clean();
 console.log(process.exitCode ? '\nProgression : echec(s).' : `\nProgression : ${passed} tests passes.`);

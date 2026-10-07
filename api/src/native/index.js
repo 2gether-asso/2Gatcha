@@ -31,6 +31,7 @@
 //   market.js   contrats, encheres, cours du decraft, assurance, boutique de boosters
 //   boosts.js   bonus personnels appliques apres les workflows
 //   insights.js que faire maintenant, statistiques perso, carte de joueur
+//   shop.js     boutique d'objets et de bonus (poussieres)
 // Chaque module expose `routes` ({ 'METHODE chemin': handler }) et, au
 // besoin, `schema` (tables/colonnes creees au demarrage) et `afterWorkflow`.
 // Un handler recoit { store, body, query } et renvoie { status, json }.
@@ -69,11 +70,12 @@ import * as daily from './daily.js';
 import * as market from './market.js';
 import * as boosts from './boosts.js';
 import * as insights from './insights.js';
+import * as shop from './shop.js';
 import { setting } from './settings.js';
 
 const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights];
+  talents, feed, progression, daily, market, boosts, insights, shop];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily];
 // XP doublee pendant l'action du jour (daily.js).
@@ -106,10 +108,13 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     const xpWrite = XP_FIELDS.some((f) => f in fields);
     if (!xpWrite && !('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return rawUpdate(name, id, fields);
     const before = store.get('Users', id);
-    if (xpWrite && before && ctx.source && daily.isHouseSource(ctx.source)) {
+    // XP doublee : action du jour (daily.js) et potion de savoir (shop.js).
+    const boosted = xpWrite && before && (Number(before.XpBoostUntil) || 0) > Math.floor(Date.now() / 1000);
+    const house = xpWrite && before && ctx.source && daily.isHouseSource(ctx.source);
+    if (house || boosted) {
       try {
         fields = { ...fields };
-        const mult = setting(store, 'HouseXpMultiplier');
+        const mult = (house ? setting(store, 'HouseXpMultiplier') : 1) * (boosted ? 2 : 1);
         for (const f of XP_FIELDS) {
           if (!(f in fields)) continue;
           const delta = (Number(fields[f]) || 0) - (Number(before[f]) || 0);

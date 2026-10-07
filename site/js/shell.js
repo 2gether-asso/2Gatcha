@@ -188,7 +188,10 @@ const RewardsCenter = {
     if (quests?.canClaim) items.push({ key: "quests", icon: "&#9989;", label: "Quêtes du jour terminées", claim: () => API.claimQuestReward(uid) });
     if (weekly?.canClaim) items.push({ key: "weekly", icon: "&#128197;", label: "Quêtes de la semaine terminées", claim: () => API.claimWeeklyQuestReward(uid) });
     if (levelRewards?.hasPending) items.push({ key: "level", icon: "&#11088;", label: "Récompenses de niveau", claim: () => API.claimLevelRewards(uid) });
-    if (season?.claimable > 0) items.push({ key: "season", icon: "&#127942;", label: `Saison : ${season.claimable} palier${season.claimable > 1 ? "s" : ""} à récupérer`, claim: () => API.claimSeason(uid) });
+    if (season?.claimable > 0) {
+      const tierN = season.tierClaimable != null ? season.tierClaimable : season.claimable;
+      items.push({ key: "season", icon: "&#127942;", label: tierN ? `Saison : ${tierN} palier${tierN > 1 ? "s" : ""} à récupérer` : `Saison terminée : bonus de ${season.claimable * (season.bonus?.dustPerTier || 0)} poussières`, claim: () => API.claimSeason(uid) });
+    }
     (sets?.sets || []).filter((x) => x.complete && !x.claimed).forEach((x) => items.push({ key: "set-" + x.extensionId, icon: "&#128218;", label: `Set complet : ${x.name}`, claim: () => API.claimSetReward(uid, x.extensionId) }));
     if (challenges?.claimable > 0) items.push({ key: "challenges", icon: "&#127919;", label: `Défis de la semaine : ${challenges.claimable} récompense${challenges.claimable > 1 ? "s" : ""}`, claim: () => API.challenges(uid, "claim") });
     if (goal?.claimable) items.push({ key: "goal", icon: "&#129309;", label: `Objectif commun réussi : ${goal.reward.dust} ✨ + ${goal.reward.worms} vers`, claim: () => API.communityGoal(uid, "claim") });

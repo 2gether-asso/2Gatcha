@@ -672,7 +672,7 @@
         const next = st.tiers.find((t) => !t.reached);
         document.getElementById("season-xp").innerHTML = next
           ? `<strong>${st.xp} XP</strong> ce mois-ci · palier ${next.tier} à ${next.xp} XP (encore ${next.xp - st.xp})`
-          : `<strong>${st.xp} XP</strong> ce mois-ci · tous les paliers sont atteints ! ${st.bonus ? `Paliers bonus : +${st.bonus.dustPerTier} &#10024; toutes les ${st.xpPerTier} XP (prochain à ${st.bonus.nextXp} XP) · titre « ${st.bonus.title} » débloqué au dernier palier.` : ""}`;
+          : `<span class="season-done">&#10004; Saison terminée : les ${st.tiers.length} paliers sont atteints</span> <strong>${st.xp} XP</strong> ce mois-ci.${st.bonus && st.bonus.dustPerTier > 0 ? ` <span class="season-bonus-note">Bonus de fin de saison : continue à jouer, chaque tranche de ${st.xpPerTier} XP rapporte encore <strong>+${st.bonus.dustPerTier} &#10024;</strong> (prochaine à ${st.bonus.nextXp} XP${st.bonus.claimed ? `, ${st.bonus.claimed} déjà récupérée${st.bonus.claimed > 1 ? "s" : ""}` : ""}).</span>` : ""}`;
         document.getElementById("season-tiers").innerHTML = st.tiers.map((t) => `
           <li class="season-tier ${t.claimed ? "claimed" : t.reached ? "reached" : ""}${t.card ? " season-tier-card" : ""}" title="Palier ${t.tier} (${t.xp} XP) : ${seasonRewardLabel(t.reward)}${t.card ? " + la carte " + t.card.name : ""}">
             <span class="season-tier-num">${t.tier}</span>
@@ -681,7 +681,11 @@
           </li>`).join("");
         const btn = document.getElementById("season-claim-btn");
         btn.style.display = st.claimable ? "" : "none";
-        btn.textContent = `Récupérer ${st.claimable} palier${st.claimable > 1 ? "s" : ""}`;
+        const tierN = st.tierClaimable != null ? st.tierClaimable : st.claimable;
+        const bonusN = st.bonus && st.bonus.claimable ? st.bonus.claimable : 0;
+        btn.innerHTML = tierN
+          ? `Récupérer ${tierN} palier${tierN > 1 ? "s" : ""}${bonusN ? ` + bonus` : ""}`
+          : `Récupérer le bonus de fin de saison (+${bonusN * st.bonus.dustPerTier} &#10024;)`;
       }
       API.getSeason(Session.userId).then(renderSeason).catch(() => {});
       document.getElementById("season-claim-btn").addEventListener("click", async (e) => {
@@ -690,7 +694,9 @@
         try {
           const res = await API.claimSeason(Session.userId);
           const parts = seasonRewardLabel(res.reward);
-          Toast.success(`&#127942; ${res.claimedTiers} palier${res.claimedTiers > 1 ? "s" : ""} de saison : ${parts || "récompense"}${res.card ? " + la carte " + res.card.name + " !" : ""}`);
+          Toast.success(res.claimedTiers
+            ? `&#127942; ${res.claimedTiers} palier${res.claimedTiers > 1 ? "s" : ""} de saison : ${parts || "récompense"}${res.card ? " + la carte " + res.card.name + " !" : ""}`
+            : `&#127942; Bonus de fin de saison : ${parts || "récompense"} !`);
           if (res.title) setTimeout(() => Toast.success(`&#128081; Nouveau titre : « ${res.title} » (à équiper dans la boutique)`), 900);
           if (typeof confetti === "function") confetti({ particleCount: res.card ? 220 : 100, spread: 110, origin: { y: 0.6 } });
           renderSeason(res);

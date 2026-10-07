@@ -673,6 +673,7 @@ const API = {
   getExchangeRates() { return this.get("exchangeRates"); },
   insurance(userId, pullId, action) { return this.post("insurance", { userId, pullId, action }); },
   boosterShop(userId, action = "status") { return this.post("boosterShop", { userId, action }); },
+  shop(userId, action = "status", key) { return this.post("shop", { userId, action, key }); },
   getWhatNow(userId) { return this.get("whatNow", { userId }); },
   getMyStats(userId) { return this.get("myStats", { userId }); },
   getPlayerCard(pseudo) { return this.get("playerCard", { pseudo }); },

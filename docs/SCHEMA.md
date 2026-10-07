@@ -1135,6 +1135,8 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | Users | RepairWeek, RepairCounts | Text, Text | restaurations par carte dans la semaine (supplement) |
 | Users | PullStats, DustLedger | Text | statistiques de tirage ; poussieres gagnees / depensees par source |
 | Users | PushPrefs | Text | JSON des categories de notifications coupees |
+| Users | ShopItemsWeek, ShopItemsBought | Text | objets de la boutique achetes dans la semaine (plafonds) |
+| Users | LuckCharges, XpBoostUntil | Numeric | elixir de chance (boosters restants), potion de savoir (fin de l'XP x2) |
 | Users | ExpeditionXP, ExpeditionPrestige, GardenXP, GardenPrestige | Numeric | metiers d'expedition et de jardin |
 | Pulls | Starred | Bool | exemplaire ★ (3 arc-en-ciel parfait etat fusionnes) |
 | Pulls | Insured | Bool | exemplaire assure (mis de cote pendant les decrafts, fusions, echanges...) |

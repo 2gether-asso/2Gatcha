@@ -96,7 +96,10 @@ export function afterWorkflow({ store, path, request, response }) {
   } else if (path === 'open-pack' && !body.dryRun && Array.isArray(json.cards) && json.batchId) {
     const extra = masteryFinishBonus(store, userId, json.booster ? json.booster.extensionId : body.extensionId)
       + talentValue(user, 'lynx') + (face === 6 ? 0.05 : 0) + (luckyState().active ? setting(store, 'LuckyHourFinishBonus') : 0);
-    const up = upgradeCards(store, json, Math.min(0.9, extra), talentValue(user, 'born'));
+    // Elixir de chance (boutique) : +5 points tant qu'il reste des charges.
+    const luck = (Number(user.LuckCharges) || 0) > 0 ? 0.05 : 0;
+    if (luck) { store.update('Users', userId, { LuckCharges: (Number(user.LuckCharges) || 0) - 1 }); json.luckChargesLeft = (Number(user.LuckCharges) || 0) - 1; }
+    const up = upgradeCards(store, json, Math.min(0.9, extra + luck), talentValue(user, 'born'));
     if (up.finishes || up.qualities) json.personalBoost = up;
     // Talent Recycleur : plus de poussieres de doublons.
     const dup = json.duplicateDust && json.duplicateDust.total;

@@ -108,7 +108,45 @@ export const REGISTRY = {
       { key: 'frame-neon', type: 'frame', label: 'Cadre néon', price: 2000 },
       { key: 'color-emerald', type: 'color', label: 'Pseudo émeraude', price: 800 },
       { key: 'color-gold', type: 'color', label: 'Pseudo or', price: 1500 },
-      { key: 'color-rainbow', type: 'color', label: 'Pseudo arc-en-ciel', price: 4000 }
+      { key: 'color-rainbow', type: 'color', label: 'Pseudo arc-en-ciel', price: 4000 },
+      // Ajouts 2026-10-07
+      { key: 'title-tresors', type: 'title', label: 'Chasseur de trésors', price: 400 },
+      { key: 'title-decraft', type: 'title', label: 'Roi du décraft', price: 700 },
+      { key: 'title-encheres', type: 'title', label: 'Maître des enchères', price: 800 },
+      { key: 'title-fantome', type: 'title', label: 'Fantôme du serveur', price: 900 },
+      { key: 'title-ame', type: 'title', label: 'Âme de collectionneur', price: 1200 },
+      { key: 'title-astre', type: 'title', label: 'Astre de 2gether', price: 2500 },
+      { key: 'title-diamant', type: 'title', label: 'Main de diamant', price: 3500 },
+      { key: 'title-mythe', type: 'title', label: 'Mythe vivant', price: 6000 },
+      { key: 'frame-ruby', type: 'frame', label: 'Cadre rubis', price: 1500 },
+      { key: 'frame-emerald', type: 'frame', label: 'Cadre émeraude', price: 1500 },
+      { key: 'frame-fire', type: 'frame', label: 'Cadre de feu', price: 3000 },
+      { key: 'frame-cosmic', type: 'frame', label: 'Cadre cosmique', price: 3500 },
+      { key: 'frame-rainbow', type: 'frame', label: 'Cadre arc-en-ciel', price: 6000 },
+      { key: 'color-ruby', type: 'color', label: 'Pseudo rubis', price: 1000 },
+      { key: 'color-ice', type: 'color', label: 'Pseudo glacé', price: 1000 },
+      { key: 'color-sunset', type: 'color', label: 'Pseudo coucher de soleil', price: 2200 },
+      { key: 'color-fire', type: 'color', label: 'Pseudo de feu', price: 2500 },
+      { key: 'color-galaxy', type: 'color', label: 'Pseudo galaxie', price: 3500 }
+    ]
+  },
+
+  // --- Boutique d'objets (2026-10-07)
+  ShopCatalog: {
+    label: 'Boutique : objets et bonus', type: 'json', group: 'Boutique', storage: 'app',
+    help: 'Liste d’objets : key (unique), group (resources ou boosts), label, icon, desc, price (poussières), weekly (achats max par semaine, 0 = illimité) et soit give { Worms, GoldBait, BoneCount, ChestCount, KeyCount, SpareParts, LuckCharges: quantité }, soit effect (xpBoost avec hours, digEnergy, gardenRipe, expeditionNow).',
+    def: [
+      { key: 'worms10', group: 'resources', label: 'Sac de 10 vers', icon: '🪱', desc: 'De quoi lancer ta ligne 10 fois.', price: 60, weekly: 5, give: { Worms: 10 } },
+      { key: 'bait', group: 'resources', label: 'Appât doré', icon: '🪝', desc: 'Aucune prise vide et prises rares ×2,5 pour un lancer.', price: 150, weekly: 5, give: { GoldBait: 1 } },
+      { key: 'bone', group: 'resources', label: 'Os pour le chien', icon: '🦴', desc: 'Envoie le chien creuser pour toi pendant 2 h.', price: 180, weekly: 3, give: { BoneCount: 1 } },
+      { key: 'chest', group: 'resources', label: 'Coffre', icon: '🧰', desc: 'Poussières à coup sûr, souvent une carte, parfois des boosters.', price: 130, weekly: 5, give: { ChestCount: 1 } },
+      { key: 'key', group: 'resources', label: 'Clé de coffre', icon: '🔑', desc: 'Ouvre un coffre (ou pioche au choix dans le coffre de guilde).', price: 400, weekly: 2, give: { KeyCount: 1 } },
+      { key: 'part', group: 'resources', label: 'Pièce détachée', icon: '🔩', desc: 'Remplace un exemplaire dans une fusion ou une restauration.', price: 350, weekly: 2, give: { SpareParts: 1 } },
+      { key: 'luck5', group: 'boosts', label: 'Élixir de chance', icon: '🧪', desc: '+5 points de chance de finition spéciale sur tes 5 prochains boosters.', price: 500, weekly: 2, give: { LuckCharges: 5 } },
+      { key: 'xp1h', group: 'boosts', label: 'Potion de savoir', icon: '📘', desc: 'XP ×2 pendant 1 heure : compte, pêche, fouille, expédition, jardin.', price: 400, weekly: 2, effect: 'xpBoost', hours: 1 },
+      { key: 'coffee', group: 'boosts', label: 'Café du fouilleur', icon: '☕', desc: 'Recharge complète de ton énergie de fouille.', price: 200, weekly: 3, effect: 'digEnergy' },
+      { key: 'fertilizer', group: 'boosts', label: 'Engrais express', icon: '🌿', desc: 'Toutes tes plantations en cours sont prêtes tout de suite.', price: 180, weekly: 3, effect: 'gardenRipe' },
+      { key: 'compass', group: 'boosts', label: 'Boussole dorée', icon: '🧭', desc: 'Ton expédition en cours rentre immédiatement.', price: 300, weekly: 2, effect: 'expeditionNow' }
     ]
   },
 
@@ -236,6 +274,7 @@ function validate(key, raw) {
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (Array.isArray(r.def) !== Array.isArray(v) || typeof v !== 'object' || v === null) throw new Error(`${r.label} : format attendu ${Array.isArray(r.def) ? 'liste [...]' : 'objet {...}'}`);
     if (key === 'LoginStreakRewards' && v.length !== 7) throw new Error(`${r.label} : il faut exactement 7 jours`);
+    if (key === 'ShopCatalog' && (v.some((x) => !x || !x.key || !(Number(x.price) > 0) || (!x.give && !['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow'].includes(x.effect))) || new Set(v.map((x) => x.key)).size !== v.length)) throw new Error(`${r.label} : chaque objet a une key unique, un prix > 0 et un give ou un effect connu`);
     if (key === 'DailyBoxLoot' && (!v.length || v.some((x) => !x || !['dust', 'worms', 'bait', 'key', 'part', 'booster', 'chest', 'cosmetic'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque objet a un type connu et un poids > 0`);
     if (key === 'FishingLoot' && (!v.length || v.some((x) => !x || !['nothing', 'dust', 'bone', 'key', 'booster', 'chest', 'part'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque prise a un type connu et un poids > 0`);
     return v;
