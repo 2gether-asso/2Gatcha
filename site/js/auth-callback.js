@@ -32,7 +32,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       token: res.token
     });
     try { sessionStorage.setItem("2gatcha_just_logged_in", "1"); } catch (e) {}
-    window.location.href = "index.html";
+    // Page demandee avant la connexion (ex. admin.html pendant une maintenance).
+    let next = "index.html";
+    try { const n = sessionStorage.getItem("2gatcha_after_login"); if (n === "admin.html") next = n; sessionStorage.removeItem("2gatcha_after_login"); } catch (e) {}
+    window.location.href = next;
   } catch (e) {
     statusLabel.textContent = "Connexion impossible.";
     if (e.code === "not_in_guild") {

@@ -353,7 +353,8 @@ function onAllRevealed() {
     });
     const order = ["mythique", "legendaire", "epique", "rare", "commune"];
     const parts = order.filter((k) => counts[k]).map((k) => `${counts[k]} ${rarityIcon(k)}`);
-    if (hint) hint.innerHTML = `Terminé : ${parts.join(" · ")}${lastPackTags.length ? " · " + lastPackTags.map((t) => t.short).join(" · ") : ""}`;
+    // Le resume detaille (renderRevealSummary) prend le relais : pas de phrase en double.
+    if (hint) hint.textContent = document.getElementById("reveal-summary")?.hidden === false ? "" : `Terminé : ${parts.join(" · ")}`;
   } else if (hint) {
     hint.textContent = "Toutes les cartes sont révélées !";
   }

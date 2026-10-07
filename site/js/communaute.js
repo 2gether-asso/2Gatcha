@@ -263,23 +263,24 @@ function chestCardTile(card) {
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
   const owned = ownedMap.get(card.cardId);
   const variants = buildChestVariants(owned);
+  const color = card.rarity?.colorHex || "#9aa0b4";
   return `
-    <div class="craft-card" data-rarity="${card.rarity?.key || "commune"}">
-      <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
-      <div class="card-info">
-        <div class="card-name">${card.name}</div>
-        ${variants.map((v) => `
-          <div class="chest-variant-row">
+    <article class="chest-tile" data-rarity="${card.rarity?.key || "commune"}" style="--r:${color}">
+      <img class="chest-tile-art" src="${imgSrc}" alt="" loading="lazy" />
+      <div class="chest-tile-body">
+        <header><strong>${card.name}</strong><span class="chest-tile-rarity">${card.rarity?.name || ""}</span></header>
+        <ul class="chest-tile-variants">${variants.map((v) => `
+          <li>
             <span class="chest-variant-tags">
               ${v.finish !== "normal" ? `<span class="finish-tag" data-finish="${v.finish}">${FINISH_LABELS[v.finish]}</span>` : ""}
               ${v.quality ? `<span class="quality-tag" data-quality="${v.quality}">${QUALITY_LABELS[v.quality]}</span>` : ""}
-              <span class="chest-variant-count">x${v.count}</span>
+              <span class="chest-variant-count">×${v.count}</span>
             </span>
-            <button type="button" class="btn-secondary chest-deposit-btn" data-card-id="${card.cardId}" data-finish="${v.finish}" data-quality="${v.quality}">Déposer</button>
-          </div>
-        `).join("")}
+            <button type="button" class="btn-ghost chest-deposit-btn" data-card-id="${card.cardId}" data-finish="${v.finish}" data-quality="${v.quality}" title="Déposer cet exemplaire dans le pot commun">Déposer</button>
+          </li>`).join("")}
+        </ul>
       </div>
-    </div>
+    </article>
   `;
 }
 

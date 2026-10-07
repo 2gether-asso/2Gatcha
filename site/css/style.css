@@ -6497,7 +6497,7 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 .stat-tile .stat-value { font-size: clamp(0.95rem, 0.8rem + 0.6vw, 1.25rem); overflow-wrap: anywhere; hyphens: auto; }
 
 /* Comptoir Unique : le halo du dome ne doit pas elargir la page. */
-.pv-counter-card { overflow: hidden; }
+.pv-counter-card { overflow: visible; }
 .pv-counter, .pv-counter-grid { max-width: 100%; }
 
 /* Tableaux admin : defilent dans leur cadre au lieu d'elargir le panneau. */
@@ -7031,3 +7031,247 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
   #stats-grid .stat-tile .stat-label { font-size: 0.66rem; }
   .tabs .tab { font-size: 0.86rem; }
 }
+
+/* =====================================================================
+   COMPOSANTS V2 (2026-10-07) : cartes (rarete, finition, etat), ouverture
+   et resume, coffre de guilde, encheres, echanges, coffre-fort perso.
+   Regle : le CADRE dit la rarete, l'IMAGE dit la finition (effet + puce),
+   la puce de droite dit l'etat.
+   ===================================================================== */
+
+/* --- Couleur de rarete disponible partout (--r) --- */
+[data-rarity="commune"] { --r: var(--rarity-commune); }
+[data-rarity="rare"] { --r: var(--rarity-rare); }
+[data-rarity="epique"] { --r: var(--rarity-epique); }
+[data-rarity="legendaire"] { --r: var(--rarity-legendaire); }
+[data-rarity="mythique"] { --r: var(--rarity-mythique); }
+[data-rarity="unique"] { --r: var(--rarity-unique); }
+
+/* --- Cadre de carte = rarete (collection, coffre, boss, marche, reveal) --- */
+.collection-card:not(.locked)[data-rarity],
+.craft-card[data-rarity],
+.reveal-grid .card[data-rarity] .card-front {
+  border: 2px solid color-mix(in srgb, var(--r) 75%, transparent) !important;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 12px 26px -16px color-mix(in srgb, var(--r) 90%, transparent) !important;
+}
+.collection-card:not(.locked)[data-rarity="epique"],
+.craft-card[data-rarity="epique"],
+.reveal-grid .card[data-rarity="epique"] .card-front { box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 0 22px -6px color-mix(in srgb, var(--r) 80%, transparent) !important; }
+.collection-card:not(.locked)[data-rarity="legendaire"], .collection-card:not(.locked)[data-rarity="mythique"],
+.craft-card[data-rarity="legendaire"], .craft-card[data-rarity="mythique"],
+.reveal-grid .card[data-rarity="legendaire"] .card-front, .reveal-grid .card[data-rarity="mythique"] .card-front {
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 0 28px -4px color-mix(in srgb, var(--r) 85%, transparent) !important;
+}
+/* Arc-en-ciel : seule finition qui change le cadre (degrade anime). */
+.collection-card:not(.locked)[data-finish="rainbow"],
+.craft-card[data-finish="rainbow"],
+.reveal-grid .card[data-finish="rainbow"] .card-front {
+  border-color: transparent !important;
+  background: linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box, conic-gradient(from var(--rb-angle, 0deg), #ff6ec7, #ffd76e, #7dd3fc, #a78bfa, #4ade80, #ff6ec7) border-box !important;
+  animation: rainbowFrame 4s linear infinite;
+}
+@property --rb-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes rainbowFrame { to { --rb-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .collection-card[data-finish="rainbow"], .craft-card[data-finish="rainbow"], .reveal-grid .card[data-finish="rainbow"] .card-front { animation: none; } }
+
+/* --- Pastilles : rarete, finition, etat --- */
+.rarity-badge { font-size: 0.66rem; font-weight: 700; text-transform: none; letter-spacing: 0.01em; padding: 2px 8px; gap: 4px; line-height: 1.4; }
+.finish-indicator, .quality-indicator {
+  font-size: 0.6rem; font-weight: 700; text-transform: none; letter-spacing: 0.01em;
+  padding: 2px 7px; bottom: 6px; line-height: 1.4;
+  background: rgba(8, 9, 22, 0.72); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+.finish-indicator { left: 6px; }
+.quality-indicator { right: 6px; }
+/* Etat : une echelle de couleurs lisible (rouge -> ambre -> vert -> cyan). */
+.quality-indicator[data-quality="damaged"], .quality-tag[data-quality="damaged"] { border-color: #f87171; color: #fecaca; }
+.quality-indicator[data-quality="worn"], .quality-tag[data-quality="worn"] { border-color: #fbbf24; color: #fde68a; }
+.quality-indicator[data-quality="good"], .quality-tag[data-quality="good"] { border-color: #4ade80; color: #bbf7d0; }
+.quality-indicator[data-quality="mint"], .quality-tag[data-quality="mint"] { border-color: #67e8f9; color: #cffafe; }
+/* Finition : une couleur par finition, l'arc-en-ciel en degrade. */
+.finish-indicator[data-finish="holo"], .finish-tag[data-finish="holo"] { border-color: #a78bfa; color: #ddd6fe; }
+.finish-indicator[data-finish="gold"], .finish-tag[data-finish="gold"] { border-color: #eab308; color: #fde68a; }
+.finish-indicator[data-finish="ghost"], .finish-tag[data-finish="ghost"] { border-color: #94a3b8; color: #e2e8f0; }
+.finish-indicator[data-finish="diamond"], .finish-tag[data-finish="diamond"] { border-color: #7dd3fc; color: #e0f2fe; }
+.finish-indicator[data-finish="rainbow"], .finish-tag[data-finish="rainbow"] { border-color: #f472b6; background: linear-gradient(90deg, rgba(255,110,199,0.35), rgba(255,215,110,0.35), rgba(125,211,252,0.35)); color: #fff; }
+.finish-tag, .quality-tag { font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border-soft); white-space: nowrap; }
+.serial-one-badge { font-family: var(--font-body); font-weight: 800; font-size: 0.62rem; padding: 1px 7px; }
+.new-badge { font-size: 0.58rem; padding: 2px 7px; letter-spacing: 0.02em; }
+
+/* --- Vignette de la collection : infos compactes --- */
+.collection-card .card-info { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 6px; padding: 8px 8px 10px; text-align: center; }
+.collection-card .card-name { width: 100%; font-size: 0.85rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
+.collection-card .rarity-badge { margin: 0; }
+.collection-card .count-badge { font-size: 0.74rem; font-weight: 700; color: var(--text-dim); }
+.collection-card .quick-actions-row { width: 100%; gap: 4px; margin-top: 2px; }
+.collection-card .card-quick-action { width: 28px; height: 28px; padding: 0; font-size: 0.78rem; border-radius: 8px; }
+@media (hover: hover) and (pointer: fine) {
+  .collection-card .quick-actions-row { opacity: 0.35; transition: opacity 0.15s; }
+  .collection-card:hover .quick-actions-row, .collection-card:focus-within .quick-actions-row { opacity: 1; }
+}
+/* Mobile : 2 cartes par ligne (au lieu d'une seule, geante). */
+@media (max-width: 560px) {
+  .collection-grid:not(.dense), .craft-grid:not(#chest-card-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .collection-card .card-name { font-size: 0.78rem; }
+  .collection-card .card-quick-action { width: 26px; height: 26px; }
+}
+
+/* =====================================================================
+   OUVERTURE ET RESUME
+   ===================================================================== */
+.booster-hint:empty { display: none; }
+.pack-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.pack-tag { font-size: 0.78rem; padding: 4px 12px; }
+.reveal-summary {
+  width: min(820px, 100%); margin: 6px auto 14px; padding: 14px 16px;
+  border-radius: 16px; background: rgba(12, 13, 30, 0.82); border: 1px solid var(--border-soft);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: grid; gap: 10px; text-align: left;
+}
+.summary-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; font-size: 0.9rem; color: var(--text-dim); }
+.summary-head strong { font-family: var(--font-brand); font-weight: 400; font-size: 1.15rem; color: var(--text); }
+.summary-new { color: var(--accent-3); font-weight: 700; }
+.summary-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.summary-pill { font-size: 0.78rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--pill-color); background: color-mix(in srgb, var(--pill-color) 16%, transparent); }
+.summary-notable { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 6px; }
+.summary-notable li { padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); border-left: 3px solid var(--pill-color); font-size: 0.8rem; min-width: 0; overflow-wrap: anywhere; }
+.summary-notable li span { color: var(--text-dim); }
+.summary-hint { display: none; }
+/* Cartes revelees : de la place pour le nom et la rarete, badges ranges. */
+.reveal-grid.row-reveal { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 12px; width: min(980px, 100%); margin-inline: auto; }
+.reveal-grid.row-reveal .card { aspect-ratio: 30 / 53; }
+.reveal-grid.row-reveal .card-name { font-size: 0.74rem; }
+.reveal-grid.row-reveal .rarity-badge { font-size: 0.58rem; }
+.reveal-grid .card-front .new-badge, .reveal-grid .card-front .dupe-badge { top: 6px; left: 6px; right: auto; }
+.reveal-grid .card-front .serial-one-badge { top: 6px; right: 6px; left: auto; transform: none; }
+.reveal-grid .card-front > .first-ever-badge ~ .card-art .serial-one-badge { top: 6px; }
+@media (max-width: 560px) {
+  .reveal-grid.row-reveal { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .reveal-summary { padding: 12px; }
+  .summary-notable { grid-template-columns: 1fr; }
+}
+
+/* =====================================================================
+   COFFRE DE GUILDE
+   ===================================================================== */
+#chest-zone .wheel-widget {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center;
+  padding: 18px 20px; border-radius: 18px;
+  background: radial-gradient(circle at 0% 50%, color-mix(in srgb, var(--rarity-legendaire) 18%, transparent), transparent 60%), var(--bg-panel-2);
+  border: 1px solid color-mix(in srgb, var(--rarity-legendaire) 35%, var(--border-soft));
+}
+#chest-zone .chest-icon { font-size: 2.6rem; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 16px; background: rgba(0,0,0,0.25); }
+#chest-status-text { font-weight: 700; font-size: 1rem; }
+.chest-status-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+#chest-card-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 10px; }
+.chest-tile { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--r) 35%, var(--border-soft)); min-width: 0; }
+.chest-tile-art { width: 62px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; border: 2px solid color-mix(in srgb, var(--r) 80%, transparent); }
+.chest-tile-body { min-width: 0; display: grid; gap: 6px; }
+.chest-tile-body header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.chest-tile-body header strong { font-size: 0.92rem; overflow-wrap: anywhere; }
+.chest-tile-rarity { font-size: 0.72rem; font-weight: 700; color: var(--r); }
+.chest-tile-variants { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.chest-tile-variants li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 4px 8px; border-radius: 10px; background: rgba(0,0,0,0.18); }
+.chest-tile-variants .chest-variant-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.chest-tile-variants .chest-deposit-btn { flex-shrink: 0; padding: 5px 10px; font-size: 0.74rem; }
+.chest-key-zone { margin-top: 14px; padding: 14px; border-radius: 14px; border: 1px dashed color-mix(in srgb, var(--rarity-legendaire) 50%, transparent); }
+
+/* =====================================================================
+   ENCHERES
+   ===================================================================== */
+#auctions-lead { font-size: 0.88rem; }
+.auction-sell { background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel-2)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-soft)); border-radius: 16px; }
+.auction-sell summary { padding: 4px 0; }
+.auction-form { grid-template-columns: minmax(0, 1fr) minmax(0, 220px); align-items: end; }
+.auction-form > label:first-child, .auction-form .auction-pick { grid-column: 1 / -1; }
+.auction-form button[type="submit"] { justify-self: start; }
+.auction-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+.auction-list > .empty-state { grid-column: 1 / -1; padding: 30px 10px; }
+.auction { grid-template-columns: 60px minmax(0, 1fr); grid-template-rows: auto auto; align-items: start; padding: 12px; gap: 10px 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--r, var(--border)) 35%, var(--border-soft)); }
+.auction img { width: 60px; height: 80px; border-radius: 8px; border: 2px solid color-mix(in srgb, var(--r, #888) 80%, transparent); }
+.auction-body strong { font-size: 0.95rem; }
+.auction-price { margin-top: 4px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.auction-price strong { font-family: var(--font-brand); font-weight: 400; font-size: 1.15rem; }
+.auction-act { grid-column: 1 / -1; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border-soft); }
+.auction-act input { flex: 1; max-width: 140px; }
+.auction-history { gap: 6px; }
+.auction-history li { padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,0.03); }
+@media (max-width: 560px) { .auction-form { grid-template-columns: 1fr; } .auction-act input { max-width: none; } }
+
+/* =====================================================================
+   ECHANGES : "tu donnes  <->  tu recois"
+   ===================================================================== */
+.trade-compose-form { display: grid; gap: 16px; }
+.trade-target-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.trade-field-label { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: none; letter-spacing: 0; }
+.trade-compose-form select { box-shadow: none !important; border-radius: 10px; padding: 9px 12px; font-weight: 600; background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text); max-width: 100%; }
+.trade-target-picker select { min-width: min(260px, 100%); }
+.trade-compose-sides { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.trade-side { display: grid; gap: 10px; justify-items: center; align-content: start; max-width: none; min-width: 0; padding: 16px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft); }
+.trade-side-label { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+.trade-side-label em { text-transform: none; font-weight: 500; letter-spacing: 0; }
+.trade-side select { width: 100%; }
+.trade-side-card { width: 120px; }
+.trade-side-extra { width: 100%; display: grid; gap: 8px; }
+.trade-side-sub { display: grid; gap: 4px; font-size: 0.76rem; color: var(--text-dim); }
+.trade-side .checkbox-inline { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; justify-self: start; margin: 0; }
+.trade-compose-arrow { align-self: center; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 8px 20px -10px var(--accent); }
+.trade-tax-note { margin: 0; font-size: 0.82rem; color: var(--text-dim); }
+.trade-compose-submit { justify-self: end; }
+@media (max-width: 640px) {
+  .trade-compose-sides { grid-template-columns: 1fr; }
+  .trade-compose-arrow { justify-self: center; transform: rotate(90deg); }
+  .trade-compose-submit { justify-self: stretch; }
+}
+
+/* =====================================================================
+   COFFRE-FORT PERSO
+   ===================================================================== */
+.pv-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+.pv-kpi { display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: 999px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); font-size: 0.82rem; color: var(--text-dim); }
+.pv-kpi strong { font-family: var(--font-brand); font-weight: 400; font-size: 1.05rem; color: var(--text); }
+.pv-reward-note { flex: 1 1 320px; font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
+.pv-counter { padding: 16px 18px; border-radius: 18px; }
+.pv-counter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.pv-counter-head h2 { margin: 0; }
+.pv-counter-lead { font-size: 0.84rem; color: var(--text-dim); max-width: 70ch; }
+.pv-counter-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 160px)); }
+.pv-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 18px 0 10px; }
+.pv-toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; padding: 9px 12px; }
+.pv-rows { display: grid; gap: 12px; }
+.pv-row { padding: 12px 14px; border-radius: 16px; border: 1px solid var(--border-soft); background: rgba(255,255,255,0.025); }
+.pv-row.complete { border-color: color-mix(in srgb, #ffd76e 55%, transparent); box-shadow: 0 0 22px -12px #ffd76e; }
+.pv-row-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.pv-row-thumb { width: 34px; height: 46px; object-fit: cover; border-radius: 6px; border: 2px solid color-mix(in srgb, var(--r, #888) 80%, transparent); }
+.pv-row-name { font-weight: 800; font-size: 0.98rem; }
+.pv-row-head .rarity-badge { margin: 0; }
+.pv-row-progress { margin-left: auto; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.pv-row-bar { flex-basis: 100%; height: 6px; border-radius: 999px; background: rgba(0,0,0,0.35); overflow: hidden; }
+.pv-row-bar > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #a78bfa, #7dd3fc, #ffd76e); }
+.pv-row-preview { font-size: 0.8rem; color: var(--success); margin: -4px 0 8px; }
+.pv-slots { display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 8px !important; max-width: 820px; }
+.pv-slot { min-width: 0; }
+.pv-slot.filled .collection-card.pv-mini { border-radius: 10px; }
+.pv-slot.filled .pv-mini .card-art img { aspect-ratio: 3 / 4; object-fit: cover; }
+.pv-slot-foot { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 4px; }
+.pv-slot-label { font-size: 0.7rem; font-weight: 700; text-align: center; }
+.pv-withdraw, .pv-store { padding: 3px 8px !important; font-size: 0.68rem !important; border-radius: 8px !important; box-shadow: none !important; }
+.pv-slot.empty { aspect-ratio: 3 / 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1.5px dashed var(--border); border-radius: 10px; background: rgba(0,0,0,0.15); padding: 6px; text-align: center; }
+.pv-slot.empty.available { border-color: color-mix(in srgb, var(--success) 70%, transparent); background: color-mix(in srgb, var(--success) 7%, transparent); }
+.pv-slot-missing { color: var(--text-dim); }
+.pv-slot.filled .finish-indicator, .pv-slot.filled .quality-indicator { display: none; }
+@media (max-width: 640px) { .pv-slots { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } .pv-row-progress { margin-left: 0; } }
+
+/* Listes deroulantes personnalisees : pas l'ombre des boutons. */
+.fancy-select-trigger { box-shadow: none; font-weight: 600; transform: none !important; filter: none !important; }
+.fancy-select-trigger::before { display: none; }
+.trade-side .fancy-select, .trade-side-sub .fancy-select { display: block; width: 100%; }
+.trade-side .fancy-select-trigger { width: 100%; }
+.trade-target-picker { max-width: none; flex-direction: row; }
+.trade-target-picker .fancy-select { min-width: min(260px, 100%); }
+.trade-side-extra { display: grid !important; justify-items: stretch !important; align-items: stretch; }
+.trade-side-extra .trade-side-sub, .trade-side-extra .fancy-select, .trade-side-extra .fancy-select-trigger { width: 100%; }
+.trade-side-extra .checkbox-inline { justify-self: start !important; }
+/* Comptoir Unique : le halo du dome reste dans la grille sans couper les boutons. */
+.pv-counter-grid { overflow: hidden; padding: 6px; margin: -6px; }

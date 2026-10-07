@@ -719,6 +719,10 @@ async function loadEconomy() {
 document.addEventListener("DOMContentLoaded", async () => {
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
+    // Connexion directe depuis l'admin (2026-10-07) : retour ici apres Discord,
+    // sans passer par l'accueil (redirige vers la page de maintenance).
+    const link = document.getElementById("admin-login-link");
+    if (link) link.addEventListener("click", (e) => { e.preventDefault(); try { sessionStorage.setItem("2gatcha_after_login", "admin.html"); } catch (err) { /* stockage indisponible */ } location.href = API.discordLoginUrl(); });
     return;
   }
 

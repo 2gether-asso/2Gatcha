@@ -45,8 +45,8 @@ function pvRender(data) {
   const rows = pvApplyView(allRows);
   const complete = allRows.filter((r) => r.complete).length;
   document.getElementById("pv-summary").innerHTML = `
-    <div class="stat-tile"><div class="stat-value">${allRows.reduce((n, r) => n + r.filled, 0)}</div><div class="stat-label">Cartes protégées</div></div>
-    <div class="stat-tile"><div class="stat-value">${complete}</div><div class="stat-label">Lignes complètes</div></div>
+    <div class="pv-kpi"><strong>${allRows.reduce((n, r) => n + r.filled, 0)}</strong><span>cartes protégées</span></div>
+    <div class="pv-kpi"><strong>${complete}</strong><span>ligne${complete > 1 ? "s" : ""} complète${complete > 1 ? "s" : ""}</span></div>
     <div class="pv-reward-note">Ligne complète (6 finitions en parfait état) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>${pvUniqueNote(data.unique)}, une seule fois par carte. Les cartes promo ne vont pas au coffre.</div>
   `;
   const box = document.getElementById("pv-rows");
@@ -91,11 +91,13 @@ function pvRender(data) {
     const preview = !r.claimed && r.filled >= 4 && r.filled < 6
       ? `<div class="pv-row-preview">Plus que <strong>${missing.join(" et ")}</strong> : ${data.boostersPerRow} boosters + ${data.dustPerRow} &#10024; + 1 &#127915;</div>`
       : "";
-    return `<div class="pv-row ${r.complete ? "complete" : ""}" data-card-id="${r.cardId}">
+    return `<div class="pv-row ${r.complete ? "complete" : ""}" data-card-id="${r.cardId}" style="--r:${color}">
       <div class="pv-row-head">
+        ${img ? `<img class="pv-row-thumb" src="${img}" alt="" loading="lazy" />` : ""}
         <span class="pv-row-name">${r.name}</span>
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${r.rarity?.name || ""}</span>
         <span class="pv-row-progress">${r.filled}/6 ${r.claimed ? "&#10004; récompense reçue" : ""}</span>
+        <span class="pv-row-bar" aria-hidden="true"><span style="width:${Math.round((r.filled / 6) * 100)}%"></span></span>
       </div>
       ${preview}
       <div class="pv-slots">${slots}</div>
