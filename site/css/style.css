@@ -6830,3 +6830,204 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 .auction-pick-item:has(input:checked) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .auction-pick-item span { min-width: 0; overflow-wrap: anywhere; }
 .mystats > *, .mystats-duo > *, .mystats-block { min-width: 0; }
+
+/* =====================================================================
+   DESIGN V2 (2026-10-07) : refonte visuelle globale.
+   - Bungee (police "marque") reservee au logo, aux titres de page et aux
+     gros chiffres ; tout le reste en Inter : plus lisible, moins criard.
+   - Boutons plus sobres (plus d'effet 3D), hierarchie claire :
+     principal (degrade) / secondaire (contour) / discret.
+   - Panneaux plus plats, bordure fine, espacements reguliers.
+   Couche posee en fin de feuille : elle remplace l'existant sans le casser.
+   ===================================================================== */
+:root {
+  --font-brand: "Bungee", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Inter", "Segoe UI", system-ui, sans-serif;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --space-1: 6px; --space-2: 10px; --space-3: 16px; --space-4: 24px; --space-5: 36px;
+}
+
+/* --- Typographie --- */
+body { font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+h1, .hero-title, .brand { font-family: var(--font-brand); font-weight: 400; letter-spacing: 0.01em; }
+h1 { font-size: clamp(1.55rem, 1.2rem + 1.4vw, 2.15rem); line-height: 1.15; margin: 0 0 var(--space-2); text-wrap: balance; }
+h2 { font-family: var(--font-body); font-weight: 800; font-size: 1.12rem; letter-spacing: -0.01em; line-height: 1.3; margin: 0 0 var(--space-2); text-wrap: balance; }
+h3 { font-family: var(--font-body); font-weight: 700; font-size: 0.98rem; letter-spacing: -0.005em; margin: 0 0 var(--space-1); }
+.lead { font-size: 0.95rem; color: var(--text-dim); line-height: 1.6; max-width: 72ch; }
+.panel .lead { margin-top: 0; }
+small { line-height: 1.4; }
+
+/* --- En-tete et navigation --- */
+.nav, .nav a, .nav-group-trigger { font-family: var(--font-body); }
+.nav a, .nav-group-trigger { font-weight: 650; font-size: 0.88rem; letter-spacing: 0; text-transform: none; }
+.brand { font-size: 1.25rem; }
+
+/* --- Boutons --- */
+button, .btn {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  box-shadow: 0 8px 20px -12px color-mix(in srgb, var(--accent) 80%, transparent);
+  line-height: 1.2;
+}
+button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+button:active:not(:disabled) { transform: translateY(1px); box-shadow: none; filter: none; }
+.btn-secondary {
+  background: color-mix(in srgb, var(--bg-panel-2) 85%, transparent);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: none;
+}
+.btn-secondary:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 70%, transparent); background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel-2)); }
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--border); background: rgba(255,255,255,0.03); }
+.btn-danger { box-shadow: none; }
+/* Boutons d'action dans les cartes et listes : plus petits. */
+.theme-card .btn, .challenge .btn-secondary, .rc-claim, .quest-claim, .contract .btn-secondary, .sky-claim, .mastery-claim, .copy-forge { padding: 8px 14px; font-size: 0.84rem; }
+
+/* --- Onglets --- */
+.tab { font-family: var(--font-body); font-weight: 700; font-size: 0.9rem; letter-spacing: 0; text-transform: none; padding: 10px 8px; }
+.tab:not(.active) { color: var(--text-dim); }
+.tab:hover:not(.active) { color: var(--text); }
+
+/* --- Panneaux --- */
+main { max-width: 1180px; padding-left: 20px; padding-right: 20px; }
+.panel {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: clamp(18px, 1.2rem + 1vw, 28px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 92%, transparent), color-mix(in srgb, var(--bg-panel-solid) 80%, transparent));
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 40px -28px rgba(0,0,0,0.8);
+}
+.panel::before { opacity: 0.07; }
+.panel + .panel { margin-top: var(--space-4); }
+.panel > h2:first-child, .panel > .anchor + h2 { margin-top: 0; }
+@media (max-width: 640px) {
+  main { padding-left: 12px; padding-right: 12px; }
+  .panel { border-radius: 16px; }
+}
+
+/* --- Champs --- */
+input[type="text"], input[type="search"], input[type="number"], select, textarea {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--bg-panel-2) 80%, transparent);
+  color: var(--text);
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 1px; border-color: transparent; }
+
+/* --- Badges et pastilles : Inter gras, plus de majuscules criardes --- */
+.rarity-badge, .finish-indicator, .quality-indicator, .count-badge, .level-badge, .community-counter, .credit-counter, .pack-tag, .sim-badge, .serial-one-badge {
+  font-family: var(--font-body);
+  letter-spacing: 0.01em;
+}
+.rarity-badge { font-weight: 700; }
+
+/* Gros chiffres : la police marque reste la, c'est un repere. */
+.stat-value, .sd-count, .credit-value, .mystats-tile strong, .mastery-level, .tier-roman, .today-house-mult, .sim-tile strong, .booster-shop-row strong, .season-tier-num, .streak-day-num {
+  font-family: var(--font-brand);
+  font-weight: 400;
+}
+
+/* =====================================================================
+   ACCUEIL : tableau de bord connecte en deux colonnes explicites
+   ===================================================================== */
+.hero-panel.compact { padding-top: 18px; padding-bottom: 18px; }
+.hero-panel.compact .hero-eyebrow, .hero-panel.compact .lead, .hero-panel.compact .hero-title, .hero-panel.compact #login-zone { display: none; }
+.hero-panel.compact #logged-zone { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 20px; align-items: center; }
+.hero-panel.compact #logged-zone > p { margin: 0; font-size: 1.05rem; }
+.hero-panel.compact #logged-zone > p strong { font-family: var(--font-brand); font-weight: 400; font-size: 1.25rem; display: block; color: var(--text); }
+.hero-panel.compact .actions { margin: 0; justify-content: flex-end; }
+.hero-panel.compact .actions .btn-secondary { display: none; }
+.hero-panel.compact .last-card-showcase { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 640px) {
+  .hero-panel.compact #logged-zone { grid-template-columns: 1fr; }
+  .hero-panel.compact .actions { justify-content: stretch; }
+  .hero-panel.compact .actions .btn { flex: 1; }
+}
+.home-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: var(--space-4); margin-top: var(--space-4); align-items: start; }
+.home-col { display: grid; gap: var(--space-4); align-content: start; min-width: 0; }
+.home-col > .panel { margin: 0 !important; height: auto !important; min-width: 0; }
+.home-wide { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
+.home-wide > .panel { margin: 0 !important; }
+@media (max-width: 960px) {
+  /* Une colonne, par ordre d'importance. */
+  .home-layout { display: flex; flex-direction: column; gap: 16px; }
+  .home-col { display: contents; }
+  #today-panel { order: 1; } #whatnow-panel { order: 2; } #challenges-panel { order: 3; } #streak-panel { order: 4; }
+  #quests-panel { order: 5; } #wheel-panel { order: 6; } #season-panel { order: 7; } #pass-panel { order: 8; }
+  #weekly-quests-panel { order: 9; } #live-feed-panel { order: 10; }
+}
+/* Panneaux repliables (succes, activite) */
+.home-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; }
+.home-fold > summary::-webkit-details-marker { display: none; }
+.home-fold > summary h2 { margin: 0; flex: 1; }
+.home-fold > summary::after { content: "▾"; color: var(--text-dim); transition: transform 0.2s; }
+.home-fold:not([open]) > summary::after { transform: rotate(-90deg); }
+.home-fold[open] > summary { margin-bottom: var(--space-3); }
+
+/* =====================================================================
+   OUVERTURE : tuiles d'extension a taille fixe, centrees
+   ===================================================================== */
+.extension-picker { grid-template-columns: repeat(auto-fit, minmax(180px, 230px)); justify-content: center; }
+.pack-selection-banner { display: none; }
+
+/* =====================================================================
+   COLLECTION : barre d'outils compacte
+   ===================================================================== */
+#shared-toolbar .btn-secondary, #shared-toolbar .btn-ghost { padding: 7px 12px; font-size: 0.82rem; border-radius: 999px; }
+#shared-toolbar .btn-secondary.active { background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel-2)); border-color: var(--accent); }
+#shared-toolbar .filters { gap: 6px; }
+#shared-toolbar .filters button { padding: 6px 14px; font-size: 0.82rem; border-radius: 999px; box-shadow: none; }
+.themes-panel { border-radius: var(--radius-md); }
+.themes-panel > summary { font-weight: 700; }
+
+/* =====================================================================
+   COMMUNAUTE : cartes du boss plus petites
+   ===================================================================== */
+#boss-card-grid, #chest-card-grid, #chest-key-grid, #market-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); gap: 12px; }
+@media (min-width: 861px) { .boss-attack-layout { grid-template-columns: minmax(0, 1fr) 280px; } }
+
+/* V2 : retouches de l'accueil */
+.hero-panel.compact #logged-zone > p { font-size: 0; }
+.hero-panel.compact #logged-zone > p::before { content: "Bon retour,"; display: block; font-size: 0.85rem; color: var(--text-dim); }
+.hero-panel.compact #logged-zone > p strong { font-size: 1.3rem; }
+.home-side .live-feed-cols { grid-template-columns: minmax(0, 1fr); }
+.home-col > .panel, .home-layout > .home-col { min-width: 0; max-width: 100%; }
+.home-side .live-item time { display: none; }
+#activity-feed { max-height: 440px; overflow-y: auto; scrollbar-width: thin; }
+#achievements-grid { max-height: 460px; overflow-y: auto; scrollbar-width: thin; padding-right: 4px; }
+@media (max-width: 640px) { #activity-feed { max-height: 320px; } #achievements-grid { max-height: 340px; } }
+
+/* V2 : mobile plus compact */
+.hero-title { font-size: clamp(1.7rem, 1.1rem + 2.6vw, 2.6rem); }
+@media (max-width: 640px) {
+  .lead { font-size: 0.9rem; }
+  .rc-item { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .rc-item .rc-claim { grid-column: auto; justify-self: end; padding: 6px 12px; font-size: 0.8rem; }
+  .rc-label { font-size: 0.88rem; }
+  #stats-grid.stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 14px; }
+  #stats-grid .stat-tile { padding: 10px 6px; }
+  #stats-grid .stat-tile .stat-value { font-size: 1rem; }
+  #stats-grid .stat-tile .stat-label { font-size: 0.66rem; }
+  .tabs .tab { font-size: 0.86rem; }
+}

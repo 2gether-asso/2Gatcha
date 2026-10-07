@@ -45,7 +45,7 @@
 
   function renderToday(t) {
     today = t;
-    $("home-duo").hidden = false;
+    $("today-panel").hidden = false;
     $("today-house").innerHTML = `<a href="${t.house.url}" class="today-house-link"><span class="today-house-icon" aria-hidden="true">${t.house.icon}</span><span><small>Action du jour</small><strong>${esc(t.house.label)}</strong></span><span class="today-house-mult">XP ×${t.house.multiplier}</span></a>`;
     renderLucky(t.lucky);
     $("today-box").hidden = !t.box.available;
@@ -128,6 +128,7 @@
   async function loadWhatNow() {
     try {
       const res = await API.getWhatNow(Session.userId);
+      $("whatnow-panel").hidden = false;
       $("whatnow-list").innerHTML = res.items.length
         ? res.items.slice(0, 9).map((it) => `<li class="whatnow-item ${it.priority >= 80 ? "hot" : ""}"><a href="${it.url}"><span class="whatnow-icon" aria-hidden="true">${it.icon}</span><span>${esc(it.label)}</span><span class="whatnow-go" aria-hidden="true">&#8250;</span></a></li>`).join("")
         : `<li class="whatnow-empty">Tout est fait pour l’instant. Reviens plus tard !</li>`;
@@ -155,6 +156,8 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    // Connecte : bandeau d'accueil compact (le texte de presentation est pour les visiteurs).
+    document.querySelector(".hero-panel")?.classList.add("compact");
     API.getToday(Session.userId).then(renderToday).catch(() => {});
     loadWhatNow();
     loadFeed();

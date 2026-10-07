@@ -60,9 +60,13 @@
       <ul class="rc-deadlines" id="rc-deadlines" aria-label="Bientôt fini"></ul>
     </div>
 
-    <!-- Rendez-vous du jour et "que faire maintenant ?" (js/home-daily.js) -->
-    <div class="home-duo" id="home-duo" hidden>
-      <div class="panel today-panel" id="today-panel">
+
+    <!-- Tableau de bord (2026-10-07) : colonne principale (a faire) et colonne
+         laterale (rendez-vous, progression). Une seule colonne sur mobile,
+         ordre fixe en CSS. -->
+    <div class="home-layout">
+      <div class="home-col home-main">
+      <div class="panel today-panel" id="today-panel" hidden>
         <span id="aujourdhui" class="anchor"></span>
         <h2>&#9728;&#65039; Aujourd'hui</h2>
         <div class="today-house" id="today-house"></div>
@@ -84,13 +88,7 @@
           <button type="button" class="btn" id="evening-claim" hidden>Récupérer</button>
         </div>
       </div>
-      <div class="panel whatnow-panel" id="whatnow-panel">
-        <h2>&#129517; Que faire maintenant ?</h2>
-        <ul class="whatnow-list" id="whatnow-list"><li class="whatnow-empty">Chargement…</li></ul>
-      </div>
-    </div>
 
-    <div class="home-grid">
       <div class="panel challenges-panel" id="challenges-panel" style="display:none;">
         <span id="defis" class="anchor"></span>
         <h2>&#127919; Défis de la semaine</h2>
@@ -98,26 +96,14 @@
         <ul class="challenges-list" id="challenges-list"></ul>
         <button type="button" class="btn" id="challenges-claim" hidden>Récupérer les défis accomplis</button>
       </div>
-      <div class="panel" id="pass-panel" style="display:none;">
+
+      <div class="panel" id="quests-panel" style="display:none;">
         <div class="actions" style="margin-top:0;align-items:center;">
-          <h2 style="flex:1;margin:0;">&#127942; Progression</h2>
-          <span id="pass-level-label" class="level-badge"></span>
+          <h2 style="flex:1;margin:0;">&#127919; Quêtes du jour</h2>
+          <span id="quest-streak-badge" class="streak-badge" style="display:none;"></span>
         </div>
-        <div class="pass-track">
-          <div class="pass-track-bar"><div id="pass-track-fill" class="pass-track-fill"></div></div>
-          <div class="pass-track-labels">
-            <span id="pass-xp-label"></span>
-            <span id="pass-next-reward-label">Prochaine récompense : &#127183; +1 booster garanti à chaque niveau</span>
-          </div>
-        </div>
-        <details class="level-rewards-details">
-          <summary>Voir tous les gains par niveau</summary>
-          <div id="level-rewards-list" class="quests-list"></div>
-        </details>
-        <div id="level-claim-banner" class="level-claim-banner" style="display:none;">
-          <span id="level-claim-text"></span>
-          <button type="button" id="level-claim-btn" class="btn">Réclamer</button>
-        </div>
+        <p class="lead skeleton-line" style="font-size:0.85rem;" id="quests-intro">Chargement...</p>
+        <div id="quests-list" class="quests-list"></div>
       </div>
 
       <div class="panel season-panel" id="season-panel" style="display:none;">
@@ -131,6 +117,18 @@
         <div class="season-xp" id="season-xp"></div>
         <ol class="season-tiers" id="season-tiers" aria-label="Paliers de la saison"></ol>
         <button type="button" class="btn" id="season-claim-btn" style="display:none;">Récupérer les récompenses</button>
+      </div>
+
+      <div class="panel" id="weekly-quests-panel" style="display:none;">
+        <h2>&#128197; Quêtes de la semaine</h2>
+        <p class="lead skeleton-line" style="font-size:0.85rem;" id="weekly-quests-intro">Chargement...</p>
+        <div id="weekly-quests-list" class="quests-list"></div>
+      </div>
+      </div>
+      <div class="home-col home-side">
+      <div class="panel whatnow-panel" id="whatnow-panel" hidden>
+        <h2>&#129517; Que faire maintenant ?</h2>
+        <ul class="whatnow-list" id="whatnow-list"><li class="whatnow-empty">Chargement…</li></ul>
       </div>
 
       <div class="panel" id="streak-panel" style="display:none;">
@@ -159,19 +157,57 @@
         </div>
       </div>
 
-      <div class="panel" id="quests-panel" style="display:none;">
+      <div class="panel" id="pass-panel" style="display:none;">
         <div class="actions" style="margin-top:0;align-items:center;">
-          <h2 style="flex:1;margin:0;">&#127919; Quêtes du jour</h2>
-          <span id="quest-streak-badge" class="streak-badge" style="display:none;"></span>
+          <h2 style="flex:1;margin:0;">&#127942; Progression</h2>
+          <span id="pass-level-label" class="level-badge"></span>
         </div>
-        <p class="lead skeleton-line" style="font-size:0.85rem;" id="quests-intro">Chargement...</p>
-        <div id="quests-list" class="quests-list"></div>
+        <div class="pass-track">
+          <div class="pass-track-bar"><div id="pass-track-fill" class="pass-track-fill"></div></div>
+          <div class="pass-track-labels">
+            <span id="pass-xp-label"></span>
+            <span id="pass-next-reward-label">Prochaine récompense : &#127183; +1 booster garanti à chaque niveau</span>
+          </div>
+        </div>
+        <details class="level-rewards-details">
+          <summary>Voir tous les gains par niveau</summary>
+          <div id="level-rewards-list" class="quests-list"></div>
+        </details>
+        <div id="level-claim-banner" class="level-claim-banner" style="display:none;">
+          <span id="level-claim-text"></span>
+          <button type="button" id="level-claim-btn" class="btn">Réclamer</button>
+        </div>
       </div>
 
-      <div class="panel" id="weekly-quests-panel" style="display:none;">
-        <h2>&#128197; Quêtes de la semaine</h2>
-        <p class="lead skeleton-line" style="font-size:0.85rem;" id="weekly-quests-intro">Chargement...</p>
-        <div id="weekly-quests-list" class="quests-list"></div>
+      <div class="panel live-feed-panel" id="live-feed-panel" hidden>
+        <div class="live-feed-head"><h2>&#128225; En direct sur le serveur</h2><span class="live-dot" aria-hidden="true"></span></div>
+        <div class="live-feed-cols">
+          <ul class="live-feed" id="live-feed" aria-live="polite"></ul>
+          <div class="top-collectors" id="top-collectors" hidden><h3>&#128081; Plus belles collections</h3><ol id="top-collectors-list"></ol></div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="home-wide">
+      <div class="panel" id="achievements-panel" style="display:none;">
+        <div class="actions" style="margin-top:0;align-items:center;">
+          <h2 style="flex:1;margin:0;">&#127942; Succès</h2>
+          <span id="achievements-count" class="community-counter"></span>
+        </div>
+        <div id="achievements-grid" class="achievements-grid"></div>
+      </div>
+
+      <div class="panel" id="activity-panel" style="display:none;">
+        <div class="actions" style="margin-top:0;align-items:center;">
+          <h2 style="flex:1;margin:0;">&#9889; Activité récente</h2>
+          <span id="community-legendary-counter" class="community-counter"></span>
+        </div>
+        <select id="activity-extension-filter" style="margin:12px 0;display:none;">
+          <option value="">Toutes les extensions</option>
+        </select>
+        <div id="activity-loading" class="loading-row"><div class="spinner"></div></div>
+        <div id="activity-feed" class="activity-feed"></div>
       </div>
     </div>
 
@@ -227,33 +263,11 @@
       </div>
     </div>
 
-    <div class="panel" id="achievements-panel" style="display:none;margin-top:24px;">
-      <div class="actions" style="margin-top:0;align-items:center;">
-        <h2 style="flex:1;margin:0;">&#127942; Succès</h2>
-        <span id="achievements-count" class="community-counter"></span>
-      </div>
-      <div id="achievements-grid" class="achievements-grid"></div>
-    </div>
 
-    <div class="panel live-feed-panel" id="live-feed-panel" hidden>
-      <div class="live-feed-head"><h2>&#128225; En direct sur le serveur</h2><span class="live-dot" aria-hidden="true"></span></div>
-      <div class="live-feed-cols">
-        <ul class="live-feed" id="live-feed" aria-live="polite"></ul>
-        <div class="top-collectors" id="top-collectors" hidden><h3>&#128081; Plus belles collections</h3><ol id="top-collectors-list"></ol></div>
-      </div>
-    </div>
 
-    <div class="panel" id="activity-panel" style="display:none;margin-top:24px;">
-      <div class="actions" style="margin-top:0;align-items:center;">
-        <h2 style="flex:1;margin:0;">&#9889; Activité récente</h2>
-        <span id="community-legendary-counter" class="community-counter"></span>
-      </div>
-      <select id="activity-extension-filter" style="margin:12px 0;display:none;">
-        <option value="">Toutes les extensions</option>
-      </select>
-      <div id="activity-loading" class="loading-row"><div class="spinner"></div></div>
-      <div id="activity-feed" class="activity-feed"></div>
-    </div>
+
+
+
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
