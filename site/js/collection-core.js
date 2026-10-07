@@ -61,7 +61,7 @@ const Coll = (() => {
     },
     showcase: {
       card_not_owned: "Tu ne possèdes pas cette carte.",
-      showcase_full: "Ta vitrine est déjà pleine (5 cartes max) : retire-en une avant d'en ajouter une nouvelle."
+      showcase_full: "Ta vitrine est déjà pleine (6 cartes max) : retire-en une avant d'en ajouter une nouvelle."
     },
     altar: {
       not_enough_duplicates: "Tu dois garder au moins 1 exemplaire de chaque carte.",
@@ -114,7 +114,7 @@ const Coll = (() => {
   }
   function finishOf(c) { return c.finish || "normal"; }
   function qualityOf(c) { return c.quality || "damaged"; }
-  function isPrecious(c) { return c.serialNumber === 1 || finishOf(c) === "rainbow" || qualityOf(c) === "mint"; }
+  function isPrecious(c) { return c.serialNumber === 1 || finishOf(c) === "rainbow" || qualityOf(c) === "mint" || !!(state.starred && state.starred.has(c.pullId)); }
 
   // Montant de decraft reel : valeur de base de la rarete x multiplicateur
   // de finition x multiplicateur de qualite (meme calcul que disenchant.json).
@@ -145,8 +145,12 @@ const Coll = (() => {
 
   // Exemplaires d'une variante a sacrifier en premier : numeros les plus
   // hauts d'abord, le #001 en tout dernier.
+  // Jamais un exemplaire assure ; une carte ★ seulement en tout dernier
+  // recours (2026-10-07).
   function copiesToSpend(copies, qty) {
-    return [...copies].sort((a, b) => {
+    const starred = (c) => state.starred && state.starred.has(c.pullId);
+    return [...copies].filter((c) => !(state.insured && state.insured.has(c.pullId))).sort((a, b) => {
+      if (starred(a) !== starred(b)) return starred(a) ? 1 : -1;
       if (a.serialNumber === 1) return 1;
       if (b.serialNumber === 1) return -1;
       return (b.serialNumber || 0) - (a.serialNumber || 0);
@@ -288,6 +292,10 @@ const Coll = (() => {
     });
     state.ownedMap = new Map((collection.owned || []).map((o) => [o.cardId, o]));
     state.protectedMap = new Map((collection.protectedCards || []).map((o) => [o.cardId, o.copies || []]));
+    // Cartes ★, exemplaires assures, cartes obtenues en premier sur le serveur (2026-10-07).
+    state.starred = new Set(collection.starredPullIds || []);
+    state.insured = new Set(collection.insuredPullIds || []);
+    state.firstMine = new Map((collection.firstObtained || []).map((x) => [x.cardId, x.at]));
     state.stardust = status.stardust || 0;
     state.spareParts = status.spareParts || 0;
     state.level = status.xp?.level || state.level || 1;

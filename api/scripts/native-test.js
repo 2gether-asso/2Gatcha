@@ -443,7 +443,9 @@ await test('piece detachee : remplace un exemplaire en Finitions (4 + 1) et en Q
   assert.equal(r.json.repaired, true);
   assert.deepEqual([r.json.toQuality, r.json.partsUsed, r.json.spareParts], ['good', 1, 0]);
   assert.equal(store.get('Users', 1).SpareParts, 0);
-  // Sans piece, le compte normal reste exige.
+  // Sans piece, le compte normal reste exige (exemplaires uses tires au
+  // hasard par les tests precedents retires : sinon 'wrong_selection_count').
+  store.getAll('Pulls').filter((p) => p.User === 1 && p.Card === card.id && p.Quality === 'worn').forEach((p) => store.delete('Pulls', p.id));
   const worn2 = [1, 2].map(() => mk('normal', 'worn'));
   r = await run('card-quality-repair.json', { userId: 1, cardId: card.id, fromQuality: 'worn', pullIds: worn2 });
   assert.equal(r.json.error, 'not_enough_duplicates');

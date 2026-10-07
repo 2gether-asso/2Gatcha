@@ -29,6 +29,7 @@
         <button type="button" class="tab" id="tab-market-btn" role="tab" aria-selected="false">&#127761; Marché noir</button>
         <button type="button" class="tab" id="tab-together-btn" role="tab" aria-selected="false">&#129309; Ensemble</button>
         <button type="button" class="tab" id="tab-skills-btn" role="tab" aria-selected="false">&#127942; Métiers</button>
+        <button type="button" class="tab" id="tab-auctions-btn" role="tab" aria-selected="false">&#128296; Enchères</button>
       </div>
 
       <div id="calendar-pane">
@@ -112,6 +113,22 @@
         </div>
       </div>
 
+      <div id="auctions-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;" id="auctions-lead">Mets un exemplaire en vente aux enchères, ou enchéris sur ceux des autres. Une enchère surpassée est remboursée aussitôt.</p>
+        <details class="auction-sell" id="auction-sell">
+          <summary>&#128176; Vendre un exemplaire</summary>
+          <form id="auction-form" class="auction-form">
+            <label>Exemplaire <input type="search" id="auction-search" placeholder="Filtrer par nom…" autocomplete="off" /></label>
+            <div id="auction-pull" class="auction-pick" role="radiogroup" aria-label="Exemplaire à vendre"></div>
+            <label>Prix de départ (poussières) <input type="number" id="auction-price" min="10" step="10" value="100" /></label>
+            <button type="submit" class="btn">Mettre en vente</button>
+          </form>
+        </details>
+        <div class="auction-list" id="auction-list"><div class="loading-row"><div class="spinner"></div></div></div>
+        <h3 class="auction-history-title">Mes ventes et achats récents</h3>
+        <ul class="auction-history" id="auction-history"></ul>
+      </div>
+
       <div id="skills-pane" style="display:none;">
         <div class="tourney-card" id="tourney-card"></div>
         <p class="lead" style="font-size:0.85rem;">Les meilleurs pêcheurs et fouilleurs de la semaine (XP gagnée depuis lundi). Le premier de chaque métier porte la couronne jusqu'à lundi prochain.</p>
@@ -138,5 +155,6 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/communaute.js"></script>
+  <script src="js/auctions.js"></script>
 </body>
 </html>

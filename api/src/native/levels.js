@@ -34,7 +34,9 @@ export const schema = {
     DigWeek: { type: 'Text' }, DigWeekXP: { type: 'Numeric' },
     FishingWeek: { type: 'Text' }, FishingWeekXP: { type: 'Numeric' },
     DigPrestige: { type: 'Numeric' }, FishingPrestige: { type: 'Numeric' },
-    DigDay: { type: 'Text' }, DigDayCount: { type: 'Numeric' }
+    DigDay: { type: 'Text' }, DigDayCount: { type: 'Numeric' },
+    ExpeditionXP: { type: 'Numeric' }, ExpeditionPrestige: { type: 'Numeric' },
+    GardenXP: { type: 'Numeric' }, GardenPrestige: { type: 'Numeric' }
   }
 };
 
@@ -90,7 +92,12 @@ function handleLeaderboard({ store }) {
   });
 }
 
-const PRESTIGE = { fishing: { xp: 'FishingXP', prestige: 'FishingPrestige', step: 'FishingLevelXpStep' }, dig: { xp: 'DigXP', prestige: 'DigPrestige', step: 'DigLevelXpStep' } };
+const PRESTIGE = {
+  fishing: { xp: 'FishingXP', prestige: 'FishingPrestige', step: 'FishingLevelXpStep' },
+  dig: { xp: 'DigXP', prestige: 'DigPrestige', step: 'DigLevelXpStep' },
+  expedition: { xp: 'ExpeditionXP', prestige: 'ExpeditionPrestige', step: 'ExpeditionLevelXpStep' },
+  garden: { xp: 'GardenXP', prestige: 'GardenPrestige', step: 'GardenLevelXpStep' }
+};
 
 function handlePrestige({ store, body }) {
   const user = userById(store, body.userId);
@@ -116,7 +123,64 @@ export function digLevel(store, user) {
   return { ...info, prestige, perks: digPerks(info.level, prestige) };
 }
 
+// Expedition et jardin (2026-10-07) : memes niveaux 1 a 10 et prestige.
+//   Expedition : +6 % de poussieres et -3 % de duree par niveau, +5 % de
+//   poussieres par etoile. XP : 2 (2 h), 5 (8 h), 12 (24 h).
+//   Jardin : pousse 5 % plus vite et +3 points de chance d'appat dore par
+//   niveau, +3 % de vitesse par etoile. XP : 2 par parcelle recoltee.
+export const EXPEDITION_XP = { 2: 2, 8: 5, 24: 12 };
+
+export function expeditionLevel(store, user) {
+  const info = levelInfo(user.ExpeditionXP, setting(store, 'ExpeditionLevelXpStep'));
+  const prestige = Number(user.ExpeditionPrestige) || 0;
+  return { ...info, prestige, perks: { dustBonus: 0.06 * (info.level - 1) + 0.05 * prestige, timeReduction: 0.03 * (info.level - 1) } };
+}
+
+export function gardenLevel(store, user) {
+  const info = levelInfo(user.GardenXP, setting(store, 'GardenLevelXpStep'));
+  const prestige = Number(user.GardenPrestige) || 0;
+  return { ...info, prestige, perks: { growReduction: 0.05 * (info.level - 1) + 0.03 * prestige, baitBonus: 0.03 * (info.level - 1) } };
+}
+
+// Duree de l'expedition au retour : retenue avant le workflow (il la remet a 0).
+export function beforeWorkflow({ store, path, request }) {
+  const body = request.body || {};
+  if (path === 'expedition' && body.action === 'claim') {
+    const user = store.get('Users', Number(body.userId));
+    if (user) request._expeditionHours = Number(user.ExpeditionDuration) || 0;
+  }
+  return null;
+}
+
+function expeditionAfter(store, body, json, request) {
+  const user = store.get('Users', Number(body.userId));
+  if (!user) return;
+  if (body.action === 'start' && json.expedition && json.expedition.active) {
+    const lvl = expeditionLevel(store, user);
+    const until = Number(user.ExpeditionUntil) || 0;
+    const cut = Math.floor((until - Math.floor(Date.now() / 1000)) * lvl.perks.timeReduction);
+    if (cut > 0) {
+      store.update('Users', user.id, { ExpeditionUntil: until - cut });
+      json.expedition.until = until - cut;
+      json.expedition.secondsLeft = Math.max(0, (json.expedition.secondsLeft || 0) - cut);
+      json.expedition.shortenedBy = cut;
+    }
+  } else if (body.action === 'claim' && json.reward) {
+    const before = expeditionLevel(store, user);
+    const gained = EXPEDITION_XP[request._expeditionHours] || 2;
+    const after = store.update('Users', user.id, { ExpeditionXP: (Number(user.ExpeditionXP) || 0) + gained });
+    json.expeditionLevel = expeditionLevel(store, after);
+    json.expeditionXpGained = gained;
+    if (json.expeditionLevel.level > before.level) json.levelUp = json.expeditionLevel.level;
+  }
+  if (!json.expeditionLevel) json.expeditionLevel = expeditionLevel(store, store.get('Users', user.id));
+}
+
 export function afterWorkflow({ store, path, request, response }) {
+  if (path === 'expedition' && response.status === 200 && response.json && !response.json.error) {
+    expeditionAfter(store, request.body || {}, response.json, request);
+    return;
+  }
   if (path !== 'dig' || response.status !== 200 || !response.json || response.raw) return;
   const body = request.body || {};
   const user = store.get('Users', Number(body.userId));

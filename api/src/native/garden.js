@@ -7,12 +7,23 @@
 
 import { ok, fail, userById, now } from './common.js';
 import { setting } from './settings.js';
+import { gardenLevel } from './levels.js';
+import { talentValue } from './talents.js';
+import { diceFace } from './daily.js';
 
 export const PLOTS = 4;
 
 export const schema = {
   Users: { GardenPlots: { type: 'Text' }, GoldBait: { type: 'Numeric' } }
 };
+
+// Temps de pousse du joueur (2026-10-07) : niveau de jardinage, talent Main
+// verte, de du jour (face 3 : 2x plus vite). Au moins 20 % du temps de base.
+export function growSeconds(store, user) {
+  const base = setting(store, 'GardenGrowHours') * 3600;
+  const cut = Math.min(0.8, gardenLevel(store, user).perks.growReduction + talentValue(user, 'greenthumb'));
+  return Math.max(60, Math.round(base * (1 - cut) * (diceFace(user) === 3 ? 0.5 : 1)));
+}
 
 const plotsOf = (user) => {
   let p = [];
@@ -21,14 +32,14 @@ const plotsOf = (user) => {
 };
 
 function state(store, user) {
-  const grow = setting(store, 'GardenGrowHours') * 3600;
+  const grow = growSeconds(store, user);
   const t = now();
   const plots = plotsOf(user).map((p, i) => (p
     ? { plot: i, planted: true, plantedAt: p.plantedAt, readyAt: p.plantedAt + grow, ready: p.plantedAt + grow <= t, progress: Math.min(1, (t - p.plantedAt) / grow) }
     : { plot: i, planted: false }));
   return {
-    plots, growHours: setting(store, 'GardenGrowHours'), plantCost: setting(store, 'GardenPlantCost'),
-    baitChance: setting(store, 'GardenBaitChance'), stardust: Number(user.StardustCount) || 0,
+    plots, growHours: Math.round((grow / 3600) * 10) / 10, plantCost: setting(store, 'GardenPlantCost'),
+    baitChance: Math.min(1, setting(store, 'GardenBaitChance') + gardenLevel(store, user).perks.baitBonus), level: gardenLevel(store, user), stardust: Number(user.StardustCount) || 0,
     goldBait: Number(user.GoldBait) || 0, worms: Number(user.Worms) || 0,
     readyCount: plots.filter((p) => p.ready).length
   };
@@ -51,7 +62,8 @@ function handleGarden({ store, body }) {
     return ok({ ...state(store, user), planted: affordable });
   }
   if (action === 'harvest') {
-    const grow = setting(store, 'GardenGrowHours') * 3600;
+    const grow = growSeconds(store, user);
+    const baitChance = Math.min(1, setting(store, 'GardenBaitChance') + gardenLevel(store, user).perks.baitBonus);
     const ready = plots.map((p, i) => (p && p.plantedAt + grow <= now() ? i : null)).filter((i) => i != null);
     if (!ready.length) return fail('nothing_ready');
     let worms = 0, bait = 0, dust = 0;
@@ -60,16 +72,19 @@ function handleGarden({ store, body }) {
       const w = 1 + Math.floor(Math.random() * 2);
       worms += w;
       const item = { plot: i, worms: w, bait: 0, dust: 0 };
-      if (Math.random() < setting(store, 'GardenBaitChance')) { bait++; item.bait = 1; }
+      if (Math.random() < baitChance) { bait++; item.bait = 1; }
       if (Math.random() < 0.15) { const d = 15 + Math.floor(Math.random() * 26); dust += d; item.dust = d; }
       items.push(item);
       plots[i] = null;
     }
+    const before = gardenLevel(store, user).level;
     user = store.update('Users', user.id, {
       GardenPlots: JSON.stringify(plots), Worms: (Number(user.Worms) || 0) + worms,
-      GoldBait: (Number(user.GoldBait) || 0) + bait, StardustCount: (Number(user.StardustCount) || 0) + dust
+      GoldBait: (Number(user.GoldBait) || 0) + bait, StardustCount: (Number(user.StardustCount) || 0) + dust,
+      GardenXP: (Number(user.GardenXP) || 0) + 2 * ready.length
     });
-    return ok({ ...state(store, user), harvested: ready.length, items, gained: { worms, bait, dust } });
+    const after = gardenLevel(store, user).level;
+    return ok({ ...state(store, user), harvested: ready.length, items, gained: { worms, bait, dust, xp: 2 * ready.length }, ...(after > before ? { levelUp: after } : {}) });
   }
   if (action !== 'status') return fail('unknown_action');
   return ok(state(store, user));

@@ -24,11 +24,18 @@
 //   community-dig.js grande fouille commune de la semaine
 //   simulator.js simulateur d'ouverture de boosters (admins, sans ecriture)
 //   duplicates.js poussiere passive sur les doublons a l'ouverture des boosters
+//   talents.js  arbre de talents (1 point par niveau de compte)
+//   feed.js     fil du serveur en direct
+//   progression.js maitrise des extensions, rangs, constellations, cartes etoile, paliers de succes
+//   daily.js    boite et de du jour, action du jour, heures de chance, retour, missions du soir
+//   market.js   contrats, encheres, cours du decraft, assurance, boutique de boosters
+//   boosts.js   bonus personnels appliques apres les workflows
+//   insights.js que faire maintenant, statistiques perso, carte de joueur
 // Chaque module expose `routes` ({ 'METHODE chemin': handler }) et, au
 // besoin, `schema` (tables/colonnes creees au demarrage) et `afterWorkflow`.
 // Un handler recoit { store, body, query } et renvoie { status, json }.
 
-import { ensureSchema } from './common.js';
+import { ensureSchema, levelForXp } from './common.js';
 import { workflowSchemaSpec } from './workflow-schema.js';
 import * as sets from './sets.js';
 import * as matches from './matches.js';
@@ -55,11 +62,22 @@ import * as social from './social.js';
 import * as garden from './garden.js';
 import * as communityDig from './community-dig.js';
 import * as simulator from './simulator.js';
+import * as talents from './talents.js';
+import * as feed from './feed.js';
+import * as progression from './progression.js';
+import * as daily from './daily.js';
+import * as market from './market.js';
+import * as boosts from './boosts.js';
+import * as insights from './insights.js';
+import { setting } from './settings.js';
 
 const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
-  challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator];
+  challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
+  talents, feed, progression, daily, market, boosts, insights];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements];
+const SUBSCRIBERS = [challenges, achievements, progression, daily];
+// XP doublee pendant l'action du jour (daily.js).
+const XP_FIELDS = ['XP', 'FishingXP', 'DigXP', 'ExpeditionXP', 'GardenXP'];
 
 export function createNative({ store, withLock, captureError = () => {}, workflowsDir = null }) {
   const routes = new Map();
@@ -84,9 +102,33 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   // d'un joueur, quel que soit le module ou le workflow qui l'ecrit.
   const rawUpdate = store.update.bind(store);
   store.update = (name, id, fields) => {
-    if (name !== 'Users' || !fields || !('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return rawUpdate(name, id, fields);
+    if (name !== 'Users' || !fields) return rawUpdate(name, id, fields);
+    const xpWrite = XP_FIELDS.some((f) => f in fields);
+    if (!xpWrite && !('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return rawUpdate(name, id, fields);
     const before = store.get('Users', id);
+    if (xpWrite && before && ctx.source && daily.isHouseSource(ctx.source)) {
+      try {
+        fields = { ...fields };
+        const mult = setting(store, 'HouseXpMultiplier');
+        for (const f of XP_FIELDS) {
+          if (!(f in fields)) continue;
+          const delta = (Number(fields[f]) || 0) - (Number(before[f]) || 0);
+          if (delta <= 0) continue;
+          fields[f] = (Number(before[f]) || 0) + Math.round(delta * mult);
+          // Niveaux de compte franchis en plus grace au bonus : +1 booster chacun (comme les workflows).
+          if (f === 'XP') {
+            const extra = levelForXp(fields.XP) - levelForXp((Number(before.XP) || 0) + delta);
+            if (extra > 0) fields.BoosterCount = (Number('BoosterCount' in fields ? fields.BoosterCount : before.BoosterCount) || 0) + extra;
+          }
+        }
+      } catch (e) { console.error(e); captureError(e, { hook: 'house-xp' }); }
+    }
+    if ('StardustCount' in fields && before) {
+      const ledger = insights.ledgerFields(before, fields, ctx.source);
+      if (ledger) fields = { ...fields, DustLedger: ledger };
+    }
     const row = rawUpdate(name, id, fields);
+    if (!('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return row;
     try {
       economy.record(store, ctx.source, before, row);
       if ('StardustCount' in fields) ctx.notices.push(...achievements.onBalance(store, row));
@@ -122,17 +164,26 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       ctx.source = path || 'autre';
       ctx.userId = Number(body.userId || query.userId) || 0;
       ctx.notices = [];
-      for (const m of [unique, rules, fishing]) {
+      for (const m of [unique, rules, fishing, market]) {
         try { m.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeRequest' }); }
       }
       const userId = Number(body.userId || query.userId) || 0;
       if (!userId) return;
       try { seasons.ensureProgress(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'season' }); }
+      try { daily.touch(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'touch' }); }
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      try { return rules.beforeWorkflow({ store, path, request }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeWorkflow' }); return null; }
+      for (const m of [rules, levels, market]) {
+        try {
+          const denied = m.beforeWorkflow({ store, path, request });
+          if (denied) { market.restoreHidden(store, request); return denied; }
+        } catch (e) { console.error(e); captureError(e, { hook: 'beforeWorkflow' }); }
+      }
+      return null;
     },
+    // Remet en place les exemplaires assures si le workflow a echoue.
+    restore(request) { try { market.restoreHidden(store, request); } catch (e) { console.error(e); } },
     // Fin de la requete : le journal n'attribue plus rien a cette source.
     endRequest() { ctx.source = null; ctx.userId = 0; ctx.notices = []; },
     // A appeler sous le verrou.
@@ -143,6 +194,8 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Bonus appliques apres un workflow (sous le verrou).
     afterWorkflow(path, request, response) {
+      // Exemplaires assures remis en place avant tout le reste (market.js).
+      try { market.restoreHidden(store, request); } catch (e) { console.error(e); captureError(e, { hook: 'restore' }); }
       for (const m of MODULES) {
         if (!m.afterWorkflow) continue;
         try { m.afterWorkflow({ store, path, request, response }); } catch (e) { console.error(e); captureError(e, { hook: path }); }

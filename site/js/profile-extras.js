@@ -17,6 +17,13 @@
     if (d.color) title.classList.add("decor-" + d.color);
     const avatar = document.getElementById("profile-avatar");
     if (d.frame && avatar) avatar.classList.add("decor-" + d.frame);
+    // Rang de compte (valeur de la collection, 2026-10-07).
+    if (x.rank) {
+      const lvl = document.getElementById("profile-level-badge");
+      let chip = document.getElementById("profile-rank-chip");
+      if (!chip && lvl) { chip = document.createElement("span"); chip.id = "profile-rank-chip"; lvl.insertAdjacentElement("afterend", chip); }
+      if (chip) { chip.className = "rank-chip rank-" + x.rank.key; chip.innerHTML = `${x.rank.icon} ${esc(x.rank.label)}`; chip.title = `Valeur de la collection : ${x.rank.value.toLocaleString("fr-FR")}${x.rank.next ? ` · prochain rang ${x.rank.next.label} à ${x.rank.next.min.toLocaleString("fr-FR")}` : ""}`; }
+    }
     const line = document.getElementById("profile-title-line");
     if (line) { line.textContent = d.title || ""; line.hidden = !d.title; }
 
@@ -25,11 +32,15 @@
       <div class="profile-skills">
         <div class="profile-skill"><span aria-hidden="true">&#127907;</span> Pêche <strong>niv. ${x.skills.fishing.level}</strong>${stars(x.skills.fishing.prestige)}<small>${x.skills.fishing.caught} prise${x.skills.fishing.caught > 1 ? "s" : ""}</small></div>
         <div class="profile-skill"><span aria-hidden="true">&#9935;&#65039;</span> Fouille <strong>niv. ${x.skills.dig.level}</strong>${stars(x.skills.dig.prestige)}</div>
+        ${x.skills.expedition ? `<div class="profile-skill"><span aria-hidden="true">&#129517;</span> Expédition <strong>niv. ${x.skills.expedition.level}</strong>${stars(x.skills.expedition.prestige)}</div>` : ""}
+        ${x.skills.garden ? `<div class="profile-skill"><span aria-hidden="true">&#127793;</span> Jardin <strong>niv. ${x.skills.garden.level}</strong>${stars(x.skills.garden.prestige)}</div>` : ""}
         ${x.uniqueCount ? `<div class="profile-skill"><span aria-hidden="true">&#127808;</span> <strong>${x.uniqueCount}</strong> carte${x.uniqueCount > 1 ? "s" : ""} Unique</div>` : ""}
       </div>
+      ${x.tiers && x.tiers.length ? `<div class="profile-block"><h3>&#127941; Maîtrises</h3><div class="profile-chips">${x.tiers.map((t) => `<span class="profile-chip tier-${t.level}" title="${esc(t.label)} : palier ${["I", "II", "III"][t.level - 1]}">${t.icon} ${esc(t.label)} <strong>${["I", "II", "III"][t.level - 1]}</strong></span>`).join("")}</div></div>` : ""}
       ${x.themes.length ? `<div class="profile-block"><h3>&#127912; Collections thématiques</h3><div class="profile-chips">${x.themes.map((t) => `<span class="profile-chip" title="${esc(t.label)}">${t.icon} ${esc(t.title)}</span>`).join("")}</div></div>` : ""}
       ${x.hidden.length ? `<div class="profile-block"><h3>&#128274; Succès secrets (${x.hidden.length})</h3><div class="profile-chips">${x.hidden.map((h) => `<span class="profile-chip" title="${esc(h.desc)}">${h.icon} ${esc(h.label)}</span>`).join("")}</div></div>` : ""}`;
     loadWall();
+    if (typeof window.renderOwnProgress === "function" && Session.isLoggedIn() && Number(Session.userId) === Number(x.userId)) window.renderOwnProgress();
   };
 
   async function loadWall() {

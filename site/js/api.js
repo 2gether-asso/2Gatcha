@@ -222,7 +222,16 @@ const API = {
   // Annonces renvoyees par l'API apres une action (defi accompli, succes
   // secret, objectif commun atteint...) : un toast chacune.
   _announce(data) {
-    if (!data || !Array.isArray(data.notices) || typeof Toast === "undefined") return;
+    if (!data || typeof Toast === "undefined") return;
+    // Bonus personnels appliques apres coup (heure de chance, de, talents...).
+    if (Array.isArray(data.bonuses) && data.bonuses.length) {
+      const pos = data.bonuses.filter((b) => b.dust > 0);
+      const neg = data.bonuses.filter((b) => b.dust < 0);
+      if (pos.length) Toast.success(`&#10024; Bonus : ${pos.map((b) => `${b.label} +${b.dust}`).join(" · ")}`);
+      if (neg.length) Toast.info(`${neg.map((b) => `${b.label} ${b.dust}`).join(" · ")} &#10024;`);
+    }
+    if (data.repairSurcharge) Toast.info(`&#129520; Restauration répétée cette semaine : +${data.repairSurcharge} poussières.`);
+    if (!Array.isArray(data.notices)) return;
     data.notices.forEach((n, i) => setTimeout(() => {
       Toast.success(`${n.icon || "&#11088;"} ${n.label}`);
       if (n.kind === "achievement" && typeof confetti === "function") confetti({ particleCount: 70, spread: 80, origin: { y: 0.3 } });
@@ -647,6 +656,29 @@ const API = {
   prestige(userId, skill) {
     return this.post("prestige", { userId, skill });
   },
+  // --- Progression longue, quotidien, marche (2026-10-07) -----------------
+  talents(userId, action = "status", key) { return this.post("talents", { userId, action, key }); },
+  mastery(userId, action = "status", extensionId) { return this.post("mastery", { userId, action, extensionId }); },
+  constellations(userId, action = "status", key) { return this.post("constellations", { userId, action, key }); },
+  cardPrestige(userId, pullIds) { return this.post("cardPrestige", { userId, pullIds }); },
+  achievementTiers(userId, action = "status", key) { return this.post("achievementTiers", { userId, action, key }); },
+  getServerFeed(since = 0) { return this.get("serverFeed", { since }); },
+  dailyBox(userId, action = "status") { return this.post("dailyBox", { userId, action }); },
+  dailyDice(userId, action = "status") { return this.post("dailyDice", { userId, action }); },
+  welcomeBack(userId, action = "status") { return this.post("welcomeBack", { userId, action }); },
+  evening(userId, action = "status") { return this.post("evening", { userId, action }); },
+  getToday(userId) { return this.get("today", { userId }); },
+  contracts(userId, action = "status", params = {}) { return this.post("contracts", { userId, action, ...params }); },
+  auctions(userId, action = "list", params = {}) { return this.post("auctions", { userId, action, ...params }); },
+  getExchangeRates() { return this.get("exchangeRates"); },
+  insurance(userId, pullId, action) { return this.post("insurance", { userId, pullId, action }); },
+  boosterShop(userId, action = "status") { return this.post("boosterShop", { userId, action }); },
+  getWhatNow(userId) { return this.get("whatNow", { userId }); },
+  getMyStats(userId) { return this.get("myStats", { userId }); },
+  getPlayerCard(pseudo) { return this.get("playerCard", { pseudo }); },
+  buyStreakFreeze(userId) { return this.post("loginStreak", { userId, action: "buyFreeze" }); },
+  setPushPrefs(userId, prefs) { return this.post("push", { userId, action: "prefs", prefs }); },
+
   getFishingTournament(userId) {
     return this.get("fishingTournament", userId ? { userId } : {});
   },

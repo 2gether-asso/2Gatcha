@@ -90,18 +90,29 @@ function renderSkillLevel(id, icon, name, info, perks, tool) {
     </div>
     <div class="skill-level-bar" role="progressbar" aria-label="Progression ${name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="skill-level-fill" style="width:${pct}%"></div></div>
     <div class="skill-level-perks">${perks.filter(Boolean).map((p) => `<span>${p}</span>`).join("") || "<span>Joue pour monter de niveau : chaque niveau donne un bonus.</span>"}</div>
-    ${info.level >= info.max ? `<button type="button" class="btn-secondary skill-prestige" data-prestige="${id === "dig-level" ? "dig" : "fishing"}">&#11088; Passer en prestige (repartir niv. 1, bonus permanent)</button>` : ""}`;
+    ${info.level >= info.max ? `<button type="button" class="btn-secondary skill-prestige" data-prestige="${SKILL_OF_LEVEL_ID[id] || "fishing"}">&#11088; Passer en prestige (repartir niv. 1, bonus permanent)</button>` : ""}`;
 }
+const SKILL_OF_LEVEL_ID = { "dig-level": "dig", "fish-level": "fishing", "expe-level": "expedition", "garden-level": "garden" };
+// Metiers d'expedition et de jardin (2026-10-07, api/src/native/levels.js).
+const SKILL_INFO = {
+  dig: { name: "Fouille", the: "la fouille", bonus: "+5 % de poussières trouvées", icon: "&#9935;&#65039;" },
+  fishing: { name: "Pêche", the: "la pêche", bonus: "+3 % de prises rares", icon: "&#127907;" },
+  expedition: { name: "Expédition", the: "l'expédition", bonus: "+5 % de poussières rapportées", icon: "&#129517;" },
+  garden: { name: "Jardin", the: "le jardin", bonus: "+3 % de vitesse de pousse", icon: "&#127793;" }
+};
+const expePerkTexts = (p) => [p && p.dustBonus ? `+${Math.round(p.dustBonus * 100)} % de poussières rapportées` : "", p && p.timeReduction ? `expéditions ${Math.round(p.timeReduction * 100)} % plus courtes` : ""];
+const gardenPerkTexts = (p) => [p && p.growReduction ? `pousse ${Math.round(p.growReduction * 100)} % plus vite` : "", p && p.baitBonus ? `+${Math.round(p.baitBonus * 100)} pts de chance d'appât doré` : ""];
 
 // Prestige (api/src/native/levels.js) : niveau 10 -> niveau 1 + une etoile.
 async function doPrestige(skill) {
-  const name = skill === "dig" ? "la fouille" : "la pêche";
-  const bonus = skill === "dig" ? "+5 % de poussières trouvées" : "+3 % de prises rares";
+  const info = SKILL_INFO[skill] || SKILL_INFO.fishing;
+  const name = info.the;
+  const bonus = info.bonus;
   if (!(await Confirm.show(`Repartir du niveau 1 en ${name} contre une étoile de prestige permanente (${bonus} par étoile) ? Les bonus de niveau sont à regagner.`, { title: "Prestige", confirmText: "Passer en prestige" }))) return;
   try {
     const res = await API.prestige(Session.userId, skill);
-    LevelUpModal.show({ icon: "&#11088;", name: skill === "dig" ? "Fouille" : "Pêche", level: `Prestige ${res.prestige}`, perks: [bonus + " (permanent)", "Retour au niveau 1 : tous les bonus de niveau sont à regagner"] });
-    if (skill === "dig") loadDig(); else loadFishing();
+    LevelUpModal.show({ icon: "&#11088;", name: info.name, level: `Prestige ${res.prestige}`, perks: [bonus + " (permanent)", "Retour au niveau 1 : tous les bonus de niveau sont à regagner"] });
+    if (skill === "dig") loadDig(); else if (skill === "expedition") loadExpeditionLevel(); else if (skill === "garden") loadGarden(); else loadFishing();
   } catch (e) { Toast.error(e.code === "not_max_level" ? "Il faut être niveau 10." : "Erreur. (" + e.message + ")"); }
 }
 
@@ -157,6 +168,7 @@ function renderGarden(st) {
       <span class="garden-label">${pct >= 100 ? "Prête à récolter !" : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
   }).join("");
   document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < st.plantCost;
+  if (st.level) renderSkillLevel("garden-level", "&#127793;", "Jardin", st.level, gardenPerkTexts(st.level.perks));
   document.getElementById("garden-harvest-btn").disabled = !st.readyCount;
   document.getElementById("garden-harvest-btn").innerHTML = `&#129530; Tout récolter${st.readyCount ? ` (${st.readyCount})` : ""}`;
   clearInterval(gardenTimer);
@@ -177,6 +189,7 @@ async function gardenAction(action) {
       const g = res.gained;
       Toast.success(`&#129530; Récolte : +${g.worms} vers${g.bait ? `, +${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}` : ""}${g.dust ? `, +${g.dust} &#10024;` : ""} !`);
       if (g.bait && typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
+      if (res.levelUp) LevelUpModal.show({ icon: "&#127793;", name: "Jardin", level: res.levelUp, perks: gardenPerkTexts(res.level && res.level.perks) });
     }
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
@@ -810,8 +823,13 @@ async function rushExpedition() {
   } catch (e) { Toast.error({ already_rerolled: "Déjà fait aujourd'hui.", not_enough_dust: "Pas assez de poussières.", no_expedition: "Aucune expédition en cours." }[e.code] || "Erreur. (" + e.message + ")"); }
 }
 
+async function loadExpeditionLevel() {
+  try { const d = await API.expedition(Session.userId, "status"); if (d.expeditionLevel) renderSkillLevel("expe-level", "&#129517;", "Expédition", d.expeditionLevel, expePerkTexts(d.expeditionLevel.perks)); } catch (e) { /* niveau indisponible */ }
+}
+
 async function renderExpedition(data) {
   clearInterval(expeditionTimer);
+  if (data && data.expeditionLevel) renderSkillLevel("expe-level", "&#129517;", "Expédition", data.expeditionLevel, expePerkTexts(data.expeditionLevel.perks));
   const zone = document.getElementById("expedition-zone");
   const ex = data.expedition || { active: false };
   if (ex.active) {
@@ -930,6 +948,7 @@ async function claimExpedition() {
         <div class="expe-report-loot">+${r.dust} poussières${r.boosters ? ` · +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""}${r.bonus > 1 ? ` <span class="expe-report-bonus">(bonus rareté +${Math.round((r.bonus - 1) * 100)}%)</span>` : ""}</div>
       </div>`);
     Toast.success(`Butin : +${r.dust} poussières${r.boosters ? ` et +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""} !`);
+    if (res.levelUp) LevelUpModal.show({ icon: "&#129517;", name: "Expédition", level: res.levelUp, perks: expePerkTexts(res.expeditionLevel && res.expeditionLevel.perks) });
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
     Toast.error(e.code === "not_ready" ? "L'expédition n'est pas encore rentrée." : ("Erreur. (" + e.message + ")"));

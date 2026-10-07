@@ -35,6 +35,8 @@ let ownedCountMap = new Map();
 let extProgressByExt = new Map();
 let catalogCache = [];
 let lastOpenedExtension = null;
+// Niveau de maitrise par extension (api/src/native/progression.js).
+let masteryByExt = new Map();
 // Simulateur admin (2026-10-05, js/opening-sim.js) : quand il est actif, les
 // ouvertures passent par /admin-simulate (modificateurs) au lieu d'open-pack :
 // aucun booster consomme, aucune carte ni XP, aucune annonce Discord.
@@ -599,7 +601,7 @@ function renderExtensionPicker() {
           ${img ? `<img class="ext-art-front" src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
           ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" />` : ""}
         </div>
-        <div class="ext-name">${ext.name}</div>
+        <div class="ext-name">${ext.name}${masteryByExt.get(ext.id) > 1 ? ` <span class="ext-mastery" title="Maîtrise de l'extension niveau ${masteryByExt.get(ext.id)} : plus de finitions spéciales dans ces boosters">&#127941; ${masteryByExt.get(ext.id)}</span>` : ""}</div>
         <div class="ext-count">${progress ? `${progress.owned}/${progress.total} cartes (${progress.total ? Math.floor((progress.owned / progress.total) * 100) : 0}%)` : "Ouvrir"}</div>
         <div class="pity-row" title="Progression vers la légendaire garantie">
           <span class="pity-icon">${rarityIcon("legendaire")}</span>
@@ -681,6 +683,7 @@ function renderExtensionPickerSkeleton() {
 
 async function refreshStatus() {
   renderExtensionPickerSkeleton();
+  if (Session.isLoggedIn() && !masteryByExt.size) API.mastery(Session.userId).then((m) => { masteryByExt = new Map((m.extensions || []).map((e) => [e.extensionId, e.level])); if (extensionsCache.length) renderExtensionPicker(); }).catch(() => {});
   try {
     const [extRes, statusRes, collectionRes] = await Promise.all([
       API.getExtensions(),
@@ -963,6 +966,8 @@ async function startOpening(ext) {
     let packShiny = false;
     let bonusCards = 0;
     let duplicateDust = 0;
+    // Cartes ameliorees par les bonus perso (maitrise, heure de chance, de, talents).
+    let boosted = 0;
     let lastBoosterInfo = null;
     for (let i = 0; i < quantity; i++) {
       const res = sim
@@ -985,6 +990,7 @@ async function startOpening(ext) {
       if (res.pack?.shiny) packShiny = true;
       if (res.pack?.bonusCard) bonusCards++;
       if (res.duplicateDust) duplicateDust += res.duplicateDust.total || 0;
+      if (res.personalBoost) boosted += (res.personalBoost.finishes || 0) + (res.personalBoost.qualities || 0);
       lastBoosterInfo = res.booster;
     }
 
@@ -1029,6 +1035,7 @@ async function startOpening(ext) {
     lastPackTags = sim ? [{ kind: "sim", html: "&#129514; Simulation", short: "simulation" }] : [];
     if (packShiny) lastPackTags.push({ kind: "shiny", html: "&#127752; Booster shiny : meilleures cartes", short: "booster shiny" });
     if (duplicateDust) lastPackTags.push({ kind: "dust", html: `&#10024; +${duplicateDust} poussières (doublons)`, short: `+${duplicateDust} poussières de doublons` });
+    if (boosted) lastPackTags.push({ kind: "bonus", html: `&#127808; ${boosted} carte${boosted > 1 ? "s" : ""} améliorée${boosted > 1 ? "s" : ""} par tes bonus`, short: `${boosted} améliorée${boosted > 1 ? "s" : ""}` });
     if (bonusCards) lastPackTags.push({ kind: "bonus", html: `&#127873; ${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus`, short: `${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus` });
     renderPackTags(lastPackTags);
     pack.classList.add("tearing");

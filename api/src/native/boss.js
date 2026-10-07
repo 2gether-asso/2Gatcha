@@ -73,6 +73,7 @@ function handleAttack({ store, body }) {
     const card = store.get('Cards', refId(pull.Card));
     if (!card) return fail('card_not_found', 400, { pullId });
     if (card.IsPromo) return fail('promo_not_donatable', 400, { pullId });
+    if (pull.Insured || pull.Starred) return fail('insured_copy', 400, { pullId });
     const rarity = rarities.get(refId(card.Rarity));
     const base = Math.max(1, Number(rarity && rarity.DisenchantValue) || 0);
     const finish = pull.Finish || 'normal', quality = pull.Quality || 'damaged';

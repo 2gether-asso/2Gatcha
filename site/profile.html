@@ -52,6 +52,11 @@
         </div>
 
         <div id="profile-extras" class="profile-extras"></div>
+        <section id="own-progress" class="own-progress" hidden>
+          <span id="talents" class="anchor"></span>
+          <div class="talents-panel" id="talents-panel"></div>
+          <div class="tiers-panel" id="tiers-panel"></div>
+        </section>
         <div id="profile-stats" class="stats-grid"></div>
         <div id="profile-rarity-breakdown" class="rarity-progress-list"></div>
 
@@ -84,6 +89,7 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/profile-extras.js"></script>
+  <script src="js/profile-progress.js"></script>
   <script>
     // Memes echelles que collection.js/craft.js (voir docs/SCHEMA.md) : le
     // profil public doit montrer le meme traitement visuel (filtre image,
@@ -216,7 +222,7 @@
           `).join("");
         }
 
-        // Vitrine : les 3-5 cartes que ce joueur a choisi de mettre en avant
+        // Vitrine : les 3-6 cartes que ce joueur a choisi de mettre en avant
         // (purement cosmetique, distinct de la collection complete plus bas).
         const showcase = res.showcase || [];
         if (showcase.length) {

@@ -14,12 +14,26 @@ import { setting } from './settings.js';
 import { seasonId, seasonEnd } from './seasons.js';
 import { challengeState, goalState } from './challenges.js';
 import { tourneyKey } from './fishing.js';
+import { luckyWindows } from './daily.js';
+import { growSeconds } from './garden.js';
 
 export const schema = {
   AppSettings: { Key: { type: 'Text' }, Value: { type: 'Text' } },
   PushSubscriptions: { User: { type: 'Ref:Users' }, Endpoint: { type: 'Text' }, P256dh: { type: 'Text' }, Auth: { type: 'Text' }, CreatedAt: { type: 'Numeric' } },
-  NotificationLog: { User: { type: 'Ref:Users' }, Kind: { type: 'Text' }, RefKey: { type: 'Text' }, SentAt: { type: 'Numeric' } }
+  NotificationLog: { User: { type: 'Ref:Users' }, Kind: { type: 'Text' }, RefKey: { type: 'Text' }, SentAt: { type: 'Numeric' } },
+  Users: { PushPrefs: { type: 'Text' } }
 };
+
+// Categories reglables par le joueur (2026-10-07) : tout est active par defaut.
+export const PUSH_KINDS = [
+  { key: 'expedition', label: 'Expédition terminée' }, { key: 'dog', label: 'Le chien a fini de creuser' }, { key: 'garden', label: 'Jardin prêt à récolter' },
+  { key: 'guess', label: 'Carte du jour à deviner' }, { key: 'streak', label: 'Série de connexion en danger' }, { key: 'lucky', label: 'Heure de chance (1 h avant)' },
+  { key: 'evening', label: 'Missions du soir' }, { key: 'trade', label: 'Propositions d’échange' }, { key: 'auction', label: 'Enchères (surenchère, vente, victoire)' },
+  { key: 'season-end', label: 'Fin de saison' }, { key: 'challenges-end', label: 'Fin des défis de la semaine' }, { key: 'goal', label: 'Objectif commun atteint' },
+  { key: 'tourney', label: 'Tournoi de pêche' }, { key: 'boss', label: 'Nouveau boss' }, { key: 'event', label: 'Événements' }
+];
+const prefsOf = (user) => { try { const p = JSON.parse((user && user.PushPrefs) || '{}'); return p && typeof p === 'object' ? p : {}; } catch (e) { return {}; } };
+const kindOf = (k) => (k === 'outbid' || k === 'auction-sold' || k === 'auction-won' ? 'auction' : k);
 
 let webpush = null;
 let vapid = null;
@@ -67,11 +81,16 @@ function handlePush({ store, body }) {
     store.create('PushSubscriptions', { User: user.id, Endpoint: endpoint, P256dh: keys.p256dh, Auth: keys.auth, CreatedAt: now() });
   } else if (body.action === 'unsubscribe') {
     subs().filter((s) => !endpoint || s.Endpoint === endpoint).forEach((s) => store.delete('PushSubscriptions', s.id));
+  } else if (body.action === 'prefs') {
+    const prefs = {};
+    for (const k of PUSH_KINDS) if (body.prefs && body.prefs[k.key] === false) prefs[k.key] = false;
+    store.update('Users', user.id, { PushPrefs: JSON.stringify(prefs) });
   } else if (body.action === 'test') {
     if (!subs().length) return fail('not_subscribed');
     pendingTests.push({ userId: user.id, title: '🔔 Notifications activées', body: 'Tu seras prévenu ici quand il se passe quelque chose sur 2Gatcha.', url: 'index.html' });
   }
-  return ok({ enabled: !!vapid, devices: subs().length, subscribed: !!endpoint && subs().some((s) => s.Endpoint === endpoint) });
+  const prefs = prefsOf(store.get('Users', user.id));
+  return ok({ enabled: !!vapid, devices: subs().length, subscribed: !!endpoint && subs().some((s) => s.Endpoint === endpoint), kinds: PUSH_KINDS.map((k) => ({ ...k, on: prefs[k.key] !== false })) });
 }
 
 const pendingTests = [];
@@ -83,6 +102,22 @@ function dueFor(store, user, sinceSub, ctx) {
   if (until && until <= t && until > t - 12 * 3600) out.push({ kind: 'expedition', key: String(until), title: '🧭 Expédition terminée', body: 'Ton explorateur est rentré : viens récupérer son butin !', url: 'jeux.html' });
   const dog = Number(user.DogUntil) || 0;
   if (dog && dog <= t && dog > t - 12 * 3600) out.push({ kind: 'dog', key: String(dog), title: '🐕 Le chien a fini de creuser', body: 'Viens voir ce qu’il a déterré pour toi.', url: 'jeux.html' });
+  // Jardin pret, heure de chance, encheres, missions du soir (2026-10-07).
+  try {
+    const plots = JSON.parse(user.GardenPlots || '[]');
+    const grow = growSeconds(store, user);
+    const readyAt = plots.filter((p) => p && p.plantedAt).map((p) => p.plantedAt + grow).filter((r) => r <= t && r > t - 12 * 3600);
+    if (readyAt.length) out.push({ kind: 'garden', key: String(Math.max(...readyAt)), title: '🌻 Ton jardin est prêt', body: 'Viens récolter tes vers de terre (et peut-être un appât doré).', url: 'jeux.html#jardin' });
+  } catch (e) { /* jardin illisible */ }
+  for (const w of ctx.lucky) if (w.start > t && w.start - t <= 3600) out.push({ kind: 'lucky', key: String(w.start), title: '🍀 Heure de chance dans moins d’une heure', body: 'Finitions spéciales et poussières boostées pendant une heure : garde tes boosters !', url: 'ouverture.html' });
+  for (const a of ctx.auctions) {
+    if (refId(a.OutbidUser) === user.id && refId(a.Bidder) !== user.id && a.Status === 'open' && (a.OutbidAt || 0) > t - 6 * 3600) out.push({ kind: 'outbid', key: a.id + ':' + a.CurrentBid, title: '🔨 On a surenchéri sur toi', body: `Nouvelle enchère : ${a.CurrentBid} ✨. Reprends la tête avant la fin !`, url: 'communaute.html#encheres' });
+    if (a.Status === 'sold' && (a.SettledAt || 0) > t - 12 * 3600) {
+      if (refId(a.Seller) === user.id) out.push({ kind: 'auction-sold', key: String(a.id), title: '🔨 Vente aux enchères conclue', body: `Ton exemplaire est parti pour ${a.CurrentBid} ✨.`, url: 'communaute.html#encheres' });
+      if (refId(a.Bidder) === user.id) out.push({ kind: 'auction-won', key: String(a.id), title: '🏆 Enchère remportée', body: 'La carte est arrivée dans ta collection.', url: 'collection.html' });
+    }
+  }
+  if (ctx.hour === 18 || ctx.hour === 19) out.push({ kind: 'evening', key: ctx.today, title: '🌙 Les missions du soir sont ouvertes', body: '3 missions rapides jusqu’à minuit, avec des poussières à la clé.', url: 'index.html#aujourdhui' });
   if (ctx.hour >= 10 && user.GuessDate !== ctx.today) out.push({ kind: 'guess', key: ctx.today, title: '🔍 Nouvelle carte à deviner', body: 'Le quiz du jour t’attend dans Jeux.', url: 'jeux.html' });
   const streak = Number(user.LoginStreak) || 0;
   if (ctx.hour >= 19 && streak > 0 && user.LoginStreakDay === ctx.yesterday) out.push({ kind: 'streak', key: ctx.today, title: '🔥 Ta série de connexion', body: `Récupère ton cadeau du jour pour garder ta série (jour ${(streak % 7) + 1}/7).`, url: 'index.html' });
@@ -139,6 +174,8 @@ export function collect({ store, hour: forcedHour } = {}) {
     pseudo: new Map(store.getAll('Users').map((u) => [u.id, u.Pseudo])),
     boss: store.tables.has('CommunityBoss') ? store.getAll('CommunityBoss').find((b) => b.Active) : null,
     event: ev.active ? ev : null,
+    lucky: luckyWindows(parisDay(0)),
+    auctions: store.tables.has('Auctions') ? store.getAll('Auctions').filter((a) => a.Status === 'open' || (a.SettledAt || 0) > now() - 12 * 3600) : [],
     eventText: evParts.length ? `En ce moment : ${evParts.join(', ')} !` : 'Un événement est en cours sur 2Gatcha.'
   };
   const byUser = new Map();
@@ -147,7 +184,8 @@ export function collect({ store, hour: forcedHour } = {}) {
     const user = store.get('Users', uid);
     if (!user) continue;
     const since = Math.min(...userSubs.map((s) => s.CreatedAt || 0));
-    const due = dueFor(store, user, since, ctx).filter((n) => !sent.has(`${uid}|${n.kind}|${n.key}`)).slice(0, 3);
+    const prefs = prefsOf(user);
+    const due = dueFor(store, user, since, ctx).filter((n) => prefs[kindOf(n.kind)] !== false && !sent.has(`${uid}|${n.kind}|${n.key}`)).slice(0, 3);
     for (const n of due) {
       store.create('NotificationLog', { User: uid, Kind: n.kind, RefKey: n.key, SentAt: now() });
       userSubs.forEach((s) => jobs.push({ sub: s, payload: n }));

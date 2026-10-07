@@ -153,6 +153,47 @@ export const REGISTRY = {
   VaultBoostersPerRow: { ...int('Coffre-fort : boosters par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
 
+  // --- Progression longue (2026-10-07)
+  MasteryFinishBonusPerLevel: { label: 'Maîtrise : finition spéciale en plus par niveau', type: 'number', def: 0.005, min: 0, max: 0.05, step: 0.001, group: 'Progression', storage: 'app', help: '0,005 = +0,5 point de chance de finition spéciale par niveau de maîtrise au-dessus du 1, sur les boosters de cette extension.' },
+  MasteryLevelDust: { ...int('Maîtrise : poussières par niveau atteint', 40, 'Progression', 'Récompense du niveau N = N × cette valeur.'), storage: 'app' },
+  MasteryLayerRewards: { label: 'Maîtrise : récompenses des 3 couches complètes', type: 'json', group: 'Progression', storage: 'app', help: 'cards (toutes les cartes), qualities (tous les états de chaque carte), finishes (toutes les finitions de chaque carte) : dust, boosters.', def: { cards: { dust: 300, boosters: 1 }, qualities: { dust: 800, boosters: 2 }, finishes: { dust: 1500, boosters: 3 } } },
+  TalentResetCost: { ...int('Talents : prix de la remise à zéro (poussières)', 500, 'Progression', ''), storage: 'app' },
+  ConstellationDust: { ...int('Constellations : poussières par étoile allumée', 150, 'Progression', ''), storage: 'app' },
+  ConstellationSkyBoosters: { ...int('Constellations : boosters du ciel complet', 10, 'Progression', 'Donnés une fois quand les 40 étoiles sont allumées (avec un titre).'), storage: 'app' },
+  StarDecraftMultiplier: { ...num('Carte ★ : multiplicateur de décraft', 3, 'Progression', 'Une carte ★ (3 arc-en-ciel parfait état fusionnées) vaut ce multiple au décraft.', 1, 20), storage: 'app' },
+  RankThresholds: { label: 'Rangs de compte (valeur de collection)', type: 'json', group: 'Progression', storage: 'app', help: 'Liste croissante : key, label, icon, min (valeur de collection = somme des valeurs de décraft de tous les exemplaires).', def: [
+    { key: 'bronze', label: 'Bronze', icon: '🥉', min: 0 }, { key: 'argent', label: 'Argent', icon: '🥈', min: 3000 },
+    { key: 'or', label: 'Or', icon: '🥇', min: 12000 }, { key: 'platine', label: 'Platine', icon: '💠', min: 40000 },
+    { key: 'legende', label: 'Légende', icon: '👑', min: 120000 }] },
+  TierRewardDust: { label: 'Maîtrises de succès : poussières des paliers I, II, III', type: 'json', group: 'Progression', storage: 'app', help: 'Le palier III donne aussi un titre.', def: [100, 300, 900] },
+  ExpeditionLevelXpStep: { ...int('XP pour le niveau 2 d’expédition', 10, 'Progression', '2 XP par balade, 5 par expédition, 12 par grande aventure.', 1), storage: 'app' },
+  GardenLevelXpStep: { ...int('XP pour le niveau 2 de jardinage', 8, 'Progression', '2 XP par parcelle récoltée.', 1), storage: 'app' },
+
+  // --- Rendez-vous quotidiens (2026-10-07)
+  DailyBoxLoot: { label: 'Boîte du jour : contenu', type: 'json', group: 'Quotidien', storage: 'app', help: 'type (dust, worms, bait, key, part, booster, chest, cosmetic), weight, min, max. Un cosmétique déjà possédé devient des poussières.', def: [
+    { type: 'dust', weight: 40, min: 20, max: 70 }, { type: 'worms', weight: 20, min: 2, max: 5 }, { type: 'bait', weight: 10, min: 1, max: 1 },
+    { type: 'key', weight: 6, min: 1, max: 1 }, { type: 'part', weight: 6, min: 1, max: 1 }, { type: 'booster', weight: 9, min: 1, max: 1 },
+    { type: 'chest', weight: 5, min: 1, max: 1 }, { type: 'cosmetic', weight: 4, min: 1, max: 1 }] },
+  LuckyHourFinishBonus: { ...pct('Heure de chance : finition spéciale en plus', 0.08, 'Quotidien', 'Ajoutée à la chance de finition spéciale pendant l’heure de chance.'), storage: 'app' },
+  LuckyHourDustBonus: { ...num('Heure de chance : poussières en plus', 0.25, 'Quotidien', '0,25 = +25 % au décraft, à la fouille et en expédition.', 0, 5), storage: 'app' },
+  HouseXpMultiplier: { ...num('Action du jour : multiplicateur d’XP', 2, 'Quotidien', '', 1, 10), storage: 'app' },
+  StreakFreezeCost: { ...int('Série : prix d’un gel (poussières)', 150, 'Quotidien', 'Un gel pardonne un jour manqué. Un seul achat par semaine, 2 gels max en réserve.'), storage: 'app' },
+  ReturnerMinDays: { ...int('Bonus de retour : jours d’absence', 7, 'Quotidien', '', 2, 365), storage: 'app' },
+  EveningMissionDust: { ...int('Missions du soir : poussières par mission', 30, 'Quotidien', 'Disponibles de 18 h à minuit.'), storage: 'app' },
+  EveningBonusDust: { ...int('Missions du soir : bonus si les 3 sont faites', 60, 'Quotidien', ''), storage: 'app' },
+
+  // --- Marche et economie (2026-10-07)
+  ContractsPerWeek: { ...int('Contrats de collection par semaine', 4, 'Économie', '', 1, 8), storage: 'app' },
+  AuctionTaxPct: { ...pct('Enchères : taxe sur la vente', 0.1, 'Économie', 'Prélevée sur le prix final (détruite).'), storage: 'app' },
+  AuctionMaxActive: { ...int('Enchères : ventes en cours max par joueur', 3, 'Économie', '', 1, 20), storage: 'app' },
+  AuctionHours: { ...int('Enchères : durée (heures)', 24, 'Économie', '', 1, 168), storage: 'app' },
+  ExchangeRateSwing: { ...num('Cours du décraft : variation max', 0.15, 'Économie', '0,15 = la valeur de décraft d’une rareté varie de −15 % à +15 % selon l’offre et la demande de la semaine passée.', 0, 0.5), storage: 'app' },
+  InsuranceCostPerTier: { ...int('Assurance : prix par rang de rareté', 40, 'Économie', 'Commune = 1 rang, rare = 2… Payé une fois.'), storage: 'app' },
+  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 300, 'Économie', '', 1), storage: 'app' },
+  BoosterShopIncrease: { ...num('Boutique : hausse par booster acheté dans la semaine', 0.2, 'Économie', '', 0, 5), storage: 'app' },
+  BoosterShopWeeklyCap: { ...int('Boutique : boosters max par semaine', 3, 'Économie', '0 = boutique fermée.'), storage: 'app' },
+  RepairEscalationDust: { ...int('Restauration : supplément par restauration de la même carte (semaine)', 25, 'Économie', 'La n-ième restauration d’une même carte dans la semaine coûte (n−1) × ce supplément.'), storage: 'app' },
+
   // --- Notifications
   PushQuietStart: { ...int('Pas de notification à partir de (heure)', 22, 'Notifications', 'Heure de Paris.', 0, 23), storage: 'app' },
   PushQuietEnd: { ...int('Reprise des notifications à (heure)', 9, 'Notifications', '', 0, 23), storage: 'app' }
@@ -195,6 +236,7 @@ function validate(key, raw) {
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (Array.isArray(r.def) !== Array.isArray(v) || typeof v !== 'object' || v === null) throw new Error(`${r.label} : format attendu ${Array.isArray(r.def) ? 'liste [...]' : 'objet {...}'}`);
     if (key === 'LoginStreakRewards' && v.length !== 7) throw new Error(`${r.label} : il faut exactement 7 jours`);
+    if (key === 'DailyBoxLoot' && (!v.length || v.some((x) => !x || !['dust', 'worms', 'bait', 'key', 'part', 'booster', 'chest', 'cosmetic'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque objet a un type connu et un poids > 0`);
     if (key === 'FishingLoot' && (!v.length || v.some((x) => !x || !['nothing', 'dust', 'bone', 'key', 'booster', 'chest', 'part'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque prise a un type connu et un poids > 0`);
     return v;
   }

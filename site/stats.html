@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mes statistiques - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
+  <header id="site-header"></header>
+
+  <main id="main-content">
+    <div class="panel">
+      <h1>&#128202; Mes statistiques</h1>
+      <p class="lead">Ta chance face à la moyenne, d’où viennent tes poussières et où elles partent, ce que tu fais le plus, et tes plus beaux tirages du mois.</p>
+      <div id="stats-guest" class="error-box" style="display:none">Connecte-toi pour voir tes statistiques.</div>
+      <div id="stats-loading" class="loading-row"><div class="spinner"></div></div>
+      <div id="stats-zone" class="mystats" hidden>
+        <div class="mystats-tiles" id="mystats-tiles"></div>
+        <section class="mystats-block">
+          <h2>&#127808; Ma chance</h2>
+          <p class="mystats-note" id="luck-note"></p>
+          <div class="mystats-table-wrap"><table class="mystats-table" id="luck-table"></table></div>
+        </section>
+        <div class="mystats-duo">
+          <section class="mystats-block">
+            <h2>&#10024; Poussières gagnées</h2>
+            <ul class="mystats-bars" id="dust-earned"></ul>
+          </section>
+          <section class="mystats-block">
+            <h2>&#128184; Poussières dépensées</h2>
+            <ul class="mystats-bars" id="dust-spent"></ul>
+          </section>
+        </div>
+        <section class="mystats-block">
+          <h2>&#127918; Ce que je fais le plus</h2>
+          <ul class="mystats-bars" id="activity-bars"></ul>
+        </section>
+        <section class="mystats-block">
+          <h2>&#127942; Plus beaux tirages du mois</h2>
+          <div class="mystats-best" id="best-pulls"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/stats.js"></script>
+</body>
+</html>

@@ -13,7 +13,8 @@
 import { refId, now, ok, fail, userById, cardSummary } from './common.js';
 import { setting } from './settings.js';
 import { decorations } from './cosmetics.js';
-import { levelInfo } from './levels.js';
+import { levelInfo, expeditionLevel, gardenLevel } from './levels.js';
+import { ranksFor, tierState } from './progression.js';
 import { hiddenList, themesState } from './achievements.js';
 import { uniqueRarity } from './unique.js';
 
@@ -63,6 +64,7 @@ function handleCardInfo({ store, query }) {
     card: cardSummary(store, card),
     copies: pulls.length, ownersCount: counts.size, owners,
     firstObtainedBy: first ? users.get(first)?.Pseudo || null : null,
+    firstObtainedById: first || null, firstObtainedAt: Number(card.FirstObtainedAt) || null,
     wishedBy: wishers, sources: sourcesOf(store, card),
     mine: me ? counts.get(me) || 0 : null
   });
@@ -113,8 +115,12 @@ export function profileExtras(store, user) {
     decor: decorations(store, [user.id])[user.id] || null,
     skills: {
       fishing: { level: fish.level, prestige: Number(user.FishingPrestige) || 0, caught: fishCaught },
-      dig: { level: dig.level, prestige: Number(user.DigPrestige) || 0 }
+      dig: { level: dig.level, prestige: Number(user.DigPrestige) || 0 },
+      expedition: { level: expeditionLevel(store, user).level, prestige: Number(user.ExpeditionPrestige) || 0 },
+      garden: { level: gardenLevel(store, user).level, prestige: Number(user.GardenPrestige) || 0 }
     },
+    rank: ranksFor(store, [user.id])[user.id],
+    tiers: tierState(store, user).families.filter((f) => f.level > 0).map(({ key, label, icon, level }) => ({ key, label, icon, level })),
     hidden, themes, uniqueCount
   };
 }

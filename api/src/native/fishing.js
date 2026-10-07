@@ -16,6 +16,7 @@
 
 import { ok, fail, userById, parisDay, now } from './common.js';
 import { setting } from './settings.js';
+import { talentValue } from './talents.js';
 import { levelInfo, weeklyXpFields } from './levels.js';
 import { eventState } from './events.js';
 import { grantCosmetic } from './cosmetics.js';
@@ -166,7 +167,7 @@ function statusOf(store, user) {
   const casts = user.FishingDay === today ? Number(user.FishingCasts) || 0 : 0;
   const level = fishingLevel(store, user);
   const base = setting(store, 'FishingDailyCasts');
-  const daily = base > 0 ? base + level.perks.extraCasts : 0;
+  const daily = base > 0 ? base + level.perks.extraCasts + talentValue(user, 'angler') : 0;
   const weather = weatherFor(user);
   const ev = eventState(store);
   const eventRare = ev.active ? ev.fishingRare : 1;

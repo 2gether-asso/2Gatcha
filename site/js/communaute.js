@@ -50,7 +50,7 @@ function normalize(str) {
 // Memorise le dernier onglet visite (QoL 2026-09-30).
 const LAST_TAB_KEY = "2gatcha_last_tab_communaute";
 // Ancre d'URL de chaque onglet (2026-10-05) : communaute.html#ensemble...
-const TAB_HASH = { calendar: "calendrier", boss: "boss", chest: "coffre", market: "marche", together: "ensemble", skills: "metiers" };
+const TAB_HASH = { calendar: "calendrier", boss: "boss", chest: "coffre", market: "marche", together: "ensemble", skills: "metiers", auctions: "encheres" };
 const HASH_TAB = Object.fromEntries(Object.entries(TAB_HASH).map(([k, v]) => [v, k]));
 function getInitialTab() {
   const fromHash = HASH_TAB[location.hash.slice(1)];
@@ -84,7 +84,7 @@ function setActiveTab(tab) {
     renderTabDots();
     if (typeof loadNavBadges === "function") loadNavBadges();
   }
-  ["calendar", "boss", "chest", "market", "together", "skills"].forEach((key) => {
+  ["calendar", "boss", "chest", "market", "together", "skills", "auctions"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
@@ -97,6 +97,7 @@ function setActiveTab(tab) {
   if (tab === "chest") loadChest();
   if (tab === "market") loadMarket();
   if (tab === "skills") { loadSkills(); loadTourney(); }
+  if (tab === "auctions" && typeof window.loadAuctions === "function") window.loadAuctions();
 }
 
 // --- Ensemble : objectif commun + grande fouille (api/src/native) ---------
@@ -758,6 +759,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-chest-btn").addEventListener("click", () => setActiveTab("chest"));
   document.getElementById("tab-market-btn").addEventListener("click", () => setActiveTab("market"));
   document.getElementById("tab-skills-btn").addEventListener("click", () => setActiveTab("skills"));
+  document.getElementById("tab-auctions-btn").addEventListener("click", () => setActiveTab("auctions"));
   document.getElementById("tab-together-btn").addEventListener("click", () => setActiveTab("together"));
   window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
   document.getElementById("cdig-board").addEventListener("click", (e) => { const b = e.target.closest("[data-cdig]"); if (b) digCommunity(Number(b.dataset.cdig), b); });

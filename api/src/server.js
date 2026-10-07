@@ -179,13 +179,21 @@ async function runWorkflow(route, request, hookPath) {
     // Regles natives verifiees AVANT le workflow (taxe d'echange, prix de l'os...).
     const blocked = hookPath ? native.beforeWorkflow(hookPath, request) : null;
     if (blocked) { native.endRequest(); return blocked; }
-    const { responded, done } = runner.run(route.wf, request, { unlocked });
-    const resp = await responded;
-    // L'execution continue apres la reponse (ex. quetes du jour mises a
-    // jour apres l'ouverture d'un booster) : on la laisse finir avant de
-    // passer a la requete suivante.
-    done.then(() => {}, () => {});
-    await done;
+    let resp;
+    try {
+      const { responded, done } = runner.run(route.wf, request, { unlocked });
+      resp = await responded;
+      // L'execution continue apres la reponse (ex. quetes du jour mises a
+      // jour apres l'ouverture d'un booster) : on la laisse finir avant de
+      // passer a la requete suivante.
+      done.then(() => {}, () => {});
+      await done;
+    } catch (e) {
+      // Exemplaires assures mis de cote (market.js) : toujours remis en place.
+      native.restore(request);
+      native.endRequest();
+      throw e;
+    }
     if (hookPath) native.afterWorkflow(hookPath, request, resp);
     native.endRequest();
     return resp;

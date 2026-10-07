@@ -10,7 +10,6 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
-</head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
@@ -19,13 +18,17 @@
     <div class="panel">
       <h1>&#128717;&#65039; Boutique</h1>
       <p class="lead">
-        Dépense tes poussières en titres, cadres d'avatar et couleurs de pseudo.
-        Purement décoratif : ils s'affichent sur ton profil, dans l'en-tête et
-        dans les classements. Certains titres ne s'achètent pas : ils se gagnent
-        (saison, collections thématiques, tournoi de pêche).
+        Quelques boosters par semaine, des contrats de collection pour tes doublons,
+        et des cosmétiques (titres, cadres, couleurs de pseudo) purement décoratifs.
+        Certains titres ne s'achètent pas : ils se gagnent (saison, maîtrises,
+        constellations, tournoi de pêche).
       </p>
       <div id="shop-guest" class="error-box" style="display:none">Connecte-toi pour accéder à la boutique.</div>
       <div id="shop-zone" style="display:none">
+        <div class="market-duo">
+          <section class="shop-section booster-shop" id="booster-shop"><h2>&#127183; Boosters de la semaine</h2><div id="booster-shop-body"></div></section>
+          <section class="shop-section contracts" id="contracts"><h2>&#128221; Contrats de collection</h2><p class="lead" style="font-size:0.85rem;">Donne les cartes demandées (tes doublons sont proposés en premier) et reçois la récompense. Nouveaux contrats chaque lundi.</p><div class="contracts-grid" id="contracts-grid"></div></section>
+        </div>
         <div class="shop-preview" id="shop-preview" aria-live="polite"></div>
         <div class="shop-section"><h2>&#128081; Titres</h2><div class="shop-grid" id="shop-title"></div></div>
         <div class="shop-section"><h2>&#128444;&#65039; Cadres d'avatar</h2><div class="shop-grid" id="shop-frame"></div></div>
@@ -41,5 +44,6 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/boutique.js"></script>
+  <script src="js/boutique-market.js"></script>
 </body>
 </html>

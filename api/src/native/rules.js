@@ -12,6 +12,7 @@
 import { refId, now, ok, fail, userById, parisDay } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
+import { talentValue } from './talents.js';
 
 export const schema = {
   Users: {
@@ -26,7 +27,9 @@ const dust = (u) => Number(u.StardustCount) || 0;
 // --- taxe d'echange --------------------------------------------------------
 function tradeTax(store, body) {
   const cards = (Number(body.offeredCardId) ? 1 : 0) + (Number(body.requestedCardId) ? 1 : 0);
-  return setting(store, 'TradeTaxPerCard') * Math.max(1, cards);
+  // Talent Maitre artisan (talents.js) : taxe divisee par 2.
+  const user = store.get('Users', Number(body.userId));
+  return Math.round(setting(store, 'TradeTaxPerCard') * Math.max(1, cards) * (1 - talentValue(user, 'master')));
 }
 
 // --- prix de l'os ----------------------------------------------------------

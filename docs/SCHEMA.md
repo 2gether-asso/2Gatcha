@@ -1117,6 +1117,34 @@ cardIds?, rewardBoosters? }`) :
 - `adminSetGrid` (reserve admin, meme liste `adminDiscordIds`) : cree ou
   remplace la grille d'un mois (`cardIds` doit contenir exactement 9 ids).
 
+## Progression longue, quotidien et marche (2026-10-07)
+
+Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a la main).
+
+| Table | Colonne | Type | Role |
+|-------|---------|------|------|
+| Users | Talents | Text | JSON { cleDuTalent: rang } (talents.js) |
+| Users | RankKey | Text | dernier rang de compte connu (annonce de montee de rang) |
+| Users | ActivityCounts | Text | JSON des compteurs d'activite (statistiques, maitrises de succes) |
+| Users | BoxDay, DiceDay, DiceFace | Text, Text, Numeric | boite et de du jour |
+| Users | LuckyHitWeek | Text | semaine du coup de chance (1re legendaire) deja recompense |
+| Users | LastSeenAt, ReturnPending | Numeric, Text | derniere visite ; colis de retour en attente (JSON { since, days }) |
+| Users | EveningDay, EveningProgress, EveningClaimed | Text | missions du soir du jour |
+| Users | StreakFreezes, FreezeWeek | Numeric, Text | gels de serie en reserve, semaine du dernier achat |
+| Users | ShopWeek, ShopBought | Text, Numeric | boosters achetes dans la semaine |
+| Users | RepairWeek, RepairCounts | Text, Text | restaurations par carte dans la semaine (supplement) |
+| Users | PullStats, DustLedger | Text | statistiques de tirage ; poussieres gagnees / depensees par source |
+| Users | PushPrefs | Text | JSON des categories de notifications coupees |
+| Users | ExpeditionXP, ExpeditionPrestige, GardenXP, GardenPrestige | Numeric | metiers d'expedition et de jardin |
+| Pulls | Starred | Bool | exemplaire ★ (3 arc-en-ciel parfait etat fusionnes) |
+| Pulls | Insured | Bool | exemplaire assure (mis de cote pendant les decrafts, fusions, echanges...) |
+| ProgressClaims | User, Ext, Kind, At | Ref:Users, Numeric, Text, Numeric | recompenses reclamees : maitrise (`level:N`, `layer:cards`), etoiles (`star-N`, `sky`), paliers (`tier:famille:N`) |
+| ServerFeed | At, User, Kind, Icon, Text, Card | | fil du serveur (200 derniers) |
+| ContractClaims | User, Week, Key, At | | contrats remplis |
+| Auctions | Seller, Card, Pull, Serial, Finish, Quality, Starred, StartPrice, CurrentBid, Bidder, Bids, OutbidUser, OutbidAt, EndsAt, Status, CreatedAt, SettledAt, Tax | | encheres ; pendant la vente l'exemplaire n'a plus de proprietaire (Pulls.User vide) |
+
+AppSettings : `constellations` (les 40 etoiles tirees une fois), `rateStats:<semaine>` (decrafts / crafts par rarete, pour le cours du decraft).
+
 ## Images (pieces jointes)
 
 Les images sont stockees dans la base de l'API elle-meme (table

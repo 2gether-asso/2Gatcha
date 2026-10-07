@@ -60,6 +60,36 @@
       <ul class="rc-deadlines" id="rc-deadlines" aria-label="Bientôt fini"></ul>
     </div>
 
+    <!-- Rendez-vous du jour et "que faire maintenant ?" (js/home-daily.js) -->
+    <div class="home-duo" id="home-duo" hidden>
+      <div class="panel today-panel" id="today-panel">
+        <span id="aujourdhui" class="anchor"></span>
+        <h2>&#9728;&#65039; Aujourd'hui</h2>
+        <div class="today-house" id="today-house"></div>
+        <div class="today-lucky" id="today-lucky"></div>
+        <div class="today-actions">
+          <button type="button" class="today-box" id="today-box" hidden>
+            <span class="today-box-lid" aria-hidden="true">&#127873;</span>
+            <span class="today-box-label">Boîte du jour</span>
+          </button>
+          <button type="button" class="today-dice" id="today-dice" hidden>
+            <span class="today-dice-face" id="today-dice-face" aria-hidden="true">&#127922;</span>
+            <span class="today-dice-label" id="today-dice-label">Lancer le dé du jour</span>
+          </button>
+        </div>
+        <div class="today-dice-effect" id="today-dice-effect" hidden></div>
+        <div class="evening" id="evening-block" hidden>
+          <div class="evening-head"><h3>&#127769; Missions du soir</h3><span class="evening-when" id="evening-when"></span></div>
+          <ul class="evening-list" id="evening-list"></ul>
+          <button type="button" class="btn" id="evening-claim" hidden>Récupérer</button>
+        </div>
+      </div>
+      <div class="panel whatnow-panel" id="whatnow-panel">
+        <h2>&#129517; Que faire maintenant ?</h2>
+        <ul class="whatnow-list" id="whatnow-list"><li class="whatnow-empty">Chargement…</li></ul>
+      </div>
+    </div>
+
     <div class="home-grid">
       <div class="panel challenges-panel" id="challenges-panel" style="display:none;">
         <span id="defis" class="anchor"></span>
@@ -108,6 +138,7 @@
         <p class="lead" style="font-size:0.85rem;" id="streak-lead">Un cadeau par jour, de plus en plus gros sur 7 jours. Un jour manqué et la série repart au jour 1.</p>
         <ol class="streak-days" id="streak-days" aria-label="Cadeaux des 7 jours"></ol>
         <button type="button" class="btn" id="streak-claim-btn" style="display:none;">Récupérer le cadeau du jour</button>
+        <div class="streak-freeze" id="streak-freeze"></div>
       </div>
 
       <div class="panel" id="wheel-panel" style="display:none;">
@@ -204,6 +235,14 @@
       <div id="achievements-grid" class="achievements-grid"></div>
     </div>
 
+    <div class="panel live-feed-panel" id="live-feed-panel" hidden>
+      <div class="live-feed-head"><h2>&#128225; En direct sur le serveur</h2><span class="live-dot" aria-hidden="true"></span></div>
+      <div class="live-feed-cols">
+        <ul class="live-feed" id="live-feed" aria-live="polite"></ul>
+        <div class="top-collectors" id="top-collectors" hidden><h3>&#128081; Plus belles collections</h3><ol id="top-collectors-list"></ol></div>
+      </div>
+    </div>
+
     <div class="panel" id="activity-panel" style="display:none;margin-top:24px;">
       <div class="actions" style="margin-top:0;align-items:center;">
         <h2 style="flex:1;margin:0;">&#9889; Activité récente</h2>
@@ -224,6 +263,7 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/home-extras.js"></script>
+  <script src="js/home-daily.js"></script>
   <script>
     function refreshLoginUI() {
       const loginZone = document.getElementById("login-zone");
@@ -663,12 +703,30 @@
           </li>`).join("");
         const btn = document.getElementById("streak-claim-btn");
         btn.style.display = st.canClaim ? "" : "none";
+        const fz = document.getElementById("streak-freeze");
+        if (fz) fz.innerHTML = `<span class="streak-freeze-count" title="Un gel pardonne automatiquement un jour manqué">&#10052;&#65039; ${st.freezes || 0} gel${(st.freezes || 0) > 1 ? "s" : ""} de série</span>`
+          + (st.canBuyFreeze ? `<button type="button" class="btn-ghost streak-freeze-buy" id="streak-freeze-buy">Acheter un gel (${st.freezeCost} &#10024;)</button>` : st.freezes >= (st.maxFreezes || 2) ? '<span class="streak-freeze-note">Réserve pleine</span>' : '<span class="streak-freeze-note">Un achat par semaine</span>')
+          + (st.frozen ? '<span class="streak-freeze-note streak-freeze-used">Ton gel va sauver ta série aujourd’hui !</span>' : "");
         document.getElementById("streak-lead").innerHTML = st.claimedToday
           ? `Cadeau du jour récupéré (jour ${st.day}/7). Reviens demain pour la suite !`
           : st.broken ? "Ta série s'est interrompue : elle repart au jour 1. Reviens chaque jour pour la faire grimper !"
           : `Jour ${st.day}/7 : ton cadeau t'attend.`;
       }
       API.getLoginStreak(Session.userId).then(renderStreak).catch(() => {});
+      document.getElementById("streak-freeze").addEventListener("click", async (e) => {
+        const btn = e.target.closest("#streak-freeze-buy");
+        if (!btn) return;
+        btn.disabled = true;
+        try {
+          const res = await API.buyStreakFreeze(Session.userId);
+          Toast.success("&#10052;&#65039; Gel de série acheté : un jour manqué te sera pardonné.");
+          renderStreak(res);
+          loadHeaderBoosterBadge();
+        } catch (err) {
+          btn.disabled = false;
+          Toast.error({ not_enough_dust: "Pas assez de poussières.", already_bought_this_week: "Un seul gel par semaine.", max_freezes: "Tu as déjà 2 gels en réserve." }[err.code] || "Erreur. (" + err.message + ")");
+        }
+      });
       document.getElementById("streak-claim-btn").addEventListener("click", async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;

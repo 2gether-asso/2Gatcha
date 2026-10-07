@@ -161,6 +161,13 @@ doublons, coup final au boss) sans le modifier.
 | `garden.js` | `POST garden` | jardin : vers et appâts dorés pour la pêche |
 | `community-dig.js` | `POST community-dig` | grande fouille commune de la semaine (grand trésor partagé) |
 | `simulator.js` | `POST admin-simulate` | simulateur d'ouverture de boosters pour les admins (modificateurs de rareté, finition, shiny, carte bonus, pity) : pur calcul, aucune écriture |
+| `talents.js` | `POST talents` | arbre de talents : 1 point par niveau de compte, 3 branches, talents ultimes, remise à zéro payante |
+| `feed.js` | `GET server-feed` | fil du serveur en direct (tirages remarquables ajoutés après la révélation, rangs, cartes ★, enchères…) |
+| `progression.js` | `POST mastery`, `POST constellations`, `POST card-prestige`, `POST achievement-tiers` | maîtrise des extensions (3 couches, niveaux 1 à 10), rang de compte, 40 constellations, cartes ★, maîtrises de succès I/II/III |
+| `daily.js` | `POST daily-box`, `POST daily-dice`, `POST welcome-back`, `POST evening`, `GET today` | boîte et dé du jour, action du jour (XP ×2), heures de chance, coup de chance de la semaine, bonus de retour, missions du soir |
+| `market.js` | `POST contracts`, `POST auctions`, `GET exchange-rates`, `POST insurance`, `POST booster-shop` | contrats de collection, enchères, cours du décraft, assurance des exemplaires, boutique de boosters, restaurations répétées plus chères |
+| `boosts.js` | – | bonus personnels appliqués après les workflows (heure de chance, dé, talents, maîtrise, cours du décraft, cartes ★, niveau d'expédition) |
+| `insights.js` | `GET what-now`, `GET my-stats`, `GET player-card` | « que faire maintenant ? », statistiques perso (grand livre des poussières), carte de joueur au survol |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

@@ -67,6 +67,7 @@ const NAV_ITEMS = [
   { href: "collection.html#decrafter", label: "Craft & décraft", icon: "&#10024;", auth: true, group: "collection" },
   { href: "coffre.html", label: "Coffre-fort perso", icon: "&#128274;", auth: true, group: "collection" },
   { href: "boutique.html", label: "Boutique", icon: "&#128717;&#65039;", auth: true, group: "collection" },
+  { href: "stats.html", label: "Mes statistiques", icon: "&#128202;", auth: true, group: "collection" },
   { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true, badgeKey: "communaute" },
   { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
@@ -128,7 +129,7 @@ function renderBottomNav() {
     if (sheet && !sheet.hidden && !e.target.closest(".bn-sheet")) { sheet.hidden = true; btn?.setAttribute("aria-expanded", "false"); }
   });
 }
-const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "craft.html": "Atelier", "admin.html": "Admin" };
+const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "craft.html": "Atelier", "admin.html": "Admin", "stats.html": "Stats" };
 
 // Pastille sur "Plus" quand un element du panneau en a une.
 function syncBottomMoreDot() {
@@ -449,6 +450,12 @@ function renderHeader() {
             <button type="button" class="global-search-trigger" id="global-search-trigger" aria-label="Recherche" title="Rechercher un joueur, une carte...">&#128269;</button>
             <div class="global-search-panel" id="global-search-panel">
               <input type="text" id="global-search-input" placeholder="Joueur, carte, page..." autocomplete="off" />
+              <div class="gs-filters" id="gs-filters">
+                <select id="gs-rarity" aria-label="Rareté"><option value="">Toutes raretés</option></select>
+                <select id="gs-finish" aria-label="Finition"><option value="">Toutes finitions</option><option value="normal">Normale</option><option value="holo">Holo</option><option value="gold">Doré</option><option value="ghost">Ghost</option><option value="diamond">Diamant</option><option value="rainbow">Arc-en-ciel</option></select>
+                <select id="gs-quality" aria-label="État"><option value="">Tous états</option><option value="damaged">Abîmé</option><option value="worn">Usé</option><option value="good">Bon état</option><option value="mint">Parfait état</option></select>
+                <select id="gs-owned" aria-label="Possession"><option value="">Possédées ou non</option><option value="owned">Possédées</option><option value="missing">Manquantes</option></select>
+              </div>
               <div class="global-search-results" id="global-search-results"></div>
             </div>
           </div>
@@ -541,23 +548,47 @@ function renderHeader() {
     let searchDataLoaded = false;
     let searchUsers = [];
     let searchCards = [];
+    // Filtres (2026-10-07) : rarete, finition, etat, possedees / manquantes.
+    let searchOwned = new Map();
+    const gsVal = (id) => (document.getElementById(id) || {}).value || "";
+    const gsActive = () => ["gs-rarity", "gs-finish", "gs-quality", "gs-owned"].some((id) => gsVal(id));
 
     async function ensureSearchData() {
       if (searchDataLoaded) return;
       searchDataLoaded = true;
       try {
-        const [usersRes, cardsRes] = await Promise.all([API.listUsers(), API.getCards()]);
+        const [usersRes, cardsRes, col] = await Promise.all([API.listUsers(), API.getCards(), Session.isLoggedIn() ? API.getCollection(Session.userId).catch(() => ({})) : Promise.resolve({})]);
         searchUsers = usersRes.users || [];
         searchCards = cardsRes.cards || [];
+        searchOwned = new Map((col.owned || []).map((o) => [o.cardId, o]));
+        const rarities = new Map();
+        searchCards.forEach((c) => { if (c.rarity && !rarities.has(c.rarity.key)) rarities.set(c.rarity.key, c.rarity); });
+        document.getElementById("gs-rarity").innerHTML = '<option value="">Toutes raretés</option>' + [...rarities.values()].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((r) => `<option value="${r.key}">${r.name}</option>`).join("");
+        if (!Session.isLoggedIn()) document.getElementById("gs-owned").disabled = true;
       } catch (e) { /* recherche degradee (pages seulement) si hors-ligne */ }
+    }
+
+    function cardMatchesFilters(c) {
+      const rarity = gsVal("gs-rarity"), finish = gsVal("gs-finish"), quality = gsVal("gs-quality"), own = gsVal("gs-owned");
+      if (rarity && c.rarity?.key !== rarity) return false;
+      const o = searchOwned.get(c.cardId);
+      if (own === "owned" && !o) return false;
+      if (own === "missing" && o) return false;
+      if (finish || quality) {
+        if (!o) return false;
+        return (o.copies || []).some((cp) => (!finish || (cp.finish || "normal") === finish) && (!quality || (cp.quality || "damaged") === quality));
+      }
+      return true;
     }
 
     function renderSearchResults(query) {
       const q = query.trim().toLowerCase();
-      if (!q) { searchResults.innerHTML = `<div class="global-search-hint">Tape un pseudo, un nom de carte...</div>`; return; }
-      const players = searchUsers.filter((u) => (u.pseudo || "").toLowerCase().includes(q)).slice(0, 5);
-      const cards = searchCards.filter((c) => (c.name || "").toLowerCase().includes(q)).slice(0, 5);
-      const pages = visibleNavItems().filter((i) => i.label.toLowerCase().includes(q));
+      const filtering = gsActive();
+      if (!q && !filtering) { searchResults.innerHTML = `<div class="global-search-hint">Tape un pseudo, un nom de carte… ou choisis des filtres.</div>`; return; }
+      const players = filtering ? [] : searchUsers.filter((u) => (u.pseudo || "").toLowerCase().includes(q)).slice(0, 5);
+      const cardMatches = searchCards.filter((c) => (!q || (c.name || "").toLowerCase().includes(q)) && cardMatchesFilters(c));
+      const cards = cardMatches.slice(0, filtering ? 12 : 5);
+      const pages = filtering ? [] : visibleNavItems().filter((i) => i.label.toLowerCase().includes(q));
       const sections = [];
       if (players.length) {
         sections.push(`<div class="global-search-group">Joueurs</div>` + players.map((u) =>
@@ -565,9 +596,10 @@ function renderHeader() {
         ).join(""));
       }
       if (cards.length) {
-        sections.push(`<div class="global-search-group">Cartes</div>` + cards.map((c) =>
-          `<a class="global-search-item" href="collection.html?cardId=${c.cardId}">&#127183; ${c.name}</a>`
-        ).join(""));
+        sections.push(`<div class="global-search-group">Cartes${cardMatches.length > cards.length ? ` (${cards.length} sur ${cardMatches.length})` : ""}</div>` + cards.map((c) => {
+          const o = searchOwned.get(c.cardId);
+          return `<a class="global-search-item gs-card" href="collection.html?cardId=${c.cardId}">${c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" />` : "&#127183;"}<span>${c.name}</span><small style="color:${c.rarity?.colorHex || "inherit"}">${c.rarity?.name || ""}</small>${Session.isLoggedIn() ? `<small class="gs-own">${o ? "×" + o.count : "manquante"}</small>` : ""}</a>`;
+        }).join(""));
       }
       if (pages.length) {
         sections.push(`<div class="global-search-group">Pages</div>` + pages.map((i) =>
@@ -590,6 +622,8 @@ function renderHeader() {
       }
     });
     searchInput.addEventListener("input", () => renderSearchResults(searchInput.value));
+    document.getElementById("gs-filters").addEventListener("change", () => renderSearchResults(searchInput.value));
+    document.getElementById("gs-filters").addEventListener("click", (e) => e.stopPropagation());
     searchInput.addEventListener("click", (e) => e.stopPropagation());
     document.addEventListener("click", (e) => {
       if (!searchEl.contains(e.target)) searchEl.classList.remove("open");
@@ -739,7 +773,25 @@ const PushNotifs = {
       <div class="push-row">
         <span>&#128242; Notifications sur cet appareil<small>Expédition rentrée, quiz du jour, échange reçu, boss, événements…</small></span>
         <button type="button" class="${sub ? "btn-ghost" : "btn-secondary"} push-toggle-btn">${sub ? "Désactiver" : "Activer"}</button>
-      </div>`;
+      </div>
+      ${sub ? '<details class="push-prefs" id="push-prefs"><summary>&#9881;&#65039; Choisir les notifications</summary><div class="push-prefs-list">Chargement…</div></details>' : ""}`;
+    const prefs = container.querySelector("#push-prefs");
+    if (prefs) {
+      prefs.addEventListener("click", (e) => e.stopPropagation());
+      prefs.addEventListener("toggle", async () => {
+        if (!prefs.open || prefs.dataset.loaded) return;
+        try {
+          const st = await API.pushAction(Session.userId, "status", { endpoint: sub.endpoint });
+          prefs.dataset.loaded = "1";
+          prefs.querySelector(".push-prefs-list").innerHTML = (st.kinds || []).map((k) => `<label class="push-pref"><input type="checkbox" data-kind="${k.key}" ${k.on ? "checked" : ""} /> ${k.label}</label>`).join("");
+        } catch (e) { prefs.querySelector(".push-prefs-list").textContent = "Indisponible."; }
+      });
+      prefs.addEventListener("change", async () => {
+        const values = {};
+        prefs.querySelectorAll("[data-kind]").forEach((i) => { values[i.dataset.kind] = i.checked; });
+        try { await API.setPushPrefs(Session.userId, values); Toast.info("Préférences de notifications enregistrées."); } catch (e) { Toast.error("Erreur. (" + e.message + ")"); }
+      });
+    }
     container.querySelector(".push-toggle-btn").addEventListener("click", async (e) => {
       e.stopPropagation();
       const btn = e.currentTarget;
@@ -880,6 +932,14 @@ async function loadHeaderBoosterBadge() {
       if (p) { p.className = status.decor.color ? "decor-" + status.decor.color : ""; p.title = status.decor.title || ""; }
       const av = document.querySelector("#user-menu-trigger .avatar");
       if (av) av.className = "avatar" + (status.decor.frame ? " decor-" + status.decor.frame : "");
+    }
+    // Rang de compte (valeur de la collection, 2026-10-07) a cote du pseudo.
+    if (status.rank) {
+      const p = document.getElementById("header-pseudo");
+      let chip = document.getElementById("header-rank");
+      if (!chip && p) { chip = document.createElement("span"); chip.id = "header-rank"; p.insertAdjacentElement("beforebegin", chip); }
+      if (chip) { chip.className = "header-rank rank-" + status.rank.key; chip.textContent = status.rank.icon; chip.title = `Rang ${status.rank.label} (valeur de collection ${status.rank.value.toLocaleString("fr-FR")})`; }
+      if (status.rank.promoted && typeof Toast !== "undefined") Toast.success(`${status.rank.icon} Tu passes au rang ${status.rank.label} !`);
     }
     // Pieces detachees (pechees) : visibles seulement si > 0.
     const partBadge = document.getElementById("header-part-badge");
@@ -1071,4 +1131,100 @@ document.addEventListener("DOMContentLoaded", () => {
       loadNavBadges();
     }, 60000);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Heure de chance (2026-10-07) : bandeau sur toutes les pages pendant
+// l'heure de chance. Les fenetres du jour sont gardees en session (elles ne
+// changent pas dans la journee) : aucune requete en plus par page.
+// ---------------------------------------------------------------------------
+const LuckyHour = {
+  KEY: "2gatcha_lucky",
+  today() { return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }); },
+  read() { try { const v = JSON.parse(sessionStorage.getItem(this.KEY) || "null"); return v && v.day === this.today() ? v : null; } catch (e) { return null; } },
+  async windows() {
+    const cached = this.read();
+    if (cached) return cached.windows;
+    const t = await API.getToday(Session.userId);
+    const windows = t.lucky.windows || [t.lucky.window, t.lucky.next].filter(Boolean);
+    try { sessionStorage.setItem(this.KEY, JSON.stringify({ day: this.today(), windows })); } catch (e) { /* stockage indisponible */ }
+    return windows;
+  },
+  async init() {
+    if (!Session.isLoggedIn() || document.getElementById("lucky-banner")) return;
+    let windows = [];
+    try { windows = await this.windows(); } catch (e) { return; }
+    const draw = () => {
+      const now = Date.now() / 1000;
+      const w = windows.find((x) => x.start <= now && now < x.end);
+      let el = document.getElementById("lucky-banner");
+      if (!w) { if (el) el.remove(); return; }
+      if (!el) {
+        el = document.createElement("a");
+        el.id = "lucky-banner";
+        el.className = "lucky-banner";
+        el.href = "ouverture.html";
+        document.getElementById("site-header")?.insertAdjacentElement("afterend", el);
+      }
+      const m = Math.max(1, Math.ceil((w.end - now) / 60));
+      el.innerHTML = `&#127808; <strong>Heure de chance</strong> : finitions et poussières boostées encore ${m} min`;
+    };
+    draw();
+    setInterval(draw, 30000);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Carte de joueur au survol d'un pseudo (2026-10-07) : rang, titre, niveau
+// et vitrine (6 cartes), sur ordinateur seulement.
+// ---------------------------------------------------------------------------
+const PlayerCard = {
+  cache: new Map(),
+  el: null,
+  timer: null,
+  init() {
+    if (!window.matchMedia || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    document.addEventListener("mouseover", (e) => {
+      const a = e.target.closest && e.target.closest('a[href*="profile.html?pseudo="]');
+      if (!a || a.closest(".player-card-pop")) return;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.show(a), 380);
+    });
+    document.addEventListener("mouseout", (e) => {
+      const a = e.target.closest && e.target.closest('a[href*="profile.html?pseudo="]');
+      if (a && !a.contains(e.relatedTarget)) { clearTimeout(this.timer); this.hideSoon(); }
+    });
+  },
+  hideSoon() { setTimeout(() => { if (this.el && !this.el.matches(":hover")) this.el.remove(); }, 200); },
+  async show(a) {
+    const pseudo = new URL(a.href, location.href).searchParams.get("pseudo");
+    if (!pseudo) return;
+    let data = this.cache.get(pseudo);
+    if (!data) { try { data = await API.getPlayerCard(pseudo); this.cache.set(pseudo, data); } catch (e) { return; } }
+    if (!a.matches(":hover")) return;
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    if (this.el) this.el.remove();
+    const el = document.createElement("div");
+    el.className = "player-card-pop";
+    el.innerHTML = `
+      <div class="pcp-head">
+        ${data.avatar ? `<img class="pcp-avatar ${data.decor && data.decor.frame ? "decor-" + data.decor.frame : ""}" src="${data.avatar}" alt="" />` : ""}
+        <div><strong class="${data.decor && data.decor.color ? "decor-" + data.decor.color : ""}">${esc(data.pseudo)}</strong>
+          ${data.decor && data.decor.title ? `<small class="decor-title">${esc(data.decor.title)}</small>` : ""}
+          <small>Niv. ${data.level} · ${data.rank.icon} ${esc(data.rank.label)} · &#127907; ${data.skills.fishing} · &#9935;&#65039; ${data.skills.dig}</small></div>
+      </div>
+      ${data.showcase.length ? `<div class="pcp-showcase">${data.showcase.map((c) => `<img src="${API.imageUrl(c.imageId)}" alt="${esc(c.name)}" title="${esc(c.name)}" style="--r:${esc(c.rarity?.colorHex || "#888")}" loading="lazy" />`).join("")}</div>` : '<small class="muted">Vitrine vide</small>'}`;
+    document.body.appendChild(el);
+    const r = a.getBoundingClientRect();
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left)) + "px";
+    el.style.top = (r.bottom + h + 12 > window.innerHeight ? r.top - h - 8 : r.bottom + 8) + "px";
+    el.addEventListener("mouseleave", () => el.remove());
+    this.el = el;
+  }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  LuckyHour.init();
+  PlayerCard.init();
 });

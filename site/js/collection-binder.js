@@ -160,7 +160,7 @@
       const checked = inBulk && bulkSelected.has(navKey);
       const up = upgrades(card, owned, finish, quality);
       return `
-        <div class="collection-card ${inBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}">
+        <div class="collection-card ${inBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? "has-star" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}">
           ${isNew && i === 0 ? '<span class="new-badge">New</span>' : ""}
           ${inBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-key="${navKey}" ${checked ? "checked" : ""} aria-label="Sélectionner ${name}" /></label>` : `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>`}
           <div class="card-art" tabindex="0" role="button" aria-label="Voir la carte ${name}">
@@ -168,6 +168,7 @@
             ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
             <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
             ${variant.serialNumbers.includes(1) ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+            <span class="tile-marks">${i === 0 && state.firstMine && state.firstMine.has(card.cardId) ? `<span class="first-mine-badge" title="Tu as été le premier du serveur à l'obtenir${state.firstMine.get(card.cardId) ? " (" + new Date(state.firstMine.get(card.cardId) * 1000).toLocaleDateString("fr-FR") + ")" : ""}">&#129351;</span>` : ""}${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? '<span class="star-badge" title="Exemplaire ★">&#9733;</span>' : ""}${variant.copies.some((c) => state.insured && state.insured.has(c.pullId)) ? '<span class="insured-badge" title="Exemplaire assuré">&#128737;&#65039;</span>' : ""}</span>
           </div>
           <div class="card-info">
             <div class="card-name">${name}${card.isPromo && card.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}</div>
@@ -353,6 +354,12 @@
     return state.cards.filter((c) => c.extension?.id === albumExt).sort((a, b) => (state.cardNumber.get(a.cardId) || 0) - (state.cardNumber.get(b.cardId) || 0));
   }
   const albumPerView = () => (window.innerWidth >= 1100 ? 18 : 9);
+  // Cartes deja vues dans l'album (2026-10-07) : une carte obtenue depuis la
+  // derniere visite "se glisse" dans son emplacement, avec un petit son.
+  const ALBUM_SEEN_KEY = '2gatcha_album_seen';
+  let albumTurn = 0;
+  function albumSeen() { try { const v = JSON.parse(localStorage.getItem(ALBUM_SEEN_KEY) || 'null'); return Array.isArray(v) ? new Set(v) : null; } catch (e) { return null; } }
+  function saveAlbumSeen(set) { try { localStorage.setItem(ALBUM_SEEN_KEY, JSON.stringify([...set])); } catch (e) { /* stockage indisponible */ } }
 
   function albumSlot(card) {
     const num = Coll.serial(state.cardNumber.get(card.cardId) || 0);
@@ -368,7 +375,7 @@
     const count = (owned ? owned.count : 0) + vault.length;
     const navKey = best ? navKeyOf(card.cardId, best.finish, best.quality) : "";
     return `
-      <div class="album-slot album-owned ${owned ? "" : "album-vault"}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" style="--slot-color:${color};" ${navKey ? `data-nav-key="${navKey}" role="button" tabindex="0" aria-label="Voir la carte ${escapeHtml(card.name)}"` : ""}>
+      <div class="album-slot album-owned ${owned ? "" : "album-vault"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" style="--slot-color:${color};" ${navKey ? `data-nav-key="${navKey}" role="button" tabindex="0" aria-label="Voir la carte ${escapeHtml(card.name)}"` : ""}>
         <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />
         <span class="album-num">${num}</span>
         ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
@@ -399,7 +406,7 @@
           <span class="album-progress">${ownedCount}/${cards.length} cartes</span>
           ${setChip(ext && ext.key)}
         </div>
-        <div class="album-spread">${sheets.map((sheet) => `<div class="album-page">${sheet.map(albumSlot).join("")}</div>`).join("")}</div>
+        <div class="album-spread ${albumTurn > 0 ? 'turn-next' : albumTurn < 0 ? 'turn-prev' : ''}">${sheets.map((sheet) => `<div class="album-page">${sheet.map(albumSlot).join("")}</div>`).join("")}</div>
         <div class="album-nav">
           <button type="button" class="btn-secondary" data-album-page="-1" ${albumPage === 0 ? "disabled" : ""} aria-label="Page précédente">&#10094;</button>
           <span>Page ${albumPage + 1} / ${pages}</span>
@@ -408,10 +415,25 @@
       </div>`;
     container.querySelectorAll(".album-owned[data-finish]:not([data-finish='normal'])").forEach(Coll.attachTilt);
     $("album-ext").addEventListener("change", (e) => { albumExt = Number(e.target.value); albumPage = 0; renderAlbum(); });
+    albumTurn = 0;
+    // Nouvelles cartes de la page : animation d'arrivee + son (3 max).
+    const seen = albumSeen();
+    const discovered = state.cards.filter((c) => Coll.isDiscovered(c.cardId)).map((c) => c.cardId);
+    if (!seen) { saveAlbumSeen(new Set(discovered)); return; }
+    const fresh = [...container.querySelectorAll('.album-owned[data-card-id]')].filter((el) => !seen.has(Number(el.dataset.cardId)));
+    fresh.forEach((el, i) => {
+      el.style.setProperty('--slot-delay', (0.25 + i * 0.35) + 's');
+      el.classList.add('album-slot-in');
+      if (i < 3) setTimeout(() => { try { Sfx.reveal(el.dataset.rarity); } catch (e) { /* son coupe */ } }, 250 + i * 350);
+      seen.add(Number(el.dataset.cardId));
+    });
+    if (fresh.length) saveAlbumSeen(seen);
   }
 
   function albumPageBy(delta) {
     albumPage += delta;
+    albumTurn = delta;
+    try { Sfx.flip(); } catch (e) { /* son coupe */ }
     renderAlbum();
   }
 
@@ -481,7 +503,16 @@
             ${owned ? `<div class="card-modal-stats"><span>Possédée &times;${copies.length}${owned.count > copies.length ? ` (${owned.count} toutes variantes)` : ""}</span>${serials.length ? `<span>${serials.map(Coll.serial).join(", ")}</span>` : ""}</div>` : ""}
             ${card.description ? `<p class="card-modal-description">${escapeHtml(card.description)}</p>` : ""}
             <div class="card-modal-info" data-card-info="${card.cardId}" aria-live="polite"><div class="card-info-loading">Chargement des infos…</div></div>
-            ${card.firstObtainedBy ? `<div class="first-obtainer-badge">&#127942; ${isFirstObtainer ? "C'est toi qui as" : `<strong>${escapeHtml(card.firstObtainedBy)}</strong> a`} obtenu cette carte en premier sur le serveur !</div>` : ""}
+            ${card.firstObtainedBy ? `<div class="first-obtainer-badge">&#127942; ${isFirstObtainer ? "C'est toi qui as" : `<strong>${escapeHtml(card.firstObtainedBy)}</strong> a`} obtenu cette carte en premier sur le serveur${state.firstMine && state.firstMine.get(card.cardId) ? ` le ${new Date(state.firstMine.get(card.cardId) * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}` : ""} !</div>` : ""}
+            ${owned && copies.length ? `<details class="copy-manager" ${copies.some((c) => state.starred.has(c.pullId) || state.insured.has(c.pullId)) ? "open" : ""}>
+              <summary>&#128737;&#65039; Mes exemplaires (${copies.length}) : assurance${finish === "rainbow" && quality === "mint" ? ", carte ★" : ""}</summary>
+              <ul class="copy-list">${copies.map((c) => `<li>
+                <span class="copy-serial">${c.serialNumber != null ? Coll.serial(c.serialNumber) : "?"}${state.starred.has(c.pullId) ? ' <span class="star-badge" style="position:static;">&#9733;</span>' : ""}</span>
+                <button type="button" class="btn-ghost copy-insure ${state.insured.has(c.pullId) ? "on" : ""}" data-insure="${c.pullId}" title="${state.insured.has(c.pullId) ? "Retirer l'assurance (gratuit)" : "Assurer : ne pourra plus être décrafté, fusionné, sacrifié, déposé ni échangé par erreur"}">${state.insured.has(c.pullId) ? "&#128737;&#65039; Assuré" : "Assurer"}</button>
+              </li>`).join("")}</ul>
+              ${finish === "rainbow" && quality === "mint" ? `<p class="copy-star-hint">Fusionne <strong>3 exemplaires</strong> arc-en-ciel en parfait état en une <strong>carte ★</strong> : cadre animé, et elle vaut ×3 au décraft.</p>
+                <button type="button" class="btn copy-forge" data-forge="1" ${copies.filter((c) => !state.starred.has(c.pullId) && !state.insured.has(c.pullId)).length >= 3 ? "" : "disabled"}>&#9733; Forger une carte ★</button>` : ""}
+            </details>` : ""}
             <div class="card-modal-actions">
               ${disenchantable ? `<button type="button" class="btn-ghost" data-modal-act="disenchant">&#9851; Décrafter (${card.isSecret ? "+1 booster" : "+" + Coll.estimateDust(card.rarity.disenchantValue, finish, quality)})</button>` : ""}
               ${owned && !card.isPromo ? `<button type="button" class="btn-secondary" data-modal-act="trade">&#8644; Échanger</button>` : ""}
@@ -508,6 +539,37 @@
         }
       }));
       if (finish !== "normal") Coll.attachTilt(overlay.querySelector(".card-modal"));
+      // Assurance et carte ★ (api/src/native/market.js, progression.js).
+      overlay.querySelectorAll("[data-insure]").forEach((btn) => btn.addEventListener("click", async () => {
+        const pullId = Number(btn.dataset.insure);
+        const on = state.insured.has(pullId);
+        btn.disabled = true;
+        try {
+          if (!on) {
+            const st = await API.insurance(Session.userId, pullId, "status");
+            const okIns = await Confirm.show(`Assurer cet exemplaire pour <strong>${st.cost} poussières</strong> ? Il ne pourra plus être décrafté, fusionné, sacrifié, déposé ni échangé tant qu'il est assuré. Tu pourras retirer l'assurance gratuitement (sans remboursement).`, { title: "Assurer cet exemplaire ?", confirmText: "Assurer" });
+            if (!okIns) { btn.disabled = false; return; }
+          }
+          await API.insurance(Session.userId, pullId, on ? "remove" : "insure");
+          if (on) state.insured.delete(pullId); else state.insured.add(pullId);
+          Toast.success(on ? "Assurance retirée." : "&#128737;&#65039; Exemplaire assuré.");
+          renderAt(index, null);
+          Coll.refresh();
+        } catch (e) { btn.disabled = false; Toast.error(e.code === "not_enough_dust" ? "Pas assez de poussières." : "Erreur. (" + e.message + ")"); }
+      }));
+      overlay.querySelector("[data-forge]")?.addEventListener("click", async (ev) => {
+        const pick = copies.filter((c) => !state.starred.has(c.pullId) && !state.insured.has(c.pullId)).sort((a, b) => (a.serialNumber || 1e9) - (b.serialNumber || 1e9)).slice(0, 3);
+        const okForge = await Confirm.show(`Fusionner <strong>3 exemplaires arc-en-ciel parfait état</strong> de ${escapeHtml(card.name)} (${pick.map((c) => Coll.serial(c.serialNumber)).join(", ")}) en <strong>une carte ★</strong> ? Le plus petit numéro est conservé, les 2 autres disparaissent.`, { title: "Forger une carte ★ ?", confirmText: "Forger" });
+        if (!okForge) return;
+        ev.currentTarget.disabled = true;
+        try {
+          const res = await API.cardPrestige(Session.userId, pick.map((c) => c.pullId));
+          Toast.success(`&#9733; Carte ★ forgée : ${escapeHtml(card.name)} ${Coll.serial(res.serialNumber)} !`);
+          if (typeof confetti === "function") confetti({ particleCount: 160, spread: 110, colors: ["#ffd76e", "#ff6ec7", "#7dd3fc", "#a78bfa"], origin: { y: 0.4 } });
+          close();
+          await Coll.refresh();
+        } catch (e) { Toast.error("Erreur. (" + e.message + ")"); }
+      });
       loadCardInfo(overlay, card, owned);
     }
     // Fiche enrichie (api/src/native/social.js) : circulation, proprietaires,

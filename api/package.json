@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
-    "test": "node --disable-warning=ExperimentalWarning scripts/schema-test.js && node --disable-warning=ExperimentalWarning scripts/native-test.js && node --disable-warning=ExperimentalWarning scripts/selftest.js",
+    "test": "node --disable-warning=ExperimentalWarning scripts/schema-test.js && node --disable-warning=ExperimentalWarning scripts/native-test.js && node --disable-warning=ExperimentalWarning scripts/progress-test.js && node --disable-warning=ExperimentalWarning scripts/selftest.js",
     "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
     "restore": "node --disable-warning=ExperimentalWarning scripts/restore.js"
   },

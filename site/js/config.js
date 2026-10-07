@@ -54,7 +54,7 @@ window.APP_CONFIG = {
     altarSacrifice: "/altar-sacrifice", // POST { userId, cardIds: [id,id,id] } -> { success, card?, isFirstEver? } | { error }
     achievements: "/achievements",    // GET ?userId=... -> { achievements: [{key,icon,name,description,unlocked,progress,goal}], unlockedCount, totalCount }
     pullLog: "/pull-log",             // GET ?userId=... -> { log: [{cardId,cardName,imageId,rarity,extension,source,obtainedAt}], total }
-    showcase: "/showcase",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { showcase } (max 5 cartes, affichees sur le profil public)
+    showcase: "/showcase",            // POST { userId, action: 'add'|'remove'|'list', cardId? } -> { showcase } (max 6 cartes, affichees sur le profil public)
     foilUpgrade: "/foil-upgrade",      // POST { userId, cardId, fromFinish } -> { upgraded, cardId, fromFinish, toFinish, serialNumber } | { error }
     unlockSecret: "/unlock-secret",    // POST { userId } -> { unlocked, card, serialNumber } | { error: 'no_secret_available' }
     weeklyQuests: "/weekly-quests",    // POST { userId, action: 'status'|'claim' } -> { weekStart, quests, completedCount, rewardClaimed, canClaim, justClaimedReward }
@@ -83,7 +83,27 @@ window.APP_CONFIG = {
     profileWall: "/profile-wall",       // GET ?profileId= | POST { userId, action: 'post'|'delete' }
     garden: "/garden",                  // POST { userId, action: 'status'|'plant'|'harvest' }
     communityDig: "/community-dig",     // POST { userId, action: 'status'|'dig', tile? }
-    prestige: "/prestige",              // POST { userId, skill: 'fishing'|'dig' }
+    prestige: "/prestige",              // POST { userId, skill: 'fishing'|'dig'|'expedition'|'garden' }
+    // Progression longue, quotidien, marche (2026-10-07)
+    talents: "/talents",                // POST { userId, action: 'status'|'learn'|'reset', key? }
+    mastery: "/mastery",                // POST { userId, action: 'status'|'claim', extensionId? }
+    constellations: "/constellations",  // POST { userId, action: 'status'|'claim', key? }
+    cardPrestige: "/card-prestige",     // POST { userId, pullIds: [a, b, c] }
+    achievementTiers: "/achievement-tiers", // POST { userId, action: 'status'|'claim', key? }
+    serverFeed: "/server-feed",         // GET ?since=
+    dailyBox: "/daily-box",             // POST { userId, action: 'status'|'open' }
+    dailyDice: "/daily-dice",           // POST { userId, action: 'status'|'roll' }
+    welcomeBack: "/welcome-back",       // POST { userId, action: 'status'|'claim' }
+    evening: "/evening",                // POST { userId, action: 'status'|'claim' }
+    today: "/today",                    // GET ?userId= (action du jour, chance, boite, de, soir, retour)
+    contracts: "/contracts",            // POST { userId, action: 'status'|'fulfill', key?, pullIds? }
+    auctions: "/auctions",              // POST { userId, action: 'list'|'create'|'bid'|'cancel', ... }
+    exchangeRates: "/exchange-rates",   // GET
+    insurance: "/insurance",            // POST { userId, pullId, action: 'insure'|'remove' }
+    boosterShop: "/booster-shop",       // POST { userId, action: 'status'|'buy' }
+    whatNow: "/what-now",               // GET ?userId=
+    myStats: "/my-stats",               // GET ?userId=
+    playerCard: "/player-card",         // GET ?pseudo=
     fishingTournament: "/fishing-tournament", // GET ?userId=
     uniqueCounter: "/unique-counter",   // POST { userId, action: 'status'|'redeem', cardId? } -> { tickets, cards, remaining }
     personalVault: "/personal-vault", // POST { userId, action: 'status'|'store'|'withdraw', pullId? } -> { unlocked, rows, boostersPerRow, dustPerRow, reward }

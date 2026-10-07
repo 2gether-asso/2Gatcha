@@ -58,6 +58,16 @@
           <p class="lead" style="font-size:0.85rem;">Des objectifs qui traversent les extensions. Chaque collection terminée rapporte des poussières et un titre à équiper dans la boutique.</p>
           <div class="themes-grid" id="themes-grid"></div>
         </details>
+        <details class="themes-panel mastery-panel" id="mastery-panel" hidden>
+          <summary>&#127941; Maîtrise des extensions <span class="themes-count" id="mastery-count"></span></summary>
+          <p class="lead" style="font-size:0.85rem;">Niveaux 1 à 10 par extension, sur 3 couches : toutes les cartes, tous les états, toutes les finitions de chaque carte. Chaque niveau augmente un peu tes chances de finition spéciale dans les boosters de l’extension. Le niveau 10 demande <strong>tout</strong>, arc-en-ciel compris.</p>
+          <div class="mastery-grid" id="mastery-grid"></div>
+        </details>
+        <details class="themes-panel sky-panel" id="sky-panel" hidden>
+          <summary>&#127756; Constellations <span class="themes-count" id="sky-count"></span></summary>
+          <p class="lead" style="font-size:0.85rem;">40 étoiles, chacune formée de 5 cartes d’extensions différentes. Allume-les toutes pour compléter le ciel.</p>
+          <div class="sky-grid" id="sky-grid"></div>
+        </details>
 
         <!-- Modes de la page (ancres #classeur, #decrafter, #crafter, #autel, #finitions, #qualite) -->
         <nav class="tabs coll-modes" role="tablist" aria-label="Modes de la collection">
@@ -159,6 +169,7 @@
         <section class="coll-pane" id="pane-disenchant" role="tabpanel" style="display:none;">
           <div class="coll-pane-actions">
             <p class="coll-pane-help">Une pile par variante (finition + état), les plus gros doublons d'abord. Les cartes secrètes se décraftent contre un booster.</p>
+            <div class="rates-strip" id="rates-strip" hidden></div>
             <button type="button" class="btn-secondary" id="select-duplicates-btn" title="Sélectionne tous tes doublons en gardant ton meilleur exemplaire de chaque carte ; jamais un #001, une arc-en-ciel ou un parfait état">&#9851; Sélectionner les doublons</button>
             <button type="button" class="btn-ghost" id="select-all-disenchant-btn" style="display:none;">Tout sélectionner</button>
             <button type="button" class="btn-ghost" id="disenchant-bulk-toggle">&#9745; Sélection multiple</button>
@@ -226,5 +237,6 @@
   <script src="js/collection-binder.js"></script>
   <script src="js/collection-workshop.js"></script>
   <script src="js/collection-themes.js"></script>
+  <script src="js/collection-progress.js"></script>
 </body>
 </html>
