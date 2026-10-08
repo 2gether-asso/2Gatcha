@@ -33,11 +33,77 @@
 
       <div id="adb-zone" style="display:none;">
         <div class="tabs" role="tablist">
+          <button type="button" class="tab" id="adb-tab-content" role="tab" aria-selected="false">&#129513; Extensions &amp; cartes</button>
           <button type="button" class="tab active" id="adb-tab-images" role="tab" aria-selected="true">&#128444; Images</button>
           <button type="button" class="tab" id="adb-tab-tables" role="tab" aria-selected="false">&#128202; Tables</button>
           <button type="button" class="tab" id="adb-tab-backups" role="tab" aria-selected="false">&#9729; Sauvegardes</button>
           <button type="button" class="btn-secondary adb-logout" id="adb-logout">Se déconnecter</button>
         </div>
+
+        <section id="adb-content-pane" style="display:none;">
+          <p class="adb-help">Crée une extension, ajoute ses visuels, puis dépose les images de ses cartes : une carte est créée par image (nom tiré du fichier, modifiable). Tout est appliqué tout de suite au site, sans redémarrage. Garde l'extension <strong>masquée</strong> tant qu'elle n'est pas prête.</p>
+          <div class="ac-ext-list" id="ac-ext-list"></div>
+
+          <form id="ac-new-form" class="adb-card ac-new" hidden>
+            <h2>&#10133; Nouvelle extension</h2>
+            <div class="ac-form-grid">
+              <label>Nom <input type="text" id="ac-new-name" required maxlength="60" placeholder="ex. Halloween 2026" /></label>
+              <label>Clé (technique) <input type="text" id="ac-new-key" maxlength="40" placeholder="halloween-2026" /></label>
+              <label>Visuel du pack <input type="file" id="ac-new-pack" accept="image/*" /></label>
+              <label>Dos de carte <input type="file" id="ac-new-back" accept="image/*" /></label>
+            </div>
+            <label class="ac-inline"><input type="checkbox" id="ac-new-active" /> Visible tout de suite par les joueurs</label>
+            <div class="adb-row">
+              <button type="submit" class="btn" id="ac-new-submit">Créer l'extension</button>
+              <button type="button" class="btn-ghost" id="ac-new-cancel">Annuler</button>
+            </div>
+          </form>
+
+          <div class="adb-card" id="ac-ext-edit" hidden>
+            <h2>&#9881; <span id="ac-ext-title"></span></h2>
+            <div class="ac-form-grid">
+              <label>Nom <input type="text" id="ac-ext-name" maxlength="60" /></label>
+              <label>Clé <input type="text" id="ac-ext-key" maxlength="40" /></label>
+              <label>Ordre d'affichage <input type="number" id="ac-ext-order" step="1" /></label>
+              <label class="ac-inline ac-inline-tall"><input type="checkbox" id="ac-ext-active" /> Visible par les joueurs</label>
+            </div>
+            <div class="ac-visuals">
+              <label class="ac-visual" title="Changer le visuel du pack"><span id="ac-ext-pack-preview"></span><small>Pack &#128247;</small><input type="file" id="ac-ext-pack" accept="image/*" hidden /></label>
+              <label class="ac-visual" title="Changer le dos de carte"><span id="ac-ext-back-preview"></span><small>Dos de carte &#128247;</small><input type="file" id="ac-ext-back" accept="image/*" hidden /></label>
+            </div>
+            <div class="adb-row"><button type="button" class="btn" id="ac-ext-save">Enregistrer</button></div>
+          </div>
+
+          <section class="adb-card" id="ac-cards-section" hidden>
+            <h2>&#127183; Cartes de « <span id="ac-cards-title"></span> »</h2>
+            <h3>Ajouter des cartes</h3>
+            <div class="ac-form-grid">
+              <label>Rareté par défaut <select id="ac-default-rarity"></select></label>
+              <label>Artiste par défaut <input type="text" id="ac-default-artist" maxlength="80" /></label>
+              <label>Taille max des images (px) <input type="number" id="ac-max-size" value="900" min="200" max="3000" step="50" /></label>
+            </div>
+            <label class="adb-drop" id="ac-drop">
+              <input type="file" id="ac-files" accept="image/*" multiple />
+              <span>&#128229; Dépose les images des cartes ici (une carte par image) ou clique pour les choisir</span>
+            </label>
+            <div class="ac-import-bar" id="ac-import-bar" hidden>
+              <strong id="ac-import-count"></strong>
+              <button type="button" class="btn-ghost" id="ac-apply-all">Appliquer rareté et artiste par défaut à toutes</button>
+              <label class="ac-inline"><input type="checkbox" id="ac-import-active" checked /> Cartes actives</label>
+              <button type="button" class="btn-ghost" id="ac-clear">Tout retirer</button>
+              <button type="button" class="btn" id="ac-import-btn">Créer les cartes</button>
+              <span class="ac-progress"><span id="ac-progress"></span></span>
+            </div>
+            <div class="ac-pending" id="ac-pending"></div>
+
+            <div class="adb-row adb-row-between ac-cards-head">
+              <h3>Cartes existantes <span class="adb-help" id="ac-cards-count"></span></h3>
+              <input type="search" id="ac-card-search" placeholder="Rechercher une carte…" />
+            </div>
+            <p class="adb-help">Chaque modification est enregistrée dès que tu quittes le champ. Clique sur une image pour la remplacer.</p>
+            <div class="ac-cards" id="ac-cards"></div>
+          </section>
+        </section>
 
         <section id="adb-images-pane">
           <div class="adb-summary" id="adb-img-summary"></div>
@@ -92,6 +158,7 @@
             <label>Table <select id="adb-table"></select></label>
             <input type="search" id="adb-search" placeholder="Rechercher dans la table..." />
             <button type="button" class="btn-secondary" id="adb-add-row">+ Ligne</button>
+            <button type="button" class="btn-ghost" id="adb-export" title="Télécharger toute la table au format CSV (Excel)">&#11015; CSV</button>
             <button type="button" class="btn-secondary" id="adb-schema-toggle" aria-expanded="false" aria-controls="adb-schema">&#9881; Structure</button>
             <button type="button" class="btn-ghost" id="adb-new-table-toggle" aria-expanded="false" aria-controls="adb-new-table">+ Table</button>
           </div>
@@ -139,7 +206,7 @@
             </details>
           </section>
 
-          <p class="adb-help">Clique sur une cellule pour la modifier (Entrée pour enregistrer, Échap pour annuler), sur un en-tête de colonne pour modifier sa structure. Les références s'écrivent avec l'id de la ligne visée ; les listes au format <code>["L", 1, 2]</code>.</p>
+          <p class="adb-help">Clique sur une cellule pour la modifier (Entrée pour enregistrer, Échap pour annuler), sur un en-tête de colonne pour modifier sa structure. Les références se choisissent dans une liste (nom de la ligne visée) ; les listes s'écrivent au format <code>["L", 1, 2]</code>. &#10697; duplique une ligne (sans ses images).</p>
           <div class="adb-table-wrap"><table class="adb-table" id="adb-grid"></table></div>
           <div class="adb-row adb-row-between">
             <span id="adb-page-info"></span>
@@ -159,5 +226,6 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/admin-db.js"></script>
+  <script src="js/admin-content.js"></script>
 </body>
 </html>

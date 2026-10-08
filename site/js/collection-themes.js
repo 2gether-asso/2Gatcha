@@ -12,7 +12,7 @@
     panel.hidden = false;
     const done = st.themes.filter((t) => t.claimed).length;
     document.getElementById("themes-count").innerHTML = `${done}/${st.themes.length}${st.claimable ? ` · <strong>${st.claimable} à réclamer !</strong>` : ""}`;
-    if (st.claimable) panel.open = true;
+    document.getElementById("themes-count").classList.toggle("has-claim", !!st.claimable);
     document.getElementById("themes-grid").innerHTML = st.themes.map((t) => {
       const pct = Math.round((t.have / t.need) * 100);
       return `<div class="theme-card ${t.done ? "done" : ""} ${t.claimed ? "claimed" : ""}">

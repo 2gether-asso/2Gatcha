@@ -642,7 +642,8 @@ const Coll = (() => {
     mode = initialMode();
     const hashMode = modeFromHash();
 
-    if (prefs.hideStats) { document.body.classList.add("hide-stats"); applyStatsLabel(true); }
+    const hideStats = prefs.hideStats != null ? prefs.hideStats : window.matchMedia("(max-width: 640px)").matches;
+    if (hideStats) { document.body.classList.add("hide-stats"); applyStatsLabel(true); }
     document.getElementById("stats-toggle").addEventListener("click", () => {
       const hidden = document.body.classList.toggle("hide-stats");
       savePrefs({ hideStats: hidden });

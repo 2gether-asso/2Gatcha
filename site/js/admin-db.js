@@ -117,6 +117,7 @@ async function connect(e) {
     document.getElementById("adb-zone").style.display = "";
     fillTableSelect();
     await loadImages();
+    if (location.hash === "#extensions") document.getElementById("adb-tab-content").click();
   } catch (err) {
     errBox.textContent = err.status === 401 ? "Mot de passe incorrect." : err.status === 503 ? "Administration désactivée : ADMIN_TOKEN n'est pas configuré sur le serveur." : `Connexion impossible (${err.message}). Vérifie l'adresse de l'API.`;
     errBox.style.display = "";
@@ -129,7 +130,7 @@ function logout() {
 }
 
 function setTab(tab) {
-  ["images", "tables", "backups"].forEach((t) => {
+  ["content", "images", "tables", "backups"].forEach((t) => {
     const btn = document.getElementById(`adb-tab-${t}`);
     btn.classList.toggle("active", t === tab);
     btn.setAttribute("aria-selected", String(t === tab));
@@ -316,8 +317,28 @@ async function loadRows(table, offset = 0) {
   adb.rows = data.rows;
   adb.total = data.total;
   adb.columns = data.columns;
+  await loadRefTargets();
   renderGrid();
   renderSchema();
+}
+
+// Libelles des lignes des tables referencees (Ref:Rarities -> "Rare"),
+// charges une fois par table pour l'affichage et le choix dans une liste.
+const adbRefCache = new Map();
+function refTarget(col) {
+  const full = String((adb.columns[col] || {}).type || "");
+  const m = /^Ref(?:List)?:(.+)$/.exec(full);
+  return m ? m[1] : null;
+}
+const refLabel = (row) => String(row.Name || row.Label || row.Pseudo || row.Key || row.Code || "#" + row.id);
+async function loadRefTargets() {
+  const targets = [...new Set(Object.keys(adb.columns || {}).map(refTarget).filter(Boolean))].filter((t) => !adbRefCache.has(t) && adb.tables.some((x) => x.name === t));
+  await Promise.all(targets.map(async (t) => {
+    try {
+      const d = await adbFetch(`/admin/api/tables/${encodeURIComponent(t)}/rows?offset=0&limit=500`);
+      adbRefCache.set(t, { complete: d.total <= 500, rows: d.rows.map((r) => ({ id: r.id, label: refLabel(r) })).sort((a, b) => a.id - b.id) });
+    } catch (e) { adbRefCache.set(t, { complete: false, rows: [] }); }
+  }));
 }
 
 function colType(col) {
@@ -332,6 +353,12 @@ function cellHtml(row, col) {
     return `${ids.map((id) => `<img class="adb-cell-img" src="${adbImageUrl(id)}" alt="#${id}" title="#${id}" loading="lazy" />`).join("")}<label class="adb-cell-upload" title="Changer l'image">&#128247;<input type="file" accept="image/*" data-upload-row="${row.id}" data-upload-col="${escapeHtml(col)}" hidden /></label>`;
   }
   if (type === "Bool") return v ? "✅" : "—";
+  if (type === "Ref" && refTarget(col)) {
+    const id = Array.isArray(v) ? Number(v[1]) : Number(v);
+    if (!id) return '<span class="adb-null">—</span>';
+    const hit = (adbRefCache.get(refTarget(col))?.rows || []).find((r) => r.id === id);
+    return `${id}${hit ? ` <span class="adb-ref">${escapeHtml(hit.label)}</span>` : ""}`;
+  }
   if (v == null || v === "") return '<span class="adb-null">—</span>';
   if (typeof v === "object") return `<code>${escapeHtml(JSON.stringify(v))}</code>`;
   if ((type === "DateTime" || type === "Date") && typeof v === "number" && v > 1e8) return `${v} <span class="adb-null">${new Date(v * 1000).toLocaleString("fr-FR")}</span>`;
@@ -344,7 +371,7 @@ function renderGrid() {
   const grid = document.getElementById("adb-grid");
   grid.innerHTML = `
     <thead><tr><th>id</th>${cols.map((c) => `<th class="adb-col-head" data-head-col="${escapeHtml(c)}" title="${escapeHtml(adb.columns[c].type)} - cliquer pour modifier la colonne">${escapeHtml(c)}<span class="adb-col-type">${escapeHtml(colType(c))}</span></th>`).join("")}<th></th></tr></thead>
-    <tbody>${adb.rows.map((r) => `<tr data-row-id="${r.id}"><td class="adb-id">${r.id}</td>${cols.map((c) => `<td data-col="${escapeHtml(c)}" class="adb-cell adb-type-${colType(c).toLowerCase()}">${cellHtml(r, c)}</td>`).join("")}<td><button type="button" class="adb-del" data-del-row="${r.id}" title="Supprimer la ligne">&#128465;</button></td></tr>`).join("")}</tbody>`;
+    <tbody>${adb.rows.map((r) => `<tr data-row-id="${r.id}"><td class="adb-id">${r.id}</td>${cols.map((c) => `<td data-col="${escapeHtml(c)}" class="adb-cell adb-type-${colType(c).toLowerCase()}">${cellHtml(r, c)}</td>`).join("")}<td class="adb-row-actions"><button type="button" class="adb-del adb-dup" data-dup-row="${r.id}" title="Dupliquer la ligne">&#10697;</button><button type="button" class="adb-del" data-del-row="${r.id}" title="Supprimer la ligne">&#128465;</button></td></tr>`).join("")}</tbody>`;
   const end = Math.min(adb.offset + adb.limit, adb.total);
   document.getElementById("adb-page-info").textContent = adb.total ? `Lignes ${adb.offset + 1}–${end} sur ${adb.total}` : "Aucune ligne";
   document.getElementById("adb-prev").disabled = adb.offset === 0;
@@ -376,6 +403,27 @@ function startEdit(td) {
   const row = adb.rows.find((r) => r.id === rowId);
   if (type === "Attachments") return;
   if (type === "Bool") { saveCell(rowId, col, !row[col]); return; }
+  const ref = type === "Ref" && refTarget(col) ? adbRefCache.get(refTarget(col)) : null;
+  if (ref && ref.complete) {
+    const cur = Array.isArray(row[col]) ? Number(row[col][1]) : Number(row[col]) || 0;
+    const sel = document.createElement("select");
+    sel.className = "adb-cell-input";
+    sel.innerHTML = `<option value="0">— aucune —</option>` + ref.rows.map((r) => `<option value="${r.id}" ${r.id === cur ? "selected" : ""}>${r.id} · ${escapeHtml(r.label)}</option>`).join("");
+    td.innerHTML = "";
+    td.appendChild(sel);
+    sel.focus();
+    let done = false;
+    const end = async (save) => {
+      if (done) return;
+      done = true;
+      if (!save || Number(sel.value) === cur) { td.innerHTML = cellHtml(row, col); return; }
+      try { await saveCell(rowId, col, Number(sel.value)); } catch (err) { Toast.error(err.message); td.innerHTML = cellHtml(row, col); }
+    };
+    sel.addEventListener("change", () => end(true));
+    sel.addEventListener("blur", () => end(false));
+    sel.addEventListener("keydown", (e) => { if (e.key === "Escape") end(false); });
+    return;
+  }
   const v = row[col];
   const input = document.createElement("input");
   input.className = "adb-cell-input";
@@ -397,6 +445,7 @@ function startEdit(td) {
 }
 
 async function saveCell(rowId, col, value) {
+  adbRefCache.delete(adb.table);
   const { row } = await adbFetch(`/admin/api/tables/${encodeURIComponent(adb.table)}/rows/${rowId}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: { [col]: value } })
   });
@@ -412,6 +461,44 @@ async function addRow() {
     Toast.success(`Ligne #${row.id} créée.`);
     await refreshTables();
     await loadRows(adb.table, 0);
+  } catch (err) { Toast.error(err.message); }
+}
+
+async function duplicateRow(id) {
+  const src = adb.rows.find((r) => r.id === id);
+  if (!src) return;
+  const fields = {};
+  for (const [col, def] of Object.entries(adb.columns)) {
+    if (def.formula) continue;
+    if (String(def.type).startsWith("Attachments")) continue;
+    if (src[col] !== undefined) fields[col] = src[col];
+  }
+  try {
+    const { row } = await adbFetch(`/admin/api/tables/${encodeURIComponent(adb.table)}/rows`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields }) });
+    Toast.success(`Ligne #${id} dupliquée en #${row.id} (sans les images).`);
+    await refreshTables();
+    await loadRows(adb.table, 0);
+  } catch (err) { Toast.error(err.message); }
+}
+
+// Export CSV de toute la table (toutes les pages).
+async function exportCsv() {
+  try {
+    const all = [];
+    for (let offset = 0; ; offset += 500) {
+      const d = await adbFetch(`/admin/api/tables/${encodeURIComponent(adb.table)}/rows?offset=${offset}&limit=500`);
+      all.push(...d.rows);
+      if (all.length >= d.total || !d.rows.length) break;
+    }
+    const cols = ["id", ...Object.keys(adb.columns)];
+    const cell = (v) => { const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const csv = "\ufeff" + [cols.join(";"), ...all.sort((a, b) => a.id - b.id).map((r) => cols.map((c) => cell(r[c])).join(";"))].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `${adb.table}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    Toast.success(`${all.length} lignes exportées.`);
   } catch (err) { Toast.error(err.message); }
 }
 
@@ -724,6 +811,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adb-prev").addEventListener("click", () => loadRows(adb.table, Math.max(0, adb.offset - adb.limit)));
   document.getElementById("adb-next").addEventListener("click", () => loadRows(adb.table, adb.offset + adb.limit));
   document.getElementById("adb-add-row").addEventListener("click", addRow);
+  document.getElementById("adb-export").addEventListener("click", exportCsv);
   document.getElementById("adb-add-col").addEventListener("click", addColumn);
   document.getElementById("adb-new-col-name").addEventListener("keydown", (e) => { if (e.key === "Enter") addColumn(); });
   document.getElementById("adb-schema-toggle").addEventListener("click", () => toggleSchema());
@@ -753,6 +841,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tr) { tr.scrollIntoView({ block: "center", behavior: "smooth" }); const input = tr.querySelector(".adb-col-name"); input.focus(); input.select(); }
       return;
     }
+    const dup = e.target.closest("[data-dup-row]");
+    if (dup) { duplicateRow(Number(dup.dataset.dupRow)); return; }
     const del = e.target.closest("[data-del-row]");
     if (del) { deleteRow(Number(del.dataset.delRow)); return; }
     if (e.target.closest(".adb-cell-upload")) return;
