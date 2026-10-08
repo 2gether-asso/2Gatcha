@@ -7699,3 +7699,13 @@ button.header-stats:hover { transform: none; filter: none; border-color: var(--b
 @media (max-width: 400px) { .header-inner { grid-template-columns: auto minmax(0, 1fr) auto auto auto; } .inventory, .inventory button.header-stats { min-width: 0; max-width: 100%; } .inventory button.header-stats { gap: 2px; padding: 6px 4px; justify-content: space-between; } .inventory .stat-chip { gap: 3px; font-size: 0.8rem; padding: 0 3px; } .inventory .stat-divider { display: none !important; } }
 @media (max-width: 640px) { .header-inner { column-gap: 6px; } }
 @media (max-width: 400px) { .inventory button.header-stats { flex-wrap: nowrap; overflow: hidden; } .inventory .stat-chip .icon { font-size: 0.85rem; } }
+/* Menu toujours sur sa propre ligne (2026-10-08) : en mode une seule ligne
+   (>= 1500px), le menu centre debordait sur le logo. */
+@media (min-width: 1500px) {
+  .header-inner { flex-wrap: wrap; }
+  .header-inner .nav { order: 3; flex: 1 1 100%; width: 100%; flex-wrap: wrap; }
+  .header-inner .user-box { order: 2; margin-left: auto; }
+}
+.header-inner .nav { align-items: center; }
+.header-inner .nav > a, .header-inner .nav-group, .header-inner .nav-group-trigger { display: inline-flex; align-items: center; line-height: 1.2; margin: 0; vertical-align: middle; }
+.header-inner .nav-group-trigger { font-size: 0.88rem; height: auto; }
