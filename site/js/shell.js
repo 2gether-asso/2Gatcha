@@ -425,7 +425,8 @@ function renderHeader() {
         <span class="brand">2Gatcha</span>
         ${links}
         <div class="user-box">
-          <div class="header-stats" title="Tes ressources">
+          <div class="inventory" id="inventory">
+          <button type="button" class="header-stats" id="inventory-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="inventory-panel" title="Ouvrir l'inventaire">
             <span id="header-booster-badge" class="stat-chip" title="Boosters disponibles">
               <span class="icon">&#127183;</span><span class="count">...</span>
             </span>
@@ -438,16 +439,19 @@ function renderHeader() {
             <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
               <span class="icon">&#128273;</span><span class="count">0</span>
             </span>
-            <a id="header-worm-badge" class="stat-chip stat-chip-worm" href="jeux.html#peche" title="Vers de terre : un par lancer de pêche (trouvés à la fin d'une grille de fouille)" style="display:none;">
+            <span id="header-worm-badge" class="stat-chip stat-chip-worm" title="Vers de terre" style="display:none;">
               <span class="icon">&#129713;</span><span class="count">0</span>
-            </a>
-            <a id="header-part-badge" class="stat-chip stat-chip-part" href="collection.html#finitions" title="Pièces détachées : remplacent un exemplaire dans l'atelier Finitions / Qualité" style="display:none;">
-              <span class="icon">&#128297;</span><span class="count">0</span>
-            </a>
-            <a id="header-ticket-badge" class="stat-chip stat-chip-ticket" href="coffre.html#comptoir" title="Tickets Unique : à échanger au Comptoir Unique (coffre-fort)" style="display:none;">
-              <span class="icon">&#127915;</span><span class="count">0</span>
-            </a>
             </span>
+            <span id="header-part-badge" class="stat-chip stat-chip-part" title="Pièces détachées" style="display:none;">
+              <span class="icon">&#128297;</span><span class="count">0</span>
+            </span>
+            <span id="header-ticket-badge" class="stat-chip stat-chip-ticket" title="Tickets Unique" style="display:none;">
+              <span class="icon">&#127915;</span><span class="count">0</span>
+            </span>
+            </span>
+            <span class="inventory-caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="inventory-panel" id="inventory-panel" role="dialog" aria-label="Inventaire" hidden></div>
           </div>
           <div class="global-search" id="global-search">
             <button type="button" class="global-search-trigger" id="global-search-trigger" aria-label="Recherche" title="Rechercher un joueur, une carte...">&#128269;</button>
@@ -476,14 +480,18 @@ function renderHeader() {
               <span class="caret">&#9660;</span>
             </button>
             <div class="user-menu-dropdown" id="user-menu-dropdown">
-              <button id="edit-pseudo-btn" type="button">&#9998; Modifier le pseudo</button>
-              <a href="boutique.html">&#128717;&#65039; Boutique (titres, cadres)</a>
-              <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}">&#128100; Voir mon profil</a>
-              <button id="copy-profile-link-btn" type="button">&#128279; Copier le lien de mon profil</button>
-              <button id="mute-toggle-btn" type="button">${Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif"}</button>
-              <button id="theme-cycle-btn" type="button">&#127912; Changer de thème</button>
+              <div class="menu-head">${avatar}<span><strong>${Session.pseudo}</strong><small>Mon compte</small></span></div>
+              <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}"><span class="mi">&#128100;</span> Mon profil</a>
+              <a href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}#talents"><span class="mi">&#127795;</span> Talents et maîtrises</a>
+              <a href="stats.html"><span class="mi">&#128202;</span> Mes statistiques</a>
+              <a href="boutique.html#cosmetiques"><span class="mi">&#127912;</span> Titres, cadres, couleurs</a>
               <div class="menu-sep"></div>
-              <button id="logout-btn" type="button">&#10162; Déconnexion</button>
+              <button id="edit-pseudo-btn" type="button"><span class="mi">&#9998;</span> Modifier le pseudo</button>
+              <button id="copy-profile-link-btn" type="button"><span class="mi">&#128279;</span> Copier le lien de mon profil</button>
+              <button id="mute-toggle-btn" type="button">${Sfx.muted ? '<span class="mi">&#128264;</span> Son coupé' : '<span class="mi">&#128266;</span> Son actif'}</button>
+              <button id="theme-cycle-btn" type="button"><span class="mi">&#127763;</span> Changer de thème</button>
+              <div class="menu-sep"></div>
+              <button id="logout-btn" type="button" class="menu-danger"><span class="mi">&#10162;</span> Déconnexion</button>
             </div>
           </div>
         </div>
@@ -636,7 +644,7 @@ function renderHeader() {
     });
     document.getElementById("mute-toggle-btn").addEventListener("click", (e) => {
       Sfx.setMuted(!Sfx.muted);
-      e.target.innerHTML = Sfx.muted ? "&#128264; Son coupe" : "&#128266; Son actif";
+      e.currentTarget.innerHTML = Sfx.muted ? '<span class="mi">&#128264;</span> Son coupé' : '<span class="mi">&#128266;</span> Son actif';
       if (!Sfx.muted) Sfx.click();
     });
     document.getElementById("theme-cycle-btn").addEventListener("click", cycleTheme);
@@ -873,6 +881,8 @@ async function loadHeaderBoosterBadge() {
   if (!badge) return;
   try {
     const status = await API.getBoosterStatus(Session.userId);
+    window.__hdrStatus = status;
+    if (typeof Inventory !== "undefined" && Inventory.isOpen()) Inventory.render();
     let countEl = badge.querySelector(".count");
     if (!countEl) {
       badge.innerHTML = `<span class="icon">&#127183;</span><span class="count">...</span>`;
@@ -1161,13 +1171,13 @@ const LuckyHour = {
       const now = Date.now() / 1000;
       const w = windows.find((x) => x.start <= now && now < x.end);
       let el = document.getElementById("lucky-banner");
-      if (!w) { if (el) el.remove(); return; }
+      if (!w) { if (el) { el.remove(); if (typeof syncHeaderOffset === "function") syncHeaderOffset(); } return; }
       if (!el) {
         el = document.createElement("a");
         el.id = "lucky-banner";
         el.className = "lucky-banner";
         el.href = "ouverture.html";
-        document.getElementById("site-header")?.insertAdjacentElement("afterend", el);
+        document.getElementById("site-header")?.appendChild(el); if (typeof syncHeaderOffset === "function") syncHeaderOffset();
       }
       const m = Math.max(1, Math.ceil((w.end - now) / 60));
       el.innerHTML = `&#127808; <strong>Heure de chance</strong> : finitions et poussières boostées encore ${m} min`;
@@ -1231,3 +1241,72 @@ document.addEventListener("DOMContentLoaded", () => {
   LuckyHour.init();
   PlayerCard.init();
 });
+
+
+// ---------------------------------------------------------------------------
+// Inventaire (2026-10-08) : la barre de ressources de l'en-tete ouvre un
+// panneau qui nomme chaque ressource, dit a quoi elle sert et ou l'utiliser.
+// Les compteurs viennent du statut deja charge (booster-status) ; coffres,
+// appats et os sont lus a l'ouverture (et ignores si indisponibles).
+// ---------------------------------------------------------------------------
+const Inventory = {
+  extra: null,
+  isOpen() { const p = document.getElementById("inventory-panel"); return !!p && !p.hidden; },
+  async loadExtra() {
+    const uid = Session.userId;
+    const [chests, garden, dig, shop] = await Promise.allSettled([API.chests(uid, "status"), API.garden(uid), API.getDigStatus(uid), API.shop ? API.shop(uid) : Promise.reject()]);
+    const v = (r) => (r.status === "fulfilled" ? r.value : null);
+    const d = v(dig);
+    this.extra = {
+      chests: v(chests)?.chests, goldBait: v(garden)?.goldBait,
+      bones: d ? (d.bones ?? d.dog?.bones ?? d.kennel?.bones) : undefined,
+      luck: v(shop)?.luckCharges, xpUntil: v(shop)?.xpBoostUntil
+    };
+    if (this.isOpen()) this.render();
+  },
+  render() {
+    const st = window.__hdrStatus || {};
+    const x = this.extra || {};
+    const n = (v) => (v == null ? null : Number(v) || 0);
+    const items = [
+      { icon: "&#127183;", name: "Boosters", count: n(st.count), desc: "5 cartes de l'extension de ton choix.", url: "ouverture.html", cta: "Ouvrir" },
+      { icon: "&#10024;", name: "Poussières d'étoile", count: n(st.stardust), desc: "Crafter des cartes, la boutique, les enchères.", url: "boutique.html", cta: "Dépenser" },
+      { icon: "&#128273;", name: "Clés", count: n(st.keys), desc: "Ouvrent les coffres et le grand coffre-fort.", url: "ouverture.html", cta: "Utiliser" },
+      { icon: "&#129520;", name: "Coffres", count: n(x.chests), desc: "S'ouvrent avec une clé : poussières, cartes, boosters.", url: "ouverture.html", cta: "Ouvrir" },
+      { icon: "&#129713;", name: "Vers de terre", count: n(st.worms), desc: "Un par lancer de pêche.", url: "jeux.html#peche", cta: "Pêcher" },
+      { icon: "&#129693;", name: "Appâts dorés", count: n(x.goldBait), desc: "Aucune prise vide et prises rares ×2,5.", url: "jeux.html#peche", cta: "Pêcher" },
+      { icon: "&#129460;", name: "Os", count: n(x.bones), desc: "Envoient le chien creuser pour toi.", url: "jeux.html#fouille", cta: "Chenil" },
+      { icon: "&#128297;", name: "Pièces détachées", count: n(st.spareParts), desc: "Remplacent un exemplaire dans une fusion ou une restauration.", url: "collection.html#finitions", cta: "Atelier" },
+      { icon: "&#127915;", name: "Tickets Unique", count: n(st.uniqueTickets), desc: "Une carte Unique au choix au Comptoir.", url: "coffre.html#comptoir", cta: "Comptoir" },
+      { icon: "&#129514;", name: "Élixir de chance", count: n(x.luck), desc: "Boosters restants avec +5 pts de finition spéciale.", url: "ouverture.html", cta: "Ouvrir" }
+    ];
+    const boost = x.xpUntil && x.xpUntil > Date.now() / 1000 ? Math.ceil((x.xpUntil - Date.now() / 1000) / 60) : 0;
+    const shown = items.filter((i) => i.count == null ? false : i.count > 0 || ["Boosters", "Poussières d'étoile"].includes(i.name));
+    const empty = items.filter((i) => i.count === 0 && !["Boosters", "Poussières d'étoile"].includes(i.name));
+    const fmt = (c) => Number(c).toLocaleString("fr-FR");
+    document.getElementById("inventory-panel").innerHTML = `
+      <div class="inv-head"><strong>&#127890; Inventaire</strong><a href="boutique.html" class="inv-shop">&#128717;&#65039; Boutique</a></div>
+      ${boost ? `<div class="inv-boost">&#128216; XP ×2 encore ${boost} min</div>` : ""}
+      <ul class="inv-list">${shown.map((i) => `<li><a href="${i.url}"><span class="inv-icon" aria-hidden="true">${i.icon}</span><span class="inv-body"><strong>${i.name}</strong><small>${i.desc}</small></span><span class="inv-count">${fmt(i.count)}</span><span class="inv-cta">${i.cta} &#8250;</span></a></li>`).join("")}</ul>
+      ${empty.length ? `<p class="inv-empty">Pas encore : ${empty.map((i) => `<span title="${i.desc}">${i.icon} ${i.name}</span>`).join(" · ")}</p>` : ""}
+      ${this.extra ? "" : '<p class="inv-empty">Chargement des coffres, appâts et os…</p>'}`;
+  },
+  toggle(force) {
+    const panel = document.getElementById("inventory-panel");
+    const btn = document.getElementById("inventory-trigger");
+    if (!panel || !btn) return;
+    const open = force != null ? force : panel.hidden;
+    panel.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    document.getElementById("inventory")?.classList.toggle("open", open);
+    if (open) { this.render(); this.loadExtra(); }
+  },
+  init() {
+    const btn = document.getElementById("inventory-trigger");
+    if (!btn) return;
+    btn.addEventListener("click", (e) => { e.stopPropagation(); this.toggle(); });
+    document.addEventListener("click", (e) => { if (this.isOpen() && !document.getElementById("inventory").contains(e.target)) this.toggle(false); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && this.isOpen()) { this.toggle(false); btn.focus(); } });
+  }
+};
+document.addEventListener("DOMContentLoaded", () => Inventory.init());

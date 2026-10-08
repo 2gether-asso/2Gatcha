@@ -7619,3 +7619,83 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .adb-dup { margin-right: 2px; }
 .adb-saved { outline: 2px solid var(--success); outline-offset: -2px; }
 .admin-ext-shortcut { margin-bottom: 10px; }
+
+/* =====================================================================
+   EN-TETE V3 (2026-10-08) : barre opaque, menu en onglets centres,
+   inventaire cliquable, menu du compte range.
+   ===================================================================== */
+header#site-header { background: color-mix(in srgb, var(--bg-deep) 92%, transparent); box-shadow: 0 10px 30px -20px rgba(0,0,0,0.9); }
+.header-inner { column-gap: 14px; }
+@media (min-width: 641px) {
+  .header-inner .nav { justify-content: center; padding-top: 6px; border-top: 1px solid var(--border-soft); gap: 4px; }
+  .nav a, .nav-group-trigger { padding: 7px 12px; border-radius: 999px; }
+  .nav a.active, .nav-group-trigger.active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); }
+  .nav a.active::after { display: none; }
+  .nav a:hover, .nav-group-trigger:hover { background: rgba(255,255,255,0.06); }
+}
+.nav-group-dropdown { padding: 6px; border-radius: 12px; min-width: 210px; }
+.nav-group-dropdown a { display: flex; justify-content: space-between; padding: 9px 12px !important; border-radius: 8px !important; }
+
+/* --- Inventaire --- */
+.inventory { position: relative; min-width: 0; }
+button.header-stats {
+  display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left;
+  font: inherit; color: var(--text); box-shadow: none; border-radius: 999px; padding: 5px 10px 5px 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border-soft); transition: border-color 0.15s, background 0.15s;
+}
+button.header-stats::before { display: none; }
+button.header-stats:hover { transform: none; filter: none; border-color: var(--border); background: rgba(255,255,255,0.07); }
+.inventory.open button.header-stats { border-color: var(--accent-2); }
+.inventory-caret { font-size: 0.62rem; color: var(--text-dim); transition: transform 0.15s; }
+.inventory.open .inventory-caret { transform: rotate(180deg); }
+.inventory-panel {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 30; width: min(380px, calc(100vw - 24px));
+  max-height: min(70vh, 560px); overflow-y: auto; padding: 10px; border-radius: 16px;
+  background: var(--bg-panel-solid); border: 1px solid var(--border); box-shadow: 0 24px 60px -20px rgba(0,0,0,0.85);
+  animation: modalPopIn 0.15s ease forwards;
+}
+.inv-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 8px; }
+.inv-head strong { font-size: 1rem; }
+.inv-shop { font-size: 0.8rem; font-weight: 700; color: var(--accent-2); }
+.inv-boost { margin: 0 6px 8px; padding: 6px 10px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; background: color-mix(in srgb, var(--accent-2) 14%, transparent); }
+.inv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.inv-list a { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 8px; border-radius: 12px; color: var(--text); text-decoration: none; }
+.inv-list a:hover { background: rgba(255,255,255,0.05); }
+.inv-icon { grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 1.2rem; background: rgba(255,255,255,0.05); }
+.inv-body { display: grid; min-width: 0; }
+.inv-body strong { font-size: 0.88rem; }
+.inv-body small { color: var(--text-dim); font-size: 0.74rem; line-height: 1.35; }
+.inv-count { font-family: var(--font-brand); font-size: 1.05rem; font-variant-numeric: tabular-nums; text-align: right; }
+.inv-cta { grid-column: 3; font-size: 0.7rem; font-weight: 700; color: var(--accent-2); text-align: right; opacity: 0; transition: opacity 0.15s; }
+.inv-list a:hover .inv-cta, .inv-list a:focus-visible .inv-cta { opacity: 1; }
+@media (hover: none) { .inv-cta { opacity: 1; } }
+.inv-empty { margin: 8px 6px 2px; font-size: 0.74rem; color: var(--text-dim); line-height: 1.6; }
+@media (max-width: 640px) {
+  .inventory { grid-column: 1 / -1; grid-row: 2; width: 100%; }
+  .inventory button.header-stats { width: 100%; justify-content: space-around; padding: 6px 8px; }
+  .inventory-panel { position: fixed; left: 12px; right: 12px; top: auto; width: auto; margin-top: 8px; }
+  .inventory-caret { display: none; }
+}
+
+/* --- Menu du compte --- */
+.user-menu-dropdown { min-width: 250px; padding: 8px; border-radius: 14px; }
+.user-menu-dropdown button, .user-menu-dropdown a { justify-content: flex-start; font-weight: 600; color: var(--text); }
+.user-menu-dropdown .mi { width: 22px; text-align: center; flex-shrink: 0; }
+.user-menu-dropdown .menu-head { display: flex; align-items: center; gap: 10px; padding: 6px 8px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--border-soft); }
+.user-menu-dropdown .menu-head .avatar { width: 36px; height: 36px; border-radius: 50%; }
+.user-menu-dropdown .menu-head span { display: grid; min-width: 0; }
+.user-menu-dropdown .menu-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-menu-dropdown .menu-head small { color: var(--text-dim); font-size: 0.74rem; }
+.user-menu-dropdown .menu-danger { color: var(--danger); }
+.inv-list a { grid-template-columns: 36px minmax(0, 1fr) auto; }
+.inv-body { grid-row: 1 / 3; grid-column: 2; }
+.inv-count { grid-column: 3; grid-row: 1; align-self: end; }
+.inv-cta { grid-row: 2; align-self: start; }
+.inv-head strong { color: var(--text); }
+@media (min-width: 641px) and (max-width: 1180px) { #header-pseudo { display: none; } .user-menu-trigger { padding-right: 10px; } .header-inner .user-box { gap: 8px; } }
+@media (min-width: 641px) and (max-width: 860px) { .header-inner .nav a, .header-inner .nav-group-trigger { padding: 6px 8px; font-size: 0.8rem; } .header-inner .nav { gap: 0; } }
+.lucky-banner { color: #bbf7d0; background: linear-gradient(90deg, rgba(34,197,94,0.14), rgba(163,230,53,0.24), rgba(34,197,94,0.14)); background-size: 200% 100%; border-top: 1px solid rgba(74,222,128,0.35); font-weight: 600; }
+.lucky-banner strong { color: #fff; }
+@media (max-width: 400px) { .header-inner { grid-template-columns: auto minmax(0, 1fr) auto auto auto; } .inventory, .inventory button.header-stats { min-width: 0; max-width: 100%; } .inventory button.header-stats { gap: 2px; padding: 6px 4px; justify-content: space-between; } .inventory .stat-chip { gap: 3px; font-size: 0.8rem; padding: 0 3px; } .inventory .stat-divider { display: none !important; } }
+@media (max-width: 640px) { .header-inner { column-gap: 6px; } }
+@media (max-width: 400px) { .inventory button.header-stats { flex-wrap: nowrap; overflow: hidden; } .inventory .stat-chip .icon { font-size: 0.85rem; } }
