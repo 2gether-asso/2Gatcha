@@ -24,6 +24,7 @@ import { refId, now, ok, fail, userById, cardSummary } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
+import { price as indexed, taxMultiplier } from './inflation.js';
 import { addFeed } from './feed.js';
 
 export const schema = {
@@ -169,7 +170,7 @@ function shopState(store, user) {
   const week = weekKey();
   const bought = user.ShopWeek === week ? Number(user.ShopBought) || 0 : 0;
   const cap = setting(store, 'BoosterShopWeeklyCap');
-  return { week, bought, cap, left: Math.max(0, cap - bought), price: Math.round(setting(store, 'BoosterShopPrice') * (1 + setting(store, 'BoosterShopIncrease') * bought)), stardust: dust(user) };
+  return { week, bought, cap, left: Math.max(0, cap - bought), price: Math.round(indexed(store, setting(store, 'BoosterShopPrice')) * (1 + setting(store, 'BoosterShopIncrease') * bought)), stardust: dust(user) };
 }
 
 function handleShop({ store, body }) {
@@ -280,7 +281,7 @@ export function settleAuctions(store, t = now()) {
     const bidder = refId(a.Bidder);
     if (bidder && Number(a.CurrentBid) > 0) {
       const seller = store.get('Users', refId(a.Seller));
-      const rate = setting(store, 'AuctionTaxPct') * (1 - (seller ? talentValue(seller, 'master') : 0));
+      const rate = Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store)) * (1 - (seller ? talentValue(seller, 'master') : 0));
       const tax = Math.round(Number(a.CurrentBid) * rate);
       if (pull) store.update('Pulls', pull.id, { User: bidder });
       if (seller) store.update('Users', seller.id, { StardustCount: dust(seller) + Number(a.CurrentBid) - tax });
@@ -324,7 +325,7 @@ function auctionList(store, user) {
     open: all.filter((a) => a.Status === 'open').sort((a, b) => (a.EndsAt || 0) - (b.EndsAt || 0)).map((a) => auctionView(store, a, user.id, users)),
     history: all.filter((a) => a.Status !== 'open' && (a.SettledAt || 0) > t - 7 * 86400 && (refId(a.Seller) === user.id || refId(a.Bidder) === user.id))
       .sort((a, b) => (b.SettledAt || 0) - (a.SettledAt || 0)).slice(0, 20).map((a) => auctionView(store, a, user.id, users)),
-    taxPct: setting(store, 'AuctionTaxPct') * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
+    taxPct: Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
     stardust: dust(user)
   };
 }

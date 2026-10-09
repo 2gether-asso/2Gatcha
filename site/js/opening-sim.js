@@ -45,6 +45,17 @@
 
   const bar = (pct, color) => `<span class="sim-bar"><span style="width:${Math.min(100, pct)}%;background:${color}"></span></span>`;
 
+  // Bilan economique : ce que rapportent les doublons d'un booster face a son prix.
+  function ecoBlock(e) {
+    if (!e) return "";
+    const fr = (n) => Number(n).toLocaleString("fr-FR");
+    const verdict = { generous: ["sim-eco-bad", "Trop généreux : les doublons remboursent un booster trop vite."], watch: ["sim-eco-warn", "À surveiller : un booster se rembourse assez vite."], ok: ["sim-eco-ok", "Équilibré : racheter un booster demande un vrai effort."] }[e.verdict] || ["", ""];
+    return `<div class="sim-eco ${verdict[0]}">
+      <strong>Bilan économique ${e.tight ? "(mode anti-inflation actif)" : ""}</strong>
+      <p>Un joueur qui part de zéro gagne en moyenne <b>${fr(e.dustPerBooster)} poussières par booster</b> (${fr(e.duplicateDust)} en doublons + ${fr(e.decraftDuplicates)} s'il décrafte ses ${fr(e.duplicates)} doublons). Un booster coûte <b>${fr(e.shopPrice)}</b> en boutique : il faut <b>${e.boostersToBuyOne != null ? fr(e.boostersToBuyOne) : "—"} boosters</b> pour en racheter un.</p>
+      <p class="sim-eco-verdict">${verdict[1]}</p></div>`;
+  }
+
   function renderResults(r) {
     const tiles = [
       ["Boosters", r.boosters], ["Cartes", r.cards], ["Cartes distinctes", `${r.distinctCards} / ${r.poolSize}`],
@@ -58,6 +69,7 @@
     const color = (c) => esc(c.rarity?.colorHex || "#888");
     $("sim-results").innerHTML = `
       <p class="sim-applied">Appliqué : finition spéciale ${+(r.applied.specialFinishChance * 100).toFixed(2)} % · shiny ${+(r.applied.shinyChance * 100).toFixed(3)} % · carte bonus ${+(r.applied.bonusCardChance * 100).toFixed(2)} % · pity ${r.applied.pity ? "active" : "désactivée"}</p>
+      ${ecoBlock(r.economy)}
       <div class="sim-tiles">${tiles.map(([k, v]) => `<div class="sim-tile"><span>${k}</span><strong>${v}</strong></div>`).join("")}</div>
       <div class="sim-tables">
         <div class="sim-table-wrap"><table class="admin-table sim-table"><caption>Raretés</caption>

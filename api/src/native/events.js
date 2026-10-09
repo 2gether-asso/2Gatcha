@@ -5,11 +5,19 @@
 // besoin d'etre modifie.
 //   GET  /webhook/event-status
 //   POST /webhook/admin-event  { discordId, action: 'get' | 'set', active, label, dustMultiplier, finishMultiplier, fishingRare, wormsMultiplier, endsAt }
+// Tableau de bord des evenements (2026-10-09) : evenements planifies a
+// l'avance (table ScheduledEvents), appliques tout seuls entre StartAt et
+// EndAt. L'evenement manuel (Config) reste prioritaire quand il est actif.
+//   POST /webhook/admin-events { discordId, action: 'list' | 'save' | 'delete', event?, id? }
 
 import { refId, now, ok, fail, configRow, isAdmin } from './common.js';
 import { setting } from './settings.js';
 
 export const schema = {
+  ScheduledEvents: {
+    Label: { type: 'Text' }, StartAt: { type: 'Numeric' }, EndAt: { type: 'Numeric' }, Enabled: { type: 'Bool' },
+    DustMultiplier: { type: 'Numeric' }, FinishMultiplier: { type: 'Numeric' }, FishingRare: { type: 'Numeric' }, WormsMultiplier: { type: 'Numeric' }
+  },
   Config: {
     EventActive: { type: 'Bool' }, EventLabel: { type: 'Text' }, EventDustMultiplier: { type: 'Numeric' },
     EventFinishMultiplier: { type: 'Numeric' }, EventEndsAt: { type: 'Numeric' },
@@ -18,10 +26,23 @@ export const schema = {
 };
 
 
+const m = (v) => Math.max(1, Number(v) || 1);
+export function scheduledNow(store, t = now()) {
+  if (!store.tables.has('ScheduledEvents')) return null;
+  return store.getAll('ScheduledEvents').filter((e) => e.Enabled !== false && (Number(e.StartAt) || 0) <= t && (Number(e.EndAt) || 0) > t)
+    .sort((a, b) => (Number(a.EndAt) || 0) - (Number(b.EndAt) || 0))[0] || null;
+}
+
 export function eventState(store) {
   const cfg = configRow(store);
   const endsAt = Number(cfg.EventEndsAt) || 0;
   const active = !!cfg.EventActive && (!endsAt || endsAt > now());
+  const sch = active ? null : scheduledNow(store);
+  if (sch) return {
+    active: true, scheduled: true, id: sch.id, label: sch.Label || 'Événement',
+    dustMultiplier: m(sch.DustMultiplier), finishMultiplier: m(sch.FinishMultiplier),
+    fishingRare: m(sch.FishingRare), wormsMultiplier: m(sch.WormsMultiplier), endsAt: Number(sch.EndAt) || null
+  };
   return {
     active,
     label: cfg.EventLabel || 'Événement',
@@ -54,6 +75,40 @@ function handleAdmin({ store, body }) {
     if (cfg) store.update('Config', cfg.id, fields); else store.create('Config', fields);
   }
   return ok(eventState(store));
+}
+
+const clampM = (v) => Math.min(5, Math.max(1, Number(v) || 1));
+function eventView(e, t = now()) {
+  const start = Number(e.StartAt) || 0, end = Number(e.EndAt) || 0;
+  return {
+    id: e.id, label: e.Label || '', startAt: start, endAt: end, enabled: e.Enabled !== false,
+    dustMultiplier: m(e.DustMultiplier), finishMultiplier: m(e.FinishMultiplier), fishingRare: m(e.FishingRare), wormsMultiplier: m(e.WormsMultiplier),
+    status: e.Enabled === false ? 'off' : end <= t ? 'past' : start <= t ? 'live' : 'upcoming'
+  };
+}
+
+function handleSchedule({ store, body }) {
+  if (!isAdmin(body.discordId)) return fail('forbidden', 403);
+  const action = body.action || 'list';
+  if (action === 'save') {
+    const e = body.event || {};
+    const start = Number(e.startAt) || 0, end = Number(e.endAt) || 0;
+    if (!start || !end || end <= start) return fail('invalid_dates');
+    const fields = {
+      Label: String(e.label || 'Événement').slice(0, 80), StartAt: start, EndAt: end, Enabled: e.enabled !== false,
+      DustMultiplier: clampM(e.dustMultiplier), FinishMultiplier: clampM(e.finishMultiplier), FishingRare: clampM(e.fishingRare), WormsMultiplier: clampM(e.wormsMultiplier)
+    };
+    const id = Number(e.id) || 0;
+    if (id && store.get('ScheduledEvents', id)) store.update('ScheduledEvents', id, fields); else store.create('ScheduledEvents', fields);
+  } else if (action === 'delete') {
+    const id = Number(body.id) || 0;
+    if (id && store.get('ScheduledEvents', id)) store.delete('ScheduledEvents', id);
+  } else if (action !== 'list') return fail('unknown_action');
+  const t = now();
+  const events = store.getAll('ScheduledEvents').map((e) => eventView(e, t))
+    .filter((e) => e.status !== 'past' || e.endAt > t - 30 * 86400)
+    .sort((a, b) => a.startAt - b.startAt);
+  return ok({ now: t, current: eventState(store), events });
 }
 
 function grantDust(store, userId, bonus) {
@@ -116,5 +171,5 @@ export function afterWorkflow({ store, path, request, response }) {
 
 export const routes = {
   'GET event-status': handleStatus,
-  'POST admin-event': handleAdmin
+  'POST admin-event': handleAdmin, 'POST admin-events': handleSchedule
 };

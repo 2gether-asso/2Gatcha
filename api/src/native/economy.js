@@ -51,7 +51,7 @@ export function record(store, source, before, after) {
   }
 }
 
-function flows(store, activePlayers) {
+export function flows(store, activePlayers) {
   if (!store.tables.has('EconomyDaily')) return null;
   const rows = store.getAll('EconomyDaily');
   const days = Array.from({ length: 14 }, (_, i) => parisDay(-13 + i));

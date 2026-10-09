@@ -15,7 +15,7 @@ import { decorations } from './cosmetics.js';
 import { houseOf, luckyState, diceFace, eveningMissions, EVENING_START } from './daily.js';
 import { rankOf, rankFor, collectionValues, valueMaps, pullValue, counts } from './progression.js';
 import { talentRanks, TALENTS } from './talents.js';
-import { growSeconds, PLOTS } from './garden.js';
+import { growSeconds, PLOTS, seedMult } from './garden.js';
 
 export const schema = { Users: { PullStats: { type: 'Text' }, DustLedger: { type: 'Text' } } };
 
@@ -47,8 +47,8 @@ function whatNow(store, user) {
   let plots = [];
   try { plots = JSON.parse(user.GardenPlots || '[]'); } catch (e) { plots = []; }
   const grow = growSeconds(store, user);
-  const planted = Array.from({ length: PLOTS }, (_, i) => plots[i] && plots[i].plantedAt ? plots[i] : null);
-  const ready = planted.filter((p) => p && p.plantedAt + grow <= t).length;
+  const planted = Array.from({ length: PLOTS + (Number(user.GardenExtraPlots) || 0) }, (_, i) => plots[i] && plots[i].plantedAt ? plots[i] : null);
+  const ready = planted.filter((p) => p && p.plantedAt + Math.round(grow * seedMult(p)) <= t).length;
   const empty = planted.filter((p) => !p).length;
   if (ready) add(80, 'garden', '🌻', `${ready} parcelle${ready > 1 ? 's' : ''} prête${ready > 1 ? 's' : ''} à récolter`, 'jeux.html#jardin');
   else if (empty) add(44, 'garden-plant', '🌱', `${empty} parcelle${empty > 1 ? 's' : ''} vide${empty > 1 ? 's' : ''} au jardin`, 'jeux.html#jardin');

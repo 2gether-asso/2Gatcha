@@ -24,6 +24,13 @@
       if (!chip && lvl) { chip = document.createElement("span"); chip.id = "profile-rank-chip"; lvl.insertAdjacentElement("afterend", chip); }
       if (chip) { chip.className = "rank-chip rank-" + x.rank.key; chip.innerHTML = `${x.rank.icon} ${esc(x.rank.label)}`; chip.title = `Valeur de la collection : ${x.rank.value.toLocaleString("fr-FR")}${x.rank.next ? ` · prochain rang ${x.rank.next.label} à ${x.rank.next.min.toLocaleString("fr-FR")}` : ""}`; }
     }
+    // Prestige du compte (2026-10-09).
+    if (res.prestigeStars > 0) {
+      const lvl = document.getElementById("profile-level-badge");
+      let st = document.getElementById("profile-prestige");
+      if (!st && lvl) { st = document.createElement("span"); st.id = "profile-prestige"; st.className = "header-prestige"; lvl.insertAdjacentElement("afterend", st); }
+      if (st) { st.textContent = "★".repeat(Math.min(res.prestigeStars, 5)) + (res.prestigeStars > 5 ? " ×" + res.prestigeStars : ""); st.title = `Prestige du compte : ${res.prestigeStars} étoile${res.prestigeStars > 1 ? "s" : ""}`; }
+    }
     const line = document.getElementById("profile-title-line");
     if (line) { line.textContent = d.title || ""; line.hidden = !d.title; }
 

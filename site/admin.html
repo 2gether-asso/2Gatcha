@@ -418,6 +418,35 @@
           </div>
         </details>
 
+        <details class="admin-section" id="events-dashboard">
+          <summary><h2>&#128197; Tableau de bord des événements</h2></summary>
+          <div class="admin-section-body">
+            <div class="evd-now" id="evd-now"><div class="loading-row"><div class="spinner"></div></div></div>
+            <h3>Planning</h3>
+            <div id="evd-list"></div>
+            <h3>Programmer un événement</h3>
+            <form id="evd-form" class="admin-form evd-form">
+              <input type="hidden" id="evd-id" />
+              <label class="evd-wide">Nom affiché <input type="text" id="evd-label" maxlength="80" placeholder="ex : Week-end des étoiles" required /></label>
+              <label>Début <input type="datetime-local" id="evd-start" required /></label>
+              <label>Fin <input type="datetime-local" id="evd-end" required /></label>
+              <label>Poussières (×) <input type="number" id="evd-dust" min="1" max="5" step="0.5" value="1" /></label>
+              <label>Finitions (×) <input type="number" id="evd-finish" min="1" max="5" step="0.5" value="1" /></label>
+              <label>Pêche : prises rares (×) <input type="number" id="evd-fishing" min="1" max="5" step="0.5" value="1" /></label>
+              <label>Vers de terre (×) <input type="number" id="evd-worms" min="1" max="5" step="0.5" value="1" /></label>
+              <label class="evd-check"><input type="checkbox" id="evd-enabled" checked /> Activé</label>
+              <div class="event-presets evd-wide">Modèles :
+                <button type="button" class="btn-ghost" data-evd-preset="stars">Week-end des étoiles</button>
+                <button type="button" class="btn-ghost" data-evd-preset="fishing">Semaine de la pêche</button>
+                <button type="button" class="btn-ghost" data-evd-preset="worms">Chasse aux vers</button>
+                <button type="button" class="btn-ghost" data-evd-preset="finish">Nuit des finitions</button>
+              </div>
+              <div class="evd-wide evd-form-actions"><button type="submit" id="evd-submit">Planifier l'événement</button><button type="button" class="btn-ghost" id="evd-reset">Vider</button></div>
+            </form>
+            <p class="lead" style="font-size:0.8rem;">Un événement planifié démarre et s'arrête tout seul (bandeau, bonus). L'événement manuel ci-dessous reste prioritaire quand il est lancé.</p>
+          </div>
+        </details>
+
         <details class="admin-section">
           <summary><h2>&#127881; Week-end événement</h2></summary>
           <div class="admin-section-body">
@@ -533,5 +562,6 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/admin-events.js"></script>
 </body>
 </html>

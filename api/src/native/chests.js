@@ -8,13 +8,14 @@
 
 import { refId, now, ok, fail, userById, levelForXp, firstAttachment } from './common.js';
 import { setting } from './settings.js';
+import { price as indexed } from './inflation.js';
 
 export const schema = {
   Users: { ChestCount: { type: 'Numeric' }, ChestLevelGranted: { type: 'Numeric' } }
 };
 
 // Tous les parametres sont reglables dans l'admin (groupe "Coffres").
-const chestCost = (store) => setting(store, 'ChestCost');
+const chestCost = (store) => indexed(store, setting(store, 'ChestCost'));
 const every = (n, level) => (n > 0 ? Math.floor(level / n) : 0);
 
 // Coffres / clefs dus pour les niveaux atteints depuis le dernier passage.

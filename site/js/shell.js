@@ -192,6 +192,7 @@ const RewardsCenter = {
       const tierN = season.tierClaimable != null ? season.tierClaimable : season.claimable;
       items.push({ key: "season", icon: "&#127942;", label: tierN ? `Saison : ${tierN} palier${tierN > 1 ? "s" : ""} à récupérer` : `Saison terminée : bonus de ${season.claimable * (season.bonus?.dustPerTier || 0)} poussières`, claim: () => API.claimSeason(uid) });
     }
+    if (season?.chest?.previous?.claimable) items.push({ key: "season-chest", icon: "&#129520;", label: `Coffre de la saison ${season.chest.previous.label} à ouvrir`, claim: () => API.claimSeasonChest(uid) });
     (sets?.sets || []).filter((x) => x.complete && !x.claimed).forEach((x) => items.push({ key: "set-" + x.extensionId, icon: "&#128218;", label: `Set complet : ${x.name}`, claim: () => API.claimSetReward(uid, x.extensionId) }));
     if (challenges?.claimable > 0) items.push({ key: "challenges", icon: "&#127919;", label: `Défis de la semaine : ${challenges.claimable} récompense${challenges.claimable > 1 ? "s" : ""}`, claim: () => API.challenges(uid, "claim") });
     if (goal?.claimable) items.push({ key: "goal", icon: "&#129309;", label: `Objectif commun réussi : ${goal.reward.dust} ✨ + ${goal.reward.worms} vers`, claim: () => API.communityGoal(uid, "claim") });
@@ -946,6 +947,16 @@ async function loadHeaderBoosterBadge() {
       const av = document.querySelector("#user-menu-trigger .avatar");
       if (av) av.className = "avatar" + (status.decor.frame ? " decor-" + status.decor.frame : "");
     }
+    // Prestige du compte (2026-10-09) : etoiles a cote du pseudo.
+    {
+      const p = document.getElementById("header-pseudo");
+      let star = document.getElementById("header-prestige");
+      if (status.prestigeStars > 0 && p) {
+        if (!star) { star = document.createElement("span"); star.id = "header-prestige"; star.className = "header-prestige"; p.insertAdjacentElement("afterend", star); }
+        star.textContent = "★" + (status.prestigeStars > 1 ? status.prestigeStars : "");
+        star.title = `Prestige du compte : ${status.prestigeStars} étoile${status.prestigeStars > 1 ? "s" : ""} (+${status.prestigeStars} point${status.prestigeStars > 1 ? "s" : ""} de talent)`;
+      } else if (star) star.remove();
+    }
     // Rang de compte (valeur de la collection, 2026-10-07) a cote du pseudo.
     if (status.rank) {
       const p = document.getElementById("header-pseudo");
@@ -1289,6 +1300,7 @@ const Inventory = {
       ${boost ? `<div class="inv-boost">&#128216; XP ×2 encore ${boost} min</div>` : ""}
       <ul class="inv-list">${shown.map((i) => `<li><a href="${i.url}"><span class="inv-icon" aria-hidden="true">${i.icon}</span><span class="inv-body"><strong>${i.name}</strong><small>${i.desc}</small></span><span class="inv-count">${fmt(i.count)}</span><span class="inv-cta">${i.cta} &#8250;</span></a></li>`).join("")}</ul>
       ${empty.length ? `<p class="inv-empty">Pas encore : ${empty.map((i) => `<span title="${i.desc}">${i.icon} ${i.name}</span>`).join(" · ")}</p>` : ""}
+      ${Treasure.state && Treasure.state.enabled ? `<p class="inv-treasure">&#129517; Course aux trésors : <strong>${Treasure.state.found}/${Treasure.state.total}</strong> indices cette semaine${Treasure.state.found < Treasure.state.total ? ` · cachés sur : ${Treasure.state.clues.filter((c) => !c.found).map((c) => c.label).join(", ")}` : " · bravo !"}</p>` : ""}
       ${this.extra ? "" : '<p class="inv-empty">Chargement des coffres, appâts et os…</p>'}`;
   },
   toggle(force) {
@@ -1310,3 +1322,59 @@ const Inventory = {
   }
 };
 document.addEventListener("DOMContentLoaded", () => Inventory.init());
+
+
+// ---------------------------------------------------------------------------
+// Course aux tresors hebdo (2026-10-09, api/src/native/treasure.js) : 5
+// indices caches sur 5 pages ; sur la page concernee, une petite icone
+// discrete est glissee dans le contenu. Un clic la ramasse.
+// ---------------------------------------------------------------------------
+const Treasure = {
+  state: null,
+  page() {
+    const name = (location.pathname.split("/").pop() || "index.html").replace(/\.html$/, "");
+    return name || "index";
+  },
+  async load() {
+    if (typeof Session === "undefined" || !Session.isLoggedIn() || !API.getTreasureHunt) return;
+    try { this.state = await API.getTreasureHunt(Session.userId); } catch (e) { return; }
+    if (!this.state.enabled) return;
+    const clue = this.state.clues.find((c) => c.page === this.page() && !c.found);
+    if (clue) setTimeout(() => this.place(clue), 1200);
+  },
+  place(clue) {
+    const host = document.querySelector("main") || document.body;
+    if (!host || document.getElementById("treasure-clue")) return;
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = "treasure-clue";
+    b.className = "treasure-clue";
+    b.setAttribute("aria-label", "Indice de la course aux trésors");
+    b.title = "Un indice ?";
+    b.innerHTML = "&#129517;";
+    b.style.left = clue.x + "%";
+    b.style.top = clue.y + "%";
+    b.addEventListener("click", () => this.find(clue, b));
+    host.appendChild(b);
+  },
+  async find(clue, el) {
+    el.disabled = true;
+    try {
+      const r = await API.findTreasure(Session.userId, clue.id, clue.page);
+      this.state = r;
+      el.classList.add("found");
+      setTimeout(() => el.remove(), 700);
+      if (typeof Sfx !== "undefined" && Sfx.reveal) Sfx.reveal("rare");
+      const left = r.total - r.found;
+      Toast.success(r.complete
+        ? `&#129517; Les 5 indices trouvés ! +${r.reward.dust} poussières${r.reward.boosters ? `, +${r.reward.boosters} booster` : ""}${r.reward.keys ? `, +${r.reward.keys} clé` : ""}`
+        : `&#129517; Indice trouvé (+${r.reward.dust} poussières) ! Encore ${left} à dénicher cette semaine.`);
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    } catch (e) {
+      el.disabled = false;
+      if (e.code === "already_found") el.remove(); else Toast.error("Indice introuvable. (" + e.message + ")");
+    }
+  }
+};
+document.addEventListener("DOMContentLoaded", () => Treasure.load());

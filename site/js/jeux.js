@@ -155,7 +155,23 @@ async function renderFishExtras(st) {
 // Jardin (api/src/native/garden.js) : 4 parcelles, vers et appats dores.
 // -----------------------------------------------------------------------
 let gardenTimer = null;
+let gardenSeed = "mix";
+let gardenState = null;
+const SEED_ICONS = { mix: "&#127793;", worm: "&#129713;", bait: "&#127804;", dust: "&#127776;" };
+function renderGardenSeeds(st) {
+  const el = document.getElementById("garden-seeds");
+  if (!el || !st.seeds) return;
+  el.innerHTML = st.seeds.map((s) => `
+    <button type="button" role="radio" aria-checked="${gardenSeed === s.key}" class="garden-seed ${gardenSeed === s.key ? "active" : ""}" data-seed="${s.key}">
+      <span class="garden-seed-icon" aria-hidden="true">${SEED_ICONS[s.key] || s.icon}</span>
+      <span class="garden-seed-body"><strong>${s.label}</strong><small>${s.desc}</small><small>${s.cost} &#10024; · ${s.growHours} h</small></span>
+    </button>`).join("");
+  el.querySelectorAll(".garden-seed").forEach((b) => b.addEventListener("click", () => { gardenSeed = b.dataset.seed; renderGarden(gardenState); }));
+}
 function renderGarden(st) {
+  gardenState = st;
+  renderGardenSeeds(st);
+  const seedCost = (st.seeds || []).find((s) => s.key === gardenSeed)?.cost ?? st.plantCost;
   document.getElementById("garden-meta").innerHTML = `&#129713; <strong>${st.worms}</strong> vers · &#10024;&#129713; <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte`;
   const t = Date.now() / 1000;
   document.getElementById("garden-plots").innerHTML = st.plots.map((p) => {
@@ -163,11 +179,17 @@ function renderGarden(st) {
     const pct = Math.min(100, Math.round(((t - p.plantedAt) / (p.readyAt - p.plantedAt)) * 100));
     const stage = pct >= 100 ? "&#127803;" : pct >= 60 ? "&#127807;" : pct >= 25 ? "&#127793;" : "&#127792;";
     const left = Math.max(0, Math.round(p.readyAt - t));
-    return `<div class="garden-plot ${pct >= 100 ? "ready" : ""}"><span class="garden-plant" aria-hidden="true">${stage}</span>
+    return `<div class="garden-plot ${pct >= 100 ? "ready" : ""}">${p.seed && p.seed !== "mix" ? `<span class="garden-seed-tag" title="${(st.seeds || []).find((s) => s.key === p.seed)?.label || ""}">${SEED_ICONS[p.seed] || ""}</span>` : ""}<span class="garden-plant" aria-hidden="true">${stage}</span>
       <div class="challenge-bar"><div style="width:${pct}%"></div></div>
       <span class="garden-label">${pct >= 100 ? "Prête à récolter !" : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
   }).join("");
-  document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < st.plantCost;
+  document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < seedCost;
+  const buy = document.getElementById("garden-buyplot-btn");
+  if (buy && st.extraPlot) {
+    buy.hidden = st.extraPlot.price == null;
+    buy.innerHTML = `&#10133; Parcelle (${st.extraPlot.owned}/${st.extraPlot.max}) · ${st.extraPlot.price} &#10024;`;
+    buy.disabled = st.stardust < st.extraPlot.price;
+  }
   if (st.level) renderSkillLevel("garden-level", "&#127793;", "Jardin", st.level, gardenPerkTexts(st.level.perks));
   document.getElementById("garden-harvest-btn").disabled = !st.readyCount;
   document.getElementById("garden-harvest-btn").innerHTML = `&#129530; Tout récolter${st.readyCount ? ` (${st.readyCount})` : ""}`;
@@ -182,9 +204,11 @@ async function loadGarden() {
 
 async function gardenAction(action) {
   try {
-    const res = await API.garden(Session.userId, action);
+    if (action === "buyPlot" && !(await Confirm.show(`Acheter une parcelle de plus pour ${gardenState.extraPlot.price} poussières ?`, { title: "Agrandir le jardin", confirmText: "Acheter" }))) return;
+    const res = await API.garden(Session.userId, action, action === "plant" ? { seed: gardenSeed } : {});
     renderGarden(res);
-    if (action === "plant") Toast.success(`&#127793; ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
+    if (action === "buyPlot") Toast.success("&#10133; Nouvelle parcelle !");
+    else if (action === "plant") Toast.success(`&#127793; ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
     else {
       const g = res.gained;
       Toast.success(`&#129530; Récolte : +${g.worms} vers${g.bait ? `, +${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}` : ""}${g.dust ? `, +${g.dust} &#10024;` : ""} !`);
@@ -193,7 +217,7 @@ async function gardenAction(action) {
     }
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error({ not_enough_dust: "Pas assez de poussières.", nothing_ready: "Rien n'est prêt.", no_free_plot: "Toutes les parcelles sont occupées." }[e.code] || "Erreur. (" + e.message + ")");
+    Toast.error({ not_enough_dust: "Pas assez de poussières.", nothing_ready: "Rien n'est prêt.", no_free_plot: "Toutes les parcelles sont occupées.", max_plots: "Ton jardin est déjà au maximum." }[e.code] || "Erreur. (" + e.message + ")");
   }
 }
 
@@ -498,14 +522,34 @@ async function doDig(tileIndex, tileEl) {
 // Peche (api/src/native/fishing.js) : chaque lancer coute des poussieres et
 // ramene une prise tiree dans une table ponderee (reglable dans l'admin).
 // -----------------------------------------------------------------------
-const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: "&#129460;", key: "&#128273;", booster: "&#127873;", chest: "&#129520;", part: "&#128297;" };
+const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: "&#129460;", key: "&#128273;", booster: "&#127873;", chest: "&#129520;", part: "&#128297;", pearl: "&#129450;", bait: "&#127804;" };
 let fishState = null;
+// Zone de peche (2026-10-09) : rivage ou eaux profondes (niveau 10).
+let fishZone = (() => { try { return localStorage.getItem("2gatcha_fish_zone") === "deep" ? "deep" : "shore"; } catch (e) { return "shore"; } })();
+function setFishZone(z) {
+  fishZone = z;
+  try { localStorage.setItem("2gatcha_fish_zone", z); } catch (e) { /* stockage indisponible */ }
+  if (fishState) renderFishing(fishState);
+}
+function renderFishZones(st) {
+  const el = document.getElementById("fish-zones");
+  if (!el) return;
+  const deep = st.deep;
+  if (!deep) { el.hidden = true; return; }
+  if (!deep.unlocked && fishZone === "deep") fishZone = "shore";
+  el.hidden = false;
+  el.innerHTML = `
+    <button type="button" role="radio" aria-checked="${fishZone === "shore"}" class="fish-zone ${fishZone === "shore" ? "active" : ""}" data-zone="shore">&#127958;&#65039; Rivage <small>${st.cost} &#129713;</small></button>
+    <button type="button" role="radio" aria-checked="${fishZone === "deep"}" class="fish-zone fish-zone-deep ${fishZone === "deep" ? "active" : ""}" data-zone="deep" ${deep.unlocked ? "" : "disabled"} title="${deep.unlocked ? "Perles noires, appâts dorés et prises plus rares" : `Débloquées au niveau ${deep.level} de pêche`}">&#127754; Eaux profondes <small>${deep.unlocked ? `${deep.cost} &#129713;` : `&#128274; niveau ${deep.level}`}</small></button>`;
+  el.querySelectorAll(".fish-zone:not([disabled])").forEach((b) => b.addEventListener("click", () => setFishZone(b.dataset.zone)));
+}
 let fishBusy = false;
 const fishWait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function fishCatchText(c) {
   if (c.type === "nothing") return c.label;
   if (c.type === "dust") return `+${c.amount} poussières`;
+  if (c.type === "pearl") return `${c.label} (+${c.amount} poussières)`;
   return `${c.amount > 1 ? c.amount + " × " : ""}${c.label}`;
 }
 
@@ -530,6 +574,10 @@ function renderFishWeather(w) {
 
 function renderFishing(st) {
   fishState = st;
+  renderFishZones(st);
+  const deepOn = fishZone === "deep" && st.deep && st.deep.unlocked;
+  document.getElementById("fish-scene").dataset.zone = deepOn ? "deep" : "shore";
+  if (deepOn) st = { ...st, cost: st.deep.cost, table: st.deep.table };
   renderFishExtras(st);
   renderFishLevel(st.level);
   renderFishWeather(st.weather);
@@ -563,7 +611,7 @@ async function castFishing(count) {
   status.textContent = "La ligne file…";
   try {
     const useBait = !!document.getElementById("fish-bait")?.checked;
-    const request = API.fishing(Session.userId, "cast", count, useBait);
+    const request = API.fishing(Session.userId, "cast", count, useBait, fishZone === "deep" && fishState.deep && fishState.deep.unlocked ? "deep" : "shore");
     await fishWait(700);
     scene.classList.replace("casting", "waiting");
     status.textContent = "On attend que ça morde…";
@@ -596,7 +644,7 @@ async function castFishing(count) {
     fishBusy = false;
     scene.classList.remove("casting", "waiting", "bite");
     status.textContent = "Prêt à pêcher";
-    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.", not_enough_bait: "Plus assez d'appâts dorés.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.", not_enough_bait: "Plus assez d'appâts dorés.", deep_locked: "Les eaux profondes se débloquent au niveau 10 de pêche.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
     loadFishing();
   }
 }
@@ -972,6 +1020,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-garden-btn").addEventListener("click", () => setActiveTab("garden"));
   document.getElementById("garden-plant-btn").addEventListener("click", () => gardenAction("plant"));
   document.getElementById("garden-harvest-btn").addEventListener("click", () => gardenAction("harvest"));
+  document.getElementById("garden-buyplot-btn").addEventListener("click", () => gardenAction("buyPlot"));
   document.getElementById("fish-extras").addEventListener("click", (e) => { if (e.target.closest("#fish-reroll-btn")) rerollWeather(); });
   document.addEventListener("click", (e) => { const b = e.target.closest("[data-prestige]"); if (b) doPrestige(b.dataset.prestige); });
   document.getElementById("fish-cast-btn").addEventListener("click", () => castFishing(1));

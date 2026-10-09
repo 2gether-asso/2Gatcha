@@ -7,6 +7,7 @@
 
 import { refId } from './common.js';
 import { setting } from './settings.js';
+import { gainMultiplier } from './inflation.js';
 
 export function afterWorkflow({ store, path, request, response }) {
   const body = request.body || {};
@@ -25,12 +26,13 @@ export function afterWorkflow({ store, path, request, response }) {
   const copies = new Map();
   mine.forEach((p) => copies.set(refId(p.Card), (copies.get(refId(p.Card)) || 0) + 1));
   const cap = setting(store, 'DuplicateDustCapCopies');
+  const gm = gainMultiplier(store);
   let total = 0, count = 0;
   for (const card of json.cards) {
     if (owned.has(card.cardId)) {
       const n = copies.get(card.cardId) || 0;
       copies.set(card.cardId, n + 1);
-      const dust = cap > 0 && n >= cap ? 1 : (card.rarity && card.rarity.key === 'commune') ? common : other;
+      const dust = cap > 0 && n >= cap ? 1 : Math.max(1, Math.round(((card.rarity && card.rarity.key === 'commune') ? common : other) * gm));
       card.duplicateDust = dust;
       total += dust;
       count++;

@@ -8,6 +8,7 @@
 // market.js) via talentValue(user, key).
 
 import { ok, fail, userById, levelForXp } from './common.js';
+import { prestigeStars } from './account-prestige.js';
 import { setting } from './settings.js';
 
 export const BRANCHES = [
@@ -47,7 +48,8 @@ export function talentValue(user, key) {
 function state(store, user) {
   const ranks = talentRanks(user);
   const level = levelForXp(user.XP);
-  const total = Math.max(0, level - 1);
+  // Prestige du compte : +1 point par etoile (account-prestige.js).
+  const total = Math.max(0, level - 1) + prestigeStars(store, user);
   const spent = TALENTS.reduce((s, t) => s + Math.min(t.max, Number(ranks[t.key]) || 0), 0);
   const inBranch = (b) => TALENTS.filter((t) => t.branch === b).reduce((s, t) => s + Math.min(t.max, Number(ranks[t.key]) || 0), 0);
   return {

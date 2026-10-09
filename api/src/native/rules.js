@@ -13,6 +13,7 @@ import { refId, now, ok, fail, userById, parisDay } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
+import { price as indexed, taxMultiplier } from './inflation.js';
 
 export const schema = {
   Users: {
@@ -29,12 +30,14 @@ function tradeTax(store, body) {
   const cards = (Number(body.offeredCardId) ? 1 : 0) + (Number(body.requestedCardId) ? 1 : 0);
   // Talent Maitre artisan (talents.js) : taxe divisee par 2.
   const user = store.get('Users', Number(body.userId));
-  return Math.round(setting(store, 'TradeTaxPerCard') * Math.max(1, cards) * (1 - talentValue(user, 'master')));
+  return Math.round(tradeTaxPerCard(store) * Math.max(1, cards) * (1 - talentValue(user, 'master')));
 }
+
+const tradeTaxPerCard = (store) => Math.round(setting(store, 'TradeTaxPerCard') * taxMultiplier(store));
 
 // --- prix de l'os ----------------------------------------------------------
 export function bonePrice(store, user) {
-  const base = setting(store, 'DogBoneCost');
+  const base = indexed(store, setting(store, 'DogBoneCost'));
   const bought = user.BoneWeek === weekKey() ? Number(user.BonesBoughtWeek) || 0 : 0;
   return Math.round(base * (1 + setting(store, 'BoneWeeklyIncrease') * bought));
 }
@@ -64,7 +67,7 @@ export function afterWorkflow({ store, path, request, response }) {
       const tax = tradeTax(store, body);
       if (tax > 0) { store.update('Users', user.id, { StardustCount: Math.max(0, dust(user) - tax) }); response.json.taxPaid = tax; }
     }
-    if (response.status === 200) response.json.tradeTaxPerCard = setting(store, 'TradeTaxPerCard');
+    if (response.status === 200) response.json.tradeTaxPerCard = tradeTaxPerCard(store);
     return;
   }
   if (path === 'dig' && user) {
@@ -136,7 +139,7 @@ function handleReroll({ store, body }) {
   const today = parisDay(0);
   if (body.kind === 'weather') {
     if (user.WeatherDay === today) return fail('already_rerolled');
-    const cost = setting(store, 'WeatherRerollCost');
+    const cost = indexed(store, setting(store, 'WeatherRerollCost'));
     if (dust(user) < cost) return fail('not_enough_dust');
     const keys = ['soleil', 'pluie', 'brume', 'orage'].filter((k) => k !== (body.current || ''));
     const key = keys[Math.floor(Math.random() * keys.length)];
@@ -147,7 +150,7 @@ function handleReroll({ store, body }) {
     if (user.RushDay === today) return fail('already_rerolled');
     const until = Number(user.ExpeditionUntil) || 0;
     if (until <= now()) return fail('no_expedition');
-    const cost = setting(store, 'ExpeditionRushCost');
+    const cost = indexed(store, setting(store, 'ExpeditionRushCost'));
     if (dust(user) < cost) return fail('not_enough_dust');
     const newUntil = now() + Math.ceil((until - now()) / 2);
     store.update('Users', user.id, { StardustCount: dust(user) - cost, RushDay: today, ExpeditionUntil: newUntil });
@@ -161,12 +164,12 @@ function handleRules({ store, query }) {
   const user = store.get('Users', Number(query.userId));
   const today = parisDay(0);
   return ok({
-    tradeTaxPerCard: setting(store, 'TradeTaxPerCard'),
-    weatherRerollCost: setting(store, 'WeatherRerollCost'),
-    expeditionRushCost: setting(store, 'ExpeditionRushCost'),
+    tradeTaxPerCard: tradeTaxPerCard(store),
+    weatherRerollCost: indexed(store, setting(store, 'WeatherRerollCost')),
+    expeditionRushCost: indexed(store, setting(store, 'ExpeditionRushCost')),
     weatherRerolledToday: !!user && user.WeatherDay === today,
     expeditionRushedToday: !!user && user.RushDay === today,
-    bonePrice: user ? bonePrice(store, user) : setting(store, 'DogBoneCost'),
+    bonePrice: user ? bonePrice(store, user) : indexed(store, setting(store, 'DogBoneCost')),
     repairDustPerCopy: setting(store, 'RepairDustPerCopy')
   });
 }

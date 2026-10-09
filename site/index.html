@@ -117,6 +117,7 @@
         <div class="season-xp" id="season-xp"></div>
         <ol class="season-tiers" id="season-tiers" aria-label="Paliers de la saison"></ol>
         <button type="button" class="btn" id="season-claim-btn" style="display:none;">Récupérer les récompenses</button>
+        <div class="season-chest" id="season-chest" hidden></div>
       </div>
 
       <div class="panel" id="weekly-quests-panel" style="display:none;">
@@ -681,11 +682,38 @@
           </li>`).join("");
         const btn = document.getElementById("season-claim-btn");
         btn.style.display = st.claimable ? "" : "none";
+        renderSeasonChest(st);
         const tierN = st.tierClaimable != null ? st.tierClaimable : st.claimable;
         const bonusN = st.bonus && st.bonus.claimable ? st.bonus.claimable : 0;
         btn.innerHTML = tierN
           ? `Récupérer ${tierN} palier${tierN > 1 ? "s" : ""}${bonusN ? ` + bonus` : ""}`
           : `Récupérer le bonus de fin de saison (+${bonusN * st.bonus.dustPerTier} &#10024;)`;
+      }
+      // Coffre de saison (2026-10-09) : se remplit avec l'XP du mois, s'ouvre
+      // une fois la saison terminee (celui du mois precedent).
+      function renderSeasonChest(st) {
+        const el = document.getElementById("season-chest");
+        if (!el || !st.chest) return;
+        const c = st.chest, cur = c.current.contents, prev = c.previous;
+        const label = (r) => seasonRewardLabel(r) || "vide pour l'instant";
+        el.hidden = false;
+        el.innerHTML = prev && prev.claimable
+          ? `<span class="season-chest-icon ready" aria-hidden="true">&#129520;</span>
+             <div class="season-chest-body"><strong>Coffre de la saison ${prev.label} prêt !</strong><small>${label(prev.contents)} (${prev.xp} XP de saison)</small></div>
+             <button type="button" class="btn" id="season-chest-btn">Ouvrir</button>`
+          : `<span class="season-chest-icon" aria-hidden="true">&#129520;</span>
+             <div class="season-chest-body"><strong>Coffre de saison</strong><small>Contient déjà : ${label(cur)} · s'ouvre à la fin de la saison</small></div>`;
+        const btn = document.getElementById("season-chest-btn");
+        if (btn) btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          try {
+            const res = await API.claimSeasonChest(Session.userId);
+            Toast.success(`&#129520; Coffre de saison : ${seasonRewardLabel(res.reward)} !`);
+            if (typeof confetti === "function") confetti({ particleCount: 140, spread: 100, origin: { y: 0.6 } });
+            renderSeason(res);
+            loadHeaderBoosterBadge();
+          } catch (err) { btn.disabled = false; Toast.error("Erreur. (" + err.message + ")"); }
+        });
       }
       API.getSeason(Session.userId).then(renderSeason).catch(() => {});
       document.getElementById("season-claim-btn").addEventListener("click", async (e) => {

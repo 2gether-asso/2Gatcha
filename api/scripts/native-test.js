@@ -184,7 +184,7 @@ await test('boss : attaque en salve sur des exemplaires precis, multiplicateurs,
   assert.ok(call('GET', 'boss-leaderboard', {}).json.rules.finish.rainbow === 5);
 });
 
-await test('doublons : poussiere passive a l ouverture (5 commune, 10 au-dela)', () => {
+await test('doublons : poussiere passive a l ouverture (3 commune, 6 au-dela)', () => {
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DuplicateDustCapCopies: 0 } } });
   const cards = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo);
   const commune = cards.find((c) => store.get('Rarities', c.Rarity).Key === 'commune');
@@ -197,9 +197,9 @@ await test('doublons : poussiere passive a l ouverture (5 commune, 10 au-dela)',
   const resp = { status: 200, json: { batchId, cards: [mk(commune, 'commune'), mk(rare, 'rare'), mk(fresh, 'commune'), mk(fresh, 'commune')] } };
   const dust = user(1).StardustCount || 0;
   native.afterWorkflow('open-pack', { body: { userId: 1 } }, resp);
-  assert.deepEqual(resp.json.cards.map((c) => c.duplicateDust || 0), [5, 10, 0, 5]);
-  assert.equal(resp.json.duplicateDust.total, 20);
-  assert.equal(user(1).StardustCount, dust + 20);
+  assert.deepEqual(resp.json.cards.map((c) => c.duplicateDust || 0), [3, 6, 0, 3]);
+  assert.equal(resp.json.duplicateDust.total, 12);
+  assert.equal(user(1).StardustCount, dust + 12);
 });
 
 await test('reglages : defauts, modification validee, remise a zero, lus par les modules', () => {
@@ -666,8 +666,8 @@ await test('economie : taxe d echange, prix de l os, marche noir automatique, re
   assert.equal(native.beforeWorkflow('trade', tradeReq), null);
   const tr = { status: 200, json: { tradeId: 5, status: 'pending' } };
   native.afterWorkflow('trade', tradeReq, tr);
-  assert.equal(tr.json.taxPaid, 20);
-  assert.equal(store.get('Users', 1).StardustCount, 80);
+  assert.equal(tr.json.taxPaid, 30);
+  assert.equal(store.get('Users', 1).StardustCount, 70);
   // Os : prix de base puis +25 %.
   store.update('Users', 1, { StardustCount: 1000, BoneWeek: '', BonesBoughtWeek: 0 });
   const st = { status: 200, json: {} };

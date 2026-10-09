@@ -1136,6 +1136,12 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | Users | PullStats, DustLedger | Text | statistiques de tirage ; poussieres gagnees / depensees par source |
 | Users | PushPrefs | Text | JSON des categories de notifications coupees |
 | Users | ShopItemsWeek, ShopItemsBought | Text | objets de la boutique achetes dans la semaine (plafonds) |
+| Users | RarityPity | Text | JSON { idRarete: tirages depuis la derniere carte de cette rarete ou mieux } (pity.js) |
+| Users | TreasureWeek, TreasureFound | Text | course aux tresors : semaine et indices trouves (JSON) |
+| Users | GardenExtraPlots | Numeric | parcelles de jardin achetees en plus des 4 offertes |
+| SeasonProgress | ChestClaimed | Bool | coffre de saison ouvert |
+| ScheduledEvents | Label, StartAt, EndAt, Enabled, DustMultiplier, FinishMultiplier, FishingRare, WormsMultiplier | | evenements planifies (events.js) |
+| AppSettings | Key = inflationMode | Text | etat du mode anti-inflation (jours d'alerte, jours calmes, actif depuis) |
 | Users | LuckCharges, XpBoostUntil | Numeric | elixir de chance (boosters restants), potion de savoir (fin de l'XP x2) |
 | Users | ExpeditionXP, ExpeditionPrestige, GardenXP, GardenPrestige | Numeric | metiers d'expedition et de jardin |
 | Pulls | Starred | Bool | exemplaire ★ (3 arc-en-ciel parfait etat fusionnes) |

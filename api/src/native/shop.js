@@ -10,7 +10,8 @@
 import { ok, fail, userById, now, configRow } from './common.js';
 import { setting } from './settings.js';
 import { weekKey, digLevel } from './levels.js';
-import { growSeconds } from './garden.js';
+import { growSeconds, seedMult } from './garden.js';
+import { price as indexed } from './inflation.js';
 
 export const schema = {
   Users: { ShopItemsWeek: { type: 'Text' }, ShopItemsBought: { type: 'Text' }, LuckCharges: { type: 'Numeric' }, XpBoostUntil: { type: 'Numeric' } }
@@ -41,7 +42,7 @@ function stateOf(store, user) {
     items: catalog(store).map((it) => {
       const weekly = Number(it.weekly) || 0;
       const n = Number(bought[it.key]) || 0;
-      return { key: it.key, group: it.group || 'resources', label: it.label, icon: it.icon || '🎁', desc: it.desc || '', price: Number(it.price), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
+      return { key: it.key, group: it.group || 'resources', label: it.label, icon: it.icon || '🎁', desc: it.desc || '', price: indexed(store, it.price), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
     })
   };
 }
@@ -62,7 +63,7 @@ function effectFields(store, user, it) {
     const plots = parse(user.GardenPlots, []);
     const grow = growSeconds(store, user);
     let n = 0;
-    const next = plots.map((p) => { if (p && p.plantedAt && p.plantedAt + grow > t) { n++; return { ...p, plantedAt: t - grow - 1 }; } return p; });
+    const next = plots.map((p) => { const g = Math.round(grow * seedMult(p)); if (p && p.plantedAt && p.plantedAt + g > t) { n++; return { ...p, plantedAt: t - g - 1 }; } return p; });
     if (!n) return { error: 'nothing_growing' };
     return { GardenPlots: JSON.stringify(next) };
   }
@@ -83,7 +84,7 @@ function handleShop({ store, body }) {
   const bought = boughtThisWeek(user);
   const weekly = Number(it.weekly) || 0;
   if (weekly && (Number(bought[it.key]) || 0) >= weekly) return fail('weekly_cap', 400, stateOf(store, user));
-  const price = Number(it.price);
+  const price = indexed(store, it.price);
   if (dust(user) < price) return fail('not_enough_dust', 400, stateOf(store, user));
   const fields = {};
   if (it.effect) {

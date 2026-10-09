@@ -12,7 +12,7 @@
   const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
   const rewardLabel = (r) => [r.boosters ? `${r.boosters} &#127183;` : "", r.chests ? `${r.chests} coffre${r.chests > 1 ? "s" : ""}` : "", r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "", r.dust ? `${r.dust} &#10024;` : "", r.worms ? `${r.worms} vers` : ""].filter(Boolean).join(" + ");
   const ERR = { weekly_cap: "Stock épuisé pour cette semaine.", not_enough_dust: "Pas assez de poussières.", nothing_growing: "Rien ne pousse au jardin en ce moment.", no_expedition: "Aucune expédition en cours.", copy_not_matching: "Un des exemplaires ne correspond pas au contrat.", wrong_count: "Mauvais nombre d'exemplaires.", already_claimed: "Contrat déjà rempli cette semaine." };
-  let shop = null, contracts = null, boosterSt = null;
+  let shop = null, contracts = null, boosterSt = null, eco = null;
 
   // --- porte-monnaie ------------------------------------------------------------
   function renderWallet() {
@@ -21,7 +21,8 @@
     $("shop-wallet").innerHTML = `
       <span class="wallet-dust"><span aria-hidden="true">&#10024;</span><strong>${fmt(st.stardust ?? boosterSt?.stardust ?? 0)}</strong><small>poussières</small></span>
       ${st.luckCharges ? `<span class="wallet-boost" title="Élixir de chance actif">&#129514; ${st.luckCharges} booster${st.luckCharges > 1 ? "s" : ""} chanceux</span>` : ""}
-      ${left ? `<span class="wallet-boost" title="Potion de savoir active">&#128216; XP ×2 encore ${left} min</span>` : ""}`;
+      ${left ? `<span class="wallet-boost" title="Potion de savoir active">&#128216; XP ×2 encore ${left} min</span>` : ""}
+      ${eco && (eco.tight || eco.priceFactor > 1) ? `<span class="wallet-eco ${eco.tight ? "tight" : ""}" title="${eco.tight ? "Mode anti-inflation : prix +25 %, taxes ×1,5, doublons moins rentables, le temps que l'économie se calme." : "Les prix suivent la richesse moyenne des joueurs actifs."}">&#127974; ${eco.tight ? "Anti-inflation · " : ""}prix ×${String(eco.priceFactor).replace(".", ",")}</span>` : ""}`;
   }
   window.refreshShopWallet = () => API.shop(Session.userId).then((s) => { shop = s; renderWallet(); renderItems(); }).catch(() => {});
 
@@ -147,6 +148,7 @@
     if (!$("shop-wallet")) return;
     API.shop(Session.userId).then((s) => { shop = s; renderWallet(); renderItems(); }).catch(() => { $("ressources").hidden = true; $("bonus").hidden = true; });
     API.boosterShop(Session.userId).then((s) => { renderBoosters(s); renderWallet(); }).catch(() => { $("offres").hidden = true; });
+    if (API.getEconomyState) API.getEconomyState().then((e) => { eco = e; renderWallet(); }).catch(() => {});
     API.contracts(Session.userId).then(renderContracts).catch(() => { $("contrats").hidden = true; });
     setInterval(renderWallet, 30000);
     $("shop-zone").addEventListener("click", async (e) => {

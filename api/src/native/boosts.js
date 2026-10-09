@@ -11,6 +11,7 @@ import { luckyState, diceFace } from './daily.js';
 import { masteryFinishBonus } from './progression.js';
 import { rateFactor } from './market.js';
 import { expeditionLevel } from './levels.js';
+import { isTight } from './inflation.js';
 
 const QUALITY_UP = { damaged: 'worn', worn: 'good', good: 'mint' };
 
@@ -71,6 +72,7 @@ export function afterWorkflow({ store, path, request, response }) {
     const starMult = request._starred ? setting(store, 'StarDecraftMultiplier') - 1 : 0;
     applyDust(store, userId, json, json.dustGained, [
       { k: rate - 1, label: rate >= 1 ? '📈 Cours du décraft' : '📉 Cours du décraft' },
+      { k: isTight(store) ? -0.1 : 0, label: '🏦 Mode anti-inflation' },
       { k: starMult, label: '⭐ Carte ★' },
       { k: talentValue(user, 'patron'), label: '💰 Talent Mécène' },
       { k: face === 4 ? 0.25 : 0, label: '🎲 Dé du jour' },
@@ -95,7 +97,8 @@ export function afterWorkflow({ store, path, request, response }) {
     json.reward.dust += added;
   } else if (path === 'open-pack' && !body.dryRun && Array.isArray(json.cards) && json.batchId) {
     const extra = masteryFinishBonus(store, userId, json.booster ? json.booster.extensionId : body.extensionId)
-      + talentValue(user, 'lynx') + (face === 6 ? 0.05 : 0) + (luckyState().active ? setting(store, 'LuckyHourFinishBonus') : 0);
+      + talentValue(user, 'lynx') + (face === 6 ? 0.05 : 0) + (luckyState().active ? setting(store, 'LuckyHourFinishBonus') : 0)
+      + (request._mystery ? setting(store, 'MysteryFinishBonus') : 0);
     // Elixir de chance (boutique) : +5 points tant qu'il reste des charges.
     const luck = (Number(user.LuckCharges) || 0) > 0 ? 0.05 : 0;
     if (luck) { store.update('Users', userId, { LuckCharges: (Number(user.LuckCharges) || 0) - 1 }); json.luckChargesLeft = (Number(user.LuckCharges) || 0) - 1; }

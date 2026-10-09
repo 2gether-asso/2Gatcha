@@ -26,8 +26,8 @@ export const REGISTRY = {
   ShinyPackChance: { ...pct('Chance de booster shiny', 0.001, 'Boosters', 'Booster aux cartes meilleures que d’habitude.'), storage: 'config' },
   BonusCardChance: { ...pct('Chance de carte bonus', 0.10, 'Boosters', 'Une 6e carte dans le booster.'), storage: 'config' },
   XpPerBoosterOpen: { ...int('XP par booster ouvert', 10, 'Boosters', ''), storage: 'config' },
-  DuplicateDustCommon: { ...int('Poussières par doublon commun', 5, 'Boosters', 'Gagnées automatiquement à l’ouverture.'), storage: 'app' },
-  DuplicateDustOther: { ...int('Poussières par doublon (rare et plus)', 10, 'Boosters', ''), storage: 'app' },
+  DuplicateDustCommon: { ...int('Poussières par doublon commun', 3, 'Boosters', 'Gagnées automatiquement à l’ouverture.'), storage: 'app' },
+  DuplicateDustOther: { ...int('Poussières par doublon (rare et plus)', 6, 'Boosters', ''), storage: 'app' },
 
   // --- Coffres
   ChestCost: { ...int('Prix d’un coffre (poussières)', 100, 'Coffres', '', 1), storage: 'app' },
@@ -52,6 +52,25 @@ export const REGISTRY = {
   GardenPlantCost: { ...int('Jardin : prix d’une plantation (poussières)', 10, 'Pêche', ''), storage: 'app' },
   GardenBaitChance: { ...pct('Jardin : chance d’un appât doré par récolte', 0.5, 'Pêche', 'Un appât doré supprime les prises vides et multiplie les prises rares pour un lancer.'), storage: 'app' },
   FishingLevelXpStep: { ...int('XP pour le niveau 2 de pêche', 15, 'Pêche', 'Chaque niveau suivant demande ce palier en plus (15, 45, 90…). 1 XP par lancer, plus selon la prise.', 1), storage: 'app' },
+  DeepFishingLevel: { ...int('Eaux profondes : niveau de pêche requis', 10, 'Pêche', 'Un prestige de pêche les débloque aussi.', 1, 10), storage: 'app' },
+  DeepFishingCostMult: { ...int('Eaux profondes : vers par lancer (× le coût normal)', 2, 'Pêche', '', 1, 10), storage: 'app' },
+  DeepFishingLoot: {
+    label: 'Table des prises (eaux profondes)', type: 'json', group: 'Pêche', storage: 'app',
+    help: 'Comme la table normale, avec deux prises en plus : pearl (perle noire = poussières) et bait (appât doré).',
+    def: [
+      { type: 'nothing', weight: 14, label: 'Une ancre rouillée' },
+      { type: 'dust', weight: 24, min: 30, max: 70 },
+      { type: 'pearl', weight: 6, min: 80, max: 180, label: 'Perle noire' },
+      { type: 'bait', weight: 12, min: 1, max: 1, label: 'Appât doré' },
+      { type: 'bone', weight: 12, min: 1, max: 2 },
+      { type: 'booster', weight: 9, min: 1, max: 1 },
+      { type: 'chest', weight: 9, min: 1, max: 1 },
+      { type: 'key', weight: 7, min: 1, max: 1 },
+      { type: 'part', weight: 7, min: 1, max: 1, label: 'Pièce détachée' }
+    ]
+  },
+  GardenPlotPrice: { ...int('Jardin : prix d’une parcelle en plus (poussières)', 400, 'Pêche', 'La n-ième parcelle achetée coûte n × ce prix (indexé sur la richesse moyenne).', 1), storage: 'app' },
+  GardenMaxPlots: { ...int('Jardin : parcelles au maximum', 8, 'Pêche', '4 offertes, les autres à acheter.', 4, 16), storage: 'app' },
   FishingLoot: {
     label: 'Table des prises', type: 'json', group: 'Pêche', storage: 'app',
     help: 'Liste de prises : type (nothing, dust, bone, key, booster, chest, part = pièce détachée, remplace un exemplaire en Finitions / Qualité), poids (chance relative), min/max (quantité).',
@@ -151,9 +170,9 @@ export const REGISTRY = {
   },
 
   // --- Economie
-  TradeTaxPerCard: { ...int('Taxe d’échange (poussières par carte)', 10, 'Économie', 'Payée par celui qui propose l’échange. 0 = pas de taxe.'), storage: 'app' },
+  TradeTaxPerCard: { ...int('Taxe d’échange (poussières par carte)', 15, 'Économie', 'Payée par celui qui propose l’échange. 0 = pas de taxe.'), storage: 'app' },
   BoneWeeklyIncrease: { ...num('Hausse du prix de l’os par achat dans la semaine', 0.25, 'Économie', '0,25 = +25 % par os acheté, remis à zéro le lundi.', 0, 5), storage: 'app' },
-  DuplicateDustCapCopies: { ...int('Doublons : exemplaires avant plafond', 10, 'Économie', 'À partir de ce nombre d’exemplaires, un doublon ne rapporte plus que 1 poussière. 0 = pas de plafond.'), storage: 'app' },
+  DuplicateDustCapCopies: { ...int('Doublons : exemplaires avant plafond', 5, 'Économie', 'À partir de ce nombre d’exemplaires, un doublon ne rapporte plus que 1 poussière. 0 = pas de plafond.'), storage: 'app' },
   FishingFullRewardsPerDay: { ...int('Pêche : lancers à plein rendement par jour', 15, 'Économie', 'Au-delà, poussières divisées par 2 et objets moins fréquents. 0 = désactivé.'), storage: 'app' },
   DigFullRewardsPerDay: { ...int('Fouille : cases à plein rendement par jour', 40, 'Économie', 'Au-delà, poussières trouvées divisées par 2. 0 = désactivé.'), storage: 'app' },
   WeatherRerollCost: { ...int('Relance de la météo de pêche (poussières)', 80, 'Économie', 'Une fois par jour.'), storage: 'app' },
@@ -222,14 +241,36 @@ export const REGISTRY = {
 
   // --- Marche et economie (2026-10-07)
   ContractsPerWeek: { ...int('Contrats de collection par semaine', 4, 'Économie', '', 1, 8), storage: 'app' },
-  AuctionTaxPct: { ...pct('Enchères : taxe sur la vente', 0.1, 'Économie', 'Prélevée sur le prix final (détruite).'), storage: 'app' },
+  AuctionTaxPct: { ...pct('Enchères : taxe sur la vente', 0.15, 'Économie', 'Prélevée sur le prix final (détruite).'), storage: 'app' },
   AuctionMaxActive: { ...int('Enchères : ventes en cours max par joueur', 3, 'Économie', '', 1, 20), storage: 'app' },
   AuctionHours: { ...int('Enchères : durée (heures)', 24, 'Économie', '', 1, 168), storage: 'app' },
-  ExchangeRateSwing: { ...num('Cours du décraft : variation max', 0.15, 'Économie', '0,15 = la valeur de décraft d’une rareté varie de −15 % à +15 % selon l’offre et la demande de la semaine passée.', 0, 0.5), storage: 'app' },
+  ExchangeRateSwing: { ...num('Cours du décraft : variation max', 0.3, 'Économie', '0,30 = la valeur de décraft d’une rareté varie de −30 % à +30 % selon l’offre et la demande de la semaine passée (une rareté très décraftée perd de la valeur).', 0, 0.5), storage: 'app' },
   InsuranceCostPerTier: { ...int('Assurance : prix par rang de rareté', 40, 'Économie', 'Commune = 1 rang, rare = 2… Payé une fois.'), storage: 'app' },
-  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 300, 'Économie', '', 1), storage: 'app' },
-  BoosterShopIncrease: { ...num('Boutique : hausse par booster acheté dans la semaine', 0.2, 'Économie', '', 0, 5), storage: 'app' },
+  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 450, 'Économie', '', 1), storage: 'app' },
+  BoosterShopIncrease: { ...num('Boutique : hausse par booster acheté dans la semaine', 0.35, 'Économie', '', 0, 5), storage: 'app' },
   BoosterShopWeeklyCap: { ...int('Boutique : boosters max par semaine', 3, 'Économie', '0 = boutique fermée.'), storage: 'app' },
+  // --- Pity par rarete et booster mystere (pity.js)
+  RarityPityMultiplier: { ...num('Pity par rareté : tirages garantis (× la moyenne)', 2.5, 'Boosters', 'Chaque rareté qui sort dans moins de 15 % des tirages est garantie après ce multiple du nombre moyen de tirages pour l’obtenir (2,5 × 17 = 43 pour une rareté à 6 %). 0 = désactivé.', 0, 20), storage: 'app' },
+  MysteryFinishBonus: { ...pct('Booster mystère : bonus de finition spéciale', 0.03, 'Boosters', '0,03 = +3 points de chance de finition spéciale par carte.'), storage: 'app' },
+
+  // --- Course aux tresors, coffre de saison, prestige du compte (2026-10-09)
+  TreasureHuntEnabled: { label: 'Course aux trésors hebdo', type: 'bool', def: true, group: 'Progression', storage: 'app', help: '5 indices cachés chaque semaine sur 5 pages du site.' },
+  TreasureClueDust: { ...int('Course aux trésors : poussières par indice', 25, 'Progression', ''), storage: 'app' },
+  TreasureHuntBonus: { label: 'Course aux trésors : bonus des 5 indices', type: 'json', group: 'Progression', storage: 'app', help: 'Objet : boosters, keys, dust.', def: { boosters: 1, keys: 1, dust: 0 } },
+  SeasonChestDustPerXp: { ...num('Coffre de saison : poussières par XP de saison', 0.2, 'Saison', '', 0, 10), storage: 'app' },
+  SeasonChestMaxDust: { ...int('Coffre de saison : poussières max', 400, 'Saison', ''), storage: 'app' },
+  SeasonChestXpPerBooster: { ...int('Coffre de saison : XP par booster', 600, 'Saison', 'Une clé tous les 2 × cette XP (2 max).', 1), storage: 'app' },
+  SeasonChestMaxBoosters: { ...int('Coffre de saison : boosters max', 3, 'Saison', '', 0, 20), storage: 'app' },
+  AccountPrestigeLevel: { ...int('Prestige du compte : niveau de la 1re étoile', 31, 'Progression', 'Niveau où tous les talents sont débloqués.', 2, 500), storage: 'app' },
+  AccountPrestigeStep: { ...int('Prestige du compte : niveaux par étoile suivante', 5, 'Progression', 'Chaque étoile : +1 point de talent et un titre.', 1, 100), storage: 'app' },
+
+  // --- Pilotage de l'inflation (inflation.js)
+  PriceIndexEnabled: { label: 'Prix indexés sur la richesse moyenne', type: 'bool', def: true, group: 'Inflation', storage: 'app', help: 'Boutique, os, relances, coffres : les prix suivent le solde moyen des joueurs actifs (14 jours).' },
+  WealthReference: { ...int('Richesse de référence (poussières)', 3000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },
+  PriceIndexMax: { ...num('Hausse maximale des prix (×)', 2.5, 'Inflation', '2,5 = les prix indexés ne dépassent jamais 2,5 fois leur valeur de base.', 1, 10), storage: 'app' },
+  AutoTightDays: { ...int('Mode anti-inflation : jours d’alerte avant activation', 7, 'Inflation', 'Jours d’affilée avec une alerte dans le tableau de l’économie.', 1, 60), storage: 'app' },
+  TightCalmDays: { ...int('Mode anti-inflation : jours calmes avant retour à la normale', 3, 'Inflation', '', 1, 60), storage: 'app' },
+  InflationModeForce: { ...int('Mode anti-inflation : forçage', 0, 'Inflation', '0 = automatique, 1 = toujours actif, 2 = désactivé. Actif : doublons ÷2, prix +25 %, taxes ×1,5, décraft −10 %.', 0, 2), storage: 'app' },
   RepairEscalationDust: { ...int('Restauration : supplément par restauration de la même carte (semaine)', 25, 'Économie', 'La n-ième restauration d’une même carte dans la semaine coûte (n−1) × ce supplément.'), storage: 'app' },
 
   // --- Notifications
@@ -276,7 +317,7 @@ function validate(key, raw) {
     if (key === 'LoginStreakRewards' && v.length !== 7) throw new Error(`${r.label} : il faut exactement 7 jours`);
     if (key === 'ShopCatalog' && (v.some((x) => !x || !x.key || !(Number(x.price) > 0) || (!x.give && !['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow'].includes(x.effect))) || new Set(v.map((x) => x.key)).size !== v.length)) throw new Error(`${r.label} : chaque objet a une key unique, un prix > 0 et un give ou un effect connu`);
     if (key === 'DailyBoxLoot' && (!v.length || v.some((x) => !x || !['dust', 'worms', 'bait', 'key', 'part', 'booster', 'chest', 'cosmetic'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque objet a un type connu et un poids > 0`);
-    if (key === 'FishingLoot' && (!v.length || v.some((x) => !x || !['nothing', 'dust', 'bone', 'key', 'booster', 'chest', 'part'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque prise a un type connu et un poids > 0`);
+    if ((key === 'FishingLoot' || key === 'DeepFishingLoot') && (!v.length || v.some((x) => !x || !['nothing', 'dust', 'bone', 'key', 'booster', 'chest', 'part', 'pearl', 'bait'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque prise a un type connu et un poids > 0`);
     return v;
   }
   return String(raw);

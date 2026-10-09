@@ -71,11 +71,15 @@ import * as market from './market.js';
 import * as boosts from './boosts.js';
 import * as insights from './insights.js';
 import * as shop from './shop.js';
+import * as inflation from './inflation.js';
+import * as pity from './pity.js';
+import * as treasure from './treasure.js';
+import * as accountPrestige from './account-prestige.js';
 import { setting } from './settings.js';
 
-const MODULES = [settings, auth, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
+const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily];
 // XP doublee pendant l'action du jour (daily.js).
@@ -169,7 +173,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       ctx.source = path || 'autre';
       ctx.userId = Number(body.userId || query.userId) || 0;
       ctx.notices = [];
-      for (const m of [unique, rules, fishing, market]) {
+      for (const m of [unique, rules, fishing, market, inflation]) {
         try { m.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeRequest' }); }
       }
       const userId = Number(body.userId || query.userId) || 0;
@@ -179,7 +183,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      for (const m of [rules, levels, market]) {
+      for (const m of [pity, rules, levels, market]) {
         try {
           const denied = m.beforeWorkflow({ store, path, request });
           if (denied) { market.restoreHidden(store, request); return denied; }

@@ -158,7 +158,7 @@ doublons, coup final au boss) sans le modifier.
 | `cosmetics.js` | `POST cosmetics` | boutique : titres, cadres d'avatar, couleurs de pseudo |
 | `rules.js` | `POST reroll`, `GET economy-rules` | taxe d'échange, prix de l'os qui monte, marché noir automatique, relances payantes (météo, expédition) |
 | `social.js` | `GET card-info`, `POST wishlist-alerts`, `GET`/`POST profile-wall` | fiche carte enrichie, alertes de liste de souhaits, mur et stats du profil |
-| `garden.js` | `POST garden` | jardin : vers et appâts dorés pour la pêche |
+| `garden.js` | `POST garden` | jardin : graines (mélange, vers, appâts, poussières), parcelles à acheter, vers et appâts dorés pour la pêche |
 | `community-dig.js` | `POST community-dig` | grande fouille commune de la semaine (grand trésor partagé) |
 | `simulator.js` | `POST admin-simulate` | simulateur d'ouverture de boosters pour les admins (modificateurs de rareté, finition, shiny, carte bonus, pity) : pur calcul, aucune écriture |
 | `talents.js` | `POST talents` | arbre de talents : 1 point par niveau de compte, 3 branches, talents ultimes, remise à zéro payante |
@@ -169,6 +169,10 @@ doublons, coup final au boss) sans le modifier.
 | `boosts.js` | – | bonus personnels appliqués après les workflows (heure de chance, dé, talents, maîtrise, cours du décraft, cartes ★, niveau d'expédition) |
 | `insights.js` | `GET what-now`, `GET my-stats`, `GET player-card` | « que faire maintenant ? », statistiques perso (grand livre des poussières), carte de joueur au survol |
 | `shop.js` | `POST shop` | boutique d'objets et de bonus (vers, appâts, os, coffres, clés, pièces, élixir de chance, potion d'XP, café du fouilleur, engrais, boussole), plafonds par semaine, catalogue `ShopCatalog` réglable |
+| `inflation.js` | `GET economy-state` | pilotage de l'inflation : prix en poussières indexés sur le solde moyen des joueurs actifs, mode anti-inflation automatique (7 jours d'alerte → doublons ÷2, prix +25 %, taxes ×1,5, décraft −10 %, annonce dans le fil ; retour après 3 jours calmes) |
+| `pity.js` | `GET rarity-pity` | pity par rareté (« Épique garantie dans N tirages ») et booster mystère (`open-pack { mystery: true }` : extension tirée au hasard, bonus de finition) |
+| `treasure.js` | `GET`/`POST treasure-hunt` | course aux trésors hebdo : 5 indices cachés sur 5 pages du site (positions propres à chaque joueur) |
+| `account-prestige.js` | `GET account-prestige` | prestige du compte : étoiles au-delà des talents complets (+1 point de talent, titre, cadre) |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |
@@ -185,7 +189,11 @@ la ligne `Config` ; les autres sont gardés dans `AppSettings`.
 
 **Journal de l'économie** : toute variation de boosters, poussières ou vers d'un joueur est cumulée par jour et par source (table `EconomyDaily`, voir `index.js`) ; le tableau de bord de l'admin affiche les flux et des alertes d'inflation.
 
-**Saisons** : chaque mois (heure de Paris) repart de zéro. L'XP de départ est
+**Événements planifiés** (`events.js`, `POST admin-events`) : table `ScheduledEvents`, appliqués tout seuls entre leur début et leur fin ; l'événement manuel reste prioritaire. Admin > « Tableau de bord des événements ».
+
+**Pêche en eaux profondes** (`fishing.js`, `zone: 'deep'`) : débloquée au niveau `DeepFishingLevel` (ou après un prestige de pêche), table `DeepFishingLoot` (perles noires, appâts dorés).
+
+**Saisons** : chaque mois (heure de Paris) repart de zéro. Le coffre de saison se remplit avec l'XP du mois et s'ouvre le mois suivant (`action: 'claimChest'`). L'XP de départ est
 notée à la première action du joueur dans le mois ; chaque palier
 (`SeasonXpPerTier`) se réclame une fois. La carte exclusive du mois se
 choisit dans Admin > « Saison mensuelle » (table `SeasonCards`) ; sans

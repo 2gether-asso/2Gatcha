@@ -7,15 +7,27 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const ROMAN = ["I", "II", "III"];
 
+  // Prestige du compte (2026-10-09) : etoiles au-dela des talents complets.
+  function prestigeBlock(p) {
+    if (!p) return "";
+    const toNext = Math.max(0, p.nextLevel - p.level);
+    return `<div class="account-prestige ${p.stars ? "has-stars" : ""}">
+      <span class="ap-stars" aria-hidden="true">${p.stars ? "★".repeat(Math.min(p.stars, 5)) + (p.stars > 5 ? " ×" + p.stars : "") : "☆"}</span>
+      <div class="ap-body"><strong>${p.stars ? `Prestige du compte : ${p.stars} étoile${p.stars > 1 ? "s" : ""}` : "Prestige du compte"}</strong>
+      <small>${p.stars ? `+${p.stars} point${p.stars > 1 ? "s" : ""} de talent, titres « Prestige » et cadre doré débloqués. ` : `Première étoile au niveau ${p.startLevel} : +1 point de talent, un titre et un cadre. `}Prochaine étoile au niveau ${p.nextLevel}${toNext ? ` (encore ${toNext} niveau${toNext > 1 ? "x" : ""})` : ""}, puis tous les ${p.step} niveaux.</small></div>
+    </div>`;
+  }
+  let prestige = null;
+
   function renderTalents(st) {
     const box = $("talents-panel");
-    box.innerHTML = `
+    box.innerHTML = prestigeBlock(prestige) + `
       <div class="talents-head">
         <h2>&#127795; Talents</h2>
         <span class="talents-points ${st.available ? "has-points" : ""}">${st.available} point${st.available > 1 ? "s" : ""} à dépenser · ${st.spent}/${st.points}</span>
         ${st.spent ? `<button type="button" class="btn-ghost" id="talents-reset">Tout réinitialiser (${st.resetCost} &#10024;)</button>` : ""}
       </div>
-      <p class="lead" style="font-size:0.85rem;">Un point par niveau de compte. Chaque branche a un talent ultime qui demande 6 points dans la branche : à toi de choisir ta spécialité.</p>
+      <p class="lead" style="font-size:0.85rem;">Un point par niveau de compte (et un par étoile de prestige). Chaque branche a un talent ultime qui demande 6 points dans la branche : à toi de choisir ta spécialité.</p>
       <div class="talent-tree">${st.branches.map((b) => `
         <div class="talent-branch">
           <h3>${b.icon} ${esc(b.label)} <small>${b.spent} pt${b.spent > 1 ? "s" : ""}</small></h3>
@@ -52,6 +64,7 @@
 
   async function load() {
     $("own-progress").hidden = false;
+    try { prestige = await API.getAccountPrestige(Session.userId); } catch (e) { prestige = null; }
     try { renderTalents(await API.talents(Session.userId)); } catch (e) { $("talents-panel").innerHTML = ""; }
     try { renderTiers(await API.achievementTiers(Session.userId)); } catch (e) { $("tiers-panel").innerHTML = ""; }
     if (location.hash === "#talents") $("talents").scrollIntoView({ behavior: "smooth" });

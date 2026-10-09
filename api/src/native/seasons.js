@@ -4,7 +4,10 @@
 // Chaque palier a sa recompense ; le dernier donne en plus la carte
 // exclusive de la saison si l'admin l'a choisie (carte promo conseillee,
 // pour qu'elle ne sorte pas des boosters).
-//   POST /webhook/season        { userId, action: 'status' | 'claim' }
+// Coffre de saison (2026-10-09) : il se remplit avec l'XP de saison
+// (poussieres, boosters, cles, plafonnes) et s'ouvre une fois la saison
+// terminee (action 'claimChest', saison precedente).
+//   POST /webhook/season        { userId, action: 'status' | 'claim' | 'claimChest' }
 //   POST /webhook/admin-season  { discordId, action: 'get' | 'setCard', season?, cardId? }
 
 import { refId, now, ok, fail, userById, isAdmin, firstAttachment, cardSummary } from './common.js';
@@ -14,7 +17,7 @@ import { setting } from './settings.js';
 
 export const schema = {
   SeasonProgress: {
-    BonusClaimed: { type: 'Numeric' }, User: { type: 'Ref:Users' }, Season: { type: 'Text' }, StartXP: { type: 'Numeric' }, ClaimedTier: { type: 'Numeric' } },
+    BonusClaimed: { type: 'Numeric' }, ChestClaimed: { type: 'Bool' }, User: { type: 'Ref:Users' }, Season: { type: 'Text' }, StartXP: { type: 'Numeric' }, ClaimedTier: { type: 'Numeric' } },
   SeasonCards: { Season: { type: 'Text' }, Card: { type: 'Ref:Cards' } }
 };
 
@@ -59,6 +62,34 @@ function seasonCard(store, season) {
   return card ? cardSummary(store, card) : null;
 }
 
+// Contenu du coffre pour une XP de saison donnee.
+export function chestContents(store, xp) {
+  const x = Math.max(0, Number(xp) || 0);
+  return {
+    dust: Math.min(setting(store, 'SeasonChestMaxDust'), Math.floor(x * setting(store, 'SeasonChestDustPerXp'))),
+    boosters: Math.min(setting(store, 'SeasonChestMaxBoosters'), Math.floor(x / Math.max(1, setting(store, 'SeasonChestXpPerBooster')))),
+    keys: Math.min(2, Math.floor(x / Math.max(1, 2 * setting(store, 'SeasonChestXpPerBooster'))))
+  };
+}
+
+export function previousSeason(id = seasonId()) {
+  const [y, m] = id.split('-').map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+}
+
+function chestOf(store, user, season, row) {
+  const xpNow = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0)) : 0;
+  const prevId = previousSeason(season);
+  const prev = progressRow(store, user.id, prevId);
+  let previous = null;
+  if (prev && row) {
+    const xp = Math.max(0, (Number(row.StartXP) || 0) - (Number(prev.StartXP) || 0));
+    const c = chestContents(store, xp);
+    if (xp > 0) previous = { season: prevId, label: seasonLabel(prevId), xp, contents: c, claimed: !!prev.ChestClaimed, claimable: !prev.ChestClaimed && (c.dust + c.boosters + c.keys) > 0 };
+  }
+  return { current: { xp: xpNow, contents: chestContents(store, xpNow), opensAt: seasonEnd(season) }, previous };
+}
+
 function statusOf(store, user) {
   const season = seasonId();
   const enabled = !!setting(store, 'SeasonEnabled');
@@ -88,7 +119,8 @@ function statusOf(store, user) {
   const bonusClaimable = bonus.dustPerTier > 0 ? Math.max(0, bonusReached - bonusClaimed) : 0;
   bonus.claimable = bonusClaimable;
   const tierClaimable = Math.max(0, reached - claimed);
-  return { enabled, season, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpPerTier: perTier, reached, claimed, tierClaimable, claimable: tierClaimable + bonusClaimable, complete: reached === tiersCount, tiers, card, bonus };
+  const chest = chestOf(store, user, season, row);
+  return { enabled, season, chest, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpPerTier: perTier, reached, claimed, tierClaimable, claimable: tierClaimable + bonusClaimable, complete: reached === tiersCount, tiers, card, bonus };
 }
 
 function grant(store, user, reward) {
@@ -113,6 +145,14 @@ function handleSeason({ store, body }) {
   if (!user) return fail('unknown_user', 404);
   ensureProgress(store, user.id);
   const st = statusOf(store, user);
+  if (body.action === 'claimChest') {
+    const p = st.chest.previous;
+    if (!p || !p.claimable) return fail('nothing_to_claim', 400, st);
+    const prev = progressRow(store, user.id, p.season);
+    store.update('SeasonProgress', prev.id, { ChestClaimed: true });
+    user = grant(store, user, p.contents);
+    return ok({ chestOpened: true, reward: p.contents, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, ...statusOf(store, user) });
+  }
   if (body.action !== 'claim') return ok(st);
   if (!st.enabled) return fail('season_disabled');
   if (!st.claimable) return fail('nothing_to_claim', 400, st);

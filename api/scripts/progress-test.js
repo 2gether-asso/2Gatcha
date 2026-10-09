@@ -12,6 +12,9 @@ import { createNative } from '../src/native/index.js';
 import * as daily from '../src/native/daily.js';
 import { parisDay, now } from '../src/native/common.js';
 import { weekKey } from '../src/native/levels.js';
+import * as inflation from '../src/native/inflation.js';
+import { cluesOf } from '../src/native/treasure.js';
+import { previousSeason } from '../src/native/seasons.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-progress-${process.pid}.sqlite`);
@@ -28,7 +31,7 @@ const refIdOf = (v) => (Array.isArray(v) ? v[1] : v);
 const cards = () => store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && refIdOf(c.Extension));
 const mk = (userId, cardId, finish = 'normal', quality = 'good') => store.create('Pulls', { User: userId, Card: cardId, SerialNumber: 5000 + store.getAll('Pulls').length, Finish: finish, Quality: quality, ObtainedAt: now(), BatchId: `${userId}-${Date.now()}` }).id;
 // Pas de variation aleatoire du cours du decraft pendant les tests.
-call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ExchangeRateSwing: 0 } } });
+call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ExchangeRateSwing: 0, PriceIndexEnabled: false } } });
 
 let passed = 0;
 async function test(name, fn) {
@@ -260,7 +263,7 @@ await test('encheres : sequestre, surenchere remboursee, vente reglee avec taxe'
   store.update('Auctions', a.id, { EndsAt: now() - 1 });
   call('POST', 'auctions', { body: { userId: 1, action: 'list' } });
   assert.equal(store.get('Pulls', pid).User, 2);
-  assert.equal(user(1).StardustCount, 5 + 180, '200 - 10 % de taxe');
+  assert.equal(user(1).StardustCount, 5 + 170, '200 - 15 % de taxe');
   assert.equal(store.get('Auctions', a.id).Status, 'sold');
 });
 
@@ -268,7 +271,7 @@ await test('boutique de boosters : prix croissant, plafond hebdomadaire', () => 
   store.update('Users', 1, { StardustCount: 5000, ShopWeek: '', ShopBought: 0 });
   const prices = [];
   for (let i = 0; i < 3; i++) prices.push(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.paid);
-  assert.deepEqual(prices, [300, 360, 420]);
+  assert.deepEqual(prices, [450, 608, 765]);
   assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.error, 'weekly_cap');
 });
 
@@ -359,6 +362,175 @@ await test('saison : bonus de fin de saison compte a part, ignore a 0 poussiere'
   st = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
   assert.equal(st.claimable, 0, 'bonus a 0 : rien a recuperer');
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SeasonBonusTierDust' } });
+});
+
+// ------------------------------------------------------------------ lot 2026-10-09
+await test('inflation : prix indexes sur la richesse, mode serre force (prix, taxes, doublons)', () => {
+  const set = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
+  set({ PriceIndexEnabled: true, WealthReference: 100, PriceIndexMax: 2 });
+  store.getAll('Users').forEach((u) => store.update('Users', u.id, { LastSeenAt: now(), StardustCount: 400 }));
+  store.update('Users', 1, { ShopWeek: '', ShopBought: 0 });
+  inflation._reset();
+  // Solde moyen 400 pour 100 de reference : racine(4) = 2 (plafond 2).
+  assert.equal(call('GET', 'economy-state', { query: {} }).json.priceFactor, 2);
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, 900);
+  set({ PriceIndexEnabled: false, InflationModeForce: 1 });
+  inflation._reset();
+  const st = call('GET', 'economy-state', { query: {} }).json;
+  assert.equal(st.tight, true);
+  assert.equal(st.priceFactor, 1.25);
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, Math.round(450 * 1.25));
+  assert.equal(inflation.taxMultiplier(store), 1.5);
+  assert.equal(inflation.gainMultiplier(store), 0.5);
+  set({ InflationModeForce: 0 });
+  for (const key of ['WealthReference', 'PriceIndexMax']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  inflation._reset();
+  assert.equal(inflation.isTight(store), false);
+});
+
+await test('inflation : mode serre automatique apres 7 jours d alerte, annonce, retour au calme', () => {
+  const k = store.getAll('AppSettings').find((r) => r.Key === 'inflationMode');
+  if (k) store.delete('AppSettings', k.id);
+  inflation._reset();
+  // On simule 7 jours d'alerte : le seuil d'alerte "boosters par joueur" a 0,5.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { AutoTightDays: 2, TightCalmDays: 1 } } });
+  const row = () => JSON.parse(store.getAll('AppSettings').find((r) => r.Key === 'inflationMode').Value);
+  const write = (v) => store.update('AppSettings', store.getAll('AppSettings').find((r) => r.Key === 'inflationMode').id, { Value: JSON.stringify(v) });
+  inflation.dailyCheck(store, 'j1');
+  write({ ...row(), alertDays: 1, calmDays: 0 });
+  // Une alerte forcee : on remplace le journal par un jour tres genereux.
+  const st = row();
+  write({ ...st, alertDays: 5 });
+  inflation._reset();
+  // dailyCheck lit les vraies alertes : on les provoque via des seuils tres bas.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EconomyAlertBoostersPerPlayer: 0.5, EconomyAlertDustRatio: 1 } } });
+  store.create('EconomyDaily', { Day: new Date().toISOString().slice(0, 10), Source: 'test', BoostersIn: 999, BoostersOut: 0, DustIn: 99999, DustOut: 1 });
+  const r = inflation.dailyCheck(store, 'j2');
+  if (r && r.alerts && r.alerts.length) {
+    assert.equal(r.tight, true);
+    assert.ok(store.getAll('ServerFeed').sort((a, b) => b.id - a.id)[0].Kind === 'economy', 'annonce dans le fil');
+    write({ ...row(), alertDays: 0 });
+    inflation._reset();
+    store.getAll('EconomyDaily').filter((e) => e.Source === 'test').forEach((e) => store.delete('EconomyDaily', e.id));
+    call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
+    call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertDustRatio' } });
+    const back = inflation.dailyCheck(store, 'j3');
+    if (!back.alerts.length) assert.equal(back.tight, false);
+  }
+  const m = store.getAll('AppSettings').find((x) => x.Key === 'inflationMode');
+  if (m) store.delete('AppSettings', m.id);
+  inflation._reset();
+});
+
+await test('pity par rarete : garantie au seuil, compteur visible, remise a zero', () => {
+  const rar = store.getAll('Rarities').filter((r) => r.Key !== 'unique' && r.Weight > 0);
+  const st = call('GET', 'rarity-pity', { query: { userId: 1 } }).json;
+  assert.ok(st.rarities.length >= 1);
+  const target = st.rarities[st.rarities.length - 1];
+  const r = rar.find((x) => x.Key === target.key);
+  const ext = refIdOf(cards().find((c) => refIdOf(c.Rarity) === r.id).Extension);
+  const low = rar.sort((a, b) => a.SortOrder - b.SortOrder)[0];
+  const lowCard = cards().find((c) => refIdOf(c.Rarity) === low.id && refIdOf(c.Extension) === ext);
+  store.update('Users', 1, { RarityPity: JSON.stringify({ [r.id]: target.threshold - 1 }) });
+  const batchId = '1-pity-' + Date.now();
+  const p = store.create('Pulls', { User: 1, Card: lowCard.id, SerialNumber: 7001, BatchId: batchId, ObtainedAt: now() });
+  const resp = { status: 200, json: { batchId, booster: { extensionId: ext }, cards: [{ cardId: lowCard.id, serialNumber: 7001, rarity: { id: low.id, key: low.Key, sortOrder: low.SortOrder } }] } };
+  native.afterWorkflow('open-pack', { body: { userId: 1, extensionId: ext } }, resp);
+  assert.equal(resp.json.cards[0].rarity.key, r.Key, 'carte remplacee par la rarete garantie');
+  assert.equal(resp.json.cards[0].pityUpgrade, true);
+  assert.equal(refIdOf(store.get('Rarities', refIdOf(store.get('Cards', refIdOf(store.get('Pulls', p.id).Card)).Rarity)).id), r.id);
+  assert.equal(JSON.parse(user(1).RarityPity)[r.id], 0);
+  assert.equal(call('GET', 'rarity-pity', { query: { userId: 1 } }).json.rarities.find((x) => x.key === r.Key).left, target.threshold);
+});
+
+await test('booster mystere : extension tiree au hasard parmi les extensions actives', () => {
+  const req = { body: { userId: 1, mystery: true } };
+  assert.equal(native.beforeWorkflow('open-pack', req), null);
+  const ext = store.get('Extensions', req.body.extensionId);
+  assert.ok(ext && ext.Active !== false);
+  assert.equal(req._mystery.extensionId, ext.id);
+});
+
+await test('course aux tresors : 5 indices sur 5 pages, recompense, bonus final', () => {
+  store.update('Users', 1, { TreasureWeek: '', TreasureFound: '[]', StardustCount: 0, BoosterCount: 0 });
+  const st = call('GET', 'treasure-hunt', { query: { userId: 1 } }).json;
+  assert.equal(st.clues.length, 5);
+  assert.equal(new Set(st.clues.map((c) => c.page)).size, 5);
+  assert.deepEqual(cluesOf(1), cluesOf(1), 'positions stables dans la semaine');
+  assert.equal(call('POST', 'treasure-hunt', { body: { userId: 1, clue: 0, page: 'nope' } }).json.error, 'unknown_clue');
+  const got = st.clues.map((c) => call('POST', 'treasure-hunt', { body: { userId: 1, clue: c.id, page: c.page } }).json);
+  assert.equal(got.reduce((t, g) => t + g.reward.dust, 0), 5 * 25);
+  assert.equal(got[4].complete, true);
+  assert.equal(call('POST', 'treasure-hunt', { body: { userId: 1, clue: 0 } }).json.error, 'already_found');
+  assert.equal(got[4].reward.boosters, 1);
+});
+
+await test('eaux profondes : verrouillees avant le niveau 10, perles et appats ensuite', () => {
+  store.update('Users', 1, { FishingXP: 0, FishingPrestige: 0, Worms: 50, FishingDay: '', FishingCasts: 0 });
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', zone: 'deep' } }).json.error, 'deep_locked');
+  store.update('Users', 1, { FishingPrestige: 1 });
+  const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', zone: 'deep', count: 3 } }).json;
+  assert.equal(r.zone, 'deep');
+  assert.equal(user(1).Worms, 50 - 3 * r.deep.cost);
+  assert.ok(r.deep.table.some((x) => x.type === 'pearl'));
+});
+
+await test('jardin etendu : graines, parcelle achetee, recolte selon la graine', () => {
+  store.update('Users', 1, { GardenPlots: '[]', GardenExtraPlots: 0, StardustCount: 5000, Worms: 0 });
+  let st = call('POST', 'garden', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.plots.length, 4);
+  assert.equal(st.seeds.length, 4);
+  st = call('POST', 'garden', { body: { userId: 1, action: 'buyPlot' } }).json;
+  assert.equal(st.plots.length, 5);
+  assert.equal(user(1).StardustCount, 5000 - 400);
+  call('POST', 'garden', { body: { userId: 1, action: 'plant', seed: 'worm', plot: 4 } });
+  call('POST', 'garden', { body: { userId: 1, action: 'plant', seed: 'dust', plot: 0 } });
+  const plots = JSON.parse(user(1).GardenPlots).map((p) => (p ? { ...p, plantedAt: p.plantedAt - 30 * 86400 } : p));
+  store.update('Users', 1, { GardenPlots: JSON.stringify(plots) });
+  const h = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  const worm = h.items.find((i) => i.seed === 'worm'), dust = h.items.find((i) => i.seed === 'dust');
+  assert.ok(worm.worms >= 3 && worm.dust === 0);
+  assert.ok(dust.dust >= 30 && dust.worms === 0);
+});
+
+await test('coffre de saison : rempli par l XP, ouvert une fois la saison passee', () => {
+  call('POST', 'season', { body: { userId: 1, action: 'status' } });
+  const cur = store.getAll('SeasonProgress').find((r) => refIdOf(r.User) === 1 && r.Season === call('POST', 'season', { body: { userId: 1 } }).json.season);
+  const prev = previousSeason(cur.Season);
+  store.getAll('SeasonProgress').filter((r) => refIdOf(r.User) === 1 && r.Season === prev).forEach((r) => store.delete('SeasonProgress', r.id));
+  store.create('SeasonProgress', { User: 1, Season: prev, StartXP: (Number(cur.StartXP) || 0) - 1200, ClaimedTier: 0 });
+  let st = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
+  assert.deepEqual(st.chest.previous.contents, { dust: 240, boosters: 2, keys: 1 });
+  store.update('Users', 1, { StardustCount: 0, BoosterCount: 0 });
+  st = call('POST', 'season', { body: { userId: 1, action: 'claimChest' } }).json;
+  assert.equal(st.chestOpened, true);
+  assert.equal(user(1).StardustCount, 240);
+  assert.equal(call('POST', 'season', { body: { userId: 1, action: 'claimChest' } }).json.error, 'nothing_to_claim');
+});
+
+await test('prestige du compte : etoiles, point de talent, titre et cadre', () => {
+  store.update('Users', 1, { XP: 30000, Talents: '{}' });
+  const p = call('GET', 'account-prestige', { query: { userId: 1 } }).json;
+  assert.ok(p.stars >= 1);
+  const t = call('POST', 'talents', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(t.points, p.level - 1 + p.stars);
+  assert.ok(store.getAll('UserCosmetics').some((c) => refIdOf(c.User) === 1 && c.Key === 'frame-prestige'));
+  store.update('Users', 1, { XP: 0 });
+});
+
+await test('evenements planifies : appliques tout seuls entre le debut et la fin', () => {
+  const t = now();
+  assert.equal(call('POST', 'admin-events', { body: { discordId: 'x' } }).status, 403);
+  assert.equal(call('POST', 'admin-events', { body: { discordId: ADMIN, action: 'save', event: { label: 'x', startAt: t, endAt: t - 1 } } }).json.error, 'invalid_dates');
+  let r = call('POST', 'admin-events', { body: { discordId: ADMIN, action: 'save', event: { label: 'Week-end doré', startAt: t - 60, endAt: t + 3600, dustMultiplier: 2 } } }).json;
+  const live = r.events.find((e) => e.label === 'Week-end doré');
+  assert.equal(live.status, 'live');
+  const ev = call('GET', 'event-status', { query: {} }).json;
+  assert.equal(ev.active, true);
+  assert.equal(ev.dustMultiplier, 2);
+  r = call('POST', 'admin-events', { body: { discordId: ADMIN, action: 'delete', id: live.id } }).json;
+  assert.ok(!r.events.some((e) => e.id === live.id));
+  assert.equal(call('GET', 'event-status', { query: {} }).json.active, false);
 });
 
 store.db.close();

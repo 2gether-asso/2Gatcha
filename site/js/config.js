@@ -126,6 +126,12 @@ window.APP_CONFIG = {
     season: "/season",                  // POST { userId, action: 'status'|'claim' } -> saison mensuelle
     adminSeason: "/admin-season",       // POST { discordId, action: 'get'|'setCard', season?, cardId? }
     fishing: "/fishing",                // POST { userId, action: 'status'|'cast', count? } -> jeu de peche
+    // Lot 2026-10-09 : inflation, pity par rarete, course aux tresors, prestige, evenements planifies
+    economyState: "/economy-state",     // GET -> { priceFactor, tight, avgWealth }
+    rarityPity: "/rarity-pity",         // GET ?userId=&extensionId= -> { rarities: [{ name, left }] }
+    treasureHunt: "/treasure-hunt",     // GET ?userId= | POST { userId, clue, page }
+    accountPrestige: "/account-prestige", // GET ?userId= -> { stars, nextLevel }
+    adminEvents: "/admin-events",       // POST { discordId, action: 'list'|'save'|'delete', event?, id? }
     push: "/push"                       // POST { userId, action: 'status'|'subscribe'|'unsubscribe'|'test', subscription? }
   }
 };

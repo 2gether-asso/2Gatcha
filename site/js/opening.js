@@ -37,6 +37,9 @@ let catalogCache = [];
 let lastOpenedExtension = null;
 // Niveau de maitrise par extension (api/src/native/progression.js).
 let masteryByExt = new Map();
+// Pity par rarete (api/src/native/pity.js) et booster mystere (2026-10-09).
+let rarityPity = [];
+const MYSTERY = { id: "mystery", name: "Booster mystère", mystery: true, packImageId: null, cardBackImageId: null };
 // Simulateur admin (2026-10-05, js/opening-sim.js) : quand il est actif, les
 // ouvertures passent par /admin-simulate (modificateurs) au lieu d'open-pack :
 // aucun booster consomme, aucune carte ni XP, aucune annonce Discord.
@@ -160,7 +163,7 @@ function buildCardEl(card, index, cardBackImageId) {
     const rowMode = !!(wrap.parentElement && wrap.parentElement.classList.contains("row-reveal"));
     if (!wrap.classList.contains("revealed")) {
       wrap.classList.add("revealed");
-      if (quiet === true) { renderStackPips(); return; }
+      if (quiet === true) { if (card.firstOfRarity) celebrateFirstOfRarity(card, wrap, color, true); renderStackPips(); return; }
       Sfx.flip();
       setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
       // celebrateRarity lit getBoundingClientRect() (spawnRarityBurst) : lu a
@@ -170,7 +173,10 @@ function buildCardEl(card, index, cardBackImageId) {
       // la rarete declenche des particules/confettis, jamais sur commune qui
       // n'a pas ce chemin). On laisse le navigateur demarrer la transition du
       // flip AVANT de forcer ce reflow, sur la frame suivante.
-      requestAnimationFrame(() => celebrateRarity(card.rarity?.key, wrap, color));
+      requestAnimationFrame(() => {
+        celebrateRarity(card.rarity?.key, wrap, color);
+        if (card.firstOfRarity) celebrateFirstOfRarity(card, wrap, color);
+      });
       renderStackPips();
       return;
     }
@@ -444,6 +450,22 @@ function spawnCardAuraRing(cardEl, colorHex, tier) {
   ring.addEventListener("animationend", () => ring.remove());
 }
 
+// Premiere carte d'une rarete dans une extension : bandeau + couronne.
+function celebrateFirstOfRarity(card, cardEl, colorHex, quiet = false) {
+  if (!cardEl || cardEl.classList.contains("first-of-rarity")) return;
+  cardEl.classList.add("first-of-rarity");
+  cardEl.style.setProperty("--first-color", colorHex || "#a855f7");
+  const glow = document.createElement("div");
+  glow.className = "first-rarity-glow";
+  glow.setAttribute("aria-hidden", "true");
+  cardEl.appendChild(glow);
+  const ribbon = document.createElement("div");
+  ribbon.className = "first-rarity-ribbon";
+  ribbon.innerHTML = `&#128081; Première ${card.firstOfRarity.rarity}${card.firstOfRarity.extension ? ` · ${card.firstOfRarity.extension}` : ""}`;
+  cardEl.appendChild(ribbon);
+  if (!quiet) setTimeout(() => Toast.success(`&#128081; Ta première ${card.firstOfRarity.rarity} de l'extension ${card.firstOfRarity.extension} !`), 450);
+}
+
 function celebrateRarity(key, cardEl, colorHex) {
   spawnRarityBurst(key, colorHex, cardEl);
   const tier = RARITY_FLASH_TIERS[key];
@@ -475,7 +497,25 @@ function celebrateRarity(key, cardEl, colorHex) {
 }
 
 function extensionById(id) {
+  if (id === "mystery") return MYSTERY;
   return extensionsCache.find((e) => e.id === id);
+}
+
+// "Epique garantie dans 12 tirages" : une ligne par rarete suivie.
+function renderRarityPity() {
+  const el = document.getElementById("rarity-pity-strip");
+  if (!el) return;
+  const list = rarityPity.filter((r) => !r.perExtension);
+  el.hidden = !list.length || !!simMode;
+  el.innerHTML = list.length ? `<span class="rps-title">&#127919; Garanties</span>${list.map((r) => `
+    <span class="rps-item" style="--r:${r.colorHex || "#a855f7"}" title="${r.name} garantie au plus tard dans ${r.left} carte${r.left > 1 ? "s" : ""} (toutes extensions)">
+      <span class="rps-dot" aria-hidden="true"></span><span class="rps-text"><strong>${r.name}</strong> garantie dans <b>${r.left}</b> tirage${r.left > 1 ? "s" : ""}</span>
+      <span class="rps-track" aria-hidden="true"><span style="width:${Math.round((1 - r.left / r.threshold) * 100)}%"></span></span>
+    </span>`).join("")}` : "";
+}
+function loadRarityPity() {
+  if (!Session.isLoggedIn() || !API.getRarityPity) return;
+  API.getRarityPity(Session.userId).then((r) => { rarityPity = r.rarities || []; renderRarityPity(); }).catch(() => {});
 }
 
 // Fondu enchaine entre le fond de la modale d'une extension a l'autre :
@@ -589,7 +629,16 @@ function renderExtensionPicker() {
     return;
   }
   const disabled = usableBoosters() < 1;
-  el.innerHTML = extensionsCache.map((ext) => {
+  const mysteryTile = extensionsCache.length > 1 ? `
+      <div class="extension-tile mystery-tile ${disabled ? "disabled" : ""}" data-ext-id="mystery">
+        <div class="ext-art mystery-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster mystère"'}>
+          <span class="mystery-q" aria-hidden="true">?</span>
+        </div>
+        <div class="ext-name">Booster mystère</div>
+        <div class="ext-count">Extension tirée au hasard</div>
+        <div class="mystery-perk">&#10024; Finitions spéciales un peu plus fréquentes</div>
+      </div>` : "";
+  el.innerHTML = mysteryTile + extensionsCache.map((ext) => {
     const img = API.imageUrl(ext.packImageId);
     const backImg = API.imageUrl(ext.cardBackImageId);
     const pity = pityByExt.get(ext.id) || 0;
@@ -614,15 +663,16 @@ function renderExtensionPicker() {
     `;
   }).join("");
 
+  const tileExt = (tile) => (tile.dataset.extId === "mystery" ? "mystery" : Number(tile.dataset.extId));
   el.querySelectorAll(".extension-tile:not(.disabled)").forEach((tile) => {
     tile.addEventListener("click", (e) => {
       if (e.target.closest(".set-summary-link")) return;
-      openModalFor(Number(tile.dataset.extId));
+      openModalFor(tileExt(tile));
     });
     tile.addEventListener("keydown", (e) => {
       if ((e.key !== "Enter" && e.key !== " ") || !e.target.closest(".ext-art")) return;
       e.preventDefault();
-      openModalFor(Number(tile.dataset.extId));
+      openModalFor(tileExt(tile));
     });
   });
   el.querySelectorAll(".set-summary-link").forEach((btn) => {
@@ -714,6 +764,7 @@ async function refreshStatus() {
     });
 
     renderExtensionPicker();
+    loadRarityPity();
   } catch (e) {
     Toast.error("Impossible de récupérer les extensions/boosters. (" + e.message + ")");
   }
@@ -762,7 +813,10 @@ function openModalFor(extensionId) {
   pack.style.setProperty("--pity-ratio", String(pityRatio));
 
   const img = API.imageUrl(ext.packImageId);
-  pack.innerHTML = img
+  pack.classList.toggle("mystery-pack", !!ext.mystery);
+  pack.innerHTML = ext.mystery
+    ? `<div class="booster-emoji mystery-q">?</div><div class="booster-title">Booster mystère</div><div class="booster-sub">Extension surprise</div>`
+    : img
     ? `<img src="${img}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px;position:absolute;inset:0;" />`
     : `<div class="booster-emoji">&#127183;</div><div class="booster-title">${ext.name}</div><div class="booster-sub">5 cartes</div>`;
   hint.textContent = "Tape sur le booster pour l'ouvrir";
@@ -970,10 +1024,20 @@ async function startOpening(ext) {
     // Cartes ameliorees par les bonus perso (maitrise, heure de chance, de, talents).
     let boosted = 0;
     let lastBoosterInfo = null;
+    // Booster mystere : extension(s) tiree(s) par le serveur.
+    const mysteryNames = [];
+    let backImageId = ext.cardBackImageId;
+    let pityHits = [];
     for (let i = 0; i < quantity; i++) {
+      const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
       const res = sim
-        ? await API.adminSimulate(Session.discordId, "pack", { extensionId: ext.id, modifiers: sim })
-        : await API.openPack(Session.userId, ext.id);
+        ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
+        : await API.openPack(Session.userId, ext.id, !!ext.mystery);
+      if (ext.mystery) {
+        const real = extensionById(res.mystery ? res.mystery.extensionId : simExt.id);
+        if (real) { mysteryNames.push(real.name); backImageId = backImageId || real.cardBackImageId; }
+      }
+      if (res.rarityPity) pityHits.push(res.rarityPity.name);
       if (res.error === "no_boosters") {
         if (i === 0) {
           pack.classList.remove("charging");
@@ -1038,6 +1102,12 @@ async function startOpening(ext) {
     if (duplicateDust) lastPackTags.push({ kind: "dust", html: `&#10024; +${duplicateDust} poussières (doublons)`, short: `+${duplicateDust} poussières de doublons` });
     if (boosted) lastPackTags.push({ kind: "bonus", html: `&#127808; ${boosted} carte${boosted > 1 ? "s" : ""} améliorée${boosted > 1 ? "s" : ""} par tes bonus`, short: `${boosted} améliorée${boosted > 1 ? "s" : ""}` });
     if (bonusCards) lastPackTags.push({ kind: "bonus", html: `&#127873; ${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus`, short: `${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus` });
+    if (mysteryNames.length) {
+      const names = [...new Set(mysteryNames)];
+      lastPackTags.push({ kind: "mystery", html: `&#10067; Mystère : ${names.join(", ")}`, short: `mystère (${names.join(", ")})` });
+      Toast.info(`&#10067; Booster mystère : ${names.join(", ")} !`);
+    }
+    if (pityHits.length) lastPackTags.push({ kind: "pity", html: `&#127919; ${[...new Set(pityHits)].join(", ")} garantie (pity)`, short: "pity" });
     renderPackTags(lastPackTags);
     pack.classList.add("tearing");
     if (chargeRing) chargeRing.classList.remove("active");
@@ -1057,6 +1127,18 @@ async function startOpening(ext) {
     // internes a un x5 (deux fois la meme carte dans le meme paquet).
     // Simulation : compteur sur une copie, la collection reelle ne bouge pas.
     const counts = sim ? new Map(ownedCountMap) : ownedCountMap;
+    // Premiere carte d'une rarete (rare et plus) dans son extension : animation speciale.
+    const catalogById = new Map(catalogCache.map((c) => [c.cardId, c]));
+    const ownedRarity = new Set();
+    catalogCache.forEach((c) => { if ((counts.get(c.cardId) || 0) > 0) ownedRarity.add(`${c.extension?.id}|${c.rarity?.key}`); });
+    allCards.forEach((card) => {
+      const cat = catalogById.get(card.cardId);
+      const key = `${cat?.extension?.id}|${card.rarity?.key}`;
+      if (cat && (RARITY_ORDER[card.rarity?.key] ?? 0) >= 1 && !ownedRarity.has(key)) {
+        card.firstOfRarity = { rarity: card.rarity?.name || "", extension: extensionById(cat.extension?.id)?.name || cat.extension?.name || "" };
+        ownedRarity.add(key);
+      }
+    });
     allCards.forEach((card) => {
       const before = counts.get(card.cardId) || 0;
       card.isNewToPlayer = before === 0;
@@ -1068,7 +1150,7 @@ async function startOpening(ext) {
     sessionBatchIds = batchIds;
     stackIndex = 0;
     stackCardEls = allCards.map((card, i) => {
-      const el = buildCardEl(card, i, ext.cardBackImageId);
+      const el = buildCardEl(card, i, backImageId);
       grid.appendChild(el);
       return el;
     });
@@ -1083,6 +1165,7 @@ async function startOpening(ext) {
       renderExtensionPicker();
     }
     loadHeaderBoosterBadge();
+    if (!sim) loadRarityPity();
     // isBusy repasse a false une fois toutes les cartes tapees (voir onAllRevealed).
   } catch (e) {
     pack.classList.remove("charging", "tearing");

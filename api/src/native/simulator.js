@@ -8,6 +8,9 @@
 
 import { refId, ok, fail, isAdmin, configRow, cardSummary } from './common.js';
 import { eventState } from './events.js';
+import { setting } from './settings.js';
+import { rateFactor } from './market.js';
+import { price as indexed, gainMultiplier, isTight } from './inflation.js';
 
 const BOOSTER_SIZE = 5;
 const MAX_BOOSTERS = 5000;
@@ -125,6 +128,14 @@ function handle({ store, body }) {
   const byRarity = new Map(), byFinish = new Map(), byQuality = new Map(), byCard = new Map();
   let cards = 0, shinyPacks = 0, bonusCards = 0, pityHits = 0, dust = 0, topCount = 0;
   const best = [];
+  // Bilan economique (2026-10-09) : un joueur qui part de zero ouvre ces
+  // boosters ; poussieres des doublons (reglages actuels, plafond compris) et
+  // valeur de decraft de tous ses doublons, comparees au prix en boutique.
+  const copies = new Map();
+  const dupCommon = setting(store, 'DuplicateDustCommon'), dupOther = setting(store, 'DuplicateDustOther');
+  const dupCap = setting(store, 'DuplicateDustCapCopies'), gm = gainMultiplier(store);
+  const rateByKey = new Map(ctx.rarities.map((r) => [r.Key, rateFactor(store, r.Key)]));
+  let dupDust = 0, decraftDup = 0, duplicates = 0;
   const finishMult = new Map((store.tables.has('Finishes') ? store.getAll('Finishes') : []).map((f) => [f.Key, Number(f.DisenchantMultiplier) || 1]));
   const qualityMult = new Map((store.tables.has('Qualities') ? store.getAll('Qualities') : []).map((q) => [q.Key, Number(q.DisenchantMultiplier) || 1]));
   for (let i = 0; i < n; i++) {
@@ -141,7 +152,15 @@ function handle({ store, body }) {
       byCard.set(d.card.id, (byCard.get(d.card.id) || 0) + 1);
       if (d.pityHit) pityHits++;
       if (r && r.id === topStatId) topCount++;
-      dust += Math.round((Number(r && r.DisenchantValue) || 0) * (finishMult.get(d.finish) || 1) * (qualityMult.get(d.quality) || 1));
+      const value = Math.round((Number(r && r.DisenchantValue) || 0) * (finishMult.get(d.finish) || 1) * (qualityMult.get(d.quality) || 1));
+      dust += value;
+      const had = copies.get(d.card.id) || 0;
+      copies.set(d.card.id, had + 1);
+      if (had > 0) {
+        duplicates++;
+        dupDust += dupCap > 0 && had >= dupCap ? 1 : Math.max(1, Math.round((key === 'commune' ? dupCommon : dupOther) * gm));
+        decraftDup += Math.round(value * (rateByKey.get(key) || 1) * (isTight(store) ? 0.9 : 1));
+      }
       const score = (r ? r.SortOrder || 0 : 0) * 100 + FINISH_RANK.indexOf(d.finish) * 10 + QUALITY_RANK.indexOf(d.quality);
       if (best.length < 12 || score > best[best.length - 1].score) {
         best.push({ score, d });
@@ -152,13 +171,23 @@ function handle({ store, body }) {
   }
   const totalWeight = ctx.rarities.reduce((s, r) => s + (ctx.weights.get(r.id) || 0), 0) || 1;
   const pct = (x) => Math.round((x / Math.max(1, cards)) * 1000) / 10;
+  const shopPrice = indexed(store, setting(store, 'BoosterShopPrice'));
+  const perBooster = (dupDust + decraftDup) / n;
+  const economy = {
+    duplicates, duplicateDust: dupDust, decraftDuplicates: decraftDup,
+    dustPerBooster: Math.round(perBooster * 10) / 10,
+    shopPrice, tight: isTight(store),
+    boostersToBuyOne: perBooster > 0 ? Math.round((shopPrice / perBooster) * 10) / 10 : null
+  };
+  // Un booster doit couter bien plus que ce que rapportent les doublons d'un booster.
+  economy.verdict = economy.boostersToBuyOne == null ? 'ok' : economy.boostersToBuyOne < 3 ? 'generous' : economy.boostersToBuyOne < 6 ? 'watch' : 'ok';
   const me = store.getAll('Users').find((u) => String(u.DiscordId || '') === String(body.discordId));
   const owned = me ? new Set(store.getAll('Pulls').filter((p) => refId(p.User) === me.id).map((p) => refId(p.Card))) : new Set();
   return ok({
     simulated: true, boosters: n, cards, shinyPacks, bonusCards, pityHits,
     distinctCards: byCard.size, poolSize: ctx.cards.length,
     newForMe: [...byCard.keys()].filter((id) => !owned.has(id)).length,
-    estimatedDust: dust,
+    estimatedDust: dust, economy,
     boostersPerTopRarity: topCount ? Math.round((n / topCount) * 10) / 10 : null,
     applied: { specialFinishChance: ctx.specialFinishChance, shinyChance: ctx.shinyChance, bonusCardChance: ctx.bonusCardChance, pity: ctx.pityThreshold !== Infinity },
     rarities: [...ctx.rarities].sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0)).map((r) => ({

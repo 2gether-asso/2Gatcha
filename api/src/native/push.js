@@ -15,7 +15,7 @@ import { seasonId, seasonEnd } from './seasons.js';
 import { challengeState, goalState } from './challenges.js';
 import { tourneyKey } from './fishing.js';
 import { luckyWindows } from './daily.js';
-import { growSeconds } from './garden.js';
+import { growSeconds, seedMult } from './garden.js';
 
 export const schema = {
   AppSettings: { Key: { type: 'Text' }, Value: { type: 'Text' } },
@@ -106,7 +106,7 @@ function dueFor(store, user, sinceSub, ctx) {
   try {
     const plots = JSON.parse(user.GardenPlots || '[]');
     const grow = growSeconds(store, user);
-    const readyAt = plots.filter((p) => p && p.plantedAt).map((p) => p.plantedAt + grow).filter((r) => r <= t && r > t - 12 * 3600);
+    const readyAt = plots.filter((p) => p && p.plantedAt).map((p) => p.plantedAt + Math.round(grow * seedMult(p))).filter((r) => r <= t && r > t - 12 * 3600);
     if (readyAt.length) out.push({ kind: 'garden', key: String(Math.max(...readyAt)), title: '🌻 Ton jardin est prêt', body: 'Viens récolter tes vers de terre (et peut-être un appât doré).', url: 'jeux.html#jardin' });
   } catch (e) { /* jardin illisible */ }
   for (const w of ctx.lucky) if (w.start > t && w.start - t <= 3600) out.push({ kind: 'lucky', key: String(w.start), title: '🍀 Heure de chance dans moins d’une heure', body: 'Finitions spéciales et poussières boostées pendant une heure : garde tes boosters !', url: 'ouverture.html' });

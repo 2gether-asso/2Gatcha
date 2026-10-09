@@ -322,8 +322,8 @@ const API = {
     return data;
   },
 
-  openPack(userId, extensionId) {
-    return this.post("openPack", { userId, extensionId });
+  openPack(userId, extensionId, mystery = false) {
+    return this.post("openPack", mystery ? { userId, mystery: true } : { userId, extensionId });
   },
 
   // Annonce Discord automatique (Mythique/Legendaire/Epique) - appelee par
@@ -764,9 +764,16 @@ const API = {
   adminSetSeasonCard(discordId, season, cardId) {
     return this.post("adminSeason", { discordId, action: "setCard", season, cardId });
   },
-  fishing(userId, action, count, bait) {
-    return this.post("fishing", { userId, action, count, bait: !!bait });
+  fishing(userId, action, count, bait, zone) {
+    return this.post("fishing", { userId, action, count, bait: !!bait, zone: zone || "shore" });
   },
+  claimSeasonChest(userId) { return this.post("season", { userId, action: "claimChest" }); },
+  getEconomyState() { return this.get("economyState"); },
+  getRarityPity(userId, extensionId) { return this.get("rarityPity", extensionId ? { userId, extensionId } : { userId }); },
+  getTreasureHunt(userId) { return this.get("treasureHunt", { userId }); },
+  findTreasure(userId, clue, page) { return this.post("treasureHunt", { userId, clue, page }); },
+  getAccountPrestige(userId) { return this.get("accountPrestige", { userId }); },
+  adminEvents(discordId, action = "list", params = {}) { return this.post("adminEvents", { discordId, action, ...params }); },
   chests(userId, action) {
     return this.post("chests", { userId, action });
   },
