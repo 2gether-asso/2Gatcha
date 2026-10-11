@@ -17,6 +17,7 @@ import { createAdmin } from './admin.js';
 import { AzureBackup, startBackupSchedule } from './backup.js';
 import { initMonitoring, captureError, flushMonitoring } from './monitoring.js';
 import { createNative } from './native/index.js';
+import { requestContext, freshContext } from './native/context.js';
 import { isInvalidGrant } from './native/auth.js';
 
 // Suivi des erreurs (GlitchTip) le plus tot possible.
@@ -66,9 +67,12 @@ class Mutex {
   }
 }
 const mutex = new Mutex();
+// Chaque operation sous verrou a son propre contexte (source du journal de
+// l'economie), conserve meme quand le verrou est relache pendant un appel
+// externe (voir native/context.js).
 async function withLock(fn) {
   await mutex.acquire();
-  try { return await fn(); } finally { mutex.release(); }
+  try { return await requestContext.run(freshContext(), fn); } finally { mutex.release(); }
 }
 // Appel externe (Discord) : relache le verrou pendant l'attente reseau, avec
 // un delai maximal pour qu'un Discord lent ne bloque jamais l'API.
@@ -255,7 +259,9 @@ async function handleBatch(req, res, url) {
   return sendJson(res, req, 200, { results });
 }
 
-const handleAdmin = createAdmin({ store, withLock, token: config.adminToken, sendJson, backups, workflowsDir: config.workflowsDir });
+// Page d'admin de la base : ses modifications sont journalisees comme telles.
+const adminLock = (fn) => withLock(() => { Object.assign(requestContext.getStore(), { source: 'admin-db', actor: 'Page admin de la base' }); return fn(); });
+const handleAdmin = createAdmin({ store, withLock: adminLock, token: config.adminToken, sendJson, backups, workflowsDir: config.workflowsDir });
 
 const server = http.createServer(async (req, res) => {
   const started = Date.now();

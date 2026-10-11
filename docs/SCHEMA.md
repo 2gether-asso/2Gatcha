@@ -1140,6 +1140,7 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | Users | TreasureWeek, TreasureFound | Text | course aux tresors : semaine et indices trouves (JSON) |
 | Users | BoneUseDay, BoneUseCount | Text, Numeric | os donnes au chien aujourd'hui (4 par jour au plus) |
 | Users | Upgrades | Text | JSON { kennel, greenhouse, rod } : niveaux des ameliorations permanentes |
+| EconomyLog | At, User, Source, Action, Actor, Boosters, Dust, Detail | Numeric, Ref:Users, Text, Text, Text, Numeric, Numeric, Text | journal detaille de l'economie (45 jours) : Actor = joueur:ID, admin:DiscordID, Page admin de la base, serveur ; Source inconnu = endroit du code dans Detail |
 | AppSettings | Key = balance-2026-10-11 | Text | migration d'equilibrage : date et reglages modifies (anciennes valeurs) |
 | Users | GardenExtraPlots | Numeric | parcelles de jardin achetees en plus des 4 offertes |
 | SeasonProgress | ChestClaimed | Bool | coffre de saison ouvert |

@@ -16,6 +16,8 @@ import * as inflation from '../src/native/inflation.js';
 import { cluesOf } from '../src/native/treasure.js';
 import { previousSeason } from '../src/native/seasons.js';
 import * as balance from '../src/native/balance.js';
+import * as ledger from '../src/native/ledger.js';
+import { requestContext, freshContext } from '../src/native/context.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-progress-${process.pid}.sqlite`);
@@ -631,6 +633,54 @@ await test('decraft : bonus x2 pour une carte presque introuvable sur le serveur
   const resp = { status: 200, json: { disenchanted: true, dustGained: 20, newStardust: 20 } };
   native.afterWorkflow('disenchant', { body: { userId: 1, cardId: c.id } }, resp);
   assert.ok(resp.json.bonuses.some((b) => b.label.includes('rare sur le serveur') && b.dust === 20));
+});
+
+// ------------------------------------------------------------------ journal 2026-10-11
+await test('journal : deux requetes entrelacees gardent chacune leur source (plus de "autre")', async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const boosters = Number(user(1).BoosterCount) || 0;
+  // A : code evenement qui attend Discord (verrou relache) ; B passe et finit pendant ce temps.
+  await Promise.all([
+    requestContext.run(freshContext(), async () => {
+      native.beforeRequest({ userId: 1, code: 'NOEL24' }, {}, 'redeem-code');
+      await sleep(30);
+      store.update('Users', 1, { BoosterCount: boosters + 3 });
+      native.endRequest();
+    }),
+    requestContext.run(freshContext(), async () => {
+      await sleep(5);
+      native.beforeRequest({ userId: 2, action: 'status' }, {}, 'dig');
+      native.endRequest();
+    })
+  ]);
+  const row = store.getAll('EconomyLog').filter((r) => refIdOf(r.User) === 1).sort((a, b) => b.id - a.id)[0];
+  assert.equal(row.Source, 'redeem-code');
+  assert.equal(row.Boosters, 3);
+  assert.equal(row.Actor, 'joueur:1');
+  assert.ok(row.Detail.includes('NOEL24'));
+  const day = store.getAll('EconomyDaily').filter((r) => r.Source === 'redeem-code');
+  assert.ok(day.length >= 1);
+});
+
+await test('journal : origine inconnue tracee, lignes "autre" supprimees une fois, route admin', () => {
+  // Ecriture hors requete : source "inconnu" + endroit du code.
+  native.endRequest();
+  store.update('Users', 1, { BoosterCount: (Number(user(1).BoosterCount) || 0) + 1 });
+  const unknown = store.getAll('EconomyLog').sort((a, b) => b.id - a.id)[0];
+  assert.equal(unknown.Source, 'inconnu');
+  assert.ok(unknown.Detail.length > 0, 'endroit du code');
+  // Nettoyage des "autre".
+  store.create('EconomyDaily', { Day: '2026-10-01', Source: 'autre', BoostersIn: 50 });
+  const flag = store.getAll('AppSettings').find((r) => r.Key === 'cleanup-autre-2026-10-11');
+  if (flag) store.delete('AppSettings', flag.id);
+  ledger.init({ store });
+  assert.equal(store.getAll('EconomyDaily').filter((r) => r.Source === 'autre').length, 0);
+  // Route admin.
+  assert.equal(call('POST', 'admin-economy-log', { body: { discordId: 'x' } }).status, 403);
+  const r = call('POST', 'admin-economy-log', { body: { discordId: ADMIN, boostersOnly: true } }).json;
+  assert.ok(r.rows.length >= 2);
+  assert.ok(r.totals.some((t) => t.source.startsWith('redeem-code')));
+  assert.ok(r.rows.some((x) => x.actor && !x.actor.startsWith('joueur:')), 'pseudo resolu');
 });
 
 store.db.close();

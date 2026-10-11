@@ -175,6 +175,7 @@ doublons, coup final au boss) sans le modifier.
 | `account-prestige.js` | `GET account-prestige` | prestige du compte : étoiles au-delà des talents complets (+1 point de talent, titre, cadre) |
 | `balance.js` | — | équilibrage des boosters (2026-10-11) : booster de fouille gardé une fois sur deux et jamais au-delà du plein rendement du jour, chien sans boosters (poussières à la place), 4 os par jour ; migration unique `balance-2026-10-11` qui ramène aux nouvelles valeurs les réglages plus généreux (anciennes valeurs gardées dans AppSettings) |
 | `upgrades.js` | `POST upgrades`, `POST finish-reroll` | dépenses durables : améliorations permanentes (chenil, serre, canne) et relance de finition payante |
+| `ledger.js`, `context.js` | `POST admin-economy-log` | journal détaillé de l'économie : chaque mouvement de boosters (et de 200 poussières ou plus), avec le joueur, la route, l'action, qui l'a déclenché et le détail ; contexte propre à chaque requête (AsyncLocalStorage), conservé pendant les appels externes des workflows ; modifications de la page d'admin de la base notées `admin-db` |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

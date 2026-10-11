@@ -694,6 +694,28 @@ function econFlows(f, fmt) {
     </table></div>`;
 }
 
+// Journal detaille (api/src/native/ledger.js).
+async function loadEconomyLog() {
+  const box = document.getElementById("econ-log");
+  if (!box) return;
+  const select = document.getElementById("econ-log-source");
+  const params = { source: select.value || undefined, boostersOnly: document.getElementById("econ-log-boosters").checked };
+  try {
+    const r = await API.adminEconomyLog(Session.discordId, params);
+    if (select.options.length <= 1) r.sources.forEach((s) => select.add(new Option(s, s)));
+    const when = (t) => new Date(t * 1000).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const sign = (n) => (n > 0 ? "+" + n : String(n));
+    box.innerHTML = `
+      ${r.totals.length ? `<p class="econ-log-totals"><strong>Boosters créés sur 7 jours :</strong> ${r.totals.slice(0, 12).map((t) => `${esc(t.source)} <b>${t.boosters}</b>`).join(" · ")}</p>` : ""}
+      <div class="table-scroll"><table class="econ-table econ-log-table">
+        <thead><tr><th>Quand</th><th>Joueur</th><th>Source · action</th><th>Par</th><th>Boosters</th><th>Poussières</th><th>Détail</th></tr></thead>
+        <tbody>${r.rows.map((x) => `<tr class="${x.source === "inconnu" ? "econ-unknown" : ""}"><td>${when(x.at)}</td><td>${esc(x.pseudo)}</td><td>${esc(x.source)}${x.action ? " · " + esc(x.action) : ""}</td><td>${esc(x.actor)}</td><td class="num ${x.boosters > 0 ? "pos" : x.boosters < 0 ? "neg" : ""}">${x.boosters ? sign(x.boosters) : ""}</td><td class="num">${x.dust ? sign(x.dust) : ""}</td><td class="econ-detail">${esc(x.detail)}</td></tr>`).join("") || '<tr><td colspan="7">Rien pour l\'instant : le journal démarre avec cette version.</td></tr>'}</tbody>
+      </table></div>`;
+  } catch (err) { box.innerHTML = `<p class="empty-state">Journal indisponible (${err.message}).</p>`; }
+}
+document.addEventListener("change", (e) => { if (e.target && (e.target.id === "econ-log-source" || e.target.id === "econ-log-boosters")) loadEconomyLog(); });
+
 async function loadEconomy() {
   const el = document.getElementById("economy-zone");
   el.className = "";
@@ -727,7 +749,15 @@ async function loadEconomy() {
         <div><h3>Cartes les plus répandues</h3>${list(e.mostCommonCards, (c) => `<li><span>${c.name} <small>${c.rarity}</small></span><strong>${c.copies}</strong></li>`)}</div>
         <div><h3>Cartes les plus rares</h3>${list(e.rarestCards, (c) => `<li><span>${c.name} <small>${c.rarity}</small></span><strong>${c.copies}</strong></li>`)}</div>
       </div>
-      ${econFlows(e.flows, fmt)}`;
+      ${econFlows(e.flows, fmt)}
+      <h3 style="margin-top:20px;">&#128269; Journal détaillé : d'où et de qui</h3>
+      <p class="lead" style="font-size:0.82rem;">Chaque booster créé ou dépensé (et chaque mouvement d'au moins 200 poussières), un par un, avec la route, l'action, qui l'a déclenché et le détail (code utilisé, cible…). Gardé 45 jours.</p>
+      <div class="econ-log-tools">
+        <select id="econ-log-source" aria-label="Filtrer par source"><option value="">Toutes les sources</option></select>
+        <label class="checkbox-inline"><input type="checkbox" id="econ-log-boosters" checked /> Boosters seulement</label>
+      </div>
+      <div id="econ-log"></div>`;
+    loadEconomyLog();
   } catch (err) {
     el.className = "empty-state";
     el.textContent = err.code === "forbidden" ? "Accès réservé aux admins." : "Impossible de charger l'économie.";

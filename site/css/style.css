@@ -7956,3 +7956,14 @@ button.header-stats:hover { transform: none; filter: none; border-color: var(--b
   .streak-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .streak-day.streak-big { grid-column: span 2; }
 }
+
+/* --- Admin : journal détaillé de l'économie --- */
+.econ-log-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.econ-log-totals { font-size: 0.82rem; color: var(--text-dim); line-height: 1.6; }
+.econ-log-totals b { color: var(--text); }
+.econ-log-table td { font-size: 0.8rem; vertical-align: top; }
+.econ-log-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.econ-log-table td.pos { color: var(--success); font-weight: 700; }
+.econ-log-table td.neg { color: var(--danger); }
+.econ-log-table .econ-detail { max-width: 320px; overflow-wrap: anywhere; color: var(--text-dim); font-size: 0.74rem; }
+.econ-log-table tr.econ-unknown td { background: color-mix(in srgb, var(--danger) 10%, transparent); }

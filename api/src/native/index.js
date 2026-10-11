@@ -75,13 +75,15 @@ import * as inflation from './inflation.js';
 import * as pity from './pity.js';
 import * as balance from './balance.js';
 import * as upgrades from './upgrades.js';
+import * as ledger from './ledger.js';
+import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
 import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily];
 // XP doublee pendant l'action du jour (daily.js).
@@ -99,14 +101,18 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   // Colonnes ecrites par les workflows mais absentes de la base.
   const missing = ensureSchema(store, workflowSchemaSpec(store, workflowsDir));
   if (missing.length) console.log('Colonnes des workflows creees :', missing.join(', '));
+  currentContext().source = 'démarrage';
+  currentContext().actor = 'serveur';
   auth.init({ store });
   unique.init({ store });
   fishing.init({ store });
   balance.init({ store });
+  ledger.init({ store });
+  Object.assign(currentContext(), { source: null, actor: null });
 
-  // Contexte de la requete en cours : source du journal de l'economie et
-  // annonces a renvoyer au joueur (defis accomplis, succes debloques...).
-  const ctx = { source: null, userId: 0, notices: [] };
+  // Contexte de la requete en cours (propre a chaque requete, voir
+  // context.js) : source du journal de l'economie et annonces a renvoyer au
+  // joueur (defis accomplis, succes debloques...).
   // Journal de l'economie : toute variation de boosters / poussieres / vers
   // d'un joueur, quel que soit le module ou le workflow qui l'ecrit.
   const rawUpdate = store.update.bind(store);
@@ -117,6 +123,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     const before = store.get('Users', id);
     // XP doublee : action du jour (daily.js) et potion de savoir (shop.js).
     const boosted = xpWrite && before && (Number(before.XpBoostUntil) || 0) > Math.floor(Date.now() / 1000);
+    const ctx = currentContext();
     const house = xpWrite && before && ctx.source && daily.isHouseSource(ctx.source);
     if (house || boosted) {
       try {
@@ -136,19 +143,21 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       } catch (e) { console.error(e); captureError(e, { hook: 'house-xp' }); }
     }
     if ('StardustCount' in fields && before) {
-      const ledger = insights.ledgerFields(before, fields, ctx.source);
-      if (ledger) fields = { ...fields, DustLedger: ledger };
+      const dustLedger = insights.ledgerFields(before, fields, ctx.source);
+      if (dustLedger) fields = { ...fields, DustLedger: dustLedger };
     }
     const row = rawUpdate(name, id, fields);
     if (!('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return row;
     try {
-      economy.record(store, ctx.source, before, row);
+      economy.record(store, ctx.source || 'inconnu', before, row);
+      ledger.log(store, ctx, before, row);
       if ('StardustCount' in fields) ctx.notices.push(...achievements.onBalance(store, row));
     } catch (e) { console.error(e); captureError(e, { hook: 'ledger' }); }
     return row;
   };
   // Evenements d'une action -> abonnes ; annonces du joueur dans la reponse.
   const observe = (path, body, response) => {
+    const ctx = currentContext();
     try {
       const events = activity.eventsFrom(store, path, body, response);
       ctx.notices.push(...activity.dispatch(store, SUBSCRIBERS, events));
@@ -173,8 +182,13 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Avant chaque action d'un joueur (sous le verrou) : instantane de saison.
     beforeRequest(body = {}, query = {}, path = null) {
-      ctx.source = path || 'autre';
+      const ctx = currentContext();
+      ctx.source = path || 'requête';
+      ctx.action = String(body.action || query.action || '');
       ctx.userId = Number(body.userId || query.userId) || 0;
+      // Qui declenche : un admin (discordId) ou le joueur de la session.
+      ctx.actor = body.discordId ? 'admin:' + body.discordId : ctx.userId ? 'joueur:' + ctx.userId : 'anonyme';
+      ctx.detail = ledger.summarizeBody(body);
       ctx.notices = [];
       for (const m of [unique, rules, fishing, market, inflation]) {
         try { m.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeRequest' }); }
@@ -197,7 +211,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     // Remet en place les exemplaires assures si le workflow a echoue.
     restore(request) { try { market.restoreHidden(store, request); } catch (e) { console.error(e); } },
     // Fin de la requete : le journal n'attribue plus rien a cette source.
-    endRequest() { ctx.source = null; ctx.userId = 0; ctx.notices = []; },
+    endRequest() { Object.assign(currentContext(), { source: null, action: null, userId: 0, actor: null, detail: null, notices: [] }); },
     // A appeler sous le verrou.
     run(method, path, { body = {}, query = {} } = {}) {
       const response = routes.get(`${method} ${path}`)({ store, body, query });

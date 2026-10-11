@@ -770,6 +770,7 @@ const API = {
   upgrades(userId, action = "status", key) { return this.post("upgrades", { userId, action, key }); },
   finishReroll(userId, pullId, action = "status") { return this.post("finishReroll", { userId, pullId, action }); },
   claimSeasonChest(userId) { return this.post("season", { userId, action: "claimChest" }); },
+  adminEconomyLog(discordId, params = {}) { return this.post("adminEconomyLog", { discordId, ...params }); },
   getEconomyState() { return this.get("economyState"); },
   getRarityPity(userId, extensionId) { return this.get("rarityPity", extensionId ? { userId, extensionId } : { userId }); },
   getTreasureHunt(userId) { return this.get("treasureHunt", { userId }); },
