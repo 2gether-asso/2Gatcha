@@ -26,7 +26,7 @@ function digEnergy(store, user) {
   const cfg = configRow(store);
   const lvl = digLevel(store, user).level;
   const max = (Number(cfg.DigMaxEnergy) || 5) + Math.floor(lvl / 2);
-  const regen = Math.round((Number(cfg.DigRegenSeconds) || 60) * (1 - 0.05 * (lvl - 1)));
+  const regen = Math.round((Number(cfg.DigRegenSeconds) || 600) * (1 - 0.05 * (lvl - 1)));
   const stored = user.DigEnergy != null && user.DigEnergy !== '' ? Number(user.DigEnergy) : max;
   const elapsed = Math.max(0, now() - (Number(user.LastDigEnergyAt) || now()));
   return { energy: Math.min(max, stored + Math.floor(elapsed / regen)), max };

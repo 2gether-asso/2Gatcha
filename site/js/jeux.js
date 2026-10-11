@@ -389,7 +389,9 @@ function renderKennel(res) {
   const useBtn = document.getElementById("dig-use-bone-btn");
   // Os cumulables (2026-10-04) : redonner un os prolonge la sortie de 2 h,
   // tant que le chien n'a pas deja plus de 10 h devant lui.
-  useBtn.disabled = bones < 1 || left > 10 * 3600;
+  const bonesLeft = res.bonesLeftToday;
+  useBtn.disabled = bones < 1 || left > 10 * 3600 || bonesLeft === 0;
+  useBtn.title = bonesLeft != null ? `Encore ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui` : "";
   useBtn.innerHTML = left > 0 ? "&#129460; Prolonger de 2 h" : "&#129460; Lancer le chien";
   document.getElementById("dig-kennel-dog").classList.toggle("digging", left > 0);
   const text = document.getElementById("dig-kennel-text");
@@ -404,8 +406,8 @@ function renderKennel(res) {
     kennelTimer = setInterval(() => { remaining -= 30; if (remaining <= 0) { clearInterval(kennelTimer); kennelTimer = null; loadDig(); return; } render(); }, 30000);
   } else {
     text.textContent = bones
-      ? "Donne-lui un os : il creuse 2 h pour toi sans énergie (24 tuiles), flaire les trésors, rapporte les cartes trouvées et te montre où creuser."
-      : "Un os envoie le chien creuser 2 h à ta place : 24 tuiles, du flair pour les trésors et les vraies cartes rapportées.";
+      ? `Donne-lui un os : il creuse 2 h pour toi sans énergie (24 tuiles), flaire les trésors, rapporte cartes et poussières et te montre où creuser.${bonesLeft != null ? ` ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui.` : ""}`
+      : "Un os envoie le chien creuser 2 h à ta place : 24 tuiles, du flair pour les trésors, les cartes et les poussières rapportées (4 os par jour au plus).";
   }
   announceDogReport(res.dogReport);
 }
@@ -415,6 +417,7 @@ function announceDogReport(r) {
     const parts = [];
     if (r.dust) parts.push(`+${r.dust} poussières`);
     if (r.boosters) parts.push(`+${r.boosters} booster${r.boosters > 1 ? "s" : ""}`);
+    if (r.kennelBonus) parts.push(`(dont +${r.kennelBonus} grâce au chenil)`);
     if (r.keys) parts.push(`+${r.keys} &#128273;`);
     if (r.worms) parts.push(`+${r.worms} vers de terre &#129713;`);
     (r.cards || []).forEach((c) => parts.push(`&#127183; ${c.name}${c.serialNumber != null ? " #" + String(c.serialNumber).padStart(3, "0") : ""}`));
@@ -456,7 +459,7 @@ async function kennelAction(kind, btn) {
     await loadDig();
   } catch (e) {
     btn.disabled = false;
-    const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Le chien creuse déjà !", dog_max_time: "Le chien a déjà assez de travail pour le moment." };
+    const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Le chien creuse déjà !", dog_max_time: "Le chien a déjà assez de travail pour le moment.", dog_daily_limit: "Le chien a assez creusé aujourd'hui (4 os par jour) : reviens demain !" };
     Toast.error(msg[e.code] || ("Erreur. (" + e.message + ")"));
   }
 }

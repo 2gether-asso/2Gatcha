@@ -395,6 +395,16 @@ function renderBossGrid() {
   const dupesOnly = document.getElementById("boss-dupes-only")?.checked;
   let variants = bossVariants();
   if (dupesOnly) variants = variants.filter((v) => v.totalOwned > 1);
+  const rarityFilter = document.getElementById("boss-rarity-filter");
+  if (rarityFilter) {
+    // Liste des raretes possedees (remplie une fois).
+    if (rarityFilter.options.length <= 1) {
+      const seen = new Map();
+      bossVariants().forEach((v) => { if (v.card.rarity) seen.set(v.card.rarity.key, v.card.rarity); });
+      [...seen.values()].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).forEach((r) => rarityFilter.add(new Option(r.name, r.key)));
+    }
+    if (rarityFilter.value) variants = variants.filter((v) => v.card.rarity?.key === rarityFilter.value);
+  }
   if (bossSearchQuery) {
     const q = normalize(bossSearchQuery);
     variants = variants.filter((v) => normalize(v.card.name).includes(q));
@@ -429,6 +439,29 @@ function renderBossGrid() {
   renderBossTray();
 }
 
+// Meilleure salve auto (2026-10-11) : les doublons qui frappent le plus fort,
+// en gardant toujours un exemplaire de chaque carte et sans jamais prendre un
+// #001, une arc-en-ciel ou un parfait etat.
+function bossAutoVolley() {
+  bossSelection.clear();
+  const precious = (c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint";
+  const leftByCard = new Map();
+  const picks = [];
+  bossVariants().filter((v) => v.totalOwned > 1).sort((a, b) => b.perCard - a.perCard).forEach((v) => {
+    if (!leftByCard.has(v.card.cardId)) leftByCard.set(v.card.cardId, v.totalOwned - 1);
+    for (const c of v.copies) {
+      if (picks.length >= bossRules.maxCards || leftByCard.get(v.card.cardId) <= 0) break;
+      if (precious({ ...c, finish: v.finish, quality: v.quality })) continue;
+      picks.push(v.key);
+      leftByCard.set(v.card.cardId, leftByCard.get(v.card.cardId) - 1);
+    }
+  });
+  picks.forEach((k) => bossSelection.set(k, (bossSelection.get(k) || 0) + 1));
+  if (picks.length) document.getElementById("boss-tray")?.classList.add("expanded");
+  renderBossGrid();
+  if (!picks.length) Toast.info("Aucun doublon à donner pour une salve automatique.");
+}
+
 // Plan exact de la salve : quels exemplaires partent et combien ils frappent.
 function bossPlan() {
   const byKey = new Map(bossVariants().map((v) => [v.key, v]));
@@ -455,6 +488,7 @@ function renderBossTray() {
   tray.innerHTML = `
     <h3>&#9876;&#65039; Ton attaque</h3>
     ${plan.n ? `
+      <button type="button" class="boss-tray-toggle" id="boss-tray-toggle" aria-expanded="${tray.classList.contains("expanded")}">${tray.classList.contains("expanded") ? "Masquer le détail" : "Voir le détail"}</button>
       <ul class="boss-tray-lines">${plan.lines.map((l) => `
         <li>
           <span><strong>${l.copies.length}× ${l.v.card.name}</strong><small>${l.v.finish !== "normal" ? BOSS_FINISH_LABELS[l.v.finish] + " · " : ""}${BOSS_QUALITY_LABELS[l.v.quality]} · ${l.copies.map((c) => bossSerial(c.serialNumber)).join(", ")}</small></span>
@@ -475,6 +509,8 @@ function renderBossTray() {
     : `<p class="boss-tray-empty">Ajoute des cartes avec <strong>+</strong> : jusqu'à ${bossRules.maxCards} par salve. Plus la salve est grande, plus chaque carte frappe fort.</p>`}`;
   const clear = document.getElementById("boss-clear-btn");
   if (clear) clear.addEventListener("click", () => { bossSelection.clear(); renderBossGrid(); });
+  const toggle = document.getElementById("boss-tray-toggle");
+  if (toggle) toggle.addEventListener("click", () => { tray.classList.toggle("expanded"); renderBossTray(); });
   const attack = document.getElementById("boss-attack-btn");
   if (attack) attack.addEventListener("click", () => attackBoss());
 }
@@ -784,6 +820,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderBossGrid();
   });
   document.getElementById("boss-dupes-only").addEventListener("change", () => { bossSelection.clear(); renderBossGrid(); });
+  document.getElementById("boss-rarity-filter")?.addEventListener("change", () => renderBossGrid());
+  document.getElementById("boss-auto-btn")?.addEventListener("click", () => bossAutoVolley());
   let chestSearchTimer = null;
   document.getElementById("chest-search-input").addEventListener("input", (e) => {
     clearTimeout(chestSearchTimer);

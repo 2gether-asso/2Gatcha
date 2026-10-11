@@ -15,6 +15,7 @@ import { weekKey } from '../src/native/levels.js';
 import * as inflation from '../src/native/inflation.js';
 import { cluesOf } from '../src/native/treasure.js';
 import { previousSeason } from '../src/native/seasons.js';
+import * as balance from '../src/native/balance.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-progress-${process.pid}.sqlite`);
@@ -531,6 +532,105 @@ await test('evenements planifies : appliques tout seuls entre le debut et la fin
   r = call('POST', 'admin-events', { body: { discordId: ADMIN, action: 'delete', id: live.id } }).json;
   assert.ok(!r.events.some((e) => e.id === live.id));
   assert.equal(call('GET', 'event-status', { query: {} }).json.active, false);
+});
+
+// ------------------------------------------------------------------ equilibrage 2026-10-11
+await test('equilibrage : boosters de fouille et du chien convertis, os limites par jour', () => {
+  const set = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
+  set({ DigBoosterKeepChance: 0 });
+  store.update('Users', 1, { BoosterCount: 10, StardustCount: 0, DigDay: '', DigDayCount: 0, BoneUseDay: '', BoneUseCount: 0 });
+  // Fouille : booster trouve -> poussieres.
+  const dig = { status: 200, json: { outcome: 'booster', boosterGranted: true, dustGained: 0, newBoosterCount: 10, newStardust: 0 } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, dig);
+  assert.equal(dig.json.boosterConverted, true);
+  assert.equal(dig.json.outcome, 'dust');
+  assert.equal(user(1).BoosterCount, 9);
+  assert.ok(user(1).StardustCount >= 25);
+  // Chien : 2 boosters -> 2 x 40 poussieres.
+  const before = user(1).StardustCount;
+  const dog = { status: 200, json: { dogReport: { boosters: 2, dust: 10 } } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'status' } }, dog);
+  assert.equal(dog.json.dogReport.boosters, 0);
+  assert.equal(dog.json.dogReport.convertedBoosters, 2);
+  assert.equal(user(1).BoosterCount, 7);
+  assert.equal(user(1).StardustCount, before + 80);
+  // Os : 4 par jour.
+  for (let i = 0; i < 4; i++) {
+    assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'useBone' } }), null);
+    native.afterWorkflow('dig', { body: { userId: 1, action: 'useBone' } }, { status: 200, json: {} });
+  }
+  assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'useBone' } }).json.error, 'dog_daily_limit');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DigBoosterKeepChance' } });
+});
+
+await test('equilibrage : migration unique des reglages trop genereux (historique garde)', () => {
+  const m = store.getAll('AppSettings').find((r) => r.Key === 'balance-2026-10-11');
+  if (m) store.delete('AppSettings', m.id);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DuplicateDustCommon: 9, TradeTaxPerCard: 5 } } });
+  const cfg = store.getAll('Config')[0];
+  store.update('Config', cfg.id, { DigRegenSeconds: 60, DailyQuestRewardBoosters: 2 });
+  balance.init({ store });
+  const rec = JSON.parse(store.getAll('AppSettings').find((r) => r.Key === 'balance-2026-10-11').Value);
+  const keys = rec.changes.map((c) => c.key);
+  for (const k of ['DuplicateDustCommon', 'TradeTaxPerCard', 'DigRegenSeconds', 'DailyQuestRewardBoosters']) assert.ok(keys.includes(k), k);
+  assert.equal(store.getAll('Config')[0].DigRegenSeconds, 600);
+  assert.equal(rec.changes.find((c) => c.key === 'DuplicateDustCommon').from, 9);
+  // Une seule fois.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DuplicateDustCommon: 9 } } });
+  balance.init({ store });
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'setting:DuplicateDustCommon');
+  assert.equal(JSON.parse(row.Value), 9, 'pas rejouee');
+  for (const key of ['DuplicateDustCommon', 'TradeTaxPerCard']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+});
+
+await test('pity carte manquante : la carte garantie est une carte pas encore possedee', () => {
+  const rar = store.getAll('Rarities').filter((r) => r.Key !== 'unique' && r.Weight > 0).sort((a, b) => b.SortOrder - a.SortOrder);
+  const top = rar[0];
+  const ext = refIdOf(cards().find((c) => refIdOf(c.Rarity) === top.id).Extension);
+  const a = store.create('Cards', { Name: 'Top A', Active: true, Rarity: top.id, Extension: ext });
+  const b = store.create('Cards', { Name: 'Top B', Active: true, Rarity: top.id, Extension: ext });
+  // Le joueur possede deja toutes les cartes du sommet sauf B.
+  for (const c of store.getAll('Cards').filter((x) => x.Active && refIdOf(x.Rarity) === top.id && refIdOf(x.Extension) === ext && x.id !== b.id)) store.create('Pulls', { User: 1, Card: c.id, SerialNumber: 8000 + c.id, BatchId: 'old-top' });
+  const low = rar[rar.length - 1];
+  const lowCard = cards().find((c) => refIdOf(c.Rarity) === low.id && refIdOf(c.Extension) === ext);
+  const st = call('GET', 'rarity-pity', { query: { userId: 1 } }).json.rarities.find((x) => x.key === top.Key);
+  if (!st) return; // rarete du sommet geree par le pity du workflow dans cette base
+  store.update('Users', 1, { RarityPity: JSON.stringify({ [top.id]: st.threshold - 1 }) });
+  const batchId = '1-miss-' + Date.now();
+  store.create('Pulls', { User: 1, Card: lowCard.id, SerialNumber: 8801, BatchId: batchId, ObtainedAt: now() });
+  const resp = { status: 200, json: { batchId, booster: { extensionId: ext }, cards: [{ cardId: lowCard.id, serialNumber: 8801, rarity: { id: low.id, key: low.Key, sortOrder: low.SortOrder } }] } };
+  native.afterWorkflow('open-pack', { body: { userId: 1, extensionId: ext } }, resp);
+  assert.equal(resp.json.cards[0].cardId, b.id, 'la seule carte manquante');
+  assert.ok(a.id);
+});
+
+await test('ameliorations permanentes et relance de finition : depenses de poussieres', () => {
+  store.update('Users', 1, { StardustCount: 10000, Upgrades: '{}' });
+  let st = call('POST', 'upgrades', { body: { userId: 1 } }).json;
+  assert.equal(st.upgrades.length, 3);
+  st = call('POST', 'upgrades', { body: { userId: 1, action: 'buy', key: 'greenhouse' } }).json;
+  assert.equal(st.paid, 500);
+  st = call('POST', 'upgrades', { body: { userId: 1, action: 'buy', key: 'greenhouse' } }).json;
+  assert.equal(st.paid, 1000);
+  assert.equal(user(1).StardustCount, 10000 - 1500);
+  // Relance : exemplaire normal uniquement, chance forcee a 100 %.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FinishRerollChance: 1 } } });
+  const card = cards()[0];
+  const pid = mk(1, card.id, 'normal');
+  const r = call('POST', 'finish-reroll', { body: { userId: 1, pullId: pid, action: 'reroll' } }).json;
+  assert.equal(r.success, true);
+  assert.notEqual(store.get('Pulls', pid).Finish, 'normal');
+  assert.equal(call('POST', 'finish-reroll', { body: { userId: 1, pullId: pid, action: 'reroll' } }).json.error, 'already_special');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FinishRerollChance' } });
+});
+
+await test('decraft : bonus x2 pour une carte presque introuvable sur le serveur', () => {
+  const c = store.create('Cards', { Name: 'Rarissime', Active: true, Rarity: cards()[0].Rarity, Extension: refIdOf(cards()[0].Extension) });
+  store.create('Pulls', { User: 1, Card: c.id, SerialNumber: 1, BatchId: 'x' });
+  store.update('Users', 1, { StardustCount: 0 });
+  const resp = { status: 200, json: { disenchanted: true, dustGained: 20, newStardust: 20 } };
+  native.afterWorkflow('disenchant', { body: { userId: 1, cardId: c.id } }, resp);
+  assert.ok(resp.json.bonuses.some((b) => b.label.includes('rare sur le serveur') && b.dust === 20));
 });
 
 store.db.close();

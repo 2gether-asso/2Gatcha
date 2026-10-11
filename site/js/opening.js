@@ -638,7 +638,11 @@ function renderExtensionPicker() {
         <div class="ext-count">Extension tirée au hasard</div>
         <div class="mystery-perk">&#10024; Finitions spéciales un peu plus fréquentes</div>
       </div>` : "";
-  el.innerHTML = mysteryTile + extensionsCache.map((ext) => {
+  // Derniere extension ouverte en premier (2026-10-11).
+  let lastId = null;
+  try { lastId = localStorage.getItem("2gatcha_last_ext"); } catch (e) { /* stockage indisponible */ }
+  const ordered = [...extensionsCache].sort((a, b) => (String(b.id) === lastId) - (String(a.id) === lastId));
+  el.innerHTML = mysteryTile + ordered.map((ext) => {
     const img = API.imageUrl(ext.packImageId);
     const backImg = API.imageUrl(ext.cardBackImageId);
     const pity = pityByExt.get(ext.id) || 0;
@@ -646,7 +650,8 @@ function renderExtensionPicker() {
     const pityLabel = pityThreshold ? `${pity} / ${pityThreshold}` : `${pity} tirage${pity > 1 ? "s" : ""}`;
     const progress = extProgressByExt.get(ext.id);
     return `
-      <div class="extension-tile ${disabled ? "disabled" : ""}" data-ext-id="${ext.id}">
+      <div class="extension-tile ${disabled ? "disabled" : ""} ${String(ext.id) === lastId ? "last-opened" : ""}" data-ext-id="${ext.id}">
+        ${String(ext.id) === lastId ? '<span class="last-opened-badge">&#8634; Dernière ouverte</span>' : ""}
         <div class="ext-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster ' + ext.name.replace(/"/g, "&quot;") + '"'}>
           ${img ? `<img class="ext-art-front" src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
           ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" />` : ""}
@@ -997,6 +1002,7 @@ function addRevealAllButton(grid) {
 async function startOpening(ext) {
   isBusy = true;
   lastOpenedExtension = ext;
+  try { localStorage.setItem("2gatcha_last_ext", String(ext.id)); } catch (e) { /* stockage indisponible */ }
 
   const pack = document.getElementById("booster-pack");
   const flash = document.getElementById("burst-flash");

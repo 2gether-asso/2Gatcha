@@ -672,10 +672,10 @@ await test('economie : taxe d echange, prix de l os, marche noir automatique, re
   store.update('Users', 1, { StardustCount: 1000, BoneWeek: '', BonesBoughtWeek: 0 });
   const st = { status: 200, json: {} };
   native.afterWorkflow('dig', { body: { userId: 1, action: 'status' } }, st);
-  assert.equal(st.json.boneCost, 150);
+  assert.equal(st.json.boneCost, 250);
   native.afterWorkflow('dig', { body: { userId: 1, action: 'buyBone' } }, { status: 200, json: {} });
   native.afterWorkflow('dig', { body: { userId: 1, action: 'status' } }, st);
-  assert.equal(st.json.boneCost, 188);
+  assert.equal(st.json.boneCost, 313);
   store.update('Users', 1, { StardustCount: 100 });
   assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'buyBone' } }).json.error, 'not_enough_dust');
   // Marche noir automatique : une fois par semaine.

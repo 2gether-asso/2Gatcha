@@ -172,7 +172,7 @@ function setCount(el, n) {
 const RewardsCenter = {
   async collect() {
     const uid = Session.userId;
-    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes] = await Promise.all([
+    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes, box, dice, wheel] = await Promise.all([
       API.getQuestStatus(uid).catch(() => null),
       API.getWeeklyQuestStatus(uid).catch(() => null),
       API.getLevelRewardsStatus(uid).catch(() => null),
@@ -181,9 +181,16 @@ const RewardsCenter = {
       API.getSeason(uid).catch(() => null),
       API.challenges(uid).catch(() => null),
       API.communityGoal(uid).catch(() => null),
-      API.themes(uid).catch(() => null)
+      API.themes(uid).catch(() => null),
+      API.dailyBox ? API.dailyBox(uid).catch(() => null) : null,
+      API.dailyDice ? API.dailyDice(uid).catch(() => null) : null,
+      API.getDailyWheelStatus(uid).catch(() => null)
     ]);
     const items = [];
+    // Rituels du jour (2026-10-11) : ouverts aussi par "Tout récupérer", avec un récapitulatif.
+    if (box?.available) items.push({ key: "box", icon: "&#127873;", label: "Boîte du jour à ouvrir", claim: () => API.dailyBox(uid, "open"), describe: (r) => r.item ? `${r.item.icon} ${r.item.label}` : "" });
+    if (dice && !dice.rolled) items.push({ key: "dice", icon: "&#127922;", label: "Dé du jour à lancer", claim: () => API.dailyDice(uid, "roll"), describe: (r) => r.effect ? `${r.effect.icon} ${r.effect.label}` : "" });
+    if (wheel?.canSpin) items.push({ key: "wheel", icon: "&#127905;", label: "Roue de la fortune à tourner", claim: () => API.spinDailyWheel(uid), describe: (r) => { const p = r.prize || {}; return p.type === "stardust" ? `&#10024; ${p.amount} poussières` : p.type === "booster" ? "&#127183; 1 booster" : p.type === "key" ? "&#128273; 1 clé" : p.type === "jackpot" ? `&#127881; Jackpot : ${p.amount} boosters + ${p.dust} poussières` : ""; } });
     if (streak?.canClaim) items.push({ key: "streak", icon: "&#128293;", label: `Cadeau de connexion (jour ${streak.day || ""})`, claim: () => API.claimLoginStreak(uid) });
     if (quests?.canClaim) items.push({ key: "quests", icon: "&#9989;", label: "Quêtes du jour terminées", claim: () => API.claimQuestReward(uid) });
     if (weekly?.canClaim) items.push({ key: "weekly", icon: "&#128197;", label: "Quêtes de la semaine terminées", claim: () => API.claimWeeklyQuestReward(uid) });
@@ -211,7 +218,7 @@ const RewardsCenter = {
   async claimAll(items) {
     const done = [], failed = [];
     for (const it of items) {
-      try { await it.claim(); done.push(it); } catch (e) { failed.push(it); }
+      try { const res = await it.claim(); done.push({ ...it, result: it.describe ? it.describe(res || {}) : "" }); } catch (e) { failed.push(it); }
     }
     return { done, failed };
   }

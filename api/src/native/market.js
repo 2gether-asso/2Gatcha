@@ -317,12 +317,22 @@ function auctionView(store, a, me, users) {
   };
 }
 
+function priceHistory(all, t) {
+  const byCard = new Map();
+  all.filter((a) => a.Status === 'sold' && Number(a.CurrentBid) > 0 && (a.SettledAt || 0) > t - 60 * 86400)
+    .sort((a, b) => (b.SettledAt || 0) - (a.SettledAt || 0))
+    .forEach((a) => { const k = refId(a.Card); if (!byCard.has(k)) byCard.set(k, []); if (byCard.get(k).length < 5) byCard.get(k).push({ price: Number(a.CurrentBid), finish: a.Finish || 'normal', quality: a.Quality || 'damaged', at: a.SettledAt }); });
+  return byCard;
+}
+
 function auctionList(store, user) {
   const users = new Map(store.getAll('Users').map((u) => [u.id, u]));
   const all = store.getAll('Auctions');
   const t = now();
+  const prices = priceHistory(all, t);
+  const withPrices = (v, a) => { const h = prices.get(refId(a.Card)) || []; return { ...v, priceHistory: h.length ? { last: h, avg: Math.round(h.reduce((s, x) => s + x.price, 0) / h.length) } : null }; };
   return {
-    open: all.filter((a) => a.Status === 'open').sort((a, b) => (a.EndsAt || 0) - (b.EndsAt || 0)).map((a) => auctionView(store, a, user.id, users)),
+    open: all.filter((a) => a.Status === 'open').sort((a, b) => (a.EndsAt || 0) - (b.EndsAt || 0)).map((a) => withPrices(auctionView(store, a, user.id, users), a)),
     history: all.filter((a) => a.Status !== 'open' && (a.SettledAt || 0) > t - 7 * 86400 && (refId(a.Seller) === user.id || refId(a.Bidder) === user.id))
       .sort((a, b) => (b.SettledAt || 0) - (a.SettledAt || 0)).slice(0, 20).map((a) => auctionView(store, a, user.id, users)),
     taxPct: Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),

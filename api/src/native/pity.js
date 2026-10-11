@@ -8,6 +8,9 @@
 //  - Booster mystere : open-pack { mystery: true } tire l'extension au
 //    hasard parmi les extensions actives ; bonus de finition speciale
 //    (MysteryFinishBonus, applique par boosts.js).
+//  - Pity "carte manquante" (2026-10-11) : la carte garantie par un pity
+//    (par rarete, ou celui du workflow pour Config.TopRarity) est en
+//    priorite une carte que le joueur n'a pas encore dans cette extension.
 //   GET /webhook/rarity-pity ?userId=&extensionId= -> { rarities: [{ key, name, colorHex, threshold, left }] }
 
 import { refId, ok, fail, userById, configRow, firstAttachment } from './common.js';
@@ -40,6 +43,25 @@ function nextSerial(store, cardId) {
   return n;
 }
 
+// Cartes possedees par le joueur hors de ce booster.
+function ownedBefore(store, userId, batchId) {
+  return new Set(store.getAll('Pulls').filter((p) => refId(p.User) === userId && p.BatchId !== batchId).map((p) => refId(p.Card)));
+}
+const preferMissing = (pool, owned) => { const miss = pool.filter((c) => !owned.has(c.id)); return miss.length ? miss : pool; };
+
+// Remplace la carte d'un exemplaire du booster (ligne Pulls + reponse).
+function swapCard(store, userId, pull, target, card, rarity) {
+  const serial = nextSerial(store, card.id);
+  store.update('Pulls', pull.id, { Card: card.id, SerialNumber: serial });
+  const first = !card.FirstObtainedBy;
+  if (first && 'FirstObtainedBy' in card) store.update('Cards', card.id, { FirstObtainedBy: userId });
+  Object.assign(target, {
+    cardId: card.id, name: card.Name, artist: card.Artist, description: card.Description, imageId: firstAttachment(card.Image),
+    rarity: { id: rarity.id, name: rarity.Name, key: rarity.Key, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 },
+    serialNumber: serial, isFirstEver: first
+  });
+}
+
 // Extensions qu'un booster mystere peut tirer.
 export function mysteryPool(store) {
   const exts = store.tables.has('Extensions') ? store.getAll('Extensions').filter((e) => e.Active !== false) : [];
@@ -47,14 +69,23 @@ export function mysteryPool(store) {
   return exts.filter((e) => cards.some((c) => refId(c.Extension) === e.id));
 }
 
+function rememberTopPity(store, request) {
+  const body = request.body || {};
+  if (body.dryRun || !store.tables.has('BoosterInventory')) return;
+  const inv = store.getAll('BoosterInventory').find((x) => refId(x.User) === Number(body.userId) && refId(x.Extension) === Number(body.extensionId));
+  request._topPityBefore = inv ? Number(inv.PullsSinceTopRarity) || 0 : 0;
+}
+
 export function beforeWorkflow({ store, path, request }) {
   const body = request.body || {};
-  if (path !== 'open-pack' || !body.mystery) return null;
+  if (path !== 'open-pack') return null;
+  if (!body.mystery) { rememberTopPity(store, request); return null; }
   const pool = mysteryPool(store);
   if (!pool.length) return { status: 400, json: { error: 'no_extension' } };
   const ext = pool[Math.floor(Math.random() * pool.length)];
   request.body = { ...body, extensionId: ext.id };
   request._mystery = { extensionId: ext.id, name: ext.Name };
+  rememberTopPity(store, request);
   return null;
 }
 
@@ -66,6 +97,22 @@ export function afterWorkflow({ store, path, request, response }) {
   const userId = Number(body.userId);
   const user = store.get('Users', userId);
   if (!user) return;
+  const extId0 = Number((json.booster && json.booster.extensionId) || body.extensionId);
+  const owned = ownedBefore(store, userId, json.batchId);
+  const pullsOf = () => store.getAll('Pulls').filter((p) => p.BatchId === json.batchId && refId(p.User) === userId);
+  const cfg = configRow(store);
+  const topId = Number(cfg.PityThreshold) > 0 ? refId(cfg.TopRarity) : null;
+  if (topId && request._topPityBefore != null && request._topPityBefore + json.cards.length >= Number(cfg.PityThreshold)) {
+    const target = json.cards.find((c) => c.rarity && Number(c.rarity.id) === topId && owned.has(c.cardId));
+    const rarity = store.get('Rarities', topId);
+    const pull = target && pullsOf().find((p) => refId(p.Card) === target.cardId && p.SerialNumber === target.serialNumber);
+    const missing = rarity ? store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && refId(c.Extension) === extId0 && refId(c.Rarity) === topId && !owned.has(c.id)) : [];
+    if (pull && missing.length) {
+      swapCard(store, userId, pull, target, missing[Math.floor(Math.random() * missing.length)], rarity);
+      target.pityUpgrade = true;
+      json.missingPity = { key: rarity.Key, name: rarity.Name };
+    }
+  }
   const tracked = pityRarities(store);
   if (!tracked.length) return;
   const sortOf = (c) => (c.rarity && c.rarity.sortOrder != null ? Number(c.rarity.sortOrder) : (store.get('Rarities', Number(c.rarity && c.rarity.id)) || {}).SortOrder || 0);
@@ -85,16 +132,9 @@ export function afterWorkflow({ store, path, request, response }) {
       .find((c) => pulls.some((p) => refId(p.Card) === c.cardId && p.SerialNumber === c.serialNumber));
     if (!target) continue;
     const pull = pulls.find((p) => refId(p.Card) === target.cardId && p.SerialNumber === target.serialNumber);
-    const card = pool[Math.floor(Math.random() * pool.length)];
-    const serial = nextSerial(store, card.id);
-    store.update('Pulls', pull.id, { Card: card.id, SerialNumber: serial });
-    const first = !card.FirstObtainedBy;
-    if (first && 'FirstObtainedBy' in card) store.update('Cards', card.id, { FirstObtainedBy: userId });
-    Object.assign(target, {
-      cardId: card.id, name: card.Name, artist: card.Artist, description: card.Description, imageId: firstAttachment(card.Image),
-      rarity: { id: r.id, name: r.Name, key: r.Key, colorHex: r.ColorHex, sortOrder: order },
-      serialNumber: serial, isFirstEver: first, pityUpgrade: true
-    });
+    const choices = preferMissing(pool, owned);
+    swapCard(store, userId, pull, target, choices[Math.floor(Math.random() * choices.length)], r);
+    target.pityUpgrade = true;
     counts[r.id] = 0;
     upgraded = true;
     json.rarityPity = { key: r.Key, name: r.Name };

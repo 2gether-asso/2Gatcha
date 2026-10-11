@@ -514,6 +514,7 @@
                 <button type="button" class="btn copy-forge" data-forge="1" ${copies.filter((c) => !state.starred.has(c.pullId) && !state.insured.has(c.pullId)).length >= 3 ? "" : "disabled"}>&#9733; Forger une carte ★</button>` : ""}
             </details>` : ""}
             <div class="card-modal-actions">
+              ${owned && finish === "normal" && !card.isPromo && card.rarity?.key !== "unique" && copies.some((c) => !state.insured.has(c.pullId)) ? `<button type="button" class="btn-ghost" data-modal-act="reroll" title="Payer des poussières pour retenter une finition spéciale sur un de tes exemplaires">&#127922; Relancer la finition</button>` : ""}
               ${disenchantable ? `<button type="button" class="btn-ghost" data-modal-act="disenchant">&#9851; Décrafter (${card.isSecret ? "+1 booster" : "+" + Coll.estimateDust(card.rarity.disenchantValue, finish, quality)})</button>` : ""}
               ${owned && !card.isPromo ? `<button type="button" class="btn-secondary" data-modal-act="trade">&#8644; Échanger</button>` : ""}
               ${up.finish ? `<button type="button" class="btn-secondary" data-modal-act="finish">&#10024; Fusionner en ${FINISH_LABELS[up.nextFinish]}</button>` : ""}
@@ -532,6 +533,7 @@
         else if (a === "trade") openQuickTrade(cardId);
         else if (a === "finish") upgradeFinish(cardId, finish);
         else if (a === "quality") repairQuality(cardId, quality);
+        else if (a === "reroll") rerollFinish(cardId, quality);
         else if (a === "workshop") {
           Coll.filters.search = card.name;
           document.getElementById("search-input").value = card.name;
@@ -635,6 +637,26 @@
 
   // Decraft d'UN exemplaire de la variante cliquee : le numero le plus haut,
   // jamais le #001 tant qu'il en reste un autre.
+  // Relance de finition (api/src/native/upgrades.js) : une chance de finition
+  // speciale contre des poussieres, sur l'exemplaire normal au plus haut numero.
+  async function rerollFinish(cardId, quality) {
+    const card = cardOf(cardId);
+    const copy = Coll.copiesToSpend(variantCopies(state.ownedMap.get(cardId), "normal", quality), 1)[0];
+    if (!card || !copy) return;
+    try {
+      const st = await API.finishReroll(Session.userId, copy.pullId, "status");
+      const ok = await Confirm.show(`Payer <strong>${st.cost} poussières</strong> pour retenter une finition spéciale sur <strong>${escapeHtml(card.name)}</strong> ${Coll.serial(copy.serialNumber)} ? <strong>${Math.round(st.chance * 100)} %</strong> de chance (holo, dorée, ghost, diamant ou arc-en-ciel). Sinon elle reste normale et les poussières sont perdues.`, { title: "Relancer la finition ?", confirmText: `Relancer (${st.cost} ✨)` });
+      if (!ok) return;
+      const res = await API.finishReroll(Session.userId, copy.pullId, "reroll");
+      if (res.success) { Toast.success(`&#127752; ${escapeHtml(card.name)} devient ${FINISH_LABELS[res.finish] || res.finish} !`); if (typeof confetti === "function") confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } }); }
+      else Toast.info("Pas de chance : la finition reste normale.");
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+      await Coll.refresh();
+    } catch (e) {
+      Toast.error({ not_enough_dust: "Pas assez de poussières.", protected_copy: "Cet exemplaire est protégé (assuré ou au coffre).", already_special: "Cet exemplaire a déjà une finition spéciale." }[e.code] || "Erreur. (" + e.message + ")");
+    }
+  }
+
   async function disenchantQuick(cardId, finish, quality, tile) {
     const card = cardOf(cardId);
     const owned = state.ownedMap.get(cardId);

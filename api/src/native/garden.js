@@ -14,6 +14,7 @@ import { gardenLevel } from './levels.js';
 import { talentValue } from './talents.js';
 import { diceFace } from './daily.js';
 import { price as indexed } from './inflation.js';
+import { upgradeValue } from './upgrades.js';
 
 export const PLOTS = 4;
 
@@ -36,7 +37,7 @@ const plotPrice = (store, user) => indexed(store, setting(store, 'GardenPlotPric
 // verte, de du jour (face 3 : 2x plus vite). Au moins 20 % du temps de base.
 export function growSeconds(store, user) {
   const base = setting(store, 'GardenGrowHours') * 3600;
-  const cut = Math.min(0.8, gardenLevel(store, user).perks.growReduction + talentValue(user, 'greenthumb'));
+  const cut = Math.min(0.8, gardenLevel(store, user).perks.growReduction + talentValue(user, 'greenthumb') + upgradeValue(user, 'greenhouse'));
   return Math.max(60, Math.round(base * (1 - cut) * (diceFace(user) === 3 ? 0.5 : 1)));
 }
 

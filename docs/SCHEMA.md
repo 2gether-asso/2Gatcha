@@ -1138,6 +1138,9 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | Users | ShopItemsWeek, ShopItemsBought | Text | objets de la boutique achetes dans la semaine (plafonds) |
 | Users | RarityPity | Text | JSON { idRarete: tirages depuis la derniere carte de cette rarete ou mieux } (pity.js) |
 | Users | TreasureWeek, TreasureFound | Text | course aux tresors : semaine et indices trouves (JSON) |
+| Users | BoneUseDay, BoneUseCount | Text, Numeric | os donnes au chien aujourd'hui (4 par jour au plus) |
+| Users | Upgrades | Text | JSON { kennel, greenhouse, rod } : niveaux des ameliorations permanentes |
+| AppSettings | Key = balance-2026-10-11 | Text | migration d'equilibrage : date et reglages modifies (anciennes valeurs) |
 | Users | GardenExtraPlots | Numeric | parcelles de jardin achetees en plus des 4 offertes |
 | SeasonProgress | ChestClaimed | Bool | coffre de saison ouvert |
 | ScheduledEvents | Label, StartAt, EndAt, Enabled, DustMultiplier, FinishMultiplier, FishingRare, WormsMultiplier | | evenements planifies (events.js) |

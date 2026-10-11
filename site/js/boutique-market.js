@@ -42,6 +42,21 @@
       : `<p class="muted">La boutique de boosters est fermée pour l'instant.</p>`;
   }
 
+  // --- ameliorations permanentes (api/src/native/upgrades.js) -----------------------
+  function renderUpgrades(st) {
+    const grid = $("upgrade-grid");
+    if (!grid) return;
+    grid.innerHTML = st.upgrades.map((u) => `
+      <article class="upgrade-card ${u.next ? "" : "maxed"}">
+        <div class="upgrade-head"><span class="upgrade-icon" aria-hidden="true">${u.icon}</span><strong>${esc(u.label)}</strong><span class="upgrade-level">niv. ${u.level}/${u.max}</span></div>
+        <div class="upgrade-pips" aria-hidden="true">${Array.from({ length: u.max }, (_, i) => `<span class="${i < u.level ? "on" : ""}"></span>`).join("")}</div>
+        <p class="upgrade-effect">${u.level ? esc(u.effect) : "Aucun bonus pour l'instant"}</p>
+        ${u.next ? `<p class="upgrade-next">Niveau suivant : ${esc(u.next.effect)}</p>
+          <button type="button" class="btn${st.stardust < u.next.price ? "-secondary" : ""} upgrade-buy" data-upgrade="${u.key}" ${st.stardust < u.next.price ? "disabled" : ""}>${fmt(u.next.price)} &#10024;</button>` : '<p class="upgrade-next">Niveau maximum atteint</p>'}
+      </article>`).join("");
+  }
+  function loadUpgrades() { if (API.upgrades) API.upgrades(Session.userId).then(renderUpgrades).catch(() => { const s = $("ameliorations"); if (s) s.hidden = true; }); }
+
   // --- objets et bonus -----------------------------------------------------------
   function itemCard(it) {
     const out = it.left === 0;
@@ -148,10 +163,24 @@
     if (!$("shop-wallet")) return;
     API.shop(Session.userId).then((s) => { shop = s; renderWallet(); renderItems(); }).catch(() => { $("ressources").hidden = true; $("bonus").hidden = true; });
     API.boosterShop(Session.userId).then((s) => { renderBoosters(s); renderWallet(); }).catch(() => { $("offres").hidden = true; });
+    loadUpgrades();
     if (API.getEconomyState) API.getEconomyState().then((e) => { eco = e; renderWallet(); }).catch(() => {});
     API.contracts(Session.userId).then(renderContracts).catch(() => { $("contrats").hidden = true; });
     setInterval(renderWallet, 30000);
     $("shop-zone").addEventListener("click", async (e) => {
+      const up = e.target.closest("[data-upgrade]");
+      if (up) {
+        up.disabled = true;
+        try {
+          const res = await API.upgrades(Session.userId, "buy", up.dataset.upgrade);
+          renderUpgrades(res);
+          Toast.success(`&#128736;&#65039; Amélioration niveau ${res.level} !`);
+          if (shop) shop.stardust = res.newStardust;
+          renderWallet();
+          if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+        } catch (err) { up.disabled = false; Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+        return;
+      }
       const thing = e.target.closest("[data-item]");
       const booster = e.target.closest("#booster-buy");
       const contract = e.target.closest("[data-contract]");

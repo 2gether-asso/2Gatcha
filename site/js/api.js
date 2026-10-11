@@ -767,6 +767,8 @@ const API = {
   fishing(userId, action, count, bait, zone) {
     return this.post("fishing", { userId, action, count, bait: !!bait, zone: zone || "shore" });
   },
+  upgrades(userId, action = "status", key) { return this.post("upgrades", { userId, action, key }); },
+  finishReroll(userId, pullId, action = "status") { return this.post("finishReroll", { userId, pullId, action }); },
   claimSeasonChest(userId) { return this.post("season", { userId, action: "claimChest" }); },
   getEconomyState() { return this.get("economyState"); },
   getRarityPity(userId, extensionId) { return this.get("rarityPity", extensionId ? { userId, extensionId } : { userId }); },

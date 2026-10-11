@@ -24,6 +24,7 @@ import { talentValue } from './talents.js';
 import { levelInfo, weeklyXpFields } from './levels.js';
 import { eventState } from './events.js';
 import { grantCosmetic } from './cosmetics.js';
+import { upgradeValue } from './upgrades.js';
 
 export const schema = {
   Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' }, Worms: { type: 'Numeric' },
@@ -241,6 +242,7 @@ function handleFishing({ store, body }) {
     const min = Math.max(1, Number(x.min) || 1), max = Math.max(min, Number(x.max) || min);
     let amount = x.type === 'nothing' ? 0 : min + Math.floor(Math.random() * (max - min + 1));
     if (x.type === 'dust' && weather.dustBonus) amount = Math.round(amount * (1 + weather.dustBonus));
+    if ((x.type === 'dust' || x.type === 'pearl') && upgradeValue(user, 'rod')) amount = Math.round(amount * (1 + upgradeValue(user, 'rod')));
     // Rendements decroissants : au-dela de FishingFullRewardsPerDay lancers
     // dans la journee, poussieres divisees par 2 et objets une fois sur deux
     // remplaces par une pincee de poussieres.
@@ -248,7 +250,8 @@ function handleFishing({ store, body }) {
     if (fullDaily > 0 && st.castsToday + i >= fullDaily && x.type !== 'nothing') {
       reduced = true;
       if (x.type === 'dust' || x.type === 'pearl') amount = Math.max(1, Math.floor(amount / 2));
-      else if (Math.random() < 0.5) { x = { ...x, type: 'dust', label: LABELS.dust, tier: TIER.dust }; amount = 5; }
+      // Jamais de booster au-dela du plein rendement (2026-10-11).
+      else if (x.type === 'booster' || Math.random() < 0.5) { x = { ...x, type: 'dust', label: LABELS.dust, tier: TIER.dust }; amount = 5; }
     }
     if (reduced) reducedAny = true;
     if (tk && tCasts < TOURNEY_CASTS) { tCasts++; tScore += TIER_POINTS[x.tier] || 0; }

@@ -73,13 +73,15 @@ import * as insights from './insights.js';
 import * as shop from './shop.js';
 import * as inflation from './inflation.js';
 import * as pity from './pity.js';
+import * as balance from './balance.js';
+import * as upgrades from './upgrades.js';
 import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
 import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily];
 // XP doublee pendant l'action du jour (daily.js).
@@ -100,6 +102,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   auth.init({ store });
   unique.init({ store });
   fishing.init({ store });
+  balance.init({ store });
 
   // Contexte de la requete en cours : source du journal de l'economie et
   // annonces a renvoyer au joueur (defis accomplis, succes debloques...).
@@ -183,7 +186,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      for (const m of [pity, rules, levels, market]) {
+      for (const m of [pity, balance, rules, levels, market]) {
         try {
           const denied = m.beforeWorkflow({ store, path, request });
           if (denied) { market.restoreHidden(store, request); return denied; }

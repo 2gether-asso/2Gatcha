@@ -89,6 +89,13 @@
         </div>
       </div>
 
+      <div class="panel objectives-panel" id="objectives-panel" hidden>
+        <span id="objectifs" class="anchor"></span>
+        <div class="obj-head"><h2>&#127919; Objectifs</h2></div>
+        <div class="obj-tabs" id="obj-tabs" role="tablist" aria-label="Objectifs"></div>
+        <div class="obj-body" id="obj-body"></div>
+      </div>
+
       <div class="panel challenges-panel" id="challenges-panel" style="display:none;">
         <span id="defis" class="anchor"></span>
         <h2>&#127919; Défis de la semaine</h2>
@@ -278,6 +285,7 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/home-extras.js"></script>
+  <script src="js/home-objectives.js"></script>
   <script src="js/home-daily.js"></script>
   <script>
     function refreshLoginUI() {
@@ -506,7 +514,7 @@
           const list = document.getElementById("quests-list");
           const quests = res.quests || {};
           const threshold = res.threshold || 2;
-          const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 2;
+          const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 1;
           const questsIntroEl = document.getElementById("quests-intro");
           questsIntroEl.classList.remove("skeleton-line");
           questsIntroEl.textContent =
@@ -568,7 +576,7 @@
         const quests = res.quests || {};
         const target = res.target || 5;
         const threshold = res.threshold || 3;
-        const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 5;
+        const rewardBoosters = res.rewardBoosters != null ? res.rewardBoosters : 3;
         const weeklyIntroEl = document.getElementById("weekly-quests-intro");
         weeklyIntroEl.classList.remove("skeleton-line");
         weeklyIntroEl.innerHTML =

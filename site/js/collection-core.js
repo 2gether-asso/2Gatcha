@@ -474,6 +474,19 @@ const Coll = (() => {
     if (next) {
       const missing = next.total - next.owned;
       milestoneEl.innerHTML = `<span>&#127919; Encore <strong>${missing} carte${missing > 1 ? "s" : ""} ${escapeHtml(next.name)}</strong> pour compléter cette rareté !</span>`;
+      // Extension la plus proche d'etre complete (2026-10-11).
+      const exts = new Map();
+      state.cards.filter((c) => !c.isPromo && c.extension).forEach((c) => {
+        const e = exts.get(c.extension.id) || { name: c.extension.name, missing: [], total: 0 };
+        e.total++;
+        if (!isDiscovered(c.cardId)) e.missing.push(c);
+        exts.set(c.extension.id, e);
+      });
+      const close = [...exts.values()].filter((e) => e.missing.length && e.missing.length < e.total).sort((x, y) => x.missing.length - y.missing.length)[0];
+      if (close) {
+        const top = close.missing.reduce((b, c) => ((c.rarity?.sortOrder || 0) > (b.rarity?.sortOrder || 0) ? c : b), close.missing[0]);
+        milestoneEl.innerHTML += `<span class="milestone-ext">&#128218; <strong>${escapeHtml(close.name)}</strong> : plus que ${close.missing.length} carte${close.missing.length > 1 ? "s" : ""} (${close.total - close.missing.length}/${close.total}), la plus rare : ${escapeHtml(top.rarity?.name || "")}</span>`;
+      }
     } else {
       milestoneEl.innerHTML = "<span>&#127942; Collection complète, félicitations !</span>";
     }

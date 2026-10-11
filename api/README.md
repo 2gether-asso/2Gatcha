@@ -173,6 +173,8 @@ doublons, coup final au boss) sans le modifier.
 | `pity.js` | `GET rarity-pity` | pity par rareté (« Épique garantie dans N tirages ») et booster mystère (`open-pack { mystery: true }` : extension tirée au hasard, bonus de finition) |
 | `treasure.js` | `GET`/`POST treasure-hunt` | course aux trésors hebdo : 5 indices cachés sur 5 pages du site (positions propres à chaque joueur) |
 | `account-prestige.js` | `GET account-prestige` | prestige du compte : étoiles au-delà des talents complets (+1 point de talent, titre, cadre) |
+| `balance.js` | — | équilibrage des boosters (2026-10-11) : booster de fouille gardé une fois sur deux et jamais au-delà du plein rendement du jour, chien sans boosters (poussières à la place), 4 os par jour ; migration unique `balance-2026-10-11` qui ramène aux nouvelles valeurs les réglages plus généreux (anciennes valeurs gardées dans AppSettings) |
+| `upgrades.js` | `POST upgrades`, `POST finish-reroll` | dépenses durables : améliorations permanentes (chenil, serre, canne) et relance de finition payante |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

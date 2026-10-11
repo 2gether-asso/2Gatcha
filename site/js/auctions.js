@@ -35,6 +35,7 @@
           <strong>${esc(a.card?.name || "?")}${a.starred ? ' <span class="star-badge" style="position:static;">&#9733;</span>' : ""}</strong>
           <small>${esc(a.card?.rarity?.name || "")}${variant(a) ? " · " + esc(variant(a)) : ""}</small>
           <small>Vendu par ${esc(a.seller)} · fin dans <span data-ends="${a.endsAt}">${left(a.endsAt)}</span></small>
+          ${a.priceHistory ? `<div class="auction-history-price" title="${a.priceHistory.last.map((h) => `${h.price} ✨ (${new Date(h.at * 1000).toLocaleDateString("fr-FR")})`).join(" · ")}">&#128200; Vendue en moyenne <strong>${a.priceHistory.avg.toLocaleString("fr-FR")} &#10024;</strong> <small>(${a.priceHistory.last.length} dernière${a.priceHistory.last.length > 1 ? "s" : ""} vente${a.priceHistory.last.length > 1 ? "s" : ""})</small></div>` : ""}
           <div class="auction-price">${a.currentBid ? `<strong>${a.currentBid.toLocaleString("fr-FR")} &#10024;</strong> <small>${a.bids} enchère${a.bids > 1 ? "s" : ""}${a.leading ? " · tu mènes !" : a.bidder ? " · " + esc(a.bidder) : ""}</small>` : `<strong>${a.startPrice.toLocaleString("fr-FR")} &#10024;</strong> <small>prix de départ</small>`}</div>
         </div>
         <div class="auction-act">

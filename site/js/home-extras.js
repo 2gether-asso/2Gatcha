@@ -30,7 +30,6 @@
     centerClaiming = true;
     const { done, failed } = await RewardsCenter.claimAll(list);
     if (done.length) {
-      Toast.success(`&#127873; ${done.length} récompense${done.length > 1 ? "s" : ""} récupérée${done.length > 1 ? "s" : ""} !`);
       if (typeof confetti === "function") confetti({ particleCount: 90 + done.length * 20, spread: 100, origin: { y: 0.4 } });
     }
     if (failed.length) Toast.error(`${failed.length} récompense${failed.length > 1 ? "s n'ont" : " n'a"} pas pu être récupérée${failed.length > 1 ? "s" : ""}.`);
@@ -38,9 +37,26 @@
     if (typeof loadNavBadges === "function") loadNavBadges();
     // Les autres panneaux de l'accueil (serie, saison, quetes...) gardaient
     // leurs anciens boutons "Recuperer" -> "Nothing to claim" au clic.
-    if (done.length) { centerClaiming = false; setTimeout(() => location.reload(), 1300); return; }
+    if (done.length) { centerClaiming = false; showRecap(done); return; }
     centerClaiming = false;
     await renderCenter();
+  }
+
+  // Recapitulatif de "Tout recuperer" ; la page se recharge a la fermeture
+  // (les autres panneaux gardaient sinon leurs anciens boutons).
+  function showRecap(done) {
+    const overlay = document.createElement("div");
+    overlay.className = "card-modal-overlay contract-overlay";
+    overlay.innerHTML = `
+      <div class="contract-modal recap-modal" role="dialog" aria-modal="true" aria-labelledby="recap-title">
+        <header class="contract-modal-head"><div><span aria-hidden="true">&#127873;</span> <strong id="recap-title">${done.length} récompense${done.length > 1 ? "s" : ""} récupérée${done.length > 1 ? "s" : ""}</strong></div>
+          <button type="button" class="card-modal-close" data-close aria-label="Fermer">&times;</button></header>
+        <ul class="recap-list">${done.map((d) => `<li><span class="rc-icon" aria-hidden="true">${d.icon}</span><span><strong>${esc(d.label).replace(/ à (ouvrir|lancer|tourner|récupérer)$/, "")}</strong>${d.result ? `<small>${d.result}</small>` : ""}</span></li>`).join("")}</ul>
+        <footer class="contract-modal-foot"><button type="button" class="btn" data-close>Super !</button></footer>
+      </div>`;
+    document.body.appendChild(overlay);
+    if (typeof syncScrollLock === "function") syncScrollLock();
+    overlay.addEventListener("click", (e) => { if (e.target === overlay || e.target.closest("[data-close]")) location.reload(); });
   }
 
   // --- defis de la semaine ---------------------------------------------------

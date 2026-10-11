@@ -654,10 +654,28 @@ function econBars(days, key, label) {
       <div class="econ-axis"><span>${new Date(days[0].day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
     </div>`;
 }
+// Sante de l'economie (2026-10-11) : d'ou viennent les boosters crees, par
+// joueur actif et par jour, face a la cible de ~5 par jour.
+const BOOSTER_TARGET = 5;
+function econBoosterSources(f) {
+  const total = f.sources.reduce((s, x) => s + x.boostersIn, 0);
+  if (!total) return "";
+  const perPlayer = f.boostersPerPlayerDay || 0;
+  const rows = f.sources.filter((x) => x.boostersIn > 0).sort((a, b) => b.boostersIn - a.boostersIn);
+  const max = rows[0].boostersIn;
+  return `
+    <h3 style="margin-top:20px;">&#129658; D'où viennent les boosters (7 j)</h3>
+    <p class="lead" style="font-size:0.82rem;">${perPlayer.toLocaleString("fr-FR")} booster${perPlayer >= 2 ? "s" : ""} créé${perPlayer >= 2 ? "s" : ""} par joueur actif et par jour · cible ~${BOOSTER_TARGET} ${perPlayer > BOOSTER_TARGET * 1.5 ? '<strong class="econ-hot">trop généreux</strong>' : perPlayer < BOOSTER_TARGET / 2 ? "(plutôt serré)" : "(dans la cible)"}</p>
+    <ul class="econ-sources">${rows.map((x) => {
+      const share = x.boostersIn / total;
+      return `<li><span class="es-name">${x.source}</span><span class="es-bar"><span style="width:${Math.round((x.boostersIn / max) * 100)}%"></span></span><span class="es-val">${Math.round(share * 100)} % · ${(perPlayer * share).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/j</span></li>`;
+    }).join("")}</ul>`;
+}
+
 // Journal de l'economie (inflation) : creations / depenses par jour et source.
 function econFlows(f, fmt) {
   if (!f) return "";
-  return `
+  return econBoosterSources(f) + `
     <h3 style="margin-top:20px;">&#128200; Inflation : créations et dépenses</h3>
     ${f.alerts.length ? `<div class="econ-alerts">${f.alerts.map((a) => `<div class="econ-alert">&#9888;&#65039; ${a}</div>`).join("")}</div>` : '<div class="econ-ok">&#9989; Aucune alerte : l\'économie semble équilibrée.</div>'}
     <div class="stats-grid">

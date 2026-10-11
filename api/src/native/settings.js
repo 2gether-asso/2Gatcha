@@ -62,8 +62,8 @@ export const REGISTRY = {
       { type: 'dust', weight: 24, min: 30, max: 70 },
       { type: 'pearl', weight: 6, min: 80, max: 180, label: 'Perle noire' },
       { type: 'bait', weight: 12, min: 1, max: 1, label: 'Appât doré' },
-      { type: 'bone', weight: 12, min: 1, max: 2 },
-      { type: 'booster', weight: 9, min: 1, max: 1 },
+      { type: 'bone', weight: 6, min: 1, max: 2 },
+      { type: 'booster', weight: 4, min: 1, max: 1 },
       { type: 'chest', weight: 9, min: 1, max: 1 },
       { type: 'key', weight: 7, min: 1, max: 1 },
       { type: 'part', weight: 7, min: 1, max: 1, label: 'Pièce détachée' }
@@ -77,8 +77,8 @@ export const REGISTRY = {
     def: [
       { type: 'nothing', weight: 28, label: 'Une vieille botte' },
       { type: 'dust', weight: 30, min: 10, max: 45 },
-      { type: 'bone', weight: 18, min: 1, max: 1 },
-      { type: 'booster', weight: 11, min: 1, max: 1 },
+      { type: 'bone', weight: 8, min: 1, max: 1 },
+      { type: 'booster', weight: 3, min: 1, max: 1 },
       { type: 'chest', weight: 8, min: 1, max: 1 },
       { type: 'key', weight: 5, min: 1, max: 1 },
       { type: 'part', weight: 3, min: 1, max: 1, label: 'Pièce détachée' }
@@ -205,7 +205,13 @@ export const REGISTRY = {
   BossQualityMultipliers: { label: 'Multiplicateurs d’état', type: 'json', group: 'Boss', storage: 'app', help: '', def: { damaged: 0.75, worn: 1, good: 1.25, mint: 1.5 } },
 
   // --- Fouille / coffre-fort perso (lus par les workflows)
-  DogBoneCost: { ...int('Prix d’un os (poussières)', 150, 'Fouille', 'Envoie le chien creuser 2 h.', 1), storage: 'config' },
+  DogBoneCost: { ...int('Prix d’un os (poussières)', 250, 'Fouille', 'Envoie le chien creuser 2 h.', 1), storage: 'config' },
+  DigRegenSeconds: { ...int('Fouille : secondes pour regagner 1 énergie', 600, 'Fouille', 'Réduit de 5 % par niveau de fouille.', 30, 86400), storage: 'config' },
+  DigBoosterKeepChance: { ...pct('Fouille : chance de garder un booster trouvé', 0.5, 'Fouille', 'Sinon il devient 25 à 50 poussières. Au-delà du plein rendement du jour, jamais de booster.'), storage: 'app' },
+  DogBonesPerDay: { ...int('Chien : os utilisables par jour', 4, 'Fouille', '0 = illimité.', 0, 24), storage: 'app' },
+  DogBoosterDust: { ...int('Chien : poussières à la place d’un booster', 40, 'Fouille', 'Le chien ne rapporte plus de boosters.'), storage: 'app' },
+  DailyQuestRewardBoosters: { ...int('Quêtes du jour : boosters', 1, 'Boosters', '', 1, 20), storage: 'config' },
+  WeeklyQuestRewardBoosters: { ...int('Quêtes de la semaine : boosters', 3, 'Boosters', '', 1, 50), storage: 'config' },
   DigLevelXpStep: { ...int('XP pour le niveau 2 de fouille', 20, 'Fouille', 'Chaque niveau suivant demande ce palier en plus (20, 60, 120…). 1 XP par case, +5 par trésor.', 1), storage: 'config' },
   VaultBoostersPerRow: { ...int('Coffre-fort : boosters par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
@@ -263,6 +269,13 @@ export const REGISTRY = {
   SeasonChestMaxBoosters: { ...int('Coffre de saison : boosters max', 3, 'Saison', '', 0, 20), storage: 'app' },
   AccountPrestigeLevel: { ...int('Prestige du compte : niveau de la 1re étoile', 31, 'Progression', 'Niveau où tous les talents sont débloqués.', 2, 500), storage: 'app' },
   AccountPrestigeStep: { ...int('Prestige du compte : niveaux par étoile suivante', 5, 'Progression', 'Chaque étoile : +1 point de talent et un titre.', 1, 100), storage: 'app' },
+
+  // --- Depenses durables (upgrades.js, 2026-10-11)
+  UpgradeBasePrice: { ...int('Améliorations : prix du niveau 1 (poussières)', 500, 'Économie', 'Chaque niveau coûte le double du précédent (500, 1000, 2000, 4000, 8000), indexé sur la richesse moyenne.', 1), storage: 'app' },
+  FinishRerollChance: { ...pct('Relance de finition : chance de finition spéciale', 0.25, 'Économie', 'Sur un exemplaire en finition normale.'), storage: 'app' },
+  FinishRerollCost: { label: 'Relance de finition : prix par rareté', type: 'json', group: 'Économie', storage: 'app', help: 'Objet { cleRarete: poussières, default: … }.', def: { commune: 300, rare: 500, epique: 800, legendaire: 1200, mythique: 1500, default: 800 } },
+  RareOnServerCopies: { ...int('Décraft : carte rare sur le serveur (moins de N exemplaires)', 3, 'Économie', 'En dessous, le décraft rapporte le bonus ci-dessous. 0 = désactivé.'), storage: 'app' },
+  RareOnServerDecraftBonus: { ...num('Décraft : bonus d’une carte rare sur le serveur', 1, 'Économie', '1 = ×2.', 0, 5), storage: 'app' },
 
   // --- Pilotage de l'inflation (inflation.js)
   PriceIndexEnabled: { label: 'Prix indexés sur la richesse moyenne', type: 'bool', def: true, group: 'Inflation', storage: 'app', help: 'Boutique, os, relances, coffres : les prix suivent le solde moyen des joueurs actifs (14 jours).' },
