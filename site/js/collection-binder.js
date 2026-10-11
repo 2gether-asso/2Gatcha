@@ -560,10 +560,11 @@
         } catch (e) { btn.disabled = false; Toast.error(e.code === "not_enough_dust" ? "Pas assez de poussières." : "Erreur. (" + e.message + ")"); }
       }));
       overlay.querySelector("[data-forge]")?.addEventListener("click", async (ev) => {
+        const forgeBtn = ev.currentTarget; // null apres un await (GlitchTip #17)
         const pick = copies.filter((c) => !state.starred.has(c.pullId) && !state.insured.has(c.pullId)).sort((a, b) => (a.serialNumber || 1e9) - (b.serialNumber || 1e9)).slice(0, 3);
         const okForge = await Confirm.show(`Fusionner <strong>3 exemplaires arc-en-ciel parfait état</strong> de ${escapeHtml(card.name)} (${pick.map((c) => Coll.serial(c.serialNumber)).join(", ")}) en <strong>une carte ★</strong> ? Le plus petit numéro est conservé, les 2 autres disparaissent.`, { title: "Forger une carte ★ ?", confirmText: "Forger" });
         if (!okForge) return;
-        ev.currentTarget.disabled = true;
+        forgeBtn.disabled = true;
         try {
           const res = await API.cardPrestige(Session.userId, pick.map((c) => c.pullId));
           Toast.success(`&#9733; Carte ★ forgée : ${escapeHtml(card.name)} ${Coll.serial(res.serialNumber)} !`);
