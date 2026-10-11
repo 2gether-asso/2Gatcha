@@ -8,6 +8,33 @@
 
   function stars(n) { return n ? ` <span class="skill-stars" title="Prestige ${n}">${"★".repeat(Math.min(n, 5))}${n > 5 ? "×" + n : ""}</span>` : ""; }
 
+  async function renderGift(x) {
+    const box = document.getElementById("profile-extras");
+    if (!box || document.getElementById("profile-gift")) return;
+    let st;
+    try { st = await API.playerGift(Session.userId); } catch (e) { return; }
+    const bar = document.createElement("div");
+    bar.id = "profile-gift";
+    bar.className = "profile-gift";
+    const draw = () => {
+      bar.innerHTML = st.canSend
+        ? `<span>&#127873; Offre-lui un petit cadeau (un par jour) :</span>${st.kinds.map((k) => `<button type="button" class="btn-secondary" data-gift="${k.key}">${k.icon} ${esc(k.label)}</button>`).join("")}`
+        : `<span>&#127873; Tu as déjà offert ton cadeau du jour. Reviens demain !</span>`;
+    };
+    draw();
+    box.parentNode.insertBefore(bar, box);
+    bar.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-gift]");
+      if (!b) return;
+      bar.querySelectorAll("button").forEach((x2) => { x2.disabled = true; });
+      try {
+        st = await API.playerGift(Session.userId, "send", { toUserId: x.userId, kind: b.dataset.gift });
+        Toast.success(`&#127873; Cadeau envoyé à ${esc(st.sent.to)} : il le recevra à sa prochaine visite.`);
+      } catch (err) { Toast.error(err.code === "already_sent" ? "Tu as déjà offert ton cadeau du jour." : "Erreur. (" + err.message + ")"); }
+      draw();
+    });
+  }
+
   window.renderProfileExtras = function (res) {
     const x = res && res.extras;
     if (!x) return;
@@ -35,6 +62,8 @@
     if (line) { line.textContent = d.title || ""; line.hidden = !d.title; }
 
     const box = document.getElementById("profile-extras");
+    // Cadeau du jour a ce joueur (api/src/native/rendezvous.js).
+    if (Session.isLoggedIn() && x.userId && Number(x.userId) !== Number(Session.userId)) setTimeout(() => renderGift(x), 0);
     box.innerHTML = `
       <div class="profile-skills">
         <div class="profile-skill"><span aria-hidden="true">&#127907;</span> Pêche <strong>niv. ${x.skills.fishing.level}</strong>${stars(x.skills.fishing.prestige)}<small>${x.skills.fishing.caught} prise${x.skills.fishing.caught > 1 ? "s" : ""}</small></div>

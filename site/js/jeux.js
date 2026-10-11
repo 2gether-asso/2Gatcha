@@ -172,16 +172,18 @@ function renderGarden(st) {
   gardenState = st;
   renderGardenSeeds(st);
   const seedCost = (st.seeds || []).find((s) => s.key === gardenSeed)?.cost ?? st.plantCost;
-  document.getElementById("garden-meta").innerHTML = `&#129713; <strong>${st.worms}</strong> vers · &#10024;&#129713; <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte`;
+  document.getElementById("garden-meta").innerHTML = `&#129713; <strong>${st.worms}</strong> vers · &#10024;&#129713; <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte${st.wiltHours ? ` · une plante prête fane au bout de ${st.wiltHours} h` : ""}`
+    + (st.streak ? `<span class="garden-streak">&#128293; ${st.streak} jour${st.streak > 1 ? "s" : ""} de récolte d'affilée${st.rareChance ? ` · ${Math.round(st.rareChance * 100)} % de récolte rare demain` : " · récolte rare dès 3 jours"}</span>` : "");
   const t = Date.now() / 1000;
   document.getElementById("garden-plots").innerHTML = st.plots.map((p) => {
     if (!p.planted) return `<div class="garden-plot empty"><span class="garden-soil" aria-hidden="true"></span><span class="garden-label">Parcelle libre</span></div>`;
     const pct = Math.min(100, Math.round(((t - p.plantedAt) / (p.readyAt - p.plantedAt)) * 100));
     const stage = pct >= 100 ? "&#127803;" : pct >= 60 ? "&#127807;" : pct >= 25 ? "&#127793;" : "&#127792;";
     const left = Math.max(0, Math.round(p.readyAt - t));
-    return `<div class="garden-plot ${pct >= 100 ? "ready" : ""}">${p.seed && p.seed !== "mix" ? `<span class="garden-seed-tag" title="${(st.seeds || []).find((s) => s.key === p.seed)?.label || ""}">${SEED_ICONS[p.seed] || ""}</span>` : ""}<span class="garden-plant" aria-hidden="true">${stage}</span>
+    const wiltLeft = p.wiltAt ? Math.max(0, Math.round(p.wiltAt - t)) : null;
+    return `<div class="garden-plot ${pct >= 100 ? "ready" : ""} ${p.wilted ? "wilted" : ""}">${p.seed && p.seed !== "mix" ? `<span class="garden-seed-tag" title="${(st.seeds || []).find((s) => s.key === p.seed)?.label || ""}">${SEED_ICONS[p.seed] || ""}</span>` : ""}<span class="garden-plant" aria-hidden="true">${stage}</span>
       <div class="challenge-bar"><div style="width:${pct}%"></div></div>
-      <span class="garden-label">${pct >= 100 ? "Prête à récolter !" : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
+      <span class="garden-label">${p.wilted ? "Fanée : récolte réduite" : pct >= 100 ? (wiltLeft != null && wiltLeft < 6 * 3600 ? `Prête ! Fane dans ${Math.max(1, Math.round(wiltLeft / 3600))} h` : "Prête à récolter !") : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
   }).join("");
   document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < seedCost;
   const buy = document.getElementById("garden-buyplot-btn");
@@ -211,6 +213,8 @@ async function gardenAction(action) {
     else if (action === "plant") Toast.success(`&#127793; ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
     else {
       const g = res.gained;
+      if (g.rare) setTimeout(() => Toast.success(`&#127775; Récolte rare : ${g.rare.icon} ${g.rare.label} !`), 600);
+      if (g.wilted) setTimeout(() => Toast.info(`&#129344; ${g.wilted} plante${g.wilted > 1 ? "s" : ""} fanée${g.wilted > 1 ? "s" : ""} : récolte réduite. Repasse plus tôt la prochaine fois !`), 300);
       Toast.success(`&#129530; Récolte : +${g.worms} vers${g.bait ? `, +${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}` : ""}${g.dust ? `, +${g.dust} &#10024;` : ""} !`);
       if (g.bait && typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
       if (res.levelUp) LevelUpModal.show({ icon: "&#127793;", name: "Jardin", level: res.levelUp, perks: gardenPerkTexts(res.level && res.level.perks) });

@@ -51,6 +51,8 @@
 
     </div>
 
+    <div class="panel weekly-recap" id="weekly-recap" hidden></div>
+
     <div class="panel rewards-center" id="rewards-center" hidden>
       <div class="rc-head">
         <h2>&#127873; À récupérer</h2>
@@ -71,6 +73,7 @@
         <h2>&#9728;&#65039; Aujourd'hui</h2>
         <div class="today-house" id="today-house"></div>
         <div class="today-lucky" id="today-lucky"></div>
+        <div class="today-lucky today-golden" id="today-golden" hidden></div>
         <div class="today-actions">
           <button type="button" class="today-box" id="today-box" hidden>
             <span class="today-box-lid" aria-hidden="true">&#127873;</span>
@@ -286,6 +289,7 @@
   <script src="js/shell.js"></script>
   <script src="js/home-extras.js"></script>
   <script src="js/home-objectives.js"></script>
+  <script src="js/home-recap.js"></script>
   <script src="js/home-daily.js"></script>
   <script>
     function refreshLoginUI() {

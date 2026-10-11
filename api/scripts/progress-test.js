@@ -17,6 +17,7 @@ import { cluesOf } from '../src/native/treasure.js';
 import { previousSeason } from '../src/native/seasons.js';
 import * as balance from '../src/native/balance.js';
 import * as ledger from '../src/native/ledger.js';
+import { goldenWindow } from '../src/native/comfort.js';
 import { requestContext, freshContext } from '../src/native/context.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -490,7 +491,9 @@ await test('jardin etendu : graines, parcelle achetee, recolte selon la graine',
   call('POST', 'garden', { body: { userId: 1, action: 'plant', seed: 'dust', plot: 0 } });
   const plots = JSON.parse(user(1).GardenPlots).map((p) => (p ? { ...p, plantedAt: p.plantedAt - 30 * 86400 } : p));
   store.update('Users', 1, { GardenPlots: JSON.stringify(plots) });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GardenWiltHours: 0 } } });
   const h = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GardenWiltHours' } });
   const worm = h.items.find((i) => i.seed === 'worm'), dust = h.items.find((i) => i.seed === 'dust');
   assert.ok(worm.worms >= 3 && worm.dust === 0);
   assert.ok(dust.dust >= 30 && dust.worms === 0);
@@ -701,6 +704,120 @@ await test('modes de jeu : Chill / Medium / Hard, apercu, annonce, personnalise'
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ChestCost: 101 } } });
   assert.equal(call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json.current, 'custom');
   assert.equal(call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'nope' } }).json.error, 'unknown_preset');
+});
+
+// ------------------------------------------------------------------ confort 2026-10-11
+await test('booster muri : +1 point par jour sans ouvrir, consomme a l ouverture', () => {
+  store.update('Users', 1, { RipenSince: now() - 2.5 * 86400 });
+  const st = { status: 200, json: { count: 3 } };
+  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, st);
+  assert.equal(st.json.ripeness.points, 2);
+  const req = { body: { userId: 1, extensionId: 1 } };
+  native.beforeWorkflow('open-pack', req);
+  assert.equal(req._ripe, 2);
+  const resp = { status: 200, json: { batchId: 'x-ripe', cards: [] } };
+  native.afterWorkflow('open-pack', req, resp);
+  assert.equal(resp.json.ripened, 2);
+  assert.ok(now() - user(1).RipenSince < 5);
+});
+
+await test('fragments de booster : activites, plafond du jour, conversion en booster', () => {
+  store.update('Users', 1, { BoosterShards: 8, ShardDay: '', ShardToday: 0, BoosterCount: 0 });
+  const r = call('POST', 'garden', { body: { userId: 1, action: 'status' } });
+  assert.ok(r.json);
+  // Une expedition (+2) : 8 + 2 = 10 -> 1 booster.
+  native.afterWorkflow('expedition', { body: { userId: 1, action: 'claim' } }, { status: 200, json: { reward: { dust: 10 } } });
+  assert.equal(user(1).BoosterCount, 1);
+  assert.equal(user(1).BoosterShards, 0);
+  // Plafond : 6 par jour.
+  for (let i = 0; i < 10; i++) native.afterWorkflow('expedition', { body: { userId: 1, action: 'claim' } }, { status: 200, json: { reward: { dust: 10 } } });
+  assert.equal(user(1).ShardToday, 6);
+});
+
+await test('cosmetiques de progression : titre au palier d activite', () => {
+  store.update('Users', 1, { ActivityCounts: JSON.stringify({ harvest: 99 }) });
+  const resp = { status: 200, json: { harvested: 1, gained: {} } };
+  native.beforeRequest({ userId: 1, action: 'harvest' }, {}, 'garden');
+  native.afterWorkflow('garden', { body: { userId: 1, action: 'harvest' } }, resp);
+  native.endRequest();
+  assert.ok(store.getAll('UserCosmetics').some((c) => refIdOf(c.User) === 1 && c.Key === 'm-harvest-100'));
+  assert.ok((resp.json.notices || []).some((n) => n.kind === 'cosmetic'));
+});
+
+await test('heure doree : une fenetre par semaine, appliquee comme evenement, annoncee', () => {
+  const w = goldenWindow();
+  assert.ok(w.end - w.start === 3600 && w.hour >= 18 && w.hour <= 21);
+  const st = call('GET', 'event-status', { query: {} }).json;
+  assert.ok(st.goldenHour && st.goldenHour.enabled);
+});
+
+await test('pluie de boosters : objectif commun atteint, 1 booster par joueur qui passe', () => {
+  const week = weekKey();
+  const g = store.getAll('CommunityGoals').find((r) => r.Week === week);
+  if (g) store.update('CommunityGoals', g.id, { Progress: 0, Target: 1, Type: 'harvest' });
+  const r = store.getAll('AppSettings').find((x) => x.Key === 'boosterRain');
+  if (r) store.delete('AppSettings', r.id);
+  call('POST', 'community-goal', { body: { userId: 1 } });
+  native.afterWorkflow('garden', { body: { userId: 1, action: 'harvest' } }, { status: 200, json: { harvested: 1, gained: {} } });
+  const rain = store.getAll('AppSettings').find((x) => x.Key === 'boosterRain');
+  if (!rain) return; // objectif d'un autre type cette semaine dans cette base
+  store.update('Users', 2, { RainClaimed: '', BoosterCount: 0 });
+  const st = { status: 200, json: { count: 0 } };
+  native.afterWorkflow('booster-status', { query: { userId: '2' }, body: {} }, st);
+  assert.equal(st.json.rain.boosters, 1);
+  assert.equal(user(2).BoosterCount, 1);
+  const again = { status: 200, json: {} };
+  native.afterWorkflow('booster-status', { query: { userId: '2' }, body: {} }, again);
+  assert.ok(!again.json.rain, 'une seule fois');
+});
+
+await test('visite du chien, cadeaux entre joueurs, recapitulatif de la semaine', () => {
+  store.update('Users', 1, { DogGiftDay: '' });
+  assert.equal(call('POST', 'dog-gift', { body: { userId: 1 } }).json.available, true);
+  const g = call('POST', 'dog-gift', { body: { userId: 1, action: 'claim' } }).json;
+  assert.ok(g.gift && g.gift.label);
+  assert.equal(call('POST', 'dog-gift', { body: { userId: 1, action: 'claim' } }).json.error, 'already_claimed');
+  // Cadeau : une fois par jour, recu en passant.
+  store.update('Users', 1, { GiftSentDay: '' });
+  assert.equal(call('POST', 'player-gift', { body: { userId: 1, action: 'send', toUserId: 1, kind: 'dust' } }).json.error, 'invalid_target');
+  const sent = call('POST', 'player-gift', { body: { userId: 1, action: 'send', toUserId: 2, kind: 'dust' } }).json;
+  assert.equal(sent.sent.label, '25 poussières');
+  assert.equal(call('POST', 'player-gift', { body: { userId: 1, action: 'send', toUserId: 2, kind: 'worms' } }).json.error, 'already_sent');
+  const dust2 = user(2).StardustCount || 0;
+  assert.equal(call('POST', 'player-gift', { body: { userId: 2 } }).json.received.length, 1);
+  call('POST', 'player-gift', { body: { userId: 2, action: 'claim' } });
+  assert.equal(user(2).StardustCount, dust2 + 25);
+  // Recapitulatif.
+  const r = call('GET', 'weekly-recap', { query: { userId: 1 } }).json;
+  assert.ok(r.collection.total > 0 && r.week);
+});
+
+await test('marche du dimanche : offres personnelles, achat, une seule fois', () => {
+  const dow = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()) + 'T12:00:00Z').getUTCDay();
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SundayMarketDay: (dow + 1) % 7 } } });
+  assert.equal(call('POST', 'sunday-market', { body: { userId: 1 } }).json.open, false);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SundayMarketDay: dow } } });
+  store.update('Users', 1, { StardustCount: 100000, SundayBought: '' });
+  const st = call('POST', 'sunday-market', { body: { userId: 1 } }).json;
+  assert.equal(st.open, true);
+  assert.ok(st.offers.length >= 1);
+  const offer = st.offers[0];
+  const pulls = store.getAll('Pulls').length;
+  const b = call('POST', 'sunday-market', { body: { userId: 1, action: 'buy', cardId: offer.cardId } }).json;
+  assert.equal(b.purchased.cardId, offer.cardId);
+  assert.equal(store.getAll('Pulls').length, pulls + 1);
+  assert.equal(user(1).StardustCount, 100000 - offer.price);
+  assert.equal(call('POST', 'sunday-market', { body: { userId: 1, action: 'buy', cardId: offer.cardId } }).json.error, 'already_bought');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SundayMarketDay' } });
+});
+
+await test('jardin vivant : plante fanee reduite, serie de recoltes', () => {
+  store.update('Users', 1, { GardenPlots: JSON.stringify([{ plantedAt: now() - 10 * 86400, seed: 'worm' }]), GardenStreak: 2, GardenStreakDay: parisDay(-1) });
+  const h = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  assert.equal(h.items[0].wilted, true);
+  assert.ok(h.items[0].worms <= 2, 'moitie de 3 a 5 vers');
+  assert.equal(user(1).GardenStreak, 3);
+  assert.equal(h.streak, 3);
 });
 
 store.db.close();

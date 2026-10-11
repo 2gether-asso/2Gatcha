@@ -277,6 +277,21 @@ export const REGISTRY = {
   RareOnServerCopies: { ...int('Décraft : carte rare sur le serveur (moins de N exemplaires)', 3, 'Économie', 'En dessous, le décraft rapporte le bonus ci-dessous. 0 = désactivé.'), storage: 'app' },
   RareOnServerDecraftBonus: { ...num('Décraft : bonus d’une carte rare sur le serveur', 1, 'Économie', '1 = ×2.', 0, 5), storage: 'app' },
 
+  // --- Confort et rendez-vous (comfort.js, rendezvous.js, 2026-10-11)
+  RipenMaxPoints: { ...int('Booster mûri : points de finition au maximum', 3, 'Boosters', '+1 point de chance de finition spéciale par jour sans ouvrir de booster, appliqué au booster suivant. 0 = désactivé.', 0, 10), storage: 'app' },
+  ShardsPerBooster: { ...int('Fragments : nombre pour 1 booster', 10, 'Boosters', 'Gagnés en jouant (grilles de fouille, récoltes, prises vides, expéditions…). 0 = désactivé.', 0, 100), storage: 'app' },
+  ShardsDailyCap: { ...int('Fragments : maximum par jour', 6, 'Boosters', '0 = illimité.', 0, 100), storage: 'app' },
+  GoldenHourEnabled: { label: 'Heure dorée hebdomadaire', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Une heure par semaine (vendredi à dimanche, 18 h à 22 h), annoncée la veille.' },
+  GoldenHourFinishMultiplier: { ...num('Heure dorée : finitions spéciales (×)', 2, 'Événements', '', 1, 5), storage: 'app' },
+  BoosterRainEnabled: { label: 'Pluie de boosters (objectif commun)', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Objectif commun atteint : chaque joueur qui passe dans les 24 h reçoit des boosters.' },
+  BoosterRainBoosters: { ...int('Pluie de boosters : boosters par joueur', 1, 'Événements', '', 1, 10), storage: 'app' },
+  DogGiftEnabled: { label: 'Visite du chien (trouvaille du jour)', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: '' },
+  GardenWiltHours: { ...int('Jardin : heures avant qu’une plante prête fane', 24, 'Pêche', 'Fanée : récolte divisée par deux, sans appât ni poussières. 0 = jamais.', 0, 168), storage: 'app' },
+  GardenRareChancePerDay: { ...pct('Jardin : chance de récolte rare par jour de série (dès 3 jours)', 0.1, 'Pêche', '0,1 = 10 % à 3 jours, 20 % à 4 jours… (50 % au plus).'), storage: 'app' },
+  SundayMarketEnabled: { label: 'Marché du dimanche', type: 'bool', def: true, group: 'Économie', storage: 'app', help: '4 cartes par joueur (manquantes d’abord) à prix réduit, une journée.' },
+  SundayMarketDay: { ...int('Marché du dimanche : jour (0 = dimanche … 6 = samedi)', 0, 'Économie', '', 0, 6), storage: 'app' },
+  SundayMarketDiscount: { ...num('Marché du dimanche : prix (× le coût de craft)', 0.6, 'Économie', '0,6 = 40 % moins cher que le craft.', 0.1, 1), storage: 'app' },
+
   // --- Pilotage de l'inflation (inflation.js)
   PriceIndexEnabled: { label: 'Prix indexés sur la richesse moyenne', type: 'bool', def: true, group: 'Inflation', storage: 'app', help: 'Boutique, os, relances, coffres : les prix suivent le solde moyen des joueurs actifs (14 jours).' },
   WealthReference: { ...int('Richesse de référence (poussières)', 3000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },

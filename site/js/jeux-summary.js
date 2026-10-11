@@ -10,9 +10,9 @@
     const el = document.getElementById("games-summary");
     if (!el) return;
     const uid = Session.userId;
-    const [dig, garden, fish, expe, guess] = await Promise.all([
+    const [dig, garden, fish, expe, guess, dogGift] = await Promise.all([
       settled(API.getDigStatus(uid)), settled(API.garden(uid)), settled(API.fishing(uid, "status")),
-      settled(API.expedition(uid, "status")), settled(API.guessCard(uid, "status"))
+      settled(API.expedition(uid, "status")), settled(API.guessCard(uid, "status")), settled(API.dogGift(uid))
     ]);
     const chips = [];
     const chip = (tab, icon, text, hot) => chips.push(`<button type="button" class="gs-chip ${hot ? "hot" : ""}" data-gs-tab="${tab}"><span aria-hidden="true">${icon}</span> ${text}</button>`);
@@ -22,6 +22,7 @@
       if (left > 0) chip("dig", "&#128021;", `Chien : encore ${Math.ceil(left / 3600)} h`, false);
       else if (dig.bones > 0 && dig.bonesLeftToday !== 0) chip("dig", "&#129460;", `${dig.bones} os à donner`, true);
     }
+    if (dogGift && dogGift.available) chips.push(`<button type="button" class="gs-chip hot" data-gs-dog="1"><span aria-hidden="true">&#128021;</span> Trouvaille du chien</button>`);
     if (garden) {
       const empty = garden.plots.filter((p) => !p.planted).length;
       if (garden.readyCount) chip("garden", "&#127803;", `${garden.readyCount} parcelle${garden.readyCount > 1 ? "s" : ""} à récolter`, true);
@@ -43,6 +44,13 @@
     const el = document.getElementById("games-summary");
     if (!el) return;
     el.addEventListener("click", (e) => {
+      const dog = e.target.closest("[data-gs-dog]");
+      if (dog) {
+        dog.disabled = true;
+        API.dogGift(Session.userId, "claim").then((r) => { Toast.success(`&#128021; Le chien t'a rapporté ${r.gift.label} !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); render(); })
+          .catch(() => { dog.disabled = false; Toast.error("Le chien n'a rien trouvé pour l'instant."); });
+        return;
+      }
       const b = e.target.closest("[data-gs-tab]");
       if (b && typeof setActiveTab === "function") setActiveTab(b.dataset.gsTab);
     });

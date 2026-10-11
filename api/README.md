@@ -177,6 +177,8 @@ doublons, coup final au boss) sans le modifier.
 | `upgrades.js` | `POST upgrades`, `POST finish-reroll` | dépenses durables : améliorations permanentes (chenil, serre, canne) et relance de finition payante |
 | `ledger.js`, `context.js` | `POST admin-economy-log` | journal détaillé de l'économie : chaque mouvement de boosters (et de 200 poussières ou plus), avec le joueur, la route, l'action, qui l'a déclenché et le détail ; contexte propre à chaque requête (AsyncLocalStorage), conservé pendant les appels externes des workflows ; modifications de la page d'admin de la base notées `admin-db` |
 | `presets.js` | `POST admin-preset` | modes de jeu Chill / Medium / Hard : 26 réglages d'économie changés d'un coup depuis Admin > Économie, avec aperçu des changements, recommandation selon l'inflation et annonce optionnelle aux joueurs ; Medium = valeurs par défaut |
+| `comfort.js` | — (hooks et bus d'activité) | confort malgré moins de boosters : booster mûri (+1 pt de finition par jour sans ouverture, 3 max), fragments de booster gagnés en jouant (10 = 1 booster, 6/jour), titres et cadres de progression, heure dorée hebdomadaire (finitions ×2, annoncée la veille), pluie de boosters quand l'objectif commun est atteint |
+| `rendezvous.js` | `POST dog-gift`, `POST sunday-market`, `POST player-gift`, `GET weekly-recap` | trouvaille quotidienne du chien, marché du dimanche (4 cartes perso à prix réduit), cadeaux entre joueurs (1/jour), récapitulatif de la semaine passée |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

@@ -99,7 +99,9 @@ export function afterWorkflow({ store, path, request, response }) {
   } else if (path === 'open-pack' && !body.dryRun && Array.isArray(json.cards) && json.batchId) {
     const extra = masteryFinishBonus(store, userId, json.booster ? json.booster.extensionId : body.extensionId)
       + talentValue(user, 'lynx') + (face === 6 ? 0.05 : 0) + (luckyState().active ? setting(store, 'LuckyHourFinishBonus') : 0)
-      + (request._mystery ? setting(store, 'MysteryFinishBonus') : 0);
+      + (request._mystery ? setting(store, 'MysteryFinishBonus') : 0)
+      // Booster muri (comfort.js) : +1 point par jour sans ouverture.
+      + (Number(request._ripe) || 0) * 0.01;
     // Elixir de chance (boutique) : +5 points tant qu'il reste des charges.
     const luck = (Number(user.LuckCharges) || 0) > 0 ? 0.05 : 0;
     if (luck) { store.update('Users', userId, { LuckCharges: (Number(user.LuckCharges) || 0) - 1 }); json.luckChargesLeft = (Number(user.LuckCharges) || 0) - 1; }

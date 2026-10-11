@@ -1140,6 +1140,10 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | Users | TreasureWeek, TreasureFound | Text | course aux tresors : semaine et indices trouves (JSON) |
 | Users | BoneUseDay, BoneUseCount | Text, Numeric | os donnes au chien aujourd'hui (4 par jour au plus) |
 | Users | Upgrades | Text | JSON { kennel, greenhouse, rod } : niveaux des ameliorations permanentes |
+| Users | RipenSince, BoosterShards, ShardDay, ShardToday, RainClaimed | Numeric, Numeric, Text, Numeric, Text | booster mûri, fragments de booster (plafond du jour), pluie de boosters reçue |
+| Users | DogGiftDay, SundayBought, GiftSentDay, GardenStreak, GardenStreakDay | Text, Text, Text, Numeric, Text | trouvaille du chien, achats du marché du dimanche, cadeau envoyé, série de récoltes |
+| PlayerGifts | From, To, Kind, Amount, At, Claimed | Ref:Users, Ref:Users, Text, Numeric, Numeric, Bool | cadeaux entre joueurs (7 jours pour les récupérer) |
+| AppSettings | Key = boosterRain | Text | pluie de boosters en cours (id de la semaine, fin) |
 | EconomyLog | At, User, Source, Action, Actor, Boosters, Dust, Detail | Numeric, Ref:Users, Text, Text, Text, Numeric, Numeric, Text | journal detaille de l'economie (45 jours) : Actor = joueur:ID, admin:DiscordID, Page admin de la base, serveur ; Source inconnu = endroit du code dans Detail |
 | AppSettings | Key = balance-2026-10-11 | Text | migration d'equilibrage : date et reglages modifies (anciennes valeurs) |
 | Users | GardenExtraPlots | Numeric | parcelles de jardin achetees en plus des 4 offertes |

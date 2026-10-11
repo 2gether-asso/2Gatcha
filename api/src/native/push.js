@@ -15,6 +15,7 @@ import { seasonId, seasonEnd } from './seasons.js';
 import { challengeState, goalState } from './challenges.js';
 import { tourneyKey } from './fishing.js';
 import { luckyWindows } from './daily.js';
+import { goldenState } from './comfort.js';
 import { growSeconds, seedMult } from './garden.js';
 
 export const schema = {
@@ -30,7 +31,8 @@ const PUSH_KINDS = [
   { key: 'guess', label: 'Carte du jour à deviner' }, { key: 'streak', label: 'Série de connexion en danger' }, { key: 'lucky', label: 'Heure de chance (1 h avant)' },
   { key: 'evening', label: 'Missions du soir' }, { key: 'trade', label: 'Propositions d’échange' }, { key: 'auction', label: 'Enchères (surenchère, vente, victoire)' },
   { key: 'season-end', label: 'Fin de saison' }, { key: 'challenges-end', label: 'Fin des défis de la semaine' }, { key: 'goal', label: 'Objectif commun atteint' },
-  { key: 'tourney', label: 'Tournoi de pêche' }, { key: 'boss', label: 'Nouveau boss' }, { key: 'event', label: 'Événements' }
+  { key: 'tourney', label: 'Tournoi de pêche' }, { key: 'boss', label: 'Nouveau boss' }, { key: 'event', label: 'Événements' },
+  { key: 'golden', label: 'Heure dorée (la veille et 1 h avant)' }
 ];
 const prefsOf = (user) => { try { const p = JSON.parse((user && user.PushPrefs) || '{}'); return p && typeof p === 'object' ? p : {}; } catch (e) { return {}; } };
 const kindOf = (k) => (k === 'outbid' || k === 'auction-sold' || k === 'auction-won' ? 'auction' : k);
@@ -109,6 +111,13 @@ function dueFor(store, user, sinceSub, ctx) {
     const readyAt = plots.filter((p) => p && p.plantedAt).map((p) => p.plantedAt + Math.round(grow * seedMult(p))).filter((r) => r <= t && r > t - 12 * 3600);
     if (readyAt.length) out.push({ kind: 'garden', key: String(Math.max(...readyAt)), title: '🌻 Ton jardin est prêt', body: 'Viens récolter tes vers de terre (et peut-être un appât doré).', url: 'jeux.html#jardin' });
   } catch (e) { /* jardin illisible */ }
+  // Heure doree : annoncee la veille, puis rappelee une heure avant.
+  const g = ctx.golden;
+  if (g && g.enabled && g.start > t) {
+    const when = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(g.start * 1000));
+    if (g.start - t <= 24 * 3600 && g.start - t > 23 * 3600) out.push({ kind: 'golden', key: 'veille:' + g.start, title: '✨ Heure dorée demain', body: `Rendez-vous ${when} : finitions spéciales ×${g.multiplier} pendant une heure. Garde des boosters !`, url: 'ouverture.html' });
+    if (g.start - t <= 3600) out.push({ kind: 'golden', key: 'bientot:' + g.start, title: '✨ Heure dorée dans moins d’une heure', body: `Finitions spéciales ×${g.multiplier} de ${g.hour} h à ${g.hour + 1} h.`, url: 'ouverture.html' });
+  }
   for (const w of ctx.lucky) if (w.start > t && w.start - t <= 3600) out.push({ kind: 'lucky', key: String(w.start), title: '🍀 Heure de chance dans moins d’une heure', body: 'Finitions spéciales et poussières boostées pendant une heure : garde tes boosters !', url: 'ouverture.html' });
   for (const a of ctx.auctions) {
     if (refId(a.OutbidUser) === user.id && refId(a.Bidder) !== user.id && a.Status === 'open' && (a.OutbidAt || 0) > t - 6 * 3600) out.push({ kind: 'outbid', key: a.id + ':' + a.CurrentBid, title: '🔨 On a surenchéri sur toi', body: `Nouvelle enchère : ${a.CurrentBid} ✨. Reprends la tête avant la fin !`, url: 'communaute.html#encheres' });
@@ -175,6 +184,7 @@ export function collect({ store, hour: forcedHour } = {}) {
     boss: store.tables.has('CommunityBoss') ? store.getAll('CommunityBoss').find((b) => b.Active) : null,
     event: ev.active ? ev : null,
     lucky: luckyWindows(parisDay(0)),
+    golden: goldenState(store),
     auctions: store.tables.has('Auctions') ? store.getAll('Auctions').filter((a) => a.Status === 'open' || (a.SettledAt || 0) > now() - 12 * 3600) : [],
     eventText: evParts.length ? `En ce moment : ${evParts.join(', ')} !` : 'Un événement est en cours sur 2Gatcha.'
   };

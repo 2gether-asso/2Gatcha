@@ -42,6 +42,25 @@
       : `<p class="muted">La boutique de boosters est fermée pour l'instant.</p>`;
   }
 
+  // --- marche du dimanche (api/src/native/rendezvous.js) ----------------------------
+  function renderSunday(st) {
+    const box = $("sunday-market");
+    if (!box) return;
+    if (!st.open) {
+      box.innerHTML = st.nextAt ? `<p class="shop-section-lead">Chaque dimanche, une sélection de 4 cartes rien que pour toi (celles qui te manquent en priorité), jusqu'à 40 % moins chères que le craft. Prochain marché : <strong>${new Date(st.nextAt * 1000).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</strong>.</p>` : "";
+      if (!st.nextAt) $("dimanche").hidden = true;
+      return;
+    }
+    box.innerHTML = `<p class="shop-section-lead">Ta sélection du jour, jusqu'à minuit : ${Math.round((1 - st.discount) * 100)} % moins cher que le craft.</p>
+      <div class="sunday-grid">${st.offers.map((o) => `
+        <article class="sunday-card ${o.bought ? "bought" : ""}" style="--r:${esc(o.rarity?.colorHex || "#888")}">
+          <img src="${API.imageUrl(o.imageId) || ""}" alt="" loading="lazy" />
+          <div class="sunday-body"><strong>${esc(o.name)}</strong><small>${esc(o.rarity?.name || "")}${o.owned ? " · déjà possédée" : " · <b>nouvelle pour toi</b>"}</small></div>
+          <button type="button" class="btn${o.bought ? "-secondary" : ""}" data-sunday="${o.cardId}" ${o.bought ? "disabled" : ""}>${o.bought ? "Achetée" : `${fmt(o.price)} &#10024;`}</button>
+        </article>`).join("")}</div>`;
+  }
+  function loadSunday() { if (API.sundayMarket) API.sundayMarket(Session.userId).then(renderSunday).catch(() => { $("dimanche").hidden = true; }); }
+
   // --- ameliorations permanentes (api/src/native/upgrades.js) -----------------------
   function renderUpgrades(st) {
     const grid = $("upgrade-grid");
@@ -164,10 +183,24 @@
     API.shop(Session.userId).then((s) => { shop = s; renderWallet(); renderItems(); }).catch(() => { $("ressources").hidden = true; $("bonus").hidden = true; });
     API.boosterShop(Session.userId).then((s) => { renderBoosters(s); renderWallet(); }).catch(() => { $("offres").hidden = true; });
     loadUpgrades();
+    loadSunday();
     if (API.getEconomyState) API.getEconomyState().then((e) => { eco = e; renderWallet(); }).catch(() => {});
     API.contracts(Session.userId).then(renderContracts).catch(() => { $("contrats").hidden = true; });
     setInterval(renderWallet, 30000);
     $("shop-zone").addEventListener("click", async (e) => {
+      const sun = e.target.closest("[data-sunday]");
+      if (sun) {
+        sun.disabled = true;
+        try {
+          const res = await API.sundayMarket(Session.userId, "buy", Number(sun.dataset.sunday));
+          renderSunday(res);
+          Toast.success(`&#9728;&#65039; ${res.purchased.name} rejoint ta collection !`);
+          if (shop) shop.stardust = res.newStardust;
+          renderWallet();
+          if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+        } catch (err) { sun.disabled = false; Toast.error({ not_enough_dust: "Pas assez de poussières.", already_bought: "Déjà achetée." }[err.code] || "Erreur. (" + err.message + ")"); }
+        return;
+      }
       const up = e.target.closest("[data-upgrade]");
       if (up) {
         up.disabled = true;

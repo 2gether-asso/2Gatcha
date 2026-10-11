@@ -12,6 +12,7 @@
 
 import { refId, now, ok, fail, configRow, isAdmin } from './common.js';
 import { setting } from './settings.js';
+import { goldenState } from './comfort.js';
 
 export const schema = {
   ScheduledEvents: {
@@ -38,6 +39,11 @@ export function eventState(store) {
   const endsAt = Number(cfg.EventEndsAt) || 0;
   const active = !!cfg.EventActive && (!endsAt || endsAt > now());
   const sch = active ? null : scheduledNow(store);
+  const golden = active || sch ? null : goldenState(store);
+  if (golden && golden.active) return {
+    active: true, golden: true, label: 'Heure dorée', dustMultiplier: 1, finishMultiplier: m(golden.multiplier),
+    fishingRare: 1, wormsMultiplier: 1, endsAt: golden.end
+  };
   if (sch) return {
     active: true, scheduled: true, id: sch.id, label: sch.Label || 'Événement',
     dustMultiplier: m(sch.DustMultiplier), finishMultiplier: m(sch.FinishMultiplier),
@@ -56,7 +62,7 @@ export function eventState(store) {
 }
 
 function handleStatus({ store }) {
-  return ok(eventState(store));
+  return ok({ ...eventState(store), goldenHour: goldenState(store) });
 }
 
 function handleAdmin({ store, body }) {

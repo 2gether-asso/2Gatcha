@@ -12,6 +12,7 @@
 //   POST /webhook/community-goal { userId, action: 'status' | 'claim' }
 
 import { ok, fail, userById, parseJson as parse } from './common.js';
+import { startRain } from './comfort.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 
@@ -198,6 +199,7 @@ export function onEvents(store, events) {
     store.update('CommunityGoals', g.id, { Progress: progress, Contrib: JSON.stringify(contrib) });
     if (!wasReached && progress >= (Number(g.Target) || 1)) {
       Object.keys(contrib).forEach((id) => notices.push({ userId: Number(id), kind: 'goal', icon: '🤝', label: 'Objectif commun atteint : viens récupérer ta récompense !' }));
+      startRain(store, week);
     }
   }
   return notices;

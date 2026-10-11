@@ -47,7 +47,7 @@ export const isHouseSource = (source) => !!source && houseOf().key === source;
 
 // --- heures de chance -----------------------------------------------------------
 function parisOffsetHours(day) { return parisHour(Date.parse(day + 'T12:00:00Z')) - 12; }
-function parisEpoch(day, hour) { return Math.floor((Date.parse(`${day}T${String(hour).padStart(2, '0')}:00:00Z`) - parisOffsetHours(day) * 3600e3) / 1000); }
+export function parisEpoch(day, hour) { return Math.floor((Date.parse(`${day}T${String(hour).padStart(2, '0')}:00:00Z`) - parisOffsetHours(day) * 3600e3) / 1000); }
 
 export function luckyWindows(day = parisDay(0)) {
   const dow = new Date(day + 'T12:00:00Z').getUTCDay();

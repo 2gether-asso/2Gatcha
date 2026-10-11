@@ -39,6 +39,9 @@ let lastOpenedExtension = null;
 let masteryByExt = new Map();
 // Pity par rarete (api/src/native/pity.js) et booster mystere (2026-10-09).
 let rarityPity = [];
+// Booster muri et heure doree (api/src/native/comfort.js), lus dans booster-status.
+let ripeInfo = null;
+let goldenInfo = null;
 const MYSTERY = { id: "mystery", name: "Booster mystère", mystery: true, packImageId: null, cardBackImageId: null };
 // Simulateur admin (2026-10-05, js/opening-sim.js) : quand il est actif, les
 // ouvertures passent par /admin-simulate (modificateurs) au lieu d'open-pack :
@@ -318,10 +321,27 @@ function renderRevealSummary() {
     notable.push(`<li style="--pill-color:${c.rarity?.colorHex || "#9aa0b4"};"><strong>${c.name}</strong> <span>${reasons.join(" · ")}</span></li>`);
   });
   const fresh = cards.filter((c) => c.isNewToPlayer).length;
+  // Progression de chaque extension touchee par l'ouverture (2026-10-11).
+  const catalogById = new Map(catalogCache.map((c) => [c.cardId, c]));
+  const exts = new Map();
+  cards.forEach((c) => {
+    const ext = catalogById.get(c.cardId)?.extension;
+    if (!ext) return;
+    const e = exts.get(ext.id) || { name: ext.name, added: 0 };
+    if (c.isNewToPlayer) e.added++;
+    exts.set(ext.id, e);
+  });
+  const progress = [...exts.entries()].map(([id, e]) => {
+    const all = catalogCache.filter((c) => c.extension?.id === id);
+    const owned = all.filter((c) => (ownedCountMap.get(c.cardId) || 0) > 0).length;
+    const pct = all.length ? Math.round((owned / all.length) * 100) : 0;
+    return `<li class="summary-ext"><span class="summary-ext-name">${e.name}</span><span class="summary-ext-track"><span style="width:${pct}%"></span></span><span class="summary-ext-count">${owned}/${all.length}${e.added ? ` <b>(+${e.added})</b>` : ""}</span></li>`;
+  });
   el.hidden = false;
   el.innerHTML = `
     <div class="summary-head"><strong>${items.length} objet${items.length > 1 ? "s" : ""}</strong>${fresh ? ` · <span class="summary-new">${fresh} nouvelle${fresh > 1 ? "s" : ""} carte${fresh > 1 ? "s" : ""}</span>` : ""}</div>
     <div class="summary-pills">${pills.join("")}</div>
+    ${progress.length ? `<ul class="summary-exts">${progress.join("")}</ul>` : ""}
     ${notable.length ? `<ul class="summary-notable">${notable.slice(0, 12).join("")}</ul>` : ""}
     <p class="summary-hint">Clique sur une carte pour la voir en grand.</p>`;
 }
@@ -506,12 +526,14 @@ function renderRarityPity() {
   const el = document.getElementById("rarity-pity-strip");
   if (!el) return;
   const list = rarityPity.filter((r) => !r.perExtension);
-  el.hidden = !list.length || !!simMode;
-  el.innerHTML = list.length ? `<span class="rps-title">&#127919; Garanties</span>${list.map((r) => `
+  const g = goldenInfo && goldenInfo.enabled ? goldenInfo : null;
+  const goldenLine = g ? `<span class="rps-golden ${g.active ? "on" : ""}">&#10024; ${g.active ? `<strong>Heure dorée en cours</strong> : finitions spéciales ×${g.multiplier} jusqu'à ${new Date(g.end * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : `Heure dorée <strong>${new Date(g.start * 1000).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" })}</strong> : finitions ×${g.multiplier}`}</span>` : "";
+  el.hidden = (!list.length && !goldenLine) || !!simMode;
+  el.innerHTML = goldenLine + (list.length ? `<span class="rps-title">&#127919; Garanties</span>${list.map((r) => `
     <span class="rps-item" style="--r:${r.colorHex || "#a855f7"}" title="${r.name} garantie au plus tard dans ${r.left} carte${r.left > 1 ? "s" : ""} (toutes extensions)">
       <span class="rps-dot" aria-hidden="true"></span><span class="rps-text"><strong>${r.name}</strong> garantie dans <b>${r.left}</b> tirage${r.left > 1 ? "s" : ""}</span>
       <span class="rps-track" aria-hidden="true"><span style="width:${Math.round((1 - r.left / r.threshold) * 100)}%"></span></span>
-    </span>`).join("")}` : "";
+    </span>`).join("")}` : "");
 }
 function loadRarityPity() {
   if (!Session.isLoggedIn() || !API.getRarityPity) return;
@@ -618,7 +640,8 @@ function stopAmbientParticles() {
 function renderBoosterCountLabel() {
   const el = document.getElementById("booster-count-label");
   if (!el) return;
-  el.innerHTML = `<span class="credit-value">${boosterCount}</span> booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}`;
+  el.innerHTML = `<span class="credit-value">${boosterCount}</span> booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}`
+    + (ripeInfo && ripeInfo.max && boosterCount && !simMode ? `<span class="ripe-chip ${ripeInfo.points ? "on" : ""}" title="Chaque jour sans ouvrir de booster ajoute +1 point de chance de finition spéciale au suivant (${ripeInfo.max} au plus).">&#127815; ${ripeInfo.points ? `Booster mûri : +${ripeInfo.points} pt${ripeInfo.points > 1 ? "s" : ""} de finition` : "Garde-le un jour : il mûrit"}</span>` : "");
 }
 
 function renderExtensionPicker() {
@@ -749,6 +772,8 @@ async function refreshStatus() {
     extensionsCache = (extRes.extensions || []).filter((e) => e.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     boosterCount = statusRes.count || 0;
     pityThreshold = statusRes.pityThreshold || 0;
+    ripeInfo = statusRes.ripeness || null;
+    goldenInfo = statusRes.golden || null;
     pityByExt = new Map((statusRes.extensions || []).map((e) => [e.extensionId, e.pullsSinceTop || 0]));
     // Sert a detecter les doublons a la volee pendant le reveal (voir
     // startOpening) : combien d'exemplaires le joueur avait AVANT ce pack.
@@ -1034,6 +1059,7 @@ async function startOpening(ext) {
     const mysteryNames = [];
     let backImageId = ext.cardBackImageId;
     let pityHits = [];
+    let ripened = 0;
     for (let i = 0; i < quantity; i++) {
       const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
       const res = sim
@@ -1044,6 +1070,7 @@ async function startOpening(ext) {
         if (real) { mysteryNames.push(real.name); backImageId = backImageId || real.cardBackImageId; }
       }
       if (res.rarityPity) pityHits.push(res.rarityPity.name);
+      if (res.ripened) ripened = Math.max(ripened, res.ripened);
       if (res.error === "no_boosters") {
         if (i === 0) {
           pack.classList.remove("charging");
@@ -1113,6 +1140,7 @@ async function startOpening(ext) {
       lastPackTags.push({ kind: "mystery", html: `&#10067; Mystère : ${names.join(", ")}`, short: `mystère (${names.join(", ")})` });
       Toast.info(`&#10067; Booster mystère : ${names.join(", ")} !`);
     }
+    if (ripened) lastPackTags.push({ kind: "bonus", html: `&#127815; Booster mûri : +${ripened} pt${ripened > 1 ? "s" : ""} de finition`, short: "mûri" });
     if (pityHits.length) lastPackTags.push({ kind: "pity", html: `&#127919; ${[...new Set(pityHits)].join(", ")} garantie (pity)`, short: "pity" });
     renderPackTags(lastPackTags);
     pack.classList.add("tearing");

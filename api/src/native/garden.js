@@ -6,9 +6,12 @@
 // Jardin etendu (2026-10-09) : graines au choix (melange, vers, appats,
 // poussieres d'etoile) et parcelles supplementaires a acheter (prix
 // croissant, indexe sur la richesse, GardenMaxPlots au total).
+// Jardin vivant (2026-10-11) : une plante prete fane apres GardenWiltHours
+// heures (recolte reduite de moitie, sans appat ni poussieres) ; recolter
+// plusieurs jours de suite donne une chance de recolte rare (des 3 jours).
 //   POST /webhook/garden { userId, action: 'status' | 'plant' | 'harvest' | 'buyPlot', plot?, seed? }
 
-import { ok, fail, userById, now } from './common.js';
+import { ok, fail, userById, now, parisDay } from './common.js';
 import { setting } from './settings.js';
 import { gardenLevel } from './levels.js';
 import { talentValue } from './talents.js';
@@ -19,7 +22,7 @@ import { upgradeValue } from './upgrades.js';
 export const PLOTS = 4;
 
 export const schema = {
-  Users: { GardenPlots: { type: 'Text' }, GoldBait: { type: 'Numeric' }, GardenExtraPlots: { type: 'Numeric' } }
+  Users: { GardenPlots: { type: 'Text' }, GoldBait: { type: 'Numeric' }, GardenExtraPlots: { type: 'Numeric' }, GardenStreak: { type: 'Numeric' }, GardenStreakDay: { type: 'Text' } }
 };
 
 // Graines : prix (x GardenPlantCost), temps de pousse (x), recolte.
@@ -47,14 +50,24 @@ const plotsOf = (user, n = PLOTS) => {
   return Array.from({ length: n }, (_, i) => (p[i] && p[i].plantedAt ? p[i] : null));
 };
 
+// Serie de jours de recolte (en cours si la derniere recolte date d'hier ou d'aujourd'hui).
+function gardenStreak(user) {
+  const day = user.GardenStreakDay;
+  return day === parisDay(0) || day === parisDay(-1) ? Number(user.GardenStreak) || 0 : 0;
+}
+const rareChance = (store, streak) => (streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
+
 function state(store, user) {
   const grow = growSeconds(store, user);
+  const wilt = setting(store, 'GardenWiltHours') * 3600;
   const t = now();
   const plots = plotsOf(user, plotCount(store, user)).map((p, i) => {
     if (!p) return { plot: i, planted: false };
     const g = Math.round(grow * seedMult(p));
-    return { plot: i, planted: true, seed: p.seed || 'mix', plantedAt: p.plantedAt, readyAt: p.plantedAt + g, ready: p.plantedAt + g <= t, progress: Math.min(1, (t - p.plantedAt) / g) };
+    const wiltAt = p.plantedAt + g + wilt;
+    return { plot: i, planted: true, seed: p.seed || 'mix', plantedAt: p.plantedAt, readyAt: p.plantedAt + g, ready: p.plantedAt + g <= t, wiltAt, wilted: wilt > 0 && wiltAt <= t, progress: Math.min(1, (t - p.plantedAt) / g) };
   });
+  const streak = gardenStreak(user);
   const base = setting(store, 'GardenPlantCost');
   const max = setting(store, 'GardenMaxPlots');
   return {
@@ -63,7 +76,8 @@ function state(store, user) {
     extraPlot: plots.length < max ? { price: plotPrice(store, user), owned: plots.length, max } : { price: null, owned: plots.length, max },
     baitChance: Math.min(1, setting(store, 'GardenBaitChance') + gardenLevel(store, user).perks.baitBonus), level: gardenLevel(store, user), stardust: Number(user.StardustCount) || 0,
     goldBait: Number(user.GoldBait) || 0, worms: Number(user.Worms) || 0,
-    readyCount: plots.filter((p) => p.ready).length
+    readyCount: plots.filter((p) => p.ready).length,
+    streak, rareChance: rareChance(store, streak + (user.GardenStreakDay === parisDay(-1) ? 1 : 0)), wiltHours: setting(store, 'GardenWiltHours')
   };
 }
 
@@ -100,9 +114,11 @@ function handleGarden({ store, body }) {
     let worms = 0, bait = 0, dust = 0;
     const items = [];
     let xp = 0;
+    const wilt = setting(store, 'GardenWiltHours') * 3600;
     for (const i of ready) {
       const seed = (plots[i] && plots[i].seed) || 'mix';
       const item = { plot: i, seed, worms: 0, bait: 0, dust: 0 };
+      const wilted = wilt > 0 && plots[i].plantedAt + Math.round(grow * seedMult(plots[i])) + wilt <= now();
       if (seed === 'worm') item.worms = 3 + Math.floor(Math.random() * 3);
       else if (seed === 'bait') { item.worms = 1; if (Math.random() < Math.min(0.95, baitChance * 2)) item.bait = 1; }
       else if (seed === 'dust') item.dust = 30 + Math.floor(Math.random() * 41);
@@ -111,19 +127,31 @@ function handleGarden({ store, body }) {
         if (Math.random() < baitChance) item.bait = 1;
         if (Math.random() < 0.15) item.dust = 15 + Math.floor(Math.random() * 26);
       }
+      if (wilted) { item.wilted = true; item.worms = Math.floor(item.worms / 2); item.bait = 0; item.dust = 0; }
       worms += item.worms; bait += item.bait; dust += item.dust;
       xp += seed === 'mix' || seed === 'worm' ? 2 : 3;
       items.push(item);
       plots[i] = null;
     }
+    // Serie de visites et recolte rare.
+    const today = parisDay(0);
+    const streak = user.GardenStreakDay === today ? Number(user.GardenStreak) || 1 : user.GardenStreakDay === parisDay(-1) ? (Number(user.GardenStreak) || 0) + 1 : 1;
+    let rare = null;
+    const extra = {};
+    if (Math.random() < rareChance(store, streak)) {
+      const r = Math.random();
+      if (r < 0.4) { rare = { icon: '🪝', label: 'un appât doré en plus' }; bait += 1; }
+      else if (r < 0.7) { rare = { icon: '🔩', label: 'une pièce détachée' }; extra.SpareParts = (Number(user.SpareParts) || 0) + 1; }
+      else { rare = { icon: '✨', label: '60 poussières' }; dust += 60; }
+    }
     const before = gardenLevel(store, user).level;
     user = store.update('Users', user.id, {
       GardenPlots: JSON.stringify(plots), Worms: (Number(user.Worms) || 0) + worms,
       GoldBait: (Number(user.GoldBait) || 0) + bait, StardustCount: (Number(user.StardustCount) || 0) + dust,
-      GardenXP: (Number(user.GardenXP) || 0) + xp
+      GardenXP: (Number(user.GardenXP) || 0) + xp, GardenStreak: streak, GardenStreakDay: today, ...extra
     });
     const after = gardenLevel(store, user).level;
-    return ok({ ...state(store, user), harvested: ready.length, items, gained: { worms, bait, dust, xp }, ...(after > before ? { levelUp: after } : {}) });
+    return ok({ ...state(store, user), harvested: ready.length, items, gained: { worms, bait, dust, xp, rare, wilted: items.filter((x) => x.wilted).length }, ...(after > before ? { levelUp: after } : {}) });
   }
   if (action !== 'status') return fail('unknown_action');
   return ok(state(store, user));

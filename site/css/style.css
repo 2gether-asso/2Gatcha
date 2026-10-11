@@ -7989,3 +7989,60 @@ button.header-stats:hover { transform: none; filter: none; border-color: var(--b
   .adm-tile-v { font-size: 1.02rem; }
   .adm-tile small { font-size: 0.72rem; }
 }
+
+/* =====================================================================
+   CONFORT 2026-10-11 : booster mûri, heure dorée, progression après
+   ouverture, jardin vivant, marché du dimanche, cadeaux, récap hebdo.
+   ===================================================================== */
+.ripe-chip { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; vertical-align: middle; color: var(--text-dim); border: 1px dashed var(--border); }
+.ripe-chip.on { color: #c4b5fd; border-style: solid; border-color: rgba(167,139,250,0.6); background: rgba(167,139,250,0.12); }
+.rps-golden { flex-basis: 100%; font-size: 0.82rem; color: var(--text-dim); }
+.rps-golden strong { color: #fde68a; }
+.rps-golden.on { color: #fde68a; }
+
+.summary-exts { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.summary-ext { display: grid; grid-template-columns: minmax(80px, 150px) minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 0.8rem; }
+.summary-ext-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.summary-ext-track { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.summary-ext-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.summary-ext-count { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text-dim); }
+.summary-ext-count b { color: var(--success); }
+
+.garden-plot.wilted { filter: saturate(0.4) brightness(0.85); border-color: rgba(161,98,7,0.6); }
+.garden-plot.wilted .garden-plant { transform: rotate(18deg); }
+.garden-streak { display: block; margin-top: 4px; font-weight: 600; color: #fdba74; }
+
+.sunday-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; }
+.sunday-card { display: grid; gap: 8px; align-content: start; padding: 10px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--r) 45%, var(--border-soft)); }
+.sunday-card img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; background: var(--bg-panel-solid); }
+.sunday-card.bought { opacity: 0.6; }
+.sunday-body { display: grid; gap: 2px; }
+.sunday-body small { font-size: 0.74rem; color: var(--text-dim); }
+.sunday-body b { color: var(--success); }
+.sunday-card .btn, .sunday-card .btn-secondary { width: 100%; }
+
+.profile-gift { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; padding: 10px 14px; border-radius: 12px; font-size: 0.86rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft); }
+.profile-gift .btn-secondary { padding: 6px 12px; font-size: 0.82rem; }
+
+.weekly-recap { display: grid; gap: 12px; border-color: color-mix(in srgb, var(--accent-2) 40%, var(--border-soft)); }
+.recap-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.recap-head h2 { margin: 0; }
+.recap-head .card-modal-close { position: static; }
+.recap-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 10px; }
+.recap-tile { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.04); }
+.recap-tile strong { font-family: var(--font-display, inherit); font-size: 1.4rem; }
+.recap-tile span { font-size: 0.78rem; color: var(--text-dim); }
+.recap-tile b { color: var(--success); }
+.recap-rarities { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.recap-rarities span { padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; color: var(--r); border: 1px solid color-mix(in srgb, var(--r) 50%, transparent); }
+.recap-best { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.recap-best-k { flex-basis: 100%; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+.recap-card { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid color-mix(in srgb, var(--r) 45%, transparent); min-width: 0; }
+.recap-card img { width: 34px; height: 46px; object-fit: cover; border-radius: 6px; }
+.recap-card span { display: grid; min-width: 0; }
+.recap-card small { font-size: 0.72rem; color: var(--text-dim); }
+
+/* Cadres gagnés en jouant (comfort.js). */
+.decor-frame-opener { box-shadow: 0 0 0 3px #a855f7, 0 0 14px rgba(168,85,247,0.7); }
+.decor-frame-sea { box-shadow: 0 0 0 3px #0ea5e9, 0 0 0 5px #0c4a6e, 0 0 16px rgba(14,165,233,0.6); }
+.decor-frame-dig { box-shadow: 0 0 0 3px #b45309, 0 0 0 5px #fbbf24, 0 0 12px rgba(251,191,36,0.5); }

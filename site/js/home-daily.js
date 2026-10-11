@@ -30,6 +30,18 @@
     luckyTimer = setInterval(draw, 30000);
   }
 
+  // Heure doree (comfort.js) : une heure par semaine, finitions speciales multipliees.
+  function renderGolden(g) {
+    const box = $("today-golden");
+    if (!box || !g || !g.enabled) return;
+    box.hidden = false;
+    box.className = "today-lucky today-golden" + (g.active ? " active" : "");
+    box.innerHTML = g.active
+      ? `<span class="today-lucky-icon" aria-hidden="true">&#10024;</span><div><strong>Heure dorée en cours !</strong><small>Finitions spéciales ×${g.multiplier} jusqu'à ${hhmm(g.end)}.</small></div><a class="btn" href="ouverture.html">Ouvrir</a>`
+      : `<span class="today-lucky-icon" aria-hidden="true">&#10024;</span><div><strong>Heure dorée de la semaine</strong><small>${new Date(g.start * 1000).toLocaleDateString("fr-FR", { weekday: "long" })} de ${hhmm(g.start)} à ${hhmm(g.end)} : finitions spéciales ×${g.multiplier}. Garde des boosters !</small></div>`;
+  }
+  if (typeof API !== "undefined" && typeof Session !== "undefined" && Session.isLoggedIn()) API.getBoosterStatus(Session.userId).then((s) => renderGolden(s.golden)).catch(() => {});
+
   function renderEvening(ev) {
     const block = $("evening-block");
     block.hidden = false;

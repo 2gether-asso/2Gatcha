@@ -172,7 +172,7 @@ function setCount(el, n) {
 const RewardsCenter = {
   async collect() {
     const uid = Session.userId;
-    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes, box, dice, wheel] = await Promise.all([
+    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes, box, dice, wheel, dogGift, gifts] = await Promise.all([
       API.getQuestStatus(uid).catch(() => null),
       API.getWeeklyQuestStatus(uid).catch(() => null),
       API.getLevelRewardsStatus(uid).catch(() => null),
@@ -184,12 +184,16 @@ const RewardsCenter = {
       API.themes(uid).catch(() => null),
       API.dailyBox ? API.dailyBox(uid).catch(() => null) : null,
       API.dailyDice ? API.dailyDice(uid).catch(() => null) : null,
-      API.getDailyWheelStatus(uid).catch(() => null)
+      API.getDailyWheelStatus(uid).catch(() => null),
+      API.dogGift ? API.dogGift(uid).catch(() => null) : null,
+      API.playerGift ? API.playerGift(uid).catch(() => null) : null
     ]);
     const items = [];
     // Rituels du jour (2026-10-11) : ouverts aussi par "Tout récupérer", avec un récapitulatif.
     if (box?.available) items.push({ key: "box", icon: "&#127873;", label: "Boîte du jour à ouvrir", claim: () => API.dailyBox(uid, "open"), describe: (r) => r.item ? `${r.item.icon} ${r.item.label}` : "" });
     if (dice && !dice.rolled) items.push({ key: "dice", icon: "&#127922;", label: "Dé du jour à lancer", claim: () => API.dailyDice(uid, "roll"), describe: (r) => r.effect ? `${r.effect.icon} ${r.effect.label}` : "" });
+    if (dogGift?.available) items.push({ key: "dog-gift", icon: "&#128021;", label: "Le chien t'a rapporté une trouvaille", claim: () => API.dogGift(uid, "claim"), describe: (r) => (r.gift ? `${r.gift.icon} ${r.gift.label}` : "") });
+    if (gifts?.received?.length) items.push({ key: "player-gifts", icon: "&#127873;", label: `${gifts.received.length} cadeau${gifts.received.length > 1 ? "x" : ""} de ${[...new Set(gifts.received.map((g) => g.from))].slice(0, 3).join(", ")}`, claim: () => API.playerGift(uid, "claim"), describe: () => gifts.received.map((g) => `${g.icon} ${g.label} (${g.from})`).join(" · ") });
     if (wheel?.canSpin) items.push({ key: "wheel", icon: "&#127905;", label: "Roue de la fortune à tourner", claim: () => API.spinDailyWheel(uid), describe: (r) => { const p = r.prize || {}; return p.type === "stardust" ? `&#10024; ${p.amount} poussières` : p.type === "booster" ? "&#127183; 1 booster" : p.type === "key" ? "&#128273; 1 clé" : p.type === "jackpot" ? `&#127881; Jackpot : ${p.amount} boosters + ${p.dust} poussières` : ""; } });
     if (streak?.canClaim) items.push({ key: "streak", icon: "&#128293;", label: `Cadeau de connexion (jour ${streak.day || ""})`, claim: () => API.claimLoginStreak(uid) });
     if (quests?.canClaim) items.push({ key: "quests", icon: "&#9989;", label: "Quêtes du jour terminées", claim: () => API.claimQuestReward(uid) });
@@ -890,6 +894,12 @@ async function loadHeaderBoosterBadge() {
   try {
     const status = await API.getBoosterStatus(Session.userId);
     window.__hdrStatus = status;
+    // Pluie de boosters (objectif commun atteint) : annonce une seule fois.
+    if (status.rain && typeof Toast !== "undefined") {
+      Toast.success(`&#127783;&#65039; Pluie de boosters ! +${status.rain.boosters} booster${status.rain.boosters > 1 ? "s" : ""} grâce à l'objectif commun.`);
+      if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.3 } });
+      API.invalidate && API.invalidate(["boosterStatus"]);
+    }
     if (typeof Inventory !== "undefined" && Inventory.isOpen()) Inventory.render();
     let countEl = badge.querySelector(".count");
     if (!countEl) {
@@ -1296,7 +1306,8 @@ const Inventory = {
       { icon: "&#129460;", name: "Os", count: n(x.bones), desc: "Envoient le chien creuser pour toi.", url: "jeux.html#fouille", cta: "Chenil" },
       { icon: "&#128297;", name: "Pièces détachées", count: n(st.spareParts), desc: "Remplacent un exemplaire dans une fusion ou une restauration.", url: "collection.html#finitions", cta: "Atelier" },
       { icon: "&#127915;", name: "Tickets Unique", count: n(st.uniqueTickets), desc: "Une carte Unique au choix au Comptoir.", url: "coffre.html#comptoir", cta: "Comptoir" },
-      { icon: "&#129514;", name: "Élixir de chance", count: n(x.luck), desc: "Boosters restants avec +5 pts de finition spéciale.", url: "ouverture.html", cta: "Ouvrir" }
+      { icon: "&#129514;", name: "Élixir de chance", count: n(x.luck), desc: "Boosters restants avec +5 pts de finition spéciale.", url: "ouverture.html", cta: "Ouvrir" },
+      { icon: "&#129513;", name: "Fragments de booster", count: st.shards ? n(st.shards.count) : null, desc: st.shards ? `${st.shards.per} fragments = 1 booster. Gagnés en jouant (fouille, jardin, pêche, expéditions…).` : "", url: "jeux.html", cta: "Jouer" }
     ];
     const boost = x.xpUntil && x.xpUntil > Date.now() / 1000 ? Math.ceil((x.xpUntil - Date.now() / 1000) / 60) : 0;
     const shown = items.filter((i) => i.count == null ? false : i.count > 0 || ["Boosters", "Poussières d'étoile"].includes(i.name));
