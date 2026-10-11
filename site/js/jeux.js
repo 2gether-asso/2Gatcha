@@ -619,6 +619,7 @@ async function castFishing(count) {
   try {
     const useBait = !!document.getElementById("fish-bait")?.checked;
     const request = API.fishing(Session.userId, "cast", count, useBait, fishZone === "deep" && fishState.deep && fishState.deep.unlocked ? "deep" : "shore");
+    request.catch(() => {}); // evite un unhandledrejection : l'erreur est geree au Promise.all plus bas
     await fishWait(700);
     scene.classList.replace("casting", "waiting");
     status.textContent = "On attend que ça morde…";
