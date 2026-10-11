@@ -167,8 +167,9 @@ class Execution {
         if (!this.response) this.resolveResponse({ status: 500, json: { message: 'Workflow did not respond' } });
       } catch (err) {
         this.runner.log.error(`[${this.wf.name}] ${err.nodeName ? `noeud "${err.nodeName}" : ` : ''}${err.stack || err.message}`);
-        if (this.runner.onError) this.runner.onError(err, { workflow: this.wf.name, node: err.nodeName });
-        if (!this.response) this.resolveResponse({ status: 500, json: { message: 'Error in workflow', error: err.message } });
+        // err.expected : situation attendue (ex. donnees Grist incompletes), loggee mais non suivie.
+        if (!err.expected && this.runner.onError) this.runner.onError(err, { workflow: this.wf.name, node: err.nodeName });
+        if (!this.response) this.resolveResponse({ status: err.expected ? 422 : 500, json: { message: 'Error in workflow', error: err.message } });
       }
     })();
     return { responded, done };
