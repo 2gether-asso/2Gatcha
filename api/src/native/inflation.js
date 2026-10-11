@@ -11,13 +11,12 @@
 //    2 desactive.
 //   GET /webhook/economy-state -> { priceFactor, tight, since, avgWealth }
 
-import { ok, now, parisDay } from './common.js';
+import { ok, now, parisDay, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { flows } from './economy.js';
 import { addFeed } from './feed.js';
 
 const KEY = 'inflationMode';
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 
 function appGet(store) { const r = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((x) => x.Key === KEY) : null; return r ? parse(r.Value, {}) : {}; }
 function appSet(store, value) {

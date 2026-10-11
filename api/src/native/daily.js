@@ -16,7 +16,7 @@
 //      POST /webhook/evening { userId, action: 'status' | 'claim' }
 //   GET /webhook/today ?userId= : tout ce qui precede en un appel (accueil).
 
-import { refId, now, ok, fail, userById, parisDay, parisHour } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, parisHour, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { grantCosmetic } from './cosmetics.js';
@@ -29,11 +29,10 @@ export const schema = {
   }
 };
 
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
 // --- action du jour ----------------------------------------------------------
-export const HOUSE = [
+const HOUSE = [
   { key: 'open-pack', label: 'Ouvrir des boosters', icon: '🎴', url: 'ouverture.html' },
   { key: 'dig', label: 'Fouiller', icon: '⛏️', url: 'jeux.html#fouille' },
   { key: 'fishing', label: 'Pêcher', icon: '🎣', url: 'jeux.html#peche' },
@@ -65,7 +64,7 @@ export function luckyState(at = now()) {
 }
 
 // --- de du jour -----------------------------------------------------------------
-export const DICE = [
+const DICE = [
   null,
   { face: 1, icon: '🎣', label: 'Pêche : +3 vers de terre tout de suite' },
   { face: 2, icon: '⛏️', label: 'Fouille : +25 % de poussières aujourd’hui' },
@@ -133,7 +132,7 @@ function handleBox({ store, body }) {
 
 // --- bonus de retour --------------------------------------------------------------
 // Nouveautes annoncees aux joueurs de retour (les plus recentes d'abord).
-export const CHANGELOG = [
+const CHANGELOG = [
   { date: '2026-10-07', text: 'Maîtrise des extensions, talents, constellations, cartes ★, rangs de compte' },
   { date: '2026-10-07', text: 'Boîte du jour, dé du jour, heures de chance, missions du soir, enchères, contrats de collection' },
   { date: '2026-10-05', text: 'Défis de la semaine, objectif commun, boutique de cosmétiques, jardin, grande fouille commune' },
@@ -181,7 +180,7 @@ function handleWelcome({ store, body }) {
 }
 
 // --- missions du soir ----------------------------------------------------------
-export const EVENING = [
+const EVENING = [
   { key: 'boosters2', type: 'boosterOpened', target: 2, label: 'Ouvrir 2 boosters', icon: '🎴', url: 'ouverture.html' },
   { key: 'dig10', type: 'dig', target: 10, label: 'Creuser 10 cases', icon: '⛏️', url: 'jeux.html#fouille' },
   { key: 'fish5', type: 'fish', target: 5, label: 'Lancer 5 fois ta ligne', icon: '🎣', url: 'jeux.html#peche' },

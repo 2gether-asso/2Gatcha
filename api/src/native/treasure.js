@@ -13,7 +13,7 @@ export const schema = {
   Users: { TreasureWeek: { type: 'Text' }, TreasureFound: { type: 'Text' } }
 };
 
-export const PAGES = [
+const PAGES = [
   { page: 'index', label: 'Accueil' }, { page: 'collection', label: 'Collection' }, { page: 'ouverture', label: 'Ouverture' },
   { page: 'jeux', label: 'Jeux' }, { page: 'boutique', label: 'Boutique' }, { page: 'coffre', label: 'Coffre-fort' },
   { page: 'communaute', label: 'Communauté' }, { page: 'craft', label: 'Atelier' }, { page: 'trade', label: 'Échanges' },

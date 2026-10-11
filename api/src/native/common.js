@@ -21,6 +21,10 @@ export function levelForXp(xp) {
   return Math.floor((25 + Math.sqrt(625 + 100 * (xp || 0))) / 50);
 }
 
+// Colonne texte JSON -> valeur (def si vide ou illisible).
+export function parseJson(v, def) {
+  try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; }
+}
 export const ok = (json) => ({ status: 200, json });
 export const fail = (error, status = 400, extra = {}) => ({ status, json: { error, ...extra } });
 

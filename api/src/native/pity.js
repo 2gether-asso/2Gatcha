@@ -13,17 +13,16 @@
 //    priorite une carte que le joueur n'a pas encore dans cette extension.
 //   GET /webhook/rarity-pity ?userId=&extensionId= -> { rarities: [{ key, name, colorHex, threshold, left }] }
 
-import { refId, ok, fail, userById, configRow, firstAttachment } from './common.js';
+import { refId, ok, fail, userById, configRow, firstAttachment, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 
 export const schema = {
   Users: { RarityPity: { type: 'Text' } }
 };
 
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 
 // Raretes suivies et leur seuil.
-export function pityRarities(store) {
+function pityRarities(store) {
   const mult = setting(store, 'RarityPityMultiplier');
   if (!(mult > 0)) return [];
   const all = store.getAll('Rarities').filter((r) => r.Key !== 'unique' && (Number(r.Weight) || 0) > 0);
@@ -63,7 +62,7 @@ function swapCard(store, userId, pull, target, card, rarity) {
 }
 
 // Extensions qu'un booster mystere peut tirer.
-export function mysteryPool(store) {
+function mysteryPool(store) {
   const exts = store.tables.has('Extensions') ? store.getAll('Extensions').filter((e) => e.Active !== false) : [];
   const cards = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo);
   return exts.filter((e) => cards.some((c) => refId(c.Extension) === e.id));

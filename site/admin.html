@@ -3,554 +3,383 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin - Codes événement - 2Gatcha</title>
+  <title>Administration - 2Gatcha</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body data-no-maintenance>
+<body data-no-maintenance class="admin-page">
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <header id="site-header"></header>
 
   <main id="main-content">
-    <div class="panel">
-      <h1>Admin - Codes événement</h1>
-      <p class="lead">Créé un code a distribuer pendant un événement de l'asso.
-        Besoin de vérifier le rendu d'une carte avant de l'importer ?
-        <a href="card-preview-tool.html">Outil de prévisualisation &rarr;</a>
-        &middot; <a href="admin-db.html">Base de données &amp; images &rarr;</a>
-      </p>
+    <div class="panel adm-shell">
+      <div class="adm-top">
+        <div>
+          <h1>Administration</h1>
+          <p class="lead adm-lead">Codes, économie, événements, contenu et réglages du jeu.</p>
+        </div>
+        <nav class="adm-tools" aria-label="Outils">
+          <a class="btn-ghost" href="admin-db.html">&#128451;&#65039; Base de données</a>
+          <a class="btn-ghost" href="admin-db.html#extensions">&#129513; Extensions &amp; cartes</a>
+          <a class="btn-ghost" href="card-preview-tool.html">&#128444;&#65039; Prévisualiser une carte</a>
+        </nav>
+      </div>
 
       <div id="guest-warning" style="display:none;">
         <p>Tu dois d'abord te <a href="index.html" id="admin-login-link">connecter avec Discord</a>.</p>
       </div>
-
       <div id="denied-warning" style="display:none;">
         <div class="error-box">Ce compte n'est pas administrateur.</div>
       </div>
 
-      <div id="admin-zone" style="display:none;">
+      <div id="admin-zone" class="adm-layout" style="display:none;">
+        <nav class="adm-nav" id="adm-nav" role="tablist" aria-label="Sections de l'administration">
+          <button type="button" role="tab" data-pane="accueil"><span aria-hidden="true">&#127968;</span> Vue d'ensemble</button>
+          <button type="button" role="tab" data-pane="codes"><span aria-hidden="true">&#127915;</span> Codes &amp; dons</button>
+          <button type="button" role="tab" data-pane="economie"><span aria-hidden="true">&#128176;</span> Économie</button>
+          <button type="button" role="tab" data-pane="evenements"><span aria-hidden="true">&#128197;</span> Événements</button>
+          <button type="button" role="tab" data-pane="contenu"><span aria-hidden="true">&#127183;</span> Contenu</button>
+          <button type="button" role="tab" data-pane="reglages"><span aria-hidden="true">&#9881;&#65039;</span> Réglages</button>
+          <button type="button" role="tab" data-pane="site"><span aria-hidden="true">&#128736;&#65039;</span> Site</button>
+        </nav>
 
-        <details class="admin-section" open>
-          <summary><h2>&#127915; Codes événement</h2></summary>
-          <div class="admin-section-body">
-            <form id="create-code-form" class="admin-form">
-              <label>
-                Code (laisse vide pour en générer un)
-                <input type="text" id="code-input" maxlength="20" placeholder="ex: SOIREE20" />
-              </label>
-              <label>
-                Note interne (optionnel)
-                <input type="text" id="label-input" maxlength="60" placeholder="ex: Soirée jeux du 20/09" />
-              </label>
-              <label>
-                Récompense
-                <select id="reward-type-select">
-                  <option value="booster">Boosters</option>
-                  <option value="card">Carte précise</option>
-                </select>
-              </label>
-              <label>
-                Quantité (nb de boosters, ou d'exemplaires de la carte)
-                <input type="number" id="quantity-input" min="1" value="1" required />
-              </label>
-              <label id="card-select-label" style="display:none;">
-                Carte
-                <select id="card-select"></select>
-                <img id="card-select-preview" class="card-preview-thumb" alt="" style="display:none;margin-top:6px;width:90px;height:120px;" />
-              </label>
-              <label>
-                Validité (en heures)
-                <input type="number" id="expires-input" min="1" value="4" required />
-              </label>
-              <label>
-                Nombre max de joueurs pouvant réclamer (0 = illimité)
-                <input type="number" id="max-redemptions-input" min="0" value="0" required />
-              </label>
-              <label style="flex-direction:row;align-items:center;gap:8px;">
-                <input type="checkbox" id="notify-discord-checkbox" style="width:auto;" />
-                Notifier sur Discord à la création
-              </label>
-              <button type="submit">Créer le code</button>
-            </form>
+        <div class="adm-panes">
 
-            <div id="reward-preview" class="reward-banner" style="display:none;"></div>
-            <div id="created-zone"></div>
-
-            <div class="actions" style="margin-top:24px;">
-              <h3 style="flex:1;margin:0;">Codes existants</h3>
-              <button type="button" class="btn-secondary active" id="view-table-btn">Tableau</button>
-              <button type="button" class="btn-secondary" id="view-calendar-btn">Calendrier</button>
-            </div>
-            <div id="codes-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
-            <table class="admin-table" id="codes-table">
-              <thead>
-                <tr>
-                  <th>Code</th><th>Note</th><th>Récompense</th><th>Utilisations</th>
-                  <th>Expire</th><th>Statut</th><th></th>
-                </tr>
-              </thead>
-              <tbody id="codes-tbody"></tbody>
-            </table>
-            <div id="codes-calendar" class="codes-calendar" style="display:none;"></div>
-          </div>
-        </details>
-
-        <details class="admin-section">
-          <summary><h2>&#127873; Don a un joueur</h2></summary>
-          <div class="admin-section-body">
-            <form id="gift-form" class="admin-form">
-              <label>
-                Joueur
-                <select id="gift-user-select"></select>
-              </label>
-              <label>
-                Type de don
-                <select id="gift-type-select">
-                  <option value="card">Carte</option>
-                  <option value="booster">Booster(s)</option>
-                  <option value="dust">Poussières d'étoile</option>
-                </select>
-              </label>
-              <label id="gift-card-label">
-                Carte
-                <select id="gift-card-select"></select>
-                <img id="gift-card-preview" class="card-preview-thumb" alt="" style="display:none;margin-top:6px;width:90px;height:120px;" />
-              </label>
-              <label id="gift-finish-label">
-                Finition
-                <select id="gift-finish-select">
-                  <option value="normal">Normal</option>
-                  <option value="holo">Holo</option>
-                  <option value="gold">Doré</option>
-                  <option value="ghost">Ghost</option>
-                  <option value="diamond">Diamant</option>
-                  <option value="rainbow">Arc-en-ciel</option>
-                </select>
-              </label>
-              <label id="gift-quality-label">
-                Qualité
-                <select id="gift-quality-select">
-                  <option value="damaged">Abîmé</option>
-                  <option value="worn">Usé</option>
-                  <option value="good" selected>Bon état</option>
-                  <option value="mint">Parfait état</option>
-                </select>
-              </label>
-              <label>
-                Quantité
-                <input type="number" id="gift-quantity-input" min="1" value="1" required />
-              </label>
-              <button type="submit">Envoyer le don</button>
-            </form>
-          </div>
-        </details>
-
-        <details class="admin-section">
-          <summary><h2>&#9878;&#65039; Équilibrage du jeu</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">
-              Ajuste les taux de drop et les valeurs d'équilibrage directement ici
-              (équivalent à éditer les tables dans <a href="admin-db.html">Base de données</a>) - effet immédiat,
-              sans redéploiement.
-            </p>
-
-            <h3 class="balance-subheading">Raretés</h3>
-            <div id="balance-rarities-table" class="balance-table"></div>
-
-            <h3 class="balance-subheading">Finitions (foil)</h3>
-            <div id="balance-finishes-table" class="balance-table"></div>
-
-            <h3 class="balance-subheading">Qualités (état des cartes)</h3>
-            <div id="balance-qualities-table" class="balance-table"></div>
-
-            <h3 class="balance-subheading">Autres réglages</h3>
-            <form id="config-form" class="admin-form">
-              <label>
-                Pity (nb de tirages sans la rareté garantie)
-                <input type="number" id="pity-threshold-input" min="1" />
-              </label>
-              <label>
-                Rareté garantie par la pity
-                <select id="top-rarity-select"></select>
-              </label>
-              <label>
-                Fouille : énergie maximum
-                <input type="number" id="dig-max-energy-input" min="1" />
-              </label>
-              <label>
-                Fouille : régénération (secondes par point)
-                <input type="number" id="dig-regen-seconds-input" min="5" />
-              </label>
-              <label>
-                Quêtes du jour : seuil de réussite (sur 4)
-                <input type="number" id="daily-threshold-input" min="1" max="4" />
-              </label>
-              <label>
-                Quêtes du jour : récompense (boosters)
-                <input type="number" id="daily-reward-input" min="0" />
-              </label>
-              <label>
-                Quêtes de la semaine : seuil de réussite (sur 4)
-                <input type="number" id="weekly-threshold-input" min="1" max="4" />
-              </label>
-              <label>
-                Quêtes de la semaine : récompense (boosters)
-                <input type="number" id="weekly-reward-input" min="0" />
-              </label>
-              <label>
-                Quêtes de la semaine : occurrences requises par quête
-                <input type="number" id="weekly-target-input" min="1" />
-              </label>
-              <label>
-                Restauration : doublons identiques requis par palier
-                <input type="number" id="quality-repair-cost-input" min="1" />
-              </label>
-              <h3 class="balance-subheading" style="margin-top:20px;">Déblocages par niveau de profil</h3>
-              <label>
-                Niveau : Crafter des cartes
-                <input type="number" id="unlock-craft-input" min="1" />
-              </label>
-              <label>
-                Niveau : Les échanges
-                <input type="number" id="unlock-trade-input" min="1" />
-              </label>
-              <label>
-                Niveau : L'autel de sacrifice
-                <input type="number" id="unlock-altar-input" min="1" />
-              </label>
-              <label>
-                Niveau : Restauration de cartes usées
-                <input type="number" id="unlock-quality-input" min="1" />
-              </label>
-              <label>
-                Niveau : Finitions (fusion de cartes)
-                <input type="number" id="unlock-finish-input" min="1" />
-              </label>
-              <label>
-                Niveau : Vitrine de profil
-                <input type="number" id="unlock-showcase-input" min="1" />
-              </label>
-              <label>
-                Niveau : Thème Monochrome
-                <input type="number" id="unlock-theme-monochrome-input" min="1" />
-              </label>
-              <label>
-                Niveau : Thème Sépia
-                <input type="number" id="unlock-theme-sepia-input" min="1" />
-              </label>
-              <label>
-                Niveau : Thème Cyberpunk
-                <input type="number" id="unlock-theme-cyberpunk-input" min="1" />
-              </label>
-              <label>
-                Niveau : Pochette Néon
-                <input type="number" id="unlock-sleeve-neon-input" min="1" />
-              </label>
-              <label>
-                Niveau : Pochette Vintage
-                <input type="number" id="unlock-sleeve-vintage-input" min="1" />
-              </label>
-              <label>
-                Niveau : Pochette Carbone
-                <input type="number" id="unlock-sleeve-carbone-input" min="1" />
-              </label>
-              <button type="submit">Enregistrer</button>
-            </form>
-          </div>
-        </details>
-
-        <details class="admin-section">
-          <summary><h2>&#128230; Extensions</h2></summary>
-          <div class="admin-section-body">
-            <a class="btn admin-ext-shortcut" href="admin-db.html#extensions">&#129513; Créer une extension et importer ses cartes</a>
-            <p class="lead" style="font-size:0.85rem;">
-              Le plus simple : l'outil ci-dessus (visuels, cartes en lot depuis leurs images, retouches). Sinon, crée une extension ici, puis ajoute son visuel de packet et
-              son dos de carte dans <a href="admin-db.html">Base de données</a>
-              (onglet Tables, table <code>Extensions</code>, colonnes
-              <code>PackImage</code>/<code>CardBackImage</code> : icône &#128247;).
-            </p>
-            <div id="extensions-list" class="codes-calendar"></div>
-            <form id="create-extension-form" class="admin-form">
-              <label>
-                Nom
-                <input type="text" id="ext-name-input" placeholder="ex: Halloween 2026" required />
-              </label>
-              <label>
-                Cle (slug)
-                <input type="text" id="ext-key-input" placeholder="ex: halloween-2026" required />
-              </label>
-              <label>
-                Ordre d'affichage
-                <input type="number" id="ext-sort-input" min="0" value="0" />
-              </label>
-              <button type="submit">Créer l'extension</button>
-            </form>
-          </div>
-        </details>
-
-        <details class="admin-section">
-          <summary><h2>&#128128; Boss communautaire</h2></summary>
-          <div class="admin-section-body">
-            <div id="boss-admin-current" class="empty-state">Chargement...</div>
-            <p class="lead" style="font-size:0.85rem;margin-top:16px;">
-              Créer un nouveau boss désactive automatiquement celui en cours (s'il y en a un).
-            </p>
-            <form id="create-boss-form" class="admin-form">
-              <label>
-                Nom du boss
-                <input type="text" id="boss-name-input" placeholder="ex: Le Dévoreur de Doublons" required />
-              </label>
-              <label>
-                Points de vie
-                <input type="number" id="boss-maxhp-input" min="1" value="1000" required />
-              </label>
-              <label>
-                Boosters accordés à chaque participant à la victoire
-                <input type="number" id="boss-reward-input" min="0" value="2" required />
-              </label>
-              <button type="submit">Lancer ce boss</button>
-            </form>
-          </div>
-        </details>
-
-        <details class="admin-section">
-          <summary><h2>&#127761; Marché noir</h2></summary>
-          <div class="admin-section-body">
-            <div id="market-admin-list" class="codes-calendar"></div>
-            <form id="create-market-offer-form" class="admin-form">
-              <label>
-                Carte
-                <select id="market-card-select"></select>
-                <img id="market-card-preview" class="card-preview-thumb" alt="" style="display:none;margin-top:6px;width:90px;height:120px;" />
-              </label>
-              <label>
-                Coût (poussières d'étoile)
-                <input type="number" id="market-cost-input" min="1" value="200" required />
-              </label>
-              <label>
-                Validité (en heures)
-                <input type="number" id="market-expires-input" min="1" value="24" required />
-              </label>
-              <label>
-                Nombre max d'achats (0 = illimité)
-                <input type="number" id="market-max-purchases-input" min="0" value="5" required />
-              </label>
-              <button type="submit">Créer l'offre</button>
-            </form>
-          </div>
-        </details>
-
-        <details class="admin-section">
-          <summary><h2>&#127922; Bingo de collection</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">
-              Choisis exactement 9 cartes pour la grille d'un mois. Recréer une
-              grille pour un mois déjà défini la remplace entièrement.
-              « Autogénérer » remplit le formulaire avec 9 cartes au hasard
-              (hors promo, secrètes et mythiques) pour le <strong>mois prochain</strong> —
-              rien n'est enregistré tant que tu ne cliques pas sur « Enregistrer ».
-            </p>
-            <div class="actions" style="margin-top:0;">
-              <button type="button" class="btn-secondary" id="bingo-autogen-btn">&#127922; Autogénérer la grille du mois prochain</button>
-            </div>
-            <form id="create-bingo-form" class="admin-form">
-              <label>
-                Mois (AAAA-MM, laisse vide pour le mois courant)
-                <input type="text" id="bingo-month-input" placeholder="ex: 2026-10" pattern="[0-9]{4}-[0-9]{2}" />
-              </label>
-              <div id="bingo-card-selects" class="bingo-admin-selects"></div>
-              <label>
-                Boosters accordés à la grille complète
-                <input type="number" id="bingo-reward-input" min="0" value="5" required />
-              </label>
-              <button type="submit">Enregistrer la grille</button>
-            </form>
-          </div>
-        </details>
-
-        <details class="admin-section">
-          <summary><h2>&#127775; Récompenses de niveau</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">
-              Pour chaque niveau de profil (1 à 100), choisis combien de
-              poussières d'étoile, de boosters, et éventuellement une carte
-              précise le joueur reçoit en l'atteignant. Un palier laissé à 0
-              partout ne donne simplement rien. Les joueurs réclament ces
-              récompenses depuis l'accueil dès qu'ils passent un niveau
-              configuré.
-            </p>
-            <div id="level-rewards-table-wrap" class="level-rewards-table-wrap">
-              <table class="level-rewards-table">
-                <thead>
-                  <tr><th>Niveau</th><th>Poussières</th><th>Boosters</th><th>Carte (optionnel)</th></tr>
-                </thead>
-                <tbody id="level-rewards-tbody"></tbody>
-              </table>
-            </div>
-            <button type="button" id="save-level-rewards-btn">Enregistrer les 100 paliers</button>
-          </div>
-        </details>
-
-        <details class="admin-section" id="settings-section">
-          <summary><h2>&#9881;&#65039; Réglages avancés</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">Tous les paramètres du jeu qui ne sont pas déjà dans les autres sections : boosters, coffres, pêche, saison, série de connexion, sets, boss, fouille, notifications, sécurité. Un réglage jamais modifié garde sa valeur par défaut ; « Défaut » le remet à zéro.</p>
-            <div id="settings-zone" class="empty-state">Ouvre cette section pour charger les réglages.</div>
-          </div>
-        </details>
-
-        <details class="admin-section" id="season-admin-section">
-          <summary><h2>&#127942; Saison mensuelle</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">Chaque mois, le pass de saison repart à zéro. Choisis la carte exclusive donnée au dernier palier (de préférence une carte <strong>promo</strong>, pour qu'elle ne sorte pas des boosters). Paliers, XP et récompenses : « Réglages avancés » &gt; Saison.</p>
-            <div id="season-admin-zone" class="empty-state">Chargement...</div>
-          </div>
-        </details>
-
-        <details class="admin-section" id="economy-section">
-          <summary><h2>&#128176; Économie</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">Monnaies en circulation et activité des 30 derniers jours. Les exemplaires décraftés ou sacrifiés ne sont plus comptés : les courbes montrent les cartes encore en circulation.</p>
-            <div id="economy-zone" class="empty-state">Ouvre cette section pour charger les chiffres.</div>
-          </div>
-        </details>
-
-        <details class="admin-section" id="events-dashboard">
-          <summary><h2>&#128197; Tableau de bord des événements</h2></summary>
-          <div class="admin-section-body">
-            <div class="evd-now" id="evd-now"><div class="loading-row"><div class="spinner"></div></div></div>
-            <h3>Planning</h3>
-            <div id="evd-list"></div>
-            <h3>Programmer un événement</h3>
-            <form id="evd-form" class="admin-form evd-form">
-              <input type="hidden" id="evd-id" />
-              <label class="evd-wide">Nom affiché <input type="text" id="evd-label" maxlength="80" placeholder="ex : Week-end des étoiles" required /></label>
-              <label>Début <input type="datetime-local" id="evd-start" required /></label>
-              <label>Fin <input type="datetime-local" id="evd-end" required /></label>
-              <label>Poussières (×) <input type="number" id="evd-dust" min="1" max="5" step="0.5" value="1" /></label>
-              <label>Finitions (×) <input type="number" id="evd-finish" min="1" max="5" step="0.5" value="1" /></label>
-              <label>Pêche : prises rares (×) <input type="number" id="evd-fishing" min="1" max="5" step="0.5" value="1" /></label>
-              <label>Vers de terre (×) <input type="number" id="evd-worms" min="1" max="5" step="0.5" value="1" /></label>
-              <label class="evd-check"><input type="checkbox" id="evd-enabled" checked /> Activé</label>
-              <div class="event-presets evd-wide">Modèles :
-                <button type="button" class="btn-ghost" data-evd-preset="stars">Week-end des étoiles</button>
-                <button type="button" class="btn-ghost" data-evd-preset="fishing">Semaine de la pêche</button>
-                <button type="button" class="btn-ghost" data-evd-preset="worms">Chasse aux vers</button>
-                <button type="button" class="btn-ghost" data-evd-preset="finish">Nuit des finitions</button>
+          <!-- ============================== Vue d'ensemble ============================== -->
+          <section class="adm-pane" id="pane-accueil" role="tabpanel" data-title="Vue d'ensemble">
+            <div class="adm-overview" id="adm-overview"><div class="loading-row"><div class="spinner"></div></div></div>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#9889; Raccourcis</h2></header>
+              <div class="adm-shortcuts">
+                <button type="button" class="adm-shortcut" data-goto="codes" data-focus="code-input"><span aria-hidden="true">&#127915;</span>Créer un code événement</button>
+                <button type="button" class="adm-shortcut" data-goto="codes" data-focus="gift-user-select"><span aria-hidden="true">&#127873;</span>Faire un don à un joueur</button>
+                <button type="button" class="adm-shortcut" data-goto="evenements" data-focus="evd-label"><span aria-hidden="true">&#128197;</span>Planifier un événement</button>
+                <button type="button" class="adm-shortcut" data-goto="economie"><span aria-hidden="true">&#127918;</span>Changer le mode de jeu</button>
+                <a class="adm-shortcut" href="admin-db.html#extensions"><span aria-hidden="true">&#129513;</span>Ajouter une extension</a>
+                <button type="button" class="adm-shortcut" data-goto="site" data-focus="banner-message-input"><span aria-hidden="true">&#128226;</span>Afficher un bandeau</button>
               </div>
-              <div class="evd-wide evd-form-actions"><button type="submit" id="evd-submit">Planifier l'événement</button><button type="button" class="btn-ghost" id="evd-reset">Vider</button></div>
-            </form>
-            <p class="lead" style="font-size:0.8rem;">Un événement planifié démarre et s'arrête tout seul (bandeau, bonus). L'événement manuel ci-dessous reste prioritaire quand il est lancé.</p>
-          </div>
-        </details>
+            </section>
+          </section>
 
-        <details class="admin-section">
-          <summary><h2>&#127881; Week-end événement</h2></summary>
-          <div class="admin-section-body">
-            <div id="event-admin-current" class="empty-state">Chargement...</div>
-            <form id="event-form" class="admin-form">
-              <label>Nom affiché <input type="text" id="event-label" maxlength="80" placeholder="ex: Week-end des étoiles" required /></label>
-              <label>Poussières (multiplicateur) <input type="number" id="event-dust" min="1" max="5" step="0.5" value="2" /></label>
-              <label>Finitions à l'ouverture (multiplicateur) <input type="number" id="event-finish" min="1" max="5" step="0.5" value="1" /></label>
-              <label>Pêche : prises rares (multiplicateur) <input type="number" id="event-fishing" min="1" max="5" step="0.5" value="1" /></label>
-              <label>Vers de terre trouvés (multiplicateur) <input type="number" id="event-worms" min="1" max="5" step="0.5" value="1" /></label>
-              <div class="event-presets">Modèles :
-                <button type="button" class="btn-ghost" data-event-preset="stars">Week-end des étoiles</button>
-                <button type="button" class="btn-ghost" data-event-preset="fishing">Semaine de la pêche</button>
-                <button type="button" class="btn-ghost" data-event-preset="worms">Chasse aux vers</button>
+          <!-- ============================== Codes & dons ============================== -->
+          <section class="adm-pane" id="pane-codes" role="tabpanel" data-title="Codes & dons" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127915; Codes événement</h2><p>Un code à distribuer pendant un événement de l'asso : boosters ou carte précise, durée et nombre de joueurs limités.</p></header>
+              <form id="create-code-form" class="admin-form">
+                <label>Code (laisse vide pour en générer un)
+                  <input type="text" id="code-input" maxlength="20" placeholder="ex: SOIREE20" />
+                </label>
+                <label>Note interne (optionnel)
+                  <input type="text" id="label-input" maxlength="60" placeholder="ex: Soirée jeux du 20/09" />
+                </label>
+                <label>Récompense
+                  <select id="reward-type-select">
+                    <option value="booster">Boosters</option>
+                    <option value="card">Carte précise</option>
+                  </select>
+                </label>
+                <label>Quantité (boosters, ou exemplaires de la carte)
+                  <input type="number" id="quantity-input" min="1" value="1" required />
+                </label>
+                <label id="card-select-label" style="display:none;">Carte
+                  <select id="card-select"></select>
+                  <img id="card-select-preview" class="card-preview-thumb" alt="" style="display:none;" />
+                </label>
+                <label>Validité (en heures)
+                  <input type="number" id="expires-input" min="1" value="4" required />
+                </label>
+                <label>Joueurs max (0 = illimité)
+                  <input type="number" id="max-redemptions-input" min="0" value="0" required />
+                </label>
+                <label class="adm-check"><input type="checkbox" id="notify-discord-checkbox" /> Notifier sur Discord à la création</label>
+                <button type="submit">Créer le code</button>
+              </form>
+              <div id="reward-preview" class="reward-banner" style="display:none;"></div>
+              <div id="created-zone"></div>
+
+              <div class="adm-subhead">
+                <h3>Codes existants</h3>
+                <div class="adm-seg">
+                  <button type="button" class="btn-secondary active" id="view-table-btn">Tableau</button>
+                  <button type="button" class="btn-secondary" id="view-calendar-btn">Calendrier</button>
+                </div>
               </div>
-              <label>Fin de l'événement <input type="datetime-local" id="event-ends" required /></label>
-              <button type="submit">Lancer l'événement</button>
-            </form>
-            <p class="lead" style="font-size:0.8rem;margin-top:12px;">Poussières : décraft, fouille et retour d'expédition. Finitions : chance qu'une carte normale sorte holo, dorée, etc. à l'ouverture d'un booster. Un bandeau s'affiche sur tout le site et les joueurs abonnés reçoivent une notification.</p>
-            <button type="button" class="btn-danger" id="event-stop-btn" style="display:none;margin-top:8px;">Arrêter l'événement maintenant</button>
-          </div>
-        </details>
+              <div id="codes-loading" class="loading-row" style="display:none;"><div class="spinner"></div></div>
+              <div class="table-scroll">
+                <table class="admin-table" id="codes-table">
+                  <thead><tr><th>Code</th><th>Note</th><th>Récompense</th><th>Utilisations</th><th>Expire</th><th>Statut</th><th></th></tr></thead>
+                  <tbody id="codes-tbody"></tbody>
+                </table>
+              </div>
+              <div id="codes-calendar" class="codes-calendar" style="display:none;"></div>
+            </section>
 
-        <details class="admin-section">
-          <summary><h2>&#128202; Statistiques</h2></summary>
-          <div class="admin-section-body">
-            <h3>Rétention</h3>
-            <div id="retention-stats" class="stats-grid"></div>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127873; Don à un joueur</h2><p>Envoie directement une carte, des boosters ou des poussières. Le don apparaît dans le journal de l'économie sous ton nom.</p></header>
+              <form id="gift-form" class="admin-form">
+                <label>Joueur <select id="gift-user-select"></select></label>
+                <label>Type de don
+                  <select id="gift-type-select">
+                    <option value="card">Carte</option>
+                    <option value="booster">Booster(s)</option>
+                    <option value="dust">Poussières d'étoile</option>
+                  </select>
+                </label>
+                <label id="gift-card-label">Carte
+                  <select id="gift-card-select"></select>
+                  <img id="gift-card-preview" class="card-preview-thumb" alt="" style="display:none;" />
+                </label>
+                <label id="gift-finish-label">Finition
+                  <select id="gift-finish-select">
+                    <option value="normal">Normal</option>
+                    <option value="holo">Holo</option>
+                    <option value="gold">Doré</option>
+                    <option value="ghost">Ghost</option>
+                    <option value="diamond">Diamant</option>
+                    <option value="rainbow">Arc-en-ciel</option>
+                  </select>
+                </label>
+                <label id="gift-quality-label">Qualité
+                  <select id="gift-quality-select">
+                    <option value="damaged">Abîmé</option>
+                    <option value="worn">Usé</option>
+                    <option value="good" selected>Bon état</option>
+                    <option value="mint">Parfait état</option>
+                  </select>
+                </label>
+                <label>Quantité <input type="number" id="gift-quantity-input" min="1" value="1" required /></label>
+                <button type="submit">Envoyer le don</button>
+              </form>
+            </section>
+          </section>
 
-            <h3>Répartition des tirages recents</h3>
-            <div id="rarity-chart" class="rarity-chart"></div>
-          </div>
-        </details>
+          <!-- ============================== Economie ============================== -->
+          <section class="adm-pane" id="pane-economie" role="tabpanel" data-title="Économie" hidden>
+            <section class="adm-card" id="economy-section">
+              <header class="adm-card-head"><h2>&#128176; Économie</h2><p>Mode de jeu, monnaies en circulation, origine des boosters et journal détaillé. Les exemplaires décraftés ou sacrifiés ne sont plus comptés.</p></header>
+              <div id="economy-zone" class="empty-state">Chargement des chiffres…</div>
+            </section>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128202; Statistiques</h2></header>
+              <h3>Rétention</h3>
+              <div id="retention-stats" class="stats-grid"></div>
+              <h3>Répartition des tirages récents</h3>
+              <div id="rarity-chart" class="rarity-chart"></div>
+            </section>
+          </section>
 
-        <details class="admin-section">
-          <summary><h2>&#128226; Bandeau du site</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">
-              Message affiché en haut de toutes les pages (comme l'avertissement
-              bêta actuel). Vide et désactivé par défaut - remplis un message et
-              active-le pour l'afficher, aucun redéploiement nécessaire.
-            </p>
-            <form id="banner-form" class="admin-form">
-              <label class="checkbox-inline" style="align-self:end;">
-                <input type="checkbox" id="banner-enabled-input" />
-                Afficher le bandeau
-              </label>
-              <label>
-                Type
-                <select id="banner-type-select">
-                  <option value="info">Info (bleu, neutre)</option>
-                  <option value="maintenance">Maintenance (ambre, alerte)</option>
-                </select>
-              </label>
-              <label style="grid-column:1/-1;">
-                Message
-                <input type="text" id="banner-message-input" maxlength="200" placeholder="ex: Maintenance prévue ce soir de 22h à 23h." />
-              </label>
-              <button type="submit">Enregistrer le bandeau</button>
-            </form>
+          <!-- ============================== Evenements ============================== -->
+          <section class="adm-pane" id="pane-evenements" role="tabpanel" data-title="Événements" hidden>
+            <section class="adm-card" id="events-dashboard">
+              <header class="adm-card-head"><h2>&#128197; Planning des événements</h2><p>Un événement planifié démarre et s'arrête tout seul (bandeau, bonus). L'événement lancé à la main (plus bas) reste prioritaire.</p></header>
+              <div class="evd-now" id="evd-now"><div class="loading-row"><div class="spinner"></div></div></div>
+              <h3>Planning</h3>
+              <div id="evd-list"></div>
+              <h3>Programmer un événement</h3>
+              <form id="evd-form" class="admin-form evd-form">
+                <input type="hidden" id="evd-id" />
+                <label class="evd-wide">Nom affiché <input type="text" id="evd-label" maxlength="80" placeholder="ex : Week-end des étoiles" required /></label>
+                <label>Début <input type="datetime-local" id="evd-start" required /></label>
+                <label>Fin <input type="datetime-local" id="evd-end" required /></label>
+                <label>Poussières (×) <input type="number" id="evd-dust" min="1" max="5" step="0.5" value="1" /></label>
+                <label>Finitions (×) <input type="number" id="evd-finish" min="1" max="5" step="0.5" value="1" /></label>
+                <label>Pêche : prises rares (×) <input type="number" id="evd-fishing" min="1" max="5" step="0.5" value="1" /></label>
+                <label>Vers de terre (×) <input type="number" id="evd-worms" min="1" max="5" step="0.5" value="1" /></label>
+                <label class="evd-check"><input type="checkbox" id="evd-enabled" checked /> Activé</label>
+                <div class="event-presets evd-wide">Modèles :
+                  <button type="button" class="btn-ghost" data-evd-preset="stars">Week-end des étoiles</button>
+                  <button type="button" class="btn-ghost" data-evd-preset="fishing">Semaine de la pêche</button>
+                  <button type="button" class="btn-ghost" data-evd-preset="worms">Chasse aux vers</button>
+                  <button type="button" class="btn-ghost" data-evd-preset="finish">Nuit des finitions</button>
+                </div>
+                <div class="evd-wide evd-form-actions"><button type="submit" id="evd-submit">Planifier l'événement</button><button type="button" class="btn-ghost" id="evd-reset">Vider</button></div>
+              </form>
+            </section>
 
-            <h3 class="balance-subheading" style="margin-top:20px;">Mode maintenance</h3>
-            <p class="lead" style="font-size:0.85rem;">
-              Redirige tout le trafic (sauf les admins) vers une page "site en
-              maintenance" - pratique pendant une mise à jour risquée. Les
-              admins continuent de voir le site normalement pour vérifier que
-              tout fonctionne.
-            </p>
-            <form id="maintenance-form" class="admin-form">
-              <label class="checkbox-inline" style="align-self:end;">
-                <input type="checkbox" id="maintenance-enabled-input" />
-                Activer le mode maintenance
-              </label>
-              <button type="submit">Enregistrer</button>
-            </form>
-          </div>
-        </details>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127881; Lancer un événement maintenant</h2><p>Bonus immédiat jusqu'à la date de fin. Poussières : décraft, fouille et retour d'expédition. Finitions : chance qu'une carte normale sorte holo, dorée… Les joueurs abonnés reçoivent une notification.</p></header>
+              <div id="event-admin-current" class="empty-state">Chargement…</div>
+              <form id="event-form" class="admin-form">
+                <label>Nom affiché <input type="text" id="event-label" maxlength="80" placeholder="ex: Week-end des étoiles" required /></label>
+                <label>Poussières (×) <input type="number" id="event-dust" min="1" max="5" step="0.5" value="2" /></label>
+                <label>Finitions (×) <input type="number" id="event-finish" min="1" max="5" step="0.5" value="1" /></label>
+                <label>Pêche : prises rares (×) <input type="number" id="event-fishing" min="1" max="5" step="0.5" value="1" /></label>
+                <label>Vers de terre (×) <input type="number" id="event-worms" min="1" max="5" step="0.5" value="1" /></label>
+                <label>Fin de l'événement <input type="datetime-local" id="event-ends" required /></label>
+                <div class="event-presets">Modèles :
+                  <button type="button" class="btn-ghost" data-event-preset="stars">Week-end des étoiles</button>
+                  <button type="button" class="btn-ghost" data-event-preset="fishing">Semaine de la pêche</button>
+                  <button type="button" class="btn-ghost" data-event-preset="worms">Chasse aux vers</button>
+                </div>
+                <button type="submit">Lancer l'événement</button>
+              </form>
+              <button type="button" class="btn-danger" id="event-stop-btn" style="display:none;">Arrêter l'événement maintenant</button>
+            </section>
+          </section>
 
-        <details class="admin-section danger-zone">
-          <summary><h2>&#9888;&#65039; Zone dangereuse</h2></summary>
-          <div class="admin-section-body">
-            <p class="lead" style="font-size:0.85rem;">
-              Réinitialisation de fin de bêta : supprime définitivement les
-              tirages, échanges, quêtes (jour et semaine) et redemptions de codes,
-              et remet à zéro le solde de boosters/poussières et le compteur de
-              pity. Les comptes Discord, le catalogue de cartes et les codes
-              événement existants ne sont pas touchés.
-              <strong>Action irréversible.</strong>
-            </p>
-            <div class="reset-scope-row">
-              <label class="checkbox-inline">
-                <input type="radio" name="reset-scope" id="reset-scope-all" value="all" checked />
-                Tout le monde
-              </label>
-              <label class="checkbox-inline">
-                <input type="radio" name="reset-scope" id="reset-scope-user" value="user" />
-                Un joueur précis
-              </label>
-              <input type="text" id="reset-target-pseudo" placeholder="Pseudo du joueur" style="display:none;" />
-            </div>
-            <button type="button" class="btn-danger" id="reset-v1-btn">&#128465;&#65039; Réinitialiser</button>
-          </div>
-        </details>
+          <!-- ============================== Contenu ============================== -->
+          <section class="adm-pane" id="pane-contenu" role="tabpanel" data-title="Contenu" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128230; Extensions</h2><p>Le plus simple : l'outil « Extensions &amp; cartes » (visuels, cartes en lot depuis leurs images, retouches). Sinon, crée l'extension ici puis ajoute ses visuels dans la base (table <code>Extensions</code>, colonnes <code>PackImage</code> / <code>CardBackImage</code>).</p></header>
+              <a class="btn admin-ext-shortcut" href="admin-db.html#extensions">&#129513; Créer une extension et importer ses cartes</a>
+              <div id="extensions-list" class="codes-calendar"></div>
+              <form id="create-extension-form" class="admin-form">
+                <label>Nom <input type="text" id="ext-name-input" placeholder="ex: Halloween 2026" required /></label>
+                <label>Clé (slug) <input type="text" id="ext-key-input" placeholder="ex: halloween-2026" required /></label>
+                <label>Ordre d'affichage <input type="number" id="ext-sort-input" min="0" value="0" /></label>
+                <button type="submit">Créer l'extension</button>
+              </form>
+            </section>
 
+            <section class="adm-card" id="season-admin-section">
+              <header class="adm-card-head"><h2>&#127942; Saison mensuelle</h2><p>Carte exclusive du dernier palier (de préférence une carte <strong>promo</strong>, pour qu'elle ne sorte pas des boosters). Paliers, XP et récompenses : Réglages &gt; Réglages avancés &gt; Saison.</p></header>
+              <div id="season-admin-zone" class="empty-state">Chargement…</div>
+            </section>
+
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128128; Boss communautaire</h2><p>Lancer un nouveau boss désactive celui en cours.</p></header>
+              <div id="boss-admin-current" class="empty-state">Chargement…</div>
+              <form id="create-boss-form" class="admin-form">
+                <label>Nom du boss <input type="text" id="boss-name-input" placeholder="ex: Le Dévoreur de Doublons" required /></label>
+                <label>Points de vie <input type="number" id="boss-maxhp-input" min="1" value="1000" required /></label>
+                <label>Boosters par participant à la victoire <input type="number" id="boss-reward-input" min="0" value="2" required /></label>
+                <button type="submit">Lancer ce boss</button>
+              </form>
+            </section>
+
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127761; Marché noir</h2><p>Offres manuelles, en plus des offres automatiques du lundi.</p></header>
+              <div id="market-admin-list" class="codes-calendar"></div>
+              <form id="create-market-offer-form" class="admin-form">
+                <label>Carte
+                  <select id="market-card-select"></select>
+                  <img id="market-card-preview" class="card-preview-thumb" alt="" style="display:none;" />
+                </label>
+                <label>Coût (poussières) <input type="number" id="market-cost-input" min="1" value="200" required /></label>
+                <label>Validité (en heures) <input type="number" id="market-expires-input" min="1" value="24" required /></label>
+                <label>Achats max (0 = illimité) <input type="number" id="market-max-purchases-input" min="0" value="5" required /></label>
+                <button type="submit">Créer l'offre</button>
+              </form>
+            </section>
+
+            <details class="adm-card adm-fold">
+              <summary class="adm-card-head"><h2>&#127922; Bingo de collection</h2><p>9 cartes par mois. Recréer la grille d'un mois la remplace. « Autogénérer » prépare le <strong>mois prochain</strong> (rien n'est enregistré sans « Enregistrer »). Ne touche pas à la grille du mois en cours si des joueurs jouent.</p></summary>
+              <div class="adm-fold-body">
+                <button type="button" class="btn-secondary" id="bingo-autogen-btn">&#127922; Autogénérer la grille du mois prochain</button>
+                <form id="create-bingo-form" class="admin-form">
+                  <label>Mois (AAAA-MM, vide = mois courant)
+                    <input type="text" id="bingo-month-input" placeholder="ex: 2026-10" pattern="[0-9]{4}-[0-9]{2}" />
+                  </label>
+                  <div id="bingo-card-selects" class="bingo-admin-selects"></div>
+                  <label>Boosters pour la grille complète <input type="number" id="bingo-reward-input" min="0" value="5" required /></label>
+                  <button type="submit">Enregistrer la grille</button>
+                </form>
+              </div>
+            </details>
+
+            <details class="adm-card adm-fold">
+              <summary class="adm-card-head"><h2>&#127775; Récompenses de niveau</h2><p>Pour chaque niveau de profil (1 à 100) : poussières, boosters et éventuellement une carte. Un palier à 0 ne donne rien.</p></summary>
+              <div class="adm-fold-body">
+                <div id="level-rewards-table-wrap" class="level-rewards-table-wrap">
+                  <table class="level-rewards-table">
+                    <thead><tr><th>Niveau</th><th>Poussières</th><th>Boosters</th><th>Carte (optionnel)</th></tr></thead>
+                    <tbody id="level-rewards-tbody"></tbody>
+                  </table>
+                </div>
+                <button type="button" id="save-level-rewards-btn">Enregistrer les 100 paliers</button>
+              </div>
+            </details>
+          </section>
+
+          <!-- ============================== Reglages ============================== -->
+          <section class="adm-pane" id="pane-reglages" role="tabpanel" data-title="Réglages" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#9878;&#65039; Taux de tirage</h2><p>Raretés, finitions et états : effet immédiat (comme éditer les tables dans la base).</p></header>
+              <h3>Raretés</h3>
+              <div id="balance-rarities-table" class="balance-table"></div>
+              <h3>Finitions</h3>
+              <div id="balance-finishes-table" class="balance-table"></div>
+              <h3>États des cartes</h3>
+              <div id="balance-qualities-table" class="balance-table"></div>
+            </section>
+
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127919; Règles de base</h2><p>Pity historique, énergie de fouille, quêtes et déblocages par niveau. Les récompenses des quêtes et la recharge de la fouille sont dans le mode de jeu et les réglages avancés.</p></header>
+              <form id="config-form" class="admin-form">
+                <label>Pity (tirages sans la rareté garantie) <input type="number" id="pity-threshold-input" min="1" /></label>
+                <label>Rareté garantie par la pity <select id="top-rarity-select"></select></label>
+                <label>Fouille : énergie maximum <input type="number" id="dig-max-energy-input" min="1" /></label>
+                <label>Quêtes du jour : seuil (sur 4) <input type="number" id="daily-threshold-input" min="1" max="4" /></label>
+                <label>Quêtes de la semaine : seuil (sur 4) <input type="number" id="weekly-threshold-input" min="1" max="4" /></label>
+                <label>Quêtes de la semaine : occurrences par quête <input type="number" id="weekly-target-input" min="1" /></label>
+                <label>Restauration : doublons identiques par palier <input type="number" id="quality-repair-cost-input" min="1" /></label>
+                <details class="adm-inline-fold evd-wide">
+                  <summary>Déblocages par niveau de profil (12 réglages)</summary>
+                  <div class="adm-unlocks">
+                    <label>Crafter des cartes <input type="number" id="unlock-craft-input" min="1" /></label>
+                    <label>Les échanges <input type="number" id="unlock-trade-input" min="1" /></label>
+                    <label>L'autel de sacrifice <input type="number" id="unlock-altar-input" min="1" /></label>
+                    <label>Restauration de cartes usées <input type="number" id="unlock-quality-input" min="1" /></label>
+                    <label>Finitions (fusion) <input type="number" id="unlock-finish-input" min="1" /></label>
+                    <label>Vitrine de profil <input type="number" id="unlock-showcase-input" min="1" /></label>
+                    <label>Thème Monochrome <input type="number" id="unlock-theme-monochrome-input" min="1" /></label>
+                    <label>Thème Sépia <input type="number" id="unlock-theme-sepia-input" min="1" /></label>
+                    <label>Thème Cyberpunk <input type="number" id="unlock-theme-cyberpunk-input" min="1" /></label>
+                    <label>Pochette Néon <input type="number" id="unlock-sleeve-neon-input" min="1" /></label>
+                    <label>Pochette Vintage <input type="number" id="unlock-sleeve-vintage-input" min="1" /></label>
+                    <label>Pochette Carbone <input type="number" id="unlock-sleeve-carbone-input" min="1" /></label>
+                  </div>
+                </details>
+                <button type="submit">Enregistrer</button>
+              </form>
+            </section>
+
+            <section class="adm-card" id="settings-section">
+              <header class="adm-card-head"><h2>&#9881;&#65039; Réglages avancés</h2><p>Tous les autres paramètres, rangés par thème. Un réglage jamais modifié garde sa valeur par défaut ; « Défaut » le remet à zéro. Changer de mode de jeu (Économie) en modifie 26 d'un coup.</p></header>
+              <div id="settings-zone" class="empty-state">Chargement des réglages…</div>
+            </section>
+          </section>
+
+          <!-- ============================== Site ============================== -->
+          <section class="adm-pane" id="pane-site" role="tabpanel" data-title="Site" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128226; Bandeau du site</h2><p>Message en haut de toutes les pages. Vide et désactivé par défaut.</p></header>
+              <form id="banner-form" class="admin-form">
+                <label class="adm-check"><input type="checkbox" id="banner-enabled-input" /> Afficher le bandeau</label>
+                <label>Type
+                  <select id="banner-type-select">
+                    <option value="info">Info (bleu, neutre)</option>
+                    <option value="maintenance">Maintenance (ambre, alerte)</option>
+                  </select>
+                </label>
+                <label class="evd-wide">Message <input type="text" id="banner-message-input" maxlength="200" placeholder="ex: Maintenance prévue ce soir de 22h à 23h." /></label>
+                <button type="submit">Enregistrer le bandeau</button>
+              </form>
+            </section>
+
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128679; Mode maintenance</h2><p>Redirige tout le trafic (sauf les admins) vers une page « site en maintenance », pendant une mise à jour risquée.</p></header>
+              <form id="maintenance-form" class="admin-form">
+                <label class="adm-check"><input type="checkbox" id="maintenance-enabled-input" /> Activer le mode maintenance</label>
+                <button type="submit">Enregistrer</button>
+              </form>
+            </section>
+
+            <section class="adm-card danger-zone">
+              <header class="adm-card-head"><h2>&#9888;&#65039; Zone dangereuse</h2><p>Réinitialisation : supprime définitivement les tirages, échanges, quêtes et utilisations de codes, et remet à zéro boosters, poussières et pity. Les comptes, le catalogue et les codes restent. <strong>Irréversible.</strong></p></header>
+              <div class="reset-scope-row">
+                <label class="checkbox-inline"><input type="radio" name="reset-scope" id="reset-scope-all" value="all" checked /> Tout le monde</label>
+                <label class="checkbox-inline"><input type="radio" name="reset-scope" id="reset-scope-user" value="user" /> Un joueur précis</label>
+                <input type="text" id="reset-target-pseudo" placeholder="Pseudo du joueur" style="display:none;" />
+              </div>
+              <button type="button" class="btn-danger" id="reset-v1-btn">&#128465;&#65039; Réinitialiser</button>
+            </section>
+          </section>
+
+        </div>
       </div>
     </div>
   </main>
@@ -561,7 +390,9 @@
   <script src="js/core.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/admin-nav.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
+  <script src="js/admin-home.js"></script>
 </body>
 </html>

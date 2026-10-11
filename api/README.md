@@ -176,6 +176,7 @@ doublons, coup final au boss) sans le modifier.
 | `balance.js` | — | équilibrage des boosters (2026-10-11) : booster de fouille gardé une fois sur deux et jamais au-delà du plein rendement du jour, chien sans boosters (poussières à la place), 4 os par jour ; migration unique `balance-2026-10-11` qui ramène aux nouvelles valeurs les réglages plus généreux (anciennes valeurs gardées dans AppSettings) |
 | `upgrades.js` | `POST upgrades`, `POST finish-reroll` | dépenses durables : améliorations permanentes (chenil, serre, canne) et relance de finition payante |
 | `ledger.js`, `context.js` | `POST admin-economy-log` | journal détaillé de l'économie : chaque mouvement de boosters (et de 200 poussières ou plus), avec le joueur, la route, l'action, qui l'a déclenché et le détail ; contexte propre à chaque requête (AsyncLocalStorage), conservé pendant les appels externes des workflows ; modifications de la page d'admin de la base notées `admin-db` |
+| `presets.js` | `POST admin-preset` | modes de jeu Chill / Medium / Hard : 26 réglages d'économie changés d'un coup depuis Admin > Économie, avec aperçu des changements, recommandation selon l'inflation et annonce optionnelle aux joueurs ; Medium = valeurs par défaut |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

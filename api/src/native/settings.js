@@ -355,6 +355,18 @@ function listSettings(store) {
   });
 }
 
+// Ecrit plusieurs reglages d'un coup (presets de jeu, presets.js) : tout ou rien.
+export function setSettings(store, values) {
+  const errors = [];
+  const clean = {};
+  for (const [k, v] of Object.entries(values || {})) {
+    if (!REGISTRY[k]) { errors.push(`Réglage inconnu : ${k}`); continue; }
+    try { clean[k] = validate(k, v); } catch (e) { errors.push(e.message); }
+  }
+  if (!errors.length) for (const [k, v] of Object.entries(clean)) writeSetting(store, k, v);
+  return errors;
+}
+
 function handleSettings({ store, body }) {
   if (!isAdmin(body.discordId)) return fail('forbidden', 403);
   if (body.action === 'set') {

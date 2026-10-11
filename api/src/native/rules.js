@@ -36,7 +36,7 @@ function tradeTax(store, body) {
 const tradeTaxPerCard = (store) => Math.round(setting(store, 'TradeTaxPerCard') * taxMultiplier(store));
 
 // --- prix de l'os ----------------------------------------------------------
-export function bonePrice(store, user) {
+function bonePrice(store, user) {
   const base = indexed(store, setting(store, 'DogBoneCost'));
   const bought = user.BoneWeek === weekKey() ? Number(user.BonesBoughtWeek) || 0 : 0;
   return Math.round(base * (1 + setting(store, 'BoneWeeklyIncrease') * bought));

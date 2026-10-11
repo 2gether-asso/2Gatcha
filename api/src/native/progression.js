@@ -18,7 +18,7 @@
 //    (cartes, echanges, peche...), le III donne un titre.
 //      POST /webhook/achievement-tiers { userId, action: 'status' | 'claim', key? }
 
-import { refId, now, ok, fail, userById, cardSummary } from './common.js';
+import { refId, now, ok, fail, userById, cardSummary, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { grantCosmetic } from './cosmetics.js';
 import { addFeed } from './feed.js';
@@ -31,7 +31,6 @@ export const schema = {
 
 const FINISHES = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];
 const QUALITIES = ['damaged', 'worn', 'good', 'mint'];
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 
 const claims = (store, userId) => (store.tables.has('ProgressClaims') ? store.getAll('ProgressClaims').filter((c) => refId(c.User) === userId) : []);
 const claimed = (list, ext, kind) => list.some((c) => (Number(c.Ext) || 0) === ext && c.Kind === kind);
@@ -73,7 +72,7 @@ function masteryFor(cards, pulls) {
   return { layers, score, level: complete ? 10 : Math.min(9, 1 + Math.floor(score * 9)) };
 }
 
-export function masteryLevel(store, userId, extensionId) {
+function masteryLevel(store, userId, extensionId) {
   const x = extensionsWithCards(store).find((e) => e.ext.id === Number(extensionId));
   if (!x) return 1;
   return masteryFor(x.cards, store.getAll('Pulls').filter((p) => refId(p.User) === userId)).level;
@@ -277,7 +276,7 @@ function handleCardPrestige({ store, body }) {
 }
 
 // --- maitrises de succes (paliers I, II, III) ------------------------------
-export const TIER_FAMILIES = [
+const TIER_FAMILIES = [
   { key: 'collector', label: 'Collectionneur', icon: '📚', title: 'Grand collectionneur', unit: 'cartes différentes', targets: [25, 75, 150] },
   { key: 'puller', label: 'Ouvreur de boosters', icon: '🎴', title: 'Déchireur de boosters', unit: 'cartes tirées', targets: [250, 1000, 5000] },
   { key: 'legends', label: 'Chasseur de légendes', icon: '🌟', title: 'Seigneur des légendes', unit: 'légendaires ou mythiques différentes', targets: [5, 15, 40] },

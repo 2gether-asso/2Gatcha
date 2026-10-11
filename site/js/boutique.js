@@ -2,7 +2,7 @@
 // de pseudo, achetes en poussieres ou gagnes. Voir api/src/native/cosmetics.js.
 
 (function () {
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   let state = null;
 
   function preview(st) {

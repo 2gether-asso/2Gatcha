@@ -3,7 +3,7 @@
 // mur de messages. Donnees : res.extras (api/src/native/social.js).
 
 (function () {
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   let profileId = null;
 
   function stars(n) { return n ? ` <span class="skill-stars" title="Prestige ${n}">${"★".repeat(Math.min(n, 5))}${n > 5 ? "×" + n : ""}</span>` : ""; }

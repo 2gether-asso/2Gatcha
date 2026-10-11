@@ -8,7 +8,7 @@
 //  - Carte de joueur (survol d'un pseudo) : rang, titre, vitrine.
 //      GET /webhook/player-card ?pseudo=
 
-import { refId, now, ok, fail, userById, parisDay, parisHour, configRow, cardSummary, levelForXp } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, parisHour, configRow, cardSummary, levelForXp, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { digLevel, levelInfo } from './levels.js';
 import { decorations } from './cosmetics.js';
@@ -19,7 +19,6 @@ import { growSeconds, PLOTS, seedMult } from './garden.js';
 
 export const schema = { Users: { PullStats: { type: 'Text' }, DustLedger: { type: 'Text' } } };
 
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 const hhmm = (t) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(t * 1000));
 
 function digEnergy(store, user) {

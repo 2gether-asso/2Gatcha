@@ -6,7 +6,7 @@
 (function () {
   if (!Session.isLoggedIn()) return;
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   const pct = (x) => Math.round((x || 0) * 100);
   const LAYERS = [["cards", "Cartes", "&#127183;"], ["qualities", "États", "&#128142;"], ["finishes", "Finitions", "&#127752;"]];
 

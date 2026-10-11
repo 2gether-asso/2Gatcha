@@ -8,7 +8,7 @@
 (function () {
   if (!Session.isLoggedIn() || !Session.isAdmin()) return;
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   const pctIn = (id) => { const v = $(id).value.trim(); return v === "" ? undefined : Number(v) / 100; };
   let conf = null;
 

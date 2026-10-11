@@ -5,7 +5,7 @@
 
 (function () {
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   const STATUS = { live: ["En cours", "live"], upcoming: ["À venir", "upcoming"], past: ["Terminé", "past"], off: ["Désactivé", "off"] };
   const PRESETS = {
     stars: { label: "Week-end des étoiles", dust: 2, finish: 1.5, fishing: 1, worms: 1 },
@@ -101,7 +101,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     const section = $("events-dashboard");
     if (!section || !Session.isLoggedIn()) return;
-    section.addEventListener("toggle", () => { if (section.open) load(); });
+    AdminNav.onFirstShow("evenements", load);
     $("evd-form").addEventListener("submit", save);
     $("evd-reset").addEventListener("click", () => fill(null));
     section.addEventListener("click", async (e) => {

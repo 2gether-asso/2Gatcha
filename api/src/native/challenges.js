@@ -11,11 +11,11 @@
 // recompense (CommunityGoalDust + CommunityGoalWorms).
 //   POST /webhook/community-goal { userId, action: 'status' | 'claim' }
 
-import { ok, fail, userById } from './common.js';
+import { ok, fail, userById, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 
-export const TEMPLATES = [
+const TEMPLATES = [
   { key: 'fish10', label: 'Pêcher 10 fois', type: 'fish', target: 10, dust: 120, icon: '🎣' },
   { key: 'fishChest', label: 'Pêcher 2 coffres', type: 'fishCatch:chest', target: 2, dust: 220, icon: '🧰' },
   { key: 'fishPart', label: 'Pêcher une pièce détachée', type: 'fishCatch:part', target: 1, dust: 200, icon: '🔩' },
@@ -55,7 +55,6 @@ export const schema = {
   }
 };
 
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 function hash(str) { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
 
 // Fin de la semaine (dimanche 23:59:59, heure de Paris approximee par UTC+2).

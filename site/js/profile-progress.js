@@ -4,7 +4,7 @@
 
 (function () {
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   const ROMAN = ["I", "II", "III"];
 
   // Prestige du compte (2026-10-09) : etoiles au-dela des talents complets.

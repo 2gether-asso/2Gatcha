@@ -683,6 +683,26 @@ await test('journal : origine inconnue tracee, lignes "autre" supprimees une foi
   assert.ok(r.rows.some((x) => x.actor && !x.actor.startsWith('joueur:')), 'pseudo resolu');
 });
 
+await test('modes de jeu : Chill / Medium / Hard, apercu, annonce, personnalise', () => {
+  assert.equal(call('POST', 'admin-preset', { body: { discordId: 'x' } }).status, 403);
+  let st = call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json;
+  assert.equal(st.presets.length, 3);
+  assert.ok(['chill', 'medium', 'hard'].includes(st.recommendation.key));
+  const hard = st.presets.find((p) => p.key === 'hard');
+  assert.ok(hard.changes.length > 0 && hard.changes.every((c) => c.label));
+  st = call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'hard', announce: true } }).json;
+  assert.equal(st.current, 'hard');
+  assert.equal(st.last.key, 'hard');
+  const set = call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'get' } }).json.settings;
+  assert.equal(set.find((x) => x.key === 'BoosterShopPrice').value, 600);
+  assert.equal(set.find((x) => x.key === 'DigRegenSeconds').value, 900);
+  assert.ok(store.getAll('ServerFeed').sort((a, b) => b.id - a.id)[0].Text.includes('Hard'));
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ChestCost: 101 } } });
+  assert.equal(call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json.current, 'custom');
+  assert.equal(call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'nope' } }).json.error, 'unknown_preset');
+});
+
 store.db.close();
 clean();
 console.log(process.exitCode ? '\nProgression : echec(s).' : `\nProgression : ${passed} tests passes.`);

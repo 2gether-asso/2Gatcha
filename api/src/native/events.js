@@ -27,7 +27,7 @@ export const schema = {
 
 
 const m = (v) => Math.max(1, Number(v) || 1);
-export function scheduledNow(store, t = now()) {
+function scheduledNow(store, t = now()) {
   if (!store.tables.has('ScheduledEvents')) return null;
   return store.getAll('ScheduledEvents').filter((e) => e.Enabled !== false && (Number(e.StartAt) || 0) <= t && (Number(e.EndAt) || 0) > t)
     .sort((a, b) => (Number(a.EndAt) || 0) - (Number(b.EndAt) || 0))[0] || null;

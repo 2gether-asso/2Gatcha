@@ -100,7 +100,7 @@ function handleWishAlerts({ store, body }) {
 }
 
 // --- profil -----------------------------------------------------------------
-export function profileExtras(store, user) {
+function profileExtras(store, user) {
   const fish = levelInfo(user.FishingXP, setting(store, 'FishingLevelXpStep'));
   const dig = levelInfo(user.DigXP, setting(store, 'DigLevelXpStep'));
   const hidden = hiddenList(store, user).filter((h) => h.unlocked).map(({ key, label, icon, desc }) => ({ key, label, icon, desc }));

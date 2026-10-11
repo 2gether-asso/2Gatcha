@@ -24,8 +24,8 @@
 
 import { refId, now, ok, fail, userById, cardSummary } from './common.js';
 
-export const UNIQUE_KEY = 'unique';
-export const UNIQUE_EXTENSION_KEY = 'uniques';
+const UNIQUE_KEY = 'unique';
+const UNIQUE_EXTENSION_KEY = 'uniques';
 const UNIQUE_COLOR = '#22c55e';
 const MIGRATION_KEY = 'uniqueTicketsMigrated';
 let lastSync = 0;

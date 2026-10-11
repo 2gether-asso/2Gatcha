@@ -112,7 +112,7 @@ function handlePrestige({ store, body }) {
 
 export const routes = { 'GET skills-leaderboard': handleLeaderboard, 'POST prestige': handlePrestige };
 
-export function digPerks(level, prestige = 0) {
+function digPerks(level, prestige = 0) {
   return { energyBonus: Math.floor(level / 2), regenReduction: 0.05 * (level - 1), dustBonus: 0.1 * (level - 1) + 0.05 * prestige, dogSpeed: 0.05 * (level - 1), dogFlair: 0.03 * (level - 1), prestigeBonus: 0.05 * prestige };
 }
 
@@ -128,7 +128,7 @@ export function digLevel(store, user) {
 //   poussieres par etoile. XP : 2 (2 h), 5 (8 h), 12 (24 h).
 //   Jardin : pousse 5 % plus vite et +3 points de chance d'appat dore par
 //   niveau, +3 % de vitesse par etoile. XP : 2 par parcelle recoltee.
-export const EXPEDITION_XP = { 2: 2, 8: 5, 24: 12 };
+const EXPEDITION_XP = { 2: 2, 8: 5, 24: 12 };
 
 export function expeditionLevel(store, user) {
   const info = levelInfo(user.ExpeditionXP, setting(store, 'ExpeditionLevelXpStep'));

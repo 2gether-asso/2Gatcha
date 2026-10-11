@@ -129,6 +129,7 @@ window.APP_CONFIG = {
     // Lot 2026-10-09 : inflation, pity par rarete, course aux tresors, prestige, evenements planifies
     upgrades: "/upgrades",             // POST { userId, action: 'status'|'buy', key? } (chenil, serre, canne)
     finishReroll: "/finish-reroll",     // POST { userId, pullId, action: 'status'|'reroll' }
+    adminPreset: "/admin-preset",       // POST { discordId, action: 'status'|'apply', preset?, announce? } -> modes Chill / Medium / Hard
     adminEconomyLog: "/admin-economy-log", // POST { discordId, source?, userId?, boostersOnly? } -> journal detaille
     economyState: "/economy-state",     // GET -> { priceFactor, tight, avgWealth }
     rarityPity: "/rarity-pity",         // GET ?userId=&extensionId= -> { rarities: [{ name, left }] }

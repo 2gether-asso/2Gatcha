@@ -12,6 +12,11 @@
 // Sauvegarde/lecture en localStorage uniquement (preference d'affichage
 // pure, jamais lue par le serveur).
 // ---------------------------------------------------------------------------
+// Echappement HTML commun a toutes les pages (texte insere dans innerHTML).
+function escHtml(s) {
+  return String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+}
+
 const THEME_ORDER = ["default", "monochrome", "sepia", "cyberpunk"];
 const THEME_LABELS = { default: "Nébuleuse (défaut)", monochrome: "Monochrome", sepia: "Sépia", cyberpunk: "Cyberpunk" };
 // Valeurs par defaut (utilisees tant que loadUnlockConfig() n'a pas encore

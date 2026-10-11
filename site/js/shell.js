@@ -1233,7 +1233,7 @@ const PlayerCard = {
     let data = this.cache.get(pseudo);
     if (!data) { try { data = await API.getPlayerCard(pseudo); this.cache.set(pseudo, data); } catch (e) { return; } }
     if (!a.matches(":hover")) return;
-    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const esc = escHtml;
     if (this.el) this.el.remove();
     const el = document.createElement("div");
     el.className = "player-card-pop";

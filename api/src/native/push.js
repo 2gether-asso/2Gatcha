@@ -25,7 +25,7 @@ export const schema = {
 };
 
 // Categories reglables par le joueur (2026-10-07) : tout est active par defaut.
-export const PUSH_KINDS = [
+const PUSH_KINDS = [
   { key: 'expedition', label: 'Expédition terminée' }, { key: 'dog', label: 'Le chien a fini de creuser' }, { key: 'garden', label: 'Jardin prêt à récolter' },
   { key: 'guess', label: 'Carte du jour à deviner' }, { key: 'streak', label: 'Série de connexion en danger' }, { key: 'lucky', label: 'Heure de chance (1 h avant)' },
   { key: 'evening', label: 'Missions du soir' }, { key: 'trade', label: 'Propositions d’échange' }, { key: 'auction', label: 'Enchères (surenchère, vente, victoire)' },

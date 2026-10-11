@@ -220,21 +220,6 @@ async function ensureCollectionLoaded() {
   ownedMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o]));
 }
 
-function donatableCardTile(card, actionLabel, actionClass) {
-  const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
-  const owned = ownedMap.get(card.cardId);
-  return `
-    <div class="craft-card" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
-      <img src="${imgSrc}" alt="${card.name}" loading="lazy" />
-      <div class="card-info">
-        <div class="card-name">${card.name}</div>
-        <div class="owned-count">Possède x${owned.count}</div>
-        <button class="${actionClass}" data-card-id="${card.cardId}">${actionLabel}</button>
-      </div>
-    </div>
-  `;
-}
-
 // Regroupe les exemplaires possedes d'une carte par variante EXACTE
 // (finition+qualite), comme collection.js buildVariants - une pile par
 // variante reellement distincte, jamais un simple total qui masquerait

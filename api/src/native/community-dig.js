@@ -10,7 +10,7 @@ import { ok, fail, userById, now, parisDay } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 
-export const SIZE = 100;
+const SIZE = 100;
 
 export const schema = {
   CommunityDig: { Week: { type: 'Text' }, Board: { type: 'Text' } },

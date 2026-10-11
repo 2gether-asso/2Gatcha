@@ -422,16 +422,6 @@ main {
    colonne unique - le panel Hero et les panels pleine-largeur (Succes,
    Activite) restent en dehors de cette grille. Une seule colonne sur mobile,
    ordre de lecture inchange. */
-.home-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  margin-top: 24px;
-}
-.home-grid .panel { margin-top: 0; height: 100%; min-width: 0; }
-@media (min-width: 760px) {
-  .home-grid { grid-template-columns: 1fr 1fr; }
-}
 
 .panel {
   position: relative;
@@ -1350,11 +1340,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
   filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35));
 }
 
-.booster-pack:hover:not(.locked):not(.charging):not(.bursting) {
-  transform: translateY(-6px) scale(1.03);
-  filter: brightness(1.08);
-}
-
 /* Jauge de charge visible autour du pack (#charge-ring, ouverture.html) :
    jusqu'ici la charge de 750ms avant dechirure n'etait qu'un tremblement CSS
    sans aucun repere de progression. L'anneau se remplit (stroke-dashoffset)
@@ -2013,22 +1998,7 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   margin: 16px 0;
 }
 
-/* ========================================================================
-   Blocs repliables de la page admin (<details>/<summary> natifs : clavier
-   et lecteurs d'ecran geres gratuitement, pas de JS necessaire). Seul le
-   bloc "Codes evenement" reste ouvert par defaut, en haut - c'est celui
-   utilise en continu pendant un evenement, les autres sont consultes plus
-   rarement.
-   ======================================================================== */
-.admin-section {
-  background: var(--bg-panel-2);
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  margin: 18px 0;
-  overflow: hidden;
-}
-.admin-section.danger-zone { border-color: rgba(251,113,133,0.5); }
-.admin-section.danger-zone summary h2 { color: var(--danger); }
+/* Page admin : zone dangereuse (reinitialisation). */
 .reset-scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 14px 0; }
 .reset-scope-row #reset-target-pseudo {
   background: var(--bg-panel-2);
@@ -2039,29 +2009,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
   font-size: 0.9rem;
   font-family: var(--font-body);
 }
-.admin-section summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  user-select: none;
-}
-.admin-section summary::-webkit-details-marker { display: none; }
-.admin-section summary h2 { margin: 0; flex: 1; font-size: 1.05rem; }
-.admin-section summary::after {
-  content: "\25BE";
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  transition: transform 0.2s ease;
-  margin-left: 10px;
-}
-.admin-section[open] summary::after { transform: rotate(180deg); }
-.admin-section:not([open]) summary { border-bottom: none; }
-.admin-section[open] summary { border-bottom: 1px solid var(--border-soft); }
-.admin-section-body { padding: 4px 20px 20px; }
-.admin-section-body h3 { font-size: 0.95rem; margin: 18px 0 10px; }
-.admin-section-body h3:first-child { margin-top: 4px; }
 
 /* --- Formulaires generiques (trade / admin) --- */
 .admin-form {
@@ -2187,7 +2134,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    place, un bouton Enregistrer dedie (pas de formulaire global qui
    soumettrait tout d'un coup - chaque rangee est sa propre unite de
    sauvegarde, cote serveur comme cote UI). */
-.balance-subheading { grid-column: 1 / -1; }
 .balance-table { margin-bottom: 8px; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
 .balance-row {
   display: grid;
@@ -4178,18 +4124,8 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
    possedee sur une meme vignette carte, chacune avec son propre bouton
    "Déposer" - pour choisir VRAIMENT quel exemplaire part, pas un doublon
    au hasard parmi tous ceux possedes (voir communaute.js chestCardTile). */
-.chest-variant-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 0;
-  border-top: 1px solid var(--border-soft);
-}
-.chest-variant-row:first-of-type { border-top: none; margin-top: 4px; }
 .chest-variant-tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .chest-variant-count { font-size: 0.72rem; color: var(--text-dim); font-weight: 700; }
-.chest-variant-row .chest-deposit-btn { width: auto; flex-shrink: 0; padding: 6px 12px; font-size: 0.74rem; }
 
 /* Selecteur de quantite +/- (craft/decraft) */
 .qty-stepper {
@@ -4244,18 +4180,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 .bulk-checkbox input { width: 16px; height: 16px; accent-color: var(--accent-2); }
 .suggestions-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-.suggestion-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 14px;
-  background: var(--bg-panel-2);
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  font-size: 0.88rem;
-}
 
 .bulk-action-bar {
   display: flex;
@@ -5723,7 +5647,6 @@ button.set-chip-claim::before { content: none; }
 .pack-tag-chest { background: color-mix(in srgb, var(--rarity-legendaire) 22%, transparent); color: var(--rarity-legendaire); border: 1px solid var(--rarity-legendaire); }
 .bonus-card-ribbon { position: absolute; top: 34px; right: -2px; z-index: 3; padding: 2px 8px; border-radius: 6px 0 0 6px; background: var(--accent-2); color: #031018; font-size: 0.6rem; font-weight: 800; }
 .loot-art { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, color-mix(in srgb, var(--accent-3) 30%, transparent), transparent 70%); }
-.loot-booster .loot-art { background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent 70%); }
 .loot-icon { font-size: 3.4rem; }
 
 /* Face avant d'une carte revelee : exactement la taille de la carte.
@@ -5935,7 +5858,6 @@ button.set-chip-claim::before { content: none; }
 .pv-counter-owned { text-align: center; font-size: 0.78rem; color: var(--rarity-unique); font-weight: 700; }
 .stat-chip-ticket { color: var(--rarity-unique); text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .pv-ticket.printing { animation: none; } }
-
 
 /* Niveaux de metier (jeux.html : peche, fouille) */
 .skill-level { margin: 10px 0 14px; padding: 10px 12px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); display: grid; gap: 6px; }
@@ -6200,7 +6122,6 @@ button.fish-chip:disabled { opacity: 0.55; cursor: not-allowed; }
 .cdig-tile:disabled { cursor: not-allowed; opacity: 0.75; }
 .cdig-tile.dug { background: #2b1d10; cursor: default; }
 .cdig-tile.found { background: radial-gradient(color-mix(in srgb, var(--accent-2) 30%, #2b1d10), #2b1d10); }
-.cdig-tile.reward-grand { background: radial-gradient(#f5d76e, #8a6a1a); box-shadow: 0 0 12px #f5d76e; }
 .cdig-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; margin-top: 14px; font-size: 0.82rem; }
 .cdig-side h3 { font-size: 0.9rem; margin: 0 0 6px; }
 .cdig-top, .cdig-log { margin: 0; padding-left: 18px; }
@@ -6212,7 +6133,6 @@ button.fish-chip:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* Boutique et decorations */
 .shop-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; background: var(--bg-panel-2); margin-bottom: 16px; }
-.shop-balance { margin-left: auto; }
 .shop-section h2 { font-size: 1rem; text-transform: none; margin: 16px 0 8px; }
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 10px; }
 .shop-item { display: grid; gap: 8px; justify-items: center; text-align: center; padding: 12px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
@@ -6359,8 +6279,6 @@ button.fish-chip:disabled { opacity: 0.55; cursor: not-allowed; }
 .rarity-badge::before { display: none !important; }
 
 /* --- Accueil : panneaux a leur hauteur naturelle -------------------------- */
-.home-grid { align-items: start; }
-.home-grid .panel { height: auto; }
 
 /* --- Saison : tous les paliers visibles (plus de defilement cache) -------- */
 .season-tiers { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); grid-auto-columns: unset; overflow: visible; }
@@ -6370,7 +6288,6 @@ button.fish-chip:disabled { opacity: 0.55; cursor: not-allowed; }
 .rarity-progress-row { grid-template-columns: minmax(78px, max-content) minmax(0, 1fr) auto; }
 .rarity-progress-row .rp-label { white-space: nowrap; font-size: 0.72rem; }
 .skill-tool, .fish-chip, .profile-chip, .goal-top span, .shop-earned { white-space: nowrap; }
-.admin-section summary h2 { min-width: 0; overflow-wrap: anywhere; }
 h1, h2, h3 { overflow-wrap: break-word; }
 
 /* --- Coffre-fort perso : vignettes lisibles sur mobile -------------------- */
@@ -6403,7 +6320,7 @@ h1, h2, h3 { overflow-wrap: break-word; }
 
 /* Etiquettes finition / etat sur les petites vignettes : plus petites pour
    tenir cote a cote sans se chevaucher ni etre rognees. */
-.collection-card .card-art, .craft-card .card-art, .showcase-card .card-art, .boss-copy, .pv-mini .card-art { container-type: inline-size; }
+.collection-card .card-art, .craft-card .card-art, .showcase-card .card-art, .pv-mini .card-art { container-type: inline-size; }
 @container (max-width: 175px) {
   .finish-indicator, .quality-indicator { font-size: 0.5rem !important; padding: 1px 4px !important; bottom: 5px !important; letter-spacing: 0 !important; max-width: calc(50% - 6px) !important; }
   .finish-indicator { left: 4px !important; }
@@ -6488,10 +6405,8 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 @media (max-width: 400px) { .altar-slot.empty { font-size: 0.66rem; } }
 
 /* Coffre de guilde : le bouton "Deposer" passe sous les etiquettes si la carte est etroite. */
-.chest-variant-row { flex-wrap: wrap; }
 .chest-variant-tags { flex: 1 1 auto; min-width: 0; }
 .chest-variant-tags .finish-tag, .chest-variant-tags .quality-tag { white-space: nowrap; }
-.chest-variant-row .chest-deposit-btn { margin-left: auto; }
 
 /* Resume de la collection : valeur longue ("Legendaire") dans une tuile etroite. */
 .stat-tile .stat-value { font-size: clamp(0.95rem, 0.8rem + 0.6vw, 1.25rem); overflow-wrap: anywhere; hyphens: auto; }
@@ -6502,7 +6417,6 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 
 /* Tableaux admin : defilent dans leur cadre au lieu d'elargir le panneau. */
 .admin-table { max-width: 100%; }
-.admin-section-body, .admin-section { min-width: 0; }
 
 /* Plateau d'attaque du boss : reste au-dessus de la barre du bas sur mobile. */
 @media (max-width: 860px) { .boss-tray { bottom: calc(var(--nav-bottom-h) + env(safe-area-inset-bottom, 0px) + 8px); } }
@@ -6533,9 +6447,6 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
    ===================================================================== */
 
 /* --- Accueil : aujourd'hui + que faire maintenant --- */
-.home-duo { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; margin-top: 24px; align-items: start; }
-.home-duo[hidden] { display: none; }
-@media (max-width: 900px) { .home-duo { grid-template-columns: 1fr; } }
 .today-panel, .whatnow-panel { margin: 0; min-width: 0; }
 .today-house-link { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 14%, var(--bg-panel-2)); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); color: var(--text); text-decoration: none; }
 .today-house-link small { display: block; color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -6772,12 +6683,6 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 .auction-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 0.85rem; }
 
 /* --- Boutique : boosters et contrats --- */
-.market-duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; margin-bottom: 20px; }
-@media (max-width: 860px) { .market-duo { grid-template-columns: 1fr; } }
-.booster-shop-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px; border-radius: 14px; background: var(--bg-panel-2); }
-.booster-shop-row > div { flex: 1 1 140px; min-width: 0; }
-.booster-shop-row small { display: block; color: var(--text-dim); font-size: 0.76rem; }
-.booster-shop-pack { font-size: 2rem; }
 .contracts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; }
 .contract { padding: 12px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); display: grid; gap: 6px; align-content: start; min-width: 0; }
 .contract header { display: flex; gap: 8px; align-items: center; }
@@ -6786,9 +6691,6 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 .contract-reward { font-size: 0.85rem; }
 .contract.ready { border-color: color-mix(in srgb, var(--success) 50%, transparent); }
 .contract.done { opacity: 0.6; }
-.contract-picker { display: grid; gap: 4px; max-height: 280px; overflow-y: auto; margin-top: 8px; text-align: left; }
-.contract-copy { display: flex; gap: 8px; align-items: center; font-size: 0.85rem; }
-.contract-copy small { color: var(--text-dim); }
 
 /* --- Mes statistiques --- */
 .mystats { display: grid; gap: 20px; margin-top: 16px; }
@@ -6826,9 +6728,6 @@ body.sim-mode .extension-tile { outline: 2px dashed var(--accent-2); outline-off
 
 /* Encheres : liste d'exemplaires qui passe a la ligne ; statistiques : rien ne s'elargit. */
 .auction-pick { display: grid; gap: 4px; max-height: 220px; overflow-y: auto; padding: 6px; border-radius: 10px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
-.auction-pick-item { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; border-radius: 8px; font-size: 0.84rem; cursor: pointer; }
-.auction-pick-item:has(input:checked) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
-.auction-pick-item span { min-width: 0; overflow-wrap: anywhere; }
 .mystats > *, .mystats-duo > *, .mystats-block { min-width: 0; }
 
 /* =====================================================================
@@ -6900,7 +6799,7 @@ button:active:not(:disabled) { transform: translateY(1px); box-shadow: none; fil
 .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--border); background: rgba(255,255,255,0.03); }
 .btn-danger { box-shadow: none; }
 /* Boutons d'action dans les cartes et listes : plus petits. */
-.theme-card .btn, .challenge .btn-secondary, .rc-claim, .quest-claim, .contract .btn-secondary, .sky-claim, .mastery-claim, .copy-forge { padding: 8px 14px; font-size: 0.84rem; }
+.theme-card .btn, .challenge .btn-secondary, .rc-claim, .contract .btn-secondary, .sky-claim, .mastery-claim, .copy-forge { padding: 8px 14px; font-size: 0.84rem; }
 
 /* --- Onglets --- */
 .tab { font-family: var(--font-body); font-weight: 700; font-size: 0.9rem; letter-spacing: 0; text-transform: none; padding: 10px 8px; }
@@ -6943,7 +6842,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .rarity-badge { font-weight: 700; }
 
 /* Gros chiffres : la police marque reste la, c'est un repere. */
-.stat-value, .sd-count, .credit-value, .mystats-tile strong, .mastery-level, .tier-roman, .today-house-mult, .sim-tile strong, .booster-shop-row strong, .season-tier-num, .streak-day-num {
+.stat-value, .sd-count, .credit-value, .mystats-tile strong, .mastery-level, .tier-roman, .today-house-mult, .sim-tile strong, .season-tier-num, .streak-day-num {
   font-family: var(--font-brand);
   font-weight: 400;
 }
@@ -6978,12 +6877,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
   #weekly-quests-panel { order: 9; } #live-feed-panel { order: 10; }
 }
 /* Panneaux repliables (succes, activite) */
-.home-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; }
-.home-fold > summary::-webkit-details-marker { display: none; }
-.home-fold > summary h2 { margin: 0; flex: 1; }
-.home-fold > summary::after { content: "▾"; color: var(--text-dim); transition: transform 0.2s; }
-.home-fold:not([open]) > summary::after { transform: rotate(-90deg); }
-.home-fold[open] > summary { margin-bottom: var(--space-3); }
 
 /* =====================================================================
    OUVERTURE : tuiles d'extension a taille fixe, centrees
@@ -7967,3 +7860,132 @@ button.header-stats:hover { transform: none; filter: none; border-color: var(--b
 .econ-log-table td.neg { color: var(--danger); }
 .econ-log-table .econ-detail { max-width: 320px; overflow-wrap: anywhere; color: var(--text-dim); font-size: 0.74rem; }
 .econ-log-table tr.econ-unknown td { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+/* --- Admin : modes de jeu Chill / Medium / Hard --- */
+.preset-zone { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border-soft); }
+.preset-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.preset-head h3 { margin: 0; }
+.preset-current { font-size: 0.82rem; color: var(--text-dim); }
+.preset-current.custom strong { color: #fbbf24; }
+.preset-rec { margin: 8px 0 12px; font-size: 0.84rem; color: var(--text-dim); line-height: 1.5; }
+.preset-rec strong { color: var(--text); }
+.preset-rec small { display: block; margin-top: 2px; }
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.preset-card { --p: var(--accent); position: relative; display: grid; gap: 8px; align-content: start; padding: 14px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.preset-card.chill { --p: #34d399; }
+.preset-card.medium { --p: #60a5fa; }
+.preset-card.hard { --p: #f87171; }
+.preset-card.active { border-color: var(--p); box-shadow: 0 0 0 1px var(--p), 0 12px 28px -18px var(--p); }
+.preset-card.recommended:not(.active) { border-style: dashed; border-color: color-mix(in srgb, var(--p) 70%, transparent); }
+.preset-badge { position: absolute; top: -10px; right: 12px; padding: 2px 10px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; color: #0b1020; background: var(--p); }
+.preset-title { font-size: 1.05rem; }
+.preset-title strong { color: var(--p); }
+.preset-desc { margin: 0; font-size: 0.8rem; color: var(--text-dim); line-height: 1.45; }
+.preset-state { margin: 0; font-size: 0.84rem; font-weight: 700; color: var(--p); }
+.preset-changes summary { cursor: pointer; font-size: 0.8rem; color: var(--text-dim); }
+.preset-changes ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow-y: auto; }
+.preset-changes li { display: grid; gap: 1px; font-size: 0.74rem; padding: 4px 0; border-bottom: 1px solid var(--border-soft); }
+.preset-diff { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.preset-diff strong { color: var(--text); }
+.preset-apply { justify-self: start; }
+.preset-announce { margin-top: 12px; font-size: 0.82rem; }
+
+/* =====================================================================
+   ADMIN V2 (2026-10-11) : menu des rubriques, cartes, vue d'ensemble.
+   ===================================================================== */
+.admin-page main { max-width: 1400px; overflow-x: clip; }
+.adm-shell h1 { margin-bottom: 4px; }
+.adm-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin-bottom: 18px; }
+.adm-lead { margin: 0; font-size: 0.9rem; }
+.adm-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-tools .btn-ghost { font-size: 0.82rem; padding: 7px 12px; }
+
+.adm-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 22px; align-items: start; }
+.adm-nav { position: sticky; top: calc(var(--header-h, 64px) + 14px); display: grid; gap: 4px; padding: 8px; border-radius: 16px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.adm-nav button { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 10px; text-align: left; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text-dim); background: transparent; border: 0; box-shadow: none; cursor: pointer; }
+.adm-nav button::before { display: none; }
+.adm-nav button:hover { transform: none; filter: none; color: var(--text); background: rgba(255,255,255,0.05); }
+.adm-nav button.active { color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.adm-nav-badge { margin-left: auto; min-width: 20px; padding: 1px 6px; border-radius: 999px; font-size: 0.7rem; font-weight: 800; text-align: center; color: #fff; background: var(--accent); }
+.adm-nav-badge[data-tone="warn"] { background: #d97706; }
+.adm-nav-badge[data-tone="bad"] { background: var(--danger); }
+.adm-panes { min-width: 0; }
+.adm-pane { display: grid; gap: 16px; }
+.adm-pane[hidden] { display: none; }
+
+.adm-card { min-width: 0; padding: 18px 20px; border-radius: 16px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.adm-card > h3, .adm-fold-body > h3 { font-size: 0.95rem; margin: 18px 0 10px; }
+.adm-card-head { display: block; margin-bottom: 14px; }
+.adm-card-head h2 { margin: 0; font-size: 1.08rem; overflow-wrap: anywhere; }
+.adm-card-head p { margin: 4px 0 0; font-size: 0.84rem; line-height: 1.5; color: var(--text-dim); max-width: 85ch; }
+.adm-card.danger-zone { border-color: rgba(251,113,133,0.5); }
+.adm-card.danger-zone h2 { color: var(--danger); }
+.adm-fold { padding: 0; }
+.adm-fold > summary { list-style: none; cursor: pointer; padding: 18px 44px 18px 20px; margin: 0; position: relative; }
+.adm-fold > summary::-webkit-details-marker { display: none; }
+.adm-fold > summary::after { content: "\25BE"; position: absolute; right: 20px; top: 20px; color: var(--text-dim); transition: transform 0.2s ease; }
+.adm-fold[open] > summary::after { transform: rotate(180deg); }
+.adm-fold[open] > summary { border-bottom: 1px solid var(--border-soft); }
+.adm-fold-body { display: grid; gap: 12px; padding: 16px 20px 20px; justify-items: start; }
+.adm-fold-body > * { max-width: 100%; }
+.adm-fold-body > form, .adm-fold-body > .level-rewards-table-wrap { width: 100%; }
+
+.adm-check { flex-direction: row !important; align-items: center; gap: 8px !important; align-self: end; color: var(--text) !important; }
+.adm-check input { width: auto; }
+.adm-subhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 22px 0 10px; }
+.adm-subhead h3 { margin: 0; font-size: 0.95rem; }
+.adm-seg { display: flex; gap: 6px; }
+.adm-inline-fold summary { cursor: pointer; font-size: 0.86rem; font-weight: 600; color: var(--text-dim); padding: 6px 0; }
+.adm-unlocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; margin-top: 10px; }
+.adm-unlocks label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-dim); }
+.admin-page .card-preview-thumb { width: 90px; height: 120px; margin-top: 6px; }
+.admin-page #event-stop-btn { margin-top: 12px; }
+.admin-page .admin-ext-shortcut { margin-bottom: 12px; }
+
+/* --- Vue d'ensemble --- */
+.adm-overview { display: grid; gap: 16px; }
+.adm-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.adm-tile { display: grid; gap: 4px; align-content: start; padding: 14px 16px; border-radius: 14px; text-align: left; font: inherit; color: var(--text); background: var(--bg-panel-2); border: 1px solid var(--border-soft); box-shadow: none; cursor: pointer; min-width: 0; }
+.adm-tile::before { display: none; }
+.adm-tile:hover { transform: translateY(-2px); filter: none; border-color: var(--border); }
+.adm-tile-k { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+.adm-tile-v { font-size: 1.25rem; overflow-wrap: anywhere; }
+.adm-tile small { font-size: 0.78rem; color: var(--text-dim); line-height: 1.4; }
+.adm-tile.on { border-color: color-mix(in srgb, var(--success) 55%, transparent); }
+.adm-tile.warn { border-color: rgba(251,191,36,0.6); background: rgba(251,191,36,0.06); }
+.adm-tile.bad { border-color: color-mix(in srgb, var(--danger) 60%, transparent); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.adm-alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.adm-alerts button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 10px; text-align: left; font: inherit; font-size: 0.86rem; line-height: 1.45; color: var(--text); background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft); border-left-width: 3px; box-shadow: none; cursor: pointer; }
+.adm-alerts button::before { display: none; }
+.adm-alerts button:hover { transform: none; filter: none; background: rgba(255,255,255,0.06); }
+.adm-alerts .warn button { border-left-color: #fbbf24; }
+.adm-alerts .bad button { border-left-color: var(--danger); }
+.adm-alerts .info button { border-left-color: var(--accent-2); }
+.adm-shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; }
+.adm-shortcut { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; font: inherit; font-size: 0.88rem; font-weight: 600; text-align: left; text-decoration: none; color: var(--text); background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft); box-shadow: none; cursor: pointer; }
+.adm-shortcut::before { display: none; }
+.adm-shortcut:hover { transform: none; filter: none; border-color: var(--accent-2); }
+.adm-shortcut span { font-size: 1.2rem; }
+
+@media (max-width: 959px) {
+  .adm-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .adm-nav { position: sticky; top: calc(var(--header-h, 64px) + 6px); z-index: 5; display: flex; overflow-x: auto; scrollbar-width: none; padding: 6px; }
+  .adm-nav::-webkit-scrollbar { display: none; }
+  .adm-nav button { width: auto; flex: 0 0 auto; padding: 8px 12px; font-size: 0.84rem; white-space: nowrap; }
+  .adm-card { padding: 14px; }
+  .adm-fold > summary { padding: 14px 40px 14px 14px; }
+  .adm-fold-body { padding: 12px 14px 14px; }
+}
+.adm-nav button, .adm-shortcut, .adm-alerts button { justify-content: flex-start; }
+.adm-alerts button span { margin-left: auto; }
+.adm-tile { justify-items: start; justify-content: stretch; text-align: left; }
+@media (max-width: 640px) {
+  .adm-tools { gap: 4px; }
+  .adm-tools .btn-ghost { padding: 5px 9px; font-size: 0.74rem; }
+}
+@media (max-width: 640px) {
+  .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .adm-tile { padding: 10px 12px; }
+  .adm-tile-v { font-size: 1.02rem; }
+  .adm-tile small { font-size: 0.72rem; }
+}

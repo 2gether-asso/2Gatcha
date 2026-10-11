@@ -13,12 +13,12 @@ export const schema = {
   Users: { LoginStreak: { type: 'Numeric' }, LoginStreakDay: { type: 'Text' }, StreakFreezes: { type: 'Numeric' }, FreezeWeek: { type: 'Text' } }
 };
 
-export const MAX_FREEZES = 2;
+const MAX_FREEZES = 2;
 
 // Cadeaux des 7 jours : reglage LoginStreakRewards (admin).
-export const rewardsOf = (store) => setting(store, 'LoginStreakRewards');
+const rewardsOf = (store) => setting(store, 'LoginStreakRewards');
 
-export function streakState(user, at = Date.now(), rewards) {
+function streakState(user, at = Date.now(), rewards) {
   const today = parisDay(0, at), yesterday = parisDay(-1, at), dayBefore = parisDay(-2, at);
   const last = user.LoginStreakDay || '';
   const streak = Number(user.LoginStreak) || 0;

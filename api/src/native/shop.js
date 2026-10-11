@@ -7,7 +7,7 @@
 // Effets lus ailleurs : Users.LuckCharges (boosts.js, ouverture de booster),
 // Users.XpBoostUntil (index.js, XP doublee).
 
-import { ok, fail, userById, now, configRow } from './common.js';
+import { ok, fail, userById, now, configRow, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { weekKey, digLevel } from './levels.js';
 import { growSeconds, seedMult } from './garden.js';
@@ -18,10 +18,9 @@ export const schema = {
 };
 
 // Colonnes qu'un objet peut crediter (liste blanche).
-export const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges'];
-export const EFFECTS = ['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow'];
+const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges'];
+const EFFECTS = ['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow'];
 
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 const dust = (u) => Number(u.StardustCount) || 0;
 
 function catalog(store) {

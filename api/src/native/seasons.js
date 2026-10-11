@@ -26,7 +26,7 @@ const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet'
 export function seasonId(at = Date.now()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit' }).format(new Date(at));
 }
-export function seasonLabel(id) {
+function seasonLabel(id) {
   const [y, m] = id.split('-').map(Number);
   return `${MONTHS[m - 1]} ${y}`;
 }
@@ -63,7 +63,7 @@ function seasonCard(store, season) {
 }
 
 // Contenu du coffre pour une XP de saison donnee.
-export function chestContents(store, xp) {
+function chestContents(store, xp) {
   const x = Math.max(0, Number(xp) || 0);
   return {
     dust: Math.min(setting(store, 'SeasonChestMaxDust'), Math.floor(x * setting(store, 'SeasonChestDustPerXp'))),

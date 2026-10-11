@@ -11,14 +11,14 @@ import path from 'node:path';
 const NUMERIC = /(At|Until|Count|Level|Hp|Damage|Cost|Streak|Number|Value|Multiplier|Weight|Quantity|Boosters|Reward|Serial|Energy|Total|Pulls|Since|Threshold|Target|Order|Duration|Max|Min|Dust|XP)$/;
 const BOOL = /^(Is|Has|Active|Enabled|InVault|Claimed|Opened)/;
 
-export function guessType(field) {
+function guessType(field) {
   if (BOOL.test(field)) return 'Bool';
   if (NUMERIC.test(field)) return 'Numeric';
   return 'Any';
 }
 
 // { table: Set(colonnes) } d'apres les workflows.
-export function writtenColumns(dir) {
+function writtenColumns(dir) {
   const out = {};
   if (!dir || !fs.existsSync(dir)) return out;
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json'))) {

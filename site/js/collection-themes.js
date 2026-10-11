@@ -4,7 +4,7 @@
 
 (function () {
   if (!Session.isLoggedIn()) return;
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
 
   function render(st) {
     const panel = document.getElementById("themes-panel");

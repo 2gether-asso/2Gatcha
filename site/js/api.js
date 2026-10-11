@@ -536,9 +536,6 @@ const API = {
   getBossStatus(userId) {
     return this.post("communityBoss", { userId, action: "status" });
   },
-  attackBoss(userId, cardId) {
-    return this.post("communityBoss", { userId, action: "attack", cardId });
-  },
 
   getGuildChestStatus(userId) {
     return this.post("guildChest", { userId, action: "status" });
@@ -619,9 +616,6 @@ const API = {
   },
   themes(userId, action = "status", key) {
     return this.post("themes", { userId, action, key });
-  },
-  getHiddenAchievements(userId) {
-    return this.get("hiddenAchievements", { userId });
   },
   cosmetics(userId, action = "status", extra = {}) {
     return this.post("cosmetics", { userId, action, ...extra });
@@ -770,6 +764,7 @@ const API = {
   upgrades(userId, action = "status", key) { return this.post("upgrades", { userId, action, key }); },
   finishReroll(userId, pullId, action = "status") { return this.post("finishReroll", { userId, pullId, action }); },
   claimSeasonChest(userId) { return this.post("season", { userId, action: "claimChest" }); },
+  adminPreset(discordId, action = "status", params = {}) { return this.post("adminPreset", { discordId, action, ...params }); },
   adminEconomyLog(discordId, params = {}) { return this.post("adminEconomyLog", { discordId, ...params }); },
   getEconomyState() { return this.get("economyState"); },
   getRarityPity(userId, extensionId) { return this.get("rarityPity", extensionId ? { userId, extensionId } : { userId }); },

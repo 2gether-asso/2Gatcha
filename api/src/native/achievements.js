@@ -11,11 +11,11 @@
 //   POST /webhook/themes { userId, action: 'status' | 'claim', key? }
 //   GET  /webhook/achievements-hidden ?userId= (public : profil)
 
-import { refId, now, ok, fail, userById } from './common.js';
+import { refId, now, ok, fail, userById, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { grantCosmetic } from './cosmetics.js';
 
-export const HIDDEN = [
+const HIDDEN = [
   { key: 'boots10', label: 'Collectionneur de bottes', desc: 'Pêcher 10 vieilles bottes.', icon: '🥾', stat: 'boots', target: 10 },
   { key: 'stormPart', label: 'Dans l’œil du cyclone', desc: 'Pêcher une pièce détachée pendant l’orage.', icon: '⛈️' },
   { key: 'nightFisher', label: 'Pêcheur de nuit', desc: 'Pêcher entre minuit et 5 h.', icon: '🌙' },
@@ -32,7 +32,7 @@ export const HIDDEN = [
   { key: 'rich', label: 'Tas d’étoiles', desc: 'Avoir 5 000 poussières en même temps.', icon: '💰' }
 ];
 
-export const THEMES = [
+const THEMES = [
   { key: 'rarities', label: 'Arc des raretés', desc: 'Une carte de chaque rareté (Commune à Mythique).', icon: '🌈', title: 'Gardien des raretés' },
   { key: 'gold5', label: 'Doré sur tranche', desc: '5 cartes différentes en finition dorée.', icon: '🥇', title: 'Doré sur tranche', target: 5 },
   { key: 'rainbow3', label: 'Au bout de l’arc-en-ciel', desc: '3 cartes différentes en arc-en-ciel.', icon: '🌈', title: 'Chasseur d’arcs-en-ciel', target: 3 },
@@ -48,10 +48,9 @@ export const schema = {
   ThemeClaims: { User: { type: 'Ref:Users' }, Theme: { type: 'Text' }, ClaimedAt: { type: 'Numeric' } }
 };
 
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 
 // Debloque un succes cache (une seule fois) ; renvoie l'annonce ou null.
-export function unlockHidden(store, userId, key) {
+function unlockHidden(store, userId, key) {
   const user = store.get('Users', userId);
   const def = HIDDEN.find((h) => h.key === key);
   if (!user || !def) return null;

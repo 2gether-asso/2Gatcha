@@ -1,7 +1,8 @@
-// Page admin : creation/gestion des codes d'événement.
-// Protection reelle cote API (admin-codes.json verifie Session.discordId
-// contre une liste codee en dur) ; cote site on se contente de cacher le
-// formulaire si l'appel renvoie "forbidden".
+// Page admin : codes, dons, economie, evenements, contenu, reglages, site.
+// Navigation et chargement paresseux des rubriques : admin-nav.js. Vue
+// d'ensemble : admin-home.js. Planning des evenements : admin-events.js.
+// Protection reelle cote API (les routes verifient Session.discordId) ; cote
+// site on se contente de cacher la page si l'appel renvoie "forbidden".
 
 const STATUS_LABELS = {
   active: "Actif",
@@ -270,11 +271,8 @@ async function loadConfig() {
     .join("");
   document.getElementById("pity-threshold-input").value = res.pityThreshold || "";
   document.getElementById("dig-max-energy-input").value = res.digMaxEnergy || 5;
-  document.getElementById("dig-regen-seconds-input").value = res.digRegenSeconds || 60;
   document.getElementById("daily-threshold-input").value = res.dailyQuestThreshold || 2;
-  document.getElementById("daily-reward-input").value = res.dailyQuestRewardBoosters != null ? res.dailyQuestRewardBoosters : 2;
   document.getElementById("weekly-threshold-input").value = res.weeklyQuestThreshold || 3;
-  document.getElementById("weekly-reward-input").value = res.weeklyQuestRewardBoosters != null ? res.weeklyQuestRewardBoosters : 5;
   document.getElementById("weekly-target-input").value = res.weeklyQuestTarget || 5;
   document.getElementById("quality-repair-cost-input").value = res.qualityRepairCost || 3;
   document.getElementById("banner-enabled-input").checked = !!res.bannerEnabled;
@@ -518,7 +516,7 @@ async function loadLevelRewardsAdmin() {
 // Reglages avances (api/src/native/settings.js) : formulaire genere depuis le
 // registre du serveur, groupe par theme.
 let settingsCache = [];
-const settingsEscape = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const settingsEscape = escHtml;
 
 function settingInput(s) {
   const id = "setting-" + s.key;
@@ -694,6 +692,52 @@ function econFlows(f, fmt) {
     </table></div>`;
 }
 
+// Modes de jeu Chill / Medium / Hard (api/src/native/presets.js).
+let presetState = null;
+function renderPresets(st) {
+  presetState = st;
+  const box = document.getElementById("preset-zone");
+  if (!box) return;
+  const esc = escHtml;
+  const rec = st.recommendation;
+  const recLabel = st.presets.find((p) => p.key === rec.key);
+  const currentLabel = st.current === "custom" ? "Personnalisé" : st.presets.find((p) => p.key === st.current).label;
+  box.innerHTML = `
+    <div class="preset-head">
+      <h3>&#127918; Mode de jeu</h3>
+      <span class="preset-current ${st.current}">Actuel : <strong>${esc(currentLabel)}</strong>${st.current === "custom" ? " (réglages modifiés à la main)" : ""}</span>
+    </div>
+    <p class="preset-rec">Recommandé selon l'inflation : <strong>${recLabel.icon} ${esc(recLabel.label)}</strong>. ${rec.reasons.map(esc).join(" · ")}${st.last ? ` <small>Dernier changement : ${esc((st.presets.find((p) => p.key === st.last.key) || {}).label || st.last.key)} le ${new Date(st.last.at * 1000).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</small>` : ""}</p>
+    <div class="preset-grid">${st.presets.map((p) => `
+      <article class="preset-card ${p.key} ${p.active ? "active" : ""} ${rec.key === p.key ? "recommended" : ""}">
+        ${rec.key === p.key ? '<span class="preset-badge">Recommandé</span>' : ""}
+        <div class="preset-title"><span aria-hidden="true">${p.icon}</span> <strong>${esc(p.label)}</strong></div>
+        <p class="preset-desc">${esc(p.desc)}</p>
+        ${p.active ? '<p class="preset-state">&#10004; Mode actif</p>' : `<details class="preset-changes"><summary>${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} changer${p.changes.length > 1 ? "ont" : "a"}</summary>
+          <ul>${p.changes.map((c) => `<li><span>${esc(c.label)}</span><span class="preset-diff">${esc(c.current)} &rarr; <strong>${esc(c.target)}</strong></span></li>`).join("")}</ul></details>
+          <button type="button" class="btn preset-apply" data-preset="${p.key}">Passer en ${esc(p.label)}</button>`}
+      </article>`).join("")}</div>
+    <label class="checkbox-inline preset-announce"><input type="checkbox" id="preset-announce" checked /> Annoncer le changement aux joueurs (fil du serveur)</label>`;
+}
+async function loadPresets() {
+  try { renderPresets(await API.adminPreset(Session.discordId)); }
+  catch (err) { const box = document.getElementById("preset-zone"); if (box) box.innerHTML = `<p class="empty-state">Modes de jeu indisponibles (${err.message}).</p>`; }
+}
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest && e.target.closest("[data-preset]");
+  if (!btn || !presetState) return;
+  const p = presetState.presets.find((x) => x.key === btn.dataset.preset);
+  const ok = await Confirm.show(`Passer le jeu en mode <strong>${p.icon} ${p.label}</strong> ? ${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} vont changer tout de suite (fouille, chien, pêche, quêtes, doublons, boutique, taxes, pity…). Tu pourras revenir à un autre mode à tout moment.`, { title: "Changer de mode de jeu", confirmText: `Passer en ${p.label}` });
+  if (!ok) return;
+  btn.disabled = true;
+  try {
+    const res = await API.adminPreset(Session.discordId, "apply", { preset: p.key, announce: !!document.getElementById("preset-announce")?.checked });
+    renderPresets(res);
+    Toast.success(`${p.icon} Le jeu est en mode ${p.label}.`);
+    if (typeof settingsCache !== "undefined") settingsCache.length = 0;
+  } catch (err) { btn.disabled = false; Toast.error("Impossible de changer de mode. (" + (err.data && err.data.errors ? err.data.errors.join(", ") : err.message) + ")"); }
+});
+
 // Journal detaille (api/src/native/ledger.js).
 async function loadEconomyLog() {
   const box = document.getElementById("econ-log");
@@ -704,7 +748,7 @@ async function loadEconomyLog() {
     const r = await API.adminEconomyLog(Session.discordId, params);
     if (select.options.length <= 1) r.sources.forEach((s) => select.add(new Option(s, s)));
     const when = (t) => new Date(t * 1000).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const esc = escHtml;
     const sign = (n) => (n > 0 ? "+" + n : String(n));
     box.innerHTML = `
       ${r.totals.length ? `<p class="econ-log-totals"><strong>Boosters créés sur 7 jours :</strong> ${r.totals.slice(0, 12).map((t) => `${esc(t.source)} <b>${t.boosters}</b>`).join(" · ")}</p>` : ""}
@@ -725,7 +769,7 @@ async function loadEconomy() {
     const t = e.totals;
     const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
     const list = (rows, fn) => rows.length ? `<ol class="econ-list">${rows.map(fn).join("")}</ol>` : '<p class="lead" style="font-size:0.8rem;">—</p>';
-    el.innerHTML = `
+    el.innerHTML = `<div id="preset-zone" class="preset-zone"></div>
       <div class="stats-grid">
         <div class="stat-tile"><div class="stat-value">${fmt(t.players)}</div><div class="stat-label">Joueurs</div></div>
         <div class="stat-tile"><div class="stat-value">${t.active1d} / ${t.active7d} / ${t.active30d}</div><div class="stat-label">Actifs 24 h / 7 j / 30 j</div></div>
@@ -757,6 +801,7 @@ async function loadEconomy() {
         <label class="checkbox-inline"><input type="checkbox" id="econ-log-boosters" checked /> Boosters seulement</label>
       </div>
       <div id="econ-log"></div>`;
+    loadPresets();
     loadEconomyLog();
   } catch (err) {
     el.className = "empty-state";
@@ -777,13 +822,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadCardOptions();
     await loadCodes();
-    loadStats();
-    loadConfig();
-    loadExtensionsAdmin();
-    loadBossAdmin();
-    loadEventAdmin();
-    loadSeasonAdmin();
-    document.getElementById("settings-section").addEventListener("toggle", (e) => { if (e.currentTarget.open && !settingsCache.length) loadSettings(); });
+    let configLoaded = false;
+    const loadConfigOnce = () => { if (!configLoaded) { configLoaded = true; loadConfig().catch((err) => Toast.error("Réglages indisponibles. (" + err.message + ")")); } };
+    AdminNav.onFirstShow("economie", () => { loadEconomy(); loadStats(); });
+    AdminNav.onFirstShow("evenements", loadEventAdmin);
+    AdminNav.onFirstShow("contenu", () => { loadExtensionsAdmin(); loadBossAdmin(); loadSeasonAdmin(); loadMarketAdmin(); });
+    AdminNav.onFirstShow("reglages", () => { loadConfigOnce(); if (!settingsCache.length) loadSettings(); });
+    AdminNav.onFirstShow("site", loadConfigOnce);
     document.getElementById("settings-zone").addEventListener("click", async (e) => {
       if (e.target.closest("#settings-save-btn")) { saveSettings(); return; }
       const reset = e.target.closest("[data-reset-setting]");
@@ -800,7 +845,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       try { await loadSeasonAdmin(await API.adminSetSeasonCard(Session.discordId, season, cardId)); Toast.success("Carte de saison enregistrée."); }
       catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
     });
-    document.getElementById("economy-section").addEventListener("toggle", (e) => { if (e.currentTarget.open) loadEconomy(); });
     document.getElementById("event-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const endsAt = Math.floor(new Date(document.getElementById("event-ends").value).getTime() / 1000);
@@ -825,13 +869,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     populateMarketCardSelect();
     updateMarketCardPreview();
-    loadMarketAdmin();
     populateBingoCardSelects();
     loadLevelRewardsAdmin();
     loadGiftUserOptions();
     populateGiftCardSelect();
     updateGiftFieldVisibility();
-    document.getElementById("admin-zone").style.display = "block";
+    document.getElementById("admin-zone").style.display = "";
+    AdminNav.start();
   } catch (e) {
     if (e.code === "forbidden") {
       document.getElementById("denied-warning").style.display = "block";
@@ -848,11 +892,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         pityThreshold: Number(document.getElementById("pity-threshold-input").value) || undefined,
         topRarityKey: document.getElementById("top-rarity-select").value,
         digMaxEnergy: Number(document.getElementById("dig-max-energy-input").value) || undefined,
-        digRegenSeconds: Number(document.getElementById("dig-regen-seconds-input").value) || undefined,
         dailyQuestThreshold: Number(document.getElementById("daily-threshold-input").value) || undefined,
-        dailyQuestRewardBoosters: document.getElementById("daily-reward-input").value,
         weeklyQuestThreshold: Number(document.getElementById("weekly-threshold-input").value) || undefined,
-        weeklyQuestRewardBoosters: document.getElementById("weekly-reward-input").value,
         weeklyQuestTarget: Number(document.getElementById("weekly-target-input").value) || undefined,
         qualityRepairCost: Number(document.getElementById("quality-repair-cost-input").value) || undefined,
         featureUnlockCraft: Number(document.getElementById("unlock-craft-input").value) || undefined,

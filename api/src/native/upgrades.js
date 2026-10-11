@@ -16,7 +16,7 @@ export const schema = {
   Users: { Upgrades: { type: 'Text' } }
 };
 
-export const TRACKS = {
+const TRACKS = {
   kennel: { label: 'Chenil', icon: '🐕', per: 0.1, effect: (n) => `+${n * 10} % de poussières rapportées par le chien` },
   greenhouse: { label: 'Serre', icon: '🌱', per: 0.06, effect: (n) => `−${n * 6} % de temps de pousse au jardin` },
   rod: { label: 'Canne renforcée', icon: '🎣', per: 0.1, effect: (n) => `+${n * 10} % de poussières et de perles pêchées` }
@@ -24,7 +24,7 @@ export const TRACKS = {
 export const MAX_LEVEL = 5;
 
 const parse = (v) => { try { const x = JSON.parse(v || '{}'); return x && typeof x === 'object' ? x : {}; } catch (e) { return {}; } };
-export const upgradeLevel = (user, key) => Math.min(MAX_LEVEL, Number(parse(user && user.Upgrades)[key]) || 0);
+const upgradeLevel = (user, key) => Math.min(MAX_LEVEL, Number(parse(user && user.Upgrades)[key]) || 0);
 // Bonus d'une amelioration (fraction).
 export const upgradeValue = (user, key) => upgradeLevel(user, key) * (TRACKS[key] ? TRACKS[key].per : 0);
 

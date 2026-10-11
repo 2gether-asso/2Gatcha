@@ -23,7 +23,7 @@ export const schema = {
 };
 
 // Graines : prix (x GardenPlantCost), temps de pousse (x), recolte.
-export const SEEDS = {
+const SEEDS = {
   mix: { label: 'Mélange', icon: '🌱', cost: 1, grow: 1, desc: 'Vers, parfois un appât ou des poussières.' },
   worm: { label: 'Terreau à vers', icon: '🪱', cost: 1, grow: 1, desc: '3 à 5 vers, rien d’autre.' },
   bait: { label: 'Fleur dorée', icon: '🌼', cost: 3, grow: 1.5, desc: 'Chance d’appât doré doublée, 1 ver.' },

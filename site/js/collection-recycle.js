@@ -7,7 +7,7 @@
 
 (function () {
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   const PREF_KEY = "2gatcha_recycle_prefs";
   const PACE_MS = 1100;
   const RARITY_ORDER = ["commune", "rare", "epique", "legendaire", "mythique"];

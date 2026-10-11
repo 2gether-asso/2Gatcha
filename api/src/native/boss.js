@@ -21,7 +21,7 @@ export const schema = {
 };
 
 // Regles reglables dans l'admin (groupe "Boss").
-export function bossRules(store) {
+function bossRules(store) {
   return {
     finish: setting(store, 'BossFinishMultipliers'),
     quality: setting(store, 'BossQualityMultipliers'),

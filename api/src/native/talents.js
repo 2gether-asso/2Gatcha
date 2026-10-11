@@ -11,7 +11,7 @@ import { ok, fail, userById, levelForXp } from './common.js';
 import { prestigeStars } from './account-prestige.js';
 import { setting } from './settings.js';
 
-export const BRANCHES = [
+const BRANCHES = [
   { key: 'collector', label: 'Collectionneur', icon: '🎴' },
   { key: 'artisan', label: 'Artisan', icon: '⚒️' },
   { key: 'adventurer', label: 'Aventurier', icon: '🧭' }

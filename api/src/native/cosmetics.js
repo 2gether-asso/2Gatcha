@@ -7,7 +7,7 @@
 import { refId, now, ok, fail, userById } from './common.js';
 import { setting } from './settings.js';
 
-export const TYPES = { title: 'EquippedTitle', frame: 'EquippedFrame', color: 'EquippedColor' };
+const TYPES = { title: 'EquippedTitle', frame: 'EquippedFrame', color: 'EquippedColor' };
 
 export const schema = {
   UserCosmetics: { User: { type: 'Ref:Users' }, Key: { type: 'Text' }, Type: { type: 'Text' }, Label: { type: 'Text' }, At: { type: 'Numeric' } },

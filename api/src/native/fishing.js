@@ -35,7 +35,6 @@ const LABELS = { nothing: 'Rien du tout', dust: 'Poussières', bone: 'Os', key: 
 // Rarete d'affichage (couleur / animation cote site).
 const TIER = { nothing: 'nothing', dust: 'commune', bone: 'rare', booster: 'epique', chest: 'legendaire', part: 'legendaire', key: 'mythique', pearl: 'legendaire', bait: 'epique' };
 const FIELD = { dust: 'StardustCount', bone: 'BoneCount', key: 'KeyCount', booster: 'BoosterCount', chest: 'ChestCount', part: 'SpareParts', pearl: 'StardustCount', bait: 'GoldBait' };
-export const FISH_TYPES = Object.keys(LABELS);
 // XP de peche par lancer : 1 + bonus selon la rarete de la prise.
 const TIER_XP = { nothing: 0, commune: 0, rare: 1, epique: 2, legendaire: 4, mythique: 6 };
 
@@ -53,7 +52,7 @@ export function weatherOf(day = parisDay(0)) {
 }
 
 // Meteo du joueur : celle du jour, ou celle obtenue par une relance payante.
-export function weatherFor(user) {
+function weatherFor(user) {
   if (user && user.WeatherDay === parisDay(0) && user.WeatherKey) return WEATHERS.find((w) => w.key === user.WeatherKey) || weatherOf();
   return weatherOf();
 }
@@ -62,7 +61,7 @@ export function weatherFor(user) {
 // Samedi et dimanche (heure de Paris) : les 10 premiers lancers du week-end
 // comptent ; score = somme des points de rarete. Le lundi, les premiers sont
 // recompenses (FishingTourneyPrizes), le premier recoit le titre "Roi de la peche".
-export const TOURNEY_CASTS = 10;
+const TOURNEY_CASTS = 10;
 const TIER_POINTS = { nothing: 0, commune: 1, rare: 3, epique: 6, legendaire: 10, mythique: 15 };
 const dow = (day) => new Date(day + 'T12:00:00Z').getUTCDay();
 export function tourneyKey(offset = 0) {
@@ -89,7 +88,7 @@ function tourneyBoard(store, key) {
 }
 
 // Paie le dernier tournoi termine (une seule fois).
-export function payTourney(store) {
+function payTourney(store) {
   const key = lastFinishedTourney();
   if (!key || !store.tables.has('AppSettings')) return null;
   const flag = 'tourney-paid:' + key;

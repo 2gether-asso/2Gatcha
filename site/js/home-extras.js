@@ -5,7 +5,7 @@
 (function () {
   if (!Session.isLoggedIn()) return;
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = escHtml;
   let current = null;
 
   async function renderCenter() {

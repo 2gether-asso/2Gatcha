@@ -20,7 +20,7 @@
 //  - Restaurations repetees : la n-ieme restauration d'une meme carte dans la
 //    semaine coute (n-1) x RepairEscalationDust poussieres en plus.
 
-import { refId, now, ok, fail, userById, cardSummary } from './common.js';
+import { refId, now, ok, fail, userById, cardSummary, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
@@ -38,7 +38,6 @@ export const schema = {
   }
 };
 
-const parse = (v, def) => { try { const x = JSON.parse(v || ''); return x == null ? def : x; } catch (e) { return def; } };
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 const dust = (u) => Number(u.StardustCount) || 0;
 const QUALITY_ORDER = ['damaged', 'worn', 'good', 'mint'];
@@ -96,7 +95,7 @@ function handleRates({ store }) {
 }
 
 // --- assurance --------------------------------------------------------------------
-export const insuranceCost = (store, cardId) => setting(store, 'InsuranceCostPerTier') * rarityTier(store, cardId);
+const insuranceCost = (store, cardId) => setting(store, 'InsuranceCostPerTier') * rarityTier(store, cardId);
 
 function handleInsurance({ store, body }) {
   const user = userById(store, body.userId);
@@ -186,7 +185,7 @@ function handleShop({ store, body }) {
 }
 
 // --- contrats de collection ----------------------------------------------------
-export const CONTRACTS = [
+const CONTRACTS = [
   { key: 'rare-holo', label: '3 Rares holo', icon: '✨', rarity: 'rare', finish: 'holo', count: 3, reward: { chests: 1, keys: 1 } },
   { key: 'commons', label: '10 Communes', icon: '📦', rarity: 'commune', count: 10, reward: { boosters: 1 } },
   { key: 'epic-good', label: '2 Épiques en bon état ou mieux', icon: '💜', rarity: 'epique', minQuality: 'good', count: 2, reward: { dust: 400 } },
@@ -200,7 +199,7 @@ export const CONTRACTS = [
   { key: 'epic3', label: '3 Épiques', icon: '🔮', rarity: 'epique', count: 3, reward: { chests: 1, keys: 1, dust: 100 } }
 ];
 
-export function weekContracts(store, week = weekKey()) {
+function weekContracts(store, week = weekKey()) {
   const list = [...CONTRACTS];
   const out = [];
   let h = hash('contracts:' + week);
@@ -272,7 +271,7 @@ function handleContracts({ store, body }) {
 // --- encheres -------------------------------------------------------------------
 const minNext = (a) => (Number(a.CurrentBid) > 0 ? Number(a.CurrentBid) + Math.max(5, Math.ceil(Number(a.CurrentBid) * 0.05)) : Number(a.StartPrice) || 10);
 
-export function settleAuctions(store, t = now()) {
+function settleAuctions(store, t = now()) {
   if (!store.tables.has('Auctions')) return 0;
   let n = 0;
   for (const a of store.getAll('Auctions')) {

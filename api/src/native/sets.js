@@ -17,7 +17,7 @@ function rewardFor(store) {
 }
 
 // Etat de chaque extension pour un joueur.
-export function setStatus(store, userId) {
+function setStatus(store, userId) {
   const owned = new Set(userPulls(store, userId).map((p) => refId(p.Card)));
   const claimed = new Map(store.getAll('SetCompletions').filter((r) => refId(r.User) === Number(userId)).map((r) => [refId(r.Extension), r]));
   const byExt = new Map();
