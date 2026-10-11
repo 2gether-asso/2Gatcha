@@ -167,9 +167,9 @@ class Execution {
         if (!this.response) this.resolveResponse({ status: 500, json: { message: 'Workflow did not respond' } });
       } catch (err) {
         this.runner.log.error(`[${this.wf.name}] ${err.nodeName ? `noeud "${err.nodeName}" : ` : ''}${err.stack || err.message}`);
-        // err.expected : situation attendue (ex. donnees Grist incompletes), loggee mais non suivie.
+        // err.expected : situation attendue (ex. donnees Grist incompletes, service externe injoignable), loggee mais non suivie.
         if (!err.expected && this.runner.onError) this.runner.onError(err, { workflow: this.wf.name, node: err.nodeName });
-        if (!this.response) this.resolveResponse({ status: err.expected ? 422 : 500, json: { message: 'Error in workflow', error: err.message } });
+        if (!this.response) this.resolveResponse({ status: err.expected ? (err.status || 422) : 500, json: { message: 'Error in workflow', error: err.message } });
       }
     })();
     return { responded, done };
@@ -369,7 +369,19 @@ class Execution {
         }
       }
       // Pendant un appel externe, les autres requetes peuvent avancer.
-      const doFetch = () => this.runner.fetch(url, { method, headers, body, signal: AbortSignal.timeout(15000) });
+      // Echec reseau (hote injoignable, timeout) : une seconde tentative, puis erreur "attendue".
+      const doFetch = async () => {
+        for (let attempt = 1; ; attempt++) {
+          try {
+            return await this.runner.fetch(url, { method, headers, body, signal: AbortSignal.timeout(15000) });
+          } catch (e) {
+            if (attempt < 2) continue;
+            e.expected = true;
+            e.status = 502;
+            throw e;
+          }
+        }
+      };
       const res = await (this.hooks.unlocked ? this.hooks.unlocked(doFetch) : doFetch());
       const wantsFile = p.options && p.options.response && p.options.response.response && p.options.response.response.responseFormat === 'file';
       if (wantsFile) {
