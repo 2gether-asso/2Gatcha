@@ -130,7 +130,16 @@ window.APP_CONFIG = {
     upgrades: "/upgrades",             // POST { userId, action: 'status'|'buy', key? } (chenil, serre, canne)
     finishReroll: "/finish-reroll",     // POST { userId, pullId, action: 'status'|'reroll' }
     adminModeFeatures: "/admin-mode-features", // POST { discordId, action: 'status'|'set'|'reset', matrix? }
-    machineRoom: "/machine-room",       // POST { userId, action: 'status'|'advance'|'vote', mode? } (salle des machines)
+    machineRoom: "/machine-room",
+    adminModeSchedule: "/admin-mode-schedule", // POST { discordId, action: 'status'|'set'|'clear', preset?, at? }
+    hardLeaderboard: "/hard-leaderboard",    // GET ?userId=
+    seasonal: "/seasonal",                   // POST { userId, action: 'status'|'claim' }
+    phantom: "/phantom",                     // GET ?userId=
+    lottery: "/lottery",                     // POST { userId, action: 'status'|'buy', count? }
+    wanted: "/wanted",                       // POST { userId, action: 'status'|'donate' }
+    hallOfFame: "/hall-of-fame",             // GET
+    teams: "/teams",                         // POST { userId }
+    duoExpedition: "/duo-expedition",        // POST { userId, action, toPseudo?, pullId?, id? }       // POST { userId, action: 'status'|'advance'|'vote', mode? } (salle des machines)
     decraftUndo: "/decraft-undo",       // POST { userId, action: 'list'|'undo', id? } (mode Cool)
     weeklyGoal: "/weekly-goal",         // POST { userId, action: 'status'|'claim' } (mode Medium)
     dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille du chien

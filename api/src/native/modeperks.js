@@ -41,7 +41,8 @@ export const MODE_PERKS = {
   cool: ['🎁 Un petit cadeau à chaque connexion du jour', '🎣 Plus aucune prise vide à la pêche', '↩️ Décraft annulable pendant 24 h', '🐕 Le chien rapporte 2 trouvailles par jour', '🌱 Le jardin ne fane plus, une récolte sur cinq est rare', '🤝 Échanges et enchères sans taxe'],
   chill: ['🍀 Deux heures de chance par jour', '🎯 Le pity avance deux fois plus vite le week-end', '☀️ Marché aussi le mercredi', '🎯 Un 4e défi de la semaine, et des fragments en plus', '🍀 Un doublon sur dix devient une carte qui te manque'],
   medium: ['🎲 Pari du booster : mise 100 ✨, triplée si une épique sort', '📜 Un contrat personnel chaque semaine (booster à la clé)', '⚔️ Booster à double tranchant : 3 cartes dont une rare garantie', '🍀 Un booster par jour, au hasard, a ses finitions doublées'],
-  hard: ['🧽 Tes doublons s’usent un peu chaque jour', '🔥 Finitions plus rares, mais les arc-en-ciel sont « forgées dans les flammes »', '👹 Boss enragé : 2× plus résistant, récompense ×3', '🌋 Marché noir brûlant : offres plus rares et plus courtes', '💸 Taxe de luxe pour les plus riches, redistribuée aux joueurs actifs', '🏆 Succès et cadres de survie exclusifs']
+  chaos: ['👾 Une règle surprise chaque jour, annoncée dans le bandeau', '🎲 Base Medium, mais tout peut changer à minuit', '👾 Édition limitée Glitch à l’ouverture des boosters', '🏆 Succès « Agent du chaos » : 5 règles différentes'],
+  hard: ['🧽 Tes doublons s’usent un peu chaque jour (sauf sous un parapluie ☂️)', '🔥 Finitions plus rares, mais les arc-en-ciel sont « forgées dans les flammes »', '👹 Boss enragé : 2× plus résistant, récompense ×3', '🌋 Marché noir brûlant : offres plus rares et plus courtes', '💸 Taxe de luxe pour les plus riches, redistribuée aux joueurs actifs', '🏆 Succès et cadres de survie exclusifs']
 };
 
 // ------------------------------------------------------------------ outils communs
@@ -193,11 +194,12 @@ function dailyVisit(store, user, json) {
   // Hard : usure d'un doublon (jamais un #001, un exemplaire assure, ★ ou au coffre).
   if (mode === 'hard' && user.WearDay !== today) {
     fields.WearDay = today;
-    if (Math.random() < setting(store, 'HardWearChance')) {
+    if ((Number(user.UmbrellaUntil) || 0) > now()) json.umbrella = true;
+    else if (Math.random() < setting(store, 'HardWearChance')) {
       const mine = store.getAll('Pulls').filter((p) => refId(p.User) === user.id);
       const byCard = new Map();
       mine.forEach((p) => byCard.set(refId(p.Card), (byCard.get(refId(p.Card)) || 0) + 1));
-      const pool = mine.filter((p) => byCard.get(refId(p.Card)) > 1 && p.SerialNumber !== 1 && !p.Insured && !p.Starred && !p.InVault && QUALITY.indexOf(p.Quality || 'damaged') > 0);
+      const pool = mine.filter((p) => byCard.get(refId(p.Card)) > 1 && p.SerialNumber !== 1 && !p.Insured && !p.Starred && !p.InVault && !p.Edition && QUALITY.indexOf(p.Quality || 'damaged') > 0);
       if (pool.length) {
         const p = pool[Math.floor(Math.random() * pool.length)];
         const from = p.Quality || 'damaged', to = QUALITY[QUALITY.indexOf(from) - 1];

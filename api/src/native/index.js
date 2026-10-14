@@ -82,6 +82,15 @@ import * as rendezvous from './rendezvous.js';
 import * as modeperks from './modeperks.js';
 import * as machine from './machine.js';
 import * as features from './features.js';
+import * as modeextras from './modeextras.js';
+import * as seasonal from './seasonal.js';
+import * as editions from './editions.js';
+import * as phantom from './phantom.js';
+import * as lottery from './lottery.js';
+import * as wanted from './wanted.js';
+import * as halloffame from './halloffame.js';
+import * as teams from './teams.js';
+import * as duo from './duo.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
@@ -89,9 +98,9 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, phantom, lottery, wanted, halloffame, teams, duo];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks];
+const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams];
 // XP doublee pendant l'action du jour (daily.js).
 const XP_FIELDS = ['XP', 'FishingXP', 'DigXP', 'ExpeditionXP', 'GardenXP'];
 
@@ -196,7 +205,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       ctx.actor = body.discordId ? 'admin:' + body.discordId : ctx.userId ? 'joueur:' + ctx.userId : 'anonyme';
       ctx.detail = ledger.summarizeBody(body);
       ctx.notices = [];
-      for (const m of [unique, rules, fishing, market, inflation, modeperks, machine]) {
+      for (const m of [unique, rules, fishing, market, inflation, modeextras, modeperks, machine, seasonal, lottery, teams]) {
         try { m.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeRequest' }); }
       }
       const userId = Number(body.userId || query.userId) || 0;

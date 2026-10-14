@@ -6,7 +6,7 @@
   const esc = escHtml;
   const fr = (n, d = 1) => Number(n || 0).toLocaleString("fr-FR", { maximumFractionDigits: d });
   const settle = (p) => p.then((v) => v, () => null);
-  const PRESET_LABEL = { cool: "😎 Cool", chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard", custom: "Personnalisé" };
+  const PRESET_LABEL = { cool: "😎 Cool", chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard", chaos: "👾 Chaos", custom: "Personnalisé" };
 
   async function render() {
     const box = document.getElementById("adm-overview");

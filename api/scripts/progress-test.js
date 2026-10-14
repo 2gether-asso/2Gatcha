@@ -20,6 +20,13 @@ import * as ledger from '../src/native/ledger.js';
 import { goldenWindow } from '../src/native/comfort.js';
 import * as modeperks from '../src/native/modeperks.js';
 import * as machine from '../src/native/machine.js';
+import * as modeextras from '../src/native/modeextras.js';
+import * as seasonal from '../src/native/seasonal.js';
+import * as editions from '../src/native/editions.js';
+import * as phantom from '../src/native/phantom.js';
+import * as lottery from '../src/native/lottery.js';
+import * as teams from '../src/native/teams.js';
+import { setting, rawSetting } from '../src/native/settings.js';
 
 import { requestContext, freshContext } from '../src/native/context.js';
 
@@ -692,7 +699,7 @@ await test('journal : origine inconnue tracee, lignes "autre" supprimees une foi
 await test('modes de jeu : Chill / Medium / Hard, apercu, annonce, personnalise', () => {
   assert.equal(call('POST', 'admin-preset', { body: { discordId: 'x' } }).status, 403);
   let st = call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json;
-  assert.equal(st.presets.length, 4);
+  assert.equal(st.presets.length, 5);
   assert.ok(['cool', 'chill', 'medium', 'hard'].includes(st.recommendation.key));
   assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.key, st.current === 'custom' ? (st.last ? st.last.key : 'medium') : st.current);
   const hard = st.presets.find((p) => p.key === 'hard');
@@ -970,7 +977,7 @@ await test('salle des machines : 5 sacrifices, vote, mode applique a la fin du v
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachineVoteDay: 28, MachineRoomCosts: { keys: 2, dust: 10, worms: 1, parts: 1, bait: 1, boosters: 1, cards: 1 } } } });
   store.update('Users', 1, { MachineMonth: '', MachineStage: 0, MachineVote: '', KeyCount: 1, StardustCount: 100, Worms: 5, SpareParts: 2, GoldBait: 2, BoosterCount: 2 });
   let st = call('POST', 'machine-room', { body: { userId: 1 } }).json;
-  assert.equal(st.stages.length, 5);
+  assert.equal(st.stages.length, 6);
   assert.equal(call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json.error, 'not_enough', 'il manque une cle');
   store.update('Users', 1, { KeyCount: 2 });
   const card = cards()[2];
@@ -1033,6 +1040,226 @@ await test('fonctionnalites par mode : ecritures refusees, lectures permises, su
   call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
   assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.off.length, 0);
   call('POST', 'admin-mode-features', { body: { discordId: ADMIN, action: 'reset' } });
+});
+
+await test('mode Chaos : regle du jour en surcouche, mode detecte, fonctionnalites du jour fermees', () => {
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'chaos' } });
+  const st = call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json;
+  assert.equal(st.current, 'chaos');
+  assert.equal(st.presets.filter((p) => p.active).length, 1);
+  const rule = modeextras.chaosRuleFor();
+  const gm = call('GET', 'event-status', { query: {} }).json.gameMode;
+  assert.equal(gm.key, 'chaos');
+  assert.equal(gm.chaosRule.key, rule.key);
+  const [key, fn] = Object.entries(rule.settings)[0];
+  assert.equal(setting(store, key), fn(rawSetting(store, key)), 'surcouche appliquee');
+  for (const f of rule.off || []) assert.ok(gm.off.some((x) => x.key === f), 'ferme par la regle : ' + f);
+  // Jamais la meme regle deux jours de suite.
+  for (let i = 0; i < 30; i++) assert.notEqual(modeextras.chaosRuleFor(parisDay(i)).key, modeextras.chaosRuleFor(parisDay(i - 1)).key);
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+  assert.equal(call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json.current, 'medium');
+});
+
+await test('succes de mode, classement Hard, parapluie', () => {
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'chill' } });
+  modeextras.onEvents(store, [{ userId: 1, type: 'boosterOpened', n: 50, meta: {} }]);
+  const prof = JSON.parse(user(1).HiddenAchievements || '{}');
+  assert.ok(prof.modeChill50, 'succes Vacancier');
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'hard' } });
+  // Le passage en Hard du test precedent peut tomber dans la meme seconde : on compare avant / apres.
+  const before = (call('GET', 'hard-leaderboard', { query: { userId: 1 } }).json.me || { score: 0 }).score;
+  modeextras.onEvents(store, [{ userId: 1, type: 'board', n: 2, meta: {} }, { userId: 2, type: 'fish', n: 1, meta: {} }]);
+  const board = call('GET', 'hard-leaderboard', { query: { userId: 1 } }).json;
+  assert.equal(board.active, true);
+  assert.equal(board.top[0].userId, 1);
+  assert.equal(board.me.score, before + 6);
+  // Parapluie : en boutique, protege de l'usure.
+  store.update('Users', 1, { StardustCount: 5000, UmbrellaUntil: 0, WearDay: '' });
+  const shop = call('POST', 'shop', { body: { userId: 1 } }).json;
+  assert.ok(shop.items.some((i) => i.key === 'umbrella'));
+  const r = call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'umbrella' } }).json;
+  assert.ok(r.umbrellaUntil > now() + 6 * 86400);
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+});
+
+await test('changement de mode programme : preavis public puis application', () => {
+  assert.equal(call('POST', 'admin-mode-schedule', { body: { discordId: ADMIN, action: 'set', preset: 'cool', at: now() - 5 } }).json.error, 'invalid_date');
+  const s = call('POST', 'admin-mode-schedule', { body: { discordId: ADMIN, action: 'set', preset: 'cool', at: now() + 3600 } }).json;
+  assert.equal(s.scheduled.key, 'cool');
+  const next = call('GET', 'event-status', { query: {} }).json.gameMode.next;
+  assert.equal(next.key, 'cool');
+  assert.equal(next.probable, false);
+  // L'heure arrive : applique tout seul.
+  const row = store.getAll('AppSettings').find((x) => x.Key === 'modeSchedule');
+  store.update('AppSettings', row.id, { Value: JSON.stringify({ key: 'cool', at: now() - 1, by: ADMIN }) });
+  modeextras._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(modeperks.modeKey(store), 'cool');
+  assert.equal(call('POST', 'admin-mode-schedule', { body: { discordId: ADMIN } }).json.scheduled, null);
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+});
+
+await test('editions limitees : posees a l ouverture, listees dans la collection, protegees', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EditionChance: 0.5 } } });
+  const card = cards()[3];
+  const batch = '1-edition-test';
+  const ids = [];
+  for (let i = 0; i < 12; i++) ids.push(store.create('Pulls', { User: 1, Card: card.id, SerialNumber: 9000 + i, Finish: 'normal', Quality: 'good', ObtainedAt: now(), BatchId: batch }).id);
+  const json = { batchId: batch, cards: ids.map((id, i) => ({ cardId: card.id, serialNumber: 9000 + i })) };
+  editions.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json } });
+  const marked = ids.filter((id) => store.get('Pulls', id).Edition === 'prism');
+  assert.ok(marked.length > 0 && marked.length < 12, 'edition Prismatique en Medium : ' + marked.length);
+  assert.equal(json.cards.filter((c) => c.edition === 'prism').length, marked.length);
+  const coll = { status: 200, json: {} };
+  editions.afterWorkflow({ store, path: 'collection', request: { query: { userId: 1 }, body: {} }, response: coll });
+  assert.equal(coll.json.editionPulls[marked[0]], 'prism');
+  ids.forEach((id) => store.delete('Pulls', id));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EditionChance' } });
+});
+
+await test('evenements saisonniers : calendrier (Halloween, Noel, Paques, nouvel an), edition de l evenement', () => {
+  assert.equal(seasonal.currentSeason(store, '2026-10-31').key, 'halloween');
+  assert.equal(seasonal.currentSeason(store, '2026-12-24').key, 'christmas');
+  assert.equal(seasonal.currentSeason(store, '2027-01-02').key, 'newyear');
+  assert.equal(seasonal.currentSeason(store, '2027-03-27').key, 'easter', 'Paques 2027 : 28 mars');
+  assert.equal(seasonal.currentSeason(store, '2026-02-14').key, 'valentine');
+  assert.equal(seasonal.currentSeason(store, '2026-07-14'), null);
+  assert.equal(seasonal.currentSeason(store, '2026-10-31').edition, 'cursed');
+  assert.ok(editions.EDITIONS.cursed && editions.EDITIONS.snow && editions.EDITIONS.ember && editions.EDITIONS.glitch);
+  const st = call('POST', 'seasonal', { body: { userId: 1 } }).json;
+  assert.ok('season' in st);
+});
+
+await test('carte fantome : 5 fragments, carte en edition Fantome, une fois par mois', () => {
+  store.update('Users', 1, { PhantomMonth: '', PhantomFragments: '', PhantomDone: '' });
+  const before = store.getAll('Pulls').filter((p) => p.Edition === 'phantom').length;
+  for (const k of ['fish', 'dig', 'garden', 'boss']) assert.ok(phantom.grantFragment(store, 1, k));
+  assert.equal(phantom.grantFragment(store, 1, 'fish'), null, 'deja trouve');
+  const last = phantom.grantFragment(store, 1, 'machine');
+  assert.ok(/réunis/.test(last.label));
+  assert.equal(store.getAll('Pulls').filter((p) => p.Edition === 'phantom').length, before + 1);
+  const st = call('GET', 'phantom', { query: { userId: 1 } }).json;
+  assert.equal(st.done, true);
+  assert.ok(st.card);
+  assert.equal(phantom.grantFragment(store, 1, 'fish'), null);
+});
+
+await test('loterie du dimanche : tickets, cagnotte, tirage, report sans joueur', () => {
+  store.update('Users', 1, { StardustCount: 2000, LotteryWeek: '', LotteryTickets: 0 });
+  let st = call('POST', 'lottery', { body: { userId: 1, action: 'buy', count: 3 } }).json;
+  assert.equal(st.tickets, 3);
+  assert.equal(user(1).StardustCount, 1700);
+  assert.equal(st.pot, 200 + 240, 'depart 200 + 80 % de 300');
+  assert.equal(call('POST', 'lottery', { body: { userId: 1, action: 'buy', count: 50 } }).json.error, 'weekly_cap');
+  // Le dimanche 21 h est passe : tirage.
+  const past = '2026-01-05';
+  const row = store.getAll('AppSettings').find((x) => x.Key === 'lottery');
+  store.update('AppSettings', row.id, { Value: JSON.stringify({ week: past, pot: 440 }) });
+  store.update('Users', 1, { LotteryWeek: past, LotteryTickets: 3 });
+  lottery._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(user(1).StardustCount, 1700 + 440);
+  const last = call('POST', 'lottery', { body: { userId: 1 } }).json.last;
+  assert.equal(last.userId, 1);
+  assert.equal(last.pot, 440);
+});
+
+await test('avis de recherche : don d un doublon, recompense, coffre de guilde, une fois', () => {
+  let st = call('POST', 'wanted', { body: { userId: 1 } }).json;
+  assert.ok(st.card);
+  mk(1, st.card.cardId, 'normal', 'worn'); mk(1, st.card.cardId, 'normal', 'worn');
+  store.update('Users', 1, { StardustCount: 100, KeyCount: 0 });
+  const deposits = store.tables.has('GuildChestDeposits') ? store.getAll('GuildChestDeposits').length : 0;
+  st = call('POST', 'wanted', { body: { userId: 1, action: 'donate' } }).json;
+  assert.equal(st.donated, true);
+  assert.equal(user(1).StardustCount, 100 + 250);
+  assert.equal(user(1).KeyCount, 1, 'premier donateur : une cle');
+  if (store.tables.has('GuildChestDeposits')) assert.equal(store.getAll('GuildChestDeposits').length, deposits + 1);
+  assert.equal(call('POST', 'wanted', { body: { userId: 1, action: 'donate' } }).json.error, 'already_donated');
+});
+
+await test('livre d or : premieres finitions et editions du serveur', () => {
+  const c = cards()[1];
+  const id = store.create('Pulls', { User: 2, Card: c.id, SerialNumber: 9900, Finish: 'rainbow', Quality: 'good', Edition: 'ember', ObtainedAt: 1000, BatchId: '2-1000' }).id;
+  const r = call('GET', 'hall-of-fame', { query: {} }).json;
+  const rb = r.finishes.find((e) => e.label.includes('Arc-en-ciel'));
+  assert.equal(rb.userId, 2);
+  assert.ok(r.editions.some((e) => e.label.includes('Braise') && e.userId === 2));
+  store.delete('Pulls', id);
+});
+
+await test('guerre des equipes : equipe attribuee, points, titre a l equipe gagnante', () => {
+  const pts0 = call('POST', 'teams', { body: { userId: 1 } }).json.myPoints;
+  teams.onEvents(store, [{ userId: 1, type: 'board', n: 2, meta: {} }]);
+  const st = call('POST', 'teams', { body: { userId: 1 } }).json;
+  assert.ok(st.myTeam);
+  assert.equal(st.myPoints, pts0 + 6);
+  assert.equal(st.teams.length, 4);
+  // Mois precedent : l'equipe du joueur 1 gagne.
+  const [y, m] = st.month.split('-').map(Number);
+  const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  store.update('Users', 1, { TeamMonth: prev, TeamPoints: 50 });
+  const old = store.getAll('AppSettings').find((x) => x.Key === 'teamWar');
+  if (old) store.delete('AppSettings', old.id);
+  teams._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === `team-${st.myTeam}-${prev}`));
+});
+
+await test('expedition en duo : invitation, acceptation, butin partage', () => {
+  const p1 = store.getAll('Pulls').find((p) => p.User === 1);
+  const p2 = store.getAll('Pulls').find((p) => p.User === 2);
+  const pseudo2 = user(2).Pseudo;
+  let r = call('POST', 'duo-expedition', { body: { userId: 1, action: 'invite', toPseudo: pseudo2, pullId: p1.id } }).json;
+  assert.equal(r.invited, pseudo2);
+  assert.equal(call('POST', 'duo-expedition', { body: { userId: 1, action: 'invite', toPseudo: pseudo2, pullId: p1.id } }).json.error, 'already_busy');
+  const inv = call('POST', 'duo-expedition', { body: { userId: 2 } }).json.items[0];
+  r = call('POST', 'duo-expedition', { body: { userId: 2, action: 'accept', id: inv.id, pullId: p2.id } }).json;
+  assert.equal(r.items[0].status, 'running');
+  assert.equal(call('POST', 'duo-expedition', { body: { userId: 2, action: 'claim', id: inv.id } }).json.error, 'not_ready');
+  store.update('DuoExpeditions', inv.id, { EndAt: now() - 1 });
+  const d1 = user(1).StardustCount, d2 = user(2).StardustCount;
+  const l1 = call('POST', 'duo-expedition', { body: { userId: 1, action: 'claim', id: inv.id } }).json.loot;
+  const l2 = call('POST', 'duo-expedition', { body: { userId: 2, action: 'claim', id: inv.id } }).json.loot;
+  assert.deepEqual(l1, l2);
+  assert.equal(user(1).StardustCount, d1 + l1.dust);
+  assert.equal(user(2).StardustCount, d2 + l2.dust);
+});
+
+await test('salle des machines, suite : surchauffe (vote double), jauge, chef mecanicien, assiduite, vote d evenement', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachinePressureGoal: 1, MachineRoomCosts: { keys: 1, dust: 1, worms: 1, parts: 1, bait: 1, boosters: 1, cards: 1 }, MachineOverheatCosts: { boosters: 1, legendary: 1 } } } });
+  const [y, mo] = call('POST', 'machine-room', { body: { userId: 1 } }).json.month.split('-').map(Number);
+  const pm = (yy, mm) => (mm === 1 ? [yy - 1, 12] : [yy, mm - 1]);
+  const [y1, m1] = pm(y, mo), [y2, m2] = pm(y1, m1);
+  const fmt = (yy, mm) => `${yy}-${String(mm).padStart(2, '0')}`;
+  store.update('Users', 1, { MachineMonth: '', MachineStage: 0, MachineVote: '', MachineHistory: JSON.stringify([fmt(y1, m1), fmt(y2, m2)]), MachineLoyaltyAt: '', KeyCount: 5, StardustCount: 500, Worms: 5, SpareParts: 5, GoldBait: 5, BoosterCount: 10 });
+  const card = cards()[2];
+  mk(1, card.id, 'normal', 'worn'); mk(1, card.id, 'normal', 'worn');
+  const legend = store.getAll('Cards').find((c) => { const r = store.get('Rarities', Array.isArray(c.Rarity) ? c.Rarity[1] : c.Rarity); return r && r.Key === 'legendaire'; });
+  if (legend) { mk(1, legend.id, 'normal', 'worn'); mk(1, legend.id, 'normal', 'worn'); }
+  let st;
+  for (let i = 0; i < 5; i++) st = call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json;
+  assert.equal(st.done, true);
+  assert.equal(st.loyaltyReward, '3 boosters', 'assiduite : 3 mois');
+  assert.equal(st.loyalty.months, 3);
+  assert.equal(user(1).BoosterCount, 10 - 1 + 3);
+  assert.ok(st.spent > 0);
+  if (legend) {
+    st = call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json;
+    assert.equal(st.overheated, true);
+  }
+  st = call('POST', 'machine-room', { body: { userId: 1, action: 'vote', mode: 'chill' } }).json;
+  assert.equal(st.votes.chill, legend ? 2 : 1, 'surchauffe : vote double');
+  st = call('POST', 'machine-room', { body: { userId: 1, action: 'voteEvent', event: 'fishing' } }).json;
+  assert.equal(st.eventVote.votes.fishing, 1);
+  assert.equal(st.pressure.reached, true);
+  // Bilan du mois : jauge (1 booster), chef mecanicien.
+  const b = user(1).BoosterCount;
+  machine._settleMonth(store, st.month);
+  assert.equal(user(1).BoosterCount, b + 1);
+  assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === 'machine-chief'));
+  for (const key of ['MachinePressureGoal', 'MachineRoomCosts', 'MachineOverheatCosts']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  store.update('Users', 1, { MachineMonth: '', MachineStage: 0 });
 });
 
 store.db.close();

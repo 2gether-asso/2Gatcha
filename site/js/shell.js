@@ -733,10 +733,10 @@ async function checkMaintenanceMode() {
 // Mode de jeu (Cool / Chill / Medium / Hard, api/src/native/presets.js) :
 // couleurs de la barre de menu et animation du logo. Garde en local pour
 // s'appliquer des le chargement de la page suivante, sans clignotement.
-const GAME_MODE_TITLES = { cool: "Mode Cool 😎 : détente, boosters faciles", chill: "Mode Chill 🌴 : généreux", medium: "Mode Medium ⚖️ : équilibré", hard: "Mode Hard 🔥 : boosters rares, prix élevés" };
+const GAME_MODE_TITLES = { cool: "Mode Cool 😎 : détente, boosters faciles", chill: "Mode Chill 🌴 : généreux", medium: "Mode Medium ⚖️ : équilibré", hard: "Mode Hard 🔥 : boosters rares, prix élevés", chaos: "Mode Chaos 👾 : une règle surprise chaque jour" };
 // Premiere visite apres un changement de mode : annonce plein ecran.
 function announceGameMode(mode) {
-  const ICON = { cool: "😎", chill: "🌴", medium: "⚖️", hard: "🔥" };
+  const ICON = { cool: "😎", chill: "🌴", medium: "⚖️", hard: "🔥", chaos: "👾" };
   const overlay = document.createElement("div");
   overlay.className = "mode-announce mode-" + mode.key;
   overlay.setAttribute("role", "dialog");
@@ -808,6 +808,29 @@ function applyModeFeatures(off, mode) {
 try { const m = localStorage.getItem("2gatcha_game_mode"); if (m && GAME_MODE_TITLES[m]) document.documentElement.dataset.gameMode = m; } catch (e) { /* stockage indisponible */ }
 try { const off = JSON.parse(localStorage.getItem("2gatcha_features_off") || "[]"); if (Array.isArray(off) && off.length) applyModeFeatures(off, null); } catch (e) { /* stockage indisponible */ }
 
+// Evenement saisonnier (api/src/native/seasonal.js) : theme du site.
+function applySeason(season) {
+  const key = season && season.key ? season.key : "";
+  if (key) document.documentElement.dataset.season = key; else delete document.documentElement.dataset.season;
+  try { if (key) localStorage.setItem("2gatcha_season", key); else localStorage.removeItem("2gatcha_season"); } catch (e) { /* stockage indisponible */ }
+  window.currentSeason = season || null;
+  document.dispatchEvent(new CustomEvent("season:ready", { detail: season || null }));
+}
+try { const s = localStorage.getItem("2gatcha_season"); if (s) document.documentElement.dataset.season = s; } catch (e) { /* stockage indisponible */ }
+
+// Regle du jour (mode Chaos) et preavis de changement de mode (modeextras.js).
+function modeBanners(el, mode) {
+  const bits = [];
+  if (mode.chaosRule) bits.push(`<div class="beta-banner banner-chaos">${mode.chaosRule.icon} <strong>Règle du Chaos du jour :</strong> ${escHtml(mode.chaosRule.label)}</div>`);
+  const n = mode.next;
+  if (n && n.key !== mode.key) {
+    const when = new Date(n.at * 1000).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" });
+    const lead = n.probable ? `La salle des machines penche pour le mode <strong>${n.icon} ${escHtml(n.label)}</strong> (fin du vote ${when})` : `Changement de mode programmé : <strong>${n.icon} ${escHtml(n.label)}</strong> ${when}`;
+    bits.push(`<div class="beta-banner banner-next-mode">⏳ Dernières heures du mode ${escHtml(mode.label)} : profites-en ! ${lead}.</div>`);
+  }
+  if (bits.length) { el.insertAdjacentHTML("afterbegin", bits.join("")); syncHeaderOffset(); }
+}
+
 // Week-end evenement (api/src/native/events.js) : bandeau festif tant qu'il dure.
 async function loadEventBanner() {
   const el = document.getElementById("site-header");
@@ -815,6 +838,8 @@ async function loadEventBanner() {
   try {
     const ev = await API.getEventStatus();
     if (ev && ev.gameMode) applyGameMode(ev.gameMode);
+    if (ev) applySeason(ev.season);
+    if (ev && ev.gameMode) modeBanners(el, ev.gameMode);
     if (!ev || !ev.active) return;
     const perks = [];
     if (ev.dustMultiplier > 1) perks.push(`poussières x${ev.dustMultiplier}`);

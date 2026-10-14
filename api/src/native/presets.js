@@ -9,7 +9,7 @@
 //   POST /webhook/admin-preset { discordId, action: 'status' | 'apply', preset?, announce? }
 
 import { ok, fail, isAdmin, now } from './common.js';
-import { setting, setSettings, REGISTRY } from './settings.js';
+import { rawSetting as setting, setSettings, REGISTRY } from './settings.js';
 import { flows } from './economy.js';
 import { isTight, priceMultiplier } from './inflation.js';
 import { addFeed } from './feed.js';
@@ -74,6 +74,15 @@ const PRESETS = {
   }
 };
 
+// Chaos (2026-10-15) : reglages du Medium + une regle tiree chaque jour (modeextras.js).
+PRESETS.chaos = {
+  label: 'Chaos', icon: '👾', desc: 'Imprévisible : base Medium, mais chaque jour une règle tirée au hasard change le jeu (pêche à moitié prix, doublons ×2, marché noir fermé…).',
+  values: { ...PRESETS.medium.values }
+};
+// Libelles et icones (machine.js, features.js, modeextras.js).
+export const PRESET_INFO = Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, icon: p.icon }]));
+export const MODE_KEYS = Object.keys(PRESETS);
+
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // Valeur lisible (tables de peche : poids des boosters et des os).
 function show(v) {
@@ -116,7 +125,17 @@ function status(store) {
       .map(([k, v]) => ({ key: k, label: REGISTRY[k].label, current: show(setting(store, k)), target: show(v) }));
     return { key, label: p.label, icon: p.icon, desc: p.desc, active: !changes.length, changes, settings: Object.keys(p.values).length };
   });
-  return { presets, current: (presets.find((p) => p.active) || {}).key || 'custom', last, recommendation: recommendation(store) };
+  // Deux modes aux memes reglages (Medium et Chaos) : le dernier applique l'emporte.
+  const actives = presets.filter((p) => p.active);
+  const current = (actives.find((p) => last && p.key === last.key) || actives[0] || {}).key || 'custom';
+  presets.forEach((p) => { p.active = p.key === current; });
+  return { presets, current, last, recommendation: recommendation(store) };
+}
+
+// Dernier mode applique { key, at, by } (ou null).
+export function lastPreset(store) {
+  const row = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((r) => r.Key === KEY) : null;
+  try { return row ? JSON.parse(row.Value) : null; } catch (e) { return null; }
 }
 
 // Applique un mode (admin, ou vote de la salle des machines). Renvoie les erreurs.

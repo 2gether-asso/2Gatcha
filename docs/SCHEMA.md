@@ -1152,6 +1152,15 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | Pulls | ForgedInFire | Bool | carte forgée dans le feu (mode Hard) : protégée du sacrifice |
 | DecraftUndo | User, Card, Finish, Quality, Serial, Dust, At, Undone | Ref:Users, Ref:Cards, Text, Text, Numeric, Numeric, Numeric, Bool | decrafts annulables 24 h (mode Cool) |
 | Users | MachineMonth, MachineStage, MachineVote | Text, Numeric, Text | salle des machines : mois en cours, étape atteinte (0 à 5), mode voté |
+| Users | MachineSpent, MachineHistory, MachineLoyaltyAt, MachineEventVote | Numeric, Text, Text, Text | salle des machines : points sacrifiés du mois, mois terminés (JSON), dernière récompense d'assiduité, événement voté |
+| Users | ModeStreak, ModeStats, ChaosSeen, HardSession, HardScore, UmbrellaUntil | Text, Text, Text, Numeric, Numeric, Numeric | succès de mode (série de jours, compteurs, règles du Chaos vues), classement Hard, parapluie |
+| Users | SeasonTreatDay, SeasonDropDay, SeasonDropCount | Text, Text, Numeric | cadeau saisonnier du jour, trouvailles saisonnières (3 par jour) |
+| Users | PhantomMonth, PhantomFragments, PhantomDone | Text, Text, Text | carte fantôme du mois : fragments trouvés (JSON), mois reconstitué |
+| Users | LotteryWeek, LotteryTickets | Text, Numeric | tickets de loterie de la semaine |
+| Users | TeamMonth, Team, TeamPoints | Text, Text, Numeric | guerre des équipes : équipe et points du mois |
+| Pulls | Edition | Text | édition limitée (frost, tropical, prism, ember, glitch, firework, heart, pastel, prank, solar, cursed, snow, phantom) |
+| DuoExpeditions | From, To, FromPull, ToPull, FromCard, ToCard, Status, CreatedAt, StartAt, EndAt, FromClaimed, ToClaimed, Loot | Ref:Users ×2, Numeric ×2, Ref:Cards ×2, Text, Numeric ×3, Bool ×2, Text | expéditions en duo (invited, running, declined, cancelled ; butin JSON) |
+| AppSettings | Key = modeSchedule, lottery, lotteryLast, wanted, teamWar, seasonBoss, machineSettled, machineChief | Text | changement de mode programmé, loterie (cagnotte, dernier tirage), avis de recherche de la semaine, résultat de la guerre des équipes, boss saisonnier créé, bilan mensuel et chef de la salle des machines |
 | AppSettings | Key = modeFeatures | Text | fonctionnalités fermées par mode : JSON { fonctionnalité: [modes] } (features.js) ; absent = valeurs par défaut |
 | AppSettings | Key = machineRoom | Text | résultat du dernier vote de la salle des machines (mois, votes, gagnant) |
 | ScheduledEvents | Label, StartAt, EndAt, Enabled, DustMultiplier, FinishMultiplier, FishingRare, WormsMultiplier | | evenements planifies (events.js) |

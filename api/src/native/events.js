@@ -16,6 +16,8 @@ import { goldenState } from './comfort.js';
 import { currentMode } from './presets.js';
 import { MODE_PERKS, modeCardFor } from './modeperks.js';
 import { publicView as featuresOff } from './features.js';
+import { chaosRule, nextMode } from './modeextras.js';
+import { publicSeason } from './seasonal.js';
 
 export const schema = {
   ScheduledEvents: {
@@ -68,11 +70,13 @@ export function eventState(store) {
 function modeView(store) {
   const m = currentMode(store);
   const mc = modeCardFor(store);
-  return { ...m, perks: MODE_PERKS[m.key] || [], card: mc ? { cardId: mc.card.id, name: mc.card.Name } : null, off: featuresOff(store) };
+  const rule = chaosRule(store);
+  return { ...m, perks: MODE_PERKS[m.key] || [], card: mc ? { cardId: mc.card.id, name: mc.card.Name } : null, off: featuresOff(store),
+    chaosRule: rule ? { key: rule.key, icon: rule.icon, label: rule.label } : null, next: nextMode(store) };
 }
 
 function handleStatus({ store }) {
-  return ok({ ...eventState(store), goldenHour: goldenState(store), gameMode: modeView(store) });
+  return ok({ ...eventState(store), goldenHour: goldenState(store), gameMode: modeView(store), season: publicSeason(store) });
 }
 
 function handleAdmin({ store, body }) {

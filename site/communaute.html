@@ -31,6 +31,8 @@
         <button type="button" class="tab" id="tab-skills-btn" role="tab" aria-selected="false">&#127942; Métiers</button>
         <button type="button" class="tab" id="tab-auctions-btn" role="tab" aria-selected="false">&#128296; Enchères</button>
         <button type="button" class="tab" id="tab-machine-btn" role="tab" aria-selected="false">&#9881;&#65039; Salle des machines</button>
+        <button type="button" class="tab" id="tab-board-btn" role="tab" aria-selected="false">&#128204; Tableau d'affichage</button>
+        <button type="button" class="tab" id="tab-teams-btn" role="tab" aria-selected="false">&#127987;&#65039; Équipes</button>
       </div>
 
       <div id="calendar-pane">
@@ -116,6 +118,14 @@
         </div>
       </div>
 
+      <div id="board-pane" style="display:none;">
+        <div class="board-grid" id="board-zone"><div class="loading-row"><div class="spinner"></div></div></div>
+      </div>
+
+      <div id="teams-pane" style="display:none;">
+        <div class="teams-zone" id="teams-zone"><div class="loading-row"><div class="spinner"></div></div></div>
+      </div>
+
       <div id="machine-pane" style="display:none;">
         <div class="machine-room" id="machine-room"><div class="loading-row"><div class="spinner"></div></div></div>
       </div>
@@ -171,5 +181,6 @@
   <script src="js/communaute.js"></script>
   <script src="js/auctions.js"></script>
   <script src="js/machine-room.js"></script>
+  <script src="js/communaute-board.js"></script>
 </body>
 </html>

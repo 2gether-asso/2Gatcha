@@ -17,6 +17,20 @@ function escHtml(s) {
   return String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 }
 
+// Editions limitees (api/src/native/editions.js) : une "finition" posee
+// par-dessus la finition classique, une par mode de jeu et par evenement.
+const EDITIONS = {
+  frost: { label: "Givrée", icon: "❄️" }, tropical: { label: "Tropicale", icon: "🌺" }, prism: { label: "Prismatique", icon: "🔷" },
+  ember: { label: "Braise", icon: "🔥" }, glitch: { label: "Glitch", icon: "👾" },
+  firework: { label: "Feu d'artifice", icon: "🎆" }, heart: { label: "Coup de cœur", icon: "💘" }, pastel: { label: "Pastel", icon: "🐣" },
+  prank: { label: "Farceuse", icon: "🐟" }, solar: { label: "Solaire", icon: "☀️" }, cursed: { label: "Maudite", icon: "🎃" },
+  snow: { label: "Enneigée", icon: "🎄" }, phantom: { label: "Fantôme", icon: "👻" }
+};
+function editionBadge(key) {
+  const e = EDITIONS[key];
+  return e ? `<span class="edition-badge" data-edition="${key}" title="Édition limitée ${escHtml(e.label)}">${e.icon} ${escHtml(e.label)}</span>` : "";
+}
+
 const THEME_ORDER = ["default", "monochrome", "sepia", "cyberpunk"];
 const THEME_LABELS = { default: "Nébuleuse (défaut)", monochrome: "Monochrome", sepia: "Sépia", cyberpunk: "Cyberpunk" };
 // Valeurs par defaut (utilisees tant que loadUnlockConfig() n'a pas encore

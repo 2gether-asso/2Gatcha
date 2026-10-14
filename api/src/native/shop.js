@@ -19,12 +19,17 @@ export const schema = {
 
 // Colonnes qu'un objet peut crediter (liste blanche).
 const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges'];
-const EFFECTS = ['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow'];
+const EFFECTS = ['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow', 'umbrella'];
 
 const dust = (u) => Number(u.StardustCount) || 0;
 
+// Objets ajoutes par le code, meme si le catalogue a ete personnalise dans l'admin.
+const BUILTIN = (store) => [
+  { key: 'umbrella', group: 'boosts', icon: '☂️', label: 'Parapluie', desc: `Protège tes cartes de l’usure du mode Hard pendant ${setting(store, 'UmbrellaDays')} jours.`, price: setting(store, 'UmbrellaPrice'), weekly: 1, effect: 'umbrella' }
+];
 function catalog(store) {
-  return setting(store, 'ShopCatalog').filter((it) => it && it.key && Number(it.price) > 0 && (it.give || EFFECTS.includes(it.effect)));
+  const list = setting(store, 'ShopCatalog').filter((it) => it && it.key && Number(it.price) > 0 && (it.give || EFFECTS.includes(it.effect)));
+  return [...list, ...BUILTIN(store).filter((b) => !list.some((it) => it.key === b.key))];
 }
 
 function boughtThisWeek(user) {
@@ -38,6 +43,7 @@ function stateOf(store, user) {
     stardust: dust(user),
     luckCharges: Number(user.LuckCharges) || 0,
     xpBoostUntil: (Number(user.XpBoostUntil) || 0) > t ? Number(user.XpBoostUntil) : null,
+    umbrellaUntil: (Number(user.UmbrellaUntil) || 0) > t ? Number(user.UmbrellaUntil) : null,
     items: catalog(store).map((it) => {
       const weekly = Number(it.weekly) || 0;
       const n = Number(bought[it.key]) || 0;
@@ -65,6 +71,9 @@ function effectFields(store, user, it) {
     const next = plots.map((p) => { const g = Math.round(grow * seedMult(p)); if (p && p.plantedAt && p.plantedAt + g > t) { n++; return { ...p, plantedAt: t - g - 1 }; } return p; });
     if (!n) return { error: 'nothing_growing' };
     return { GardenPlots: JSON.stringify(next) };
+  }
+  if (it.effect === 'umbrella') {
+    return { UmbrellaUntil: Math.max(t, Number(user.UmbrellaUntil) || 0) + setting(store, 'UmbrellaDays') * 86400 };
   }
   if (it.effect === 'expeditionNow') {
     if (!((Number(user.ExpeditionUntil) || 0) > t)) return { error: 'no_expedition' };

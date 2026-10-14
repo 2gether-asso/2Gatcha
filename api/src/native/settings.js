@@ -305,6 +305,37 @@ export const REGISTRY = {
   MachineVoteDay: { ...int('Salle des machines : dernier jour du vote', 0, 'Modes de jeu', '0 = vote ouvert tout le mois, le mode gagnant s’applique le 1er du mois suivant. 1 à 28 = le vote se ferme à la fin de ce jour et le mode gagnant s’applique aussitôt jusqu’à la fin du mois.', 0, 28), storage: 'app' },
   MachineRoomCosts: { label: 'Salle des machines : sacrifices', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet : keys, dust, worms, parts, bait, boosters, cards (doublons).', def: { keys: 20, dust: 500, worms: 30, parts: 5, bait: 3, boosters: 3, cards: 10 } },
 
+  // --- Salle des machines, suite (machine.js, 2026-10-15)
+  MachinePressureGoal: { ...int('Salle des machines : objectif de la jauge commune', 15, 'Modes de jeu', 'Nombre de salles terminées dans le mois pour que chaque participant reçoive 1 booster le 1er du mois suivant (0 = désactivé).', 0, 1000), storage: 'app' },
+  MachineOverheatCosts: { label: 'Salle des machines : surchauffe (étape 6)', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Étape facultative qui fait compter le vote double. Objet : boosters, legendary (doublons légendaires ou mieux).', def: { boosters: 3, legendary: 1 } },
+  MachineLoyaltyCard: { ...int('Salle des machines : carte promo d’assiduité (id)', 0, 'Modes de jeu', 'Carte donnée après 3 mois d’affilée à terminer la salle. 0 = 3 boosters à la place.', 0, 1000000), storage: 'app' },
+  MachineEventVote: { label: 'Salle des machines : vote de l’événement du mois prochain', type: 'bool', def: true, group: 'Modes de jeu', storage: 'app', help: 'Second vote : l’événement gagnant est planifié tout seul le 2e week-end du mois suivant.' },
+  // --- Modes de jeu, suite (modeextras.js, 2026-10-15)
+  ModeNoticeHours: { ...int('Préavis de changement de mode (heures)', 24, 'Modes de jeu', 'Bandeau affiché avant un changement de mode programmé ou la fin du vote de la salle des machines.', 0, 168), storage: 'app' },
+  UmbrellaPrice: { ...int('Parapluie (boutique) : prix en poussières', 350, 'Modes de jeu', 'Protège de toute usure du mode Hard pendant UmbrellaDays jours.', 1, 100000), storage: 'app' },
+  UmbrellaDays: { ...int('Parapluie : durée (jours)', 7, 'Modes de jeu', '', 1, 60), storage: 'app' },
+  // --- Communauté (2026-10-15)
+  TeamWarEnabled: { label: 'Guerre des équipes mensuelle', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: '4 équipes tirées au hasard chaque mois ; toute activité rapporte des points ; l’équipe gagnante reçoit un titre.' },
+  LotteryEnabled: { label: 'Loterie du dimanche', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Tickets en poussières, cagnotte tirée le dimanche à 21 h.' },
+  LotteryTicketPrice: { ...int('Loterie : prix du ticket', 100, 'Communauté', '', 1, 100000), storage: 'app' },
+  LotteryWeeklyCap: { ...int('Loterie : tickets max par joueur et par semaine', 20, 'Communauté', '', 1, 1000), storage: 'app' },
+  LotteryBurnPct: { ...num('Loterie : part détruite de chaque ticket', 0.2, 'Communauté', 'Le reste va dans la cagnotte (0,2 = 20 % détruits).', 0, 0.9), storage: 'app' },
+  LotterySeed: { ...int('Loterie : cagnotte de départ', 200, 'Communauté', '', 0, 100000), storage: 'app' },
+  WantedEnabled: { label: 'Avis de recherche hebdomadaire', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Une carte réclamée par le serveur chaque semaine ; les premiers donateurs sont récompensés et la carte rejoint le coffre de guilde.' },
+  WantedSlots: { ...int('Avis de recherche : donateurs récompensés', 5, 'Communauté', '', 1, 100), storage: 'app' },
+  WantedRewardDust: { ...int('Avis de recherche : poussières par don', 250, 'Communauté', '', 0, 100000), storage: 'app' },
+  DuoExpeditionEnabled: { label: 'Expédition en duo', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Deux joueurs envoient chacun une carte ; plus long, butin partagé plus gros.' },
+  DuoExpeditionHours: { ...int('Expédition en duo : durée (heures)', 12, 'Communauté', '', 1, 72), storage: 'app' },
+  DuoExpeditionDust: { ...int('Expédition en duo : poussières de base par joueur', 250, 'Communauté', 'Augmentées selon la rareté des deux cartes.', 0, 100000), storage: 'app' },
+  // --- Saisons et éditions (seasonal.js, editions.js, phantom.js, 2026-10-15)
+  SeasonalEventsEnabled: { label: 'Événements saisonniers (Halloween, Noël…)', type: 'bool', def: true, group: 'Saisons et éditions', storage: 'app', help: 'Thème du site, cadeau du jour, trouvailles saisonnières, boss d’Halloween et de Noël, édition limitée.' },
+  EditionChance: { ...num('Édition limitée : chance par carte (mode de jeu)', 0.03, 'Saisons et éditions', 'Chance qu’une carte tirée porte l’édition du mode en cours (Givrée, Tropicale, Prismatique, Braise, Glitch).', 0, 0.5), storage: 'app' },
+  SeasonalEditionChance: { ...num('Édition limitée : chance par carte (événement saisonnier)', 0.06, 'Saisons et éditions', 'Pendant un événement saisonnier, l’édition de l’événement remplace celle du mode.', 0, 0.5), storage: 'app' },
+  SeasonalDropChance: { ...num('Trouvaille saisonnière : chance par action', 0.25, 'Saisons et éditions', 'Récolte, pêche, fouille : citrouille, flocon, cœur…', 0, 1), storage: 'app' },
+  PhantomEnabled: { label: 'Carte fantôme du mois', type: 'bool', def: true, group: 'Saisons et éditions', storage: 'app', help: '5 fragments (pêche, fouille, jardin, boss, salle des machines) reconstituent une carte en édition Fantôme.' },
+  PhantomDropChance: { ...num('Carte fantôme : chance de fragment par action', 0.12, 'Saisons et éditions', 'Boss et salle des machines : fragment garanti.', 0, 1), storage: 'app' },
+  PhantomCardId: { ...int('Carte fantôme : carte imposée (id)', 0, 'Saisons et éditions', '0 = une carte épique ou mieux tirée au sort chaque mois.', 0, 1000000), storage: 'app' },
+
   // --- Pilotage de l'inflation (inflation.js)
   PriceIndexEnabled: { label: 'Prix indexés sur la richesse moyenne', type: 'bool', def: true, group: 'Inflation', storage: 'app', help: 'Boutique, os, relances, coffres : les prix suivent le solde moyen des joueurs actifs (14 jours).' },
   WealthReference: { ...int('Richesse de référence (poussières)', 3000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },
@@ -329,8 +360,22 @@ function appRow(store, key) {
   return store.tables.has('AppSettings') ? store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key) : null;
 }
 
-// Valeur effective d'un reglage (defaut si jamais regle).
+// Surcouche temporaire des reglages (mode Chaos, modeextras.js) :
+// fn(store, key, raw) -> valeur, ou undefined pour garder la valeur reglee.
+let overlay = null, inOverlay = false;
+export function setOverlay(fn) { overlay = fn; }
+
+// Valeur effective d'un reglage (defaut si jamais regle), surcouche comprise.
 export function setting(store, key) {
+  if (overlay && !inOverlay) {
+    inOverlay = true;
+    try { const o = overlay(store, key, () => rawSetting(store, key)); if (o !== undefined) return o; } finally { inOverlay = false; }
+  }
+  return rawSetting(store, key);
+}
+
+// Valeur reglee, sans surcouche (admin, detection du mode en cours).
+export function rawSetting(store, key) {
   const r = REGISTRY[key];
   if (!r) throw new Error('Reglage inconnu : ' + key);
   if (r.storage === 'config') {
@@ -379,7 +424,7 @@ function writeSetting(store, key, value) {
 function listSettings(store) {
   return Object.entries(REGISTRY).map(([key, r]) => {
     const custom = r.storage === 'config' ? (() => { const v = configRow(store)[key]; return !(v == null || v === '' || Number(v) === 0); })() : !!appRow(store, key);
-    return { key, label: r.label, group: r.group, type: r.type, help: r.help || '', unit: r.unit || '', min: r.min, max: r.max, step: r.step, def: r.def, value: setting(store, key), custom };
+    return { key, label: r.label, group: r.group, type: r.type, help: r.help || '', unit: r.unit || '', min: r.min, max: r.max, step: r.step, def: r.def, value: rawSetting(store, key), custom };
   });
 }
 

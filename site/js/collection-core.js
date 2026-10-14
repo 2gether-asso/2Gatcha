@@ -295,6 +295,7 @@ const Coll = (() => {
     // Cartes ★, exemplaires assures, cartes obtenues en premier sur le serveur (2026-10-07).
     state.starred = new Set(collection.starredPullIds || []);
     state.forged = new Set(collection.forgedPullIds || []);
+    state.editions = new Map(Object.entries(collection.editionPulls || {}).map(([k, v]) => [Number(k), v]));
     state.insured = new Set(collection.insuredPullIds || []);
     state.firstMine = new Map((collection.firstObtained || []).map((x) => [x.cardId, x.at]));
     state.stardust = status.stardust || 0;

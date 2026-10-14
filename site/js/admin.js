@@ -720,8 +720,40 @@ function renderPresets(st) {
           <ul>${p.changes.map((c) => `<li><span>${esc(c.label)}</span><span class="preset-diff">${esc(c.current)} &rarr; <strong>${esc(c.target)}</strong></span></li>`).join("")}</ul></details>
           <button type="button" class="btn preset-apply" data-preset="${p.key}">Passer en ${esc(p.label)}</button>`}
       </article>`).join("")}</div>
-    <label class="checkbox-inline preset-announce"><input type="checkbox" id="preset-announce" checked /> Annoncer le changement aux joueurs (fil du serveur)</label>`;
+    <label class="checkbox-inline preset-announce"><input type="checkbox" id="preset-announce" checked /> Annoncer le changement aux joueurs (fil du serveur)</label>
+    <div class="preset-schedule" id="preset-schedule"></div>`;
+  loadModeSchedule();
 }
+
+// Changement de mode programme (api/src/native/modeextras.js) : bandeau de preavis avant.
+async function loadModeSchedule() {
+  const box = document.getElementById("preset-schedule");
+  if (!box || !presetState) return;
+  let st;
+  try { st = await API.adminModeSchedule(Session.discordId); } catch (e) { box.innerHTML = ""; return; }
+  const s = st.scheduled;
+  const opt = presetState.presets.map((p) => `<option value="${p.key}">${p.icon} ${escHtml(p.label)}</option>`).join("");
+  const def = new Date(Date.now() + 86400000); def.setMinutes(0, 0, 0);
+  const local = new Date(def.getTime() - def.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  box.innerHTML = `
+    <h4>&#9200; Programmer un changement de mode</h4>
+    ${s ? `<p>Prévu : <strong>${escHtml((presetState.presets.find((p) => p.key === s.key) || {}).label || s.key)}</strong> le ${new Date(s.at * 1000).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}. Les joueurs voient un bandeau de préavis avant. <button type="button" class="btn-ghost" id="schedule-clear">Annuler</button></p>` : "<p class=\"preset-rec\">Le mode change tout seul à la date choisie ; un bandeau prévient les joueurs avant (réglage ModeNoticeHours).</p>"}
+    <div class="preset-schedule-row"><select id="schedule-preset">${opt}</select><input type="datetime-local" id="schedule-at" value="${local}" /><button type="button" class="btn" id="schedule-save">Programmer</button></div>`;
+}
+document.addEventListener("click", async (e) => {
+  const save = e.target.closest && e.target.closest("#schedule-save");
+  const clear = e.target.closest && e.target.closest("#schedule-clear");
+  if (!save && !clear) return;
+  try {
+    if (clear) await API.adminModeSchedule(Session.discordId, "clear");
+    else {
+      const at = Math.floor(new Date(document.getElementById("schedule-at").value).getTime() / 1000);
+      await API.adminModeSchedule(Session.discordId, "set", { preset: document.getElementById("schedule-preset").value, at });
+    }
+    Toast.success(clear ? "Changement annulé." : "Changement de mode programmé.");
+    loadModeSchedule();
+  } catch (err) { Toast.error(err.code === "invalid_date" ? "Choisis une date dans le futur." : "Impossible. (" + err.message + ")"); }
+});
 async function loadPresets() {
   try {
     const [st, set] = await Promise.all([API.adminPreset(Session.discordId), API.adminGetSettings(Session.discordId).catch(() => null)]);
@@ -758,7 +790,7 @@ document.addEventListener("click", async (e) => {
 // Fonctionnalites ouvertes par mode (api/src/native/features.js) : la matrice
 // est modifiee en local puis enregistree d'un coup.
 let mfState = null, mfDraft = null;
-const MF_MODE = { cool: "😎 Cool", chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard" };
+const MF_MODE = { cool: "😎 Cool", chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard", chaos: "👾 Chaos" };
 function renderModeFeatures() {
   const box = document.getElementById("mode-features-zone");
   if (!box || !mfState) return;

@@ -96,6 +96,7 @@ function buildCardEl(card, index, cardBackImageId) {
   // finition/qualite speciale affichee ailleurs, pas juste un petit badge.
   wrap.dataset.finish = card.finish || "normal";
   wrap.dataset.quality = card.quality || "damaged";
+  if (card.edition) wrap.dataset.edition = card.edition;
 
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
@@ -141,6 +142,7 @@ function buildCardEl(card, index, cardBackImageId) {
       ${finishBadge}
       ${qualityBadge}
       ${card.serialNumber === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+      ${card.edition ? editionBadge(card.edition) : ""}
     </div>
     <div class="card-info">
       <div class="card-name">${card.name}</div>
@@ -1073,6 +1075,7 @@ async function startOpening(ext) {
     let backImageId = ext.cardBackImageId;
     let pityHits = [];
     let ripened = 0, betNet = 0, betWins = 0, bets = 0, luckyOpen = false, edge = 0, forged = 0, luckyDup = 0, finishLost = 0;
+    const editionsSeen = [];
     for (let i = 0; i < quantity; i++) {
       const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
       const res = sim
@@ -1090,6 +1093,7 @@ async function startOpening(ext) {
       if (res.forged) forged += res.forged;
       if (res.luckyDuplicates) luckyDup += res.luckyDuplicates;
       finishLost += (res.cards || []).filter((c) => c.finishLost).length;
+      (res.cards || []).forEach((c) => { if (c.edition) editionsSeen.push(c.edition); });
       if (res.error === "no_boosters") {
         if (i === 0) {
           pack.classList.remove("charging");
@@ -1162,6 +1166,11 @@ async function startOpening(ext) {
     if (bets) lastPackTags.push({ kind: betNet >= 0 ? "bonus" : "sim", html: `&#127922; Pari ${betWins ? "gagné" : "perdu"} : ${betNet >= 0 ? "+" : ""}${betNet} &#10024;`, short: "pari" });
     if (luckyOpen) lastPackTags.push({ kind: "bonus", html: "&#127808; Coup de chance du jour : finitions doublées", short: "coup de chance" });
     if (edge) lastPackTags.push({ kind: "bonus", html: "&#9876;&#65039; Double tranchant : 3 cartes, une rare garantie", short: "double tranchant" });
+    if (editionsSeen.length) {
+      const e = EDITIONS[editionsSeen[0]] || { icon: "✨", label: "limitée" };
+      lastPackTags.push({ kind: "shiny", html: `${e.icon} ${editionsSeen.length} carte${editionsSeen.length > 1 ? "s" : ""} en édition limitée ${e.label} !`, short: "édition " + e.label });
+      Toast.success(`${e.icon} Édition limitée ${e.label} !`);
+    }
     if (forged) lastPackTags.push({ kind: "shiny", html: `&#128293; ${forged} arc-en-ciel forgée${forged > 1 ? "s" : ""} dans les flammes !`, short: "forgée" });
     if (finishLost) lastPackTags.push({ kind: "sim", html: `&#128293; Mode Hard : ${finishLost} finition${finishLost > 1 ? "s" : ""} brûlée${finishLost > 1 ? "s" : ""}`, short: "brûlée" });
     if (luckyDup) lastPackTags.push({ kind: "bonus", html: `&#127808; ${luckyDup} doublon${luckyDup > 1 ? "s" : ""} changé${luckyDup > 1 ? "s" : ""} en carte manquante`, short: "porte-bonheur" });

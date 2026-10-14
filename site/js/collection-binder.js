@@ -159,8 +159,10 @@
       const inBulk = bulkSelectMode && bulkEligible;
       const checked = inBulk && bulkSelected.has(navKey);
       const up = upgrades(card, owned, finish, quality);
+      const edCopy = state.editions ? variant.copies.find((c) => state.editions.has(c.pullId)) : null;
+      const edition = edCopy ? state.editions.get(edCopy.pullId) : "";
       return `
-        <div class="collection-card ${inBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? "has-star" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}">
+        <div class="collection-card ${inBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? "has-star" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}"${edition ? ` data-edition="${edition}"` : ""}>
           ${isNew && i === 0 ? '<span class="new-badge">New</span>' : ""}
           ${inBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-key="${navKey}" ${checked ? "checked" : ""} aria-label="Sélectionner ${name}" /></label>` : `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>`}
           <div class="card-art" tabindex="0" role="button" aria-label="Voir la carte ${name}">
@@ -168,6 +170,7 @@
             ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
             <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
             ${variant.serialNumbers.includes(1) ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+            ${edition ? editionBadge(edition) : ""}
             <span class="tile-marks">${i === 0 && state.firstMine && state.firstMine.has(card.cardId) ? `<span class="first-mine-badge" title="Tu as été le premier du serveur à l'obtenir${state.firstMine.get(card.cardId) ? " (" + new Date(state.firstMine.get(card.cardId) * 1000).toLocaleDateString("fr-FR") + ")" : ""}">&#129351;</span>` : ""}${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? '<span class="star-badge" title="Exemplaire ★">&#9733;</span>' : ""}${variant.copies.some((c) => state.insured && state.insured.has(c.pullId)) ? '<span class="insured-badge" title="Exemplaire assuré">&#128737;&#65039;</span>' : ""}${variant.copies.some((c) => state.forged && state.forged.has(c.pullId)) ? '<span class="forged-badge" title="Forgée dans les flammes (arc-en-ciel obtenue en mode Hard)">&#128293;</span>' : ""}</span>
           </div>
           <div class="card-info">

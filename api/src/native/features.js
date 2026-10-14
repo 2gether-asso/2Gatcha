@@ -10,9 +10,10 @@
 //   POST /webhook/admin-mode-features { discordId, action: 'status' | 'set', matrix? }
 
 import { ok, fail, isAdmin, now } from './common.js';
-import { currentMode } from './presets.js';
+import { currentMode, MODE_KEYS } from './presets.js';
+import { chaosRule } from './modeextras.js';
 
-const MODES = ['cool', 'chill', 'medium', 'hard'];
+const MODES = MODE_KEYS;
 const KEY = 'modeFeatures';
 
 // group : titre de la colonne dans l'admin. off : modes fermes par defaut
@@ -34,6 +35,11 @@ export const FEATURES = [
   { key: 'blackMarket', group: 'Communauté', icon: '🌑', label: 'Marché noir', paths: ['black-market'], hide: ['#tab-market-btn'], urls: ['communaute.html#marche'], off: ['cool'] },
   { key: 'auctions', group: 'Communauté', icon: '🔨', label: 'Enchères', paths: ['auctions'], hide: ['#tab-auctions-btn'], urls: ['communaute.html#encheres'], nudges: ['outbid'], off: ['cool', 'chill'] },
   { key: 'machine', group: 'Communauté', icon: '⚙️', label: 'Salle des machines', paths: ['machine-room'], hide: ['#tab-machine-btn'], urls: ['communaute.html#machines'], off: [] },
+  { key: 'teams', group: 'Communauté', icon: '🏳️', label: 'Guerre des équipes', paths: ['teams'], hide: ['#tab-teams-btn'], urls: ['communaute.html#equipes'], off: [] },
+  { key: 'lottery', group: 'Communauté', icon: '🎟️', label: 'Loterie du dimanche', paths: ['lottery'], hide: ['#board-lottery'], off: [] },
+  { key: 'wanted', group: 'Communauté', icon: '📜', label: 'Avis de recherche', paths: ['wanted'], hide: ['#board-wanted'], off: [] },
+  { key: 'duo', group: 'Jeux', icon: '👯', label: 'Expédition en duo', paths: ['duo-expedition'], hide: ['#duo-expedition'], off: [] },
+  { key: 'seasonal', group: 'Quotidien', icon: '🎃', label: 'Cadeau saisonnier du jour', paths: ['seasonal'], hide: ['#seasonal-treat'], off: [] },
   // Collection
   { key: 'altar', group: 'Collection', icon: '🔥', label: 'Autel des sacrifices', paths: ['altar-sacrifice'], hide: ['.coll-mode[data-mode="altar"]'], off: [] },
   { key: 'finish', group: 'Collection', icon: '🌈', label: 'Finitions (amélioration, relance)', paths: ['foil-upgrade', 'finish-reroll'], hide: ['.coll-mode[data-mode="finish"]'], off: [] },
@@ -63,13 +69,16 @@ export function matrix(store) {
 }
 
 let cache = { at: 0, store: null, mode: null, off: null };
-// Fonctionnalites fermees dans le mode en cours (cache 30 s, vide apres un 'set').
+// Fonctionnalites fermees dans le mode en cours (cache 30 s, vide apres un 'set'),
+// plus celles fermees par la regle du jour en mode Chaos.
 export function disabled(store) {
   const t = Date.now();
-  const mode = currentMode(store).key;
+  const rule = chaosRule(store);
+  const mode = currentMode(store).key + (rule ? ':' + rule.key : '');
   if (cache.store === store && cache.mode === mode && t - cache.at < 30000) return cache.off;
   const m = matrix(store);
-  const off = FEATURES.filter((f) => (m[f.key] || []).includes(mode));
+  const ruleOff = new Set(rule && rule.off ? rule.off : []);
+  const off = FEATURES.filter((f) => (m[f.key] || []).includes(currentMode(store).key) || ruleOff.has(f.key));
   cache = { at: t, store, mode, off };
   return off;
 }
