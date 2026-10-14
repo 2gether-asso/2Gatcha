@@ -6,7 +6,7 @@
 //  - l'API refuse ses ECRITURES (lectures permises : les widgets ne cassent
 //    pas) avec { error: 'feature_disabled' } ;
 //  - "Que faire maintenant ?" ne la suggere plus (urls, nudges).
-// Le bingo n'est volontairement pas dans la liste (partie en cours en prod).
+// Bingo (refonte 2026-11) : dans la liste, ouvert partout par defaut.
 //   POST /webhook/admin-mode-features { discordId, action: 'status' | 'set', matrix? }
 
 import { ok, fail, isAdmin, now } from './common.js';
@@ -28,6 +28,7 @@ export const FEATURES = [
   { key: 'guess', group: 'Jeux', icon: '❓', label: 'Devine la carte', paths: ['guess-card'], hide: ['#tab-guess-btn'], urls: ['jeux.html#devine'], nudges: ['guess'], off: [] },
   { key: 'expedition', group: 'Jeux', icon: '🧭', label: 'Expédition', paths: ['expedition'], hide: ['#tab-expedition-btn'], urls: ['jeux.html#expedition'], nudges: ['expedition', 'expedition-start'], off: [] },
   { key: 'fishing', group: 'Jeux', icon: '🎣', label: 'Pêche', paths: ['fishing', 'fishing-tournament'], hide: ['#tab-fish-btn'], urls: ['jeux.html#peche'], nudges: ['fishing'], off: [] },
+  { key: 'bingo', group: 'Jeux', icon: '🎱', label: 'Bingo du mois', paths: ['bingo'], hide: ['#tab-bingo-btn'], urls: ['jeux.html#bingo'], off: [] },
   { key: 'garden', group: 'Jeux', icon: '🌱', label: 'Jardin', paths: ['garden'], hide: ['#tab-garden-btn'], urls: ['jeux.html#jardin'], nudges: ['garden', 'garden-plant'], off: [] },
   // Communaute
   { key: 'boss', group: 'Communauté', icon: '💀', label: 'Boss commun', paths: ['community-boss', 'boss-attack'], hide: ['#tab-boss-btn'], urls: ['communaute.html#boss'], off: [] },

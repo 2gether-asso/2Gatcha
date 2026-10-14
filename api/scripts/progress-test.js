@@ -26,6 +26,7 @@ import * as editions from '../src/native/editions.js';
 import * as phantom from '../src/native/phantom.js';
 import * as lottery from '../src/native/lottery.js';
 import * as teams from '../src/native/teams.js';
+import * as bingo from '../src/native/bingo.js';
 import { setting, rawSetting } from '../src/native/settings.js';
 
 import { requestContext, freshContext } from '../src/native/context.js';
@@ -1055,7 +1056,8 @@ await test('mode Chaos : regle du jour en surcouche, mode detecte, fonctionnalit
   assert.equal(setting(store, key), fn(rawSetting(store, key)), 'surcouche appliquee');
   for (const f of rule.off || []) assert.ok(gm.off.some((x) => x.key === f), 'ferme par la regle : ' + f);
   // Jamais la meme regle deux jours de suite.
-  for (let i = 0; i < 30; i++) assert.notEqual(modeextras.chaosRuleFor(parisDay(i)).key, modeextras.chaosRuleFor(parisDay(i - 1)).key);
+  const dayAt = (i) => new Date(Date.UTC(2026, 0, 1) + i * 86400000).toISOString().slice(0, 10);
+  for (let i = 0; i < 800; i++) assert.notEqual(modeextras.chaosRuleFor(dayAt(i)).key, modeextras.chaosRuleFor(dayAt(i + 1)).key, dayAt(i));
   call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
   assert.equal(call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json.current, 'medium');
 });
@@ -1260,6 +1262,95 @@ await test('salle des machines, suite : surchauffe (vote double), jauge, chef me
   assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === 'machine-chief'));
   for (const key of ['MachinePressureGoal', 'MachineRoomCosts', 'MachineOverheatCosts']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
   store.update('Users', 1, { MachineMonth: '', MachineStage: 0 });
+});
+
+await test('bingo : ancien fonctionnement conserve avant BingoV2From', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BingoV2From: 209901 } } });
+  bingo._reset();
+  const ids = cards().slice(0, 9).map((c) => c.id);
+  assert.equal(call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminSetGrid', cardIds: ids.slice(0, 3) } }).json.error, 'grid_needs_9_cards');
+  assert.equal(call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminSetGrid', cardIds: ids, rewardBoosters: 4 } }).json.saved, true);
+  let st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.hasGrid, true);
+  assert.equal(st.cells.length, 9);
+  assert.equal(st.version, undefined, 'format d origine');
+  ids.forEach((id) => mk(1, id));
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.allOwned, true);
+  const b = user(1).BoosterCount;
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim' } }).json.rewardBoosters, 4);
+  assert.equal(user(1).BoosterCount, b + 4);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim' } }).json.error, 'already_claimed');
+});
+
+await test('bingo v2 : grille 5x5, cases carte et objectif, lignes, joker, carton plein', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BingoV2From: 202001 } } });
+  bingo._reset();
+  store.update('Users', 1, { BingoMonth: '', StardustCount: 5000 });
+  let st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.version, 2);
+  assert.equal(st.cells.length, 25);
+  assert.equal(st.cells[12].type, 'free');
+  assert.equal(st.cells[12].done, true);
+  assert.equal(st.cells.filter((c) => c.type === 'card').length, 8);
+  assert.equal(st.lines.length, 12);
+  // Meme grille pour tout le monde, stable dans le mois.
+  assert.deepEqual(call('POST', 'bingo', { body: { userId: 2, action: 'status' } }).json.cells.map((c) => c.type + (c.key || c.card?.cardId || '')), st.cells.map((c) => c.type + (c.key || c.card?.cardId || '')));
+  // Objectif : evenements du mois.
+  const objIdx = st.cells.findIndex((c) => c.type === 'objective');
+  const obj = bingo.OBJECTIVES.find((o) => o.key === st.cells[objIdx].key);
+  const notices = bingo.onEvents(store, [{ userId: 1, type: obj.event, n: obj.n, meta: {} }]);
+  assert.ok(notices.some((n) => /case validée/.test(n.label)), JSON.stringify(notices));
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.cells[objIdx].done, true);
+  // Case carte : posseder la carte.
+  const cardIdx = st.cells.findIndex((c) => c.type === 'card' && !c.done);
+  if (cardIdx >= 0) { mk(1, st.cells[cardIdx].card.cardId); st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json; assert.equal(st.cells[cardIdx].done, true); }
+  // Joker : une fois par mois, payant.
+  const free = st.cells.findIndex((c) => !c.done);
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'joker', cell: free } }).json;
+  assert.equal(st.cells[free].done, true);
+  assert.equal(st.joker.used, true);
+  assert.equal(user(1).StardustCount, 5000 - 500);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'joker', cell: st.cells.findIndex((c) => !c.done) } }).json.error, 'joker_used');
+  // Ligne : on complete la ligne du milieu a la main, puis recompense.
+  const u = user(1);
+  const done = JSON.parse(u.BingoDone);
+  store.update('Users', 1, { BingoDone: JSON.stringify([...new Set([...done, 10, 11, 13, 14])]) });
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'r0' } }).json.error, call('POST', 'bingo', { body: { userId: 1 } }).json.lines[0].complete ? undefined : 'line_not_complete');
+  const d0 = user(1).StardustCount;
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'r2' } }).json;
+  assert.equal(st.reward.dust, 120);
+  assert.equal(user(1).StardustCount, d0 + 120);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'r2' } }).json.error, 'already_claimed');
+  // Carton plein.
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'full' } }).json.error, 'grid_not_complete');
+  store.update('Users', 1, { BingoDone: JSON.stringify(Array.from({ length: 25 }, (_, i) => i)) });
+  const b0 = user(1).BoosterCount;
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'full' } }).json;
+  assert.equal(st.fullClaimed, true);
+  assert.equal(user(1).BoosterCount, b0 + 3);
+  assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === 'bingo-full-' + st.month));
+  assert.equal(st.top[0].userId, 1);
+  assert.equal(st.top[0].full, true);
+});
+
+await test('bingo v2 : admin, apercu et cartes imposees, nouveau tirage', () => {
+  const m = call('POST', 'bingo', { body: { userId: 1 } }).json.month;
+  const prev = call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminPreview', month: m } }).json;
+  assert.equal(prev.cells.length, 25);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'adminPreview' } }).status, 403);
+  const want = cards().slice(0, 2).map((c) => c.id);
+  const cfg = call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminConfig', month: m, cardIds: want } }).json;
+  const cardIds = cfg.cells.filter((c) => c.type === 'card').map((c) => c.card.cardId);
+  assert.ok(want.every((id) => cardIds.includes(id)), 'cartes imposees presentes');
+  const re = call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminConfig', month: m, reseed: true } }).json;
+  assert.ok(re.config.seed);
+  // Nettoyage.
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'bingo:' + m);
+  if (row) store.delete('AppSettings', row.id);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'BingoV2From' } });
+  bingo._reset();
 });
 
 store.db.close();

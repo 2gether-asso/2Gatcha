@@ -266,8 +266,25 @@
             </section>
 
             <details class="adm-card adm-fold">
-              <summary class="adm-card-head"><h2>&#127922; Bingo de collection</h2><p>9 cartes par mois. Recréer la grille d'un mois la remplace. « Autogénérer » prépare le <strong>mois prochain</strong> (rien n'est enregistré sans « Enregistrer »). Ne touche pas à la grille du mois en cours si des joueurs jouent.</p></summary>
+              <summary class="adm-card-head"><h2>&#127922; Bingo du mois</h2><p>Nouvelle version (grille 5 × 5, lignes, joker, carton plein) à partir du mois réglé dans <code>BingoV2From</code> (novembre 2026 par défaut) : la grille se génère toute seule chaque mois, tu peux imposer des cartes. Les récompenses se règlent dans Réglages &gt; Bingo.</p></summary>
               <div class="adm-fold-body">
+                <div class="bingo2-admin">
+                  <h3>Nouvelle version : grille d'un mois</h3>
+                  <div class="b2a-row">
+                    <label>Mois <input type="text" id="bingo2-month" pattern="[0-9]{4}-[0-9]{2}" placeholder="2026-11" /></label>
+                    <button type="button" class="btn-secondary" id="bingo2-preview-btn">Aperçu</button>
+                    <button type="button" class="btn-secondary" id="bingo2-reseed-btn">&#127922; Nouveau tirage</button>
+                  </div>
+                  <label class="b2a-cards">Cartes imposées (facultatif, Ctrl / Cmd pour en choisir plusieurs ; le reste est tiré au sort : communes, rares, épiques)
+                    <select id="bingo2-cards" multiple size="6"></select>
+                  </label>
+                  <div class="b2a-row">
+                    <button type="button" class="btn" id="bingo2-save-btn">Enregistrer les cartes</button>
+                    <button type="button" class="btn-ghost" id="bingo2-clear-btn">Tout tirer au sort</button>
+                  </div>
+                  <div id="bingo2-admin-preview"></div>
+                </div>
+                <h3 class="b2a-legacy-title">Ancienne version (jusqu'à octobre 2026) : 9 cartes</h3>
                 <button type="button" class="btn-secondary" id="bingo-autogen-btn">&#127922; Autogénérer la grille du mois prochain</button>
                 <form id="create-bingo-form" class="admin-form">
                   <label>Mois (AAAA-MM, vide = mois courant)
@@ -394,5 +411,6 @@
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
   <script src="js/admin-home.js"></script>
+  <script src="js/admin-bingo.js"></script>
 </body>
 </html>

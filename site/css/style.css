@@ -8470,3 +8470,72 @@ html[data-season="summer"] header#site-header { border-bottom: 2px solid #fbbf24
 .seasonal-treat.teaser { border-style: dashed; }
 a.beta-banner.banner-link { display: block; color: inherit; text-decoration: none; cursor: pointer; }
 a.beta-banner.banner-link:hover { filter: brightness(1.12); }
+
+
+/* =====================================================================
+   BINGO DU MOIS, VERSION 2 (2026-11) : carton 5 x 5 et tampons.
+   ===================================================================== */
+.bingo2 { display: grid; gap: 16px; }
+.b2-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end; }
+.b2-head h2 { margin: 0 0 4px; }
+.b2-head .lead { margin: 0; max-width: 64ch; font-size: 0.86rem; }
+.b2-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.b2-stats span { padding: 6px 12px; border-radius: 999px; font-size: 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border-soft, rgba(255,255,255,0.1)); font-variant-numeric: tabular-nums; }
+.b2-stats b { font-size: 1rem; }
+.b2-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); gap: 18px; align-items: start; }
+.b2-card { --ink: #e11d48; padding: 12px; border-radius: 20px; background: linear-gradient(160deg, #fef3c7, #fde68a); box-shadow: 0 14px 40px -18px rgba(0,0,0,0.8), inset 0 0 0 3px rgba(146,64,14,0.25); }
+.b2-card.picking { box-shadow: 0 0 0 3px #a78bfa, 0 14px 40px -18px rgba(0,0,0,0.8); }
+.b2-letters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 6px; text-align: center; }
+.b2-letters span { font-family: var(--font-brand); font-size: clamp(1.1rem, 4vw, 1.7rem); color: #fff; background: #be123c; border-radius: 10px; padding: 2px 0; text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
+.b2-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.b2-cell { --r: #92400e; position: relative; display: grid; align-content: center; justify-items: center; gap: 3px; aspect-ratio: 1; min-width: 0; padding: 4px; border-radius: 12px; font: inherit; color: #3b2a14; background: #fffbeb; border: 2px solid rgba(146,64,14,0.25); box-shadow: none; cursor: pointer; overflow: hidden; text-align: center; transition: transform 0.15s ease; }
+.b2-cell::before { display: none; }
+.b2-cell:hover { transform: translateY(-1px); filter: none; border-color: rgba(146,64,14,0.55); }
+.b2-cell.selected { outline: 3px solid #7c3aed; outline-offset: 1px; }
+.b2-cell.type-card { border-color: color-mix(in srgb, var(--r) 70%, transparent); padding: 3px; }
+.b2-cell img { width: 72%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 6px; }
+.b2-icon, .b2-free { font-size: clamp(1.1rem, 3.6vw, 1.7rem); line-height: 1; }
+.b2-label { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: clamp(0.5rem, 1.5vw, 0.68rem); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+.b2-progress { width: 80%; height: 4px; border-radius: 999px; background: rgba(146,64,14,0.18); overflow: hidden; }
+.b2-progress span { display: block; height: 100%; background: #16a34a; }
+.b2-count { font-size: clamp(0.48rem, 1.3vw, 0.62rem); font-variant-numeric: tabular-nums; opacity: 0.75; }
+.b2-cell.type-free { background: radial-gradient(circle at 50% 40%, #fde047, #f59e0b); border-color: #b45309; }
+/* Tampon du marqueur de bingo sur une case validee. */
+.b2-cell.done:not(.type-free)::after { content: ""; position: absolute; inset: 12%; border-radius: 50%; background: radial-gradient(circle, rgba(225,29,72,0.55) 0 58%, rgba(225,29,72,0.35) 60%, transparent 70%); mix-blend-mode: multiply; animation: b2Stamp 0.35s ease-out; pointer-events: none; }
+.b2-cell.joker::after { background: radial-gradient(circle, rgba(124,58,237,0.55) 0 58%, rgba(124,58,237,0.35) 60%, transparent 70%); }
+.b2-stamp { position: absolute; right: 4px; top: 2px; font-size: 0.8rem; z-index: 1; }
+.b2-cell.glow { box-shadow: 0 0 0 2px #16a34a, 0 0 14px rgba(22,163,74,0.7); animation: b2Glow 1.6s ease-in-out infinite; }
+@keyframes b2Stamp { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes b2Glow { 50% { box-shadow: 0 0 0 2px #16a34a, 0 0 22px rgba(22,163,74,0.95); } }
+.b2-detail { min-height: 52px; margin-top: 10px; display: grid; gap: 6px; justify-items: start; }
+.b2-detail-text, .b2-hint { margin: 0; font-size: 0.84rem; line-height: 1.5; color: var(--text-dim); }
+.b2-detail-text { color: var(--text); }
+.b2-side { display: grid; gap: 12px; }
+.b2-box { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft, rgba(255,255,255,0.1)); }
+.b2-box h3 { margin: 0; font-size: 0.95rem; }
+.b2-claims { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.b2-claims li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.84rem; }
+.b2-claims .btn { padding: 6px 10px; font-size: 0.76rem; }
+.b2-full { display: grid; gap: 8px; justify-items: center; padding: 16px; border-radius: 16px; text-align: center; background: linear-gradient(135deg, rgba(250,204,21,0.25), rgba(225,29,72,0.2)); border: 1px solid rgba(250,204,21,0.6); }
+.b2-full strong { font-size: 1.15rem; }
+.b2-full small { color: var(--text-dim); }
+.b2-top { display: grid; gap: 4px; margin: 0; padding-left: 20px; font-size: 0.84rem; }
+.b2-top li.me { font-weight: 700; color: var(--accent, #a78bfa); }
+.b2-top small { margin-left: 6px; color: var(--text-dim); }
+@media (max-width: 900px) { .b2-layout { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .b2-card { padding: 8px; border-radius: 16px; } .b2-grid, .b2-letters { gap: 4px; } .b2-cell { border-radius: 9px; padding: 2px; } .b2-cell img { width: 64%; } }
+@media (prefers-reduced-motion: reduce) { .b2-cell.glow, .b2-cell.done::after { animation: none; } }
+
+/* Admin : apercu de la grille. */
+.bingo2-admin { display: grid; gap: 10px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border-soft, rgba(255,255,255,0.1)); }
+.bingo2-admin h3, .b2a-legacy-title { margin: 0; font-size: 0.95rem; }
+.b2a-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.b2a-cards { display: grid; gap: 4px; font-size: 0.8rem; color: var(--text-dim); }
+.b2a-cards select { width: 100%; }
+.b2a-state { margin: 0; font-size: 0.82rem; color: var(--text-dim); }
+.b2a-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; max-width: 520px; }
+.b2a-cell { display: grid; justify-items: center; align-content: center; gap: 2px; aspect-ratio: 1; padding: 3px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-soft, rgba(255,255,255,0.1)); text-align: center; overflow: hidden; }
+.b2a-cell img { width: 60%; border-radius: 4px; }
+.b2a-cell span { font-size: 1.2rem; }
+.b2a-cell small { font-size: 0.55rem; line-height: 1.1; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.b2a-cell.type-free { background: rgba(250,204,21,0.15); }

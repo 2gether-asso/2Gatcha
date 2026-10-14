@@ -37,16 +37,12 @@ export const CHAOS_RULES = [
   { key: 'secrets', icon: '🔒', label: 'Nuit des secrets : succès secrets triplés en poussières', settings: { HiddenAchievementDust: times(3) } },
   { key: 'blackout', icon: '🌑', label: 'Panne générale : fouille et pêche fermées, mais doublons ×1,5', settings: { DuplicateDustCommon: times(1.5), DuplicateDustOther: times(1.5) }, off: ['dig', 'fishing'] }
 ];
-// Regle du jour : tiree par le jour (la meme pour tout le monde), jamais deux fois de suite.
-function ruleIndex(day) {
-  let h = 0;
-  for (const c of day) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return h % CHAOS_RULES.length;
-}
+// Regle du jour : la meme pour tout le monde, jamais deux fois de suite.
+// Indice (4 j + j / N) mod N : d'un jour a l'autre il avance de 4 ou 5 (jamais 0 mod N).
 export function chaosRuleFor(day = parisDay(0)) {
-  let i = ruleIndex(day);
-  if (i === ruleIndex(parisDay(-1, Date.parse(day + 'T12:00:00Z')))) i = (i + 1) % CHAOS_RULES.length;
-  return CHAOS_RULES[i];
+  const n = CHAOS_RULES.length;
+  const d = Math.floor(Date.parse(day + 'T12:00:00Z') / 86400000);
+  return CHAOS_RULES[(((4 * d + Math.floor(d / n)) % n) + n) % n];
 }
 export function chaosRule(store) {
   return currentMode(store).key === 'chaos' ? chaosRuleFor() : null;

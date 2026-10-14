@@ -28,7 +28,7 @@ function setActiveTab(tab) {
   if (tab === "guess") loadGuess();
   if (tab === "expedition") loadExpedition();
   if (tab === "fish") loadFishing();
-  if (tab === "bingo") loadBingo();
+  if (tab === "bingo") (window.loadBingoFull || loadBingo)();
   if (tab === "vault") loadVault();
 }
 
@@ -698,6 +698,8 @@ async function loadBingo() {
   }
 }
 
+// Ancien bingo (9 cartes) : garde tant que l'API repond l'ancien format (jeux-bingo.js).
+window.loadBingoLegacy = () => loadBingo();
 async function claimBingo() {
   try {
     const res = await API.claimBingo(Session.userId);

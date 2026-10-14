@@ -191,6 +191,7 @@ doublons, coup final au boss) sans le modifier.
 | `halloffame.js` | `GET hall-of-fame` | livre d'or : premier joueur à avoir tiré chaque mythique, chaque finition rare et chaque édition limitée |
 | `teams.js` | `POST teams` | guerre des équipes mensuelle : 4 équipes équilibrées, points par activité, titre de champion à l'équipe gagnante le 1er du mois |
 | `duo.js` | `POST duo-expedition` | expédition en duo : invitation, acceptation, butin partagé (poussières, XP d'expédition, chance de booster) |
+| `bingo.js` | `POST bingo` | bingo du mois, version 2 (remplace le workflow bingo.json) : grille 5 × 5 commune générée chaque mois (case centrale offerte, BingoCardCells cases carte, le reste en objectifs du mois comptés par le bus d'activité), 12 lignes à récupérer (BingoLineReward), carton plein (BingoFullReward + titre « Roi du bingo »), joker mensuel (BingoJokerPrice), classement du mois ; l'admin peut imposer des cartes ou relancer le tirage (adminPreview, adminConfig). Avant BingoV2From (202611), reproduit à l'identique l'ancien bingo à 9 cartes (tables BingoGrids / BingoClaims) |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |

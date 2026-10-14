@@ -305,6 +305,13 @@ export const REGISTRY = {
   MachineVoteDay: { ...int('Salle des machines : dernier jour du vote', 0, 'Modes de jeu', '0 = vote ouvert tout le mois, le mode gagnant s’applique le 1er du mois suivant. 1 à 28 = le vote se ferme à la fin de ce jour et le mode gagnant s’applique aussitôt jusqu’à la fin du mois.', 0, 28), storage: 'app' },
   MachineRoomCosts: { label: 'Salle des machines : sacrifices', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet : keys, dust, worms, parts, bait, boosters, cards (doublons).', def: { keys: 20, dust: 500, worms: 30, parts: 5, bait: 3, boosters: 3, cards: 10 } },
 
+  // --- Bingo du mois, version 2 (bingo.js)
+  BingoV2From: { ...int('Bingo : premier mois de la nouvelle version (AAAAMM)', 202611, 'Bingo', 'Avant ce mois, l’ancien bingo (9 cartes) continue tel quel ; à partir de ce mois, grille 5 × 5 avec lignes et carton plein.', 202001, 209912), storage: 'app' },
+  BingoCardCells: { ...int('Bingo : nombre de cases « carte »', 8, 'Bingo', 'Les autres cases sont des objectifs du mois (boosters, fouille, pêche…).', 0, 12), storage: 'app' },
+  BingoLineReward: { label: 'Bingo : récompense d’une ligne', type: 'json', group: 'Bingo', storage: 'app', help: 'Objet : dust, shards (fragments de booster), boosters. 12 lignes possibles par mois.', def: { dust: 120, shards: 2, boosters: 0 } },
+  BingoFullReward: { label: 'Bingo : récompense du carton plein', type: 'json', group: 'Bingo', storage: 'app', help: 'Objet : boosters, dust. Le carton plein donne aussi le titre « Roi du bingo » du mois.', def: { boosters: 3, dust: 500 } },
+  BingoJokerPrice: { ...int('Bingo : prix du joker (poussières)', 500, 'Bingo', 'Un joker par mois : valide la case de son choix.', 0, 100000), storage: 'app' },
+
   // --- Salle des machines, suite (machine.js, 2026-10-15)
   MachinePressureGoal: { ...int('Salle des machines : objectif de la jauge commune', 15, 'Modes de jeu', 'Nombre de salles terminées dans le mois pour que chaque participant reçoive 1 booster le 1er du mois suivant (0 = désactivé).', 0, 1000), storage: 'app' },
   MachineOverheatCosts: { label: 'Salle des machines : surchauffe (étape 6)', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Étape facultative qui fait compter le vote double. Objet : boosters, legendary (doublons légendaires ou mieux).', def: { boosters: 3, legendary: 1 } },

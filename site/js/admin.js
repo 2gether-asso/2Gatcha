@@ -808,7 +808,7 @@ function renderModeFeatures() {
   }).join("");
   box.innerHTML = `
     <div class="mf-head"><h3>&#128274; Fonctionnalités par mode</h3><small>Mode actuel : <strong>${MF_MODE[mfState.current]}</strong></small></div>
-    <p class="mf-help">&#10003; = ouvert, &#10005; = fermé dans ce mode. Une fonctionnalité fermée disparaît du site (onglets, widgets, liens) ; une page fermée affiche un message ; l'API refuse ses actions (les lectures restent permises). Le bingo n'est pas concerné.</p>
+    <p class="mf-help">&#10003; = ouvert, &#10005; = fermé dans ce mode. Une fonctionnalité fermée disparaît du site (onglets, widgets, liens) ; une page fermée affiche un message ; l'API refuse ses actions (les lectures restent permises).</p>
     <div class="table-scroll"><table class="mf-table"><thead><tr><th>Fonctionnalité</th>${mfState.modes.map((m) => `<th class="${m === mfState.current ? "current" : ""}">${MF_MODE[m]}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>
     <div class="mf-actions"><button type="button" class="btn" id="mf-save" ${dirty ? "" : "disabled"}>Enregistrer</button><button type="button" class="btn-ghost" id="mf-reset">Revenir aux valeurs par défaut</button></div>`;
 }
