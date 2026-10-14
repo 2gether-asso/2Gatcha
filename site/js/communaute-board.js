@@ -11,6 +11,7 @@
   const when = (t) => new Date(t * 1000).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   const img = (c) => (c && c.imageId ? API.imageUrl(c.imageId) : "");
   const settle = (p) => p.then((v) => v, () => null);
+  const untilLabel = (t) => { const s = t - Date.now() / 1000; if (s <= 0) return "imminent"; const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600); return d ? `dans ${d} j ${h} h` : `dans ${h} h ${Math.ceil((s % 3600) / 60)} min`; };
 
   // ------------------------------------------------------------------ tableau d'affichage
   function lotteryHtml(l) {
@@ -18,12 +19,13 @@
     const left = Math.max(0, l.cap - l.tickets);
     return `
       <article class="board-card board-lottery" id="board-lottery">
-        <header><span class="board-icon" aria-hidden="true">&#127903;&#65039;</span><div><h3>Loterie du dimanche</h3><small>Tirage ${esc(when(l.drawAt))}</small></div></header>
+        <header><span class="board-icon" aria-hidden="true">&#127903;&#65039;</span><div><h3>Loterie du dimanche</h3><small>Tirage ${esc(when(l.drawAt))} · ${esc(untilLabel(l.drawAt))}</small></div></header>
         <p class="board-pot"><span>Cagnotte</span><strong>${fmt(l.pot)} &#10024;</strong></p>
         <p class="board-meta">${l.totalTickets} ticket${l.totalTickets > 1 ? "s" : ""} vendu${l.totalTickets > 1 ? "s" : ""} · ${l.players} joueur${l.players > 1 ? "s" : ""}${l.tickets ? ` · <strong>tes tickets : ${l.tickets}</strong> (${l.chance} % de chances)` : ""}</p>
         <div class="board-actions">
           <button type="button" class="btn" data-lottery="1" ${left ? "" : "disabled"}>1 ticket · ${fmt(l.price)} &#10024;</button>
           <button type="button" class="btn-ghost" data-lottery="5" ${left >= 5 ? "" : "disabled"}>5 tickets · ${fmt(l.price * 5)} &#10024;</button>
+          ${Math.min(left, Math.floor((l.stardust || 0) / l.price)) > 5 ? `<button type="button" class="btn-ghost" data-lottery="${Math.min(left, Math.floor((l.stardust || 0) / l.price))}">Max (${Math.min(left, Math.floor((l.stardust || 0) / l.price))})</button>` : ""}
         </div>
         <small class="board-note">${left ? `Encore ${left} ticket${left > 1 ? "s" : ""} possible${left > 1 ? "s" : ""} cette semaine.` : "Plafond de la semaine atteint."} Une partie de chaque ticket est détruite, le reste va dans la cagnotte.</small>
         ${l.last ? `<p class="board-last">Dernier gagnant : <strong>${esc(l.last.pseudo)}</strong>, ${fmt(l.last.pot)} &#10024; (${l.last.tickets} ticket${l.last.tickets > 1 ? "s" : ""} sur ${l.last.totalTickets})</p>` : ""}
@@ -128,7 +130,9 @@
     btn.disabled = true;
     try {
       if (lot) {
-        const r = await API.lottery(Session.userId, "buy", Number(lot.dataset.lottery));
+        const n = Number(lot.dataset.lottery);
+        if (n > 5 && !(await Confirm.show(`Acheter ${n} tickets d'un coup ?`, { title: "Loterie", confirmText: "Acheter" }))) { btn.disabled = false; return; }
+        const r = await API.lottery(Session.userId, "buy", n);
         Toast.success(`&#127903;&#65039; ${r.bought} ticket${r.bought > 1 ? "s" : ""} acheté${r.bought > 1 ? "s" : ""} ! Cagnotte : ${fmt(r.pot)} ✨`);
       } else {
         const r = await API.wanted(Session.userId, "donate");

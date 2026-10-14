@@ -26,6 +26,51 @@ const EDITIONS = {
   prank: { label: "Farceuse", icon: "🐟" }, solar: { label: "Solaire", icon: "☀️" }, cursed: { label: "Maudite", icon: "🎃" },
   snow: { label: "Enneigée", icon: "🎄" }, phantom: { label: "Fantôme", icon: "👻" }
 };
+// Calendrier des evenements saisonniers (memes dates que api/src/native/seasonal.js) :
+// calcule cote site, pour le calendrier et l'annonce du prochain evenement.
+const SeasonCalendar = (() => {
+  const DAY = 86400;
+  // Minuit a Paris du jour 'AAAA-MM-JJ' (heure d'ete comprise).
+  function parisMidnight(day) {
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false });
+    for (const h of [22, 23, 0, 1]) {
+      const t = Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10) - (h >= 22 ? 1 : 0), h);
+      const p = Object.fromEntries(fmt.formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+      if (`${p.year}-${p.month}-${p.day}` === day && Number(p.hour) % 24 === 0) return Math.floor(t / 1000);
+    }
+    return Math.floor(Date.parse(day + "T00:00:00Z") / 1000);
+  }
+  function easter(year) {
+    const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+    const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const shift = (d, n) => new Date(d.getTime() + n * DAY * 1000);
+  const SEASONS = [
+    { key: "newyear", label: "Nouvel an", icon: "🎆", edition: "firework", range: (y) => [`${y}-12-31`, `${y + 1}-01-02`], treat: "le feu d'artifice du jour" },
+    { key: "valentine", label: "Saint-Valentin", icon: "💘", edition: "heart", range: (y) => [`${y}-02-10`, `${y}-02-15`], treat: "le billet doux du jour" },
+    { key: "easter", label: "Pâques", icon: "🐣", edition: "pastel", range: (y) => { const e = easter(y); return [iso(shift(e, -3)), iso(shift(e, 1))]; }, treat: "la chasse aux œufs du jour" },
+    { key: "aprilfools", label: "Poisson d'avril", icon: "🐟", edition: "prank", range: (y) => [`${y}-04-01`, `${y}-04-01`], treat: "la farce du jour (gare aux sorts !)" },
+    { key: "summer", label: "Fête de la musique", icon: "🎶", edition: "solar", range: (y) => [`${y}-06-19`, `${y}-06-23`], treat: "le concert du jour" },
+    { key: "halloween", label: "Halloween", icon: "🎃", edition: "cursed", range: (y) => [`${y}-10-24`, `${y}-11-01`], treat: "« Un bonbon ou un sort ? »", boss: "le Roi Citrouille" },
+    { key: "christmas", label: "Noël", icon: "🎄", edition: "snow", range: (y) => [`${y}-12-18`, `${y}-12-30`], treat: "le calendrier de l'Avent (booster garanti les 24 et 25)", boss: "le Bonhomme de neige géant" }
+  ];
+  // Evenements pas encore termines et commencant avant horizon (epoch s), du plus proche au plus lointain.
+  function upcoming(horizon = Date.now() / 1000 + 366 * DAY) {
+    const now = Date.now() / 1000, y0 = new Date().getUTCFullYear(), out = [];
+    for (let y = y0 - 1; y <= y0 + 1; y++) for (const s of SEASONS) {
+      const [a, b] = s.range(y);
+      const start = parisMidnight(a), end = parisMidnight(b) + DAY;
+      if (end > now && start <= horizon) out.push({ ...s, start, end });
+    }
+    return out.sort((x, y) => x.start - y.start);
+  }
+  return { parisMidnight, upcoming };
+})();
+
 function editionBadge(key) {
   const e = EDITIONS[key];
   return e ? `<span class="edition-badge" data-edition="${key}" title="Édition limitée ${escHtml(e.label)}">${e.icon} ${escHtml(e.label)}</span>` : "";

@@ -6,11 +6,32 @@
   const esc = escHtml;
   const until = (t) => new Date(t * 1000).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
+  // Pas d'evenement en cours (ou API pas encore a jour) : annonce du prochain, s'il arrive dans le mois.
+  function teaser(box) {
+    const now = Date.now() / 1000;
+    const next = SeasonCalendar.upcoming(now + 31 * 86400)[0];
+    if (!next) { box.hidden = true; return; }
+    const live = next.start <= now;
+    const days = Math.ceil((next.start - now) / 86400);
+    const d = (t) => new Date(t * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    box.hidden = false;
+    box.dataset.season = next.key;
+    box.classList.add("teaser");
+    box.innerHTML = `
+      <span class="season-icon" aria-hidden="true">${next.icon}</span>
+      <div class="season-text">
+        <strong>${live ? esc(next.label) + " a commencé !" : `Prochain événement : ${esc(next.label)} ${days <= 1 ? "demain" : "dans " + days + " jours"}`}</strong>
+        <small>Du ${d(next.start)} au ${d(next.end - 60)} : édition limitée ${esc((EDITIONS[next.edition] || {}).label || "")}, cadeau du jour${next.boss ? `, ${esc(next.boss)} au boss commun` : ""}.</small>
+      </div>
+      <a class="btn-ghost season-claim" href="communaute.html#calendrier">Voir le calendrier</a>`;
+  }
+
   function render(st) {
     const box = document.getElementById("seasonal-treat");
     if (!box) return;
     const s = st && st.season;
-    if (!s) { box.hidden = true; return; }
+    if (!s) { teaser(box); return; }
+    box.classList.remove("teaser");
     box.hidden = false;
     box.dataset.season = s.key;
     box.innerHTML = `
@@ -23,8 +44,8 @@
   }
 
   async function load() {
-    if (!Session.isLoggedIn() || !API.seasonal) return;
-    try { render(await API.seasonal(Session.userId)); } catch (e) { /* facultatif */ }
+    if (!Session.isLoggedIn()) return;
+    try { render(API.seasonal ? await API.seasonal(Session.userId) : null); } catch (e) { render(null); }
   }
 
   document.addEventListener("DOMContentLoaded", () => {

@@ -84,6 +84,9 @@ function setActiveTab(tab) {
     renderTabDots();
     if (typeof loadNavBadges === "function") loadNavBadges();
   }
+  // Onglet actif visible dans la bande defilante (mobile).
+  const activeBtn = document.getElementById("tab-" + tab + "-btn");
+  if (activeBtn && activeBtn.scrollIntoView) activeBtn.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
   ["calendar", "boss", "chest", "market", "together", "skills", "auctions", "machine", "board", "teams"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
@@ -195,6 +198,8 @@ async function loadSkills() {
 }
 
 async function loadCalendar() {
+  // Calendrier complet (communaute-calendar.js) : saisons, bonus, rendez-vous, asso.
+  if (typeof window.loadCalendarFull === "function") return window.loadCalendarFull();
   const loading = document.getElementById("calendar-loading");
   const list = document.getElementById("calendar-list");
   try {

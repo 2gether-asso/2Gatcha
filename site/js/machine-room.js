@@ -67,7 +67,16 @@
           <small>Termine la salle 3 mois d'affilée pour gagner ${st.loyalty.card ? "une carte promo exclusive" : "3 boosters"}.</small>
         </div>
       </div>`;
-    const path = `<ol class="mr-path">${st.stages.map((s, i) => stageHtml(st, s, i)).join("")}</ol>`;
+    // Total des ressources qu'il manque encore pour les etapes principales restantes.
+    const need = new Map();
+    st.stages.filter((s) => !s.done && !s.optional).forEach((s) => s.cost.forEach((c) => {
+      const k = c.icon + " " + c.label;
+      const cur = need.get(k) || { need: 0, have: c.have };
+      need.set(k, { need: cur.need + c.need, have: c.have });
+    }));
+    const short = [...need].filter(([, v]) => v.have < v.need).map(([k, v]) => `${fmt(v.need - v.have)} ${esc(k)}`);
+    const summary = st.open && !st.done && need.size ? `<p class="mr-summary">${short.length ? `&#129520; Pour finir la salle, il te manque encore au total : <strong>${short.join(", ")}</strong>.` : "&#9989; Tu as tout ce qu'il faut pour finir la salle d'un coup !"}</p>` : "";
+    const path = summary + `<ol class="mr-path">${st.stages.map((s, i) => stageHtml(st, s, i)).join("")}</ol>`;
     const canVote = st.done && !st.vote && st.open;
     const vote = `
       <section class="mr-vote ${st.done ? "" : "locked"}">

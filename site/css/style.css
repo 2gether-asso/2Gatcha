@@ -8427,3 +8427,46 @@ html[data-season="summer"] header#site-header { border-bottom: 2px solid #fbbf24
 /* L'attribut hidden masque toujours, meme quand une regle d'auteur donne un display
    (sinon .weekly-recap, .mode-options, #today-golden... restaient visibles et vides). */
 [hidden] { display: none !important; }
+
+
+/* =====================================================================
+   QoL 2026-10-15 : calendrier, onglets defilants, salle des machines.
+   ===================================================================== */
+.cal { display: grid; gap: 16px; }
+.cal-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-filter { padding: 5px 12px; border-radius: 999px; font: inherit; font-size: 0.8rem; color: var(--text-dim); background: rgba(255,255,255,0.04); border: 1px solid var(--border-soft, rgba(255,255,255,0.1)); box-shadow: none; cursor: pointer; }
+.cal-filter::before { display: none; }
+.cal-filter:hover { transform: none; filter: none; color: var(--text); }
+.cal-filter.active { color: var(--text); border-color: var(--accent, #a78bfa); background: color-mix(in srgb, var(--accent, #a78bfa) 18%, transparent); }
+.cal-month { display: grid; gap: 8px; }
+.cal-month h3 { margin: 0; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+.cal-month ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cal-item { --k: #94a3b8; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft, rgba(255,255,255,0.1)); border-left: 4px solid var(--k); }
+.cal-item.kind-season { --k: #f97316; } .cal-item.kind-event { --k: #facc15; } .cal-item.kind-rdv { --k: #38bdf8; } .cal-item.kind-irl { --k: #a78bfa; }
+.cal-item.season-christmas { --k: #22c55e; } .cal-item.season-valentine { --k: #f472b6; } .cal-item.season-easter { --k: #67e8f9; } .cal-item.season-newyear { --k: #fde047; } .cal-item.season-aprilfools { --k: #60a5fa; } .cal-item.season-summer { --k: #fbbf24; }
+.cal-item.live { background: linear-gradient(110deg, color-mix(in srgb, var(--k) 16%, transparent), rgba(255,255,255,0.03) 60%); }
+.cal-icon { font-size: 1.6rem; line-height: 1; }
+.cal-body { display: grid; gap: 3px; min-width: 0; }
+.cal-title { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.cal-when { color: var(--text-dim); font-size: 0.78rem; }
+.cal-body p { margin: 2px 0 0; font-size: 0.8rem; color: var(--text-dim); line-height: 1.45; }
+.cal-badge { padding: 1px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: var(--text); background: rgba(255,255,255,0.08); white-space: nowrap; }
+.cal-badge.live { color: #052e16; background: #4ade80; }
+.cal-actions { display: flex; flex-direction: column; gap: 6px; }
+.cal-actions .btn-ghost { padding: 5px 10px; font-size: 0.76rem; white-space: nowrap; text-align: center; }
+@media (max-width: 560px) {
+  .cal-item { grid-template-columns: auto minmax(0, 1fr); }
+  .cal-actions { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
+}
+
+/* Onglets de la page Communaute : une seule ligne qui defile sur mobile. */
+@media (max-width: 720px) {
+  .tabs.tabs-scroll { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent); padding-inline: 6px; }
+  .tabs.tabs-scroll .tab { flex: 0 0 auto; scroll-snap-align: center; white-space: nowrap; }
+}
+
+.mr-summary { margin: 0; padding: 10px 14px; border-radius: 12px; font-size: 0.84rem; line-height: 1.5; color: #f5e6c8; background: rgba(0,0,0,0.3); border: 1px dashed rgba(214,168,92,0.45); }
+.mr-summary strong { color: #fecaca; }
+.seasonal-treat.teaser { border-style: dashed; }
+a.beta-banner.banner-link { display: block; color: inherit; text-decoration: none; cursor: pointer; }
+a.beta-banner.banner-link:hover { filter: brightness(1.12); }

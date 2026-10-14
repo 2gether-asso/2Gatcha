@@ -29,7 +29,8 @@ const CommunauteSignals = {
     const today = new Date().toISOString().slice(0, 10);
     const canDraw = !!(chest && !chest.alreadyDrawnToday && chest.poolSize > 0);
     const signals = {
-      calendar: { active: events.length > 0, sig: events.map((e) => e.label + "@" + (e.startsAt || "")).join("|") },
+      // Toujours visible (saisons, rendez-vous) ; la pastille ne signale que les evenements de l'asso.
+      calendar: { active: true, sig: events.map((e) => e.label + "@" + (e.startsAt || "")).join("|") },
       boss: { active: !!(boss && boss.active), sig: boss && boss.active ? "boss:" + boss.bossName + ":" + boss.maxHp : "" },
       // Le coffre de guilde reste toujours visible (on peut deposer a tout
       // moment) ; la pastille ne signale qu'une carte a piocher aujourd'hui.
@@ -826,7 +827,7 @@ function modeBanners(el, mode) {
   if (n && n.key !== mode.key) {
     const when = new Date(n.at * 1000).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" });
     const lead = n.probable ? `La salle des machines penche pour le mode <strong>${n.icon} ${escHtml(n.label)}</strong> (fin du vote ${when})` : `Changement de mode programmé : <strong>${n.icon} ${escHtml(n.label)}</strong> ${when}`;
-    bits.push(`<div class="beta-banner banner-next-mode">⏳ Dernières heures du mode ${escHtml(mode.label)} : profites-en ! ${lead}.</div>`);
+    bits.push(`<a class="beta-banner banner-next-mode banner-link" href="communaute.html#calendrier">⏳ Dernières heures du mode ${escHtml(mode.label)} : profites-en ! ${lead}.</a>`);
   }
   if (bits.length) { el.insertAdjacentHTML("afterbegin", bits.join("")); syncHeaderOffset(); }
 }
@@ -846,7 +847,7 @@ async function loadEventBanner() {
     if (ev.finishMultiplier > 1) perks.push(`finitions x${ev.finishMultiplier}`);
     const until = ev.endsAt ? " · jusqu'au " + new Date(ev.endsAt * 1000).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" }) : "";
     const label = String(ev.label || "Événement").replace(/[<>&"]/g, "");
-    el.insertAdjacentHTML("afterbegin", `<div class="beta-banner banner-event">&#127881; <strong>${label}</strong>${perks.length ? " : " + perks.join(", ") : ""}${until}</div>`);
+    el.insertAdjacentHTML("afterbegin", `<a class="beta-banner banner-event banner-link" href="communaute.html#calendrier" title="Voir le calendrier des événements">&#127881; <strong>${label}</strong>${perks.length ? " : " + perks.join(", ") : ""}${until}</a>`);
     syncHeaderOffset();
   } catch (e) { /* purement cosmetique */ }
 }
