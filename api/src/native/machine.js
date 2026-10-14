@@ -3,8 +3,10 @@
 // ouvrir la salle (20 cles), puis allumer la chaudiere, graisser les
 // engrenages, alimenter le generateur et calibrer la machine, chaque etape
 // demandant un nouveau sacrifice. Au bout : un vote pour la difficulte du jeu.
-// Le vote se ferme le MachineVoteDay du mois (fin de journee) ; le mode le
-// plus vote est applique tout seul jusqu'a la fin du mois (presets.js).
+// Par defaut (MachineVoteDay = 0) la salle et le vote restent ouverts tout le
+// mois et le mode le plus vote s'applique le 1er du mois suivant. Avec
+// MachineVoteDay = 1 a 28, le vote se ferme a la fin de ce jour et le mode
+// gagnant s'applique aussitot jusqu'a la fin du mois (presets.js).
 //   POST /webhook/machine-room { userId, action: 'status' | 'advance' | 'vote', mode? }
 
 import { refId, now, ok, fail, userById } from './common.js';
@@ -35,10 +37,13 @@ function stages(store) {
 }
 
 const month = () => seasonId();
-// Fin du vote : fin de la journee MachineVoteDay du mois (heure de Paris).
+const prevMonth = (m) => { const [y, mo] = m.split('-').map(Number); return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`; };
+const voteDay = (store) => Math.min(28, Math.max(0, Number(setting(store, 'MachineVoteDay')) || 0));
+// Fin du vote : fin du mois (0) ou fin de la journee MachineVoteDay (heure de Paris).
 function voteClose(store, m = month()) {
-  const day = String(Math.min(28, Math.max(1, setting(store, 'MachineVoteDay')))).padStart(2, '0');
-  return parisEpoch(`${m}-${day}`, 0) + 86400;
+  const day = voteDay(store);
+  if (!day) return seasonEnd(m);
+  return parisEpoch(`${m}-${String(day).padStart(2, '0')}`, 0) + 86400;
 }
 
 // Doublons sacrifiables : exemplaires en trop (on garde le meilleur de chaque carte).
@@ -60,8 +65,7 @@ function sacrificable(store, userId) {
 const have = (store, user, item) => (item.field === 'cards' ? sacrificable(store, user.id).length : Number(user[item.field]) || 0);
 const progressOf = (user) => (user.MachineMonth === month() ? { stage: Number(user.MachineStage) || 0, vote: user.MachineVote || null } : { stage: 0, vote: null });
 
-function tally(store) {
-  const m = month();
+function tally(store, m = month()) {
   const votes = Object.fromEntries(MODES.map((k) => [k, 0]));
   store.getAll('Users').forEach((u) => { if (u.MachineMonth === m && MODES.includes(u.MachineVote)) votes[u.MachineVote]++; });
   return votes;
@@ -79,7 +83,7 @@ function stateOf(store, user) {
   const votes = tally(store);
   const rs = roomState(store);
   return {
-    month: month(), open, voteClosesAt: close, monthEndsAt: seasonEnd(month()),
+    month: month(), open, voteClosesAt: close, monthEndsAt: seasonEnd(month()), appliesNextMonth: !voteDay(store),
     stage: p.stage, vote: p.vote, done: p.stage >= list.length,
     stages: list.map((s, i) => ({
       key: s.key, icon: s.icon, label: s.label, story: s.story, done: i < p.stage, current: i === p.stage,
@@ -125,15 +129,21 @@ function handleMachine({ store, body }) {
   return fail('unknown_action');
 }
 
-// Fin du vote : le mode le plus vote est applique jusqu'a la fin du mois.
+// Fin du vote : le mode le plus vote est applique (mois precedent d'abord,
+// pour le vote ouvert tout le mois, puis mois en cours si le vote ferme tot).
 let checked = null;
 export function beforeRequest({ store }) {
-  const m = month();
-  const key = m + ':' + Math.floor(now() / 600);
+  const key = month() + ':' + Math.floor(now() / 600);
   if (checked === key || !store.tables.has('AppSettings') || !setting(store, 'MachineRoomEnabled')) return;
   checked = key;
-  if (now() < voteClose(store, m) || roomState(store).month === m) return;
-  const votes = tally(store);
+  for (const m of [prevMonth(month()), month()]) {
+    const done = roomState(store).month;
+    if (now() >= voteClose(store, m) && !(done && done >= m)) closeVote(store, m);
+  }
+}
+
+function closeVote(store, m) {
+  const votes = tally(store, m);
   const total = Object.values(votes).reduce((a, b) => a + b, 0);
   // Egalite : le mode le plus "neutre" l'emporte.
   const order = ['medium', 'chill', 'hard', 'cool'];
@@ -143,7 +153,8 @@ export function beforeRequest({ store }) {
   if (row) store.update('AppSettings', row.id, { Value: value }); else store.create('AppSettings', { Key: KEY, Value: value });
   if (!winner) return;
   applyPreset(store, winner, 'machine-room');
-  addFeed(store, { kind: 'machine', icon: '⚙️', text: `La salle des machines a parlé : mode ${MODE_LABEL[winner]} jusqu’à la fin du mois (${votes[winner]} vote${votes[winner] > 1 ? 's' : ''} sur ${total}).` });
+  const until = m === month() ? 'jusqu’à la fin du mois' : 'pour ce mois-ci';
+  addFeed(store, { kind: 'machine', icon: '⚙️', text: `La salle des machines a parlé : mode ${MODE_LABEL[winner]} ${until} (${votes[winner]} vote${votes[winner] > 1 ? 's' : ''} sur ${total}).` });
 }
 
 export function _reset() { checked = null; }

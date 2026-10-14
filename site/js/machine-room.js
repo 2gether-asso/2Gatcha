@@ -23,7 +23,7 @@
         <div>
           <h2>La salle des machines</h2>
           <p class="mr-sub">${st.open
-            ? `Une fois par mois : remets la machine en marche en sacrifiant tes ressources, puis vote pour la difficulté du jeu. Vote ouvert jusqu'au <strong>${when(st.voteClosesAt - 60)}</strong>.`
+            ? `Une fois par mois : remets la machine en marche en sacrifiant tes ressources, puis vote pour la difficulté du jeu${st.appliesNextMonth ? " du mois prochain" : ""}. Vote ouvert jusqu'au <strong>${when(st.voteClosesAt - 60)}</strong>.${st.lastResult && st.lastResult.winner ? ` <small>Mois dernier, la machine a choisi ${MODE_ICON[st.lastResult.winner] || ""} ${esc(name(st.lastResult.winner))}.</small>` : ""}`
             : st.result ? `La machine a parlé pour ce mois : <strong>${MODE_ICON[st.result.winner] || ""} ${esc(st.result.winner ? name(st.result.winner) : "aucun vote")}</strong> jusqu'au ${when(st.monthEndsAt)}. Elle se rallume le mois prochain.`
             : "La salle est fermée pour ce mois. Elle rouvre le 1er."}</p>
         </div>
@@ -31,21 +31,23 @@
       </div>`;
     const path = `<ol class="mr-path">${st.stages.map((s, i) => {
       const affordable = s.cost.every((c) => c.have >= c.need);
+      const missing = s.cost.filter((c) => c.have < c.need).map((c) => `${fmt(c.need - c.have)} ${c.icon} ${esc(c.label)}`);
       return `<li class="mr-stage ${s.done ? "done" : s.current ? "current" : "locked"}">
         <span class="mr-num" aria-hidden="true">${s.done ? "&#10004;" : s.icon}</span>
         <div class="mr-body">
           <strong>${i + 1}. ${esc(s.label)}</strong>
           <small>${esc(s.story)}</small>
+          ${s.current && st.open && !affordable ? `<p class="mr-missing">Il te manque encore ${missing.join(" et ")}.</p>` : ""}
           <div class="mr-costs">${s.cost.map((c) => `<span class="mr-cost ${s.done ? "" : c.have >= c.need ? "ok" : "short"}">${c.icon} ${fmt(c.need)} ${esc(c.label)}${s.done ? "" : ` <em>(tu as ${fmt(c.have)})</em>`}</span>`).join("")}</div>
         </div>
-        ${s.current && st.open ? `<button type="button" class="btn${affordable ? "" : "-secondary"} mr-go" data-mr-advance ${affordable ? "" : "disabled"}>${affordable ? "Sacrifier" : "Pas assez"}</button>` : ""}
+        ${s.current && st.open ? `<button type="button" class="${affordable ? "btn" : "btn-ghost"} mr-go" data-mr-advance data-missing="${affordable ? "" : missing.join(" et ")}">${affordable ? "Sacrifier" : "Pas assez"}</button>` : ""}
       </li>`;
     }).join("")}</ol>`;
     const vote = `
       <section class="mr-vote ${st.done ? "" : "locked"}">
-        <h3>&#128499;&#65039; Vote : la difficulté du mois</h3>
+        <h3>&#128499;&#65039; Vote : la difficulté ${st.appliesNextMonth ? "du mois prochain" : "du mois"}</h3>
         <p class="mr-sub">${st.done
-          ? st.vote ? `Tu as voté <strong>${MODE_ICON[st.vote]} ${esc(name(st.vote))}</strong>. Résultat à la fermeture du vote.` : "La machine tourne : choisis le mode de jeu pour le reste du mois."
+          ? st.vote ? `Tu as voté <strong>${MODE_ICON[st.vote]} ${esc(name(st.vote))}</strong>. Résultat à la fermeture du vote.` : `La machine tourne : choisis le mode de jeu ${st.appliesNextMonth ? "du mois prochain" : "pour le reste du mois"}.`
           : "Termine les 5 étapes pour débloquer ton vote."} ${st.voters} joueur${st.voters > 1 ? "s ont" : " a"} voté.</p>
         <div class="mr-modes">${st.modes.map((m) => {
           const pct = Math.round(((st.votes[m.key] || 0) / total) * 100);
@@ -74,6 +76,11 @@
       const vote = e.target.closest("[data-mr-vote]");
       if (!adv && !vote) return;
       const btn = adv || vote;
+      if (adv && adv.dataset.missing) { Toast.error("Il te manque encore " + adv.dataset.missing + " pour cette étape."); return; }
+      if (adv) {
+        const ok = await Confirm.show("Sacrifier les ressources de cette étape ? Elles sont détruites pour de bon.", { title: "Sacrifice", confirmText: "Sacrifier" });
+        if (!ok) return;
+      }
       if (vote) {
         const ok = await Confirm.show(`Voter pour le mode <strong>${MODE_ICON[vote.dataset.mrVote]} ${esc(name(vote.dataset.mrVote))}</strong> ? Un seul vote par mois, définitif.`, { title: "Voter", confirmText: "Voter" });
         if (!ok) return;

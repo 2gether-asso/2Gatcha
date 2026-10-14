@@ -302,7 +302,7 @@ export const REGISTRY = {
 
   // --- Salle des machines (machine.js, 2026-10-14)
   MachineRoomEnabled: { label: 'Salle des machines (vote mensuel de la difficulté)', type: 'bool', def: true, group: 'Modes de jeu', storage: 'app', help: 'Une fois par mois, les joueurs sacrifient des ressources pour voter le mode de jeu, appliqué jusqu’à la fin du mois.' },
-  MachineVoteDay: { ...int('Salle des machines : dernier jour du vote', 7, 'Modes de jeu', 'Le vote se ferme à la fin de ce jour du mois ; le mode gagnant est appliqué jusqu’à la fin du mois.', 1, 28), storage: 'app' },
+  MachineVoteDay: { ...int('Salle des machines : dernier jour du vote', 0, 'Modes de jeu', '0 = vote ouvert tout le mois, le mode gagnant s’applique le 1er du mois suivant. 1 à 28 = le vote se ferme à la fin de ce jour et le mode gagnant s’applique aussitôt jusqu’à la fin du mois.', 0, 28), storage: 'app' },
   MachineRoomCosts: { label: 'Salle des machines : sacrifices', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet : keys, dust, worms, parts, bait, boosters, cards (doublons).', def: { keys: 20, dust: 500, worms: 30, parts: 5, bait: 3, boosters: 3, cards: 10 } },
 
   // --- Pilotage de l'inflation (inflation.js)

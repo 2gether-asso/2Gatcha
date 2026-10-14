@@ -993,6 +993,21 @@ await test('salle des machines : 5 sacrifices, vote, mode applique a la fin du v
     assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.result.winner, 'cool');
   }
   for (const key of ['MachineVoteDay', 'MachineRoomCosts']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  // Par defaut : salle ouverte tout le mois, resultat le mois suivant.
+  const def = call('POST', 'machine-room', { body: { userId: 1 } }).json;
+  assert.equal(def.open, true);
+  assert.equal(def.appliesNextMonth, true);
+  // Changement de mois : les votes du mois precedent appliquent le mode gagnant.
+  const [y, mo] = def.month.split('-').map(Number);
+  const prev = mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`;
+  store.update('Users', 1, { MachineMonth: prev, MachineStage: 5, MachineVote: 'hard' });
+  const old = store.getAll('AppSettings').find((x) => x.Key === 'machineRoom');
+  if (old) store.delete('AppSettings', old.id);
+  machine._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(modeperks.modeKey(store), 'hard');
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.lastResult.winner, 'hard');
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.stage, 0, 'nouveau mois : on repart de zero');
   call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
 });
 
