@@ -16,6 +16,7 @@ import { houseOf, luckyState, diceFace, eveningMissions, EVENING_START } from '.
 import { rankOf, rankFor, collectionValues, valueMaps, pullValue, counts } from './progression.js';
 import { talentRanks, TALENTS } from './talents.js';
 import { growSeconds, PLOTS, seedMult } from './garden.js';
+import { nudgeOff } from './features.js';
 
 export const schema = { Users: { PullStats: { type: 'Text' }, DustLedger: { type: 'Text' } } };
 
@@ -75,7 +76,8 @@ function whatNow(store, user) {
   if (level - 1 > spent) add(52, 'talents', '🌳', `${level - 1 - spent} point${level - 1 - spent > 1 ? 's' : ''} de talent à dépenser`, 'profile.html#talents');
   const house = houseOf();
   add(50, 'house', house.icon, `Action du jour : ${house.label} (XP ×${setting(store, 'HouseXpMultiplier')})`, house.url);
-  return items.sort((a, b) => b.priority - a.priority);
+  // Rien vers une fonctionnalite fermee dans le mode en cours (features.js).
+  return items.filter((i) => !nudgeOff(store, i)).sort((a, b) => b.priority - a.priority);
 }
 
 function handleWhatNow({ store, query }) {

@@ -98,6 +98,19 @@ const MILESTONES = [
 ];
 export const milestones = () => MILESTONES;
 
+// Fragments offerts hors activite (calin du jour, defis en Chill) : sans
+// plafond du jour ; renvoie le nombre de boosters obtenus.
+export function addShards(store, userId, n) {
+  const user = store.get('Users', userId);
+  const per = setting(store, 'ShardsPerBooster');
+  if (!user || !(per > 0) || !(n > 0)) return 0;
+  let total = (Number(user.BoosterShards) || 0) + n;
+  const boosters = Math.floor(total / per);
+  total -= boosters * per;
+  store.update('Users', userId, { BoosterShards: total, ...(boosters ? { BoosterCount: (Number(user.BoosterCount) || 0) + boosters } : {}) });
+  return boosters;
+}
+
 // Abonne du bus d'activite (apres progression.js, qui tient les compteurs).
 export function onEvents(store, events) {
   const notices = [];

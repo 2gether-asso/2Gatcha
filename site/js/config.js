@@ -129,6 +129,10 @@ window.APP_CONFIG = {
     // Lot 2026-10-09 : inflation, pity par rarete, course aux tresors, prestige, evenements planifies
     upgrades: "/upgrades",             // POST { userId, action: 'status'|'buy', key? } (chenil, serre, canne)
     finishReroll: "/finish-reroll",     // POST { userId, pullId, action: 'status'|'reroll' }
+    adminModeFeatures: "/admin-mode-features", // POST { discordId, action: 'status'|'set'|'reset', matrix? }
+    machineRoom: "/machine-room",       // POST { userId, action: 'status'|'advance'|'vote', mode? } (salle des machines)
+    decraftUndo: "/decraft-undo",       // POST { userId, action: 'list'|'undo', id? } (mode Cool)
+    weeklyGoal: "/weekly-goal",         // POST { userId, action: 'status'|'claim' } (mode Medium)
     dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille du chien
     sundayMarket: "/sunday-market",     // POST { userId, action: 'status'|'buy', cardId? }
     playerGift: "/player-gift",         // POST { userId, action: 'status'|'send'|'claim', toUserId?, kind? }

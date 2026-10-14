@@ -1148,6 +1148,12 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | AppSettings | Key = balance-2026-10-11 | Text | migration d'equilibrage : date et reglages modifies (anciennes valeurs) |
 | Users | GardenExtraPlots | Numeric | parcelles de jardin achetees en plus des 4 offertes |
 | SeasonProgress | ChestClaimed | Bool | coffre de saison ouvert |
+| Users | HugDay, WearDay, ModeDays, ModeCards, LuckyOpenDay, LuckyOpenCount, WeeklyGoal | Text, Text, Text, Text, Text, Numeric, Text | bonus et malus des modes (modeperks.js) : câlin du chien, usure du jour, jours joués par mode (JSON), cartes de mode obtenues, ouvertures chanceuses, contrat de la semaine (JSON) |
+| Pulls | ForgedInFire | Bool | carte forgée dans le feu (mode Hard) : protégée du sacrifice |
+| DecraftUndo | User, Card, Finish, Quality, Serial, Dust, At, Undone | Ref:Users, Ref:Cards, Text, Text, Numeric, Numeric, Numeric, Bool | decrafts annulables 24 h (mode Cool) |
+| Users | MachineMonth, MachineStage, MachineVote | Text, Numeric, Text | salle des machines : mois en cours, étape atteinte (0 à 5), mode voté |
+| AppSettings | Key = modeFeatures | Text | fonctionnalités fermées par mode : JSON { fonctionnalité: [modes] } (features.js) ; absent = valeurs par défaut |
+| AppSettings | Key = machineRoom | Text | résultat du dernier vote de la salle des machines (mois, votes, gagnant) |
 | ScheduledEvents | Label, StartAt, EndAt, Enabled, DustMultiplier, FinishMultiplier, FishingRare, WormsMultiplier | | evenements planifies (events.js) |
 | AppSettings | Key = inflationMode | Text | etat du mode anti-inflation (jours d'alerte, jours calmes, actif depuis) |
 | Users | LuckCharges, XpBoostUntil | Numeric | elixir de chance (boosters restants), potion de savoir (fin de l'XP x2) |

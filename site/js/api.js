@@ -200,7 +200,7 @@ const API = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         this._onRejected(res, data);
-        const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
+        const err = new Error((data.error === "feature_disabled" && data.message) || data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
         err.data = data;
         // "Deja recupere" (bouton reste affiche apres une recuperation
@@ -254,7 +254,7 @@ const API = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         this._onRejected(res, data);
-        const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
+        const err = new Error((data.error === "feature_disabled" && data.message) || data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
         err.data = data;
         throw err;
@@ -322,8 +322,8 @@ const API = {
     return data;
   },
 
-  openPack(userId, extensionId, mystery = false) {
-    return this.post("openPack", mystery ? { userId, mystery: true } : { userId, extensionId });
+  openPack(userId, extensionId, mystery = false, opts = {}) {
+    return this.post("openPack", { ...(mystery ? { userId, mystery: true } : { userId, extensionId }), ...(opts.bet ? { bet: true } : {}), ...(opts.edge ? { edge: true } : {}) });
   },
 
   // Annonce Discord automatique (Mythique/Legendaire/Epique) - appelee par
@@ -764,6 +764,10 @@ const API = {
   upgrades(userId, action = "status", key) { return this.post("upgrades", { userId, action, key }); },
   finishReroll(userId, pullId, action = "status") { return this.post("finishReroll", { userId, pullId, action }); },
   claimSeasonChest(userId) { return this.post("season", { userId, action: "claimChest" }); },
+  adminModeFeatures(discordId, action = "status", matrix) { return this.post("adminModeFeatures", { discordId, action, matrix }); },
+  machineRoom(userId, action = "status", mode) { return this.post("machineRoom", { userId, action, mode }); },
+  decraftUndo(userId, action = "list", id) { return this.post("decraftUndo", { userId, action, id }); },
+  weeklyGoal(userId, action = "status") { return this.post("weeklyGoal", { userId, action }); },
   dogGift(userId, action = "status") { return this.post("dogGift", { userId, action }); },
   sundayMarket(userId, action = "status", cardId) { return this.post("sundayMarket", { userId, action, cardId }); },
   playerGift(userId, action = "status", params = {}) { return this.post("playerGift", { userId, action, ...params }); },

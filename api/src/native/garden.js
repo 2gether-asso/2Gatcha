@@ -18,6 +18,7 @@ import { talentValue } from './talents.js';
 import { diceFace } from './daily.js';
 import { price as indexed } from './inflation.js';
 import { upgradeValue } from './upgrades.js';
+import { modeIs } from './modeperks.js';
 
 export const PLOTS = 4;
 
@@ -55,11 +56,12 @@ function gardenStreak(user) {
   const day = user.GardenStreakDay;
   return day === parisDay(0) || day === parisDay(-1) ? Number(user.GardenStreak) || 0 : 0;
 }
-const rareChance = (store, streak) => (streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
+const rareChance = (store, streak) => Math.max(modeIs(store, 'cool') ? 0.2 : 0, streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
+const wiltSeconds = (store) => (modeIs(store, 'cool') ? 0 : setting(store, 'GardenWiltHours') * 3600);
 
 function state(store, user) {
   const grow = growSeconds(store, user);
-  const wilt = setting(store, 'GardenWiltHours') * 3600;
+  const wilt = wiltSeconds(store);
   const t = now();
   const plots = plotsOf(user, plotCount(store, user)).map((p, i) => {
     if (!p) return { plot: i, planted: false };
@@ -77,7 +79,7 @@ function state(store, user) {
     baitChance: Math.min(1, setting(store, 'GardenBaitChance') + gardenLevel(store, user).perks.baitBonus), level: gardenLevel(store, user), stardust: Number(user.StardustCount) || 0,
     goldBait: Number(user.GoldBait) || 0, worms: Number(user.Worms) || 0,
     readyCount: plots.filter((p) => p.ready).length,
-    streak, rareChance: rareChance(store, streak + (user.GardenStreakDay === parisDay(-1) ? 1 : 0)), wiltHours: setting(store, 'GardenWiltHours')
+    streak, rareChance: rareChance(store, streak + (user.GardenStreakDay === parisDay(-1) ? 1 : 0)), wiltHours: wiltSeconds(store) / 3600
   };
 }
 
@@ -114,7 +116,7 @@ function handleGarden({ store, body }) {
     let worms = 0, bait = 0, dust = 0;
     const items = [];
     let xp = 0;
-    const wilt = setting(store, 'GardenWiltHours') * 3600;
+    const wilt = wiltSeconds(store);
     for (const i of ready) {
       const seed = (plots[i] && plots[i].seed) || 'mix';
       const item = { plot: i, seed, worms: 0, bait: 0, dust: 0 };

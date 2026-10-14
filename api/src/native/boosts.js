@@ -101,7 +101,9 @@ export function afterWorkflow({ store, path, request, response }) {
       + talentValue(user, 'lynx') + (face === 6 ? 0.05 : 0) + (luckyState().active ? setting(store, 'LuckyHourFinishBonus') : 0)
       + (request._mystery ? setting(store, 'MysteryFinishBonus') : 0)
       // Booster muri (comfort.js) : +1 point par jour sans ouverture.
-      + (Number(request._ripe) || 0) * 0.01;
+      + (Number(request._ripe) || 0) * 0.01
+      // Coup de chance du jour (mode Medium, modeperks.js) : chance de base doublee.
+      + (request._luckyOpen ? setting(store, 'SpecialFinishChance') : 0);
     // Elixir de chance (boutique) : +5 points tant qu'il reste des charges.
     const luck = (Number(user.LuckCharges) || 0) > 0 ? 0.05 : 0;
     if (luck) { store.update('Users', userId, { LuckCharges: (Number(user.LuckCharges) || 0) - 1 }); json.luckChargesLeft = (Number(user.LuckCharges) || 0) - 1; }

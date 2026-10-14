@@ -516,6 +516,12 @@ function celebrateRarity(key, cardEl, colorHex) {
   }
 }
 
+function modeOptions() {
+  const box = document.getElementById("mode-options");
+  if (!box || box.hidden) return {};
+  return { bet: document.getElementById("opt-bet").checked, edge: document.getElementById("opt-edge").checked };
+}
+
 function extensionById(id) {
   if (id === "mystery") return MYSTERY;
   return extensionsCache.find((e) => e.id === id);
@@ -883,6 +889,13 @@ function openModalFor(extensionId) {
     });
   }
   renderPackTags(simMode ? [{ kind: "sim", html: "&#129514; Simulation : rien n'est gagné ni dépensé" }] : []);
+  // Options du mode Medium (modeperks.js) : pari et booster a double tranchant.
+  const modeOpts = document.getElementById("mode-options");
+  if (modeOpts) {
+    modeOpts.hidden = document.documentElement.dataset.gameMode !== "medium" || !!simMode || !!ext.mystery;
+    document.getElementById("opt-bet").checked = false;
+    document.getElementById("opt-edge").checked = false;
+  }
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn) openAnotherBtn.style.display = "none";
 
@@ -1059,18 +1072,24 @@ async function startOpening(ext) {
     const mysteryNames = [];
     let backImageId = ext.cardBackImageId;
     let pityHits = [];
-    let ripened = 0;
+    let ripened = 0, betNet = 0, betWins = 0, bets = 0, luckyOpen = false, edge = 0, forged = 0, luckyDup = 0, finishLost = 0;
     for (let i = 0; i < quantity; i++) {
       const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
       const res = sim
         ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
-        : await API.openPack(Session.userId, ext.id, !!ext.mystery);
+        : await API.openPack(Session.userId, ext.id, !!ext.mystery, modeOptions());
       if (ext.mystery) {
         const real = extensionById(res.mystery ? res.mystery.extensionId : simExt.id);
         if (real) { mysteryNames.push(real.name); backImageId = backImageId || real.cardBackImageId; }
       }
       if (res.rarityPity) pityHits.push(res.rarityPity.name);
       if (res.ripened) ripened = Math.max(ripened, res.ripened);
+      if (res.bet) { betNet += res.bet.won ? res.bet.payout - res.bet.stake : -res.bet.stake; betWins += res.bet.won ? 1 : 0; bets++; }
+      if (res.luckyOpen) luckyOpen = true;
+      if (res.edge) edge++;
+      if (res.forged) forged += res.forged;
+      if (res.luckyDuplicates) luckyDup += res.luckyDuplicates;
+      finishLost += (res.cards || []).filter((c) => c.finishLost).length;
       if (res.error === "no_boosters") {
         if (i === 0) {
           pack.classList.remove("charging");
@@ -1140,6 +1159,12 @@ async function startOpening(ext) {
       lastPackTags.push({ kind: "mystery", html: `&#10067; Mystère : ${names.join(", ")}`, short: `mystère (${names.join(", ")})` });
       Toast.info(`&#10067; Booster mystère : ${names.join(", ")} !`);
     }
+    if (bets) lastPackTags.push({ kind: betNet >= 0 ? "bonus" : "sim", html: `&#127922; Pari ${betWins ? "gagné" : "perdu"} : ${betNet >= 0 ? "+" : ""}${betNet} &#10024;`, short: "pari" });
+    if (luckyOpen) lastPackTags.push({ kind: "bonus", html: "&#127808; Coup de chance du jour : finitions doublées", short: "coup de chance" });
+    if (edge) lastPackTags.push({ kind: "bonus", html: "&#9876;&#65039; Double tranchant : 3 cartes, une rare garantie", short: "double tranchant" });
+    if (forged) lastPackTags.push({ kind: "shiny", html: `&#128293; ${forged} arc-en-ciel forgée${forged > 1 ? "s" : ""} dans les flammes !`, short: "forgée" });
+    if (finishLost) lastPackTags.push({ kind: "sim", html: `&#128293; Mode Hard : ${finishLost} finition${finishLost > 1 ? "s" : ""} brûlée${finishLost > 1 ? "s" : ""}`, short: "brûlée" });
+    if (luckyDup) lastPackTags.push({ kind: "bonus", html: `&#127808; ${luckyDup} doublon${luckyDup > 1 ? "s" : ""} changé${luckyDup > 1 ? "s" : ""} en carte manquante`, short: "porte-bonheur" });
     if (ripened) lastPackTags.push({ kind: "bonus", html: `&#127815; Booster mûri : +${ripened} pt${ripened > 1 ? "s" : ""} de finition`, short: "mûri" });
     if (pityHits.length) lastPackTags.push({ kind: "pity", html: `&#127919; ${[...new Set(pityHits)].join(", ")} garantie (pity)`, short: "pity" });
     renderPackTags(lastPackTags);

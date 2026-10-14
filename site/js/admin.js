@@ -713,6 +713,9 @@ function renderPresets(st) {
         ${rec.key === p.key ? '<span class="preset-badge">Recommandé</span>' : ""}
         <div class="preset-title"><span aria-hidden="true">${p.icon}</span> <strong>${esc(p.label)}</strong></div>
         <p class="preset-desc">${esc(p.desc)}</p>
+        <label class="preset-card-pick">&#127183; Carte exclusive du mode
+          <select data-mode-card="${p.key}"><option value="0">— aucune —</option>${pickableCards().map((c) => `<option value="${c.cardId}" ${Number((st.modeCards || {})[p.key]) === c.cardId ? "selected" : ""}>${esc(c.name)}${c.isPromo ? " (promo)" : ""}</option>`).join("")}</select>
+        </label>
         ${p.active ? '<p class="preset-state">&#10004; Mode actif</p>' : `<details class="preset-changes"><summary>${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} changer${p.changes.length > 1 ? "ont" : "a"}</summary>
           <ul>${p.changes.map((c) => `<li><span>${esc(c.label)}</span><span class="preset-diff">${esc(c.current)} &rarr; <strong>${esc(c.target)}</strong></span></li>`).join("")}</ul></details>
           <button type="button" class="btn preset-apply" data-preset="${p.key}">Passer en ${esc(p.label)}</button>`}
@@ -720,9 +723,23 @@ function renderPresets(st) {
     <label class="checkbox-inline preset-announce"><input type="checkbox" id="preset-announce" checked /> Annoncer le changement aux joueurs (fil du serveur)</label>`;
 }
 async function loadPresets() {
-  try { renderPresets(await API.adminPreset(Session.discordId)); }
+  try {
+    const [st, set] = await Promise.all([API.adminPreset(Session.discordId), API.adminGetSettings(Session.discordId).catch(() => null)]);
+    const mc = set && (set.settings || []).find((x) => x.key === "ModeCards");
+    st.modeCards = mc ? mc.value : {};
+    renderPresets(st);
+  }
   catch (err) { const box = document.getElementById("preset-zone"); if (box) box.innerHTML = `<p class="empty-state">Modes de jeu indisponibles (${err.message}).</p>`; }
 }
+// Carte exclusive d'un mode : enregistree des qu'on la choisit.
+document.addEventListener("change", async (e) => {
+  const sel = e.target.closest && e.target.closest("[data-mode-card]");
+  if (!sel || !presetState) return;
+  const cards = { cool: 0, chill: 0, medium: 0, hard: 0, ...(presetState.modeCards || {}) };
+  cards[sel.dataset.modeCard] = Number(sel.value) || 0;
+  try { await API.adminSetSettings(Session.discordId, { ModeCards: cards }); presetState.modeCards = cards; Toast.success("Carte du mode enregistrée."); }
+  catch (err) { Toast.error("Impossible d'enregistrer. (" + err.message + ")"); }
+});
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest && e.target.closest("[data-preset]");
   if (!btn || !presetState) return;
@@ -736,6 +753,57 @@ document.addEventListener("click", async (e) => {
     Toast.success(`${p.icon} Le jeu est en mode ${p.label}.`);
     if (typeof settingsCache !== "undefined") settingsCache.length = 0;
   } catch (err) { btn.disabled = false; Toast.error("Impossible de changer de mode. (" + (err.data && err.data.errors ? err.data.errors.join(", ") : err.message) + ")"); }
+});
+
+// Fonctionnalites ouvertes par mode (api/src/native/features.js) : la matrice
+// est modifiee en local puis enregistree d'un coup.
+let mfState = null, mfDraft = null;
+const MF_MODE = { cool: "😎 Cool", chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard" };
+function renderModeFeatures() {
+  const box = document.getElementById("mode-features-zone");
+  if (!box || !mfState) return;
+  const esc = escHtml;
+  const dirty = JSON.stringify(mfDraft) !== JSON.stringify(Object.fromEntries(mfState.features.map((f) => [f.key, f.off])));
+  let group = null;
+  const rows = mfState.features.map((f) => {
+    const head = f.group !== group ? `<tr class="mf-group"><td colspan="${mfState.modes.length + 1}">${esc(f.group)}</td></tr>` : "";
+    group = f.group;
+    const defaults = f.defaultOff.length ? `fermé par défaut en ${f.defaultOff.map((m) => MF_MODE[m].split(" ")[1]).join(", ")}` : "";
+    return head + `<tr><td>${f.icon} ${esc(f.label)}${defaults ? ` <span class="mf-default">(${defaults})</span>` : ""}</td>${mfState.modes.map((m) => {
+      const off = mfDraft[f.key].includes(m);
+      return `<td class="${m === mfState.current ? "current" : ""}"><button type="button" class="mf-toggle ${off ? "off" : ""}" data-mf="${f.key}" data-mf-mode="${m}" aria-pressed="${off}" title="${esc(f.label)} en ${MF_MODE[m]} : ${off ? "fermé" : "ouvert"}">${off ? "&#10005;" : "&#10003;"}</button></td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  box.innerHTML = `
+    <div class="mf-head"><h3>&#128274; Fonctionnalités par mode</h3><small>Mode actuel : <strong>${MF_MODE[mfState.current]}</strong></small></div>
+    <p class="mf-help">&#10003; = ouvert, &#10005; = fermé dans ce mode. Une fonctionnalité fermée disparaît du site (onglets, widgets, liens) ; une page fermée affiche un message ; l'API refuse ses actions (les lectures restent permises). Le bingo n'est pas concerné.</p>
+    <div class="table-scroll"><table class="mf-table"><thead><tr><th>Fonctionnalité</th>${mfState.modes.map((m) => `<th class="${m === mfState.current ? "current" : ""}">${MF_MODE[m]}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="mf-actions"><button type="button" class="btn" id="mf-save" ${dirty ? "" : "disabled"}>Enregistrer</button><button type="button" class="btn-ghost" id="mf-reset">Revenir aux valeurs par défaut</button></div>`;
+}
+async function loadModeFeatures() {
+  try {
+    mfState = await API.adminModeFeatures(Session.discordId);
+    mfDraft = Object.fromEntries(mfState.features.map((f) => [f.key, [...f.off]]));
+    renderModeFeatures();
+  } catch (err) { const box = document.getElementById("mode-features-zone"); if (box) box.innerHTML = `<p class="empty-state">Fonctionnalités par mode indisponibles (${err.message}).</p>`; }
+}
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest && e.target.closest("[data-mf], #mf-save, #mf-reset");
+  if (!t || !mfState) return;
+  if (t.dataset.mf) {
+    const list = mfDraft[t.dataset.mf], m = t.dataset.mfMode;
+    mfDraft[t.dataset.mf] = list.includes(m) ? list.filter((x) => x !== m) : [...list, m];
+    return renderModeFeatures();
+  }
+  const reset = t.id === "mf-reset";
+  if (reset && !(await Confirm.show("Remettre la matrice des fonctionnalités par mode aux valeurs par défaut ?", { title: "Valeurs par défaut", confirmText: "Remettre" }))) return;
+  t.disabled = true;
+  try {
+    mfState = await API.adminModeFeatures(Session.discordId, reset ? "reset" : "set", reset ? undefined : mfDraft);
+    mfDraft = Object.fromEntries(mfState.features.map((f) => [f.key, [...f.off]]));
+    renderModeFeatures();
+    Toast.success(reset ? "Valeurs par défaut remises." : "Fonctionnalités par mode enregistrées.");
+  } catch (err) { t.disabled = false; Toast.error("Impossible d'enregistrer. (" + err.message + ")"); }
 });
 
 // Journal detaille (api/src/native/ledger.js).
@@ -770,6 +838,7 @@ async function loadEconomy() {
     const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
     const list = (rows, fn) => rows.length ? `<ol class="econ-list">${rows.map(fn).join("")}</ol>` : '<p class="lead" style="font-size:0.8rem;">—</p>';
     el.innerHTML = `<div id="preset-zone" class="preset-zone"></div>
+      <div id="mode-features-zone" class="mf-zone"></div>
       <div class="stats-grid">
         <div class="stat-tile"><div class="stat-value">${fmt(t.players)}</div><div class="stat-label">Joueurs</div></div>
         <div class="stat-tile"><div class="stat-value">${t.active1d} / ${t.active7d} / ${t.active30d}</div><div class="stat-label">Actifs 24 h / 7 j / 30 j</div></div>
@@ -802,6 +871,7 @@ async function loadEconomy() {
       </div>
       <div id="econ-log"></div>`;
     loadPresets();
+    if (typeof loadModeFeatures === "function") loadModeFeatures();
     loadEconomyLog();
   } catch (err) {
     el.className = "empty-state";

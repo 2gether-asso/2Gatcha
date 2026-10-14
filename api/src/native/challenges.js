@@ -12,7 +12,9 @@
 //   POST /webhook/community-goal { userId, action: 'status' | 'claim' }
 
 import { ok, fail, userById, parseJson as parse } from './common.js';
-import { startRain } from './comfort.js';
+import { startRain, addShards } from './comfort.js';
+import { modeIs, grantModeCard } from './modeperks.js';
+const maxPicks = (store) => (modeIs(store, 'chill') ? 4 : 3);
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 
@@ -84,9 +86,9 @@ function challengeState(store, user) {
   };
   const offered = parse(row.Offered, []).filter((k) => byKey.has(k)).map(view);
   const pickedViews = offered.filter((c) => c.picked);
-  const allDone = pickedViews.length === 3 && pickedViews.every((c) => c.claimed);
+  const allDone = pickedViews.length === maxPicks(store) && pickedViews.every((c) => c.claimed);
   return {
-    week, endsAt: weekEndsAt(week), offered, picksLeft: Math.max(0, 3 - picked.length),
+    week, endsAt: weekEndsAt(week), offered, picksLeft: Math.max(0, maxPicks(store) - picked.length), maxPicks: maxPicks(store),
     bonus: { boosters: setting(store, 'ChallengeBonusBoosters'), ready: allDone && !row.BonusClaimed, claimed: !!row.BonusClaimed },
     claimable: pickedViews.filter((c) => c.done && !c.claimed).length + (allDone && !row.BonusClaimed ? 1 : 0)
   };
@@ -102,7 +104,7 @@ function handleChallenges({ store, body }) {
     const offered = parse(row.Offered, []);
     const keys = (Array.isArray(body.keys) ? body.keys : [body.key]).map(String).filter((k) => offered.includes(k) && !picked.includes(k));
     if (!keys.length) return fail('invalid_pick');
-    if (picked.length + keys.length > 3) return fail('too_many_picks');
+    if (picked.length + keys.length > maxPicks(store)) return fail('too_many_picks');
     store.update('WeeklyChallenges', row.id, { Picked: JSON.stringify([...picked, ...keys]) });
   } else if (action === 'claim') {
     const st = challengeState(store, user);
@@ -111,12 +113,15 @@ function handleChallenges({ store, body }) {
     for (const c of st.offered) if (c.picked && c.done && !c.claimed) { claimed.push(c.key); dust += c.dust; }
     const fields = { Claimed: JSON.stringify(claimed) };
     const pickedCount = st.offered.filter((c) => c.picked).length;
-    if (pickedCount === 3 && st.offered.filter((c) => c.picked).every((c) => claimed.includes(c.key)) && !row.BonusClaimed) { fields.BonusClaimed = true; boosters = setting(store, 'ChallengeBonusBoosters'); }
+    if (pickedCount >= maxPicks(store) && st.offered.filter((c) => c.picked).every((c) => claimed.includes(c.key)) && !row.BonusClaimed) { fields.BonusClaimed = true; boosters = setting(store, 'ChallengeBonusBoosters'); }
     if (!dust && !boosters) return fail('nothing_to_claim');
     store.update('WeeklyChallenges', row.id, fields);
     const u = store.get('Users', user.id);
     store.update('Users', user.id, { StardustCount: (Number(u.StardustCount) || 0) + dust, BoosterCount: (Number(u.BoosterCount) || 0) + boosters });
-    return ok({ ...challengeState(store, store.get('Users', user.id)), reward: { dust, boosters } });
+    // Chill : 2 fragments de booster par defi recupere.
+    let shards = 0;
+    if (modeIs(store, 'chill') && dust > 0) { shards = 2 * st.offered.filter((c) => c.picked && c.done && !c.claimed).length; addShards(store, user.id, shards); }
+    return ok({ ...challengeState(store, store.get('Users', user.id)), reward: shards ? { dust, boosters, shards } : { dust, boosters } });
   } else if (action !== 'status') return fail('unknown_action');
   return ok(challengeState(store, user));
 }
@@ -159,8 +164,10 @@ function handleGoal({ store, body }) {
     if (!st.claimable) return fail(st.reached ? 'nothing_to_claim' : 'goal_not_reached');
     const g = goalFor(store);
     store.update('CommunityGoals', g.id, { Claimed: JSON.stringify([...parse(g.Claimed, []), user.id]) });
+    // Carte exclusive du mode en cours (une fois par joueur).
+    const modeCard = grantModeCard(store, user.id);
     store.update('Users', user.id, { StardustCount: (Number(user.StardustCount) || 0) + st.reward.dust, Worms: (Number(user.Worms) || 0) + st.reward.worms });
-    return ok({ ...goalState(store, user.id), claimedNow: st.reward });
+    return ok({ ...goalState(store, user.id), claimedNow: st.reward, modeCard: modeCard || undefined });
   }
   return ok(goalState(store, user.id));
 }

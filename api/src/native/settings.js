@@ -292,6 +292,19 @@ export const REGISTRY = {
   SundayMarketDay: { ...int('Marché du dimanche : jour (0 = dimanche … 6 = samedi)', 0, 'Économie', '', 0, 6), storage: 'app' },
   SundayMarketDiscount: { ...num('Marché du dimanche : prix (× le coût de craft)', 0.6, 'Économie', '0,6 = 40 % moins cher que le craft.', 0.1, 1), storage: 'app' },
 
+  // --- Bonus et malus des modes (modeperks.js, 2026-10-14)
+  BoosterBetStake: { ...int('Medium : mise du pari du booster (poussières)', 100, 'Modes de jeu', 'Triplée si le booster contient une épique ou mieux.', 1), storage: 'app' },
+  ChillLuckyDuplicateChance: { ...pct('Chill : chance qu’un doublon devienne une carte manquante', 0.1, 'Modes de jeu', ''), storage: 'app' },
+  HardWearChance: { ...pct('Hard : chance d’usure d’un doublon par jour', 0.25, 'Modes de jeu', 'Jamais un #001, un exemplaire assuré, ★ ou au coffre.'), storage: 'app' },
+  HardFinishLoss: { ...pct('Hard : part des finitions spéciales perdues à l’ouverture', 0.25, 'Modes de jeu', ''), storage: 'app' },
+  LuxuryTaxMultiplier: { ...num('Hard : taxe de luxe (× pour les plus riches que la moyenne)', 1.5, 'Modes de jeu', 'Le surplus est redistribué chaque lundi aux joueurs actifs.', 1, 5), storage: 'app' },
+  ModeCards: { label: 'Carte exclusive de chaque mode', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet { cool, chill, medium, hard } : id de la carte (promo conseillée) donnée avec l’objectif commun pendant ce mode. 0 = aucune.', def: { cool: 0, chill: 0, medium: 0, hard: 0 } },
+
+  // --- Salle des machines (machine.js, 2026-10-14)
+  MachineRoomEnabled: { label: 'Salle des machines (vote mensuel de la difficulté)', type: 'bool', def: true, group: 'Modes de jeu', storage: 'app', help: 'Une fois par mois, les joueurs sacrifient des ressources pour voter le mode de jeu, appliqué jusqu’à la fin du mois.' },
+  MachineVoteDay: { ...int('Salle des machines : dernier jour du vote', 7, 'Modes de jeu', 'Le vote se ferme à la fin de ce jour du mois ; le mode gagnant est appliqué jusqu’à la fin du mois.', 1, 28), storage: 'app' },
+  MachineRoomCosts: { label: 'Salle des machines : sacrifices', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet : keys, dust, worms, parts, bait, boosters, cards (doublons).', def: { keys: 20, dust: 500, worms: 30, parts: 5, bait: 3, boosters: 3, cards: 10 } },
+
   // --- Pilotage de l'inflation (inflation.js)
   PriceIndexEnabled: { label: 'Prix indexés sur la richesse moyenne', type: 'bool', def: true, group: 'Inflation', storage: 'app', help: 'Boutique, os, relances, coffres : les prix suivent le solde moyen des joueurs actifs (14 jours).' },
   WealthReference: { ...int('Richesse de référence (poussières)', 3000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },

@@ -1,3 +1,6 @@
+// Mode Cool (2026-10-14) : le plus genereux, pour jouer sans aucune
+// frustration. Le mode en cours est public (event-status -> gameMode) : le
+// site colore la barre de menu et anime le logo selon le mode.
 // Modes de jeu (2026-10-11) : trois presets Chill / Medium / Hard qui
 // reglent d'un coup tout ce qui cree ou detruit des boosters et des
 // poussieres. Medium = valeurs par defaut actuelles. L'admin choisit selon
@@ -17,6 +20,19 @@ const KEY = 'gamePreset';
 const loot = (key, weights) => REGISTRY[key].def.map((x) => (weights[x.type] != null ? { ...x, weight: weights[x.type] } : x));
 
 const PRESETS = {
+  cool: {
+    label: 'Cool', icon: '😎', desc: 'Détente totale : beaucoup de boosters, tout est moins cher, aucune frustration. Pour les vacances, les fêtes ou relancer le serveur.',
+    values: {
+      DigBoosterKeepChance: 1, DigRegenSeconds: 180, DigFullRewardsPerDay: 100, DogBonesPerDay: 10, DogBoosterDust: 80, DogBoneCost: 150,
+      FishingLoot: loot('FishingLoot', { booster: 9, bone: 16 }), DeepFishingLoot: loot('DeepFishingLoot', { booster: 8, bone: 10 }), FishingFullRewardsPerDay: 30,
+      DailyQuestRewardBoosters: 2, WeeklyQuestRewardBoosters: 6,
+      DuplicateDustCommon: 5, DuplicateDustOther: 10, DuplicateDustCapCopies: 10, ExchangeRateSwing: 0.1,
+      BoosterShopPrice: 250, BoosterShopIncrease: 0.15, BoosterShopWeeklyCap: 6,
+      TradeTaxPerCard: 5, AuctionTaxPct: 0.05, ChestCost: 60, WeatherRerollCost: 40, ExpeditionRushCost: 60,
+      RarityPityMultiplier: 1.5, PriceIndexMax: 1.5, AutoTightDays: 14,
+      ShardsPerBooster: 6, ShardsDailyCap: 10, RipenMaxPoints: 5, GardenWiltHours: 72
+    }
+  },
   chill: {
     label: 'Chill', icon: '🌴', desc: 'Généreux : plus de boosters, prix et taxes plus doux. Pour relancer l’activité ou fêter un événement.',
     values: {
@@ -26,7 +42,8 @@ const PRESETS = {
       DuplicateDustCommon: 4, DuplicateDustOther: 8, DuplicateDustCapCopies: 8, ExchangeRateSwing: 0.2,
       BoosterShopPrice: 350, BoosterShopIncrease: 0.25, BoosterShopWeeklyCap: 4,
       TradeTaxPerCard: 10, AuctionTaxPct: 0.1, ChestCost: 80, WeatherRerollCost: 60, ExpeditionRushCost: 90,
-      RarityPityMultiplier: 2, PriceIndexMax: 2, AutoTightDays: 10
+      RarityPityMultiplier: 2, PriceIndexMax: 2, AutoTightDays: 10,
+      ShardsPerBooster: 8, ShardsDailyCap: 8, RipenMaxPoints: 4, GardenWiltHours: 36
     }
   },
   medium: {
@@ -38,7 +55,8 @@ const PRESETS = {
       DuplicateDustCommon: 3, DuplicateDustOther: 6, DuplicateDustCapCopies: 5, ExchangeRateSwing: 0.3,
       BoosterShopPrice: 450, BoosterShopIncrease: 0.35, BoosterShopWeeklyCap: 3,
       TradeTaxPerCard: 15, AuctionTaxPct: 0.15, ChestCost: 100, WeatherRerollCost: 80, ExpeditionRushCost: 120,
-      RarityPityMultiplier: 2.5, PriceIndexMax: 2.5, AutoTightDays: 7
+      RarityPityMultiplier: 2.5, PriceIndexMax: 2.5, AutoTightDays: 7,
+      ShardsPerBooster: 10, ShardsDailyCap: 6, RipenMaxPoints: 3, GardenWiltHours: 24
     }
   },
   hard: {
@@ -50,7 +68,8 @@ const PRESETS = {
       DuplicateDustCommon: 2, DuplicateDustOther: 4, DuplicateDustCapCopies: 3, ExchangeRateSwing: 0.4,
       BoosterShopPrice: 600, BoosterShopIncrease: 0.5, BoosterShopWeeklyCap: 2,
       TradeTaxPerCard: 20, AuctionTaxPct: 0.2, ChestCost: 140, WeatherRerollCost: 110, ExpeditionRushCost: 160,
-      RarityPityMultiplier: 3, PriceIndexMax: 3, AutoTightDays: 5
+      RarityPityMultiplier: 3, PriceIndexMax: 3, AutoTightDays: 5,
+      ShardsPerBooster: 12, ShardsDailyCap: 4, RipenMaxPoints: 2, GardenWiltHours: 18
     }
   }
 };
@@ -79,6 +98,9 @@ function recommendation(store) {
     if (tight) reasons.push('le mode anti-inflation est actif');
     if (perDay > 8) reasons.push(`${perDay} boosters créés par joueur actif et par jour (cible ~5)`);
     if (ratio > 4) reasons.push(`${ratio} poussières gagnées pour 1 dépensée`);
+  } else if (perDay < 1 && ratio < 1 && factor <= 1) {
+    key = 'cool';
+    reasons.push(`à peine ${perDay} booster par joueur actif et par jour`, 'économie très calme : les joueurs peuvent souffler');
   } else if (perDay < 2 && ratio < 1.5 && factor <= 1) {
     key = 'chill';
     reasons.push(`seulement ${perDay} booster(s) par joueur actif et par jour`, 'poussières peu accumulées, prix non indexés');
@@ -97,19 +119,43 @@ function status(store) {
   return { presets, current: (presets.find((p) => p.active) || {}).key || 'custom', last, recommendation: recommendation(store) };
 }
 
+// Applique un mode (admin, ou vote de la salle des machines). Renvoie les erreurs.
+export function applyPreset(store, key, by) {
+  const p = PRESETS[key];
+  if (!p) return ['unknown_preset'];
+  const errors = setSettings(store, p.values);
+  if (errors.length) return errors;
+  const value = JSON.stringify({ key, at: now(), by: String(by) });
+  const row = store.getAll('AppSettings').find((r) => r.Key === KEY);
+  if (row) store.update('AppSettings', row.id, { Value: value }); else store.create('AppSettings', { Key: KEY, Value: value });
+  modeCache = { at: 0, store: null, value: null };
+  return [];
+}
+
 function handlePreset({ store, body }) {
   if (!isAdmin(body.discordId)) return fail('forbidden', 403);
   if ((body.action || 'status') === 'status') return ok(status(store));
   if (body.action !== 'apply') return fail('unknown_action');
   const p = PRESETS[body.preset];
   if (!p) return fail('unknown_preset');
-  const errors = setSettings(store, p.values);
+  const errors = applyPreset(store, body.preset, body.discordId);
   if (errors.length) return fail('invalid_settings', 400, { errors });
-  const value = JSON.stringify({ key: body.preset, at: now(), by: String(body.discordId) });
-  const row = store.getAll('AppSettings').find((r) => r.Key === KEY);
-  if (row) store.update('AppSettings', row.id, { Value: value }); else store.create('AppSettings', { Key: KEY, Value: value });
   if (body.announce) addFeed(store, { kind: 'economy', icon: p.icon, text: `Le jeu passe en mode ${p.label} : ${p.desc}` });
   return ok({ ...status(store), applied: body.preset });
+}
+
+// Mode affiche aux joueurs (couleurs du menu, animation du logo) : le mode
+// exact, sinon le dernier applique (reglages retouches a la main ensuite).
+let modeCache = { at: 0, store: null, value: null };
+export function currentMode(store) {
+  const t = Date.now();
+  if (modeCache.store === store && t - modeCache.at < 30000) return modeCache.value;
+  const st = status(store);
+  const key = st.current !== 'custom' ? st.current : (st.last && PRESETS[st.last.key] ? st.last.key : 'medium');
+  const p = PRESETS[key];
+  const value = { key, label: p.label, icon: p.icon, custom: st.current === 'custom' };
+  modeCache = { at: t, store, value };
+  return value;
 }
 
 export const routes = { 'POST admin-preset': handlePreset };

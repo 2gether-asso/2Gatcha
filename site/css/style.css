@@ -7875,6 +7875,7 @@ button.header-stats:hover { transform: none; filter: none; border-color: var(--b
 .preset-card.chill { --p: #34d399; }
 .preset-card.medium { --p: #60a5fa; }
 .preset-card.hard { --p: #f87171; }
+.preset-card.cool { --p: #67e8f9; }
 .preset-card.active { border-color: var(--p); box-shadow: 0 0 0 1px var(--p), 0 12px 28px -18px var(--p); }
 .preset-card.recommended:not(.active) { border-style: dashed; border-color: color-mix(in srgb, var(--p) 70%, transparent); }
 .preset-badge { position: absolute; top: -10px; right: 12px; padding: 2px 10px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; color: #0b1020; background: var(--p); }
@@ -8046,3 +8047,215 @@ button.header-stats:hover { transform: none; filter: none; border-color: var(--b
 .decor-frame-opener { box-shadow: 0 0 0 3px #a855f7, 0 0 14px rgba(168,85,247,0.7); }
 .decor-frame-sea { box-shadow: 0 0 0 3px #0ea5e9, 0 0 0 5px #0c4a6e, 0 0 16px rgba(14,165,233,0.6); }
 .decor-frame-dig { box-shadow: 0 0 0 3px #b45309, 0 0 0 5px #fbbf24, 0 0 12px rgba(251,191,36,0.5); }
+
+
+/* =====================================================================
+   MODES DE JEU (2026-10-14) : barre de menu et logo selon le mode en
+   cours (html[data-game-mode], shell.js). Cool : bulles et reflets glacés ;
+   Chill : feuilles qui tombent ; Medium : étincelles discrètes ; Hard :
+   dégradé rouge et flammes sur le logo.
+   ===================================================================== */
+/* Texte du logo sur son propre calque, au-dessus des effets (le degrade du texte
+   est un fond : sur .brand il passerait derriere ses enfants). */
+#site-brand { position: relative; display: inline-block; isolation: isolate; background: none; color: inherit; }
+.brand-text { position: relative; z-index: 1; display: inline-block; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand-fx { position: absolute; inset: -6px -4px; z-index: 0; pointer-events: none; overflow: visible; }
+.brand-fx i { position: absolute; display: block; opacity: 0; }
+.brand-fx i:nth-child(1) { left: 4%; --d: 0s; --dx: -4px; }
+.brand-fx i:nth-child(2) { left: 18%; --d: -0.6s; --dx: 5px; }
+.brand-fx i:nth-child(3) { left: 32%; --d: -1.3s; --dx: -3px; }
+.brand-fx i:nth-child(4) { left: 47%; --d: -0.3s; --dx: 4px; }
+.brand-fx i:nth-child(5) { left: 61%; --d: -1.7s; --dx: -5px; }
+.brand-fx i:nth-child(6) { left: 75%; --d: -0.9s; --dx: 3px; }
+.brand-fx i:nth-child(7) { left: 88%; --d: -2.1s; --dx: -2px; }
+html[data-game-mode] header#site-header { transition: background 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease; }
+
+/* --- Cool : bleu glacier -> lavande, logo qui flotte, bulles --- */
+html[data-game-mode="cool"] header#site-header { background: linear-gradient(90deg, rgba(8,47,73,0.94), rgba(30,58,138,0.9) 50%, rgba(76,29,149,0.88)); border-bottom-color: rgba(125,211,252,0.45); box-shadow: 0 8px 28px -14px rgba(103,232,249,0.55); }
+html[data-game-mode="cool"] .brand-text { background-image: linear-gradient(90deg, #67e8f9, #f0f9ff, #c4b5fd, #67e8f9); background-size: 300% 100%; animation: brandShimmer 7s linear infinite; }
+html[data-game-mode="cool"] #site-brand { animation: brandFloat 4s ease-in-out infinite; }
+html[data-game-mode="cool"] .brand-fx i { bottom: 0; width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(224,242,254,0.85); background: rgba(186,230,253,0.18); animation: brandBubble 3.6s ease-in var(--d) infinite; }
+html[data-game-mode="cool"] .nav a.active, html[data-game-mode="cool"] .nav-group-trigger.active { background: rgba(103,232,249,0.18); }
+
+/* --- Chill : vert tropical, logo qui se balance, feuilles --- */
+html[data-game-mode="chill"] header#site-header { background: linear-gradient(90deg, rgba(6,78,59,0.94), rgba(15,118,110,0.9) 55%, rgba(21,94,117,0.92)); border-bottom-color: rgba(110,231,183,0.45); box-shadow: 0 8px 28px -14px rgba(52,211,153,0.5); }
+html[data-game-mode="chill"] .brand-text { background-image: linear-gradient(90deg, #bef264, #5eead4, #bef264); background-size: 200% 100%; animation: brandShimmer 9s linear infinite; }
+html[data-game-mode="chill"] #site-brand { animation: brandSway 5s ease-in-out infinite; transform-origin: 50% 100%; }
+html[data-game-mode="chill"] .brand-fx i { top: -2px; width: 8px; height: 8px; border-radius: 0 80% 0 80%; background: linear-gradient(135deg, #bbf7d0, #22c55e); animation: brandLeaf 6s linear var(--d) infinite; }
+html[data-game-mode="chill"] .brand-fx i:nth-child(even) { animation-duration: 7.5s; }
+html[data-game-mode="chill"] .nav a.active, html[data-game-mode="chill"] .nav-group-trigger.active { background: rgba(52,211,153,0.2); }
+
+/* --- Medium : barre habituelle, quelques étincelles --- */
+html[data-game-mode="medium"] .brand-fx i { top: 20%; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px rgba(196,181,253,0.8); animation: brandTwinkle 3.2s ease-in-out var(--d) infinite; }
+html[data-game-mode="medium"] .brand-fx i:nth-child(n+4) { display: none; }
+html[data-game-mode="medium"] .brand-fx i:nth-child(2) { top: 70%; }
+
+/* --- Hard : dégradé rouge, logo en fusion, flammes --- */
+html[data-game-mode="hard"] header#site-header { background: linear-gradient(90deg, rgba(69,10,10,0.96), rgba(127,29,29,0.93) 35%, rgba(185,28,28,0.9) 62%, rgba(67,20,7,0.96)); border-bottom-color: rgba(248,113,113,0.55); box-shadow: 0 8px 30px -12px rgba(239,68,68,0.65); }
+html[data-game-mode="hard"] .brand-text { background-image: linear-gradient(0deg, #ef4444, #fb923c 45%, #fde047 85%); background-size: 100% 200%; animation: brandHeat 1.6s ease-in-out infinite alternate; filter: drop-shadow(0 0 6px rgba(251,146,60,0.75)); }
+html[data-game-mode="hard"] .brand-fx { inset: -10px -4px -2px; }
+html[data-game-mode="hard"] .brand-fx i { bottom: -2px; width: 15px; height: 30px; margin-left: -6px; border-radius: 50% 50% 38% 38% / 62% 62% 38% 38%; background: radial-gradient(ellipse at 50% 85%, #fef9c3 0 16%, #fde047 26%, #fb923c 46%, rgba(239,68,68,0.75) 64%, transparent 74%); transform-origin: 50% 100%; mix-blend-mode: screen; animation: brandFlame 1.1s ease-out var(--d) infinite; }
+html[data-game-mode="hard"] .brand-fx i:nth-child(odd) { animation-duration: 0.85s; height: 24px; }
+html[data-game-mode="hard"] .nav a.active, html[data-game-mode="hard"] .nav-group-trigger.active { background: rgba(239,68,68,0.28); }
+html[data-game-mode="hard"] .header-stats, html[data-game-mode="hard"] button.header-stats { border-color: rgba(248,113,113,0.35); }
+
+@keyframes brandShimmer { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+@keyframes brandFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes brandSway { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@keyframes brandHeat { from { background-position: 50% 0%; } to { background-position: 50% 100%; } }
+@keyframes brandBubble { 0% { transform: translateY(6px) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(var(--dx), -26px) scale(1.15); opacity: 0; } }
+@keyframes brandLeaf { 0% { transform: translate(0, -6px) rotate(0deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(var(--dx), 30px) rotate(240deg); opacity: 0; } }
+@keyframes brandTwinkle { 0%, 100% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1); opacity: 1; } }
+@keyframes brandFlame { 0% { transform: translateY(2px) scale(0.7, 0.55); opacity: 0.2; } 30% { opacity: 1; } 60% { transform: translateY(-5px) scale(0.95, 1.15); opacity: 0.95; } 100% { transform: translate(var(--dx), -14px) scale(0.45, 0.6); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-fx { display: none; }
+  html[data-game-mode] #site-brand, html[data-game-mode] .brand-text { animation: none; }
+}
+/* Logo plus petit (mobile, en-tete reduit au defilement) : effets a l'echelle. */
+@media (max-width: 640px) {
+  html[data-game-mode="hard"] .brand-fx i { width: 10px; height: 18px; margin-left: -5px; opacity: 0.85; }
+  html[data-game-mode="hard"] .brand-fx i:nth-child(odd) { height: 14px; }
+  html[data-game-mode="hard"] .brand-fx { inset: -6px -2px -2px; }
+  html[data-game-mode="chill"] .brand-fx i { width: 6px; height: 6px; }
+  html[data-game-mode="cool"] .brand-fx i { width: 4px; height: 4px; }
+}
+header#site-header.shrunk .brand-fx i { transform-origin: 50% 100%; }
+html[data-game-mode="hard"] header#site-header.shrunk .brand-fx i { height: 18px; width: 10px; }
+
+/* =====================================================================
+   BONUS ET MALUS DES MODES (2026-10-14) : annonce du mode, options du
+   mode Medium, decrafts annulables, cartes forgees, contrat, admin.
+   ===================================================================== */
+.mode-announce { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(4,5,12,0.82); backdrop-filter: blur(6px); animation: modalPopIn 0.25s ease both; }
+.mode-announce.closing { opacity: 0; transition: opacity 0.25s ease; }
+.mode-announce-card { --m: var(--accent); width: min(460px, 100%); display: grid; gap: 10px; justify-items: center; text-align: center; padding: 26px 22px; border-radius: 22px; background: var(--bg-panel-solid); border: 1px solid color-mix(in srgb, var(--m) 60%, transparent); box-shadow: 0 0 60px -10px color-mix(in srgb, var(--m) 70%, transparent); }
+.mode-cool .mode-announce-card { --m: #67e8f9; }
+.mode-chill .mode-announce-card { --m: #34d399; }
+.mode-medium .mode-announce-card { --m: #a78bfa; }
+.mode-hard .mode-announce-card { --m: #f87171; background: linear-gradient(180deg, rgba(127,29,29,0.55), var(--bg-panel-solid) 55%); }
+.mode-announce-icon { font-size: 3.4rem; animation: brandFloat 2.4s ease-in-out infinite; }
+.mode-announce-k { margin: 0; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+.mode-announce-card h2 { margin: 0; font-family: var(--font-brand); font-weight: 400; font-size: 2rem; color: var(--m); }
+.mode-announce-card ul { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 6px; text-align: left; width: 100%; }
+.mode-announce-card li { padding: 8px 12px; border-radius: 10px; font-size: 0.86rem; background: rgba(255,255,255,0.04); }
+.mode-announce-card-line { margin: 0; font-size: 0.84rem; color: var(--text-dim); }
+
+.mode-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-top: 10px; }
+.mode-opt { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border-soft); cursor: pointer; }
+.mode-opt:has(input:checked) { border-color: #a78bfa; background: rgba(167,139,250,0.15); }
+
+.undo-panel { margin: 0 0 14px; padding: 12px 14px; border-radius: 14px; background: rgba(103,232,249,0.06); border: 1px solid rgba(103,232,249,0.35); }
+.undo-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 8px; }
+.undo-head small { color: var(--text-dim); font-size: 0.78rem; }
+.undo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.undo-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.undo-name { display: grid; min-width: 0; font-weight: 600; font-size: 0.86rem; }
+.undo-name small { font-weight: 400; color: var(--text-dim); font-size: 0.74rem; }
+.forged-badge { filter: drop-shadow(0 0 4px rgba(251,146,60,0.9)); }
+
+.weekly-goal { display: grid; gap: 8px; }
+.goal-line { display: flex; justify-content: space-between; gap: 10px; font-size: 0.9rem; }
+.goal-line span { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.goal-done { margin: 0; font-size: 0.84rem; color: var(--success); }
+
+.preset-card-pick { display: grid; gap: 4px; font-size: 0.76rem; color: var(--text-dim); }
+.preset-card-pick select { padding: 6px 8px; border-radius: 8px; font-size: 0.8rem; max-width: 100%; }
+.decor-frame-inferno { box-shadow: 0 0 0 3px #f97316, 0 0 0 5px #7f1d1d, 0 0 18px rgba(239,68,68,0.85); animation: brandHeatFrame 1.4s ease-in-out infinite alternate; }
+.decor-frame-seasons { box-shadow: 0 0 0 3px #67e8f9, 0 0 0 5px #34d399, 0 0 0 7px #a78bfa, 0 0 0 9px #f87171; }
+@keyframes brandHeatFrame { from { box-shadow: 0 0 0 3px #f97316, 0 0 0 5px #7f1d1d, 0 0 12px rgba(239,68,68,0.6); } to { box-shadow: 0 0 0 3px #fde047, 0 0 0 5px #b91c1c, 0 0 22px rgba(251,146,60,0.95); } }
+@media (prefers-reduced-motion: reduce) { .mode-announce-icon, .decor-frame-inferno { animation: none; } }
+
+
+/* =====================================================================
+   SALLE DES MACHINES (2026-10-14) : laiton, vapeur et engrenages.
+   ===================================================================== */
+.machine-room { --brass: #d6a85c; --copper: #b8693d; display: grid; gap: 16px; padding: 18px; border-radius: 18px; background: radial-gradient(ellipse at 20% 0%, rgba(214,168,92,0.14), transparent 60%), linear-gradient(160deg, #1d1712, #120f0c 70%); border: 1px solid rgba(214,168,92,0.35); box-shadow: inset 0 0 40px rgba(0,0,0,0.6); }
+.mr-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.mr-head h2 { margin: 0; font-family: var(--font-brand); font-weight: 400; color: var(--brass); letter-spacing: 0.02em; }
+.mr-sub { margin: 4px 0 0; font-size: 0.86rem; line-height: 1.5; color: #d9cbb4; }
+.mr-sub strong { color: #ffe3a6; }
+.mr-gears { position: relative; width: 64px; height: 64px; }
+.mr-gears span { position: absolute; line-height: 1; filter: sepia(1) saturate(2.5) hue-rotate(-12deg) brightness(0.95); }
+.mr-gears .g1 { font-size: 2.6rem; left: 0; top: 4px; }
+.mr-gears .g2 { font-size: 1.6rem; right: 0; top: 0; }
+.mr-gears .g3 { font-size: 1.3rem; right: 4px; bottom: 0; }
+.mr-gears.spin .g1 { animation: mrSpin 6s linear infinite; }
+.mr-gears.spin .g2 { animation: mrSpin 4s linear infinite reverse; }
+.mr-gears.spin .g3 { animation: mrSpin 3s linear infinite; }
+.mr-gears.burst .g1 { animation-duration: 1.2s; }
+@keyframes mrSpin { to { transform: rotate(360deg); } }
+.mr-power { display: grid; justify-items: center; gap: 4px; min-width: 70px; }
+.mr-power span { position: relative; width: 14px; height: 54px; border-radius: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(214,168,92,0.5); overflow: hidden; }
+.mr-power span::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); background: linear-gradient(0deg, #f97316, #fde047); box-shadow: 0 0 10px rgba(253,224,71,0.6); transition: height 0.6s ease; }
+.mr-power b { font-size: 0.78rem; color: var(--brass); }
+.mr-path { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: none; }
+.mr-stage { position: relative; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,0.28); border: 1px solid rgba(214,168,92,0.18); }
+.mr-stage:not(:last-child)::after { content: ""; position: absolute; left: 34px; bottom: -11px; width: 2px; height: 10px; background: rgba(214,168,92,0.4); }
+.mr-stage.current { border-color: var(--brass); box-shadow: 0 0 0 1px rgba(214,168,92,0.4), 0 10px 30px -18px rgba(214,168,92,0.8); }
+.mr-stage.done { opacity: 0.75; }
+.mr-stage.locked { opacity: 0.45; }
+.mr-num { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font-size: 1.3rem; background: radial-gradient(circle at 35% 30%, #f3d29a, var(--copper)); color: #1d1712; box-shadow: inset 0 -3px 6px rgba(0,0,0,0.4); }
+.mr-stage.done .mr-num { background: radial-gradient(circle at 35% 30%, #bbf7d0, #15803d); color: #fff; }
+.mr-body { display: grid; gap: 4px; min-width: 0; }
+.mr-body strong { color: #f5e6c8; }
+.mr-body small { color: #b8a88d; font-size: 0.78rem; line-height: 1.45; }
+.mr-costs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.mr-cost { padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; color: #f5e6c8; background: rgba(214,168,92,0.12); border: 1px solid rgba(214,168,92,0.3); }
+.mr-cost em { font-style: normal; font-weight: 500; opacity: 0.8; }
+.mr-cost.ok { border-color: rgba(74,222,128,0.6); }
+.mr-cost.short { border-color: rgba(248,113,113,0.6); color: #fecaca; }
+.mr-go { white-space: nowrap; }
+.mr-vote { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: rgba(0,0,0,0.3); border: 1px dashed rgba(214,168,92,0.45); }
+.mr-vote.locked { opacity: 0.6; }
+.mr-vote h3 { margin: 0; color: var(--brass); }
+.mr-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 10px; }
+.mr-mode { --m: #a78bfa; display: grid; gap: 6px; justify-items: center; padding: 12px 10px; border-radius: 14px; font: inherit; color: var(--text); background: rgba(255,255,255,0.04); border: 1px solid color-mix(in srgb, var(--m) 45%, transparent); box-shadow: none; cursor: pointer; }
+.mr-mode::before { display: none; }
+.mr-mode:disabled { cursor: default; opacity: 0.85; }
+.mr-mode:not(:disabled):hover { transform: translateY(-2px); filter: none; border-color: var(--m); }
+.mr-mode.mode-cool { --m: #67e8f9; } .mr-mode.mode-chill { --m: #34d399; } .mr-mode.mode-medium { --m: #a78bfa; } .mr-mode.mode-hard { --m: #f87171; }
+.mr-mode.picked { border-color: var(--m); box-shadow: 0 0 0 2px var(--m), 0 0 24px -6px var(--m); }
+.mr-mode-icon { font-size: 1.8rem; }
+.mr-mode strong { color: var(--m); }
+.mr-bar { width: 100%; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.mr-bar > span { display: block; height: 100%; background: var(--m); border-radius: inherit; transition: width 0.5s ease; }
+.mr-mode small { font-size: 0.74rem; color: var(--text-dim); }
+.mr-note { margin: 0; font-size: 0.76rem; color: #b8a88d; }
+@media (max-width: 640px) {
+  .machine-room { padding: 12px; }
+  .mr-head { grid-template-columns: auto minmax(0, 1fr); }
+  .mr-power { display: none; }
+  .mr-stage { grid-template-columns: 40px minmax(0, 1fr); }
+  .mr-num { width: 38px; height: 38px; font-size: 1.1rem; }
+  .mr-go { grid-column: 1 / -1; width: 100%; }
+  .mr-stage:not(:last-child)::after { left: 31px; }
+  .mr-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .mr-gears span { animation: none !important; } }
+
+
+/* Fonctionnalite fermee dans le mode de jeu en cours (features.js). */
+.feature-closed { display: grid; justify-items: center; gap: 12px; max-width: 520px; margin: 48px auto; padding: 32px 20px; text-align: center; border-radius: 18px; background: var(--surface, rgba(255,255,255,0.04)); border: 1px solid var(--border, rgba(255,255,255,0.1)); }
+.feature-closed-icon { font-size: 3rem; filter: grayscale(0.6); }
+.feature-closed h1 { margin: 0; font-size: 1.4rem; }
+.feature-closed p { margin: 0; color: var(--text-dim); line-height: 1.55; }
+
+/* Admin : matrice fonctionnalites x modes. */
+.mf-zone { margin-top: 18px; }
+.mf-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.mf-head h3 { margin: 0; }
+.mf-help { margin: 6px 0 10px; font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
+.mf-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.mf-table th, .mf-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: center; }
+.mf-table th:first-child, .mf-table td:first-child { text-align: left; }
+.mf-table thead th { position: sticky; top: 0; background: var(--bg-elev, #15131f); font-weight: 700; }
+.mf-table th.current { color: var(--accent, #a78bfa); }
+.mf-table tr.mf-group td { padding-top: 14px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.mf-table td.current { background: rgba(167,139,250,0.08); }
+.mf-toggle { width: 34px; height: 26px; padding: 0; border-radius: 8px; font-size: 0.95rem; line-height: 1; box-shadow: none; background: rgba(74,222,128,0.14); border: 1px solid rgba(74,222,128,0.45); color: #4ade80; }
+.mf-toggle::before { display: none; }
+.mf-toggle.off { background: rgba(248,113,113,0.14); border-color: rgba(248,113,113,0.5); color: #f87171; }
+.mf-toggle:hover { transform: none; filter: brightness(1.2); }
+.mf-default { font-size: 0.7rem; color: var(--text-dim); }
+.mf-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

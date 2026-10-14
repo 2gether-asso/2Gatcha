@@ -18,6 +18,9 @@ import { previousSeason } from '../src/native/seasons.js';
 import * as balance from '../src/native/balance.js';
 import * as ledger from '../src/native/ledger.js';
 import { goldenWindow } from '../src/native/comfort.js';
+import * as modeperks from '../src/native/modeperks.js';
+import * as machine from '../src/native/machine.js';
+
 import { requestContext, freshContext } from '../src/native/context.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -689,8 +692,9 @@ await test('journal : origine inconnue tracee, lignes "autre" supprimees une foi
 await test('modes de jeu : Chill / Medium / Hard, apercu, annonce, personnalise', () => {
   assert.equal(call('POST', 'admin-preset', { body: { discordId: 'x' } }).status, 403);
   let st = call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json;
-  assert.equal(st.presets.length, 3);
-  assert.ok(['chill', 'medium', 'hard'].includes(st.recommendation.key));
+  assert.equal(st.presets.length, 4);
+  assert.ok(['cool', 'chill', 'medium', 'hard'].includes(st.recommendation.key));
+  assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.key, st.current === 'custom' ? (st.last ? st.last.key : 'medium') : st.current);
   const hard = st.presets.find((p) => p.key === 'hard');
   assert.ok(hard.changes.length > 0 && hard.changes.every((c) => c.label));
   st = call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'hard', announce: true } }).json;
@@ -818,6 +822,202 @@ await test('jardin vivant : plante fanee reduite, serie de recoltes', () => {
   assert.ok(h.items[0].worms <= 2, 'moitie de 3 a 5 vers');
   assert.equal(user(1).GardenStreak, 3);
   assert.equal(h.streak, 3);
+});
+
+// ------------------------------------------------------------------ bonus et malus des modes 2026-10-14
+const applyMode = (preset) => call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset } });
+const setS = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
+
+await test('mode Cool : calin, peche sans prise vide, taxes nulles, 2 trouvailles, jardin magique', () => {
+  applyMode('cool');
+  assert.equal(modeperks.modeKey(store), 'cool');
+  store.update('Users', 1, { HugDay: '' });
+  const st = { status: 200, json: { count: 1 } };
+  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, st);
+  assert.ok(st.json.hug, 'calin du jour');
+  assert.equal(st.json.gameMode.key, 'cool');
+  const fish = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.ok(!fish.table.some((x) => x.type === 'nothing'));
+  assert.equal(call('GET', 'economy-rules', { query: { userId: 1 } }).json.tradeTaxPerCard, 0);
+  store.update('Users', 1, { DogGiftDay: '', DogGiftCount: 0 });
+  call('POST', 'dog-gift', { body: { userId: 1, action: 'claim' } });
+  assert.equal(call('POST', 'dog-gift', { body: { userId: 1 } }).json.available, true, 'deuxieme trouvaille');
+  call('POST', 'dog-gift', { body: { userId: 1, action: 'claim' } });
+  assert.equal(call('POST', 'dog-gift', { body: { userId: 1 } }).json.available, false);
+  assert.equal(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours, 0);
+  const ev = call('GET', 'event-status', { query: {} }).json;
+  assert.ok(ev.gameMode.perks.length >= 5);
+});
+
+await test('mode Cool : decraft annulable pendant 24 h', () => {
+  const card = cards()[0];
+  const pid = mk(1, card.id, 'holo', 'good');
+  const req = { body: { userId: 1, cardId: card.id, pullId: pid } };
+  native.beforeWorkflow('disenchant', req);
+  store.delete('Pulls', pid);
+  const resp = { status: 200, json: { disenchanted: true, dustGained: 40, newStardust: 0 } };
+  native.afterWorkflow('disenchant', req, resp);
+  assert.ok(resp.json.undoId);
+  store.update('Users', 1, { StardustCount: 500 });
+  const list = call('POST', 'decraft-undo', { body: { userId: 1 } }).json;
+  assert.ok(list.items.some((x) => x.id === resp.json.undoId));
+  const before = store.getAll('Pulls').length;
+  const u = call('POST', 'decraft-undo', { body: { userId: 1, action: 'undo', id: resp.json.undoId } }).json;
+  assert.equal(u.undone, true);
+  assert.equal(store.getAll('Pulls').length, before + 1);
+  assert.equal(user(1).StardustCount, 500 - list.items.find((x) => x.id === resp.json.undoId).dust);
+  assert.equal(call('POST', 'decraft-undo', { body: { userId: 1, action: 'undo', id: resp.json.undoId } }).json.error, 'not_undoable');
+});
+
+await test('mode Chill : 4 defis, deux heures de chance, doublon porte-bonheur', () => {
+  applyMode('chill');
+  assert.equal(call('POST', 'challenges', { body: { userId: 1 } }).json.maxPicks, 4);
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(daily.luckyWindows('2026-10-14').length, 2, 'mercredi : deux heures');
+  // Doublon porte-bonheur force a 100 %.
+  setS({ ChillLuckyDuplicateChance: 1 });
+  const rar = store.getAll('Rarities').find((r) => r.Key === 'commune');
+  const ext = refIdOf(cards()[0].Extension);
+  const owned = store.create('Cards', { Name: 'Deja la', Active: true, Rarity: rar.id, Extension: ext });
+  const missing = store.create('Cards', { Name: 'Manquante', Active: true, Rarity: rar.id, Extension: ext });
+  store.create('Pulls', { User: 1, Card: owned.id, SerialNumber: 7701, BatchId: 'old-lucky' });
+  // Toutes les autres communes de l'extension sont possedees.
+  for (const c of store.getAll('Cards').filter((x) => x.Active && refIdOf(x.Rarity) === rar.id && refIdOf(x.Extension) === ext && x.id !== missing.id)) store.create('Pulls', { User: 1, Card: c.id, SerialNumber: 7800 + c.id, BatchId: 'old-lucky' });
+  const batchId = '1-lucky-' + Date.now();
+  store.create('Pulls', { User: 1, Card: owned.id, SerialNumber: 7702, BatchId: batchId });
+  const resp = { status: 200, json: { batchId, booster: { extensionId: ext }, cards: [{ cardId: owned.id, serialNumber: 7702, rarity: { id: rar.id, key: rar.Key, sortOrder: rar.SortOrder } }] } };
+  native.afterWorkflow('open-pack', { body: { userId: 1, extensionId: ext } }, resp);
+  assert.equal(resp.json.cards[0].cardId, missing.id);
+  assert.equal(resp.json.luckyDuplicates, 1);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'ChillLuckyDuplicateChance' } });
+});
+
+await test('mode Medium : pari, double tranchant, contrat de la semaine', () => {
+  applyMode('medium');
+  const rars = store.getAll('Rarities').filter((r) => r.Key !== 'unique').sort((a, b) => a.SortOrder - b.SortOrder);
+  const epic = store.getAll('Rarities').find((r) => r.Key === 'epique');
+  const ext = refIdOf(cards()[0].Extension);
+  // Pari gagnant.
+  store.update('Users', 1, { StardustCount: 1000 });
+  const req = { body: { userId: 1, extensionId: ext, bet: true } };
+  assert.equal(native.beforeWorkflow('open-pack', req), null);
+  assert.equal(req._bet, 100);
+  const resp = { status: 200, json: { batchId: 'bet-1', booster: { extensionId: ext }, cards: [{ cardId: 1, serialNumber: 1, rarity: { id: epic.id, key: 'epique', sortOrder: epic.SortOrder } }] } };
+  native.afterWorkflow('open-pack', req, resp);
+  assert.equal(resp.json.bet.won, true);
+  assert.equal(resp.json.bet.payout, 300);
+  assert.ok(user(1).StardustCount >= 1200, 'mise triplee');
+  // Double tranchant : 5 cartes -> 3, dont une rare ou mieux.
+  const commune = rars[0];
+  const pool = cards().filter((c) => refIdOf(c.Rarity) === commune.id && refIdOf(c.Extension) === ext);
+  const batchId = '1-edge-' + Date.now();
+  const list = [];
+  for (let i = 0; i < 5; i++) { const c = pool[i % pool.length]; store.create('Pulls', { User: 1, Card: c.id, SerialNumber: 9100 + i, BatchId: batchId }); list.push({ cardId: c.id, serialNumber: 9100 + i, rarity: { id: commune.id, key: commune.Key, sortOrder: commune.SortOrder } }); }
+  const r2 = { body: { userId: 1, extensionId: ext, edge: true } };
+  native.beforeWorkflow('open-pack', r2);
+  const e = { status: 200, json: { batchId, booster: { extensionId: ext }, cards: list } };
+  native.afterWorkflow('open-pack', r2, e);
+  assert.equal(e.json.cards.length, 3);
+  assert.equal(store.getAll('Pulls').filter((p) => p.BatchId === batchId).length, 3);
+  assert.ok(e.json.cards.some((c) => c.rarity.sortOrder >= rars[1].SortOrder));
+  // Contrat de la semaine.
+  const g = call('POST', 'weekly-goal', { body: { userId: 1 } }).json;
+  assert.equal(g.active, true);
+  assert.ok(g.label && g.target > 0);
+});
+
+await test('mode Hard : usure, arc-en-ciel forgee, boss enrage, taxe de luxe', () => {
+  applyMode('hard');
+  setS({ HardWearChance: 1, HardFinishLoss: 0 });
+  // Usure d'un doublon.
+  const card = cards()[1];
+  const a = mk(1, card.id, 'normal', 'mint'), b2 = mk(1, card.id, 'normal', 'mint');
+  store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1 && p.id !== a && p.id !== b2).forEach((p) => store.update('Pulls', p.id, { Quality: 'damaged' }));
+  store.update('Users', 1, { WearDay: '' });
+  const st = { status: 200, json: {} };
+  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, st);
+  assert.ok(st.json.wear, 'un doublon s est use');
+  // Arc-en-ciel forgee.
+  const batchId = '1-forge-' + Date.now();
+  const pid = store.create('Pulls', { User: 1, Card: card.id, SerialNumber: 9300, Finish: 'rainbow', BatchId: batchId }).id;
+  const resp = { status: 200, json: { batchId, cards: [{ cardId: card.id, serialNumber: 9300, finish: 'rainbow', rarity: { sortOrder: 1 } }] } };
+  native.afterWorkflow('open-pack', { body: { userId: 1 } }, resp);
+  assert.equal(store.get('Pulls', pid).ForgedInFire, true);
+  const coll = { status: 200, json: {} };
+  native.afterWorkflow('collection', { query: { userId: '1' }, body: {} }, coll);
+  assert.ok(coll.json.forgedPullIds.includes(pid));
+  // Taxe de luxe : plus riche que la moyenne -> x1,5.
+  store.getAll('Users').forEach((u) => store.update('Users', u.id, { LastSeenAt: now(), StardustCount: 100 }));
+  store.update('Users', 1, { StardustCount: 100000 });
+  assert.equal(modeperks.luxuryFactor(store, user(1)), 1.5);
+  assert.equal(modeperks.luxuryFactor(store, user(2)), 1);
+  for (const key of ['HardWearChance', 'HardFinishLoss']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+});
+
+await test('carte exclusive du mode : donnee une fois avec l objectif commun', () => {
+  const card = cards()[0];
+  setS({ ModeCards: { cool: 0, chill: 0, medium: 0, hard: card.id } });
+  store.update('Users', 1, { ModeCards: '[]' });
+  const got = modeperks.grantModeCard(store, 1);
+  assert.equal(got.cardId, card.id);
+  assert.equal(modeperks.grantModeCard(store, 1), null, 'une seule fois');
+  assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.card.cardId, card.id);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'ModeCards' } });
+  applyMode('medium');
+});
+
+await test('salle des machines : 5 sacrifices, vote, mode applique a la fin du vote', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachineVoteDay: 28, MachineRoomCosts: { keys: 2, dust: 10, worms: 1, parts: 1, bait: 1, boosters: 1, cards: 1 } } } });
+  store.update('Users', 1, { MachineMonth: '', MachineStage: 0, MachineVote: '', KeyCount: 1, StardustCount: 100, Worms: 5, SpareParts: 2, GoldBait: 2, BoosterCount: 2 });
+  let st = call('POST', 'machine-room', { body: { userId: 1 } }).json;
+  assert.equal(st.stages.length, 5);
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json.error, 'not_enough', 'il manque une cle');
+  store.update('Users', 1, { KeyCount: 2 });
+  const card = cards()[2];
+  mk(1, card.id, 'normal', 'worn'); mk(1, card.id, 'normal', 'worn');
+  for (let i = 0; i < 5; i++) st = call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json;
+  assert.equal(st.done, true);
+  assert.equal(user(1).KeyCount, 0);
+  assert.equal(user(1).BoosterCount, 1);
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1, action: 'vote', mode: 'cool' } }).json.voted, 'cool');
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1, action: 'vote', mode: 'hard' } }).json.error, 'already_voted');
+  // Fermeture du vote : le mode gagnant est applique.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachineVoteDay: 1 } } });
+  const r = store.getAll('AppSettings').find((x) => x.Key === 'machineRoom');
+  if (r) store.delete('AppSettings', r.id);
+  machine._reset();
+  const today = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()).slice(8, 10));
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  if (today > 1) {
+    assert.equal(modeperks.modeKey(store), 'cool');
+    assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.result.winner, 'cool');
+  }
+  for (const key of ['MachineVoteDay', 'MachineRoomCosts']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+});
+
+await test('fonctionnalites par mode : ecritures refusees, lectures permises, suggestions filtrees', () => {
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'cool' } });
+  // Par defaut : encheres fermees en Cool.
+  const denied = call('POST', 'auctions', { body: { userId: 1, action: 'create', pullId: 1, minBid: 10 } });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error, 'feature_disabled');
+  assert.equal(call('POST', 'auctions', { body: { userId: 1, action: 'list' } }).status, 200, 'lecture permise');
+  const off = call('GET', 'event-status', { query: {} }).json.gameMode.off.map((f) => f.key);
+  assert.ok(off.includes('auctions') && off.includes('blackMarket'), off.join(','));
+  // Matrice modifiee : peche fermee en Cool, encheres rouvertes.
+  const st = call('POST', 'admin-mode-features', { body: { discordId: ADMIN, action: 'set', matrix: { auctions: [], fishing: ['cool'] } } }).json;
+  assert.deepEqual(st.features.find((f) => f.key === 'fishing').off, ['cool']);
+  assert.notEqual(call('POST', 'auctions', { body: { userId: 1, action: 'create', pullId: 1, minBid: 10 } }).json.error, 'feature_disabled');
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json.error, 'feature_disabled');
+  store.update('Users', 1, { Worms: 50 });
+  const items = call('GET', 'what-now', { query: { userId: 1 } }).json.items;
+  assert.ok(!items.some((i) => i.key === 'fishing'), 'pas de suggestion de peche');
+  assert.equal(call('POST', 'admin-mode-features', { body: { userId: 1, action: 'set', matrix: {} } }).status, 403);
+  // Medium : tout ouvert.
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+  assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.off.length, 0);
+  call('POST', 'admin-mode-features', { body: { discordId: ADMIN, action: 'reset' } });
 });
 
 store.db.close();

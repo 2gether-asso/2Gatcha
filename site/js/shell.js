@@ -172,7 +172,7 @@ function setCount(el, n) {
 const RewardsCenter = {
   async collect() {
     const uid = Session.userId;
-    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes, box, dice, wheel, dogGift, gifts] = await Promise.all([
+    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes, box, dice, wheel, dogGift, gifts, goalSt] = await Promise.all([
       API.getQuestStatus(uid).catch(() => null),
       API.getWeeklyQuestStatus(uid).catch(() => null),
       API.getLevelRewardsStatus(uid).catch(() => null),
@@ -186,12 +186,14 @@ const RewardsCenter = {
       API.dailyDice ? API.dailyDice(uid).catch(() => null) : null,
       API.getDailyWheelStatus(uid).catch(() => null),
       API.dogGift ? API.dogGift(uid).catch(() => null) : null,
-      API.playerGift ? API.playerGift(uid).catch(() => null) : null
+      API.playerGift ? API.playerGift(uid).catch(() => null) : null,
+      API.weeklyGoal ? API.weeklyGoal(uid).catch(() => null) : null
     ]);
     const items = [];
     // Rituels du jour (2026-10-11) : ouverts aussi par "Tout récupérer", avec un récapitulatif.
     if (box?.available) items.push({ key: "box", icon: "&#127873;", label: "Boîte du jour à ouvrir", claim: () => API.dailyBox(uid, "open"), describe: (r) => r.item ? `${r.item.icon} ${r.item.label}` : "" });
     if (dice && !dice.rolled) items.push({ key: "dice", icon: "&#127922;", label: "Dé du jour à lancer", claim: () => API.dailyDice(uid, "roll"), describe: (r) => r.effect ? `${r.effect.icon} ${r.effect.label}` : "" });
+    if (goalSt?.active && goalSt.done && !goalSt.claimed) items.push({ key: "weekly-goal", icon: "&#128220;", label: `Contrat de la semaine rempli : ${goalSt.label}`, claim: () => API.weeklyGoal(uid, "claim"), describe: () => "&#127183; 1 booster + titre « Contractuel »" });
     if (dogGift?.available) items.push({ key: "dog-gift", icon: "&#128021;", label: "Le chien t'a rapporté une trouvaille", claim: () => API.dogGift(uid, "claim"), describe: (r) => (r.gift ? `${r.gift.icon} ${r.gift.label}` : "") });
     if (gifts?.received?.length) items.push({ key: "player-gifts", icon: "&#127873;", label: `${gifts.received.length} cadeau${gifts.received.length > 1 ? "x" : ""} de ${[...new Set(gifts.received.map((g) => g.from))].slice(0, 3).join(", ")}`, claim: () => API.playerGift(uid, "claim"), describe: () => gifts.received.map((g) => `${g.icon} ${g.label} (${g.from})`).join(" · ") });
     if (wheel?.canSpin) items.push({ key: "wheel", icon: "&#127905;", label: "Roue de la fortune à tourner", claim: () => API.spinDailyWheel(uid), describe: (r) => { const p = r.prize || {}; return p.type === "stardust" ? `&#10024; ${p.amount} poussières` : p.type === "booster" ? "&#127183; 1 booster" : p.type === "key" ? "&#128273; 1 clé" : p.type === "jackpot" ? `&#127881; Jackpot : ${p.amount} boosters + ${p.dust} poussières` : ""; } });
@@ -434,7 +436,7 @@ function renderHeader() {
       : "";
     el.innerHTML = `
       <div class="header-inner">
-        <span class="brand">2Gatcha</span>
+        <span class="brand" id="site-brand"><span class="brand-text">2Gatcha</span><span class="brand-fx" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span>
         ${links}
         <div class="user-box">
           <div class="inventory" id="inventory">
@@ -692,7 +694,7 @@ function renderHeader() {
   } else {
     el.innerHTML = `
       <div class="header-inner">
-        <span class="brand">2Gatcha</span>
+        <span class="brand" id="site-brand"><span class="brand-text">2Gatcha</span><span class="brand-fx" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span>
         ${links}
       </div>
     `;
@@ -728,12 +730,91 @@ async function checkMaintenanceMode() {
   }
 }
 
+// Mode de jeu (Cool / Chill / Medium / Hard, api/src/native/presets.js) :
+// couleurs de la barre de menu et animation du logo. Garde en local pour
+// s'appliquer des le chargement de la page suivante, sans clignotement.
+const GAME_MODE_TITLES = { cool: "Mode Cool 😎 : détente, boosters faciles", chill: "Mode Chill 🌴 : généreux", medium: "Mode Medium ⚖️ : équilibré", hard: "Mode Hard 🔥 : boosters rares, prix élevés" };
+// Premiere visite apres un changement de mode : annonce plein ecran.
+function announceGameMode(mode) {
+  const ICON = { cool: "😎", chill: "🌴", medium: "⚖️", hard: "🔥" };
+  const overlay = document.createElement("div");
+  overlay.className = "mode-announce mode-" + mode.key;
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.innerHTML = `
+    <div class="mode-announce-card">
+      <div class="mode-announce-icon" aria-hidden="true">${ICON[mode.key] || "🎮"}</div>
+      <p class="mode-announce-k">Le jeu passe en mode</p>
+      <h2>${escHtml(mode.label)}</h2>
+      ${mode.perks && mode.perks.length ? `<ul>${mode.perks.map((p) => `<li>${escHtml(p)}</li>`).join("")}</ul>` : ""}
+      ${mode.card ? `<p class="mode-announce-card-line">&#127183; Carte exclusive du mode : <strong>${escHtml(mode.card.name)}</strong>, avec l'objectif commun.</p>` : ""}
+      <button type="button" class="btn" data-close>C'est parti !</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => { overlay.classList.add("closing"); setTimeout(() => overlay.remove(), 250); };
+  overlay.addEventListener("click", (e) => { if (e.target === overlay || e.target.closest("[data-close]")) close(); });
+  overlay.querySelector("[data-close]").focus();
+}
+function applyGameMode(mode) {
+  const key = mode && GAME_MODE_TITLES[mode.key] ? mode.key : null;
+  if (!key) return;
+  let seen = null;
+  try { seen = localStorage.getItem("2gatcha_game_mode_seen"); localStorage.setItem("2gatcha_game_mode_seen", key); } catch (e) { /* stockage indisponible */ }
+  if (seen && seen !== key && typeof Session !== "undefined" && Session.isLoggedIn()) announceGameMode(mode);
+  document.documentElement.dataset.gameMode = key;
+  try { localStorage.setItem("2gatcha_game_mode", key); } catch (e) { /* stockage indisponible */ }
+  const brand = document.getElementById("site-brand");
+  if (brand) brand.title = GAME_MODE_TITLES[key];
+  applyModeFeatures(mode.off || [], mode);
+  try { localStorage.setItem("2gatcha_features_off", JSON.stringify(mode.off || [])); } catch (e) { /* stockage indisponible */ }
+}
+
+function leaveHiddenTab(tab) {
+  if (tab.getAttribute("role") !== "tab" || tab.offsetParent !== null || !tab.parentElement || getComputedStyle(tab).display !== "none") return;
+  const next = [...tab.parentElement.querySelectorAll('[role="tab"]')].find((t) => t !== tab && t.offsetParent !== null);
+  if (next) setTimeout(() => next.click(), 0);
+}
+
+// Fonctionnalites fermees dans le mode en cours (api/src/native/features.js) :
+// onglets, widgets et liens masques ; page fermee remplacee par un message ;
+// onglet actif masque -> premier onglet ouvert.
+function applyModeFeatures(off, mode) {
+  let style = document.getElementById("mode-features-style");
+  if (!style) { style = document.createElement("style"); style.id = "mode-features-style"; document.head.appendChild(style); }
+  const selectors = off.flatMap((f) => f.hide || []);
+  style.textContent = selectors.length ? selectors.join(",\n") + " { display: none !important; }" : "";
+  const run = () => {
+    const page = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+    const closed = off.find((f) => f.page && f.page === page);
+    const main = document.querySelector("main");
+    if (closed && main && !main.querySelector(".feature-closed")) {
+      const label = mode && mode.label ? mode.label : "ce mode";
+      // Contenu masque (pas supprime : les scripts de la page continuent de tourner).
+      [...main.children].forEach((el) => { el.hidden = true; });
+      main.insertAdjacentHTML("afterbegin", `<section class="feature-closed"><span class="feature-closed-icon" aria-hidden="true">${closed.icon}</span>
+        <h1>${escHtml(closed.label.replace(/\s*\(page\)$/, ""))}</h1>
+        <p>Fermé tant que le mode <strong>${escHtml(label)}</strong> est en cours. Ça rouvrira avec un autre mode de jeu.</p>
+        <a class="btn" href="index.html">Retour à l'accueil</a></section>`);
+    }
+    document.querySelectorAll('[role="tab"][aria-selected="true"]').forEach(leaveHiddenTab);
+    // Onglet masque choisi plus tard (lien #ancre, script de la page) : on repart.
+    if (!applyModeFeatures.observer) {
+      applyModeFeatures.observer = new MutationObserver((list) => list.forEach((m) => { if (m.target.getAttribute("aria-selected") === "true") leaveHiddenTab(m.target); }));
+      applyModeFeatures.observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["aria-selected"] });
+    }
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(run, 0)); else run();
+}
+try { const m = localStorage.getItem("2gatcha_game_mode"); if (m && GAME_MODE_TITLES[m]) document.documentElement.dataset.gameMode = m; } catch (e) { /* stockage indisponible */ }
+try { const off = JSON.parse(localStorage.getItem("2gatcha_features_off") || "[]"); if (Array.isArray(off) && off.length) applyModeFeatures(off, null); } catch (e) { /* stockage indisponible */ }
+
 // Week-end evenement (api/src/native/events.js) : bandeau festif tant qu'il dure.
 async function loadEventBanner() {
   const el = document.getElementById("site-header");
   if (!el) return;
   try {
     const ev = await API.getEventStatus();
+    if (ev && ev.gameMode) applyGameMode(ev.gameMode);
     if (!ev || !ev.active) return;
     const perks = [];
     if (ev.dustMultiplier > 1) perks.push(`poussières x${ev.dustMultiplier}`);
@@ -894,6 +975,12 @@ async function loadHeaderBoosterBadge() {
   try {
     const status = await API.getBoosterStatus(Session.userId);
     window.__hdrStatus = status;
+    // Bonus et malus du mode (modeperks.js).
+    if (typeof Toast !== "undefined") {
+      if (status.hug) Toast.success(`&#128526; Câlin du jour (mode Cool) : ${status.hug} !`);
+      if (status.wear) Toast.info(`&#129533; Usure (mode Hard) : un doublon de <strong>${escHtml(status.wear.card)}</strong> s'est abîmé.`);
+      if (status.modeUnlock) Toast.success(`&#127942; Débloqué : ${escHtml(status.modeUnlock)} !`);
+    }
     // Pluie de boosters (objectif commun atteint) : annonce une seule fois.
     if (status.rain && typeof Toast !== "undefined") {
       Toast.success(`&#127783;&#65039; Pluie de boosters ! +${status.rain.boosters} booster${status.rain.boosters > 1 ? "s" : ""} grâce à l'objectif commun.`);

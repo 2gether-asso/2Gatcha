@@ -67,7 +67,7 @@
     const days = Math.max(0, Math.ceil((st.endsAt - Date.now() / 1000) / 86400));
     $("challenges-sub").innerHTML = st.picksLeft
       ? `Choisis encore <strong>${st.picksLeft}</strong> défi${st.picksLeft > 1 ? "s" : ""} parmi les ${st.offered.length} proposés. Fin dans ${days} j.`
-      : `Tes 3 défis de la semaine : fin dans ${days} j. Les 3 accomplis = +${st.bonus.boosters} booster${st.bonus.boosters > 1 ? "s" : ""} bonus${st.bonus.claimed ? " (reçu)" : ""}.`;
+      : `Tes ${st.maxPicks || 3} défis de la semaine : fin dans ${days} j. Les ${st.maxPicks || 3} accomplis = +${st.bonus.boosters} booster${st.bonus.boosters > 1 ? "s" : ""} bonus${st.bonus.claimed ? " (reçu)" : ""}.${(st.maxPicks || 3) > 3 ? " Mode Chill : chaque défi rapporte aussi 2 fragments." : ""}`;
     $("challenges-list").innerHTML = st.offered.filter((c) => st.picksLeft || c.picked).map((c) => {
       const pct = Math.round((c.progress / c.target) * 100);
       return `<li class="challenge ${c.picked ? "picked" : ""} ${c.done ? "done" : ""} ${c.claimed ? "claimed" : ""}">

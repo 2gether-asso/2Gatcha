@@ -25,6 +25,7 @@ import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
 import { price as indexed, taxMultiplier } from './inflation.js';
+import { modeIs, luxuryFactor, addToPot } from './modeperks.js';
 import { addFeed } from './feed.js';
 
 export const schema = {
@@ -280,8 +281,10 @@ function settleAuctions(store, t = now()) {
     const bidder = refId(a.Bidder);
     if (bidder && Number(a.CurrentBid) > 0) {
       const seller = store.get('Users', refId(a.Seller));
-      const rate = Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store)) * (1 - (seller ? talentValue(seller, 'master') : 0));
+      const lux = luxuryFactor(store, seller);
+      const rate = modeIs(store, 'cool') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * lux) * (1 - (seller ? talentValue(seller, 'master') : 0));
       const tax = Math.round(Number(a.CurrentBid) * rate);
+      if (lux > 1 && tax > 0) addToPot(store, tax - tax / lux);
       if (pull) store.update('Pulls', pull.id, { User: bidder });
       if (seller) store.update('Users', seller.id, { StardustCount: dust(seller) + Number(a.CurrentBid) - tax });
       store.update('Auctions', a.id, { Status: 'sold', SettledAt: t, Tax: tax });
@@ -334,7 +337,7 @@ function auctionList(store, user) {
     open: all.filter((a) => a.Status === 'open').sort((a, b) => (a.EndsAt || 0) - (b.EndsAt || 0)).map((a) => withPrices(auctionView(store, a, user.id, users), a)),
     history: all.filter((a) => a.Status !== 'open' && (a.SettledAt || 0) > t - 7 * 86400 && (refId(a.Seller) === user.id || refId(a.Bidder) === user.id))
       .sort((a, b) => (b.SettledAt || 0) - (a.SettledAt || 0)).slice(0, 20).map((a) => auctionView(store, a, user.id, users)),
-    taxPct: Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
+    taxPct: modeIs(store, 'cool') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * luxuryFactor(store, user)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
     stardust: dust(user)
   };
 }

@@ -49,10 +49,14 @@ export const isHouseSource = (source) => !!source && houseOf().key === source;
 function parisOffsetHours(day) { return parisHour(Date.parse(day + 'T12:00:00Z')) - 12; }
 export function parisEpoch(day, hour) { return Math.floor((Date.parse(`${day}T${String(hour).padStart(2, '0')}:00:00Z`) - parisOffsetHours(day) * 3600e3) / 1000); }
 
+// Mode Chill (modeperks.js) : une deuxieme heure de chance en semaine.
+let extraLucky = false;
+export function setExtraLucky(on) { extraLucky = !!on; }
 export function luckyWindows(day = parisDay(0)) {
   const dow = new Date(day + 'T12:00:00Z').getUTCDay();
   const h = hash('lucky:' + day);
   const hours = dow === 0 || dow === 6 ? [11 + (h % 4), 18 + ((h >>> 8) % 4)] : [12 + (h % 10)];
+  if (extraLucky && hours.length === 1) hours.push(hours[0] >= 18 ? 10 : 21);
   return hours.map((hour) => ({ start: parisEpoch(day, hour), end: parisEpoch(day, hour) + 3600, hour }));
 }
 

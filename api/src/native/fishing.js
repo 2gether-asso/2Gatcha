@@ -25,6 +25,7 @@ import { levelInfo, weeklyXpFields } from './levels.js';
 import { eventState } from './events.js';
 import { grantCosmetic } from './cosmetics.js';
 import { upgradeValue } from './upgrades.js';
+import { modeIs } from './modeperks.js';
 
 export const schema = {
   Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' }, Worms: { type: 'Numeric' },
@@ -152,7 +153,8 @@ function fishingLevel(store, user) {
 // bait : appat dore du jardin (aucune prise vide, prises rares x2,5) ;
 // eventRare : multiplicateur d'un evenement "semaine de la peche".
 function lootTable(store, perks = { emptyReduction: 0, rareBoost: 0 }, weather = {}, { bait = false, eventRare = 1, deep = false } = {}) {
-  const loot = setting(store, deep ? 'DeepFishingLoot' : 'FishingLoot').filter((x) => x && LABELS[x.type] && Number(x.weight) > 0 && !(bait && x.type === 'nothing')).map((x) => {
+  const noEmpty = bait || modeIs(store, 'cool');
+  const loot = setting(store, deep ? 'DeepFishingLoot' : 'FishingLoot').filter((x) => x && LABELS[x.type] && Number(x.weight) > 0 && !(noEmpty && x.type === 'nothing')).map((x) => {
     let k = x.type === 'nothing' ? Math.max(0.05, 1 - perks.emptyReduction - (weather.emptyReduction || 0)) : x.type === 'dust' || x.type === 'pearl' ? 1 : (1 + perks.rareBoost + (weather.rareBoost || 0)) * eventRare * (bait ? 2.5 : 1);
     if (x.type === 'part') k *= 1 + (weather.partBoost || 0);
     return { ...x, weight: Number(x.weight) * k };

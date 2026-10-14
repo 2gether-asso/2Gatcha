@@ -14,6 +14,7 @@ import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
 import { price as indexed, taxMultiplier } from './inflation.js';
+import { modeIs, luxuryFactor, addToPot } from './modeperks.js';
 
 export const schema = {
   Users: {
@@ -30,10 +31,10 @@ function tradeTax(store, body) {
   const cards = (Number(body.offeredCardId) ? 1 : 0) + (Number(body.requestedCardId) ? 1 : 0);
   // Talent Maitre artisan (talents.js) : taxe divisee par 2.
   const user = store.get('Users', Number(body.userId));
-  return Math.round(tradeTaxPerCard(store) * Math.max(1, cards) * (1 - talentValue(user, 'master')));
+  return Math.round(tradeTaxPerCard(store) * Math.max(1, cards) * (1 - talentValue(user, 'master')) * luxuryFactor(store, user));
 }
 
-const tradeTaxPerCard = (store) => Math.round(setting(store, 'TradeTaxPerCard') * taxMultiplier(store));
+const tradeTaxPerCard = (store) => (modeIs(store, 'cool') ? 0 : Math.round(setting(store, 'TradeTaxPerCard') * taxMultiplier(store)));
 
 // --- prix de l'os ----------------------------------------------------------
 function bonePrice(store, user) {
@@ -65,7 +66,12 @@ export function afterWorkflow({ store, path, request, response }) {
   if (path === 'trade') {
     if (response.status === 200 && user && (body.action === 'create' || body.action === 'counter') && !response.json.error) {
       const tax = tradeTax(store, body);
-      if (tax > 0) { store.update('Users', user.id, { StardustCount: Math.max(0, dust(user) - tax) }); response.json.taxPaid = tax; }
+      if (tax > 0) {
+        store.update('Users', user.id, { StardustCount: Math.max(0, dust(user) - tax) });
+        response.json.taxPaid = tax;
+        const lux = luxuryFactor(store, user);
+        if (lux > 1) { addToPot(store, tax - tax / lux); response.json.luxuryTax = true; }
+      }
     }
     if (response.status === 200) response.json.tradeTaxPerCard = tradeTaxPerCard(store);
     return;
@@ -112,13 +118,14 @@ export function generateMarket(store, week = weekKey()) {
     const i = pool.findIndex((x) => (r -= x.w) <= 0);
     picked.push(pool.splice(i < 0 ? pool.length - 1 : i, 1)[0].c);
   }
-  const expires = weekEndsAt(week);
+  const hard = modeIs(store, 'hard');
+  const expires = hard ? Math.min(weekEndsAt(week), now() + 3 * 86400) : weekEndsAt(week);
   picked.forEach((c, i) => {
     const craft = Number(rarities.get(refId(c.Rarity))?.CraftCost) || 200;
     const deal = i === 0;
     store.create('BlackMarketOffers', {
       CardId: c.id, Cost: round10(craft * (deal ? setting(store, 'MarketDealMultiplier') : setting(store, 'MarketPriceMultiplier'))),
-      ExpiresAt: expires, Active: true, MaxPurchases: deal ? 2 : setting(store, 'MarketMaxPurchases'),
+      ExpiresAt: expires, Active: true, MaxPurchases: hard ? (deal ? 1 : 2) : deal ? 2 : setting(store, 'MarketMaxPurchases'),
       Label: deal ? 'Coup de cœur de la semaine' : null, Auto: true, Week: week
     });
   });
