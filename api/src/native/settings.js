@@ -37,8 +37,8 @@ export const REGISTRY = {
   ChestDustMax: { ...int('Poussières maximum', 120, 'Coffres', ''), storage: 'app' },
   ChestCardChance: { ...pct('Chance d’une carte', 0.7, 'Coffres', ''), storage: 'app' },
   ChestSecondCardChance: { ...pct('Chance d’une 2e carte', 0.2, 'Coffres', ''), storage: 'app' },
-  ChestBoosterChance: { ...pct('Chance d’un booster', 0.35, 'Coffres', ''), storage: 'app' },
-  ChestDoubleBoosterChance: { ...pct('Chance de 2 boosters', 0.08, 'Coffres', ''), storage: 'app' },
+  ChestBoosterChance: { ...pct('Chance d’un booster', 0.6, 'Coffres', ''), storage: 'app' },
+  ChestDoubleBoosterChance: { ...pct('Chance de 2 boosters', 0.15, 'Coffres', ''), storage: 'app' },
   ChestSpecialFinishChance: { ...pct('Chance de finition spéciale (cartes du coffre)', 0.15, 'Coffres', ''), storage: 'app' },
 
   // --- Peche
@@ -63,7 +63,7 @@ export const REGISTRY = {
       { type: 'pearl', weight: 6, min: 80, max: 180, label: 'Perle noire' },
       { type: 'bait', weight: 12, min: 1, max: 1, label: 'Appât doré' },
       { type: 'bone', weight: 6, min: 1, max: 2 },
-      { type: 'booster', weight: 4, min: 1, max: 1 },
+      { type: 'booster', weight: 12, min: 1, max: 1 },
       { type: 'chest', weight: 9, min: 1, max: 1 },
       { type: 'key', weight: 7, min: 1, max: 1 },
       { type: 'part', weight: 7, min: 1, max: 1, label: 'Pièce détachée' }
@@ -78,7 +78,7 @@ export const REGISTRY = {
       { type: 'nothing', weight: 28, label: 'Une vieille botte' },
       { type: 'dust', weight: 30, min: 10, max: 45 },
       { type: 'bone', weight: 8, min: 1, max: 1 },
-      { type: 'booster', weight: 3, min: 1, max: 1 },
+      { type: 'booster', weight: 10, min: 1, max: 1 },
       { type: 'chest', weight: 8, min: 1, max: 1 },
       { type: 'key', weight: 5, min: 1, max: 1 },
       { type: 'part', weight: 3, min: 1, max: 1, label: 'Pièce détachée' }
@@ -183,7 +183,9 @@ export const REGISTRY = {
   MarketPriceMultiplier: { ...num('Marché noir : prix (× coût de craft)', 1.5, 'Économie', '', 0.2, 10), storage: 'app' },
   MarketDealMultiplier: { ...num('Marché noir : prix du coup de cœur (× coût de craft)', 0.8, 'Économie', '', 0.1, 10), storage: 'app' },
   MarketMaxPurchases: { ...int('Marché noir : achats max par offre', 3, 'Économie', '', 1, 50), storage: 'app' },
-  EconomyAlertBoostersPerPlayer: { ...num('Alerte : boosters créés par joueur actif et par jour', 3, 'Économie', 'Au-delà, alerte dans le tableau de bord de l’économie.', 0.5, 100), storage: 'app' },
+  // Base (2026-10-15) : un joueur ouvre au moins ~30 boosters par jour ; alerte
+  // (et, 7 jours d'affilee, mode anti-inflation) au-dela de +50 %.
+  EconomyAlertBoostersPerPlayer: { ...num('Alerte : boosters créés par joueur actif et par jour', 45, 'Économie', 'Base : un joueur ouvre au moins ~30 boosters par jour. Au-delà de ce seuil (30 + 50 % de marge), alerte dans le tableau de bord de l’économie ; 7 jours d’alerte d’affilée activent le mode anti-inflation.', 0.5, 500), storage: 'app' },
   EconomyAlertDustRatio: { ...num('Alerte : poussières gagnées pour 1 dépensée', 3, 'Économie', '', 1, 100), storage: 'app' },
 
   // --- Serie de connexion
@@ -207,11 +209,15 @@ export const REGISTRY = {
   // --- Fouille / coffre-fort perso (lus par les workflows)
   DogBoneCost: { ...int('Prix d’un os (poussières)', 250, 'Fouille', 'Envoie le chien creuser 2 h.', 1), storage: 'config' },
   DigRegenSeconds: { ...int('Fouille : secondes pour regagner 1 énergie', 600, 'Fouille', 'Réduit de 5 % par niveau de fouille.', 30, 86400), storage: 'config' },
-  DigBoosterKeepChance: { ...pct('Fouille : chance de garder un booster trouvé', 0.5, 'Fouille', 'Sinon il devient 25 à 50 poussières. Au-delà du plein rendement du jour, jamais de booster.'), storage: 'app' },
-  DogBonesPerDay: { ...int('Chien : os utilisables par jour', 4, 'Fouille', '0 = illimité.', 0, 24), storage: 'app' },
-  DogBoosterDust: { ...int('Chien : poussières à la place d’un booster', 40, 'Fouille', 'Le chien ne rapporte plus de boosters.'), storage: 'app' },
-  DailyQuestRewardBoosters: { ...int('Quêtes du jour : boosters', 1, 'Boosters', '', 1, 20), storage: 'config' },
-  WeeklyQuestRewardBoosters: { ...int('Quêtes de la semaine : boosters', 3, 'Boosters', '', 1, 50), storage: 'config' },
+  DigBoosterKeepChance: { ...pct('Fouille : chance de garder un booster trouvé', 1, 'Fouille', 'Sinon il devient 25 à 50 poussières. Au-delà du plein rendement du jour, jamais de booster.'), storage: 'app' },
+  DogBonesPerDay: { ...int('Chien : os utilisables par jour', 6, 'Fouille', '0 = illimité. Le mode excité n’est pas compté.', 0, 24), storage: 'app' },
+  DogKeepBoosters: { label: 'Chien : il rapporte les boosters trouvés', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: 'Désactivé : chaque booster trouvé par le chien devient des poussières (réglage ci-dessous).' },
+  DogFrenzyBones: { ...int('Chien excité : os donnés d’un coup', 50, 'Fouille', 'Le chien creuse aussitôt plusieurs grilles entières (poussières ×2), puis il est fatigué. Hors limite d’os du jour.', 2, 1000), storage: 'app' },
+  DogFrenzyBoards: { ...int('Chien excité : grilles creusées d’un coup', 15, 'Fouille', '', 1, 100), storage: 'app' },
+  DogFrenzyRestHours: { ...int('Chien excité : heures de fatigue ensuite', 24, 'Fouille', 'Ni os ni mode excité pendant ce temps.', 0, 336), storage: 'app' },
+  DogBoosterDust: { ...int('Chien : poussières à la place d’un booster', 40, 'Fouille', 'Seulement si « le chien rapporte les boosters » est désactivé.'), storage: 'app' },
+  DailyQuestRewardBoosters: { ...int('Quêtes du jour : boosters', 5, 'Boosters', '', 1, 20), storage: 'config' },
+  WeeklyQuestRewardBoosters: { ...int('Quêtes de la semaine : boosters', 14, 'Boosters', '', 1, 50), storage: 'config' },
   DigLevelXpStep: { ...int('XP pour le niveau 2 de fouille', 20, 'Fouille', 'Chaque niveau suivant demande ce palier en plus (20, 60, 120…). 1 XP par case, +5 par trésor.', 1), storage: 'config' },
   VaultBoostersPerRow: { ...int('Coffre-fort : boosters par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
@@ -252,9 +258,9 @@ export const REGISTRY = {
   AuctionHours: { ...int('Enchères : durée (heures)', 24, 'Économie', '', 1, 168), storage: 'app' },
   ExchangeRateSwing: { ...num('Cours du décraft : variation max', 0.3, 'Économie', '0,30 = la valeur de décraft d’une rareté varie de −30 % à +30 % selon l’offre et la demande de la semaine passée (une rareté très décraftée perd de la valeur).', 0, 0.5), storage: 'app' },
   InsuranceCostPerTier: { ...int('Assurance : prix par rang de rareté', 40, 'Économie', 'Commune = 1 rang, rare = 2… Payé une fois.'), storage: 'app' },
-  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 450, 'Économie', '', 1), storage: 'app' },
+  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 300, 'Économie', '', 1), storage: 'app' },
   BoosterShopIncrease: { ...num('Boutique : hausse par booster acheté dans la semaine', 0.35, 'Économie', '', 0, 5), storage: 'app' },
-  BoosterShopWeeklyCap: { ...int('Boutique : boosters max par semaine', 3, 'Économie', '0 = boutique fermée.'), storage: 'app' },
+  BoosterShopWeeklyCap: { ...int('Boutique : boosters max par semaine', 14, 'Économie', '0 = boutique fermée.'), storage: 'app' },
   // --- Pity par rarete et booster mystere (pity.js)
   RarityPityMultiplier: { ...num('Pity par rareté : tirages garantis (× la moyenne)', 2.5, 'Boosters', 'Chaque rareté qui sort dans moins de 15 % des tirages est garantie après ce multiple du nombre moyen de tirages pour l’obtenir (2,5 × 17 = 43 pour une rareté à 6 %). 0 = désactivé.', 0, 20), storage: 'app' },
   MysteryFinishBonus: { ...pct('Booster mystère : bonus de finition spéciale', 0.03, 'Boosters', '0,03 = +3 points de chance de finition spéciale par carte.'), storage: 'app' },
@@ -279,8 +285,8 @@ export const REGISTRY = {
 
   // --- Confort et rendez-vous (comfort.js, rendezvous.js, 2026-10-11)
   RipenMaxPoints: { ...int('Booster mûri : points de finition au maximum', 3, 'Boosters', '+1 point de chance de finition spéciale par jour sans ouvrir de booster, appliqué au booster suivant. 0 = désactivé.', 0, 10), storage: 'app' },
-  ShardsPerBooster: { ...int('Fragments : nombre pour 1 booster', 10, 'Boosters', 'Gagnés en jouant (grilles de fouille, récoltes, prises vides, expéditions…). 0 = désactivé.', 0, 100), storage: 'app' },
-  ShardsDailyCap: { ...int('Fragments : maximum par jour', 6, 'Boosters', '0 = illimité.', 0, 100), storage: 'app' },
+  ShardsPerBooster: { ...int('Fragments : nombre pour 1 booster', 5, 'Boosters', 'Gagnés en jouant (grilles de fouille, récoltes, prises vides, expéditions…). 0 = désactivé.', 0, 100), storage: 'app' },
+  ShardsDailyCap: { ...int('Fragments : maximum par jour', 10, 'Boosters', '0 = illimité.', 0, 100), storage: 'app' },
   GoldenHourEnabled: { label: 'Heure dorée hebdomadaire', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Une heure par semaine (vendredi à dimanche, 18 h à 22 h), annoncée la veille.' },
   GoldenHourFinishMultiplier: { ...num('Heure dorée : finitions spéciales (×)', 2, 'Événements', '', 1, 5), storage: 'app' },
   BoosterRainEnabled: { label: 'Pluie de boosters (objectif commun)', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Objectif commun atteint : chaque joueur qui passe dans les 24 h reçoit des boosters.' },
@@ -359,7 +365,7 @@ export const REGISTRY = {
 
   // --- Pilotage de l'inflation (inflation.js)
   PriceIndexEnabled: { label: 'Prix indexés sur la richesse moyenne', type: 'bool', def: true, group: 'Inflation', storage: 'app', help: 'Boutique, os, relances, coffres : les prix suivent le solde moyen des joueurs actifs (14 jours).' },
-  WealthReference: { ...int('Richesse de référence (poussières)', 3000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },
+  WealthReference: { ...int('Richesse de référence (poussières)', 8000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },
   PriceIndexMax: { ...num('Hausse maximale des prix (×)', 2.5, 'Inflation', '2,5 = les prix indexés ne dépassent jamais 2,5 fois leur valeur de base.', 1, 10), storage: 'app' },
   AutoTightDays: { ...int('Mode anti-inflation : jours d’alerte avant activation', 7, 'Inflation', 'Jours d’affilée avec une alerte dans le tableau de l’économie.', 1, 60), storage: 'app' },
   TightCalmDays: { ...int('Mode anti-inflation : jours calmes avant retour à la normale', 3, 'Inflation', '', 1, 60), storage: 'app' },

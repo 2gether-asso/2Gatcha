@@ -16,7 +16,9 @@
 // (ou des le premier prestige), table DeepFishingLoot, lancer plus cher
 // (DeepFishingCostMult vers), nouvelles prises : perle noire (grosse somme de
 // poussieres) et appat dore.
-//   POST /webhook/fishing  { userId, action: 'status' | 'cast', count?: 1..5, zone?: 'shore' | 'deep' }
+//   POST /webhook/fishing  { userId, action: 'status' | 'cast', count?: 1..MAX_CASTS, zone?: 'shore' | 'deep' }
+// "Tout pecher" (2026-10-15) : jusqu'a MAX_CASTS lancers d'un coup (bornes par
+// les vers, les lancers du jour et les appats).
 
 import { ok, fail, userById, parisDay, now } from './common.js';
 import { setting } from './settings.js';
@@ -211,12 +213,13 @@ function statusOf(store, user) {
   };
 }
 
+const MAX_CASTS = 50;
 function handleFishing({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
   const st = statusOf(store, user);
   if (body.action !== 'cast') return ok(st);
-  const count = Math.min(5, Math.max(1, Number(body.count) || 1));
+  const count = Math.min(MAX_CASTS, Math.max(1, Math.floor(Number(body.count) || 1)));
   const deep = body.zone === 'deep';
   if (deep && !st.deep.unlocked) return fail('deep_locked', 400, st);
   const cost = deep ? st.deep.cost : st.cost;

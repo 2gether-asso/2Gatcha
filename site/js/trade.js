@@ -50,8 +50,11 @@ function formatSerial(serial) {
 // Libelle d'un exemplaire precis : numero + finition/etat, pour choisir en
 // connaissance de cause QUEL exemplaire on donne (jusqu'ici seul le numero
 // etait affiche - impossible de distinguer un Holo d'un normal).
+let editionByPull = {};
 function copyLabel(c) {
   const parts = [c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"];
+  const ed = editionByPull[c.pullId];
+  if (ed && EDITIONS[ed]) parts.push(EDITIONS[ed].icon + " " + EDITIONS[ed].label);
   if (c.finish && c.finish !== "normal") parts.push(FINISH_LABELS[c.finish] || c.finish);
   if (c.quality) parts.push(QUALITY_LABELS[c.quality] || c.quality);
   return parts.join(" · ");
@@ -142,6 +145,9 @@ async function loadFormOptions() {
   // joueur, pour choisir PRECISEMENT quelle carte donner (pas juste "une
   // carte au hasard parmi les doublons").
   ownedCopiesByCard = new Map((collection.owned || []).map((o) => [o.cardId, o.copies || []]));
+  editionByPull = collection.editionPulls || {};
+  // Exemplaires en edition limitee en tete de liste.
+  ownedCopiesByCard.forEach((list) => list.sort((a, b) => editionRank(editionByPull[a.pullId]) - editionRank(editionByPull[b.pullId])));
 
   allCards = (cardsRes.cards || []).filter((c) => !c.isPromo);
   myOwnedCards = allCards.filter((c) => myOwnedCountByCard.has(c.cardId));

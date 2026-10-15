@@ -313,6 +313,7 @@ function auctionView(store, a, me, users) {
   const bidder = users.get(refId(a.Bidder));
   return {
     id: a.id, card: card ? cardSummary(store, card) : null, serialNumber: a.Serial || null, finish: a.Finish || 'normal', quality: a.Quality || 'damaged', starred: !!a.Starred,
+    edition: (a.Pull && (store.get('Pulls', Number(a.Pull)) || {}).Edition) || null,
     seller: seller ? seller.Pseudo : '?', mine: refId(a.Seller) === me, startPrice: Number(a.StartPrice) || 0,
     currentBid: Number(a.CurrentBid) || 0, bids: Number(a.Bids) || 0, leading: refId(a.Bidder) === me, bidder: bidder ? bidder.Pseudo : null,
     minNext: minNext(a), endsAt: a.EndsAt, status: a.Status, settledAt: a.SettledAt || null

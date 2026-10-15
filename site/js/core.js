@@ -103,6 +103,23 @@ const SeasonCalendar = (() => {
   return { parisMidnight, upcoming };
 })();
 
+// Filtre par edition (2026-10-15) : options d'un <select> et test d'un filtre.
+// "" = toutes, "any" = avec edition, "none" = sans edition, sinon une cle.
+function editionFilterOptions(allLabel = "Toutes les éditions") {
+  return `<option value="">${allLabel}</option><option value="any">✨ Avec une édition</option><option value="none">Sans édition</option>`
+    + Object.entries(EDITIONS).map(([k, e]) => `<option value="${k}">${e.icon} ${escHtml(e.label)}</option>`).join("");
+}
+function editionMatches(filter, editions) {
+  if (!filter) return true;
+  const list = Array.isArray(editions) ? editions : [editions];
+  if (filter === "any") return list.some(Boolean);
+  if (filter === "none") return list.some((e) => !e);
+  return list.includes(filter);
+}
+// Rang d'une edition pour les tris (ordre du catalogue ; sans edition en dernier).
+const EDITION_RANK = Object.fromEntries(Object.keys(EDITIONS).map((k, i) => [k, i + 1]));
+const editionRank = (key) => (key && EDITION_RANK[key]) || 99;
+
 function editionBadge(key) {
   const e = EDITIONS[key];
   return e ? `<span class="edition-badge" data-edition="${key}" title="Édition limitée ${escHtml(e.label)}">${e.icon}<span class="eb-label"> ${escHtml(e.label)}</span></span>` : "";

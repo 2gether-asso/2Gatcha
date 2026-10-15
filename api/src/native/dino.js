@@ -640,6 +640,16 @@ export function afterWorkflow({ store, path, request, response }) {
     response.json.dinoCompanion = { name: s.name, hungry: dinos[i].food < 25 };
     return;
   }
+  // Mode excite du chien (50 os d'un coup, dig.json) : crane garanti.
+  if (path === 'dig' && body.action === 'frenzy' && response.json.frenzy) {
+    const u = store.get('Users', Number(body.userId));
+    if (!u) return;
+    const skulls = (Number(u.DinoSkulls) || 0) + 1;
+    store.update('Users', u.id, { DinoSkulls: skulls });
+    response.json.dinoSkull = { total: skulls, hatchBones: setting(store, 'DinoHatchBones'), guaranteed: true };
+    addFeed(store, { userId: u.id, kind: 'dino', icon: '💀', text: 'a lâché son chien en mode excité… et il a déterré un CRÂNE DE DINOSAURE !' });
+    return;
+  }
   // Fouille : chaque tuile creusee peut cacher un crane (extremement rare).
   if (path !== 'dig' || body.action !== 'dig' || !response.json.dug) return;
   if (Math.random() >= setting(store, 'DinoSkullChance')) return;

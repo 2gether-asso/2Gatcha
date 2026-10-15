@@ -400,13 +400,29 @@ function renderKennel(res) {
   // Os cumulables (2026-10-04) : redonner un os prolonge la sortie de 2 h,
   // tant que le chien n'a pas deja plus de 10 h devant lui.
   const bonesLeft = res.bonesLeftToday;
-  useBtn.disabled = bones < 1 || left > 10 * 3600 || bonesLeft === 0;
+  const tired = res.dogTiredSecondsLeft || 0;
+  useBtn.disabled = bones < 1 || left > 10 * 3600 || bonesLeft === 0 || tired > 0;
+  // Mode excite : beaucoup d'os d'un coup, plusieurs grilles tout de suite.
+  const frenzyBtn = document.getElementById("dig-frenzy-btn");
+  if (frenzyBtn) {
+    const need = res.frenzyBones || 0;
+    frenzyBtn.hidden = !need || (bones < need && !tired);
+    frenzyBtn.disabled = bones < need || left > 0 || tired > 0;
+    frenzyBtn.innerHTML = `&#129322; Mode excité (${need} os)`;
+    frenzyBtn.title = left > 0 ? "Attends que le chien rentre de sa sortie" : tired ? "Le chien se repose" : `${need} os d'un coup : il creuse ${res.frenzyBoards} grilles tout de suite (poussières ×2), rapporte un crâne de dinosaure garanti, puis il dort ${res.frenzyRestHours} h`;
+    frenzyBtn.dataset.boards = res.frenzyBoards || "";
+    frenzyBtn.dataset.rest = res.frenzyRestHours || "";
+  }
+  document.getElementById("dig-kennel-dog").classList.toggle("tired", tired > 0);
   useBtn.title = bonesLeft != null ? `Encore ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui` : "";
   useBtn.innerHTML = left > 0 ? "&#129460; Prolonger de 2 h" : "&#129460; Lancer le chien";
   document.getElementById("dig-kennel-dog").classList.toggle("digging", left > 0);
   const text = document.getElementById("dig-kennel-text");
   if (kennelTimer) { clearInterval(kennelTimer); kennelTimer = null; }
-  if (left > 0) {
+  if (tired > 0) {
+    const h = Math.floor(tired / 3600), m = Math.floor((tired % 3600) / 60);
+    text.textContent = `😴 Épuisé après sa folie de fouille, le chien dort encore ${h ? h + " h " : ""}${m} min. Ni os ni mode excité d'ici là.`;
+  } else if (left > 0) {
     let remaining = left;
     const render = () => {
       const h = Math.floor(remaining / 3600), m = Math.floor((remaining % 3600) / 60);
@@ -447,8 +463,8 @@ function showDogPostcard(r, parts) {
       <div class="dog-postcard-stamp" aria-hidden="true">&#128062;</div>
       <div class="dog-postcard-pic" aria-hidden="true">&#128021;&#9935;&#65039;</div>
       <div class="dog-postcard-text">
-        <div class="dog-postcard-title">Bons baisers du chantier !</div>
-        <p>Pendant ton absence, j'ai creusé <strong>${r.tiles} tuile${r.tiles > 1 ? "s" : ""}</strong>.</p>
+        <div class="dog-postcard-title">${r.frenzy ? "WOUAF WOUAF WOUAF !!!" : "Bons baisers du chantier !"}</div>
+        <p>${r.frenzy ? `Mode excité : j'ai retourné <strong>${r.boards || (r.frenzy && r.frenzy.boards) || ""} grilles</strong> d'un coup (${r.tiles} tuiles). Maintenant… je suis crevé. Zzz.` : `Pendant ton absence, j'ai creusé <strong>${r.tiles} tuile${r.tiles > 1 ? "s" : ""}</strong>.`}</p>
         ${parts.length ? `<ul>${parts.map((p) => `<li>${p}</li>`).join("")}</ul>` : "<p>Rien trouvé cette fois… mais j'ai bien remué la terre !</p>"}
         <div class="dog-postcard-sign">Ton chien, Wouf &#128062;</div>
       </div>
@@ -458,6 +474,34 @@ function showDogPostcard(r, parts) {
   overlay.addEventListener("click", (e) => { if (e.target === overlay || e.target.closest(".dog-postcard-close")) close(); });
   document.body.appendChild(overlay);
   syncScrollLock();
+}
+
+// Mode excite : confirmation, chien surexcite, puis carte postale speciale.
+async function dogFrenzy(btn) {
+  const need = btn.textContent.match(/\d+/);
+  const okGo = await Confirm.show(`Donner <strong>${need ? need[0] : ""} os d'un coup</strong> au chien ? Surexcité, il creuse <strong>${btn.dataset.boards} grilles entières</strong> tout de suite (poussières ×2) et rapporte à coup sûr un <strong>crâne de dinosaure</strong> 💀, puis il dort <strong>${btn.dataset.rest} h</strong> : ni os ni mode excité pendant ce temps.`, { title: "Mode excité", confirmText: "C'est parti !" });
+  if (!okGo) return;
+  btn.disabled = true;
+  const dog = document.getElementById("dig-kennel-dog");
+  dog.classList.add("frenzy");
+  try {
+    const res = await API.dogFrenzy(Session.userId);
+    await new Promise((r) => setTimeout(r, 1200));
+    dog.classList.remove("frenzy");
+    if (res.dogReport) res.dogReport.frenzy = res.frenzy || true;
+    announceDogReport(res.dogReport);
+    if (typeof confetti === "function") confetti({ particleCount: 160, spread: 110, origin: { y: 0.55 } });
+    // Crane de dinosaure garanti (api/src/native/dino.js).
+    if (res.dinoSkull) {
+      document.getElementById("tab-dino-btn").style.display = "";
+      setTimeout(() => Toast.success(`💀 Le chien a déterré un CRÂNE DE DINOSAURE ! Tu en as ${res.dinoSkull.total}. Avec ${res.dinoSkull.hatchBones} os, ramène-le à la vie dans l'onglet Dinos.`), 900);
+    }
+    await loadDig();
+  } catch (e) {
+    dog.classList.remove("frenzy");
+    btn.disabled = false;
+    Toast.error({ not_enough_bones: "Pas assez d'os pour le mode excité.", dog_tired: "Le chien se repose encore.", dog_busy: "Attends que le chien rentre de sa sortie." }[e.code] || friendlyError(e));
+  }
 }
 
 async function kennelAction(kind, btn) {
@@ -608,6 +652,16 @@ function renderFishing(st) {
   document.getElementById("fish-cast-btn").disabled = fishBusy || worms < st.cost || st.castsLeft === 0;
   document.getElementById("fish-cast5-btn").innerHTML = `Lancer ×5 (${st.cost * 5} &#129713;)`;
   document.getElementById("fish-cast5-btn").disabled = fishBusy || worms < st.cost * 5 || (st.castsLeft != null && st.castsLeft < 5);
+  // Tout pecher : autant de lancers que les vers (et les lancers du jour) le permettent.
+  const allBtn = document.getElementById("fish-castall-btn");
+  if (allBtn) {
+    const n = fishMaxCasts(st);
+    allBtn.hidden = n < 2 || n === 5;
+    allBtn.disabled = fishBusy;
+    allBtn.dataset.count = String(n);
+    allBtn.innerHTML = `&#127907; Tout pêcher (×${n})`;
+    allBtn.title = `${n} lancers d'un coup${n === FISH_MAX_CASTS ? ` (${FISH_MAX_CASTS} au plus)` : ""}`;
+  }
   document.getElementById("fish-table").innerHTML = `<thead><tr><th>Prise</th><th>Quantité</th><th>Chance</th></tr></thead><tbody>${st.table.map((x) => `
     <tr class="fish-row-${x.tier}"><td>${FISH_ICONS[x.type] || ""} ${x.label}</td><td>${x.type === "nothing" ? "—" : (x.min === x.max || x.max == null ? (x.min || 1) : `${x.min} à ${x.max}`)}</td><td>${x.chance} %</td></tr>`).join("")}</tbody>`;
 }
@@ -615,6 +669,18 @@ function renderFishing(st) {
 async function loadFishing() {
   try { renderFishing(await API.fishing(Session.userId, "status")); }
   catch (e) { document.getElementById("fish-status").textContent = "Impossible de charger la pêche."; }
+}
+
+// Lancers possibles d'un coup : vers (cout de la zone), lancers du jour,
+// appats dores si coches, et le plafond du serveur.
+const FISH_MAX_CASTS = 50;
+function fishMaxCasts(st) {
+  const deep = fishZone === "deep" && st.deep && st.deep.unlocked;
+  const cost = Math.max(1, deep ? st.deep.cost : st.cost);
+  let n = Math.floor((st.worms || 0) / cost);
+  if (st.castsLeft != null) n = Math.min(n, st.castsLeft);
+  if (document.getElementById("fish-bait")?.checked) n = Math.min(n, st.goldBait || 0);
+  return Math.max(0, Math.min(n, FISH_MAX_CASTS));
 }
 
 async function castFishing(count) {
@@ -644,7 +710,20 @@ async function castFishing(count) {
     catchEl.hidden = false;
     catchEl.className = "fish-catch tier-" + best.tier;
     catchEl.innerHTML = "";
-    for (const [i, c] of res.catches.entries()) {
+    // Gros lot : prises regroupees par type plutot qu'une par une.
+    if (res.catches.length > 6) {
+      const groups = new Map();
+      res.catches.forEach((c) => {
+        const g = groups.get(c.type) || { ...c, n: 0, amount: 0, first: false };
+        g.n++; g.amount += c.amount || 0; g.first = g.first || c.first;
+        groups.set(c.type, g);
+      });
+      const order = ["mythique", "legendaire", "epique", "rare", "commune", "nothing"];
+      [...groups.values()].sort((a, b) => order.indexOf(a.tier) - order.indexOf(b.tier)).forEach((g) => {
+        catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item tier-${g.tier}"><span class="fish-catch-icon">${FISH_ICONS[g.type] || ""}</span>${g.type === "nothing" ? `${g.label} <strong>×${g.n}</strong>` : g.type === "dust" || g.type === "pearl" ? `${fishCatchText(g)} <small>(×${g.n})</small>` : `${g.label} <strong>×${g.amount || g.n}</strong>`}${g.first ? ' <span class="fish-new">1re !</span>' : ""}</span>`);
+      });
+    }
+    for (const [i, c] of (res.catches.length > 6 ? [] : res.catches).entries()) {
       if (i) await fishWait(320);
       catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}${c.first ? ' <span class="fish-new">1re !</span>' : c.record ? ' <span class="fish-new">record !</span>' : ""}</span>`);
       if (typeof Sfx !== "undefined" && Sfx.click && res.catches.length > 1) Sfx.click();
@@ -1053,6 +1132,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("click", (e) => { const b = e.target.closest("[data-prestige]"); if (b) doPrestige(b.dataset.prestige); });
   document.getElementById("fish-cast-btn").addEventListener("click", () => castFishing(1));
   document.getElementById("fish-cast5-btn").addEventListener("click", () => castFishing(5));
+  document.getElementById("fish-castall-btn").addEventListener("click", (e) => { const n = Number(e.currentTarget.dataset.count) || 0; if (n > 0) castFishing(n); });
+  document.getElementById("fish-extras").addEventListener("change", (e) => { if (e.target.id === "fish-bait" && fishState) renderFishing(fishState); });
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));
   document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
@@ -1063,6 +1144,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("vault-open-btn").addEventListener("click", openVault);
   document.getElementById("dig-buy-bone-btn").addEventListener("click", (e) => kennelAction("buy", e.currentTarget));
   document.getElementById("dig-use-bone-btn").addEventListener("click", (e) => kennelAction("use", e.currentTarget));
+  document.getElementById("dig-frenzy-btn").addEventListener("click", (e) => dogFrenzy(e.currentTarget));
   // Onglet Coffre-fort cache tant que le joueur n'a jamais eu de clef : les
   // clefs et leurs usages se decouvrent en explorant, pas dans un menu.
   const initial = getInitialTab();

@@ -287,10 +287,13 @@ await test('encheres : sequestre, surenchere remboursee, vente reglee avec taxe'
 
 await test('boutique de boosters : prix croissant, plafond hebdomadaire', () => {
   store.update('Users', 1, { StardustCount: 5000, ShopWeek: '', ShopBought: 0 });
+  // Base 30 boosters/jour : 300 poussieres (+35 % par achat), plafond ramene a 3 pour le test.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BoosterShopWeeklyCap: 3 } } });
   const prices = [];
   for (let i = 0; i < 3; i++) prices.push(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.paid);
-  assert.deepEqual(prices, [450, 608, 765]);
+  assert.deepEqual(prices, [300, 405, 510]);
   assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.error, 'weekly_cap');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'BoosterShopWeeklyCap' } });
 });
 
 await test('restaurations repetees : supplement croissant pour la meme carte dans la semaine', () => {
@@ -391,13 +394,13 @@ await test('inflation : prix indexes sur la richesse, mode serre force (prix, ta
   inflation._reset();
   // Solde moyen 400 pour 100 de reference : racine(4) = 2 (plafond 2).
   assert.equal(call('GET', 'economy-state', { query: {} }).json.priceFactor, 2);
-  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, 900);
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, 600);
   set({ PriceIndexEnabled: false, InflationModeForce: 1 });
   inflation._reset();
   const st = call('GET', 'economy-state', { query: {} }).json;
   assert.equal(st.tight, true);
   assert.equal(st.priceFactor, 1.25);
-  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, Math.round(450 * 1.25));
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, Math.round(300 * 1.25));
   assert.equal(inflation.taxMultiplier(store), 1.5);
   assert.equal(inflation.gainMultiplier(store), 0.5);
   set({ InflationModeForce: 0 });
@@ -555,7 +558,7 @@ await test('evenements planifies : appliques tout seuls entre le debut et la fin
 // ------------------------------------------------------------------ equilibrage 2026-10-11
 await test('equilibrage : boosters de fouille et du chien convertis, os limites par jour', () => {
   const set = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
-  set({ DigBoosterKeepChance: 0 });
+  set({ DigBoosterKeepChance: 0, DogKeepBoosters: false, DogBonesPerDay: 4 });
   store.update('Users', 1, { BoosterCount: 10, StardustCount: 0, DigDay: '', DigDayCount: 0, BoneUseDay: '', BoneUseCount: 0 });
   // Fouille : booster trouve -> poussieres.
   const dig = { status: 200, json: { outcome: 'booster', boosterGranted: true, dustGained: 0, newBoosterCount: 10, newStardust: 0 } };
@@ -578,7 +581,7 @@ await test('equilibrage : boosters de fouille et du chien convertis, os limites 
     native.afterWorkflow('dig', { body: { userId: 1, action: 'useBone' } }, { status: 200, json: {} });
   }
   assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'useBone' } }).json.error, 'dog_daily_limit');
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DigBoosterKeepChance' } });
+  for (const key of ['DigBoosterKeepChance', 'DogKeepBoosters', 'DogBonesPerDay']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
 });
 
 await test('equilibrage : migration unique des reglages trop genereux (historique garde)', () => {
@@ -1614,6 +1617,101 @@ await test('coffres : achat et ouverture de plusieurs coffres d un coup, bornes 
   store.update('Users', 1, { KeyCount: 1 });
   r = call('POST', 'chests', { body: { userId: 1, action: 'open', count: 99 } }).json;
   assert.equal(r.opened, 1);
+});
+
+await test('coffre-fort : onglets par edition (apparus une fois l edition obtenue), classique sans edition', () => {
+  const vault = (action, extra = {}) => call('POST', 'personal-vault', { body: { userId: 1, action, ...extra } });
+  const vaultCard = store.getAll('Cards').find((c) => c.IsVault);
+  if (!store.getAll('Pulls').some((p) => p.User === 1 && p.Card === vaultCard.id && String(p.BatchId || '').startsWith('vault-'))) store.create('Pulls', { User: 1, Card: vaultCard.id, BatchId: 'vault-test1', SerialNumber: 950, Finish: 'rainbow', Quality: 'mint' });
+  // Aucune edition obtenue : pas d'onglet.
+  store.getAll('Pulls').filter((p) => p.User === 1 && p.Edition).forEach((p) => store.update('Pulls', p.id, { Edition: '' }));
+  if (store.tables.has('PullHistory')) store.getAll('PullHistory').filter((h) => h.User === 1).forEach((h) => store.delete('PullHistory', h.id));
+  let st = vault('status').json;
+  assert.equal(st.editions.length, 0);
+  // Une carte Maudite en parfait etat : l'onglet apparait, la carte y est rangeable.
+  const [c1, c2] = cards().slice(0, 2);
+  const cursed = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7001, Finish: 'gold', Quality: 'mint', Edition: 'cursed' });
+  st = vault('status').json;
+  assert.deepEqual(st.editions.map((e) => e.key), ['cursed']);
+  const tab = st.editions[0];
+  assert.ok(tab.sections.length >= 1 && tab.total >= 2);
+  const slot = tab.sections.flatMap((g) => g.slots).find((x) => x.cardId === c1.id);
+  assert.equal(slot.candidates[0].pullId, cursed.id);
+  // Le classique ignore les exemplaires en edition.
+  const row = st.rows.find((r) => r.cardId === c1.id);
+  assert.ok(!row || !row.slots.some((x) => x.candidates.some((c) => c.pullId === cursed.id)));
+  // Rangement : un emplacement par carte et par edition, sans toucher au classique.
+  st = vault('store', { pullId: cursed.id }).json;
+  assert.equal(st.editions[0].stored, 1);
+  const again = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7002, Finish: 'normal', Quality: 'mint', Edition: 'cursed' });
+  assert.equal(vault('store', { pullId: again.id }).json.error, 'slot_filled');
+  const plainGold = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7003, Finish: 'gold', Quality: 'mint' });
+  const classic = vault('store', { pullId: plainGold.id });
+  assert.equal(classic.status, 200, JSON.stringify(classic.json));
+  // Une autre edition : un onglet de plus ; usee : pas rangeable.
+  const worn = store.create('Pulls', { User: 1, Card: c2.id, SerialNumber: 7004, Finish: 'normal', Quality: 'worn', Edition: 'frost' });
+  st = vault('status').json;
+  assert.deepEqual(st.editions.map((e) => e.key).sort(), ['cursed', 'frost']);
+  assert.equal(vault('store', { pullId: worn.id }).json.error, 'not_mint');
+  // L'onglet reste si la carte a ete echangee (historique des tirages).
+  store.update('Pulls', worn.id, { User: 2 });
+  assert.ok(vault('status').json.editions.some((e) => e.key === 'frost'));
+});
+
+await test('inflation : base de 30 boosters par jour, seuil d alerte a 45, migration unique', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 45);
+  // Valeur basse enregistree (ancienne base) : relevee une seule fois, historique garde.
+  store.getAll('AppSettings').filter((r) => r.Key === 'inflation-2026-10-15').forEach((r) => store.delete('AppSettings', r.id));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EconomyAlertBoostersPerPlayer: 3 } } });
+  balance.migrateInflationBase(store);
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 45);
+  const log = JSON.parse(store.getAll('AppSettings').find((r) => r.Key === 'inflation-2026-10-15').Value);
+  assert.deepEqual([log.base, log.changes[0].from, log.changes[0].to], [30, 3, 45]);
+  // Deja faite : un nouveau reglage de l'admin n'est plus touche.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EconomyAlertBoostersPerPlayer: 20 } } });
+  balance.migrateInflationBase(store);
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 20);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
+});
+
+await test('equilibrage 30 boosters/jour : valeurs, migration unique, chien qui garde ses boosters, crane garanti au mode excite', () => {
+  // Valeurs par defaut.
+  for (const [k, v] of [['DigBoosterKeepChance', 1], ['DogBonesPerDay', 6], ['DailyQuestRewardBoosters', 5], ['WeeklyQuestRewardBoosters', 14], ['BoosterShopWeeklyCap', 14], ['ShardsPerBooster', 5], ['WealthReference', 8000]]) {
+    call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: k } });
+    assert.equal(setting(store, k), v, k);
+  }
+  assert.equal(setting(store, 'DogKeepBoosters'), true);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
+  assert.equal(setting(store, 'FishingLoot').find((x) => x.type === 'booster').weight, 10);
+  // Migration : reglages enregistres plus avares -> releves, une seule fois.
+  store.getAll('AppSettings').filter((r) => r.Key === 'balance-2026-10-15').forEach((r) => store.delete('AppSettings', r.id));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DigBoosterKeepChance: 0.5, DogBonesPerDay: 4, BoosterShopPrice: 450, DogKeepBoosters: false } } });
+  const cfg = store.getAll('Config')[0];
+  store.update('Config', cfg.id, { DailyQuestRewardBoosters: 1, WeeklyQuestRewardBoosters: 0 });
+  balance.migrateBalance30(store);
+  assert.deepEqual([setting(store, 'DigBoosterKeepChance'), setting(store, 'DogBonesPerDay'), setting(store, 'BoosterShopPrice'), setting(store, 'DogKeepBoosters')], [1, 6, 300, true]);
+  assert.deepEqual([store.getAll('Config')[0].DailyQuestRewardBoosters, store.getAll('Config')[0].WeeklyQuestRewardBoosters], [5, 14]);
+  const log = JSON.parse(store.getAll('AppSettings').find((r) => r.Key === 'balance-2026-10-15').Value);
+  assert.equal(log.base, 30);
+  assert.ok(log.changes.some((c) => c.key === 'DogBonesPerDay' && c.from === 4));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DogBonesPerDay: 2 } } });
+  balance.migrateBalance30(store);
+  assert.equal(setting(store, 'DogBonesPerDay'), 2);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DogBonesPerDay' } });
+  // Chien : ses boosters sont gardes (plus convertis en poussieres).
+  const before = user(1).BoosterCount || 0;
+  store.update('Users', 1, { BoosterCount: before + 3 });
+  const dog = { status: 200, json: { dogReport: { tiles: 24, boosters: 3, dust: 10, cards: [] } } };
+  balance.afterWorkflow({ store, path: 'dig', request: { body: { userId: 1, action: 'status' } }, response: dog });
+  assert.equal(user(1).BoosterCount, before + 3);
+  assert.equal(dog.json.dogReport.boosters, 3);
+  // Mode excite : crane de dinosaure garanti.
+  store.update('Users', 1, { DinoSkulls: 0 });
+  const fr = { status: 200, json: { frenzy: { boards: 15 }, dogReport: { tiles: 200, boosters: 0, cards: [] } } };
+  dinoMod.afterWorkflow({ store, path: 'dig', request: { body: { userId: 1, action: 'frenzy' } }, response: fr });
+  assert.equal(user(1).DinoSkulls, 1);
+  assert.ok(fr.json.dinoSkull && fr.json.dinoSkull.guaranteed);
 });
 
 store.db.close();

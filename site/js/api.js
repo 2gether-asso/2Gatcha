@@ -592,6 +592,10 @@ const API = {
   useBone(userId) {
     return this.post("dig", { userId, action: "useBone" });
   },
+  // Mode excite (2026-10-15) : beaucoup d'os d'un coup, plusieurs grilles creusees aussitot.
+  dogFrenzy(userId) {
+    return this.post("dig", { userId, action: "frenzy" });
+  },
 
   getBingoStatus(userId) {
     return this.post("bingo", { userId, action: "status" });

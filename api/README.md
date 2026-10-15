@@ -150,7 +150,7 @@ doublons, coup final au boss) sans le modifier.
 | `seasons.js` | `POST season`, `POST admin-season` | saison mensuelle : paliers d'XP du mois, carte exclusive au dernier palier |
 | `fishing.js` | `POST fishing`, `GET fishing-tournament` (+ après `dig`) | pêche : 1 ver par lancer, météo (relançable), carnet, appât doré, tournoi du week-end, rendements décroissants |
 | `unique.js` | `POST unique-counter` | rareté Unique (verte) : 1 Ticket Unique par ligne complète du coffre-fort, échangé au Comptoir contre la carte de son choix |
-| `personal-vault.js` | `POST personal-vault` | coffre-fort perso : lignes de 6 finitions, récompense + Ticket Unique |
+| `personal-vault.js` | `POST personal-vault` | coffre-fort perso : onglet Classique (cartes sans édition, lignes de 6 finitions, récompense + Ticket Unique) et un onglet par édition limitée déjà obtenue (cartes par rareté, une place par carte, parfait état, sans récompense) |
 | `levels.js` | `GET skills-leaderboard`, `POST prestige` (+ après `dig`) | niveaux de pêche et de fouille (1 à 10, chenil compris), prestige, classement de la semaine, rendements décroissants de la fouille |
 | `activity.js` | — | bus d'activité : chaque action devient des événements (défis, objectif commun, succès secrets) ; annonces renvoyées dans `notices` |
 | `challenges.js` | `POST challenges`, `POST community-goal` | défis de la semaine (5 proposés, 3 choisis) et objectif commun |

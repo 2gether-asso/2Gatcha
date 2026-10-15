@@ -718,7 +718,9 @@ await test('jardin, appat dore, grande fouille commune', () => {
   assert.equal(store.get('Users', 1).GoldBait, 0);
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', bait: true } }).json.error, 'not_enough_bait');
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
-  // Grande fouille : 5 coups par jour, grand tresor partage.
+  // Grande fouille : 5 coups par jour, grand tresor partage (fragments neutralises :
+  // un booster de fragments fausserait le compte).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ShardsPerBooster: 0 } } });
   store.update('Users', 1, { CDigDay: '', CDigCount: 0 });
   store.update('Users', 2, { CDigDay: '', CDigCount: 0 });
   let cd = call('POST', 'community-dig', { body: { userId: 2, action: 'status' } }).json;
@@ -734,6 +736,7 @@ await test('jardin, appat dore, grande fouille commune', () => {
   assert.equal(store.get('Users', 2).BoosterCount, b2 + 1, 'participant recompense');
   assert.equal(store.get('Users', 1).BoosterCount, b1 + 2, 'decouvreur : un de plus');
   for (let i = 1; i < 5; i++) call('POST', 'community-dig', { body: { userId: 1, action: 'dig', tile: empty[i] } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'ShardsPerBooster' } });
   assert.equal(call('POST', 'community-dig', { body: { userId: 1, action: 'dig', tile: empty[6] } }).json.error, 'no_digs_left');
 });
 

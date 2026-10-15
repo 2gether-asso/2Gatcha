@@ -19,6 +19,7 @@
   // Filtres par variante (finition, etat, #001) et vue Album.
   let finishFilter = "";
   let qualityFilter = "";
+  let editionFilter = "";
   let firstOnly = false;
   let albumMode = !!prefs.albumMode;
   let albumExt = null;
@@ -51,10 +52,12 @@
       quality: canAct && !!nextQuality && state.level >= FEATURE_UNLOCK_LEVEL.quality && (owned.qualityCounts?.[quality] || 0) >= 3
     };
   }
-  const variantFilterActive = () => !!(finishFilter || qualityFilter || firstOnly);
-  function variantMatches(finish, quality, serials) {
-    return (!finishFilter || finish === finishFilter) && (!qualityFilter || quality === qualityFilter) && (!firstOnly || serials.includes(1));
+  const variantFilterActive = () => !!(finishFilter || qualityFilter || editionFilter || firstOnly);
+  // editions : editions des exemplaires de la variante ("" = sans edition).
+  function variantMatches(finish, quality, serials, editions = [""]) {
+    return (!finishFilter || finish === finishFilter) && (!qualityFilter || quality === qualityFilter) && (!firstOnly || serials.includes(1)) && editionMatches(editionFilter, editions);
   }
+  const copyEditions = (copies) => (copies || []).map((c) => (state.editions && state.editions.get(c.pullId)) || "");
 
   function canDisenchant(card) {
     return (!card.isPromo || card.isSecret) && card.rarity?.disenchantValue != null;
@@ -101,19 +104,25 @@
   // ---------------------------------------------------------------- vignettes
   function protectedTilesHtml(card) {
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
-    return (state.protectedMap.get(card.cardId) || []).filter((c) => variantMatches(Coll.finishOf(c), "mint", c.serialNumber === 1 ? [1] : [])).map((c) => `
-      <a class="collection-card protected-card" href="coffre.html" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${Coll.finishOf(c)}" data-quality="mint" title="Rangée dans ton coffre-fort : clique pour la gérer">
+    return (state.protectedMap.get(card.cardId) || []).filter((c) => variantMatches(Coll.finishOf(c), "mint", c.serialNumber === 1 ? [1] : [], copyEditions([c]))).map((c) => `
+      <div class="collection-card protected-card" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${Coll.finishOf(c)}" data-quality="mint"${copyEditions([c])[0] ? ` data-edition="${copyEditions([c])[0]}"` : ""} title="Rangée dans ton coffre-fort : clique pour la gérer">
+        <button type="button" class="fav-btn ${favorites.has(card.cardId) ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>
         <div class="card-art">
           <img src="${imgSrc}" alt="${escapeHtml(card.name)}" loading="lazy" />
           ${Coll.finishOf(c) !== "normal" ? `<span class="finish-indicator" data-finish="${c.finish}">${FINISH_LABELS[c.finish]}</span>` : ""}
           <span class="quality-indicator" data-quality="mint">${QUALITY_LABELS.mint}</span>
           ${c.serialNumber === 1 ? `<span class="serial-one-badge">#001</span>` : ""}
+          ${copyEditions([c])[0] ? editionBadge(copyEditions([c])[0]) : ""}
         </div>
         <div class="card-info">
           <div class="card-name">${escapeHtml(card.name)}</div>
           <span class="protected-badge">&#128274; Protégé</span>
+          <div class="quick-actions-row">
+            <button type="button" class="card-quick-action quick-showcase-btn ${state.showcase.has(card.cardId) ? "active" : ""}" data-act="showcase" title="${state.showcase.has(card.cardId) ? "Retirer de ma vitrine" : "Ajouter à ma vitrine"}" aria-label="${state.showcase.has(card.cardId) ? "Retirer de ma vitrine" : "Ajouter à ma vitrine"}">&#128444;</button>
+            <a class="card-quick-action" href="coffre.html" title="Gérer au coffre-fort" aria-label="Gérer au coffre-fort">&#128274;</a>
+          </div>
         </div>
-      </a>`);
+      </div>`);
   }
 
   function lockedTileHtml(card) {
@@ -153,7 +162,7 @@
     const isNew = !!(owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(card.cardId));
     const name = escapeHtml(card.name);
 
-    return Coll.buildVariants(owned).filter((v) => variantMatches(v.finish, v.quality, v.serialNumbers)).map((variant, i) => {
+    return Coll.buildVariants(owned).filter((v) => variantMatches(v.finish, v.quality, v.serialNumbers, copyEditions(v.copies))).map((variant, i) => {
       const { finish, quality, count } = variant;
       const navKey = navKeyOf(card.cardId, finish, quality);
       const inBulk = bulkSelectMode && bulkEligible;
@@ -198,8 +207,8 @@
     if (variantFilterActive()) {
       cards = cards.filter((c) => {
         const owned = state.ownedMap.get(c.cardId);
-        if (owned && Coll.buildVariants(owned).some((v) => variantMatches(v.finish, v.quality, v.serialNumbers))) return true;
-        return (state.protectedMap.get(c.cardId) || []).some((cp) => variantMatches(Coll.finishOf(cp), "mint", cp.serialNumber === 1 ? [1] : []));
+        if (owned && Coll.buildVariants(owned).some((v) => variantMatches(v.finish, v.quality, v.serialNumbers, copyEditions(v.copies)))) return true;
+        return (state.protectedMap.get(c.cardId) || []).some((cp) => variantMatches(Coll.finishOf(cp), "mint", cp.serialNumber === 1 ? [1] : [], copyEditions([cp])));
       });
     }
     return cards;
@@ -210,6 +219,12 @@
     if (sortMode === "name") return [...cards].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     if (sortMode === "artist") return [...cards].sort((a, b) => (a.artist || "").localeCompare(b.artist || "") || (a.name || "").localeCompare(b.name || ""));
     if (sortMode === "recent") return [...cards].sort((a, b) => (state.ownedMap.get(b.cardId)?.lastObtainedAt || 0) - (state.ownedMap.get(a.cardId)?.lastObtainedAt || 0));
+    // Par edition : cartes ayant un exemplaire en edition d'abord (ordre du
+    // catalogue des editions), puis les autres ; nom ensuite.
+    if (sortMode === "edition") {
+      const best = (c) => Math.min(...copyEditions([...(state.ownedMap.get(c.cardId)?.copies || []), ...(state.protectedMap.get(c.cardId) || [])]).map(editionRank), 99);
+      return [...cards].sort((a, b) => (best(a) - best(b)) || (a.name || "").localeCompare(b.name || ""));
+    }
     // Par extension (SortOrder puis cle unique, pour garder chaque extension
     // contigue), puis numero de catalogue.
     return [...cards].sort((a, b) =>
@@ -314,6 +329,7 @@
         else if (a === "quality") repairQuality(cardId, act.dataset.quality);
         return;
       }
+      if (tile.classList.contains("protected-card") && !e.target.closest("a")) { location.href = "coffre.html"; return; }
       if (!tile.dataset.navKey) return;
       // Selection multiple : un clic n'importe ou sur la vignette la coche.
       if (bulkSelectMode && tile.classList.contains("bulk-mode")) {
@@ -898,8 +914,8 @@
     favoritesOnly = false;
     bulkSelectMode = false;
     bulkSelected.clear();
-    finishFilter = ""; qualityFilter = ""; firstOnly = false;
-    $("finish-filter").value = ""; $("quality-filter").value = "";
+    finishFilter = ""; qualityFilter = ""; editionFilter = ""; firstOnly = false;
+    $("finish-filter").value = ""; $("quality-filter").value = ""; $("edition-filter").value = "";
     $("first-serial-toggle").classList.remove("active");
     if (albumMode) { albumMode = false; document.body.classList.remove("album-view"); $("album-toggle").classList.remove("active"); Coll.savePrefs({ albumMode: false }); }
     document.body.classList.remove("dense-view", "cinema-mode");
@@ -974,6 +990,8 @@
     });
     $("finish-filter").addEventListener("change", (e) => { finishFilter = e.target.value; render(); });
     $("quality-filter").addEventListener("change", (e) => { qualityFilter = e.target.value; render(); });
+    $("edition-filter").innerHTML = editionFilterOptions();
+    $("edition-filter").addEventListener("change", (e) => { editionFilter = e.target.value; render(); });
     $("first-serial-toggle").addEventListener("click", (e) => { firstOnly = !firstOnly; e.currentTarget.classList.toggle("active", firstOnly); render(); });
     $("album-toggle").addEventListener("click", () => setAlbumMode(!albumMode));
     if (albumMode) { $("album-toggle").classList.add("active"); document.body.classList.add("album-view"); }
