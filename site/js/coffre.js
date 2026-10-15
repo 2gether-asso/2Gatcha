@@ -52,11 +52,17 @@ function pvApplyView(rows) {
 let pvLastData = null;
 
 // ------------------------------------------------------- onglets par edition
-// "Classique" = le coffre historique (cartes sans edition). Un onglet par
-// edition deja obtenue : cartes par rarete, un emplacement par carte.
+// "Classique" = cartes sans edition. Un onglet par edition deja obtenue, qui
+// marche comme le Classique : une ligne par carte, 6 finitions, recompense.
 const PV_TAB_KEY = "2gatcha_pv_tab";
 let pvTab = (() => { try { return localStorage.getItem(PV_TAB_KEY) || "classic"; } catch (e) { return "classic"; } })();
-const pvBestCandidate = (list) => list.slice().sort((a, b) => (b.serialNumber === 1) - (a.serialNumber === 1) || (a.serialNumber || 0) - (b.serialNumber || 0))[0];
+const pvEditionTab = () => (pvTab !== "classic" && pvLastData ? (pvLastData.editions || []).find((t) => t.key === pvTab) : null);
+// Lignes de l'onglet affiche.
+function pvCurrentRows() {
+  if (!pvLastData) return [];
+  const tab = pvEditionTab();
+  return tab ? tab.rows || [] : pvLastData.rows || [];
+}
 
 function pvRenderTabs(data) {
   const tabs = data.editions || [];
@@ -67,65 +73,21 @@ function pvRenderTabs(data) {
   const classicReady = (data.rows || []).flatMap(pvStorable).length;
   const btn = (key, html, ready) => `<button type="button" role="tab" class="pv-tab ${pvTab === key ? "active" : ""}" data-pv-tab="${key}" aria-selected="${pvTab === key}">${html}${ready ? `<span class="pv-tab-dot" title="${ready} à ranger">${ready}</span>` : ""}</button>`;
   bar.innerHTML = btn("classic", `🗃️ Classique <small>${classicStored}</small>`, classicReady)
-    + tabs.map((t) => btn(t.key, `${t.icon} ${escHtml(t.label)} <small>${t.stored}/${t.total}</small>`, t.ready)).join("");
-  const classic = pvTab === "classic";
-  ["pv-summary", "pv-rows"].forEach((id) => { document.getElementById(id).hidden = !classic; });
-  if (!classic) { document.getElementById("pv-toolbar").hidden = true; document.getElementById("pv-store-all").hidden = true; }
-  const ed = document.getElementById("pv-edition");
-  ed.hidden = classic;
-  if (!classic) pvRenderEdition(tabs.find((t) => t.key === pvTab));
-}
-
-function pvRenderEdition(tab) {
-  const box = document.getElementById("pv-edition");
-  if (!tab) { box.innerHTML = ""; return; }
-  const readyIds = tab.sections.flatMap((g) => g.slots).filter((s) => !s.stored && s.candidates.length).map((s) => pvBestCandidate(s.candidates).pullId);
-  box.innerHTML = `
-    <div class="pv-ed-head" data-edition="${tab.key}">
-      <span class="pv-ed-icon" aria-hidden="true">${tab.icon}</span>
-      <div><strong>Édition ${escHtml(tab.label)}</strong><small>${tab.stored} / ${tab.total} cartes rangées · une place par carte, n'importe quelle finition, en parfait état.</small></div>
-      ${readyIds.length ? `<button type="button" class="btn pv-ed-store-all" data-pull-ids="${readyIds.join(",")}">📥 Tout ranger (${readyIds.length})</button>` : ""}
-    </div>
-    ${tab.sections.map((g) => {
-      const color = g.rarity.colorHex || "#9aa0b4";
-      return `<section class="pv-ed-section" style="--r:${color}">
-        <h3 class="pv-ed-title"><span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${escHtml(g.rarity.name)}</span> <small>${g.filled} / ${g.slots.length}</small>
-          <span class="pv-row-bar" aria-hidden="true"><span style="width:${g.slots.length ? Math.round((g.filled / g.slots.length) * 100) : 0}%"></span></span></h3>
-        <div class="pv-ed-grid">${g.slots.map((s) => pvEditionSlot(tab.key, g.rarity, s)).join("")}</div>
-      </section>`;
-    }).join("")}`;
-}
-
-function pvEditionSlot(edition, rarity, s) {
-  const img = API.imageUrl(s.imageId) || "";
-  const name = escHtml(s.name);
-  if (s.stored) {
-    const f = s.stored.finish || "normal";
-    return `<div class="pv-ed-slot filled">
-      <div class="collection-card pv-mini" data-rarity="${rarity.key}" data-finish="${f}" data-quality="mint" data-edition="${edition}">
-        <div class="card-art"><img src="${img}" alt="${name}" loading="lazy" />${editionBadge(edition)}${f !== "normal" ? `<span class="finish-indicator" data-finish="${f}">${PV_FINISH_LABELS[f]}</span>` : ""}</div>
-      </div>
-      <div class="pv-slot-foot"><span class="pv-slot-label">${name} ${pvSerial(s.stored.serialNumber)}</span>
-        <button type="button" class="pv-withdraw" data-pull-id="${s.stored.pullId}" title="Retirer du coffre">Retirer</button></div>
-    </div>`;
-  }
-  const best = s.candidates.length ? pvBestCandidate(s.candidates) : null;
-  return `<div class="pv-ed-slot empty ${best ? "available" : ""}" title="${name}">
-    <div class="pv-ed-ghost">${img ? `<img src="${img}" alt="" loading="lazy" />` : ""}</div>
-    <span class="pv-slot-label">${name}</span>
-    ${best ? `<button type="button" class="pv-store" data-pull-id="${best.pullId}" title="Ranger ${pvSerial(best.serialNumber)} (${PV_FINISH_LABELS[best.finish] || ""})">Ranger ${pvSerial(best.serialNumber)}</button>` : `<span class="pv-slot-missing">&mdash;</span>`}
-  </div>`;
+    + tabs.map((t) => btn(t.key, `${t.icon} ${escHtml(t.label)} <small>${t.stored}</small>`, t.ready)).join("");
 }
 
 function pvRender(data) {
   pvLastData = data;
-  const allRows = data.rows || [];
+  pvRenderTabs(data);
+  const tab = pvEditionTab();
+  const allRows = pvCurrentRows();
   const rows = pvApplyView(allRows);
   const complete = allRows.filter((r) => r.complete).length;
   document.getElementById("pv-summary").innerHTML = `
+    ${tab ? `<div class="pv-kpi pv-kpi-edition" data-edition="${tab.key}"><strong>${tab.icon}</strong><span>Édition ${escHtml(tab.label)}</span></div>` : ""}
     <div class="pv-kpi"><strong>${allRows.reduce((n, r) => n + r.filled, 0)}</strong><span>cartes protégées</span></div>
     <div class="pv-kpi"><strong>${complete}</strong><span>ligne${complete > 1 ? "s" : ""} complète${complete > 1 ? "s" : ""}</span></div>
-    <div class="pv-reward-note">Ligne complète (6 finitions en parfait état) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>${pvUniqueNote(data.unique)}, une seule fois par carte. Les cartes promo ne vont pas au coffre.</div>
+    <div class="pv-reward-note">Ligne complète (6 finitions en parfait état${tab ? `, toutes en édition ${escHtml(tab.label)}` : ", sans édition"}) : <strong>${data.boostersPerRow} boosters + ${data.dustPerRow} poussières</strong>${pvUniqueNote(data.unique)}, une seule fois par carte${tab ? " et par édition" : ""}. Les cartes promo ne vont pas au coffre.</div>
   `;
   const box = document.getElementById("pv-rows");
   document.getElementById("pv-toolbar").hidden = allRows.length < 2;
@@ -135,13 +97,13 @@ function pvRender(data) {
   // Positions avant le rendu, pour faire glisser les lignes qui changent de place.
   const before = new Map([...box.querySelectorAll(".pv-row")].map((el) => [el.dataset.cardId, el.getBoundingClientRect().top]));
   if (!rows.length) {
-    pvRenderTabs(data);
     box.innerHTML = allRows.length
       ? `<p class="muted">Aucune ligne ne correspond à ce filtre.</p>`
-      : `<p class="muted">Aucune carte en parfait état pour l'instant. Restaure tes cartes (Craft &rarr; Qualité) pour pouvoir les ranger ici.</p>`;
+      : tab
+        ? `<p class="muted">Aucune carte en édition ${escHtml(tab.label)} en parfait état pour l'instant.</p>`
+        : `<p class="muted">Aucune carte en parfait état pour l'instant. Restaure tes cartes (Craft &rarr; Qualité) pour pouvoir les ranger ici.</p>`;
     return;
   }
-  pvRenderTabs(data);
   const readyCount = rows.filter((r) => pvStorable(r).length).length;
   box.innerHTML = rows.map((r, i) => {
     const ready = pvStorable(r);
@@ -156,11 +118,12 @@ function pvRender(data) {
         // data-finish/data-quality) : on recupere les effets de finition et
         // les etiquettes existants.
         return `<div class="pv-slot filled" data-finish="${f}">
-          <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="${f}" data-quality="mint">
+          <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="${f}" data-quality="mint"${tab ? ` data-edition="${tab.key}"` : ""}>
             <div class="card-art">
               <img src="${img}" alt="${r.name}" loading="lazy" />
               ${f !== "normal" ? `<span class="finish-indicator" data-finish="${f}">${PV_FINISH_LABELS[f]}</span>` : ""}
               <span class="quality-indicator" data-quality="mint">Parfait état</span>
+              ${tab ? editionBadge(tab.key) : ""}
               ${slot.stored.serialNumber === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
             </div>
           </div>
@@ -225,7 +188,7 @@ async function pvStoreMany(pullIds) {
   if (stored) Toast.success(`📥 ${stored} carte${stored > 1 ? "s" : ""} rangée${stored > 1 ? "s" : ""} au coffre.`);
   rewards.forEach((r) => {
     pvSealRow(r.cardId);
-    Toast.success(`Ligne ${r.cardName} complète ! +${r.boosters} boosters, +${r.dust} poussières${r.ticket ? " et un Ticket Unique 🎫" : ""}.`);
+    Toast.success(`Ligne ${r.cardName}${r.edition && EDITIONS[r.edition] ? " " + EDITIONS[r.edition].label : ""} complète ! +${r.boosters} boosters, +${r.dust} poussières${r.ticket ? " et un Ticket Unique 🎫" : ""}.`);
   });
   if (rewards.length) {
     if (typeof loadNavBadges === "function") loadNavBadges();
@@ -394,7 +357,7 @@ async function pvLoad(action, pullId) {
     if (action === "withdraw") Toast.info("Carte retirée du coffre : elle revient dans ta collection.");
     if (data.reward) {
       pvSealRow(data.reward.cardId);
-      Toast.success(`Ligne ${data.reward.cardName} complète ! +${data.reward.boosters} boosters, +${data.reward.dust} poussières${data.reward.ticket ? " et un Ticket Unique 🎫" : ""}.`);
+      Toast.success(`Ligne ${data.reward.cardName}${data.reward.edition && EDITIONS[data.reward.edition] ? " " + EDITIONS[data.reward.edition].label : ""} complète ! +${data.reward.boosters} boosters, +${data.reward.dust} poussières${data.reward.ticket ? " et un Ticket Unique 🎫" : ""}.`);
       if (typeof loadNavBadges === "function") loadNavBadges();
     }
     pvLoadCounter(data.reward && data.reward.ticket ? "new" : null);
@@ -418,14 +381,6 @@ document.addEventListener("DOMContentLoaded", () => {
     try { localStorage.setItem(PV_TAB_KEY, pvTab); } catch (err) { /* stockage indisponible */ }
     if (pvLastData) pvRender(pvLastData);
   });
-  document.getElementById("pv-edition").addEventListener("click", (e) => {
-    const all = e.target.closest(".pv-ed-store-all");
-    const store = e.target.closest(".pv-store");
-    const withdraw = e.target.closest(".pv-withdraw");
-    if (all) { all.disabled = true; pvStoreMany(all.dataset.pullIds.split(",").map(Number)); }
-    else if (store) pvLoad("store", Number(store.dataset.pullId));
-    else if (withdraw) pvLoad("withdraw", Number(withdraw.dataset.pullId));
-  });
   document.getElementById("pv-rows").addEventListener("click", (e) => {
     const store = e.target.closest(".pv-store");
     const withdraw = e.target.closest(".pv-withdraw");
@@ -444,7 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }));
   document.getElementById("pv-store-all").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
-    const ids = (pvLastData ? pvLastData.rows || [] : []).flatMap(pvStorable);
+    const ids = pvCurrentRows().flatMap(pvStorable);
     if (!ids.length) return;
     if (ids.length > 3 && !(await Confirm.show(`Ranger d'un coup les ${ids.length} cartes en parfait état qui ont une place libre au coffre ? Elles y seront protégées (tu peux les retirer quand tu veux).`, { title: "Tout ranger", confirmText: "Tout ranger" }))) return;
     btn.disabled = true;

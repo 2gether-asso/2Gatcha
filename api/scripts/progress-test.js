@@ -1619,7 +1619,7 @@ await test('coffres : achat et ouverture de plusieurs coffres d un coup, bornes 
   assert.equal(r.opened, 1);
 });
 
-await test('coffre-fort : onglets par edition (apparus une fois l edition obtenue), classique sans edition', () => {
+await test('coffre-fort : onglets par edition (apparus une fois l edition obtenue) qui marchent comme le classique', () => {
   const vault = (action, extra = {}) => call('POST', 'personal-vault', { body: { userId: 1, action, ...extra } });
   const vaultCard = store.getAll('Cards').find((c) => c.IsVault);
   if (!store.getAll('Pulls').some((p) => p.User === 1 && p.Card === vaultCard.id && String(p.BatchId || '').startsWith('vault-'))) store.create('Pulls', { User: 1, Card: vaultCard.id, BatchId: 'vault-test1', SerialNumber: 950, Finish: 'rainbow', Quality: 'mint' });
@@ -1634,17 +1634,33 @@ await test('coffre-fort : onglets par edition (apparus une fois l edition obtenu
   st = vault('status').json;
   assert.deepEqual(st.editions.map((e) => e.key), ['cursed']);
   const tab = st.editions[0];
-  assert.ok(tab.sections.length >= 1 && tab.total >= 2);
-  const slot = tab.sections.flatMap((g) => g.slots).find((x) => x.cardId === c1.id);
-  assert.equal(slot.candidates[0].pullId, cursed.id);
+  // Memes lignes que le classique : une par carte, 6 finitions.
+  const edRow = tab.rows.find((r) => r.cardId === c1.id);
+  assert.equal(edRow.slots.length, 6);
+  assert.equal(edRow.slots.find((x) => x.finish === 'gold').candidates[0].pullId, cursed.id);
+  assert.equal(tab.ready, 1);
   // Le classique ignore les exemplaires en edition.
   const row = st.rows.find((r) => r.cardId === c1.id);
   assert.ok(!row || !row.slots.some((x) => x.candidates.some((c) => c.pullId === cursed.id)));
-  // Rangement : un emplacement par carte et par edition, sans toucher au classique.
+  // Rangement : un emplacement par carte, par finition et par edition, sans toucher au classique.
   st = vault('store', { pullId: cursed.id }).json;
   assert.equal(st.editions[0].stored, 1);
-  const again = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7002, Finish: 'normal', Quality: 'mint', Edition: 'cursed' });
-  assert.equal(vault('store', { pullId: again.id }).json.error, 'slot_filled');
+  const dupGold = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7002, Finish: 'gold', Quality: 'mint', Edition: 'cursed' });
+  assert.equal(vault('store', { pullId: dupGold.id }).json.error, 'slot_filled');
+  // Ligne Maudite complete (6 finitions) : recompense une fois, notee avec l'edition.
+  const boostersBefore = store.get('Users', 1).BoosterCount || 0;
+  let reward = null;
+  for (const [i, finish] of ['normal', 'holo', 'ghost', 'diamond', 'rainbow'].entries()) {
+    const p = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7100 + i, Finish: finish, Quality: 'mint', Edition: 'cursed' });
+    const r = vault('store', { pullId: p.id });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    reward = r.json.reward || reward;
+  }
+  assert.equal(reward && reward.edition, 'cursed');
+  assert.ok((store.get('Users', 1).BoosterCount || 0) > boostersBefore);
+  const edDone = vault('status').json.editions[0].rows.find((r) => r.cardId === c1.id);
+  assert.ok(edDone.complete && edDone.claimed);
+  assert.ok(store.getAll('VaultRewards').some((r) => r.User === 1 && r.Card === c1.id && r.Edition === 'cursed'));
   const plainGold = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7003, Finish: 'gold', Quality: 'mint' });
   const classic = vault('store', { pullId: plainGold.id });
   assert.equal(classic.status, 200, JSON.stringify(classic.json));

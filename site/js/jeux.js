@@ -663,7 +663,8 @@ function renderFishing(st) {
     allBtn.title = `${n} lancers d'un coup${n === FISH_MAX_CASTS ? ` (${FISH_MAX_CASTS} au plus)` : ""}`;
   }
   document.getElementById("fish-table").innerHTML = `<thead><tr><th>Prise</th><th>Quantité</th><th>Chance</th></tr></thead><tbody>${st.table.map((x) => `
-    <tr class="fish-row-${x.tier}"><td>${FISH_ICONS[x.type] || ""} ${x.label}</td><td>${x.type === "nothing" ? "—" : (x.min === x.max || x.max == null ? (x.min || 1) : `${x.min} à ${x.max}`)}</td><td>${x.chance} %</td></tr>`).join("")}</tbody>`;
+    <tr class="fish-row-${x.tier}"><td>${FISH_ICONS[x.type] || ""} ${x.label}</td><td>${x.type === "nothing" ? "—" : (x.min === x.max || x.max == null ? (x.min || 1) : `${x.min} à ${x.max}`)}</td><td>${x.chance} %</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td colspan="3" class="muted">&#129430; En plus, si tu as un dino ou un crâne : &#128031; poisson, &#127807; algues ou &#129424; crevette pour le nourrir.</td></tr></tfoot>`;
 }
 
 async function loadFishing() {
@@ -728,14 +729,16 @@ async function castFishing(count) {
       catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}${c.first ? ' <span class="fish-new">1re !</span>' : c.record ? ' <span class="fish-new">record !</span>' : ""}</span>`);
       if (typeof Sfx !== "undefined" && Sfx.click && res.catches.length > 1) Sfx.click();
     }
-    for (const b of res.bycatch || []) {
+    // Nourriture des dinos : regroupee par type (utile pour les gros lots).
+    const bycatch = [...(res.bycatch || []).reduce((m, b) => m.set(b.type, { ...b, amount: (m.get(b.type)?.amount || 0) + b.amount }), new Map()).values()];
+    for (const b of bycatch) {
       await fishWait(250);
       catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item fish-bycatch">${b.icon} +${b.amount} ${b.label.toLowerCase()} <small>(pour tes dinos)</small></span>`);
     }
     status.textContent = (res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" ? "Pas de chance…" : "Belle prise !")) + (res.baitUsed ? " (appât doré)" : "") + (res.reducedRewards ? " · rendement réduit" : "");
     if (["epique", "legendaire", "mythique"].includes(best.tier) && typeof confetti === "function") confetti({ particleCount: best.tier === "mythique" ? 180 : 90, spread: 90, origin: { y: 0.55 } });
     const log = document.getElementById("fish-log");
-    log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join("") + (res.bycatch || []).map((b) => `<span class="fish-log-item fish-bycatch">${b.icon} +${b.amount} ${b.label.toLowerCase()}</span>`).join(""));
+    log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join("") + bycatch.map((b) => `<span class="fish-log-item fish-bycatch">${b.icon} +${b.amount} ${b.label.toLowerCase()}</span>`).join(""));
     while (log.children.length > 20) log.lastElementChild.remove();
     fishBusy = false;
     renderFishing(res);

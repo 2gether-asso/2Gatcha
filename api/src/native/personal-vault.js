@@ -13,9 +13,10 @@
 //
 // Onglets par edition (2026-10-15) : l'onglet "Classique" ne prend que les
 // cartes sans edition. Chaque edition limitee (editions.js) a son onglet, qui
-// n'apparait qu'une fois une carte de cette edition obtenue : les cartes y
-// sont rangees par rarete, un emplacement par carte (finition libre),
-// parfait etat uniquement. Pas de recompense de ligne pour les editions.
+// n'apparait qu'une fois une carte de cette edition obtenue, et qui marche
+// exactement comme le Classique : une ligne par carte, 6 emplacements (un par
+// finition), parfait etat, recompense de ligne complete une fois par carte ET
+// par edition (VaultRewards.Edition, vide = Classique).
 
 import { refId, now, ok, fail, userById, firstAttachment, parseJson } from './common.js';
 import { EDITIONS } from './editions.js';
@@ -26,7 +27,7 @@ export const FINISHES = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'
 
 export const schema = {
   Pulls: { InVault: { type: 'Bool' } },
-  VaultRewards: { User: { type: 'Ref:Users' }, Card: { type: 'Ref:Cards' }, ClaimedAt: { type: 'Numeric' } }
+  VaultRewards: { User: { type: 'Ref:Users' }, Card: { type: 'Ref:Cards' }, ClaimedAt: { type: 'Numeric' }, Edition: { type: 'Text' } }
 };
 
 const finishOf = (p) => p.Finish || 'normal';
@@ -37,13 +38,14 @@ function isUnlocked(store, userId) {
   return !!vaultCard && store.getAll('Pulls').some((p) => refId(p.User) === userId && refId(p.Card) === vaultCard.id && String(p.BatchId || '').startsWith('vault-'));
 }
 
-function buildRows(store, userId) {
+const editionOf = (p) => p.Edition || '';
+function buildRows(store, userId, edition = '') {
   const cards = store.getAll('Cards');
-  const myPulls = store.getAll('Pulls').filter((p) => refId(p.User) === userId);
-  const claimed = new Set(store.getAll('VaultRewards').filter((r) => refId(r.User) === userId).map((r) => refId(r.Card)));
+  const myPulls = store.getAll('Pulls').filter((p) => refId(p.User) === userId && editionOf(p) === edition);
+  const claimed = new Set(store.getAll('VaultRewards').filter((r) => refId(r.User) === userId && (r.Edition || '') === edition).map((r) => refId(r.Card)));
   const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
   return cards.filter((c) => !c.IsPromo).map((card) => {
-    const mine = myPulls.filter((p) => refId(p.Card) === card.id && qualityOf(p) === 'mint' && !p.Edition);
+    const mine = myPulls.filter((p) => refId(p.Card) === card.id && qualityOf(p) === 'mint');
     if (!mine.length && !claimed.has(card.id)) return null;
     const slots = FINISHES.map((f) => {
       const stored = mine.find((p) => p.InVault && finishOf(p) === f);
@@ -62,16 +64,16 @@ function buildRows(store, userId) {
 }
 
 // Ligne de cette carte devenue complete (et jamais recompensee) : recompense.
-function maybeReward(store, user, cardId) {
-  const row = buildRows(store, user.id).find((r) => r.cardId === cardId);
+function maybeReward(store, user, cardId, edition = '') {
+  const row = buildRows(store, user.id, edition).find((r) => r.cardId === cardId);
   if (!row || !row.complete || row.claimed) return null;
   const boosters = setting(store, 'VaultBoostersPerRow');
   const dust = setting(store, 'VaultDustPerRow');
   const u = store.get('Users', user.id);
   store.update('Users', user.id, { BoosterCount: (Number(u.BoosterCount) || 0) + boosters, StardustCount: (Number(u.StardustCount) || 0) + dust });
-  store.create('VaultRewards', { User: user.id, Card: cardId, ClaimedAt: now() });
+  store.create('VaultRewards', { User: user.id, Card: cardId, ClaimedAt: now(), ...(edition ? { Edition: edition } : {}) });
   addTicket(store, user.id);
-  return { cardId, cardName: row.name, boosters, dust, ticket: 1 };
+  return { cardId, cardName: row.name, boosters, dust, ticket: 1, edition: edition || null };
 }
 
 // Editions deja obtenues par le joueur : exemplaires actuels + historique
@@ -88,34 +90,18 @@ function editionsSeen(store, userId, myPulls) {
   return seen;
 }
 
-// Un onglet par edition obtenue : cartes groupees par rarete, un emplacement
-// par carte (n'importe quelle finition, parfait etat).
+// Un onglet par edition obtenue, avec les memes lignes que le Classique.
 function buildEditionTabs(store, userId) {
   const myPulls = store.getAll('Pulls').filter((p) => refId(p.User) === userId);
   const seen = editionsSeen(store, userId, myPulls);
-  if (!seen.size) return [];
-  const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
-  const cards = store.getAll('Cards').filter((c) => !c.IsPromo && !c.IsVault && c.Active !== false);
   return Object.entries(EDITIONS).filter(([key]) => seen.has(key)).map(([key, e]) => {
-    const groups = new Map();
-    let stored = 0, ready = 0;
-    for (const card of cards) {
-      const rarity = rarities.get(refId(card.Rarity));
-      if (!rarity) continue;
-      const mine = myPulls.filter((p) => refId(p.Card) === card.id && p.Edition === key && qualityOf(p) === 'mint');
-      const kept = mine.find((p) => p.InVault);
-      const candidates = mine.filter((p) => !p.InVault).map((p) => ({ pullId: p.id, serialNumber: p.SerialNumber, finish: finishOf(p) }));
-      if (kept) stored++; else if (candidates.length) ready++;
-      if (!groups.has(rarity.id)) groups.set(rarity.id, { rarity: { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 }, slots: [] });
-      groups.get(rarity.id).slots.push({
-        cardId: card.id, name: card.Name, imageId: firstAttachment(card.Image),
-        stored: kept ? { pullId: kept.id, serialNumber: kept.SerialNumber, finish: finishOf(kept) } : null, candidates
-      });
-    }
-    const sections = [...groups.values()].sort((a, b) => b.rarity.sortOrder - a.rarity.sortOrder).map((g) => ({
-      ...g, slots: g.slots.sort((a, b) => a.name.localeCompare(b.name)), filled: g.slots.filter((x) => x.stored).length
-    }));
-    return { key, label: e.label, icon: e.icon, stored, ready, total: sections.reduce((n, g) => n + g.slots.length, 0), sections };
+    const rows = buildRows(store, userId, key);
+    return {
+      key, label: e.label, icon: e.icon, rows,
+      stored: rows.reduce((n, r) => n + r.filled, 0),
+      ready: rows.reduce((n, r) => n + r.slots.filter((x) => !x.stored && x.candidates.length).length, 0),
+      complete: rows.filter((r) => r.complete).length
+    };
   });
 }
 
@@ -152,14 +138,10 @@ function handleVault({ store, body }) {
     if (!card || card.IsPromo) return fail('promo_not_storable');
     if (qualityOf(target) !== 'mint') return fail('not_mint');
     const mine = store.getAll('Pulls').filter((p) => refId(p.User) === user.id && refId(p.Card) === cardId);
-    if (target.Edition) {
-      if (mine.some((p) => p.InVault && p.Edition === target.Edition)) return fail('slot_filled');
-      store.update('Pulls', target.id, { InVault: true });
-      return ok(payload(store, user.id));
-    }
-    if (mine.some((p) => p.InVault && !p.Edition && finishOf(p) === finishOf(target))) return fail('slot_filled');
+    const ed = editionOf(target);
+    if (mine.some((p) => p.InVault && editionOf(p) === ed && finishOf(p) === finishOf(target))) return fail('slot_filled');
     store.update('Pulls', target.id, { InVault: true });
-    return ok(payload(store, user.id, maybeReward(store, user, cardId)));
+    return ok(payload(store, user.id, maybeReward(store, user, cardId, ed)));
   }
 
   return fail('unknown_action');
