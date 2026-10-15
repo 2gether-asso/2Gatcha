@@ -171,7 +171,7 @@
             <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
             ${variant.serialNumbers.includes(1) ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
             ${edition ? editionBadge(edition) : ""}
-            <span class="tile-marks">${i === 0 && state.firstMine && state.firstMine.has(card.cardId) ? `<span class="first-mine-badge" title="Tu as été le premier du serveur à l'obtenir${state.firstMine.get(card.cardId) ? " (" + new Date(state.firstMine.get(card.cardId) * 1000).toLocaleDateString("fr-FR") + ")" : ""}">&#129351;</span>` : ""}${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? '<span class="star-badge" title="Exemplaire ★">&#9733;</span>' : ""}${variant.copies.some((c) => state.insured && state.insured.has(c.pullId)) ? '<span class="insured-badge" title="Exemplaire assuré">&#128737;&#65039;</span>' : ""}${variant.copies.some((c) => state.forged && state.forged.has(c.pullId)) ? '<span class="forged-badge" title="Forgée dans les flammes (arc-en-ciel obtenue en mode Hard)">&#128293;</span>' : ""}</span>
+            <span class="tile-marks">${i === 0 && state.firstMine && state.firstMine.has(card.cardId) ? `<span class="first-mine-badge" title="Tu as été le premier du serveur à l'obtenir${state.firstMine.get(card.cardId) ? " (" + new Date(state.firstMine.get(card.cardId) * 1000).toLocaleDateString("fr-FR") + ")" : ""}">&#129351;</span>` : ""}${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? '<span class="star-badge" title="Exemplaire ★">&#9733;</span>' : ""}${variant.copies.some((c) => state.insured && state.insured.has(c.pullId)) ? '<span class="insured-badge" title="Exemplaire assuré">&#128737;&#65039;</span>' : ""}${variant.copies.some((c) => state.forged && state.forged.has(c.pullId)) ? '<span class="forged-badge" title="Forgée dans les flammes (arc-en-ciel obtenue en mode Hard)">&#128293;</span>' : ""}${state.mastered && state.mastered.has(card.cardId) ? '<span class="master-badge" title="Maître : les 6 finitions de cette carte">&#128081;</span>' : ""}</span>
           </div>
           <div class="card-info">
             <div class="card-name">${name}${card.isPromo && card.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}</div>
@@ -485,8 +485,10 @@
       const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
       const isFirstObtainer = card.firstObtainedBy && card.firstObtainedBy === Session.pseudo;
       const disenchantable = owned && canDisenchant(card);
+      // Edition limitee de la variante affichee (effet + badge, comme sur la vignette).
+      const modalEdition = state.editions && copies ? (copies.map((c) => state.editions.get(c.pullId)).find(Boolean) || "") : "";
       overlay.innerHTML = `
-        <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}" role="dialog" aria-modal="true" aria-label="${escapeHtml(card.name)}">
+        <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}"${modalEdition ? ` data-edition="${modalEdition}"` : ""} role="dialog" aria-modal="true" aria-label="${escapeHtml(card.name)}">
           <button class="card-modal-close" aria-label="Fermer">&times;</button>
           <div class="card-art">
             <img src="${imgSrc}" alt="${escapeHtml(card.name)}" />
@@ -502,6 +504,7 @@
               ${owned && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;">${FINISH_LABELS[finish]}</span>` : ""}
               ${owned ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;">${QUALITY_LABELS[quality]}</span>` : ""}
               ${serials.includes(1) ? `<span class="serial-one-badge" style="position:static;" title="Premier exemplaire en circulation">#001</span>` : ""}
+              ${modalEdition ? editionBadge(modalEdition).replace('class="edition-badge"', 'class="edition-badge" style="position:static;"') : ""}
             </div>
             ${owned ? `<div class="card-modal-stats"><span>Possédée &times;${copies.length}${owned.count > copies.length ? ` (${owned.count} toutes variantes)` : ""}</span>${serials.length ? `<span>${serials.map(Coll.serial).join(", ")}</span>` : ""}</div>` : ""}
             ${card.description ? `<p class="card-modal-description">${escapeHtml(card.description)}</p>` : ""}
@@ -543,7 +546,9 @@
           Coll.setMode("disenchant");
         }
       }));
-      if (finish !== "normal") Coll.attachTilt(overlay.querySelector(".card-modal"));
+      // Inclinaison 3D, verso, historique, cote, partage (card-extras.js).
+      if (window.CardExtras) CardExtras.attach(overlay.querySelector(".card-modal"), { card, copies, finish, quality, edition: modalEdition, owned: !!owned, number: state.cardNumber.get(card.cardId) });
+      else if (finish !== "normal") Coll.attachTilt(overlay.querySelector(".card-modal"));
       // Assurance et carte ★ (api/src/native/market.js, progression.js).
       overlay.querySelectorAll("[data-insure]").forEach((btn) => btn.addEventListener("click", async () => {
         const pullId = Number(btn.dataset.insure);
@@ -560,7 +565,7 @@
           Toast.success(on ? "Assurance retirée." : "&#128737;&#65039; Exemplaire assuré.");
           renderAt(index, null);
           Coll.refresh();
-        } catch (e) { btn.disabled = false; Toast.error(e.code === "not_enough_dust" ? "Pas assez de poussières." : "Erreur. (" + e.message + ")"); }
+        } catch (e) { btn.disabled = false; Toast.error(e.code === "not_enough_dust" ? "Pas assez de poussières." : friendlyError(e)); }
       }));
       overlay.querySelector("[data-forge]")?.addEventListener("click", async (ev) => {
         const pick = copies.filter((c) => !state.starred.has(c.pullId) && !state.insured.has(c.pullId)).sort((a, b) => (a.serialNumber || 1e9) - (b.serialNumber || 1e9)).slice(0, 3);
@@ -573,7 +578,7 @@
           if (typeof confetti === "function") confetti({ particleCount: 160, spread: 110, colors: ["#ffd76e", "#ff6ec7", "#7dd3fc", "#a78bfa"], origin: { y: 0.4 } });
           close();
           await Coll.refresh();
-        } catch (e) { Toast.error("Erreur. (" + e.message + ")"); }
+        } catch (e) { Toast.errorfriendlyError(e); }
       });
       loadCardInfo(overlay, card, owned);
     }
@@ -656,7 +661,7 @@
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       await Coll.refresh();
     } catch (e) {
-      Toast.error({ not_enough_dust: "Pas assez de poussières.", protected_copy: "Cet exemplaire est protégé (assuré ou au coffre).", already_special: "Cet exemplaire a déjà une finition spéciale." }[e.code] || "Erreur. (" + e.message + ")");
+      Toast.error({ not_enough_dust: "Pas assez de poussières.", protected_copy: "Cet exemplaire est protégé (assuré ou au coffre).", already_special: "Cet exemplaire a déjà une finition spéciale." }[e.code] || friendlyError(e));
     }
   }
 
@@ -806,7 +811,7 @@
       btn.title = !wasIn ? "Retirer de ma wishlist" : "Ajouter à ma wishlist";
       btn.setAttribute("aria-label", btn.title);
     } catch (e) {
-      Toast.error("Erreur. (" + e.message + ")");
+      Toast.errorfriendlyError(e);
     }
   }
 

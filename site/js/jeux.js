@@ -7,7 +7,7 @@
 // de son temps sur "Coffre-fort".
 const LAST_TAB_KEY = "2gatcha_last_tab_jeux";
 // Ancre d'URL de chaque onglet (2026-10-05) : jeux.html#peche, #jardin...
-const TAB_HASH = { dig: "fouille", guess: "devine", expedition: "expedition", fish: "peche", garden: "jardin", bingo: "bingo", vault: "coffre-fort" };
+const TAB_HASH = { dig: "fouille", guess: "devine", expedition: "expedition", fish: "peche", garden: "jardin", dino: "dinos", bingo: "bingo", vault: "coffre-fort" };
 const HASH_TAB = Object.fromEntries(Object.entries(TAB_HASH).map(([k, v]) => [v, k]));
 function getInitialTab() {
   const fromHash = HASH_TAB[location.hash.slice(1)];
@@ -16,7 +16,7 @@ function getInitialTab() {
 }
 
 function setActiveTab(tab) {
-  ["dig", "guess", "expedition", "fish", "garden", "bingo", "vault"].forEach((key) => {
+  ["dig", "guess", "expedition", "fish", "garden", "dino", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
@@ -24,6 +24,7 @@ function setActiveTab(tab) {
   try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
   if (TAB_HASH[tab] && location.hash !== "#" + TAB_HASH[tab]) history.replaceState(null, "", "#" + TAB_HASH[tab]);
   if (tab === "garden") loadGarden();
+  if (tab === "dino" && window.loadDinos) window.loadDinos();
   if (tab === "dig") loadDig();
   if (tab === "guess") loadGuess();
   if (tab === "expedition") loadExpedition();
@@ -113,7 +114,7 @@ async function doPrestige(skill) {
     const res = await API.prestige(Session.userId, skill);
     LevelUpModal.show({ icon: "&#11088;", name: info.name, level: `Prestige ${res.prestige}`, perks: [bonus + " (permanent)", "Retour au niveau 1 : tous les bonus de niveau sont à regagner"] });
     if (skill === "dig") loadDig(); else if (skill === "expedition") loadExpeditionLevel(); else if (skill === "garden") loadGarden(); else loadFishing();
-  } catch (e) { Toast.error(e.code === "not_max_level" ? "Il faut être niveau 10." : "Erreur. (" + e.message + ")"); }
+  } catch (e) { Toast.error(e.code === "not_max_level" ? "Il faut être niveau 10." : friendlyError(e)); }
 }
 
 // Prix des relances payantes (api/src/native/rules.js).
@@ -133,7 +134,7 @@ async function rerollWeather() {
     Toast.success("&#127780;&#65039; La météo a changé !");
     loadFishing();
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-  } catch (e) { Toast.error({ already_rerolled: "Déjà fait aujourd'hui.", not_enough_dust: "Pas assez de poussières." }[e.code] || "Erreur. (" + e.message + ")"); }
+  } catch (e) { Toast.error({ already_rerolled: "Déjà fait aujourd'hui.", not_enough_dust: "Pas assez de poussières." }[e.code] || friendlyError(e)); }
 }
 
 async function renderFishExtras(st) {
@@ -173,6 +174,7 @@ function renderGarden(st) {
   renderGardenSeeds(st);
   const seedCost = (st.seeds || []).find((s) => s.key === gardenSeed)?.cost ?? st.plantCost;
   document.getElementById("garden-meta").innerHTML = `&#129713; <strong>${st.worms}</strong> vers · &#10024;&#129713; <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte${st.wiltHours ? ` · une plante prête fane au bout de ${st.wiltHours} h` : ""}`
+    + (st.fertilizer || st.goldFertilizer ? `<span class="garden-fert">&#128169; <strong>${st.fertilizer}</strong> engrais de dino${st.goldFertilizer ? ` · <strong class="gold">${st.goldFertilizer}</strong> doré${st.goldFertilizer > 1 ? "s" : ""} (parcelle prête tout de suite, appât garanti)` : ""}</span>` : "")
     + (st.streak ? `<span class="garden-streak">&#128293; ${st.streak} jour${st.streak > 1 ? "s" : ""} de récolte d'affilée${st.rareChance ? ` · ${Math.round(st.rareChance * 100)} % de récolte rare demain` : " · récolte rare dès 3 jours"}</span>` : "");
   const t = Date.now() / 1000;
   document.getElementById("garden-plots").innerHTML = st.plots.map((p) => {
@@ -183,6 +185,9 @@ function renderGarden(st) {
     const wiltLeft = p.wiltAt ? Math.max(0, Math.round(p.wiltAt - t)) : null;
     return `<div class="garden-plot ${pct >= 100 ? "ready" : ""} ${p.wilted ? "wilted" : ""}">${p.seed && p.seed !== "mix" ? `<span class="garden-seed-tag" title="${(st.seeds || []).find((s) => s.key === p.seed)?.label || ""}">${SEED_ICONS[p.seed] || ""}</span>` : ""}<span class="garden-plant" aria-hidden="true">${stage}</span>
       <div class="challenge-bar"><div style="width:${pct}%"></div></div>
+      ${p.goldFertilized ? '<span class="garden-fert-tag" title="Engrais doré : appât doré garanti">&#10024;</span>' : p.fertilized ? '<span class="garden-fert-tag" title="Engrais de dino : pousse accélérée, vers doublés">&#128169;</span>' : ""}
+      ${pct < 100 && st.fertilizer && !p.fertilized ? `<button type="button" class="btn-ghost garden-fert-btn" data-fertilize="${p.plot}" title="Engrais de dino : saute une partie de la pousse et double les vers">&#128169; Engrais</button>` : ""}
+      ${pct < 100 && st.goldFertilizer && !p.goldFertilized ? `<button type="button" class="btn-ghost garden-fert-btn gold" data-fertilize="${p.plot}" data-gold="1" title="Engrais doré : prête tout de suite, appât doré garanti">&#10024; Doré</button>` : ""}
       <span class="garden-label">${p.wilted ? "Fanée : récolte réduite" : pct >= 100 ? (wiltLeft != null && wiltLeft < 6 * 3600 ? `Prête ! Fane dans ${Math.max(1, Math.round(wiltLeft / 3600))} h` : "Prête à récolter !") : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
   }).join("");
   document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < seedCost;
@@ -204,12 +209,13 @@ async function loadGarden() {
   catch (e) { document.getElementById("garden-meta").textContent = "Impossible de charger le jardin."; }
 }
 
-async function gardenAction(action) {
+async function gardenAction(action, extra = {}) {
   try {
     if (action === "buyPlot" && !(await Confirm.show(`Acheter une parcelle de plus pour ${gardenState.extraPlot.price} poussières ?`, { title: "Agrandir le jardin", confirmText: "Acheter" }))) return;
-    const res = await API.garden(Session.userId, action, action === "plant" ? { seed: gardenSeed } : {});
+    const res = await API.garden(Session.userId, action, action === "plant" ? { seed: gardenSeed } : extra);
     renderGarden(res);
     if (action === "buyPlot") Toast.success("&#10133; Nouvelle parcelle !");
+    else if (action === "fertilize") Toast.success(res.gold ? "&#10024; Engrais doré : la plante est prête, et un appât doré t'attend !" : "&#128169; Engrais posé : ça pousse plus vite, et la récolte de vers sera doublée !");
     else if (action === "plant") Toast.success(`&#127793; ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
     else {
       const g = res.gained;
@@ -221,7 +227,7 @@ async function gardenAction(action) {
     }
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error({ not_enough_dust: "Pas assez de poussières.", nothing_ready: "Rien n'est prêt.", no_free_plot: "Toutes les parcelles sont occupées.", max_plots: "Ton jardin est déjà au maximum." }[e.code] || "Erreur. (" + e.message + ")");
+    Toast.error({ not_enough_dust: "Pas assez de poussières.", nothing_ready: "Rien n'est prêt.", no_free_plot: "Toutes les parcelles sont occupées.", max_plots: "Ton jardin est déjà au maximum.", no_fertilizer: "Plus d'engrais : ramasse les cacas de tes dinos.", nothing_to_fertilize: "Cette parcelle a déjà son engrais ou est prête." }[e.code] || friendlyError(e));
   }
 }
 
@@ -464,7 +470,7 @@ async function kennelAction(kind, btn) {
   } catch (e) {
     btn.disabled = false;
     const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Le chien creuse déjà !", dog_max_time: "Le chien a déjà assez de travail pour le moment.", dog_daily_limit: "Le chien a assez creusé aujourd'hui (4 os par jour) : reviens demain !" };
-    Toast.error(msg[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(msg[e.code] || friendlyError(e));
   }
 }
 
@@ -501,6 +507,12 @@ async function doDig(tileIndex, tileEl) {
       if (typeof confetti === "function") confetti({ particleCount: isRare ? 220 : 150, spread: isRare ? 130 : 100, origin: { y: 0.5 } });
     }
 
+    if (res.dinoSkull) {
+      document.getElementById("tab-dino-btn").style.display = "";
+      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-skull">&#128128; <strong>Incroyable : un crâne de dinosaure !</strong> Avec ${res.dinoSkull.hatchBones} os, ramène-le à la vie dans l'onglet <a href="jeux.html#dinos">Dinos</a>.</div>`);
+      Toast.success("&#128128; Tu as déterré un CRÂNE DE DINOSAURE !");
+      if (typeof confetti === "function") confetti({ particleCount: 250, spread: 140, origin: { y: 0.5 } });
+    }
     if (res.foundKey) {
       Toast.success("&#128273; Tu as trouvé une clef secrète !");
       if (typeof confetti === "function") confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } });
@@ -519,7 +531,7 @@ async function doDig(tileIndex, tileEl) {
       }, 1400);
     }
   } catch (e) {
-    Toast.error(e.code === "no_energy" ? "Plus assez d'énergie." : e.code === "tile_already_dug" ? "Cette tuile est déjà creusée." : ("Erreur. (" + e.message + ")"));
+    Toast.error(e.code === "no_energy" ? "Plus assez d'énergie." : e.code === "tile_already_dug" ? "Cette tuile est déjà creusée." : friendlyError(e));
   } finally {
     digBusy = false;
   }
@@ -637,10 +649,14 @@ async function castFishing(count) {
       catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}${c.first ? ' <span class="fish-new">1re !</span>' : c.record ? ' <span class="fish-new">record !</span>' : ""}</span>`);
       if (typeof Sfx !== "undefined" && Sfx.click && res.catches.length > 1) Sfx.click();
     }
+    for (const b of res.bycatch || []) {
+      await fishWait(250);
+      catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item fish-bycatch">${b.icon} +${b.amount} ${b.label.toLowerCase()} <small>(pour tes dinos)</small></span>`);
+    }
     status.textContent = (res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" ? "Pas de chance…" : "Belle prise !")) + (res.baitUsed ? " (appât doré)" : "") + (res.reducedRewards ? " · rendement réduit" : "");
     if (["epique", "legendaire", "mythique"].includes(best.tier) && typeof confetti === "function") confetti({ particleCount: best.tier === "mythique" ? 180 : 90, spread: 90, origin: { y: 0.55 } });
     const log = document.getElementById("fish-log");
-    log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join(""));
+    log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join("") + (res.bycatch || []).map((b) => `<span class="fish-log-item fish-bycatch">${b.icon} +${b.amount} ${b.label.toLowerCase()}</span>`).join(""));
     while (log.children.length > 20) log.lastElementChild.remove();
     fishBusy = false;
     renderFishing(res);
@@ -651,7 +667,7 @@ async function castFishing(count) {
     fishBusy = false;
     scene.classList.remove("casting", "waiting", "bite");
     status.textContent = "Prêt à pêcher";
-    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.", not_enough_bait: "Plus assez d'appâts dorés.", deep_locked: "Les eaux profondes se débloquent au niveau 10 de pêche.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.", not_enough_bait: "Plus assez d'appâts dorés.", deep_locked: "Les eaux profondes se débloquent au niveau 10 de pêche.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || friendlyError(e));
     loadFishing();
   }
 }
@@ -707,7 +723,7 @@ async function claimBingo() {
     if (typeof confetti === "function") confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 } });
     await loadBingo();
   } catch (e) {
-    Toast.error(e.code === "already_claimed" ? "Déjà réclamé ce mois-ci." : ("Erreur. (" + e.message + ")"));
+    Toast.error(e.code === "already_claimed" ? "Déjà réclamé ce mois-ci." : friendlyError(e));
   }
 }
 
@@ -766,7 +782,7 @@ async function openVault() {
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     setTimeout(() => loadVault(), 1000);
   } catch (e) {
-    Toast.error(e.code === "not_enough_keys" ? "Pas assez de clefs." : e.code === "already_opened" ? "Déjà ouvert." : ("Erreur. (" + e.message + ")"));
+    Toast.error(e.code === "not_enough_keys" ? "Pas assez de clefs." : e.code === "already_opened" ? "Déjà ouvert." : friendlyError(e));
   }
 }
 
@@ -834,7 +850,7 @@ async function submitGuess(cardId) {
     else Toast.info(`Raté, c'était ${res.answerName}.`);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error(e.code === "already_played" ? "Tu as déjà joué aujourd'hui." : ("Erreur. (" + e.message + ")"));
+    Toast.error(e.code === "already_played" ? "Tu as déjà joué aujourd'hui." : friendlyError(e));
     loadGuess();
   } finally {
     guessBusy = false;
@@ -877,7 +893,7 @@ async function rushExpedition() {
     Toast.success("&#9889; Ton explorateur presse le pas !");
     loadExpedition();
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-  } catch (e) { Toast.error({ already_rerolled: "Déjà fait aujourd'hui.", not_enough_dust: "Pas assez de poussières.", no_expedition: "Aucune expédition en cours." }[e.code] || "Erreur. (" + e.message + ")"); }
+  } catch (e) { Toast.error({ already_rerolled: "Déjà fait aujourd'hui.", not_enough_dust: "Pas assez de poussières.", no_expedition: "Aucune expédition en cours." }[e.code] || friendlyError(e)); }
 }
 
 async function loadExpeditionLevel() {
@@ -983,7 +999,7 @@ async function startExpedition(hours, cardId) {
     Toast.success(`C'est parti pour ${hours} h d'expédition !`);
     await renderExpedition(res);
   } catch (e) {
-    Toast.error({ already_running: "Une expédition est déjà en cours.", card_not_owned: "Tu ne possèdes plus cette carte." }[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error({ already_running: "Une expédition est déjà en cours.", card_not_owned: "Tu ne possèdes plus cette carte." }[e.code] || friendlyError(e));
     loadExpedition();
   } finally {
     expeditionBusy = false;
@@ -1005,10 +1021,11 @@ async function claimExpedition() {
         <div class="expe-report-loot">+${r.dust} poussières${r.boosters ? ` · +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""}${r.bonus > 1 ? ` <span class="expe-report-bonus">(bonus rareté +${Math.round((r.bonus - 1) * 100)}%)</span>` : ""}</div>
       </div>`);
     Toast.success(`Butin : +${r.dust} poussières${r.boosters ? ` et +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""} !`);
+    if (res.dinoCompanion) setTimeout(() => Toast.info(`&#129430; ${escHtml(res.dinoCompanion.name)} rentre de l'expédition${res.dinoCompanion.hungry ? " affamé : va vite le nourrir !" : ", ravi mais un peu affamé."}`), 700);
     if (res.levelUp) LevelUpModal.show({ icon: "&#129517;", name: "Expédition", level: res.levelUp, perks: expePerkTexts(res.expeditionLevel && res.expeditionLevel.perks) });
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error(e.code === "not_ready" ? "L'expédition n'est pas encore rentrée." : ("Erreur. (" + e.message + ")"));
+    Toast.error(e.code === "not_ready" ? "L'expédition n'est pas encore rentrée." : friendlyError(e));
     loadExpedition();
   } finally {
     expeditionBusy = false;
@@ -1027,6 +1044,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Lien de l'en-tete vers la peche alors qu'on est deja sur la page.
   window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
   document.getElementById("tab-garden-btn").addEventListener("click", () => setActiveTab("garden"));
+  document.getElementById("tab-dino-btn").addEventListener("click", () => setActiveTab("dino"));
+  document.getElementById("garden-plots").addEventListener("click", (e) => { const b = e.target.closest("[data-fertilize]"); if (b) gardenAction("fertilize", { plot: Number(b.dataset.fertilize), ...(b.dataset.gold ? { gold: true } : {}) }); });
   document.getElementById("garden-plant-btn").addEventListener("click", () => gardenAction("plant"));
   document.getElementById("garden-harvest-btn").addEventListener("click", () => gardenAction("harvest"));
   document.getElementById("garden-buyplot-btn").addEventListener("click", () => gardenAction("buyPlot"));
@@ -1047,7 +1066,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Onglet Coffre-fort cache tant que le joueur n'a jamais eu de clef : les
   // clefs et leurs usages se decouvrent en explorant, pas dans un menu.
   const initial = getInitialTab();
-  setActiveTab(initial === "vault" ? "dig" : initial);
+  setActiveTab(initial === "vault" || initial === "dino" ? "dig" : initial);
+  API.dino(Session.userId).then((res) => {
+    if (!res.unlocked) return;
+    document.getElementById("tab-dino-btn").style.display = "";
+    if (initial === "dino") setActiveTab("dino");
+  }).catch(() => {});
   API.getVaultStatus(Session.userId).then((res) => {
     if ((res.userKeys || 0) > 0 || res.alreadyOpened) {
       document.getElementById("tab-vault-btn").style.display = "";

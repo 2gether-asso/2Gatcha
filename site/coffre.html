@@ -51,12 +51,14 @@
           <label>Afficher
             <select id="pv-filter">
               <option value="all">Toutes les lignes</option>
+              <option value="ready">À ranger maintenant</option>
               <option value="almost">Presque complètes (4-5/6)</option>
               <option value="open">À compléter</option>
               <option value="done">Complètes</option>
             </select>
           </label>
         </div>
+        <button type="button" class="btn pv-store-all" id="pv-store-all" hidden>📥 Tout ranger</button>
         <div id="pv-rows" class="pv-rows"></div>
       </div>
     </div>

@@ -195,7 +195,7 @@ const CONTRACTS = [
   { key: 'legend1', label: '1 Légendaire', icon: '🌟', rarity: 'legendaire', count: 1, reward: { boosters: 3 } },
   { key: 'ghost1', label: '1 carte ghost', icon: '👻', finish: 'ghost', count: 1, reward: { chests: 1, keys: 1 } },
   { key: 'rare-mint', label: '2 Rares en parfait état', icon: '💎', rarity: 'rare', quality: 'mint', count: 2, reward: { dust: 300 } },
-  { key: 'damaged8', label: '8 cartes abîmées', icon: '🩹', quality: 'damaged', count: 8, reward: { dust: 200 } },
+  { key: 'damaged8', label: '8 cartes usées', icon: '🩹', quality: 'damaged', count: 8, reward: { dust: 200 } },
   { key: 'diamond1', label: '1 carte diamant', icon: '💠', finish: 'diamond', count: 1, reward: { boosters: 2, dust: 200 } },
   { key: 'epic3', label: '3 Épiques', icon: '🔮', rarity: 'epique', count: 3, reward: { chests: 1, keys: 1, dust: 100 } }
 ];

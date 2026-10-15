@@ -27,6 +27,9 @@ import * as phantom from '../src/native/phantom.js';
 import * as lottery from '../src/native/lottery.js';
 import * as teams from '../src/native/teams.js';
 import * as bingo from '../src/native/bingo.js';
+import * as cardsMod from '../src/native/cards.js';
+import * as hallOfFame from '../src/native/halloffame.js';
+import * as dinoMod from '../src/native/dino.js';
 import { setting, rawSetting } from '../src/native/settings.js';
 
 import { requestContext, freshContext } from '../src/native/context.js';
@@ -504,7 +507,6 @@ await test('jardin etendu : graines, parcelle achetee, recolte selon la graine',
   store.update('Users', 1, { GardenPlots: JSON.stringify(plots) });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GardenWiltHours: 0 } } });
   const h = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GardenWiltHours' } });
   const worm = h.items.find((i) => i.seed === 'worm'), dust = h.items.find((i) => i.seed === 'dust');
   assert.ok(worm.worms >= 3 && worm.dust === 0);
   assert.ok(dust.dust >= 30 && dust.worms === 0);
@@ -1351,6 +1353,267 @@ await test('bingo v2 : admin, apercu et cartes imposees, nouveau tirage', () => 
   if (row) store.delete('AppSettings', row.id);
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'BingoV2From' } });
   bingo._reset();
+});
+
+await test('historique d un exemplaire : creation, changement de main, amelioration, suppression', () => {
+  const c = cards()[4];
+  const id = mk(1, c.id, 'normal', 'worn');
+  const serial = store.get('Pulls', id).SerialNumber;
+  store.update('Pulls', id, { User: 2 });
+  store.update('Pulls', id, { Finish: 'holo' });
+  let h = call('GET', 'card-history', { query: { cardId: c.id, serial } }).json;
+  assert.deepEqual(h.events.map((e) => e.kind), ['created', 'moved', 'changed']);
+  assert.equal(h.events[1].other, user(1).Pseudo);
+  assert.equal(h.events[1].user, user(2).Pseudo);
+  assert.deepEqual(h.events[2].detail.finish, ['normal', 'holo']);
+  assert.equal(h.owner, user(2).Pseudo);
+  store.delete('Pulls', id);
+  h = call('GET', 'card-history', { query: { cardId: c.id, serial } }).json;
+  assert.equal(h.events[h.events.length - 1].kind, 'deleted');
+  assert.equal(h.exists, false);
+  // Exemplaire anterieur au journal : origine reconstruite par le lot de tirage.
+  const old = store.getAll('Pulls').find((p) => /^\d+-\d+$/.test(String(p.BatchId || '')));
+  if (old) {
+    store.getAll('PullHistory').filter((r) => r.Card === old.Card && r.Serial === old.SerialNumber).forEach((r) => store.delete('PullHistory', r.id));
+    const o = call('GET', 'card-history', { query: { cardId: old.Card, serial: old.SerialNumber } }).json;
+    assert.equal(o.events[0].reconstructed, true);
+  }
+});
+
+await test('cote d une carte, maitre d une carte, god pack', () => {
+  const c = cards()[5];
+  const p = mk(1, c.id);
+  store.create('Auctions', { Seller: 1, Card: c.id, Pull: p, Serial: 1, Finish: 'normal', Quality: 'good', StartPrice: 10, CurrentBid: 300, Bidder: 2, Status: 'sold', EndsAt: now() - 10, SettledAt: now() - 10 });
+  const price = call('GET', 'card-price', { query: { cardId: c.id } }).json;
+  assert.equal(price.stats.last, 300);
+  assert.ok(price.reference.disenchant >= 0);
+  // Maitre : les 6 finitions.
+  for (const f of ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow']) mk(1, c.id, f);
+  const notes = cardsMod.onEvents(store, [{ userId: 1, type: 'cardsPulled', n: 6, meta: {} }]);
+  assert.ok(notes.some((n) => /Maître/.test(n.label)));
+  assert.ok(cardsMod.masteredOf(user(1))[c.id]);
+  hallOfFame._reset();
+  const hall = call('GET', 'hall-of-fame', { query: {} }).json;
+  assert.ok(hall.finishes.some((e) => e.label === 'Maître de ' + c.Name));
+  // God pack : toutes les cartes du booster passent epique ou mieux.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GodPackChance: 0.2 } } });
+  const orig = Math.random; Math.random = () => 0.01;
+  const commune = cards().find((x) => { const r = store.get('Rarities', Array.isArray(x.Rarity) ? x.Rarity[1] : x.Rarity); return r && r.Key === 'commune'; });
+  const batch = '1-' + Date.now();
+  const pid = store.create('Pulls', { User: 1, Card: commune.id, SerialNumber: 8800, Finish: 'normal', Quality: 'good', ObtainedAt: now(), BatchId: batch }).id;
+  const json = { batchId: batch, cards: [{ cardId: commune.id, serialNumber: 8800, rarity: { key: 'commune' } }] };
+  cardsMod.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json } });
+  Math.random = orig;
+  assert.equal(json.pack.godPack, true);
+  const rk = store.get('Rarities', Array.isArray(store.get('Cards', store.get('Pulls', pid).Card).Rarity) ? store.get('Cards', store.get('Pulls', pid).Card).Rarity[1] : store.get('Cards', store.get('Pulls', pid).Card).Rarity).Key;
+  assert.ok(['epique', 'legendaire', 'mythique'].includes(rk), rk);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GodPackChance' } });
+});
+
+await test('partage sur Discord', () => {
+  const c = cards()[5];
+  const img = 'data:image/png;base64,iVBORw0KGgo=';
+  delete process.env.DISCORD_WEBHOOK_URL;
+  assert.equal(call('POST', 'share-card', { body: { userId: 1, cardId: c.id, image: img } }).json.error, 'discord_unavailable');
+  assert.equal(call('POST', 'share-card', { body: { userId: 1, cardId: c.id, image: 'pas une image' } }).json.error, 'invalid_image');
+});
+
+await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardin, nourriture a la peche', () => {
+  store.update('Users', 1, { DinoSkulls: 0, Dinos: '[]', DinoFood: '{}', DinoPoop: 0, BoneCount: 20, Worms: 50, GardenPlots: '[]', StardustCount: 5000 });
+  // Fouille : crane (chance forcee a 100 %).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DinoSkullChance: 0.1 } } });
+  const orig = Math.random; Math.random = () => 0.01;
+  const json = { dug: true };
+  dinoMod.afterWorkflow({ store, path: 'dig', request: { body: { userId: 1, action: 'dig' } }, response: { status: 200, json } });
+  Math.random = orig;
+  assert.equal(json.dinoSkull.total, 1);
+  assert.equal(user(1).DinoSkulls, 1);
+  // Eclosion : crane + 10 os.
+  let st = call('POST', 'dino', { body: { userId: 1, action: 'hatch', name: 'Pistache' } }).json;
+  assert.equal(st.dinos.length, 1);
+  assert.equal(st.hatched.name, 'Pistache');
+  assert.ok(st.hatched.hue >= 0 && st.hatched.hue < 360);
+  assert.equal(user(1).BoneCount, 10);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatch' } }).json.error, 'no_skull');
+  // Le temps passe : faim et tristesse.
+  const d0 = dinoMod.dinosOf(user(1))[0];
+  store.update('Users', 1, { Dinos: JSON.stringify([{ ...d0, at: now() - 30 * 3600 }]) });
+  st = call('POST', 'dino', { body: { userId: 1 } }).json;
+  assert.equal(st.dinos[0].food, 0);
+  assert.equal(st.dinos[0].mood.key, 'hungry');
+  // Nourrir : pas de poisson -> vers de terre ; puis poisson.
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'fish' } }).json.error, 'no_food');
+  store.update('Users', 1, { DinoFood: JSON.stringify({ fish: 5, seaweed: 2, shrimp: 1 }) });
+  for (let i = 0; i < 3; i++) st = call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'fish' } }).json;
+  assert.equal(st.dinos[0].food, 90);
+  assert.equal(st.food.fish, 2);
+  st = call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'worm' } }).json;
+  assert.equal(user(1).Worms, 49);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'seaweed' } }).json.error, 'not_hungry');
+  // Jouer, avec delai.
+  st = call('POST', 'dino', { body: { userId: 1, action: 'play', dino: 1 } }).json;
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'play', dino: 1 } }).json.error, 'play_cooldown');
+  // Cacas : 96 points manges -> 2 cacas, prets 2 h apres.
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'clean' } }).json.error, 'nothing_to_clean');
+  const d1 = dinoMod.dinosOf(user(1))[0];
+  assert.equal(d1.poops.length, 2);
+  store.update('Users', 1, { Dinos: JSON.stringify([{ ...d1, poops: d1.poops.map((p) => p - 3 * 3600) }]) });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'clean' } }).json;
+  assert.equal(st.collected, 2);
+  assert.equal(user(1).DinoPoop, 2);
+  // Engrais au jardin : la plante avance de moitie, vers doubles.
+  call('POST', 'garden', { body: { userId: 1, action: 'plant', seed: 'worm' } });
+  let g = call('POST', 'garden', { body: { userId: 1, action: 'fertilize', plot: 0 } }).json;
+  assert.equal(g.fertilized, 1);
+  assert.ok(g.plots[0].fertilized && g.plots[0].progress >= 0.5);
+  assert.equal(user(1).DinoPoop, 1);
+  assert.equal(call('POST', 'garden', { body: { userId: 1, action: 'fertilize', plot: 0 } }).json.error, 'nothing_to_fertilize');
+  const plots = JSON.parse(user(1).GardenPlots);
+  plots[0].plantedAt -= g.plots[0].readyAt - now() + 60; // pret depuis 1 min (pas fane)
+  store.update('Users', 1, { GardenPlots: JSON.stringify(plots) });
+  g = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  assert.ok(g.items[0].fertilized && g.items[0].worms >= 6, JSON.stringify(g.items[0]));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GardenWiltHours' } });
+  // Peche : nourriture en plus (chance forcee).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DinoFoodChance: 1 } } });
+  store.update('Users', 1, { Worms: 100, FishingCasts: 0 });
+  const fish = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 3 } }).json;
+  assert.equal(fish.bycatch.length, 3, JSON.stringify(fish.error || fish.bycatch));
+  // Sans dino ni crane : pas de nourriture.
+  store.update('Users', 2, { Worms: 100, FishingCasts: 0, Dinos: '[]', DinoSkulls: 0 });
+  assert.equal(call('POST', 'fishing', { body: { userId: 2, action: 'cast', count: 1 } }).json.bycatch.length, 0);
+  // Maximum 5 dinos ; suggestion de l'accueil quand il a faim.
+  const one = dinoMod.dinosOf(user(1))[0];
+  store.update('Users', 1, { DinoSkulls: 1, BoneCount: 99, Dinos: JSON.stringify([1, 2, 3, 4, 5].map((id) => ({ ...one, id, at: now() - 40 * 3600 }))) });
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatch' } }).json.error, 'max_dinos');
+  assert.ok(dinoMod.dinoAlerts(user(1)).some((a) => a.key === 'dino-hungry'));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoSkullChance' } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoFoodChance' } });
+});
+
+await test('dinos (2) : mort et tas d os, fouille auto, oeufs, plat prefere, Dinodex, boutique, vedette, livre d or, engrais dore, talents', () => {
+  const base = { at: now(), food: 90, happy: 90, xp: 0, digest: 0, poops: [], goldPoops: [], playAt: 0, petAt: 0, breedAt: 0, pattern: 'plain', hue: 120, bornAt: now() };
+  const set = (list, extra = {}) => store.update('Users', 1, { Dinos: JSON.stringify(list), DinoEggs: '[]', ...extra });
+  // Mort : satiete et bonheur a zero -> tas d'os, on recupere les os.
+  set([{ ...base, id: 1, name: 'Oublie', species: 'rex', at: now() - 200 * 3600 }], { BoneCount: 0, DinoStar: 1, DinoDex: '{}' });
+  let st = call('POST', 'dino', { body: { userId: 1 } }).json;
+  assert.ok(st.dinos[0].dead && st.dinos[0].mood.key === 'dead');
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'worm' } }).json.error, 'dino_dead');
+  st = call('POST', 'dino', { body: { userId: 1, action: 'bury', dino: 1 } }).json;
+  assert.equal(st.dinos.length, 0);
+  assert.equal(user(1).BoneCount, 10);
+  assert.ok(!user(1).DinoStar);
+  // Fouille automatique : un adulte content depuis 13 h -> 2 trouvailles (6 h).
+  set([{ ...base, id: 1, name: 'Fouineur', species: 'raptor', xp: 250, grownAt: now() - 13 * 3600, digAt: now() - 13 * 3600 }]);
+  const bones = user(1).BoneCount;
+  st = call('POST', 'dino', { body: { userId: 1, action: 'collect' } }).json;
+  assert.equal(st.loot.finds, 2);
+  assert.equal(user(1).BoneCount, bones + 2); // Velociraptor : des os
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'collect' } }).json.error, 'nothing_to_collect');
+  // Oeuf : deux adultes heureux, couleur melangee.
+  set([{ ...base, id: 1, name: 'Papa', species: 'rex', xp: 250, hue: 350 }, { ...base, id: 2, name: 'Maman', species: 'trice', xp: 250, hue: 10 }]);
+  st = call('POST', 'dino', { body: { userId: 1, action: 'breed', a: 1, b: 2 } }).json;
+  assert.equal(st.eggs.length, 1);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'breed', a: 1, b: 2 } }).json.error, 'breed_cooldown');
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatchEgg', egg: 1 } }).json.error, 'egg_not_ready');
+  const eggs = JSON.parse(user(1).DinoEggs); eggs[0].hatchAt = now() - 1;
+  store.update('Users', 1, { DinoEggs: JSON.stringify(eggs) });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'hatchEgg', egg: 1 } }).json;
+  assert.ok(st.fromEgg && ['rex', 'trice', 'ptero'].includes(st.hatched.species));
+  assert.ok(st.hatched.hue >= 335 || st.hatched.hue <= 25, String(st.hatched.hue));
+  // Plat prefere : decouvert au premier repas, +20 bonheur.
+  const kid = JSON.parse(user(1).Dinos).find((d) => d.id === 3);
+  store.update('Users', 1, { DinoFood: JSON.stringify({ fish: 9, seaweed: 9, shrimp: 9 }), Worms: 50 });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 3, food: kid.fav } }).json;
+  assert.ok(st.fed.fav && st.fed.favFound);
+  assert.equal(st.dinos.find((d) => d.id === 3).fav, kid.fav);
+  // Dinodex : palier de 5 entrees paye une fois.
+  assert.ok(st.dex.count >= 5);
+  assert.ok(st.dex.tiers[0].claimed);
+  // Boutique : accessoire, decoration (bonheur moins vite).
+  store.update('Users', 1, { StardustCount: 5000 });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'buyAcc', key: 'hat' } }).json;
+  st = call('POST', 'dino', { body: { userId: 1, action: 'equip', dino: 3, key: 'hat' } }).json;
+  assert.equal(st.dinos.find((d) => d.id === 3).acc, 'hat');
+  st = call('POST', 'dino', { body: { userId: 1, action: 'buyDecor', key: 'pond' } }).json;
+  assert.equal(st.decorBonus, 6);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'buyDecor', key: 'pond' } }).json.error, 'already_owned');
+  // Vedette : sur la carte de joueur.
+  call('POST', 'dino', { body: { userId: 1, action: 'star', dino: 3 } });
+  assert.equal(call('GET', 'player-card', { query: { pseudo: user(1).Pseudo } }).json.starDino.name, kid.name);
+  // Livre d'or : premier adulte (atteint en jouant, sauf la nuit ou il dort).
+  store.update('Users', 1, { Dinos: JSON.stringify(JSON.parse(user(1).Dinos).map((d) => (d.id === 3 ? { ...d, xp: 198, playAt: 0 } : d))) });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'play', dino: 3 } }).json;
+  if (st.error !== 'sleeping') {
+    assert.equal(st.grown.stage, 'Adulte');
+    hallOfFame._reset();
+    assert.ok(call('GET', 'hall-of-fame', { query: {} }).json.dinos.some((e) => e.label === 'Premier dino adulte'));
+  }
+  // Engrais dore : parcelle prete tout de suite, appat garanti.
+  store.update('Users', 1, { DinoGoldPoop: 1, GardenPlots: '[]' });
+  call('POST', 'garden', { body: { userId: 1, action: 'plant', seed: 'worm' } });
+  let g = call('POST', 'garden', { body: { userId: 1, action: 'fertilize', plot: 0, gold: true } }).json;
+  assert.ok(g.gold && g.plots[0].ready);
+  g = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  assert.ok(g.items[0].goldFertilized && g.items[0].bait >= 1);
+  // Talents : Stegosaure content -> plus de fanage.
+  set([{ ...base, id: 1, name: 'Stego', species: 'stego' }]);
+  assert.equal(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours, 0);
+  set([{ ...base, id: 1, name: 'Stego', species: 'stego', food: 5 }]);
+  assert.ok(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours > 0);
+  // Compagnon d'expedition : bonus de poussieres, revient affame.
+  set([{ ...base, id: 1, name: 'Compagnon', species: 'long', happy: 100 }], { DinoCompanion: 1 });
+  assert.equal(dinoMod.companionBonus(user(1)), 0.3);
+  const json = { reward: { dust: 100 } };
+  dinoMod.afterWorkflow({ store, path: 'expedition', request: { body: { userId: 1, action: 'claim' } }, response: { status: 200, json } });
+  assert.equal(json.dinoCompanion.name, 'Compagnon');
+  assert.equal(Math.round(JSON.parse(user(1).Dinos)[0].food), 60);
+  store.update('Users', 1, { Dinos: '[]', DinoCompanion: 0, DinoStar: 0 });
+});
+
+await test('decouvertes : premiere ressource annoncee une seule fois, remise a zero, onglet dinos cache sans crane', () => {
+  // Premier passage : ce qu'il possede deja est annonce aussi (jamais vu).
+  store.update('Users', 2, { Discoveries: '', BoneCount: 3, DinoSkulls: 0, Dinos: '[]', DinoEggs: '[]', DinoDex: '{}', DinoFood: '{}', Worms: 0 });
+  let r = call('POST', 'dino', { body: { userId: 2 } }).json;
+  assert.ok(r.discoveries.some((d) => d.key === 'bone'));
+  assert.equal(r.unlocked, false);
+  assert.ok(!call('POST', 'dino', { body: { userId: 2 } }).json.discoveries);
+  // Remise a zero depuis le menu : tout est rejoue dans la reponse.
+  r = call('POST', 'discoveries', { body: { userId: 2, action: 'reset' } }).json;
+  assert.ok(r.reset && r.discoveries.some((d) => d.key === 'bone'));
+  // Un crane plus tard : decouverte, et l'onglet se debloque.
+  store.update('Users', 2, { DinoSkulls: 1 });
+  r = call('POST', 'dino', { body: { userId: 2 } }).json;
+  assert.equal(r.unlocked, true);
+  assert.deepEqual(r.discoveries.map((d) => d.key), ['skull']);
+  assert.ok(r.discoveries[0].riddle.length > 20);
+  // Deja vue : plus d'annonce, meme apres l'avoir depensee puis retrouvee.
+  store.update('Users', 2, { DinoSkulls: 0 });
+  call('POST', 'dino', { body: { userId: 2 } });
+  store.update('Users', 2, { DinoSkulls: 1 });
+  assert.ok(!call('POST', 'dino', { body: { userId: 2 } }).json.discoveries);
+  assert.ok(call('GET', 'discoveries-catalog', { query: {} }).json.items.some((i) => i.key === 'fish'));
+  store.update('Users', 2, { DinoSkulls: 0 });
+});
+
+await test('coffres : achat et ouverture de plusieurs coffres d un coup, bornes par les cles', () => {
+  const st0 = call('POST', 'chests', { body: { userId: 1, action: 'status' } }).json;
+  store.update('Users', 1, { ChestCount: 0, KeyCount: 3, StardustCount: st0.cost * 5 });
+  let r = call('POST', 'chests', { body: { userId: 1, action: 'buy', count: 5 } }).json;
+  assert.equal(r.bought, 5);
+  assert.equal(r.chests, 5);
+  assert.equal(user(1).StardustCount, 0);
+  // 5 coffres mais 3 cles : 3 ouverts.
+  r = call('POST', 'chests', { body: { userId: 1, action: 'open', count: 5 } }).json;
+  assert.equal(r.opened, 3);
+  assert.deepEqual([r.chests, r.keys], [2, 0]);
+  assert.ok(r.dust >= 3 * setting(store, 'ChestDustMin'));
+  assert.equal(r.items[0].type, 'dust');
+  assert.equal(call('POST', 'chests', { body: { userId: 1, action: 'open' } }).json.error, 'no_key');
+  // Le defi "ouvrir 2 coffres" compte les 3 coffres d'un coup.
+  store.update('Users', 1, { KeyCount: 1 });
+  r = call('POST', 'chests', { body: { userId: 1, action: 'open', count: 99 } }).json;
+  assert.equal(r.opened, 1);
 });
 
 store.db.close();

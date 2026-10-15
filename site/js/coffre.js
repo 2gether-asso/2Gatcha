@@ -26,16 +26,28 @@ const PV_VIEW_KEY = "2gatcha_pv_view";
 function pvView() {
   try { return { sort: "progress", filter: "all", ...JSON.parse(localStorage.getItem(PV_VIEW_KEY) || "{}") }; } catch (e) { return { sort: "progress", filter: "all" }; }
 }
+// Exemplaires rangeables tout de suite (case vide + exemplaire en parfait etat possede).
+function pvStorable(r) {
+  return PV_FINISHES.map((f) => {
+    const slot = r.slots.find((s) => s.finish === f) || { candidates: [] };
+    if (slot.stored || !slot.candidates.length) return null;
+    return slot.candidates.slice().sort((a, b) => (b.serialNumber === 1) - (a.serialNumber === 1) || (a.serialNumber || 0) - (b.serialNumber || 0))[0].pullId;
+  }).filter(Boolean);
+}
 function pvApplyView(rows) {
   const v = pvView();
-  const keep = { all: () => true, almost: (r) => !r.complete && r.filled >= 4, open: (r) => !r.complete, done: (r) => r.complete }[v.filter] || (() => true);
+  const keep = { all: () => true, ready: (r) => pvStorable(r).length > 0, almost: (r) => !r.complete && r.filled >= 4, open: (r) => !r.complete, done: (r) => r.complete }[v.filter] || (() => true);
   const sorters = {
     progress: (a, b) => (b.filled - a.filled) || ((b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0)) || a.name.localeCompare(b.name),
     rarity: (a, b) => ((b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0)) || (b.filled - a.filled) || a.name.localeCompare(b.name),
     name: (a, b) => a.name.localeCompare(b.name)
   };
   const q = (document.getElementById("pv-search")?.value || "").trim().toLowerCase();
-  return rows.filter(keep).filter((r) => !q || r.name.toLowerCase().includes(q)).sort(sorters[v.sort] || sorters.progress);
+  // Les lignes ou l'on peut ranger quelque chose remontent toujours en tete
+  // (d'abord celles qu'on peut terminer d'un coup), puis le tri choisi.
+  const sorter = sorters[v.sort] || sorters.progress;
+  const rank = (r) => { const n = pvStorable(r).length; return !n ? 0 : r.filled + n >= 6 ? 2 : 1; };
+  return rows.filter(keep).filter((r) => !q || r.name.toLowerCase().includes(q)).sort((a, b) => (rank(b) - rank(a)) || sorter(a, b));
 }
 let pvLastData = null;
 
@@ -51,13 +63,22 @@ function pvRender(data) {
   `;
   const box = document.getElementById("pv-rows");
   document.getElementById("pv-toolbar").hidden = allRows.length < 2;
+  const allStorable = allRows.flatMap(pvStorable);
+  const storeAll = document.getElementById("pv-store-all");
+  if (storeAll) { storeAll.hidden = !allStorable.length; storeAll.textContent = `📥 Tout ranger (${allStorable.length})`; storeAll.disabled = false; }
+  // Positions avant le rendu, pour faire glisser les lignes qui changent de place.
+  const before = new Map([...box.querySelectorAll(".pv-row")].map((el) => [el.dataset.cardId, el.getBoundingClientRect().top]));
   if (!rows.length) {
     box.innerHTML = allRows.length
       ? `<p class="muted">Aucune ligne ne correspond à ce filtre.</p>`
       : `<p class="muted">Aucune carte en parfait état pour l'instant. Restaure tes cartes (Craft &rarr; Qualité) pour pouvoir les ranger ici.</p>`;
     return;
   }
-  box.innerHTML = rows.map((r) => {
+  const readyCount = rows.filter((r) => pvStorable(r).length).length;
+  box.innerHTML = rows.map((r, i) => {
+    const ready = pvStorable(r);
+    const heading = readyCount && readyCount < rows.length && (i === 0 || i === readyCount)
+      ? `<h3 class="pv-group">${i === 0 ? `📥 À ranger maintenant <small>(${readyCount} ligne${readyCount > 1 ? "s" : ""})</small>` : "Le reste du coffre"}</h3>` : "";
     const color = r.rarity?.colorHex || "#9aa0b4";
     const img = API.imageUrl(r.imageId) || "";
     const slots = PV_FINISHES.map((f) => {
@@ -91,18 +112,58 @@ function pvRender(data) {
     const preview = !r.claimed && r.filled >= 4 && r.filled < 6
       ? `<div class="pv-row-preview">Plus que <strong>${missing.join(" et ")}</strong> : ${data.boostersPerRow} boosters + ${data.dustPerRow} &#10024; + 1 &#127915;</div>`
       : "";
-    return `<div class="pv-row ${r.complete ? "complete" : ""}" data-card-id="${r.cardId}" style="--r:${color}">
+    return heading + `<div class="pv-row ${r.complete ? "complete" : ""} ${ready.length ? "can-store" : ""}" data-card-id="${r.cardId}" style="--r:${color}">
       <div class="pv-row-head">
         ${img ? `<img class="pv-row-thumb" src="${img}" alt="" loading="lazy" />` : ""}
         <span class="pv-row-name">${r.name}</span>
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${r.rarity?.name || ""}</span>
         <span class="pv-row-progress">${r.filled}/6 ${r.claimed ? "&#10004; récompense reçue" : ""}</span>
         <span class="pv-row-bar" aria-hidden="true"><span style="width:${Math.round((r.filled / 6) * 100)}%"></span></span>
+        ${ready.length ? `<span class="pv-ready-badge">📥 ${ready.length} à ranger${r.filled + ready.length >= 6 && !r.claimed ? " · ligne complète !" : ""}</span>${ready.length > 1 ? `<button type="button" class="pv-store-row" data-pull-ids="${ready.join(",")}">Tout ranger</button>` : ""}` : ""}
       </div>
       ${preview}
       <div class="pv-slots">${slots}</div>
     </div>`;
   }).join("");
+  // Animation FLIP : chaque ligne glisse de son ancienne place vers la nouvelle.
+  if (before.size && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    box.querySelectorAll(".pv-row").forEach((el) => {
+      const was = before.get(el.dataset.cardId);
+      if (was == null) return;
+      const dy = was - el.getBoundingClientRect().top;
+      if (Math.abs(dy) < 2) return;
+      el.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }], { duration: 450, easing: "cubic-bezier(.2,.8,.2,1)" });
+    });
+  }
+}
+
+// Range plusieurs exemplaires d'affilee (bouton d'une ligne ou "Tout ranger").
+async function pvStoreMany(pullIds) {
+  if (pvBusy || !pullIds.length) return;
+  pvBusy = true;
+  let data = null, stored = 0;
+  const rewards = [];
+  try {
+    for (const id of pullIds) {
+      try { data = await API.personalVault(Session.userId, "store", id); stored++; if (data.reward) rewards.push(data.reward); }
+      catch (e) { if (!["pull_not_owned", "slot_filled", "already_stored", "not_mint"].includes(e.code)) throw e; }
+    }
+  } catch (e) {
+    Toast.error(PV_ERRORS[e.code] || friendlyError(e));
+  } finally {
+    pvBusy = false;
+  }
+  if (data) pvRender(data);
+  if (stored) Toast.success(`📥 ${stored} carte${stored > 1 ? "s" : ""} rangée${stored > 1 ? "s" : ""} au coffre.`);
+  rewards.forEach((r) => {
+    pvSealRow(r.cardId);
+    Toast.success(`Ligne ${r.cardName} complète ! +${r.boosters} boosters, +${r.dust} poussières${r.ticket ? " et un Ticket Unique 🎫" : ""}.`);
+  });
+  if (rewards.length) {
+    if (typeof loadNavBadges === "function") loadNavBadges();
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    pvLoadCounter(rewards.some((r) => r.ticket) ? "new" : null);
+  }
 }
 
 // Ligne qui se scelle : les 6 emplacements se verrouillent un par un.
@@ -197,7 +258,7 @@ async function pvRedeem(cardId) {
     pvRevealUnique(res.card);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error({ no_ticket: "Tu n'as pas de Ticket Unique.", already_owned: "Tu as déjà cette carte.", not_unique_card: "Cette carte n'est pas au comptoir." }[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error({ no_ticket: "Tu n'as pas de Ticket Unique.", already_owned: "Tu as déjà cette carte.", not_unique_card: "Cette carte n'est pas au comptoir." }[e.code] || friendlyError(e));
     pvLoadCounter();
   } finally {
     pvBusy = false;
@@ -271,7 +332,7 @@ async function pvLoad(action, pullId) {
     pvLoadCounter(data.reward && data.reward.ticket ? "new" : null);
     if (data.reward && typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error(PV_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(PV_ERRORS[e.code] || friendlyError(e));
   } finally {
     pvBusy = false;
   }
@@ -285,6 +346,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("pv-rows").addEventListener("click", (e) => {
     const store = e.target.closest(".pv-store");
     const withdraw = e.target.closest(".pv-withdraw");
+    const row = e.target.closest(".pv-store-row");
+    if (row) { row.disabled = true; pvStoreMany(row.dataset.pullIds.split(",").map(Number)); return; }
     if (store) pvLoad("store", Number(store.dataset.pullId));
     else if (withdraw) pvLoad("withdraw", Number(withdraw.dataset.pullId));
   });
@@ -296,6 +359,14 @@ document.addEventListener("DOMContentLoaded", () => {
     try { localStorage.setItem(PV_VIEW_KEY, JSON.stringify({ sort: document.getElementById("pv-sort").value, filter: document.getElementById("pv-filter").value })); } catch (e) {}
     if (pvLastData) pvRender(pvLastData);
   }));
+  document.getElementById("pv-store-all").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const ids = (pvLastData ? pvLastData.rows || [] : []).flatMap(pvStorable);
+    if (!ids.length) return;
+    if (ids.length > 3 && !(await Confirm.show(`Ranger d'un coup les ${ids.length} cartes en parfait état qui ont une place libre au coffre ? Elles y seront protégées (tu peux les retirer quand tu veux).`, { title: "Tout ranger", confirmText: "Tout ranger" }))) return;
+    btn.disabled = true;
+    pvStoreMany(ids);
+  });
   document.getElementById("pv-counter-grid").addEventListener("click", (e) => {
     const btn = e.target.closest(".pv-redeem");
     if (btn) pvRedeem(Number(btn.dataset.cardId));

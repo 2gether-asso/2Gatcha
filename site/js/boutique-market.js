@@ -8,7 +8,7 @@
   const esc = escHtml;
   const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
   const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-  const QUALITY = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+  const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
   const rewardLabel = (r) => [r.boosters ? `${r.boosters} &#127183;` : "", r.chests ? `${r.chests} coffre${r.chests > 1 ? "s" : ""}` : "", r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "", r.dust ? `${r.dust} &#10024;` : "", r.worms ? `${r.worms} vers` : ""].filter(Boolean).join(" + ");
   const ERR = { weekly_cap: "Stock épuisé pour cette semaine.", not_enough_dust: "Pas assez de poussières.", nothing_growing: "Rien ne pousse au jardin en ce moment.", no_expedition: "Aucune expédition en cours.", copy_not_matching: "Un des exemplaires ne correspond pas au contrat.", wrong_count: "Mauvais nombre d'exemplaires.", already_claimed: "Contrat déjà rempli cette semaine." };
@@ -173,7 +173,7 @@
           renderContracts(res);
           window.refreshShopWallet();
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { btn.disabled = false; Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+        } catch (err) { btn.disabled = false; Toast.error(ERR[err.code] || friendlyError(err)); }
       }
     });
   }
@@ -198,7 +198,7 @@
           if (shop) shop.stardust = res.newStardust;
           renderWallet();
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { sun.disabled = false; Toast.error({ not_enough_dust: "Pas assez de poussières.", already_bought: "Déjà achetée." }[err.code] || "Erreur. (" + err.message + ")"); }
+        } catch (err) { sun.disabled = false; Toast.error({ not_enough_dust: "Pas assez de poussières.", already_bought: "Déjà achetée." }[err.code] || friendlyError(err)); }
         return;
       }
       const up = e.target.closest("[data-upgrade]");
@@ -211,7 +211,7 @@
           if (shop) shop.stardust = res.newStardust;
           renderWallet();
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { up.disabled = false; Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+        } catch (err) { up.disabled = false; Toast.error(ERR[err.code] || friendlyError(err)); }
         return;
       }
       const thing = e.target.closest("[data-item]");
@@ -226,7 +226,7 @@
           renderBoosters(res);
           window.refreshShopWallet();
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { booster.disabled = false; Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+        } catch (err) { booster.disabled = false; Toast.error(ERR[err.code] || friendlyError(err)); }
         return;
       }
       if (thing) {
@@ -238,7 +238,7 @@
           renderWallet(); renderItems();
           Toast.success(`${it.icon} ${esc(it.label)} acheté !`);
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { thing.disabled = false; Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+        } catch (err) { thing.disabled = false; Toast.error(ERR[err.code] || friendlyError(err)); }
       }
     });
   });

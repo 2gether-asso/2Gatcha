@@ -92,6 +92,9 @@ import * as halloffame from './halloffame.js';
 import * as teams from './teams.js';
 import * as duo from './duo.js';
 import * as bingo from './bingo.js';
+import * as cards from './cards.js';
+import * as dino from './dino.js';
+import * as discoveries from './discoveries.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
@@ -99,9 +102,9 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, phantom, lottery, wanted, halloffame, teams, duo, bingo];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo];
+const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards];
 // XP doublee pendant l'action du jour (daily.js).
 const XP_FIELDS = ['XP', 'FishingXP', 'DigXP', 'ExpeditionXP', 'GardenXP'];
 
@@ -171,6 +174,8 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     } catch (e) { console.error(e); captureError(e, { hook: 'ledger' }); }
     return row;
   };
+  // Historique de chaque exemplaire (cards.js) : creations, echanges, changements.
+  cards.installHistory(store, captureError);
   // Evenements d'une action -> abonnes ; annonces du joueur dans la reponse.
   const observe = (path, body, response) => {
     const ctx = currentContext();
@@ -178,6 +183,10 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       const events = activity.eventsFrom(store, path, body, response);
       ctx.notices.push(...activity.dispatch(store, SUBSCRIBERS, events));
     } catch (e) { console.error(e); captureError(e, { hook: 'activity:' + path }); }
+    // Premiere fois qu'une ressource est obtenue (discoveries.js).
+    if (ctx.userId && response && response.status === 200 && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
+      try { const found = discoveries.check(store, ctx.userId); if (found) response.json.discoveries = found; } catch (e) { console.error(e); captureError(e, { hook: 'discoveries' }); }
+    }
     const mine = ctx.notices.filter((n) => n && n.userId === ctx.userId);
     if (mine.length && response && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
       response.json.notices = [...(response.json.notices || []), ...mine.map(({ kind, icon, label }) => ({ kind, icon, label }))];

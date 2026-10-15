@@ -29,6 +29,7 @@ export const FEATURES = [
   { key: 'expedition', group: 'Jeux', icon: '🧭', label: 'Expédition', paths: ['expedition'], hide: ['#tab-expedition-btn'], urls: ['jeux.html#expedition'], nudges: ['expedition', 'expedition-start'], off: [] },
   { key: 'fishing', group: 'Jeux', icon: '🎣', label: 'Pêche', paths: ['fishing', 'fishing-tournament'], hide: ['#tab-fish-btn'], urls: ['jeux.html#peche'], nudges: ['fishing'], off: [] },
   { key: 'bingo', group: 'Jeux', icon: '🎱', label: 'Bingo du mois', paths: ['bingo'], hide: ['#tab-bingo-btn'], urls: ['jeux.html#bingo'], off: [] },
+  { key: 'dinos', group: 'Jeux', icon: '🦖', label: 'Dinos de compagnie', paths: ['dino'], hide: ['#tab-dino-btn'], urls: ['jeux.html#dinos'], nudges: ['dino-hungry', 'dino-poop', 'dino-skull'], off: [] },
   { key: 'garden', group: 'Jeux', icon: '🌱', label: 'Jardin', paths: ['garden'], hide: ['#tab-garden-btn'], urls: ['jeux.html#jardin'], nudges: ['garden', 'garden-plant'], off: [] },
   // Communaute
   { key: 'boss', group: 'Communauté', icon: '💀', label: 'Boss commun', paths: ['community-boss', 'boss-attack'], hide: ['#tab-boss-btn'], urls: ['communaute.html#boss'], off: [] },
@@ -55,7 +56,6 @@ export const FEATURES = [
   { key: 'sundayMarket', group: 'Quotidien', icon: '☀️', label: 'Marché du dimanche', paths: ['sunday-market'], hide: ['#dimanche'], off: ['hard'] },
   { key: 'playerGift', group: 'Quotidien', icon: '💌', label: 'Cadeaux entre joueurs', paths: ['player-gift'], hide: [], off: [] }
 ];
-const BY_KEY = new Map(FEATURES.map((f) => [f.key, f]));
 const READ_ACTIONS = new Set(['status', 'list', 'get']);
 
 function storedMatrix(store) {
@@ -83,7 +83,6 @@ export function disabled(store) {
   cache = { at: t, store, mode, off };
   return off;
 }
-export const isOff = (store, key) => disabled(store).some((f) => f.key === key);
 
 // Vue publique (event-status -> gameMode.off) : de quoi masquer cote site.
 export function publicView(store) {
@@ -136,5 +135,4 @@ function handleAdmin({ store, body }) {
 }
 
 export function _reset() { cache = { at: 0, store: null, mode: null, off: null }; }
-export const featureByKey = (k) => BY_KEY.get(k);
 export const routes = { 'POST admin-mode-features': handleAdmin };

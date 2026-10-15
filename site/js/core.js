@@ -12,9 +12,41 @@
 // Sauvegarde/lecture en localStorage uniquement (preference d'affichage
 // pure, jamais lue par le serveur).
 // ---------------------------------------------------------------------------
-// Echappement HTML commun a toutes les pages (texte insere dans innerHTML).
+// Echappement HTML commun a tout le site (texte insere dans innerHTML,
+// apostrophe comprise : sur aussi dans un attribut entre apostrophes).
+// Message d'erreur lisible pour le joueur (2026-10-15) : codes courants de
+// l'API traduits, panne reseau ou serveur expliquee, sinon le code entre
+// parentheses (utile pour un signalement). Les pages gardent leurs messages
+// propres en priorite : MESSAGES[e.code] || friendlyError(e).
+const COMMON_ERRORS = {
+  not_enough_dust: "Pas assez de poussières d'étoile.",
+  not_enough_boosters: "Pas assez de boosters.", no_boosters: "Tu n'as plus de booster.",
+  not_enough_keys: "Il te faut une clé.", no_key: "Il te faut une clé.",
+  not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.",
+  nothing_to_claim: "Rien à récupérer : c'est déjà fait.", already_claimed: "Déjà récupéré.",
+  already_owned: "Tu l'as déjà.", already_voted: "Tu as déjà voté.", already_rerolled: "Déjà relancé aujourd'hui.",
+  already_busy: "Une action est déjà en cours, patiente un instant.", slow_down: "Doucement ! Réessaie dans quelques secondes.",
+  rate_limited: "Trop d'actions d'un coup : patiente une minute.",
+  weekly_cap: "Limite de la semaine atteinte.", daily_limit: "Limite du jour atteinte : reviens demain !",
+  forbidden: "Action réservée.", unauthorized: "Ta session a expiré : reconnecte-toi.", invalid_token: "Ta session a expiré : reconnecte-toi.",
+  unknown_user: "Compte introuvable : reconnecte-toi.",
+  copy_not_owned: "Tu ne possèdes plus cet exemplaire.", card_not_owned: "Tu ne possèdes pas cette carte.", pull_not_owned: "Tu ne possèdes plus cet exemplaire.",
+  not_owned: "Tu ne le possèdes pas.", insured_copy: "Cet exemplaire est assuré : retire l'assurance d'abord.", copy_in_vault: "Cet exemplaire est rangé dans ton coffre-fort.",
+  unique_card_not_allowed: "Impossible avec une carte Unique.", card_not_found: "Carte introuvable.", unknown_card: "Carte introuvable.", not_found: "Introuvable.",
+  maintenance: "Le jeu est en maintenance : reviens dans un instant."
+};
+function friendlyError(e) {
+  const code = e && (e.code || (e.data && e.data.error));
+  if (e && e.data && e.data.error === "feature_disabled" && e.data.message) return e.data.message;
+  if (code && COMMON_ERRORS[code]) return COMMON_ERRORS[code];
+  const msg = String((e && e.message) || "");
+  // Panne : serveur injoignable ou erreur 5xx.
+  if (/Failed to fetch|NetworkError|Load failed|Erreur API \([^)]*\): 5\d\d/.test(msg)) return "Le serveur ne répond pas : réessaie dans un instant.";
+  return "Erreur. (" + (code || msg || "inconnue") + ")";
+}
+
 function escHtml(s) {
-  return String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  return String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
 
 // Editions limitees (api/src/native/editions.js) : une "finition" posee
@@ -73,7 +105,7 @@ const SeasonCalendar = (() => {
 
 function editionBadge(key) {
   const e = EDITIONS[key];
-  return e ? `<span class="edition-badge" data-edition="${key}" title="Édition limitée ${escHtml(e.label)}">${e.icon} ${escHtml(e.label)}</span>` : "";
+  return e ? `<span class="edition-badge" data-edition="${key}" title="Édition limitée ${escHtml(e.label)}">${e.icon}<span class="eb-label"> ${escHtml(e.label)}</span></span>` : "";
 }
 
 const THEME_ORDER = ["default", "monochrome", "sepia", "cyberpunk"];

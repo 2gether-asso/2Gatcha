@@ -71,7 +71,7 @@
         load();
       } catch (err) {
         btn.disabled = false;
-        Toast.error({ unknown_partner: "Joueur introuvable.", already_busy: "Tu as déjà une expédition en duo en cours.", invalid_card: "Choisis une de tes cartes." }[err.code] || "Erreur. (" + err.message + ")");
+        Toast.error({ unknown_partner: "Joueur introuvable.", already_busy: "Tu as déjà une expédition en duo en cours.", invalid_card: "Choisis une de tes cartes." }[err.code] || friendlyError(err));
       }
     });
     box.addEventListener("click", async (e) => {
@@ -89,7 +89,7 @@
         load();
       } catch (err) {
         b.disabled = false;
-        Toast.error({ not_ready: "L'expédition n'est pas encore rentrée.", not_pending: "Cette invitation n'est plus valable.", already_busy: "Tu as déjà une expédition en duo en cours." }[err.code] || "Erreur. (" + err.message + ")");
+        Toast.error({ not_ready: "L'expédition n'est pas encore rentrée.", not_pending: "Cette invitation n'est plus valable.", already_busy: "Tu as déjà une expédition en duo en cours." }[err.code] || friendlyError(err));
       }
     });
   });

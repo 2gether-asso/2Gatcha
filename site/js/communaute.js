@@ -34,7 +34,7 @@ const MARKET_ERRORS = {
 const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
 const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
 const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
-const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 let allCards = [];
 let ownedMap = new Map();
@@ -149,7 +149,7 @@ async function digCommunity(tile, btn) {
     }
   } catch (e) {
     btn.disabled = false;
-    Toast.error({ no_digs_left: "Plus de coups de pioche aujourd'hui : reviens demain !", tile_already_dug: "Quelqu'un vient de creuser ici." }[e.code] || "Erreur. (" + e.message + ")");
+    Toast.error({ no_digs_left: "Plus de coups de pioche aujourd'hui : reviens demain !", tile_already_dug: "Quelqu'un vient de creuser ici." }[e.code] || friendlyError(e));
     loadTogether();
   }
 }
@@ -341,7 +341,7 @@ let bossRules = { finish: { normal: 1, holo: 1.5, gold: 2, ghost: 2.5, diamond: 
 let bossState = null;
 const bossSelection = new Map(); // cle de variante -> quantite
 const BOSS_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const BOSS_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const BOSS_QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 const bossVolley = (n) => Math.round((1 + bossRules.volleyStep * Math.max(0, Math.min(n, bossRules.maxCards) - 1)) * 100) / 100;
 const bossSerial = (n) => "#" + String(n ?? "?").padStart(3, "0");
@@ -535,7 +535,7 @@ async function attackBoss() {
   } catch (e) {
     if (btn) btn.disabled = false;
     const msg = { no_active_boss: "Le boss n'est plus actif.", card_not_owned: "Un exemplaire n'est plus dans ta collection : recharge la page.", too_many_cards: `${bossRules.maxCards} cartes maximum par salve.`, promo_not_donatable: "Les cartes promo ne peuvent pas être données." };
-    Toast.error(msg[e.code] || BOSS_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(msg[e.code] || BOSS_ERRORS[e.code] || friendlyError(e));
   }
 }
 
@@ -643,7 +643,7 @@ async function depositChest(cardId, finish, quality) {
     allCards = [];
     await loadChest();
   } catch (e) {
-    Toast.error(CHEST_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(CHEST_ERRORS[e.code] || friendlyError(e));
   }
 }
 
@@ -651,7 +651,7 @@ async function depositChest(cardId, finish, quality) {
 // renvoye par le serveur que si le joueur possede une clef - sans clef, cette
 // zone n'existe tout simplement pas pour lui (les clefs restent un secret).
 const CHEST_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const CHEST_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const CHEST_QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 function renderChestKeyPool(res) {
   const zone = document.getElementById("chest-key-zone");
   const pool = res.pool || [];
@@ -690,7 +690,7 @@ async function pickChestWithKey(depositId, btn) {
     await loadChest();
   } catch (err) {
     btn.disabled = false;
-    Toast.error(CHEST_ERRORS[err.code] || ({ no_key: "Il te faut une clé secrète.", deposit_unavailable: "Cette carte vient d'être prise par quelqu'un d'autre." }[err.code]) || ("Erreur. (" + err.message + ")"));
+    Toast.error(CHEST_ERRORS[err.code] || ({ no_key: "Il te faut une clé secrète.", deposit_unavailable: "Cette carte vient d'être prise par quelqu'un d'autre." }[err.code]) || friendlyError(err));
     if (err.code === "deposit_unavailable") { allCards = []; await loadChest(); }
   }
 }
@@ -709,7 +709,7 @@ document.addEventListener("click", async (e) => {
       allCards = [];
       await loadChest();
     } catch (err) {
-      Toast.error(CHEST_ERRORS[err.code] || ("Erreur. (" + err.message + ")"));
+      Toast.error(CHEST_ERRORS[err.code] || friendlyError(err));
     }
   }
 });
@@ -761,7 +761,7 @@ async function buyMarket(offerId) {
     if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
     await loadMarket();
   } catch (e) {
-    Toast.error(MARKET_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(MARKET_ERRORS[e.code] || friendlyError(e));
   }
 }
 
@@ -799,7 +799,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("goal-card").addEventListener("click", async (e) => {
     if (!e.target.closest("#goal-claim-btn")) return;
     try { const res = await API.communityGoal(Session.userId, "claim"); renderGoal(res); Toast.success(`&#129309; +${res.claimedNow.dust} poussières et +${res.claimedNow.worms} vers !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); }
-    catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+    catch (err) { Toast.errorfriendlyError(err); }
   });
 
   let bossSearchTimer = null;

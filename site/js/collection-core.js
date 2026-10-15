@@ -18,7 +18,7 @@ const Coll = (() => {
   const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const FINISH_LABELS_LONG = { normal: "Normal", holo: "Holographique", gold: "Doré", ghost: "Ghost Rare", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
-  const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+  const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
   const SOLD_OUT = "Tous les exemplaires de cette carte ont déjà été distribués.";
   const ERRORS = {
@@ -106,9 +106,7 @@ const Coll = (() => {
   function normalize(str) {
     return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   }
-  function escapeHtml(s) {
-    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
+  const escapeHtml = escHtml; // core.js
   function serial(n) {
     return "#" + String(n ?? "?").padStart(3, "0");
   }
@@ -295,6 +293,7 @@ const Coll = (() => {
     // Cartes ★, exemplaires assures, cartes obtenues en premier sur le serveur (2026-10-07).
     state.starred = new Set(collection.starredPullIds || []);
     state.forged = new Set(collection.forgedPullIds || []);
+    state.mastered = new Set(collection.masteredCards || []);
     state.editions = new Map(Object.entries(collection.editionPulls || {}).map(([k, v]) => [Number(k), v]));
     state.insured = new Set(collection.insuredPullIds || []);
     state.firstMine = new Map((collection.firstObtained || []).map((x) => [x.cardId, x.at]));
@@ -383,7 +382,7 @@ const Coll = (() => {
       if (typeof loadNavBadges === "function") loadNavBadges();
     } catch (e) {
       if (btn) btn.disabled = false;
-      Toast.error({ set_incomplete: "Il manque encore des cartes à ce set.", already_claimed: "Récompense déjà récupérée." }[e.code] || ("Erreur. (" + e.message + ")"));
+      Toast.error({ set_incomplete: "Il manque encore des cartes à ce set.", already_claimed: "Récompense déjà récupérée." }[e.code] || friendlyError(e));
     }
   }
 

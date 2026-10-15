@@ -17,6 +17,7 @@ import { rankOf, rankFor, collectionValues, valueMaps, pullValue, counts } from 
 import { talentRanks, TALENTS } from './talents.js';
 import { growSeconds, PLOTS, seedMult } from './garden.js';
 import { nudgeOff } from './features.js';
+import { dinoAlerts, starDinoOf } from './dino.js';
 
 export const schema = { Users: { PullStats: { type: 'Text' }, DustLedger: { type: 'Text' } } };
 
@@ -74,6 +75,7 @@ function whatNow(store, user) {
   const level = levelForXp(user.XP);
   const spent = TALENTS.reduce((s, x) => s + Math.min(x.max, Number(talentRanks(user)[x.key]) || 0), 0);
   if (level - 1 > spent) add(52, 'talents', '🌳', `${level - 1 - spent} point${level - 1 - spent > 1 ? 's' : ''} de talent à dépenser`, 'profile.html#talents');
+  for (const a of dinoAlerts(user)) add(a.priority, a.key, a.icon, a.label, a.url);
   const house = houseOf();
   add(50, 'house', house.icon, `Action du jour : ${house.label} (XP ×${setting(store, 'HouseXpMultiplier')})`, house.url);
   // Rien vers une fonctionnalite fermee dans le mode en cours (features.js).
@@ -149,7 +151,8 @@ function handlePlayerCard({ store, query }) {
   return ok({
     pseudo: user.Pseudo, avatar: user.DiscordAvatar || null, discordId: user.DiscordId || null, level: levelForXp(user.XP),
     rank: rankOf(store, user), decor: decorations(store, [user.id])[user.id] || null, showcase,
-    skills: { fishing: levelInfo(user.FishingXP, setting(store, 'FishingLevelXpStep')).level, dig: digLevel(store, user).level }
+    skills: { fishing: levelInfo(user.FishingXP, setting(store, 'FishingLevelXpStep')).level, dig: digLevel(store, user).level },
+    starDino: starDinoOf(store, user)
   });
 }
 

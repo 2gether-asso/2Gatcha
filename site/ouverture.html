@@ -52,8 +52,15 @@
             <p class="chest-next" id="chest-next"></p>
           </div>
           <div class="chest-actions">
-            <button type="button" class="btn" id="chest-open-btn">Ouvrir un coffre</button>
-            <button type="button" class="btn-secondary" id="chest-buy-btn">Acheter un coffre</button>
+            <div class="chest-btn-row">
+              <button type="button" class="btn" id="chest-open-btn">Ouvrir un coffre</button>
+              <button type="button" class="btn-secondary" id="chest-open5-btn" hidden>Ouvrir ×5</button>
+              <button type="button" class="btn-secondary" id="chest-openall-btn" hidden></button>
+            </div>
+            <div class="chest-btn-row">
+              <button type="button" class="btn-secondary" id="chest-buy-btn">Acheter un coffre</button>
+              <button type="button" class="btn-ghost" id="chest-buy5-btn"></button>
+            </div>
           </div>
         </section>
 
@@ -95,6 +102,7 @@
   <!-- Modal plein écran : ouverture + reveal, par-dessus toute la page -->
   <div id="pack-modal-overlay" class="pack-modal-overlay" hidden>
     <button id="pack-modal-close" class="card-modal-close pack-modal-close" aria-label="Fermer">&times;</button>
+    <button id="pack-sound-btn" type="button" class="pack-sound-btn" aria-label="Son de l'ouverture"></button>
     <div class="pack-modal-stage">
       <div class="quantity-picker" id="quantity-picker">
         <button type="button" class="btn-secondary active" data-qty="1">Ouvrir x1</button>
@@ -139,6 +147,8 @@
   <script src="js/core.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/opening-fx.js"></script>
+  <script src="js/card-extras.js"></script>
   <script src="js/opening.js"></script>
   <script src="js/opening-sim.js"></script>
 </body>

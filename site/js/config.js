@@ -81,6 +81,9 @@ window.APP_CONFIG = {
     cardInfo: "/card-info",             // GET ?cardId=&userId=
     wishlistAlerts: "/wishlist-alerts", // POST { userId }
     profileWall: "/profile-wall",       // GET ?profileId= | POST { userId, action: 'post'|'delete' }
+    discoveries: "/discoveries",             // POST { userId, action: 'reset' } (revoir les animations de decouverte)
+    discoveriesCatalog: "/discoveries-catalog", // GET (previsualisation des animations, admin)
+    dino: "/dino",                      // POST { userId, action: 'status'|'hatch'|'feed'|'play'|'clean'|'rename', dino?, food?, name? }
     garden: "/garden",                  // POST { userId, action: 'status'|'plant'|'harvest' }
     communityDig: "/community-dig",     // POST { userId, action: 'status'|'dig', tile? }
     prestige: "/prestige",              // POST { userId, skill: 'fishing'|'dig'|'expedition'|'garden' }
@@ -131,6 +134,9 @@ window.APP_CONFIG = {
     finishReroll: "/finish-reroll",     // POST { userId, pullId, action: 'status'|'reroll' }
     adminModeFeatures: "/admin-mode-features", // POST { discordId, action: 'status'|'set'|'reset', matrix? }
     machineRoom: "/machine-room",
+    cardHistory: "/card-history",            // GET ?cardId=&serial= (historique d'un exemplaire)
+    cardPrice: "/card-price",                // GET ?cardId= (cote : ventes aux encheres)
+    shareCard: "/share-card",                // POST { userId, cardId, image, ... } (partage Discord)
     adminModeSchedule: "/admin-mode-schedule", // POST { discordId, action: 'status'|'set'|'clear', preset?, at? }
     hardLeaderboard: "/hard-leaderboard",    // GET ?userId=
     seasonal: "/seasonal",                   // POST { userId, action: 'status'|'claim' }

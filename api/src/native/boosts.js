@@ -12,6 +12,7 @@ import { masteryFinishBonus } from './progression.js';
 import { rateFactor } from './market.js';
 import { expeditionLevel } from './levels.js';
 import { isTight } from './inflation.js';
+import { dinoTalent, companionBonus } from './dino.js';
 
 const QUALITY_UP = { damaged: 'worn', worn: 'good', good: 'mint' };
 
@@ -83,6 +84,7 @@ export function afterWorkflow({ store, path, request, response }) {
   } else if (path === 'dig' && body.action === 'dig' && json.dug && json.dustGained > 0) {
     const added = applyDust(store, userId, json, json.dustGained, [
       { k: talentValue(user, 'tireless'), label: '⛏️ Talent Fouilleur infatigable' },
+      { k: dinoTalent(user, 'rex') ? 0.25 : 0, label: '🦖 Tyrannosaure' },
       { k: face === 2 ? 0.25 : 0, label: '🎲 Dé du jour' },
       { k: lucky, label: luckyLabel }
     ]);
@@ -92,6 +94,7 @@ export function afterWorkflow({ store, path, request, response }) {
     const added = applyDust(store, userId, json, json.reward.dust, [
       { k: lvl.perks.dustBonus, label: `🧭 Niveau d’expédition ${lvl.level}` },
       { k: talentValue(user, 'explorer'), label: '🗺️ Talent Explorateur' },
+      { k: companionBonus(user), label: '🦖 Dino compagnon' },
       { k: face === 5 ? 0.25 : 0, label: '🎲 Dé du jour' },
       { k: lucky, label: luckyLabel }
     ]);

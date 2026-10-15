@@ -120,7 +120,7 @@
         render();
         Toast.success("🃏 Case validée par ton joker !");
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { Toast.error({ not_enough_dust: "Pas assez de poussières.", joker_used: "Joker déjà utilisé ce mois-ci." }[err.code] || "Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.error({ not_enough_dust: "Pas assez de poussières.", joker_used: "Joker déjà utilisé ce mois-ci." }[err.code] || friendlyError(err)); }
       return;
     }
     if (one || all) {
@@ -134,7 +134,7 @@
         if (typeof confetti === "function") confetti({ particleCount: keys.includes("full") ? 260 : 90, spread: keys.includes("full") ? 160 : 80, origin: { y: 0.55 } });
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       } catch (err) {
-        Toast.error({ already_claimed: "Déjà récupéré.", line_not_complete: "Cette ligne n'est pas encore complète." }[err.code] || "Erreur. (" + err.message + ")");
+        Toast.error({ already_claimed: "Déjà récupéré.", line_not_complete: "Cette ligne n'est pas encore complète." }[err.code] || friendlyError(err));
         load();
       }
     }

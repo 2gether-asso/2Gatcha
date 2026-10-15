@@ -192,6 +192,9 @@ doublons, coup final au boss) sans le modifier.
 | `teams.js` | `POST teams` | guerre des équipes mensuelle : 4 équipes équilibrées, points par activité, titre de champion à l'équipe gagnante le 1er du mois |
 | `duo.js` | `POST duo-expedition` | expédition en duo : invitation, acceptation, butin partagé (poussières, XP d'expédition, chance de booster) |
 | `bingo.js` | `POST bingo` | bingo du mois, version 2 (remplace le workflow bingo.json) : grille 5 × 5 commune générée chaque mois (case centrale offerte, BingoCardCells cases carte, le reste en objectifs du mois comptés par le bus d'activité), 12 lignes à récupérer (BingoLineReward), carton plein (BingoFullReward + titre « Roi du bingo »), joker mensuel (BingoJokerPrice), classement du mois ; l'admin peut imposer des cartes ou relancer le tirage (adminPreview, adminConfig). Avant BingoV2From (202611), reproduit à l'identique l'ancien bingo à 9 cartes (tables BingoGrids / BingoClaims) |
+| `cards.js` | `GET card-history`, `GET card-price`, `POST share-card` | cartes : historique de chaque exemplaire (table PullHistory, alimentée par toutes les créations / changements de propriétaire / fusions de Pulls), cote d'une carte (ventes aux enchères, moyennes, références décraft / craft), partage d'une image de carte sur Discord (variable DISCORD_WEBHOOK_URL, anti-spam ShareCardCooldown), maître d'une carte (6 finitions : badge, livre d'or), god pack (GodPackChance : toutes les cartes épiques ou mieux) |
+| `dino.js` | `POST dino` | dinos de compagnie : crâne de dinosaure extrêmement rare à la fouille (DinoSkullChance par tuile), crâne + DinoHatchBones os = un dino (5 au maximum, couleur / motif / espèce au hasard, 3 % chromatiques), soins façon tamagotchi (satiété, bonheur, propreté, calcul paresseux), nourriture pêchée (poisson, algues, crevette : DinoFoodChance par lancer, seulement avec un dino ou un crâne) et vers de terre, cacas ramassés = engrais pour le jardin (garden.js, action fertilize, DinoFertilizerBoost). Lot 2 : mort quand satiété et bonheur tombent à zéro (tas d'os : on récupère DinoHatchBones os, la place se libère), fouille automatique des adultes contents (DinoDigHours, DinoAutoSkullChance), talents par espèce (boosts.js, garden.js), compagnon d'expédition, œufs (deux adultes heureux, couleurs mélangées), plat préféré, Dinodex et titre « Paléontologue », couleurs nommées ultra-rares, accessoires et décorations (bonheur moins vite), dino vedette (profil, carte de joueur), premières au livre d'or (AppSettings dinoFirsts), caca doré (DinoGoldPoopChance), Ptérodactyle saisonnier (DinoSeasonalChance), nuit et caresses |
+| `discoveries.js` | `GET discoveries-catalog` | première fois qu'un joueur possède une ressource (os, clé, crâne, poisson, engrais…) : vérifié à la fin de chaque requête du joueur (index.js), la réponse porte `discoveries` (nom, icône, description énigmatique) et le site joue l'animation de découverte (ui.js DiscoveryFx). Personne ne les a encore vues : au premier passage, les ressources déjà possédées sont annoncées aussi (une fois). `POST discoveries { action: 'reset' }` (bouton « Revoir les découvertes » du menu joueur) remet tout à zéro. Catalogue utilisé par la page Admin « Prévisualiser les animations » |
 | `settings.js` | `POST admin-settings` | réglages du jeu modifiables depuis la page Admin |
 | `auth.js` | — (avant chaque requête) | jeton signé et limite de débit |
 | `workflow-schema.js` | — | colonnes des workflows créées au démarrage |
@@ -250,7 +253,15 @@ exécute jusqu'à 24 **lectures** en une seule requête et renvoie
 refusées : seuls les `GET` et les `POST` dont l'action est `status`, `list`
 ou `get` sont acceptés. Le site s'en sert pour tout ce qui est commun aux
 pages (en-tête, pastilles du menu, bandeau) : une requête au lieu d'une
-vingtaine.
+vingtaine. Le lot compte pour une seule lecture dans la limite de débit ; s'il est
+refusé (429), le site ne relance pas chaque lecture une par une.
+
+## Compression
+
+Les réponses texte de plus de 1 Ko (JSON de l'API, HTML/CSS/JS du site servi
+par l'API) partent compressées en gzip quand le navigateur l'accepte
+(`Accept-Encoding: gzip`) : environ -80 % sur la feuille de style et les
+réponses JSON. Les images, déjà compressées, partent telles quelles.
 
 ## Page d'administration de la base
 
@@ -280,6 +291,7 @@ maintenance.
 | `WORKFLOWS_DIR` | dossier des workflows (défaut `workflows/`) |
 | `ALLOWED_ORIGINS` | origines CORS autorisées (`*` par défaut) |
 | `ADMIN_TOKEN` | mot de passe de `admin-db.html` (vide = administration désactivée) |
+| `DEV_LOGIN` | `1` sur un serveur de **test** uniquement : sert `site/dev-login.html` (connexion sans Discord, jeton délivré par `POST /admin/api/dev-token` avec `ADMIN_TOKEN`). Jamais en production |
 | `ADMIN_DISCORD_IDS` | admins des routes natives (défaut : les deux admins du jeu) |
 | `AUTH_SECRET` | clé de signature des jetons de connexion (vide = générée et gardée en base) |
 | `AUTH_MODE` | `off` pour désactiver la vérification des jetons (local uniquement) |

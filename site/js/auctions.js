@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
   const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-  const QUALITY = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+  const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
   let data = null;
   let copies = [];
@@ -138,7 +138,7 @@
         selectCopy(null);
         renderCopies();
         Toast.success("&#128296; Ta carte est aux enchères !");
-      } catch (err) { Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.error(ERR[err.code] || friendlyError(err)); }
     });
     $("auction-list").addEventListener("click", async (e) => {
       const bid = e.target.closest("[data-bid]");
@@ -152,9 +152,9 @@
           render();
           Toast.success(`&#128296; Enchère de ${amount} poussières placée !`);
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { bid.disabled = false; Toast.error(ERR[err.code] ? ERR[err.code] + (err.data && err.data.minNext ? ` (minimum ${err.data.minNext})` : "") : "Erreur. (" + err.message + ")"); }
+        } catch (err) { bid.disabled = false; Toast.error(ERR[err.code] ? ERR[err.code] + (err.data && err.data.minNext ? ` (minimum ${err.data.minNext})` : "") : friendlyError(err)); }
       } else if (cancel) {
-        try { data = await API.auctions(Session.userId, "cancel", { auctionId: Number(cancel.dataset.cancel) }); render(); copies = []; loadCopies(); Toast.success("Vente retirée, la carte est revenue."); } catch (err) { Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+        try { data = await API.auctions(Session.userId, "cancel", { auctionId: Number(cancel.dataset.cancel) }); render(); copies = []; loadCopies(); Toast.success("Vente retirée, la carte est revenue."); } catch (err) { Toast.error(ERR[err.code] || friendlyError(err)); }
       }
     });
   });

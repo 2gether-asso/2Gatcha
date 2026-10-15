@@ -23,7 +23,7 @@ const UNLOCK_ERROR_MESSAGES = {
 };
 
 const REDEEM_FINISH_LABELS = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const REDEEM_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const REDEEM_QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 function buildCardEl(card, index) {
   const wrap = document.createElement("div");
@@ -200,7 +200,7 @@ async function onLockClick() {
     }, 300);
     loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error(UNLOCK_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(UNLOCK_ERROR_MESSAGES[e.code] || friendlyError(e));
   } finally {
     unlockBusy = false;
   }

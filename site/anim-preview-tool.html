@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prévisualisation des animations - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
+  <header id="site-header"></header>
+
+  <main id="main-content">
+    <div class="panel">
+      <h1>Prévisualisation des animations</h1>
+      <p class="lead">
+        Rejoue chaque animation du jeu sans rien dépenser : découvertes de ressources, cinématiques d'ouverture par rareté,
+        god pack, suspense, choix et déchirure du booster, sons, montée de niveau. Rien n'est envoyé au serveur.
+      </p>
+      <div class="ap-options">
+        <label>Carte utilisée <select id="ap-card"><option value="">— chargement… —</option></select></label>
+        <label>Finition <select id="ap-finish"></select></label>
+        <button type="button" class="btn-ghost" id="ap-sound"></button>
+      </div>
+
+      <div class="ap-sections">
+        <section class="ap-section">
+          <h2>&#128270; Découvertes de ressources</h2>
+          <p>La première fois qu'un joueur obtient une ressource : un bouton par objet.</p>
+          <div class="ap-buttons" id="ap-discoveries"><span class="muted">Chargement…</span></div>
+        </section>
+
+        <section class="ap-section">
+          <h2>&#127916; Cinématiques d'ouverture</h2>
+          <p>Jouées à l'ouverture d'un booster pour les légendaires et mieux, et pour la dernière carte d'un god pack.</p>
+          <div class="ap-buttons" id="ap-cinematics"></div>
+        </section>
+
+        <section class="ap-section">
+          <h2>&#128140; Suspense de la dernière carte</h2>
+          <p>Fort pour une épique ou mieux (battement de cœur, lumière par les bords), discret sinon. La carte se retourne ensuite.</p>
+          <div class="ap-buttons" id="ap-suspense"></div>
+          <div class="ap-stage" id="ap-suspense-stage"><div class="reveal-grid" id="ap-suspense-grid"><p class="ap-stage-note">Choisis une rareté ci-dessus : la carte tremble puis se retourne ici.</p></div></div>
+        </section>
+
+        <section class="ap-section">
+          <h2>&#127873; Booster : choix parmi 3, déchirure, god pack</h2>
+          <p>Choisis un booster dans l'éventail, puis glisse dessus de gauche à droite pour le déchirer (ou tape dessus).</p>
+          <div class="ap-buttons">
+            <button type="button" class="btn-secondary" id="ap-pack-reset">&#128260; Rejouer le choix</button>
+            <button type="button" class="btn-secondary" id="ap-pack-god">&#127775; Booster god pack</button>
+          </div>
+          <div class="ap-stage">
+            <div class="booster-stage">
+              <div class="booster-pack" id="ap-pack"><div class="booster-title">Base</div><div class="booster-sub">5 cartes</div></div>
+            </div>
+          </div>
+          <p class="ap-stage-note" id="ap-pack-note">&nbsp;</p>
+        </section>
+
+        <section class="ap-section">
+          <h2>&#128266; Sons</h2>
+          <p>Le son est coupé par défaut pour les joueurs : le bouton en haut le rallume pour cette page.</p>
+          <div class="ap-buttons" id="ap-sounds"></div>
+        </section>
+
+        <section class="ap-section">
+          <h2>&#11088; Autres</h2>
+          <div class="ap-buttons">
+            <button type="button" class="btn-secondary" id="ap-levelup">&#127907; Montée de niveau (pêche)</button>
+            <button type="button" class="btn-secondary" id="ap-confetti">&#127881; Confettis</button>
+            <button type="button" class="btn-secondary" id="ap-multi">&#128270; 3 découvertes d'affilée</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/opening-fx.js"></script>
+  <script src="js/anim-preview-tool.js"></script>
+</body>
+</html>

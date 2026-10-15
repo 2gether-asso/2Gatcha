@@ -104,7 +104,7 @@
       if (!btn) return;
       btn.disabled = true;
       try { renderChallenges(await API.challenges(Session.userId, "pick", { keys: [btn.dataset.pick] })); Toast.success("Défi choisi !"); }
-      catch (err) { btn.disabled = false; Toast.error(err.code === "too_many_picks" ? "Tu as déjà choisi 3 défis." : "Erreur. (" + err.message + ")"); }
+      catch (err) { btn.disabled = false; Toast.error(err.code === "too_many_picks" ? "Tu as déjà choisi 3 défis." : friendlyError(err)); }
     });
     $("challenges-claim")?.addEventListener("click", async (e) => {
       // e.currentTarget vaut null apres le premier await (GlitchTip #17) :
@@ -117,7 +117,7 @@
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       } catch (err) {
         // Deja recupere (ex. via "Tout recuperer") : message doux (API.BENIGN_ERRORS).
-        Toast.error("Erreur. (" + err.message + ")");
+        Toast.errorfriendlyError(err);
       }
       btn.disabled = false;
       // Dans tous les cas, le panneau se remet a jour (bouton masque si plus rien).

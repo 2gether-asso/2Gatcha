@@ -38,7 +38,6 @@ const HIDDEN = [
   { key: 'modeHard7', mode: 'hard', label: 'Survivant de l’enfer', desc: 'Jouer 7 jours de suite en mode Hard.', icon: '🔥' },
   { key: 'modeChaos5', mode: 'chaos', label: 'Agent du chaos', desc: 'Jouer sous 5 règles du Chaos différentes.', icon: '👾' }
 ];
-export const MODE_ACHIEVEMENTS = HIDDEN.filter((h) => h.mode);
 
 const THEMES = [
   { key: 'rarities', label: 'Arc des raretés', desc: 'Une carte de chaque rareté (Commune à Mythique).', icon: '🌈', title: 'Gardien des raretés' },

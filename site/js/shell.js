@@ -475,7 +475,7 @@ function renderHeader() {
               <div class="gs-filters" id="gs-filters">
                 <select id="gs-rarity" aria-label="Rareté"><option value="">Toutes raretés</option></select>
                 <select id="gs-finish" aria-label="Finition"><option value="">Toutes finitions</option><option value="normal">Normale</option><option value="holo">Holo</option><option value="gold">Doré</option><option value="ghost">Ghost</option><option value="diamond">Diamant</option><option value="rainbow">Arc-en-ciel</option></select>
-                <select id="gs-quality" aria-label="État"><option value="">Tous états</option><option value="damaged">Abîmé</option><option value="worn">Usé</option><option value="good">Bon état</option><option value="mint">Parfait état</option></select>
+                <select id="gs-quality" aria-label="État"><option value="">Tous états</option><option value="damaged">Usé</option><option value="worn">Abîmé</option><option value="good">Bon état</option><option value="mint">Parfait état</option></select>
                 <select id="gs-owned" aria-label="Possession"><option value="">Possédées ou non</option><option value="owned">Possédées</option><option value="missing">Manquantes</option></select>
               </div>
               <div class="global-search-results" id="global-search-results"></div>
@@ -505,6 +505,7 @@ function renderHeader() {
               <button id="copy-profile-link-btn" type="button"><span class="mi">&#128279;</span> Copier le lien de mon profil</button>
               <button id="mute-toggle-btn" type="button">${Sfx.muted ? '<span class="mi">&#128264;</span> Son coupé' : '<span class="mi">&#128266;</span> Son actif'}</button>
               <button id="theme-cycle-btn" type="button"><span class="mi">&#127763;</span> Changer de thème</button>
+              <button id="discoveries-reset-btn" type="button" title="Rejoue l'animation de chaque ressource que tu possèdes"><span class="mi">&#128270;</span> Revoir les découvertes</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button" class="menu-danger"><span class="mi">&#10162;</span> Déconnexion</button>
             </div>
@@ -663,6 +664,14 @@ function renderHeader() {
       if (!Sfx.muted) Sfx.click();
     });
     document.getElementById("theme-cycle-btn").addEventListener("click", cycleTheme);
+    document.getElementById("discoveries-reset-btn").addEventListener("click", async () => {
+      const okReset = await Confirm.show("Rejouer l'animation de découverte de chaque ressource que tu possèdes ? Les nouvelles ressources seront aussi annoncées à nouveau.", { title: "Revoir les découvertes", confirmText: "Revoir" });
+      if (!okReset) return;
+      try {
+        const res = await API.post("discoveries", { userId: Session.userId, action: "reset" });
+        if (!res.discoveries || !res.discoveries.length) Toast.info("Rien à revoir pour l'instant : tu n'as encore aucune ressource à découvrir.");
+      } catch (e) { Toast.errorfriendlyError(e); }
+    });
     document.getElementById("copy-profile-link-btn").addEventListener("click", async () => {
       const url = window.location.origin + window.location.pathname.replace(/[^/]*$/, "") +
         "profile.html?pseudo=" + encodeURIComponent(Session.pseudo || "");
@@ -919,7 +928,7 @@ const PushNotifs = {
       prefs.addEventListener("change", async () => {
         const values = {};
         prefs.querySelectorAll("[data-kind]").forEach((i) => { values[i.dataset.kind] = i.checked; });
-        try { await API.setPushPrefs(Session.userId, values); Toast.info("Préférences de notifications enregistrées."); } catch (e) { Toast.error("Erreur. (" + e.message + ")"); }
+        try { await API.setPushPrefs(Session.userId, values); Toast.info("Préférences de notifications enregistrées."); } catch (e) { Toast.errorfriendlyError(e); }
       });
     }
     container.querySelector(".push-toggle-btn").addEventListener("click", async (e) => {
@@ -1004,7 +1013,7 @@ async function loadHeaderBoosterBadge() {
     // Bonus et malus du mode (modeperks.js).
     if (typeof Toast !== "undefined") {
       if (status.hug) Toast.success(`&#128526; Câlin du jour (mode Cool) : ${status.hug} !`);
-      if (status.wear) Toast.info(`&#129533; Usure (mode Hard) : un doublon de <strong>${escHtml(status.wear.card)}</strong> s'est abîmé.`);
+      if (status.wear) Toast.info(`&#129533; Usure (mode Hard) : un doublon de <strong>${escHtml(status.wear.card)}</strong> s'est usé.`);
       if (status.modeUnlock) Toast.success(`&#127942; Débloqué : ${escHtml(status.modeUnlock)} !`);
     }
     // Pluie de boosters (objectif commun atteint) : annonce une seule fois.
@@ -1367,8 +1376,15 @@ const PlayerCard = {
           ${data.decor && data.decor.title ? `<small class="decor-title">${esc(data.decor.title)}</small>` : ""}
           <small>Niv. ${data.level} · ${data.rank.icon} ${esc(data.rank.label)} · &#127907; ${data.skills.fishing} · &#9935;&#65039; ${data.skills.dig}</small></div>
       </div>
+      ${data.starDino ? `<div class="pcp-dino" data-pcp-dino>${window.DinoArt ? DinoArt.svg(data.starDino, { scale: 1 }) : ""}<small>&#129430; ${esc(data.starDino.name)} · ${esc(data.starDino.speciesLabel)}</small></div>` : ""}
       ${data.showcase.length ? `<div class="pcp-showcase">${data.showcase.map((c) => `<img src="${API.imageUrl(c.imageId)}" alt="${esc(c.name)}" title="${esc(c.name)}" style="--r:${esc(c.rarity?.colorHex || "#888")}" loading="lazy" />`).join("")}</div>` : '<small class="muted">Vitrine vide</small>'}`;
     document.body.appendChild(el);
+    if (data.starDino && !window.DinoArt) {
+      const s = document.createElement("script");
+      s.src = "js/dino-art.js";
+      s.onload = () => { const box = el.querySelector("[data-pcp-dino]"); if (box && window.DinoArt) box.insertAdjacentHTML("afterbegin", DinoArt.svg(data.starDino, { scale: 1 })); };
+      document.head.appendChild(s);
+    }
     const r = a.getBoundingClientRect();
     const w = el.offsetWidth, h = el.offsetHeight;
     el.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left)) + "px";

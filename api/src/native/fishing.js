@@ -26,6 +26,7 @@ import { eventState } from './events.js';
 import { grantCosmetic } from './cosmetics.js';
 import { upgradeValue } from './upgrades.js';
 import { modeIs } from './modeperks.js';
+import { fishingBycatch } from './dino.js';
 
 export const schema = {
   Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' }, Worms: { type: 'Numeric' },
@@ -268,9 +269,11 @@ function handleFishing({ store, body }) {
   Object.assign(fields, weeklyXpFields(user, 'Fishing', xp));
   fields.FishingRecords = JSON.stringify(records);
   if (tk) Object.assign(fields, { TourneyKey: tk, TourneyCasts: tCasts, TourneyScore: tScore });
+  const bycatch = fishingBycatch(store, user, count);
+  if (bycatch) Object.assign(fields, bycatch.fields);
   user = store.update('Users', user.id, fields);
   const after = statusOf(store, user);
-  return ok({ catches, zone: deep ? 'deep' : 'shore', xpGained: xp, reducedRewards: reducedAny, baitUsed: useBait ? count : 0, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, newWorms: user.Worms, newGoldBait: user.GoldBait, ...after });
+  return ok({ catches, bycatch: bycatch ? bycatch.items : [], zone: deep ? 'deep' : 'shore', xpGained: xp, reducedRewards: reducedAny, baitUsed: useBait ? count : 0, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, newWorms: user.Worms, newGoldBait: user.GoldBait, ...after });
 }
 
 export const routes = { 'POST fishing': handleFishing, 'GET fishing-tournament': handleTourney };

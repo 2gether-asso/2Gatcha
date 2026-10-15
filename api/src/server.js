@@ -8,6 +8,7 @@
 // rapides lisant le meme solde).
 
 import http from 'node:http';
+import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
@@ -95,7 +96,19 @@ function corsHeaders(req) {
   };
 }
 
+// Compression gzip (2026-10-15) des reponses texte de plus de 1 Ko (JSON de
+// l'API, HTML/CSS/JS du site) quand le navigateur l'accepte. Les images,
+// deja compressees, partent telles quelles.
+const COMPRESSIBLE = /^(application\/json|text\/|application\/javascript|image\/svg)/;
 function send(res, req, status, headers, body) {
+  const type = String(headers['Content-Type'] || '');
+  const size = body ? (typeof body === 'string' ? Buffer.byteLength(body) : body.length) : 0;
+  if (size > 1024 && COMPRESSIBLE.test(type) && !headers['Content-Encoding'] && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+    try {
+      body = zlib.gzipSync(body, { level: 6 });
+      headers = { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' };
+    } catch (e) { /* envoi non compresse */ }
+  }
   res.writeHead(status, { ...corsHeaders(req), ...headers });
   res.end(body);
 }
@@ -122,6 +135,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 // Fichiers jamais servis, meme presents dans le dossier du site monte :
 // outils de test qui contournent la connexion Discord (dev-login), et
 // fichiers caches (.git, .env...).
+// (DEV_LOGIN=1 les autorise, sur un serveur de test uniquement.)
 const BLOCKED_SITE_FILES = new Set(['dev-login.html', 'js/dev-login.js']);
 
 function send404(req, res, root) {
@@ -139,7 +153,7 @@ function serveStatic(req, res, pathname) {
   let file = path.resolve(root, '.' + rel);
   if (file !== root && !file.startsWith(root + path.sep)) return false;
   const relPath = path.relative(root, file).split(path.sep).join('/');
-  if (BLOCKED_SITE_FILES.has(relPath) || relPath.split('/').some((seg) => seg.startsWith('.'))) return send404(req, res, root);
+  if ((BLOCKED_SITE_FILES.has(relPath) && !config.devLogin) || relPath.split('/').some((seg) => seg.startsWith('.'))) return send404(req, res, root);
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
   // Le site servi par l'API parle a l'API elle-meme : apiBaseUrl est reecrit
   // a la volee en "/webhook/" (le fichier du depot garde l'adresse publique,

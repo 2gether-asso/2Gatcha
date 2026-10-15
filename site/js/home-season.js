@@ -63,7 +63,7 @@
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       } catch (err) {
         b.disabled = false;
-        Toast.error(err.code === "already_claimed" ? "Déjà récupéré aujourd'hui." : "Erreur. (" + err.message + ")");
+        Toast.error(err.code === "already_claimed" ? "Déjà récupéré aujourd'hui." : friendlyError(err));
       }
     });
   });

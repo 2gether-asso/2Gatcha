@@ -73,7 +73,7 @@ export function eventsFrom(store, path, body = {}, response = {}) {
       }
       break;
     case 'chests':
-      if (body.action === 'open' && json.opened) out.push(ev('chestOpened'));
+      if (body.action === 'open' && json.opened) out.push(ev('chestOpened', Number(json.opened) || 1));
       break;
     case 'boss-attack':
       if (!json.error && Array.isArray(body.pullIds)) out.push(ev('bossAttack', body.pullIds.length));

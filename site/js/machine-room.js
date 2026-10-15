@@ -138,7 +138,7 @@
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       } catch (err) {
         btn.disabled = false;
-        Toast.error({ not_enough: "Il te manque des ressources pour cette étape.", room_closed: "La salle est fermée pour ce mois.", already_voted: "Tu as déjà voté ce mois-ci." }[err.code] || "Erreur. (" + err.message + ")");
+        Toast.error({ not_enough: "Il te manque des ressources pour cette étape.", room_closed: "La salle est fermée pour ce mois.", already_voted: "Tu as déjà voté ce mois-ci." }[err.code] || friendlyError(err));
       }
     });
   });

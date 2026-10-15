@@ -30,7 +30,7 @@
       try {
         st = await API.playerGift(Session.userId, "send", { toUserId: x.userId, kind: b.dataset.gift });
         Toast.success(`&#127873; Cadeau envoyé à ${esc(st.sent.to)} : il le recevra à sa prochaine visite.`);
-      } catch (err) { Toast.error(err.code === "already_sent" ? "Tu as déjà offert ton cadeau du jour." : "Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.error(err.code === "already_sent" ? "Tu as déjà offert ton cadeau du jour." : friendlyError(err)); }
       draw();
     });
   }
@@ -114,14 +114,14 @@
         renderWall((await API.postProfileWall(Session.userId, profileId, text)).messages);
         input.value = "";
       } catch (err) {
-        Toast.error({ slow_down: "Doucement : attends quelques secondes entre deux messages.", empty_message: "Message vide." }[err.code] || "Erreur. (" + err.message + ")");
+        Toast.error({ slow_down: "Doucement : attends quelques secondes entre deux messages.", empty_message: "Message vide." }[err.code] || friendlyError(err));
       }
     });
     document.getElementById("wall-list")?.addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-wall-del]");
       if (!btn) return;
       try { renderWall((await API.deleteProfileWall(Session.userId, Number(btn.dataset.wallDel))).messages); }
-      catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      catch (err) { Toast.errorfriendlyError(err); }
     });
   });
 })();

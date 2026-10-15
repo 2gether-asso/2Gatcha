@@ -11,6 +11,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { issueToken } from './native/auth.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -68,6 +69,16 @@ export function createAdmin({ store, withLock, token, sendJson, backups = null, 
     const parts = url.pathname.replace(/^\/admin\/api\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
     const [section, a, b, c] = parts;
     const method = req.method;
+
+    // POST /admin/api/dev-token { userId } : jeton de session d'un joueur, pour
+    // la connexion de test (site/dev-login.html). Rien de plus que ce que le
+    // jeton admin permet deja (acces complet a la base).
+    if (section === 'dev-token' && method === 'POST') {
+      const { userId } = await readJson(req);
+      const user = store.tables.has('Users') ? store.get('Users', Number(userId)) : null;
+      if (!user) return sendJson(res, req, 404, { error: 'unknown_user' });
+      return sendJson(res, req, 200, { token: issueToken(store, user), userId: user.id, pseudo: user.Pseudo || '', discordId: user.DiscordId || '', discordAvatar: user.DiscordAvatar || '' });
+    }
 
     // GET /admin/api/tables
     if (section === 'tables' && !a && method === 'GET') {

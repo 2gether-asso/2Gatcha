@@ -40,8 +40,24 @@ function compute(store) {
     if (FINISHES[p.Finish]) entry('finish:' + p.Finish, p, { kind: 'finish', label: `Première carte ${FINISHES[p.Finish]}`, icon: FINISH_ICON[p.Finish] });
     if (p.Edition && EDITIONS[p.Edition]) entry('edition:' + p.Edition, p, { kind: 'edition', label: `Première édition ${EDITIONS[p.Edition].label}`, icon: EDITIONS[p.Edition].icon });
   }
+  // Premier maitre de chaque carte (les 6 finitions, cards.js).
+  const masters = new Map();
+  store.getAll('Users').forEach((u) => {
+    let m = {}; try { m = JSON.parse(u.MasteredCards || '{}') || {}; } catch (e) { m = {}; }
+    for (const [cid, at] of Object.entries(m)) { const prev = masters.get(cid); if (!prev || at < prev.at) masters.set(cid, { at, userId: u.id }); }
+  });
+  for (const [cid, v] of masters) {
+    const card = cards.get(Number(cid));
+    if (card && users.get(v.userId)) firsts.set('master:' + cid, { at: v.at, userId: v.userId, pseudo: users.get(v.userId).Pseudo, card: cardSummary(store, card), kind: 'finish', label: `Maître de ${card.Name}`, icon: '👑' });
+  }
+  // Premieres des dinos de compagnie (enregistrees par dino.js).
+  const dinoRow = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((r) => r.Key === 'dinoFirsts') : null;
+  let dinoFirsts = {};
+  try { dinoFirsts = JSON.parse((dinoRow && dinoRow.Value) || '{}') || {}; } catch (e) { dinoFirsts = {}; }
+  const dinos = Object.values(dinoFirsts).filter((e) => e && users.get(e.userId)).map((e) => ({ ...e, pseudo: users.get(e.userId).Pseudo, kind: 'dino' })).sort((a, b) => a.at - b.at);
   const list = [...firsts.values()];
   return {
+    dinos,
     mythics: list.filter((e) => e.kind === 'mythic').sort((a, b) => a.at - b.at),
     finishes: list.filter((e) => e.kind === 'finish').sort((a, b) => a.at - b.at),
     editions: list.filter((e) => e.kind === 'edition').sort((a, b) => a.at - b.at)

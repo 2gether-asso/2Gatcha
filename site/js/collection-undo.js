@@ -6,7 +6,7 @@
   if (typeof Session === "undefined" || !Session.isLoggedIn()) return;
   const esc = escHtml;
   const FINISH = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-  const QUALITY = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+  const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
   async function load() {
     const box = document.getElementById("undo-panel");
@@ -39,7 +39,7 @@
         load();
       } catch (err) {
         b.disabled = false;
-        Toast.error({ not_enough_dust: "Pas assez de poussières pour annuler.", not_undoable: "Ce décraft ne peut plus être annulé." }[err.code] || "Erreur. (" + err.message + ")");
+        Toast.error({ not_enough_dust: "Pas assez de poussières pour annuler.", not_undoable: "Ce décraft ne peut plus être annulé." }[err.code] || friendlyError(err));
       }
     });
     load();

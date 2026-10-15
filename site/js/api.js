@@ -120,7 +120,12 @@ const API = {
           body: JSON.stringify({ calls: todo.map((c) => ({ path: window.APP_CONFIG.endpoints[c.name].replace(/^\//, ""), method: c.method, query: c.query, body: c.body })) })
         });
         if (res.status === 404) throw Object.assign(new Error("batch_unsupported"), { unsupported: true });
-        if (res.status === 429) { this._onRejected(res, await res.json().catch(() => ({}))); }
+        if (res.status === 429) {
+          this._onRejected(res, await res.json().catch(() => ({})));
+          // Trop de requetes : surtout ne pas relancer chaque lecture une par
+          // une (20 a 30 appels de plus, tous refuses a leur tour).
+          throw Object.assign(new Error("rate_limited"), { rateLimited: true });
+        }
         if (!res.ok) throw new Error("batch_failed");
         const { results } = await res.json();
         todo.forEach((c, i) => {
@@ -128,8 +133,10 @@ const API = {
           const { entry, resolve, reject } = resolvers.get(c.key);
           entry.pending = false;
           entry.ts = Date.now();
-          if (r.status >= 200 && r.status < 300) resolve(r.json);
-          else {
+          if (r.status >= 200 && r.status < 300) {
+            if (r.json && Array.isArray(r.json.discoveries) && r.json.discoveries.length && typeof DiscoveryFx !== "undefined") DiscoveryFx.show(r.json.discoveries);
+            resolve(r.json);
+          } else {
             if (r.status === 401) this._onRejected({ status: 401 }, r.json || {});
             const err = new Error((r.json && r.json.error) || `Erreur API (${c.name}): ${r.status}`);
             err.code = r.json && r.json.error;
@@ -139,6 +146,14 @@ const API = {
         });
       } catch (e) {
         if (e.unsupported) this._batchSupported = false;
+        if (e.rateLimited) {
+          todo.forEach((c) => {
+            const { reject } = resolvers.get(c.key);
+            this._memo.delete(c.key);
+            reject(Object.assign(new Error("rate_limited"), { code: "rate_limited" }));
+          });
+          return Promise.all(list.map(() => null));
+        }
         // Repli : chaque lecture repart en individuel.
         todo.forEach((c) => {
           const { resolve, reject } = resolvers.get(c.key);
@@ -230,6 +245,7 @@ const API = {
       if (pos.length) Toast.success(`&#10024; Bonus : ${pos.map((b) => `${b.label} +${b.dust}`).join(" · ")}`);
       if (neg.length) Toast.info(`${neg.map((b) => `${b.label} ${b.dust}`).join(" · ")} &#10024;`);
     }
+    if (Array.isArray(data.discoveries) && data.discoveries.length && typeof DiscoveryFx !== "undefined") DiscoveryFx.show(data.discoveries);
     if (data.repairSurcharge) Toast.info(`&#129520; Restauration répétée cette semaine : +${data.repairSurcharge} poussières.`);
     if (!Array.isArray(data.notices)) return;
     data.notices.forEach((n, i) => setTimeout(() => {
@@ -259,6 +275,8 @@ const API = {
         err.data = data;
         throw err;
       }
+      // Premiere ressource obtenue (discoveries.js) : peut arriver sur une lecture.
+      if (data && Array.isArray(data.discoveries) && data.discoveries.length && typeof DiscoveryFx !== "undefined") DiscoveryFx.show(data.discoveries);
       return data;
     } finally {
       if (typeof TopLoadingBar !== "undefined") TopLoadingBar.stop();
@@ -641,6 +659,9 @@ const API = {
   deleteProfileWall(userId, messageId) {
     return this.post("profileWall", { userId, action: "delete", messageId });
   },
+  dino(userId, action = "status", extra = {}) {
+    return this.post("dino", { userId, action, ...extra });
+  },
   garden(userId, action = "status", extra = {}) {
     return this.post("garden", { userId, action, ...extra });
   },
@@ -789,8 +810,8 @@ const API = {
   findTreasure(userId, clue, page) { return this.post("treasureHunt", { userId, clue, page }); },
   getAccountPrestige(userId) { return this.get("accountPrestige", { userId }); },
   adminEvents(discordId, action = "list", params = {}) { return this.post("adminEvents", { discordId, action, ...params }); },
-  chests(userId, action) {
-    return this.post("chests", { userId, action });
+  chests(userId, action, count) {
+    return this.post("chests", count ? { userId, action, count } : { userId, action });
   },
   pushAction(userId, action, subscription) {
     return this.post("push", { userId, action, subscription });

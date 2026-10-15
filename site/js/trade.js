@@ -32,7 +32,7 @@ const STALE_STATE_ERRORS = new Set(["offer_no_longer_available", "pull_not_owned
 // son finish/quality reels sont connus et affichables - indispensable pour
 // juger si un echange est equitable (demande explicite : "plus de details").
 const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 const STATUS_LABELS = {
   pending: "En attente",
@@ -609,7 +609,7 @@ async function openCounterModal(trade) {
 }
 
 function handleTradeError(e) {
-  Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+  Toast.error(TRADE_ERROR_MESSAGES[e.code] || friendlyError(e));
   if (STALE_STATE_ERRORS.has(e.code)) refreshAfterMutation();
 }
 
@@ -874,7 +874,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       await refreshAfterMutation();
     } catch (err) {
-      Toast.error(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));
+      Toast.error(TRADE_ERROR_MESSAGES[err.code] || friendlyError(err));
     }
   });
 

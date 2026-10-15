@@ -305,6 +305,20 @@ export const REGISTRY = {
   MachineVoteDay: { ...int('Salle des machines : dernier jour du vote', 0, 'Modes de jeu', '0 = vote ouvert tout le mois, le mode gagnant s’applique le 1er du mois suivant. 1 à 28 = le vote se ferme à la fin de ce jour et le mode gagnant s’applique aussitôt jusqu’à la fin du mois.', 0, 28), storage: 'app' },
   MachineRoomCosts: { label: 'Salle des machines : sacrifices', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet : keys, dust, worms, parts, bait, boosters, cards (doublons).', def: { keys: 20, dust: 500, worms: 30, parts: 5, bait: 3, boosters: 3, cards: 10 } },
 
+  // --- Cartes et ouverture (cards.js, 2026-10-15)
+  GodPackChance: { ...num('God pack : chance par booster', 0.002, 'Ouverture', 'Booster ne contenant que des épiques ou mieux (0,002 = 1 sur 500).', 0, 0.2), storage: 'app' },
+  ShareCardCooldown: { ...int('Partage de carte sur Discord : délai entre deux partages (s)', 120, 'Ouverture', '', 10, 86400), storage: 'app' },
+
+  // --- Dinos de compagnie (dino.js, 2026-10-15)
+  DinoSkullChance: { ...num('Dinos : chance de crâne par tuile creusée', 0.001, 'Dinos', 'Crâne de dinosaure trouvé en creusant (0,001 = 1 tuile sur 1 000).', 0, 0.1), storage: 'app' },
+  DinoHatchBones: { ...int('Dinos : os pour ramener un dino à la vie', 10, 'Dinos', 'En plus d’un crâne. 5 dinos au maximum par joueur.', 0, 500), storage: 'app' },
+  DinoFoodChance: { ...pct('Dinos : chance de nourriture par lancer de pêche', 0.5, 'Dinos', 'Poisson, algues ou crevette en plus de la prise, seulement pour les joueurs qui ont un dino ou un crâne.'), storage: 'app' },
+  DinoDigHours: { ...int('Dinos : heures entre deux trouvailles de la fouille automatique', 6, 'Dinos', 'Dinos adultes et contents seulement (Tricératops 2 fois plus vite). 4 trouvailles en attente au plus.', 1, 48), storage: 'app' },
+  DinoAutoSkullChance: { ...num('Dinos : chance de crâne par trouvaille automatique', 0.003, 'Dinos', '', 0, 0.1), storage: 'app' },
+  DinoGoldPoopChance: { ...pct('Dinos : chance de caca doré par crevette mangée', 0.3, 'Dinos', 'Engrais doré : parcelle prête tout de suite, appât doré garanti.'), storage: 'app' },
+  DinoSeasonalChance: { ...pct('Dinos : chance de Ptérodactyle saisonnier à l’éclosion', 0.3, 'Dinos', 'Seulement pendant un événement saisonnier.'), storage: 'app' },
+  DinoFertilizerBoost: { ...pct('Dinos : avance donnée par un engrais', 0.5, 'Dinos', 'Part du temps de pousse sautée quand on met un caca de dino sur une parcelle (la récolte de vers est aussi doublée).'), storage: 'app' },
+
   // --- Bingo du mois, version 2 (bingo.js)
   BingoV2From: { ...int('Bingo : premier mois de la nouvelle version (AAAAMM)', 202611, 'Bingo', 'Avant ce mois, l’ancien bingo (9 cartes) continue tel quel ; à partir de ce mois, grille 5 × 5 avec lignes et carton plein.', 202001, 209912), storage: 'app' },
   BingoCardCells: { ...int('Bingo : nombre de cases « carte »', 8, 'Bingo', 'Les autres cases sont des objectifs du mois (boosters, fouille, pêche…).', 0, 12), storage: 'app' },

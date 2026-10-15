@@ -936,7 +936,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const reset = e.target.closest("[data-reset-setting]");
       if (reset) {
         try { renderSettings((await API.adminResetSetting(Session.discordId, reset.dataset.resetSetting)).settings); Toast.info("Valeur par défaut rétablie."); }
-        catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+        catch (err) { Toast.errorfriendlyError(err); }
       }
     });
     document.getElementById("season-admin-zone").addEventListener("click", async (e) => {
@@ -945,7 +945,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const season = btn.dataset.seasonSave;
       const cardId = Number(document.querySelector(`[data-season-card="${season}"]`).value) || 0;
       try { await loadSeasonAdmin(await API.adminSetSeasonCard(Session.discordId, season, cardId)); Toast.success("Carte de saison enregistrée."); }
-      catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      catch (err) { Toast.errorfriendlyError(err); }
     });
     document.getElementById("event-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -963,11 +963,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         renderEventAdmin(ev);
         Toast.success("Événement lancé !");
-      } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.errorfriendlyError(err); }
     });
     document.getElementById("event-stop-btn").addEventListener("click", async () => {
       if (!(await Confirm.show("Arrêter l'événement en cours maintenant ?", { title: "Arrêter l'événement", confirmText: "Arrêter", dangerous: true }))) return;
-      try { renderEventAdmin(await API.adminSetEvent(Session.discordId, { active: false })); Toast.info("Événement arrêté."); } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      try { renderEventAdmin(await API.adminSetEvent(Session.discordId, { active: false })); Toast.info("Événement arrêté."); } catch (err) { Toast.errorfriendlyError(err); }
     });
     populateMarketCardSelect();
     updateMarketCardPreview();

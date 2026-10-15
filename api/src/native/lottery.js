@@ -97,5 +97,4 @@ export function beforeRequest({ store }) {
 }
 
 export function _reset() { checked = 0; }
-export const _drawAt = drawAt;
 export const routes = { 'POST lottery': handleLottery };

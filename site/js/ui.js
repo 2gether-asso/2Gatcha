@@ -220,7 +220,7 @@ const FusionPicker = {
       let dustCopies = Math.max(0, Math.min(maxDust, baseRequired - (usePart ? 1 : 0) - copies.length));
       let required = baseRequired - (usePart ? 1 : 0) - dustCopies;
       const FIN = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-      const QUA = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+      const QUA = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
       const sorted = [...copies].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999));
       const byDefault = [...copies].sort((a, b) => (otherRank(a) - otherRank(b)) || ((b.serialNumber || 0) - (a.serialNumber || 0)));
       const selected = new Set(byDefault.slice(0, required).map((c) => c.pullId));
@@ -499,7 +499,8 @@ function enhanceSelect(selectEl) {
 // ---------------------------------------------------------------------------
 const Sfx = {
   _ctx: null,
-  _muted: localStorage.getItem("2gatcha_muted") === "1",
+  // Coupe par defaut (2026-10-15) : actif seulement si le joueur l'a allume.
+  _muted: (() => { try { return localStorage.getItem("2gatcha_muted") !== "0"; } catch (e) { return true; } })(),
   get ctx() {
     if (!this._ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -881,3 +882,52 @@ function screwPartAnimation() {
     setTimeout(() => { overlay.remove(); resolve(); }, 1100);
   });
 }
+
+
+// ---------------------------------------------------------------------------
+// Decouverte d'une nouvelle ressource (2026-10-15, api/src/native/discoveries.js) :
+// mise en scene facon carte legendaire, en turquoise, avec l'objet et une
+// description enigmatique. Plusieurs decouvertes : l'une apres l'autre.
+// ---------------------------------------------------------------------------
+const DiscoveryFx = (function () {
+  const queue = [];
+  let busy = false;
+  const esc = escHtml; // core.js
+  function next() {
+    if (busy || !queue.length) return;
+    busy = true;
+    const it = queue.shift();
+    const ov = document.createElement("div");
+    ov.className = "cine-overlay cine-discovery";
+    ov.style.setProperty("--c", it.color || "#2dd4bf");
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-label", "Nouvelle découverte : " + it.name);
+    ov.innerHTML = `<div class="cine-rays" aria-hidden="true"></div><div class="cine-glow" aria-hidden="true"></div>
+      <div class="discovery-stack">
+        <div class="cine-spin"><div class="discovery-card"><span class="discovery-icon" aria-hidden="true">${it.icon}</span><span class="discovery-shine" aria-hidden="true"></span></div></div>
+        <div class="discovery-text"><small>Nouvelle découverte !</small><strong>${esc(it.name)}</strong><p>${esc(it.riddle)}</p></div>
+      </div>
+      <div class="cine-skip">Tape pour continuer</div>`;
+    document.body.appendChild(ov);
+    if (typeof Sfx !== "undefined") { if (Sfx.whoosh) Sfx.whoosh(); setTimeout(() => { if (Sfx.fanfare) Sfx.fanfare(); else if (Sfx.click) Sfx.click(); }, 900); }
+    try { if (navigator.vibrate) navigator.vibrate([30, 60, 30, 60, 90]); } catch (e) { /* non supporte */ }
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      ov.classList.add("cine-out");
+      setTimeout(() => { ov.remove(); busy = false; next(); }, 320);
+    };
+    // Pas de fermeture accidentelle pendant l'entree ; ensuite un tap suffit.
+    setTimeout(() => ov.addEventListener("click", close), 700);
+    document.addEventListener("keydown", function onKey(e) { if (e.key === "Escape" || e.key === "Enter") { document.removeEventListener("keydown", onKey); close(); } });
+    // Pas de fermeture automatique : la decouverte reste jusqu'au tap.
+  }
+  // Laisse d'abord l'action se jouer (prise de peche, tuile creusee...).
+  function show(list, delay = 1200) {
+    (Array.isArray(list) ? list : [list]).forEach((x) => x && queue.push(x));
+    setTimeout(next, delay);
+  }
+  return { show };
+})();
+window.DiscoveryFx = DiscoveryFx;

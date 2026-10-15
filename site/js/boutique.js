@@ -49,7 +49,7 @@
       if (typeof window.refreshShopWallet === "function") window.refreshShopWallet();
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     } catch (e) {
-      Toast.error({ not_enough_dust: "Pas assez de poussières.", already_owned: "Tu l'as déjà.", not_owned: "Tu ne possèdes pas cet objet." }[e.code] || "Erreur. (" + e.message + ")");
+      Toast.error({ not_enough_dust: "Pas assez de poussières.", already_owned: "Tu l'as déjà.", not_owned: "Tu ne possèdes pas cet objet." }[e.code] || friendlyError(e));
     }
   }
 

@@ -33,6 +33,9 @@ const store = new Store(tmp, { lenient: true });
 const native = createNative({ store, withLock: (fn) => fn() });
 const call = (method, p, args) => native.run(method, p, args);
 const ADMIN = '785223211730075709';
+// Resultats independants de l'heure du lancement : l'heure de chance du jour
+// (daily.js) ajoute sinon des poussieres et des finitions a certains tests.
+call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { LuckyHourDustBonus: 0, LuckyHourFinishBonus: 0 } } });
 
 let passed = 0;
 async function test(name, fn) {
@@ -326,7 +329,7 @@ await test('coffres : coffres/cles de niveau une seule fois, achat, ouverture av
   assert.deepEqual([r.chests, r.stardust], [3, 150]);
   const before = store.getAll('Pulls').length;
   r = call('POST', 'chests', { body: { userId: 1, action: 'open' } }).json;
-  assert.equal(r.opened, true);
+  assert.equal(r.opened, 1);
   assert.deepEqual([r.chests, r.keys], [2, 0]);
   assert.ok(r.items[0].type === 'dust' && r.items[0].amount >= 40);
   assert.equal(store.getAll('Pulls').length, before + r.items.filter((i) => i.type === 'card').length);

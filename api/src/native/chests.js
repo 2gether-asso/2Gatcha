@@ -2,7 +2,9 @@
 // poussieres ou gagnes en montant de niveau (1 coffre tous les 5 niveaux,
 // 1 clef tous les 10), ouverts avec une clef secrete. Contenu : poussieres a
 // coup sur, souvent une carte (parfois deux), parfois des boosters.
-//   POST /webhook/chests  { userId, action: 'status' | 'buy' | 'open' }
+//   POST /webhook/chests  { userId, action: 'status' | 'buy' | 'open', count? }
+// count (2026-10-15) : acheter ou ouvrir plusieurs coffres d'un coup (1 a
+// MAX_BATCH ; a l'ouverture, borne par les coffres ET les clefs possedes).
 // Les coffres/clefs de niveau sont attribues a chaque appel (rattrapage des
 // niveaux deja atteints, une seule fois : Users.ChestLevelGranted).
 
@@ -17,6 +19,8 @@ export const schema = {
 // Tous les parametres sont reglables dans l'admin (groupe "Coffres").
 const chestCost = (store) => indexed(store, setting(store, 'ChestCost'));
 const every = (n, level) => (n > 0 ? Math.floor(level / n) : 0);
+const MAX_BATCH = 20;
+const countOf = (body) => Math.min(MAX_BATCH, Math.max(1, Math.floor(Number(body.count) || 1)));
 
 // Coffres / clefs dus pour les niveaux atteints depuis le dernier passage.
 function grantLevelRewards(store, user) {
@@ -94,24 +98,30 @@ function handleChests({ store, body }) {
 
   if (body.action === 'buy') {
     const cost = chestCost(store);
-    if ((Number(user.StardustCount) || 0) < cost) return fail('not_enough_dust', 400, statusOf(store, user, extra));
-    user = store.update('Users', user.id, { StardustCount: (Number(user.StardustCount) || 0) - cost, ChestCount: (Number(user.ChestCount) || 0) + 1 });
-    return ok(statusOf(store, user, { ...extra, bought: true }));
+    const n = countOf(body);
+    if ((Number(user.StardustCount) || 0) < cost * n) return fail('not_enough_dust', 400, statusOf(store, user, extra));
+    user = store.update('Users', user.id, { StardustCount: (Number(user.StardustCount) || 0) - cost * n, ChestCount: (Number(user.ChestCount) || 0) + n });
+    return ok(statusOf(store, user, { ...extra, bought: n, paid: cost * n }));
   }
 
   if (body.action === 'open') {
     if ((Number(user.ChestCount) || 0) < 1) return fail('no_chest', 400, statusOf(store, user, extra));
     if ((Number(user.KeyCount) || 0) < 1) return fail('no_key', 400, statusOf(store, user, extra));
+    const n = Math.min(countOf(body), Number(user.ChestCount) || 0, Number(user.KeyCount) || 0);
     const batchId = `lootchest-${user.id}-${Date.now()}`;
     const dMin = setting(store, 'ChestDustMin'), dMax = Math.max(dMin, setting(store, 'ChestDustMax'));
-    const dust = dMin + Math.floor(Math.random() * (dMax - dMin + 1));
-    const boosters = Math.random() < setting(store, 'ChestDoubleBoosterChance') ? 2 : Math.random() < setting(store, 'ChestBoosterChance') ? 1 : 0;
+    let dust = 0, boosters = 0;
     const cards = [];
-    if (Math.random() < setting(store, 'ChestCardChance')) { const c = drawCard(store, user.id, batchId); if (c) cards.push(c); }
-    if (Math.random() < setting(store, 'ChestSecondCardChance')) { const c = drawCard(store, user.id, batchId); if (c) cards.push(c); }
+    // Chaque coffre est tire independamment ; le butin est regroupe.
+    for (let i = 0; i < n; i++) {
+      dust += dMin + Math.floor(Math.random() * (dMax - dMin + 1));
+      boosters += Math.random() < setting(store, 'ChestDoubleBoosterChance') ? 2 : Math.random() < setting(store, 'ChestBoosterChance') ? 1 : 0;
+      if (Math.random() < setting(store, 'ChestCardChance')) { const c = drawCard(store, user.id, batchId); if (c) cards.push(c); }
+      if (Math.random() < setting(store, 'ChestSecondCardChance')) { const c = drawCard(store, user.id, batchId); if (c) cards.push(c); }
+    }
     user = store.update('Users', user.id, {
-      ChestCount: (Number(user.ChestCount) || 0) - 1,
-      KeyCount: (Number(user.KeyCount) || 0) - 1,
+      ChestCount: (Number(user.ChestCount) || 0) - n,
+      KeyCount: (Number(user.KeyCount) || 0) - n,
       StardustCount: (Number(user.StardustCount) || 0) + dust,
       BoosterCount: (Number(user.BoosterCount) || 0) + boosters
     });
@@ -120,7 +130,7 @@ function handleChests({ store, body }) {
     const items = [{ type: 'dust', amount: dust }];
     if (boosters) items.push({ type: 'booster', count: boosters });
     cards.sort((a, b) => a.rarity.sortOrder - b.rarity.sortOrder).forEach((card) => items.push({ type: 'card', card }));
-    return ok(statusOf(store, user, { ...extra, opened: true, batchId, items, dust, boosters, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
+    return ok(statusOf(store, user, { ...extra, opened: n, batchId, items, dust, boosters, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
   }
 
   return ok(statusOf(store, user, extra));

@@ -96,7 +96,6 @@ const MILESTONES = [
   { type: 'disenchant', n: 200, key: 'm-decraft-200', cos: 'title', label: 'Recycleur' },
   { type: 'expedition', n: 30, key: 'm-expedition-30', cos: 'title', label: 'Explorateur aguerri' }
 ];
-export const milestones = () => MILESTONES;
 
 // Fragments offerts hors activite (calin du jour, defis en Chill) : sans
 // plafond du jour ; renvoie le nombre de boosters obtenus.

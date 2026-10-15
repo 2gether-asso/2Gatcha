@@ -26,6 +26,7 @@
         <button type="button" class="tab" id="tab-expedition-btn" role="tab" aria-selected="false">&#129517; Expédition</button>
         <button type="button" class="tab" id="tab-fish-btn" role="tab" aria-selected="false">&#127907; Pêche</button>
         <button type="button" class="tab" id="tab-garden-btn" role="tab" aria-selected="false">&#127793; Jardin</button>
+        <button type="button" class="tab" id="tab-dino-btn" role="tab" aria-selected="false" style="display:none;">&#129430; Dinos</button>
         <button type="button" class="tab" id="tab-bingo-btn" role="tab" aria-selected="false">&#127922; Bingo</button>
         <button type="button" class="tab" id="tab-vault-btn" role="tab" aria-selected="false" style="display:none;">&#128274; Coffre-fort</button>
       </div>
@@ -140,6 +141,20 @@
         </div>
       </div>
 
+      <div id="dino-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Tes dinos de compagnie : nourris-les avec ta pêche (&#128031; poissons, &#127807; algues, &#129424; crevettes, &#129713; vers), joue avec eux et ramasse leurs cacas : chaque caca devient un <strong>engrais</strong> qui fait pousser le jardin plus vite. Un dino négligé devient triste, et si sa satiété et son bonheur tombent à zéro, il meurt : il ne reste qu’un tas d’os (tu récupères les os et la place). Adultes et contents, ils fouillent pour toi.</p>
+        <div class="dino-meta" id="dino-meta"></div>
+        <div class="dino-top-actions">
+          <button type="button" class="btn" id="dino-hatch-btn" hidden></button>
+          <button type="button" class="btn-secondary" id="dino-collect-btn" hidden></button>
+          <button type="button" class="btn-ghost" id="dino-clean-all-btn" hidden>&#129529; Tout ramasser</button>
+        </div>
+        <div id="dino-scene-box"></div>
+        <div id="dino-eggs"></div>
+        <div class="dino-list" id="dino-list"></div>
+        <div id="dino-extra"></div>
+      </div>
+
       <div id="vault-pane" style="display:none;">
         <p class="lead" style="font-size:0.85rem;">Une carte promo arc-en-ciel est enfermée dans le coffre-fort de l'association. Il faut <strong>6 clefs secrètes</strong> pour l'ouvrir — trouvables en fouillant ou à la roue quotidienne.</p>
         <div id="vault-locked" class="vault-scene">
@@ -171,5 +186,7 @@
   <script src="js/jeux-summary.js"></script>
   <script src="js/jeux-duo.js"></script>
   <script src="js/jeux-bingo.js"></script>
+  <script src="js/dino-art.js"></script>
+  <script src="js/jeux-dino.js"></script>
 </body>
 </html>

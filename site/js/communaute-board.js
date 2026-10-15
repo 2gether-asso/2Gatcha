@@ -73,14 +73,13 @@
   function hallHtml(f) {
     if (!f) return "";
     const rows = (list) => list.map((e) => `<li><span class="hall-icon" aria-hidden="true">${e.icon}</span><span class="hall-label">${esc(e.label)}</span><strong>${esc(e.pseudo)}</strong><small>${date(e.at)}</small></li>`).join("");
-    const empty = !f.mythics.length && !f.finishes.length && !f.editions.length;
+    const empty = !f.mythics.length && !f.finishes.length && !f.editions.length && !(f.dinos || []).length;
     return `
       <article class="board-card board-hall" id="board-hall">
         <header><span class="board-icon" aria-hidden="true">&#128214;</span><div><h3>Livre d'or des premières</h3><small>Les premiers du serveur, gravés pour toujours</small></div></header>
         ${empty ? '<p class="board-note">Encore aucune première. À toi de jouer !</p>' : `
-        ${f.mythics.length ? `<h4>Mythiques</h4><ul class="hall-list">${rows(f.mythics)}</ul>` : ""}
-        ${f.finishes.length ? `<h4>Finitions</h4><ul class="hall-list">${rows(f.finishes)}</ul>` : ""}
-        ${f.editions.length ? `<h4>Éditions limitées</h4><ul class="hall-list">${rows(f.editions)}</ul>` : ""}`}
+        <div class="hall-cols">${[["🌟 Mythiques", f.mythics], ["✨ Finitions & maîtres", f.finishes], ["💠 Éditions limitées", f.editions], ...((f.dinos || []).length ? [["🦖 Dinos", f.dinos]] : [])].map(([title, list]) => `
+          <section class="hall-col"><h4>${title} <small>(${list.length})</small></h4>${list.length ? `<ul class="hall-list">${rows(list)}</ul>` : '<p class="board-note">Pas encore de première.</p>'}</section>`).join("")}</div>`}
       </article>`;
   }
 
@@ -142,7 +141,7 @@
       loadBoard();
     } catch (err) {
       btn.disabled = false;
-      Toast.error({ not_enough_dust: "Pas assez de poussières.", weekly_cap: "Plafond de tickets de la semaine atteint.", need_duplicate: "Il te faut un doublon de cette carte.", slots_full: "Toutes les places sont prises.", already_donated: "Tu as déjà donné cette semaine." }[err.code] || "Erreur. (" + err.message + ")");
+      Toast.error({ not_enough_dust: "Pas assez de poussières.", weekly_cap: "Plafond de tickets de la semaine atteint.", need_duplicate: "Il te faut un doublon de cette carte.", slots_full: "Toutes les places sont prises.", already_donated: "Tu as déjà donné cette semaine." }[err.code] || friendlyError(err));
     }
   });
 })();
