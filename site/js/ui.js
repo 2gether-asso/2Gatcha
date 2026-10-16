@@ -778,7 +778,7 @@ document.addEventListener("keydown", (e) => {
 // restaure exactement la meme position au deverrouillage.
 let _scrollLockY = 0;
 function syncScrollLock() {
-  const cardModalOpen = !!document.querySelector(".card-modal-overlay");
+  const cardModalOpen = !!document.querySelector(".card-modal-overlay, .mfx");
   const packModal = document.getElementById("pack-modal-overlay");
   const packModalOpen = !!(packModal && !packModal.hidden);
   const shouldLock = cardModalOpen || packModalOpen;
@@ -938,3 +938,94 @@ const DiscoveryFx = (function () {
   return { show };
 })();
 window.DiscoveryFx = DiscoveryFx;
+
+// ---------------------------------------------------------------------------
+// Cinematique de changement de mode (2026-10-16) : a la premiere visite apres
+// un changement de difficulte, l'ecran part de la couleur de l'ancien mode,
+// le nouveau skin s'ouvre en cercle (particules du mode), puis le nom du mode
+// s'ecrit lettre par lettre dans sa police et ses couleurs, avec un bref
+// resume de ce qui change. Un clic accelere l'intro, un second ferme ; jamais
+// de fermeture automatique. preview : bascule temporairement le skin de la
+// page (page de test des animations).
+// mode : { key, label, perks: [texte], card?: { name } }.
+// ---------------------------------------------------------------------------
+const ModeFx = (() => {
+  const META = {
+    cool: { icon: "😎", label: "Cool", tag: "Détente totale : tout devient plus facile, aucune frustration." },
+    chill: { icon: "🌴", label: "Chill", tag: "Généreux : plus de boosters, des prix et des taxes plus doux." },
+    medium: { icon: "⚖️", label: "Medium", tag: "Équilibré : chaque carte se gagne, la collection prend des mois." },
+    hard: { icon: "🔥", label: "Hard", tag: "Serré : peu de boosters, des prix élevés, chaque tirage compte." },
+    chaos: { icon: "👾", label: "Chaos", tag: "Imprévisible : une règle surprise change le jeu chaque jour." }
+  };
+  const MAX_PERKS = 6;
+  let current = null;
+
+  function play(mode, { from = null, preview = false } = {}) {
+    if (!mode || !META[mode.key]) return Promise.resolve();
+    if (current) current.close(true);
+    const m = META[mode.key];
+    const prevMode = document.documentElement.dataset.gameMode;
+    if (preview) document.documentElement.dataset.gameMode = mode.key;
+    const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+    const label = mode.label || m.label;
+    const perks = (mode.perks || []).slice(0, MAX_PERKS);
+    const more = Math.max(0, (mode.perks || []).length - perks.length);
+    const letters = [...label].map((ch, i) => `<span style="--i:${i}">${ch === " " ? "&nbsp;" : esc(ch)}</span>`).join("");
+    const overlay = document.createElement("div");
+    overlay.className = `mfx mfx-${mode.key}`;
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", `Le jeu passe en mode ${label}`);
+    overlay.innerHTML = `
+      <div class="mfx-old mfx-bg-${META[from] ? from : "medium"}" aria-hidden="true"></div>
+      <div class="mfx-new" aria-hidden="true"><div class="mfx-particles">${Array.from({ length: 26 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${((i * 0.29) % 3).toFixed(2)}s;--s:${0.6 + ((i * 7) % 10) / 10}"></i>`).join("")}</div></div>
+      <div class="mfx-content">
+        <div class="mfx-icon" aria-hidden="true">${m.icon}</div>
+        <p class="mfx-kicker">Le jeu passe en mode</p>
+        <h2 class="mfx-title">${letters}</h2>
+        <p class="mfx-tag">${esc(m.tag)}</p>
+        ${perks.length ? `<ul class="mfx-perks">${perks.map((p, i) => `<li style="--i:${i}">${esc(p)}</li>`).join("")}</ul>` : ""}
+        ${more ? `<p class="mfx-more">+ ${more} autre${more > 1 ? "s" : ""} règle${more > 1 ? "s" : ""} à découvrir</p>` : ""}
+        ${mode.card ? `<p class="mfx-card">🃏 Carte exclusive du mode : <strong>${esc(mode.card.name)}</strong></p>` : ""}
+        <div class="mfx-actions">
+          <a class="btn-secondary" href="mode.html">Voir le mode du moment</a>
+          <button type="button" class="btn" data-close>C'est parti !</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    if (typeof syncScrollLock === "function") syncScrollLock();
+    try { if (typeof Sfx !== "undefined" && Sfx.reveal) setTimeout(() => Sfx.reveal(mode.key === "hard" || mode.key === "chaos" ? "mythique" : "legendaire"), 350); } catch (e) { /* son indisponible */ }
+    return new Promise((resolve) => {
+      let done = false;
+      const ready = () => overlay.classList.contains("mfx-skip") || overlay.classList.contains("mfx-ready");
+      const readyTimer = setTimeout(() => overlay.classList.add("mfx-ready"), 2900);
+      const close = (instant = false) => {
+        if (done) return;
+        done = true;
+        clearTimeout(readyTimer);
+        document.removeEventListener("keydown", onKey);
+        overlay.classList.add("mfx-closing");
+        setTimeout(() => {
+          overlay.remove();
+          if (preview) { if (prevMode) document.documentElement.dataset.gameMode = prevMode; else delete document.documentElement.dataset.gameMode; }
+          if (typeof syncScrollLock === "function") syncScrollLock();
+          current = null;
+          resolve();
+        }, instant ? 0 : 380);
+      };
+      const onKey = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKey);
+      overlay.addEventListener("click", (e) => {
+        if (e.target.closest("a")) return;
+        if (e.target.closest("[data-close]")) { close(); return; }
+        // Premier clic pendant l'intro : on saute a la fin ; ensuite, un clic ferme.
+        if (!ready()) { overlay.classList.add("mfx-skip"); return; }
+        if (!e.target.closest(".mfx-perks, .mfx-tag, .mfx-title")) close();
+      });
+      current = { close };
+      setTimeout(() => overlay.querySelector("[data-close]")?.focus({ preventScroll: true }), 2700);
+    });
+  }
+  return { play, META };
+})();
+window.ModeFx = ModeFx;

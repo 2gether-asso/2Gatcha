@@ -745,8 +745,11 @@ async function checkMaintenanceMode() {
 // couleurs de la barre de menu et animation du logo. Garde en local pour
 // s'appliquer des le chargement de la page suivante, sans clignotement.
 const GAME_MODE_TITLES = { cool: "Mode Cool 😎 : détente, boosters faciles", chill: "Mode Chill 🌴 : généreux", medium: "Mode Medium ⚖️ : équilibré", hard: "Mode Hard 🔥 : boosters rares, prix élevés", chaos: "Mode Chaos 👾 : une règle surprise chaque jour" };
-// Premiere visite apres un changement de mode : annonce plein ecran.
-function announceGameMode(mode) {
+// Premiere visite apres un changement de mode : cinematique plein ecran
+// (ui.js ModeFx : couleurs, police et resume du nouveau mode), sinon l'ancienne
+// annonce simple.
+function announceGameMode(mode, from) {
+  if (typeof ModeFx !== "undefined") { ModeFx.play(mode, { from }); return; }
   const ICON = { cool: "😎", chill: "🌴", medium: "⚖️", hard: "🔥", chaos: "👾" };
   const overlay = document.createElement("div");
   overlay.className = "mode-announce mode-" + mode.key;
@@ -771,8 +774,8 @@ function applyGameMode(mode) {
   if (!key) return;
   let seen = null;
   try { seen = localStorage.getItem("2gatcha_game_mode_seen"); localStorage.setItem("2gatcha_game_mode_seen", key); } catch (e) { /* stockage indisponible */ }
-  if (seen && seen !== key && typeof Session !== "undefined" && Session.isLoggedIn()) announceGameMode(mode);
   document.documentElement.dataset.gameMode = key;
+  if (seen && seen !== key && typeof Session !== "undefined" && Session.isLoggedIn()) announceGameMode(mode, seen);
   try { localStorage.setItem("2gatcha_game_mode", key); } catch (e) { /* stockage indisponible */ }
   const brand = document.getElementById("site-brand");
   if (brand) brand.title = GAME_MODE_TITLES[key];

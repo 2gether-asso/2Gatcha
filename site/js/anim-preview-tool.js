@@ -1,7 +1,8 @@
 // Previsualisation des animations (page Admin, 2026-10-15) : decouvertes de
 // ressources (ui.js DiscoveryFx), cinematiques et suspense d'ouverture,
 // choix / dechirure / god pack du booster (opening-fx.js), sons, montee de
-// niveau. Purement local : aucune action n'est envoyee au serveur.
+// niveau, cinematique de changement de mode (ui.js ModeFx). Purement local :
+// aucune action n'est envoyee au serveur (seule la liste des regles par mode est lue).
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -15,6 +16,18 @@
   ];
   let cards = [];
   let discoveries = [];
+  // Regles actives par mode (Admin > Difficultes) pour le resume de la cinematique.
+  let modeRules = null;
+  const MODES = ["cool", "chill", "medium", "hard", "chaos"];
+  function renderModeButtons() {
+    const box = $("ap-modes");
+    if (!box || typeof ModeFx === "undefined") return;
+    box.innerHTML = MODES.map((k) => `<button type="button" class="btn-secondary" data-mfx="${k}">${ModeFx.META[k].icon} Passer en ${ModeFx.META[k].label}</button>`).join("");
+  }
+  function modeFor(key) {
+    const m = modeRules && modeRules.modes ? modeRules.modes.find((x) => x.key === key) : null;
+    return { key, label: m ? m.label : ModeFx.META[key].label, perks: m ? m.rules.filter((r) => r.on).map((r) => `${r.icon} ${r.label}`) : [] };
+  }
 
   const card = () => cards.find((c) => String(c.cardId) === $("ap-card").value) || null;
   // Meme structure qu'une carte revelee a l'ouverture.
@@ -113,6 +126,10 @@
       if (pack.classList.contains("god-pack")) { Sfx.fanfare && Sfx.fanfare(); OpeningFx.vibrate([60, 40, 60, 40, 120]); }
       return;
     }
+    if (b.dataset.mfx) {
+      const from = $("ap-mode-from").value;
+      return ModeFx.play(modeFor(b.dataset.mfx), { from: from === b.dataset.mfx ? (b.dataset.mfx === "medium" ? "hard" : "medium") : from, preview: true });
+    }
     if (b.id === "ap-levelup") return LevelUpModal.show({ icon: "&#127907;", name: "Pêche", level: 5, perks: ["+8 lancers par jour", "24 % de prises vides en moins", "+32 % de chances de prises rares"] });
     if (b.id === "ap-confetti") return typeof confetti === "function" && confetti({ particleCount: 200, spread: 120, origin: { y: 0.55 } });
     if (b.id === "ap-multi") return DiscoveryFx.show(discoveries.slice(0, 3), 0);
@@ -125,7 +142,9 @@
     pack.addEventListener("click", () => { if (pack._swiped) { pack._swiped = false; return; } if (!pack.classList.contains("tearing")) packTorn(); });
     OpeningFx.attachSwipe(pack, packTorn);
     renderButtons();
+    renderModeButtons();
     packReset();
+    API.post("adminModeRules", { discordId: Session.discordId, action: "status" }).then((r) => { modeRules = r; }).catch(() => {});
     const [cat, disc] = await Promise.allSettled([API.getCards(), API.get("discoveriesCatalog")]);
     if (cat.status === "fulfilled") {
       cards = (cat.value.cards || []).slice().sort((a, b) => a.name.localeCompare(b.name));

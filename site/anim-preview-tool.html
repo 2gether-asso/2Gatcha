@@ -19,7 +19,7 @@
       <h1>Prévisualisation des animations</h1>
       <p class="lead">
         Rejoue chaque animation du jeu sans rien dépenser : découvertes de ressources, cinématiques d'ouverture par rareté,
-        god pack, suspense, choix et déchirure du booster, sons, montée de niveau. Rien n'est envoyé au serveur.
+        god pack, suspense, choix et déchirure du booster, changement de mode, sons, montée de niveau. Rien n'est envoyé au serveur.
       </p>
       <div class="ap-options">
         <label>Carte utilisée <select id="ap-card"><option value="">— chargement… —</option></select></label>
@@ -60,6 +60,15 @@
             </div>
           </div>
           <p class="ap-stage-note" id="ap-pack-note">&nbsp;</p>
+        </section>
+
+        <section class="ap-section">
+          <h2>&#127922; Changement de mode de jeu</h2>
+          <p>La cinématique jouée à la première visite d'un joueur après un changement de difficulté : couleurs, police et skin du nouveau mode, puis le résumé de ses règles actives (Admin &rarr; Difficultés). Un clic accélère l'intro, un second ferme.</p>
+          <div class="ap-options">
+            <label>Depuis le mode <select id="ap-mode-from"><option value="medium">⚖️ Medium</option><option value="cool">😎 Cool</option><option value="chill">🌴 Chill</option><option value="hard">🔥 Hard</option><option value="chaos">👾 Chaos</option></select></label>
+          </div>
+          <div class="ap-buttons" id="ap-modes"></div>
         </section>
 
         <section class="ap-section">
