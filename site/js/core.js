@@ -315,3 +315,44 @@ const Session = {
     return (window.APP_CONFIG.adminDiscordIds || []).includes(this.discordId);
   }
 };
+
+// Preference des cinematiques (2026-10-16), propre a chaque appareil :
+// 'always' (defaut) = toujours affichees ; 'first' = la premiere fois
+// seulement (une fois par signature : rarete a l'ouverture, mode de jeu,
+// metier, niveau du compte, ressource decouverte) ; 'never' = jamais (un
+// court message les remplace). La page de test des animations passe outre.
+const CinePref = {
+  KEY: "2gatcha_cine_pref",
+  SEEN: "2gatcha_cine_seen",
+  ORDER: ["always", "first", "never"],
+  LABELS: { always: "Toujours affichées", first: "Affichées la première fois", never: "Jamais affichées" },
+  get() {
+    try { const v = localStorage.getItem(this.KEY); return this.ORDER.includes(v) ? v : "always"; } catch (e) { return "always"; }
+  },
+  set(v) {
+    try { localStorage.setItem(this.KEY, this.ORDER.includes(v) ? v : "always"); } catch (e) { /* stockage indisponible */ }
+  },
+  next() { const n = this.ORDER[(this.ORDER.indexOf(this.get()) + 1) % this.ORDER.length]; this.set(n); return n; },
+  // Vrai si la cinematique doit jouer ; en mode 'first', la signature est retenue.
+  allow(kind, key = "") {
+    const pref = this.get();
+    if (pref === "never") return false;
+    if (pref === "always") return true;
+    const sig = kind + ":" + key;
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem(this.SEEN) || "{}") || {}; } catch (e) { seen = {}; }
+    if (seen[sig]) return false;
+    seen[sig] = 1;
+    try { localStorage.setItem(this.SEEN, JSON.stringify(seen)); } catch (e) { /* stockage indisponible */ }
+    return true;
+  },
+  // Oublie les signatures d'un type (ex. "Revoir les decouvertes").
+  forget(kind) {
+    try {
+      const seen = JSON.parse(localStorage.getItem(this.SEEN) || "{}") || {};
+      Object.keys(seen).forEach((k) => { if (k.startsWith(kind + ":")) delete seen[k]; });
+      localStorage.setItem(this.SEEN, JSON.stringify(seen));
+    } catch (e) { /* stockage indisponible */ }
+  }
+};
+window.CinePref = CinePref;

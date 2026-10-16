@@ -142,6 +142,8 @@
         <li><strong>Série de connexion</strong> (cycle de 7 jours, gel de série à {{StreakFreezeCost}} ✨), cosmétiques (titres, cadres, couleurs de pseudo), livre d'or des premières.</li>
         <li><strong>Récompenses par niveau</strong> : un tableau réglable dans l'admin (poussières, boosters, carte) ; passer du niveau n au niveau n+1 coûte 50 × n XP ; +1 booster bonus par niveau franchi.</li>
         <li><strong>Badges</strong> : achetés et affichés à côté du pseudo. <strong>Titres et cadres de progression</strong> gagnés en jouant (paliers d'activité), titres de mode, de saison et d'événements.</li>
+        <li><strong>Cinématiques de montée de niveau</strong> : niveau du compte (couleurs du skin en cours, compteur de l'ancien au nouveau niveau, bonus et déblocages gagnés : boosters bonus, points de talent, fonctionnalités, pochettes), niveaux de métier (couleur propre à chaque métier, nouvel outil, bonus) et prestige (doré). Un clic accélère l'intro, un second ferme.</li>
+        <li><strong>Préférence des cinématiques</strong> (menu joueur, propre à chaque appareil) : toujours affichées (par défaut), affichées la première fois (une fois par rareté à l'ouverture, par mode de jeu, par métier, pour le niveau du compte, par ressource découverte) ou jamais (un court message les remplace). Concerne les cinématiques d'ouverture, de découverte, de niveau et de changement de mode.</li>
         <li><strong>Profil public</strong> (vitrine, dino vedette, succès, mur de messages), <strong>carte de joueur</strong> au survol d'un pseudo, <strong>statistiques perso</strong> (grand livre des poussières, tirages, activité), classements (collection, métiers, Hard, bingo…).</li>
       </ul>` },
 

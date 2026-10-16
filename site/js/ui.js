@@ -778,7 +778,7 @@ document.addEventListener("keydown", (e) => {
 // restaure exactement la meme position au deverrouillage.
 let _scrollLockY = 0;
 function syncScrollLock() {
-  const cardModalOpen = !!document.querySelector(".card-modal-overlay, .mfx");
+  const cardModalOpen = !!document.querySelector(".card-modal-overlay, .mfx, .lvx");
   const packModal = document.getElementById("pack-modal-overlay");
   const packModalOpen = !!(packModal && !packModal.hidden);
   const shouldLock = cardModalOpen || packModalOpen;
@@ -845,33 +845,114 @@ function bumpNumber(el, newValue) {
 }
 
 // ---------------------------------------------------------------------------
-// Passage de niveau d'un metier (peche, fouille) : carte plein ecran avec les
-// bonus debloques, plutot qu'un simple toast.
+// Montees de niveau (refonte 2026-10-16) : compte, metiers (peche, fouille,
+// jardin, expedition) et prestige. Onde de choc, rayons, gerbe d'etincelles,
+// embleme, compteur qui defile, jauge qui se remplit, recompenses en cascade.
+// Couleurs : celles du skin en cours pour le compte, celles du metier sinon.
+// Un clic accelere l'intro, un second ferme ; jamais de fermeture automatique.
+// Preference des cinematiques (core.js CinePref) : sinon un simple message.
+//   LevelFx.show({ kind: 'account' | 'skill' | 'prestige', icon, name, level, from?, perks?, tool?, force? })
+// LevelUpModal.show (ancien nom, utilise par les jeux) passe par ici.
 // ---------------------------------------------------------------------------
-const LevelUpModal = {
-  show({ icon, name, level, perks = [], tool = "" }) {
-    const overlay = document.createElement("div");
-    overlay.className = "card-modal-overlay levelup-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-label", `${name} niveau ${level}`);
-    overlay.innerHTML = `
-      <div class="levelup-card">
-        <div class="levelup-icon" aria-hidden="true">${icon}</div>
-        <div class="levelup-eyebrow">${name}</div>
-        <div class="levelup-level">${typeof level === "number" ? "Niveau " + level : level}</div>
-        ${tool ? `<div class="levelup-tool">Nouvel outil : <strong>${tool}</strong></div>` : ""}
-        <ul class="levelup-perks">${perks.filter(Boolean).map((p) => `<li>${p}</li>`).join("")}</ul>
-        <button type="button" class="btn levelup-close">Super !</button>
+const LevelFx = (() => {
+  const SKILL_COLORS = {
+    "Pêche": ["#38bdf8", "#818cf8"], "Fouille": ["#f59e0b", "#b45309"], "Jardin": ["#4ade80", "#15803d"],
+    "Expédition": ["#fb923c", "#e11d48"], "Dinos": ["#a3e635", "#0d9488"]
+  };
+  let busy = null;
+  const queue = [];
+
+  function show(opts) {
+    const o = { kind: "skill", perks: [], ...opts };
+    if (!o.force && typeof CinePref !== "undefined") {
+      const key = o.kind === "account" ? "account" : `${o.kind}-${o.name || ""}`;
+      if (!CinePref.allow("level", key)) {
+        const what = o.kind === "account" ? `Niveau ${o.level} atteint !` : o.kind === "prestige" ? `${o.name} : ${o.level} !` : `${o.name} : niveau ${o.level} !`;
+        if (typeof Toast !== "undefined") Toast.success(`${o.icon || "⭐"} ${what}`);
+        return Promise.resolve();
+      }
+    }
+    return new Promise((resolve) => { queue.push({ o, resolve }); next(); });
+  }
+
+  function next() {
+    if (busy || !queue.length) return;
+    const { o, resolve } = queue.shift();
+    busy = o;
+    const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+    const isNum = typeof o.level === "number";
+    const from = isNum && Number(o.from) > 0 && Number(o.from) < o.level ? Number(o.from) : isNum ? o.level - 1 : null;
+    const [c1, c2] = o.kind === "prestige" ? ["#fde047", "#f59e0b"] : o.kind === "account" ? ["var(--accent)", "var(--accent-2)"] : SKILL_COLORS[o.name] || ["#a78bfa", "#22d3ee"];
+    const gained = isNum && from != null ? o.level - from : 1;
+    const ov = document.createElement("div");
+    ov.className = `lvx lvx-${o.kind}`;
+    ov.style.setProperty("--c1", c1);
+    ov.style.setProperty("--c2", c2);
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.setAttribute("aria-label", o.kind === "account" ? `Niveau ${o.level}` : `${o.name} ${isNum ? "niveau " + o.level : o.level}`);
+    const sparks = Array.from({ length: 28 }, (_, i) => `<i style="--a:${Math.round((360 / 28) * i + (i % 3) * 4)}deg;--r:${120 + (i * 53) % 140}px;--d:${(0.35 + (i % 5) * 0.05).toFixed(2)}s"></i>`).join("");
+    const perks = (o.perks || []).filter(Boolean);
+    const kicker = o.kind === "prestige" ? "Prestige" : gained > 1 ? `+${gained} niveaux` : "Niveau supérieur";
+    ov.innerHTML = `
+      <div class="lvx-bg" aria-hidden="true"></div>
+      <div class="lvx-rays" aria-hidden="true"></div>
+      <div class="lvx-shock" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="lvx-sparks" aria-hidden="true">${sparks}</div>
+      <div class="lvx-card">
+        <div class="lvx-emblem" aria-hidden="true">
+          <div class="lvx-emblem-ring"></div>
+          ${o.kind === "account" && isNum ? `<span class="lvx-emblem-num" data-from="${from}" data-to="${o.level}">${from}</span>` : `<span class="lvx-emblem-icon">${o.icon || "⭐"}</span>`}
+        </div>
+        <p class="lvx-kicker">${esc(kicker)}</p>
+        <h2 class="lvx-title">${o.kind === "account" ? "Niveau de compte" : esc(o.name || "")}</h2>
+        <p class="lvx-level">${isNum ? `Niveau <strong class="lvx-to" data-from="${from}" data-to="${o.level}">${o.level}</strong>` : esc(String(o.level))}</p>
+        <div class="lvx-bar" aria-hidden="true"><span></span></div>
+        ${o.tool ? `<p class="lvx-tool">🛠️ Nouvel outil : <strong>${o.tool}</strong></p>` : ""}
+        ${perks.length ? `<ul class="lvx-perks">${perks.map((p, i) => `<li style="--i:${i}">${p}</li>`).join("")}</ul>` : ""}
+        <button type="button" class="btn lvx-close">Super !</button>
       </div>`;
-    const close = () => { overlay.remove(); syncScrollLock(); document.removeEventListener("keydown", onKey); };
+    document.body.appendChild(ov);
+    if (typeof syncScrollLock === "function") syncScrollLock();
+    try { if (typeof Sfx !== "undefined" && Sfx.reveal) setTimeout(() => Sfx.reveal(o.kind === "skill" ? "epique" : "legendaire"), 250); } catch (e) { /* son indisponible */ }
+    // Compteur qui defile (compte : ancien -> nouveau niveau).
+    const counters = [...ov.querySelectorAll("[data-from][data-to]")];
+    const t0 = performance.now() + 600;
+    const tick = (t) => {
+      const k = Math.max(0, Math.min(1, (t - t0) / 800));
+      counters.forEach((el) => { const a = Number(el.dataset.from), b = Number(el.dataset.to); el.textContent = String(Math.round(a + (b - a) * (1 - Math.pow(1 - k, 3)))); });
+      if (k < 1 && document.body.contains(ov)) requestAnimationFrame(tick);
+    };
+    if (counters.length && isNum) { counters.forEach((el) => { el.textContent = el.dataset.from; }); requestAnimationFrame(tick); }
+    if ((o.kind === "account" || o.kind === "prestige") && typeof confetti === "function") setTimeout(() => confetti({ particleCount: 140, spread: 110, startVelocity: 42, origin: { y: 0.45 }, colors: o.kind === "prestige" ? ["#fde047", "#f59e0b", "#fff7cc"] : undefined }), 450);
+    let done = false;
+    const readyTimer = setTimeout(() => ov.classList.add("lvx-ready"), 2300);
+    const finishCounters = () => counters.forEach((el) => { el.textContent = el.dataset.to; });
+    const close = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(readyTimer);
+      document.removeEventListener("keydown", onKey);
+      ov.classList.add("lvx-closing");
+      setTimeout(() => { ov.remove(); if (typeof syncScrollLock === "function") syncScrollLock(); busy = null; resolve(); next(); }, 320);
+    };
     const onKey = (e) => { if (e.key === "Escape") close(); };
-    overlay.addEventListener("click", (e) => { if (e.target === overlay || e.target.closest(".levelup-close")) close(); });
     document.addEventListener("keydown", onKey);
-    document.body.appendChild(overlay);
-    syncScrollLock();
-    overlay.querySelector(".levelup-close").focus();
-    if (typeof Sfx !== "undefined" && Sfx.reveal) Sfx.reveal("legendaire");
-    if (typeof confetti === "function") confetti({ particleCount: 160, spread: 120, origin: { y: 0.55 } });
+    ov.addEventListener("click", (e) => {
+      if (e.target.closest(".lvx-close")) { close(); return; }
+      if (!ov.classList.contains("lvx-ready") && !ov.classList.contains("lvx-skip")) { ov.classList.add("lvx-skip"); finishCounters(); return; }
+      if (!e.target.closest(".lvx-perks, .lvx-title")) close();
+    });
+    setTimeout(() => ov.querySelector(".lvx-close")?.focus({ preventScroll: true }), 2100);
+  }
+  return { show, SKILL_COLORS };
+})();
+window.LevelFx = LevelFx;
+
+const LevelUpModal = {
+  show({ icon, name, level, perks = [], tool = "", force = false }) {
+    const prestige = typeof level === "string" && /^prestige/i.test(level);
+    return LevelFx.show({ kind: prestige ? "prestige" : "skill", icon, name, level, perks, tool, force });
   }
 };
 
@@ -931,8 +1012,12 @@ const DiscoveryFx = (function () {
     // Pas de fermeture automatique : la decouverte reste jusqu'au tap.
   }
   // Laisse d'abord l'action se jouer (prise de peche, tuile creusee...).
-  function show(list, delay = 1200) {
-    (Array.isArray(list) ? list : [list]).forEach((x) => x && queue.push(x));
+  function show(list, delay = 1200, { force = false } = {}) {
+    (Array.isArray(list) ? list : [list]).forEach((x) => {
+      if (!x) return;
+      if (force || typeof CinePref === "undefined" || CinePref.allow("discovery", x.key || x.name)) queue.push(x);
+      else if (typeof Toast !== "undefined") Toast.info(`🔎 Découverte : ${x.icon || ""} <strong>${esc(x.name || "")}</strong>`);
+    });
     setTimeout(next, delay);
   }
   return { show };
@@ -962,6 +1047,10 @@ const ModeFx = (() => {
 
   function play(mode, { from = null, preview = false } = {}) {
     if (!mode || !META[mode.key]) return Promise.resolve();
+    if (!preview && typeof CinePref !== "undefined" && !CinePref.allow("mode", mode.key)) {
+      if (typeof Toast !== "undefined") Toast.info(`${META[mode.key].icon} Le jeu passe en mode <strong>${mode.label || META[mode.key].label}</strong>. <a href="mode.html">Voir ce qui change</a>`);
+      return Promise.resolve();
+    }
     if (current) current.close(true);
     const m = META[mode.key];
     const prevMode = document.documentElement.dataset.gameMode;

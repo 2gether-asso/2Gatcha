@@ -506,6 +506,7 @@ function renderHeader() {
               <button id="copy-profile-link-btn" type="button"><span class="mi">&#128279;</span> Copier le lien de mon profil</button>
               <button id="mute-toggle-btn" type="button">${Sfx.muted ? '<span class="mi">&#128264;</span> Son coupé' : '<span class="mi">&#128266;</span> Son actif'}</button>
               <button id="theme-cycle-btn" type="button"><span class="mi">&#127763;</span> Changer de thème</button>
+              <button id="cine-pref-btn" type="button" title="Cinématiques d'ouverture, de découverte, de niveau et de changement de mode"><span class="mi">&#127916;</span> Cinématiques : <span data-cine-label>${CinePref.LABELS[CinePref.get()].toLowerCase()}</span></button>
               <button id="discoveries-reset-btn" type="button" title="Rejoue l'animation de chaque ressource que tu possèdes"><span class="mi">&#128270;</span> Revoir les découvertes</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button" class="menu-danger"><span class="mi">&#10162;</span> Déconnexion</button>
@@ -665,13 +666,20 @@ function renderHeader() {
       if (!Sfx.muted) Sfx.click();
     });
     document.getElementById("theme-cycle-btn").addEventListener("click", cycleTheme);
+    document.getElementById("cine-pref-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const v = CinePref.next();
+      e.currentTarget.querySelector("[data-cine-label]").textContent = CinePref.LABELS[v].toLowerCase();
+      Toast.info({ always: "🎬 Cinématiques toujours affichées.", first: "🎬 Chaque cinématique ne s'affichera qu'une fois (par rareté, mode, métier…).", never: "🎬 Cinématiques désactivées : un court message les remplace." }[v]);
+    });
     document.getElementById("discoveries-reset-btn").addEventListener("click", async () => {
+      CinePref.forget("discovery");
       const okReset = await Confirm.show("Rejouer l'animation de découverte de chaque ressource que tu possèdes ? Les nouvelles ressources seront aussi annoncées à nouveau.", { title: "Revoir les découvertes", confirmText: "Revoir" });
       if (!okReset) return;
       try {
         const res = await API.post("discoveries", { userId: Session.userId, action: "reset" });
         if (!res.discoveries || !res.discoveries.length) Toast.info("Rien à revoir pour l'instant : tu n'as encore aucune ressource à découvrir.");
-      } catch (e) { Toast.errorfriendlyError(e); }
+      } catch (e) { Toast.error(friendlyError(e)); }
     });
     document.getElementById("copy-profile-link-btn").addEventListener("click", async () => {
       const url = window.location.origin + window.location.pathname.replace(/[^/]*$/, "") +
@@ -1024,7 +1032,19 @@ const LEVEL_SEEN_KEY = "2gatcha_level_seen_" + Session.userId;
 // n'existe que sur redeem.html/ouverture.html) puisque loadHeaderBoosterBadge
 // tourne site-wide et peut declencher un passage de niveau depuis N'IMPORTE
 // QUELLE page.
-function showLevelUpBanner(newLevel) {
+// Deblocages et bonus d'un passage de niveau (de prev+1 a newLevel).
+function accountLevelPerks(prevLevel, newLevel) {
+  const gained = Math.max(1, newLevel - (prevLevel || newLevel - 1));
+  const perks = [`🎁 +${gained} booster${gained > 1 ? "s" : ""} bonus`, `🌳 +${gained} point${gained > 1 ? "s" : ""} de talent`];
+  for (let l = (prevLevel || newLevel - 1) + 1; l <= newLevel; l++) {
+    Object.entries(typeof FEATURE_UNLOCK_LEVEL !== "undefined" ? FEATURE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && FEATURE_LABELS[k]) perks.push(`🔓 ${FEATURE_LABELS[k]}`); });
+    Object.entries(typeof SLEEVE_UNLOCK_LEVEL !== "undefined" ? SLEEVE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && k !== "default") perks.push(`🎴 Pochette ${k.charAt(0).toUpperCase() + k.slice(1)}`); });
+  }
+  return perks;
+}
+// Cinematique de montee de niveau (ui.js LevelFx) ; ancien bandeau en secours.
+function showLevelUpBanner(newLevel, prevLevel = null) {
+  if (typeof LevelFx !== "undefined") { LevelFx.show({ kind: "account", level: newLevel, from: prevLevel, perks: accountLevelPerks(prevLevel, newLevel) }); return; }
   let el = document.getElementById("level-up-banner");
   if (!el) {
     el = document.createElement("div");
@@ -1043,10 +1063,7 @@ function celebrateLevelUpIfNeeded(newLevel) {
   if (!newLevel) return;
   let prevLevel = null;
   try { prevLevel = Number(localStorage.getItem(LEVEL_SEEN_KEY)) || null; } catch (e) {}
-  if (prevLevel && newLevel > prevLevel) {
-    showLevelUpBanner(newLevel);
-    if (typeof confetti === "function") confetti({ particleCount: 160, spread: 120, origin: { y: 0.3 } });
-  }
+  if (prevLevel && newLevel > prevLevel) showLevelUpBanner(newLevel, prevLevel);
   try { localStorage.setItem(LEVEL_SEEN_KEY, String(newLevel)); } catch (e) {}
 }
 

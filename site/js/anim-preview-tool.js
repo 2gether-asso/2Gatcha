@@ -16,6 +16,17 @@
   ];
   let cards = [];
   let discoveries = [];
+  // Exemples de montees de niveau (ui.js LevelFx).
+  const accountPerks = (from, to) => (typeof accountLevelPerks === "function" ? accountLevelPerks(from, to) : ["🎁 +1 booster bonus", "🌳 +1 point de talent"]);
+  const LEVEL_DEMOS = {
+    account: { kind: "account", level: 8, from: 7, get perks() { return accountPerks(7, 8); } },
+    "account-multi": { kind: "account", level: 6, from: 3, get perks() { return accountPerks(3, 6); } },
+    fish: { kind: "skill", icon: "&#127907;", name: "Pêche", level: 5, perks: ["+8 lancers par jour", "24 % de prises vides en moins", "+32 % de chances de prises rares"] },
+    dig: { kind: "skill", icon: "&#9935;&#65039;", name: "Fouille", level: 4, tool: "Pelle en fer", perks: ["+2 énergie max", "recharge 15 % plus rapide", "+30 % de poussières trouvées", "Milo 15 % plus rapide, plus de flair"] },
+    garden: { kind: "skill", icon: "&#127793;", name: "Jardin", level: 3, perks: ["Pousse 10 % plus rapide", "+1 récolte rare sur 20"] },
+    expe: { kind: "skill", icon: "&#129517;", name: "Expédition", level: 6, perks: ["+18 % de poussières rapportées", "Expéditions 12 % plus courtes"] },
+    prestige: { kind: "prestige", icon: "&#11088;", name: "Pêche", level: "Prestige 1", perks: ["+3 % de prises rares (permanent)", "Retour au niveau 1 : tous les bonus de niveau sont à regagner"] }
+  };
   // Regles actives par mode (Admin > Difficultes) pour le resume de la cinematique.
   let modeRules = null;
   const MODES = ["cool", "chill", "medium", "hard", "chaos"];
@@ -107,7 +118,7 @@
   document.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b || !e.target.closest("#main-content")) return;
-    if (b.dataset.disc) return DiscoveryFx.show(discoveries.find((d) => d.key === b.dataset.disc), 0);
+    if (b.dataset.disc) return DiscoveryFx.show(discoveries.find((d) => d.key === b.dataset.disc), 0, { force: true });
     if (b.dataset.cine === "god") return cinematic(RARITIES.find((r) => r.key === "epique") || RARITIES[2], "GOD PACK !");
     if (b.dataset.cine) return cinematic(RARITIES.find((r) => r.key === b.dataset.cine));
     if (b.dataset.sus) return suspense(RARITIES.find((r) => r.key === b.dataset.sus));
@@ -130,9 +141,9 @@
       const from = $("ap-mode-from").value;
       return ModeFx.play(modeFor(b.dataset.mfx), { from: from === b.dataset.mfx ? (b.dataset.mfx === "medium" ? "hard" : "medium") : from, preview: true });
     }
-    if (b.id === "ap-levelup") return LevelUpModal.show({ icon: "&#127907;", name: "Pêche", level: 5, perks: ["+8 lancers par jour", "24 % de prises vides en moins", "+32 % de chances de prises rares"] });
+    if (b.dataset.lvl) return LevelFx.show({ ...LEVEL_DEMOS[b.dataset.lvl], force: true });
     if (b.id === "ap-confetti") return typeof confetti === "function" && confetti({ particleCount: 200, spread: 120, origin: { y: 0.55 } });
-    if (b.id === "ap-multi") return DiscoveryFx.show(discoveries.slice(0, 3), 0);
+    if (b.id === "ap-multi") return DiscoveryFx.show(discoveries.slice(0, 3), 0, { force: true });
   });
 
   document.addEventListener("DOMContentLoaded", async () => {

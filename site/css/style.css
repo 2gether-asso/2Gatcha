@@ -9789,3 +9789,58 @@ html[data-game-mode="chaos"]:not([data-theme]) button:not(.btn-secondary):not(.b
   .mfx-particles, .mfx-new::after { display: none; }
   .mfx-content, .mfx-content * { animation: none !important; opacity: 1 !important; transform: none !important; }
 }
+
+/* =====================================================================
+   Montees de niveau (refonte 2026-10-16, ui.js LevelFx) : compte, metiers,
+   prestige. --c1 / --c2 : couleurs (skin pour le compte, metier sinon).
+   ===================================================================== */
+.lvx { position: fixed; inset: 0; z-index: 290; display: grid; place-items: center; padding: 16px; overflow: hidden; --c1: var(--accent); --c2: var(--accent-2); }
+.lvx.lvx-closing { opacity: 0; transform: scale(1.02); transition: opacity 0.32s ease, transform 0.32s ease; }
+.lvx-bg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--c1) 34%, transparent), transparent 55%), rgba(3, 4, 12, 0.86); backdrop-filter: blur(6px); animation: lvxFade 0.3s ease both; }
+.lvx-rays { position: absolute; left: 50%; top: 45%; width: 160vmax; height: 160vmax; translate: -50% -50%; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c1) 22%, transparent) 0deg 6deg, transparent 6deg 18deg); mask: radial-gradient(circle, #000 0, transparent 55%); -webkit-mask: radial-gradient(circle, #000 0, transparent 55%); opacity: 0; animation: lvxRaysIn 0.8s ease 0.25s forwards, lvxSpin 30s linear infinite; }
+@keyframes lvxRaysIn { to { opacity: 1; } }
+@keyframes lvxSpin { to { rotate: 360deg; } }
+@keyframes lvxFade { from { opacity: 0; } to { opacity: 1; } }
+.lvx-shock { position: absolute; left: 50%; top: 45%; }
+.lvx-shock span { position: absolute; left: 0; top: 0; width: 40px; height: 40px; margin: -20px; border-radius: 50%; border: 3px solid var(--c2); opacity: 0; animation: lvxShock 1s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.lvx-shock span:nth-child(2) { border-color: var(--c1); animation-delay: 0.15s; }
+.lvx-shock span:nth-child(3) { border-color: #fff; border-width: 2px; animation-delay: 0.3s; }
+@keyframes lvxShock { 0% { opacity: 0.95; transform: scale(0.2); } 100% { opacity: 0; transform: scale(22); } }
+.lvx-sparks { position: absolute; left: 50%; top: 45%; }
+.lvx-sparks i { position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 3px var(--c2); opacity: 0; rotate: var(--a); animation: lvxSpark 1s ease-out var(--d) both; }
+.lvx-sparks i:nth-child(3n) { background: var(--c1); box-shadow: 0 0 10px 3px var(--c1); }
+@keyframes lvxSpark { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(calc(-1 * var(--r))) scale(0.3); } }
+
+.lvx-card { position: relative; z-index: 2; width: min(440px, 100%); max-height: 100%; overflow-y: auto; display: grid; justify-items: center; gap: 8px; padding: 26px 22px 20px; text-align: center; border-radius: var(--radius-lg, 18px); color: var(--text, #f5f5fc); background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid, #14162e) 92%, transparent), color-mix(in srgb, var(--bg-panel-solid, #14162e) 82%, transparent)); border: 1px solid color-mix(in srgb, var(--c1) 55%, transparent); box-shadow: 0 0 70px -14px var(--c1), inset 0 1px 0 rgba(255, 255, 255, 0.08); animation: lvxCardIn 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) 0.2s both; }
+@keyframes lvxCardIn { from { opacity: 0; transform: translateY(30px) scale(0.85); } to { opacity: 1; transform: none; } }
+.lvx-emblem { position: relative; width: 112px; height: 112px; display: grid; place-items: center; margin-top: -2px; animation: lvxEmblem 0.7s cubic-bezier(0.2, 1.5, 0.4, 1) 0.35s both; }
+@keyframes lvxEmblem { from { opacity: 0; transform: scale(0.2) rotate(-120deg); } to { opacity: 1; transform: none; } }
+.lvx-emblem-ring { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, var(--c1), var(--c2), var(--c1)); padding: 4px; -webkit-mask: radial-gradient(circle, transparent 56%, #000 57%); mask: radial-gradient(circle, transparent 56%, #000 57%); filter: drop-shadow(0 0 14px var(--c1)); animation: lvxSpin 6s linear infinite; }
+.lvx-emblem::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c2) 45%, transparent), color-mix(in srgb, var(--c1) 30%, #0b0d20) 70%); box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.5); }
+.lvx-emblem-icon { position: relative; font-size: 3rem; line-height: 1; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5)); }
+.lvx-emblem-num { position: relative; font-family: var(--font-brand, "Bungee", sans-serif); font-size: 2.9rem; line-height: 1; color: #fff; text-shadow: 0 0 16px var(--c2), 0 3px 0 rgba(0, 0, 0, 0.4); font-variant-numeric: tabular-nums; }
+.lvx-kicker { margin: 4px 0 0; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--c2); animation: lvxUp 0.4s ease 0.75s both; }
+.lvx-title { margin: 0; font-family: var(--font-brand, "Bungee", sans-serif); font-weight: 400; font-size: clamp(1.4rem, 1.1rem + 1.6vw, 2rem); line-height: 1.1; animation: lvxUp 0.45s ease 0.85s both; }
+.lvx-level { margin: 0; font-size: 1.05rem; color: var(--text-dim, #9a9cc4); animation: lvxUp 0.45s ease 0.95s both; }
+.lvx-level strong { font-family: var(--font-brand, "Bungee", sans-serif); font-weight: 400; font-size: 1.5rem; color: var(--text, #fff); font-variant-numeric: tabular-nums; }
+@keyframes lvxUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.lvx-bar { position: relative; width: min(280px, 90%); height: 8px; margin: 4px 0 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; animation: lvxFade 0.3s ease 1s both; }
+.lvx-bar span { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, var(--c1), var(--c2)); transform-origin: left; transform: scaleX(0); animation: lvxFill 0.7s cubic-bezier(0.6, 0, 0.3, 1) 1.05s forwards, lvxShine 1.6s ease 1.8s infinite; }
+@keyframes lvxFill { to { transform: scaleX(1); } }
+@keyframes lvxShine { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.5); } }
+.lvx-tool { margin: 0; padding: 6px 12px; border-radius: 999px; font-size: 0.88rem; background: color-mix(in srgb, var(--c1) 18%, transparent); border: 1px solid color-mix(in srgb, var(--c1) 45%, transparent); animation: lvxUp 0.4s ease 1.45s both; }
+.lvx-perks { list-style: none; margin: 2px 0 6px; padding: 0; display: grid; gap: 6px; width: 100%; }
+.lvx-perks li { padding: 7px 12px; border-radius: var(--radius-sm, 8px); font-size: 0.9rem; text-align: left; background: rgba(255, 255, 255, 0.05); border-left: 3px solid var(--c2); animation: lvxPerk 0.4s ease calc(1.55s + var(--i) * 0.12s) both; }
+@keyframes lvxPerk { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+.lvx-close { margin-top: 4px; background: linear-gradient(135deg, var(--c1), var(--c2)); animation: lvxUp 0.4s ease 2s both; }
+.lvx-prestige .lvx-card { border-color: rgba(253, 224, 71, 0.6); box-shadow: 0 0 90px -10px rgba(250, 204, 21, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.lvx-prestige .lvx-title { background: linear-gradient(180deg, #fff7cc, #facc15 55%, #d97706); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lvx-prestige .lvx-close { color: #3b2400; }
+/* Clic pendant l'intro : etat final tout de suite. */
+.lvx.lvx-skip .lvx-card, .lvx.lvx-skip .lvx-card *, .lvx.lvx-skip .lvx-rays, .lvx.lvx-skip .lvx-bg { animation-delay: 0s !important; animation-duration: 0.01s !important; }
+.lvx.lvx-skip .lvx-rays, .lvx.lvx-skip .lvx-emblem-ring, .lvx.lvx-skip .lvx-bar span { animation-iteration-count: 1 !important; }
+@media (max-width: 520px) { .lvx-card { padding: 22px 16px 18px; } .lvx-emblem { width: 96px; height: 96px; } .lvx-emblem-icon { font-size: 2.5rem; } .lvx-emblem-num { font-size: 2.4rem; } }
+@media (prefers-reduced-motion: reduce) {
+  .lvx-rays, .lvx-shock, .lvx-sparks { display: none; }
+  .lvx-card, .lvx-card *, .lvx-bg { animation: none !important; opacity: 1 !important; transform: none !important; }
+}

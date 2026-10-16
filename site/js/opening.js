@@ -185,7 +185,8 @@ function buildCardEl(card, index, cardBackImageId) {
       // Cinematique : legendaire et mieux, ou la meilleure carte d'un god pack.
       if (!card.lootType && (rank >= OpeningFx.RANK.legendaire || (lastGodPack && isLast))) {
         const god = !!(lastGodPack && isLast);
-        setTimeout(() => OpeningFx.cinematic(wrap, card, color, god ? "GOD PACK !" : (card.rarity?.name || "") + " !", OpeningFx.tierOf(card.rarity?.key, god)), 650);
+        // Preference des cinematiques (core.js) : une par rarete en mode "premiere fois".
+        if (typeof CinePref === "undefined" || CinePref.allow("opening", god ? "god" : card.rarity?.key || "")) setTimeout(() => OpeningFx.cinematic(wrap, card, color, god ? "GOD PACK !" : (card.rarity?.name || "") + " !", OpeningFx.tierOf(card.rarity?.key, god)), 650);
       }
       // celebrateRarity lit getBoundingClientRect() (spawnRarityBurst) : lu a
       // chaud, dans le meme tick que le classList.add ci-dessus, ca force un
