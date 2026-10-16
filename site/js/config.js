@@ -154,7 +154,7 @@ window.APP_CONFIG = {
     modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode
     draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }
     chaosVote: "/chaos-vote",           // POST { userId, action: 'status'|'vote', rule? }
-    dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille du chien
+    dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille de Milo (le chien)
     sundayMarket: "/sunday-market",     // POST { userId, action: 'status'|'buy', cardId? }
     playerGift: "/player-gift",         // POST { userId, action: 'status'|'send'|'claim', toUserId?, kind? }
     weeklyRecap: "/weekly-recap",       // GET ?userId= -> recapitulatif de la semaine passee

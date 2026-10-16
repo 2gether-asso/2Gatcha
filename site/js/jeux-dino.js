@@ -157,7 +157,7 @@
     const canHatch = st.skulls > 0 && st.bones >= st.hatchBones && used < st.max;
     const finds = st.dinos.reduce((s, d) => s + (d.finds || 0), 0);
     $("dino-meta").innerHTML = `<span title="Crânes de dinosaure">💀 <strong>${st.skulls}</strong> crâne${st.skulls > 1 ? "s" : ""}</span>
-      <span title="Os (pêche, chien de fouille)">🦴 <strong>${st.bones}</strong> os</span>
+      <span title="Os (pêche, Milo le chien de fouille)">🦴 <strong>${st.bones}</strong> os</span>
       <span title="Cacas ramassés : engrais pour le jardin">💩 <strong>${st.poop}</strong> engrais${st.goldPoop ? ` · <strong class="gold">${st.goldPoop}</strong> doré${st.goldPoop > 1 ? "s" : ""}` : ""}</span>
       <span title="Nourriture pêchée">🐟 ${st.food.fish} · 🌿 ${st.food.seaweed} · 🦐 ${st.food.shrimp} · 🪱 ${st.food.worm}</span>
       <span>🦖 ${used} / ${st.max}</span>

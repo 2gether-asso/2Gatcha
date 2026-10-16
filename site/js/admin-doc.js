@@ -18,7 +18,7 @@
       <ul>
         <li><strong>Boosters</strong> : la monnaie de tirage. Un booster ouvert donne des cartes d'une extension.</li>
         <li><strong>Poussières d'étoile (✨)</strong> : la monnaie du jeu (craft, boutique, restaurations, taxes…). On en gagne surtout en décraftant, en jouant et avec les doublons.</li>
-        <li><strong>Ressources des mini-jeux</strong> : vers de terre (pêche), os (chien), clés et coffres, pièces détachées, appâts dorés, engrais, crânes de dinosaure, nourriture des dinos.</li>
+        <li><strong>Ressources des mini-jeux</strong> : vers de terre (pêche), os (pour Milo, le chien de fouille), clés et coffres, pièces détachées, appâts dorés, engrais, crânes de dinosaure, nourriture des dinos.</li>
         <li><strong>XP et niveau de compte</strong> : chaque action donne de l'XP ; chaque niveau débloque des fonctionnalités et des récompenses.</li>
         <li><strong>Mode de jeu</strong> : le serveur tourne dans une difficulté (Cool, Chill, Medium, Hard ou Chaos) qui change les prix, les gains et active des règles exclusives (voir « Modes de jeu »).</li>
       </ul>
@@ -41,7 +41,7 @@
         <li><strong>God pack</strong> : {{GodPackChance}} de chance qu'un booster ne contienne que des épiques ou mieux. <strong>Booster brillant</strong> : {{ShinyPackChance}}. <strong>Carte bonus</strong> : {{BonusCardChance}} par booster.</li>
         <li><strong>Maître d'une carte</strong> : posséder ses 6 finitions (badge, livre d'or).</li>
         <li><strong>Forgée dans les flammes 🔥</strong> : une carte qui sort <em>Arc-en-ciel</em> d'un booster pendant le mode <strong>Hard</strong> (règle « Finitions forgées »), après avoir survécu au malus qui fait retomber une finition spéciale sur quatre ({{HardFinishLoss}}) en normale. Seule l'ouverture de booster compte : une arc-en-ciel obtenue par fusion, craft, coffre, draft ou relance n'est jamais forgée. Badge 🔥 dans la collection ; jamais prise par la salle des machines ni l'avis de recherche ; pas de bonus chiffré (marque de prestige).</li>
-        <li><strong>Cartes secrètes</strong> : une clé (2 % de chance par case de fouille, aussi pour le chien) permet d'ouvrir la serrure cachée de la page Code (5 clics sur le cadeau pour la révéler) ; la clé est consommée, qu'une carte secrète tombe ou non.</li>
+        <li><strong>Cartes secrètes</strong> : une clé (2 % de chance par case de fouille, aussi pour Milo) permet d'ouvrir la serrure cachée de la page Code (5 clics sur le cadeau pour la révéler) ; la clé est consommée, qu'une carte secrète tombe ou non.</li>
         <li><strong>Carte du grand coffre-fort</strong> : une carte promo marquée par l'admin (Cards.IsVault), visible mais enfermée tant qu'on n'a pas <strong>6 clés</strong> ; l'ouvrir débloque aussi le coffre-fort perso.</li>
         <li><strong>Cartes exclusives</strong> : carte du mode de jeu (donnée à la récupération de l'objectif commun, une fois par joueur et par carte), carte de la saison mensuelle (dernier palier), carte fantôme du mois, cartes Unique du Comptoir.</li>
       </ul>` },
@@ -76,7 +76,7 @@
         <li><strong>Recyclage automatique</strong> : décraft en masse selon des règles (raretés, exemplaires gardés, finitions et états protégés, liste de souhaits) ; ne touche jamais aux #001, ★, assurés, rangés ni éditions.</li>
         <li><strong>Assurance</strong> : {{InsuranceCostPerTier}} ✨ par palier de rareté ; l'exemplaire ne peut plus être décrafté, fusionné, sacrifié, déposé ni échangé. Retirable gratuitement.</li>
         <li>Favoris, vitrine de profil (6 cartes, aussi les cartes protégées), liste de souhaits (alertes quand une carte souhaitée apparaît chez un joueur ou en vente), filtres et tri par rareté, finition, état et <strong>édition</strong> partout (collection, enchères, échanges).</li>
-        <li><strong>Améliorations permanentes</strong> (Boutique) : chenil (poussières du chien), serre (pousse du jardin), canne (poussières et perles pêchées) ; 5 niveaux chacune, prix doublé à chaque niveau ({{UpgradeBasePrice}} ✨ au départ, indexé sur la richesse moyenne) ; aucune ne crée de booster.</li>
+        <li><strong>Améliorations permanentes</strong> (Boutique) : chenil (poussières rapportées par Milo), serre (pousse du jardin), canne (poussières et perles pêchées) ; 5 niveaux chacune, prix doublé à chaque niveau ({{UpgradeBasePrice}} ✨ au départ, indexé sur la richesse moyenne) ; aucune ne crée de booster.</li>
         <li><strong>Fiche d'une carte</strong> : historique de chaque exemplaire (créations, changements de propriétaire, fusions), cote (ventes aux enchères, références décraft / craft), exemplaires en circulation et propriétaires, où l'obtenir, qui la souhaite ; partage d'une image de la carte sur Discord (une fois toutes les {{ShareCardCooldown}} s).</li>
         <li><strong>Journal des tirages</strong> (page dédiée) : chaque carte obtenue et sa source (booster, fouille, coffre, craft, fusion, échange, code…). <strong>Correspondances d'échange</strong> : doublons des autres joueurs qui sont dans ta liste de souhaits, et inversement.</li>
       </ul>
@@ -110,8 +110,8 @@
       </ul>` },
 
     { id: "jeux", icon: "🎮", title: "Les mini-jeux", body: `
-      <h3>⛏️ Fouille et chien</h3>
-      <p>Grilles à creuser avec de l'énergie (1 point toutes les {{DigRegenSeconds}} s) ; plein rendement pour les {{DigFullRewardsPerDay}} premières cases du jour. Trésors : poussières, boosters, vers (terre restante : {{WormsPerLeftoverTile}} par case), très rarement un crâne de dinosaure ({{DinoSkullChance}} par case). Le <strong>chien</strong> creuse à ta place avec des os ({{DogBonesPerDay}} par jour, os à {{DogBoneCost}} ✨, prix qui monte de {{BoneWeeklyIncrease}} par semaine). <strong>Mode excité</strong> : {{DogFrenzyBones}} os d'un coup &rarr; {{DogFrenzyBoards}} grilles et un crâne garanti, puis {{DogFrenzyRestHours}} h de repos. Trouvaille quotidienne du chien.</p>
+      <h3>⛏️ Fouille et Milo, le chien</h3>
+      <p>Grilles à creuser avec de l'énergie (1 point toutes les {{DigRegenSeconds}} s) ; plein rendement pour les {{DigFullRewardsPerDay}} premières cases du jour. Trésors : poussières, boosters, vers (terre restante : {{WormsPerLeftoverTile}} par case), très rarement un crâne de dinosaure ({{DinoSkullChance}} par case). <strong>Milo</strong>, le chien de fouille, creuse à ta place avec des os ({{DogBonesPerDay}} par jour, os à {{DogBoneCost}} ✨, prix qui monte de {{BoneWeeklyIncrease}} par semaine). <strong>Mode excité</strong> : {{DogFrenzyBones}} os d'un coup &rarr; {{DogFrenzyBoards}} grilles et un crâne garanti, puis {{DogFrenzyRestHours}} h de repos. Trouvaille quotidienne de Milo.</p>
       <h3>🎣 Pêche</h3>
       <p>{{FishingCost}} ver par lancer, {{FishingDailyCasts}} lancers par jour (+ niveau), plein rendement pour {{FishingFullRewardsPerDay}} lancers. Météo du jour (relançable {{WeatherRerollCost}} ✨), appât doré (aucune prise vide, rares ×2,5), carnet de pêche, tournoi du week-end, eaux profondes au niveau {{DeepFishingLevel}} (coût ×{{DeepFishingCostMult}}). « Tout pêcher » lance jusqu'à 50 fois d'un coup. Prises possibles : rien, poussières, os, clé, booster, coffre, pièce détachée (remplace un exemplaire dans une fusion ou une restauration), appât doré, et en eaux profondes des perles noires. Niveau de pêche (1 à 10 : lancers en plus, moins de prises vides, plus de rares), prestige de pêche, classement de la semaine, prix du tournoi pour les premiers. Avec un dino ou un crâne : {{DinoFoodChance}} de chance par lancer de ramener poisson, algues ou crevette (regroupés à l'affichage).</p>
       <h3>🌱 Jardin</h3>
@@ -180,7 +180,7 @@
       <ul>
         <li><strong>Câlin du jour</strong> (Cool) : à la première visite du jour, 40 % : 3 vers ; 35 % : 30 ✨ ; 25 % : 2 fragments de booster.</li>
         <li><strong>Décraft annulable</strong> (Cool) : pendant 24 h, rendre les poussières reçues récupère l'exemplaire (même numéro s'il est libre).</li>
-        <li><strong>Pêche sans prise vide, chien généreux (2 trouvailles par jour), jardin magique</strong> (plus de fanaison, 20 % de récoltes rares), <strong>échanges et enchères sans taxe</strong> (Cool).</li>
+        <li><strong>Pêche sans prise vide, Milo généreux (2 trouvailles par jour), jardin magique</strong> (plus de fanaison, 20 % de récoltes rares), <strong>échanges et enchères sans taxe</strong> (Cool).</li>
         <li><strong>Deux heures de chance</strong>, <strong>pity ×2 le samedi et le dimanche</strong>, <strong>marché aussi le mercredi</strong>, <strong>4e défi</strong> (et 2 fragments par défi récupéré), <strong>doublon porte-bonheur</strong> ({{ChillLuckyDuplicateChance}} d'un doublon remplacé par une carte manquante de même rareté) (Chill).</li>
         <li><strong>Pari du booster</strong> (Medium) : miser {{BoosterBetStake}} ✨ à l'ouverture ; une épique ou mieux = mise triplée, sinon perdue. <strong>Contrat de la semaine</strong> : un objectif personnel (épiques, boosters, grilles, récoltes, pêche, échanges), 1 booster et le titre « Contractuel ». <strong>Double tranchant</strong> : 3 cartes au lieu de 5, une rare ou mieux garantie. <strong>Coup de chance</strong> : le n-ième booster du jour (n entre 1 et 4, propre à chaque joueur) a ses chances de finition doublées.</li>
         <li><strong>Usure des doublons</strong> (Hard) : une fois par jour, {{HardWearChance}} de chance qu'un doublon perde un cran d'état (jamais un #001, un assuré, une ★, un rangé ni une édition) ; le <strong>parapluie</strong> de la boutique ({{UmbrellaPrice}} ✨) protège {{UmbrellaDays}} jours.</li>
@@ -196,7 +196,7 @@
             <li>🧩 <strong>Tempête de fragments</strong> : un booster coûte deux fois moins de fragments (2 au minimum), plafond de fragments par jour doublé.</li>
             <li>🧰 <strong>Soldes des coffres</strong> : coffres à moitié prix, mais boosters de la boutique deux fois plus chers.</li>
             <li>🍀 <strong>Fête de la chance</strong> : la rareté garantie par le pity arrive deux fois plus vite ; la boutique de boosters est fermée.</li>
-            <li>⚡ <strong>Heure de pointe</strong> : accélérer une expédition et changer la météo sont gratuits, os du chien à moitié prix.</li>
+            <li>⚡ <strong>Heure de pointe</strong> : accélérer une expédition et changer la météo sont gratuits, os de Milo à moitié prix.</li>
             <li>🔒 <strong>Nuit des secrets</strong> : les succès secrets rapportent trois fois plus de poussières.</li>
             <li>🌑 <strong>Panne générale</strong> : fouille et pêche fermées, mais doublons ×1,5 en poussières.</li>
           </ul>

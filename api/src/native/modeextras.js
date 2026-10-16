@@ -35,7 +35,7 @@ export const CHAOS_RULES = [
   { key: 'shardStorm', icon: '🧩', label: 'Tempête de fragments : un booster coûte deux fois moins de fragments', settings: { ShardsPerBooster: (v) => Math.max(2, Math.round(v / 2)), ShardsDailyCap: times(2) } },
   { key: 'chestSale', icon: '🧰', label: 'Soldes des coffres : coffres à moitié prix, mais boosters de la boutique deux fois plus chers', settings: { ChestCost: half, BoosterShopPrice: times(2) } },
   { key: 'pityParty', icon: '🍀', label: 'Fête de la chance : la rareté garantie (pity) arrive deux fois plus vite, mais la boutique de boosters est fermée', settings: { RarityPityMultiplier: times(0.5) }, off: ['boosterShop'] },
-  { key: 'rushHour', icon: '⚡', label: 'Heure de pointe : accélérer une expédition et changer la météo sont gratuits, os du chien à moitié prix', settings: { ExpeditionRushCost: () => 0, WeatherRerollCost: () => 0, DogBoneCost: half } },
+  { key: 'rushHour', icon: '⚡', label: 'Heure de pointe : accélérer une expédition et changer la météo sont gratuits, os de Milo à moitié prix', settings: { ExpeditionRushCost: () => 0, WeatherRerollCost: () => 0, DogBoneCost: half } },
   { key: 'secrets', icon: '🔒', label: 'Nuit des secrets : succès secrets triplés en poussières', settings: { HiddenAchievementDust: times(3) } },
   { key: 'blackout', icon: '🌑', label: 'Panne générale : fouille et pêche fermées, mais doublons ×1,5', settings: { DuplicateDustCommon: times(1.5), DuplicateDustOther: times(1.5) }, off: ['dig', 'fishing'] }
 ];

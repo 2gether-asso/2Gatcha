@@ -24,7 +24,7 @@ export const RULES = [
   { key: 'cool.hug', mode: 'cool', kind: 'bonus', icon: '🎁', label: 'Câlin du jour', desc: 'Un petit cadeau à la première connexion du jour (vers, poussières ou fragments).' },
   { key: 'cool.fishNoEmpty', mode: 'cool', kind: 'bonus', icon: '🎣', label: 'Pêche sans prise vide', desc: 'Plus aucune prise vide à la pêche.' },
   { key: 'cool.decraftUndo', mode: 'cool', kind: 'bonus', icon: '↩️', label: 'Décraft annulable', desc: 'Un décraft peut être annulé pendant 24 h (en rendant les poussières).' },
-  { key: 'cool.dogTwice', mode: 'cool', kind: 'bonus', icon: '🐕', label: 'Chien généreux', desc: 'Le chien rapporte 2 trouvailles par jour au lieu d’une.' },
+  { key: 'cool.dogTwice', mode: 'cool', kind: 'bonus', icon: '🐕', label: 'Milo généreux', desc: 'Milo, le chien de fouille, rapporte 2 trouvailles par jour au lieu d’une.' },
   { key: 'cool.magicGarden', mode: 'cool', kind: 'bonus', icon: '🌱', label: 'Jardin magique', desc: 'Les plantes ne fanent plus et une récolte sur cinq est rare.' },
   { key: 'cool.noTax', mode: 'cool', kind: 'bonus', icon: '🤝', label: 'Échanges sans taxe', desc: 'Aucune taxe sur les échanges et les enchères.' },
   { key: 'cool.edition', mode: 'cool', kind: 'bonus', icon: '❄️', label: 'Édition Givrée', desc: 'Les cartes des boosters peuvent sortir en édition limitée Givrée.' },

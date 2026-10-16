@@ -704,7 +704,7 @@ export function afterWorkflow({ store, path, request, response }) {
     const skulls = (Number(u.DinoSkulls) || 0) + 1;
     store.update('Users', u.id, { DinoSkulls: skulls });
     response.json.dinoSkull = { total: skulls, hatchBones: setting(store, 'DinoHatchBones'), guaranteed: true };
-    addFeed(store, { userId: u.id, kind: 'dino', icon: '💀', text: 'a lâché son chien en mode excité… et il a déterré un CRÂNE DE DINOSAURE !' });
+    addFeed(store, { userId: u.id, kind: 'dino', icon: '💀', text: 'a lâché Milo en mode excité… et il a déterré un CRÂNE DE DINOSAURE !' });
     return;
   }
   // Fouille : chaque tuile creusee peut cacher un crane (extremement rare).

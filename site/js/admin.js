@@ -781,7 +781,7 @@ document.addEventListener("click", async (e) => {
   const btn = e.target.closest && e.target.closest("[data-preset]");
   if (!btn || !presetState) return;
   const p = presetState.presets.find((x) => x.key === btn.dataset.preset);
-  const ok = await Confirm.show(`Passer le jeu en mode <strong>${p.icon} ${p.label}</strong> ? ${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} vont changer tout de suite (fouille, chien, pêche, quêtes, doublons, boutique, taxes, pity…). Tu pourras revenir à un autre mode à tout moment.`, { title: "Changer de mode de jeu", confirmText: `Passer en ${p.label}` });
+  const ok = await Confirm.show(`Passer le jeu en mode <strong>${p.icon} ${p.label}</strong> ? ${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} vont changer tout de suite (fouille, Milo, pêche, quêtes, doublons, boutique, taxes, pity…). Tu pourras revenir à un autre mode à tout moment.`, { title: "Changer de mode de jeu", confirmText: `Passer en ${p.label}` });
   if (!ok) return;
   btn.disabled = true;
   try {

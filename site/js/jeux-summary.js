@@ -19,10 +19,10 @@
     if (dig) {
       chip("dig", "&#9935;&#65039;", `Énergie ${dig.energy}/${dig.maxEnergy}`, dig.energy >= dig.maxEnergy);
       const left = dig.dogSecondsLeft || 0;
-      if (left > 0) chip("dig", "&#128021;", `Chien : encore ${Math.ceil(left / 3600)} h`, false);
+      if (left > 0) chip("dig", "&#128021;", `Milo : encore ${Math.ceil(left / 3600)} h`, false);
       else if (dig.bones > 0 && dig.bonesLeftToday !== 0) chip("dig", "&#129460;", `${dig.bones} os à donner`, true);
     }
-    if (dogGift && dogGift.available) chips.push(`<button type="button" class="gs-chip hot" data-gs-dog="1"><span aria-hidden="true">&#128021;</span> Trouvaille du chien</button>`);
+    if (dogGift && dogGift.available) chips.push(`<button type="button" class="gs-chip hot" data-gs-dog="1"><span aria-hidden="true">&#128021;</span> Trouvaille de Milo</button>`);
     if (garden) {
       const empty = garden.plots.filter((p) => !p.planted).length;
       if (garden.readyCount) chip("garden", "&#127803;", `${garden.readyCount} parcelle${garden.readyCount > 1 ? "s" : ""} à récolter`, true);
@@ -47,8 +47,8 @@
       const dog = e.target.closest("[data-gs-dog]");
       if (dog) {
         dog.disabled = true;
-        API.dogGift(Session.userId, "claim").then((r) => { Toast.success(`&#128021; Le chien t'a rapporté ${r.gift.label} !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); render(); })
-          .catch(() => { dog.disabled = false; Toast.error("Le chien n'a rien trouvé pour l'instant."); });
+        API.dogGift(Session.userId, "claim").then((r) => { Toast.success(`&#128021; Milo t'a rapporté ${r.gift.label} !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); render(); })
+          .catch(() => { dog.disabled = false; Toast.error("Milo n'a rien trouvé pour l'instant."); });
         return;
       }
       const b = e.target.closest("[data-gs-tab]");

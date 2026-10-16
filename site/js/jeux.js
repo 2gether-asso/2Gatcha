@@ -68,7 +68,7 @@ function digPerkTexts(p = {}) {
     p.energyBonus ? `+${p.energyBonus} énergie max` : "",
     p.regenReduction ? `recharge ${Math.round(p.regenReduction * 100)} % plus rapide` : "",
     p.dustBonus ? `+${Math.round(p.dustBonus * 100)} % de poussières trouvées` : "",
-    p.dogSpeed ? `chien ${Math.round(p.dogSpeed * 100)} % plus rapide, plus de flair` : ""
+    p.dogSpeed ? `Milo ${Math.round(p.dogSpeed * 100)} % plus rapide, plus de flair` : ""
   ];
 }
 function fishPerkTexts(p = {}) {
@@ -345,7 +345,7 @@ function renderDigBoard(tiles, sniffTile) {
     // l'effet "papier peint" d'un sol parfaitement uniforme.
     const variant = (i % 4) + 1;
     const sniffed = !t.dug && i === sniffTile;
-    return `<button type="button" class="dig-tile ${cls} ${sniffed ? "sniffed" : ""}" title="${sniffed ? "Le chien flaire quelque chose ici !" : ""}" data-tile-index="${i}" data-variant="${variant}" ${reward ? `data-reward="${reward}"` : ""} ${disabled ? "disabled" : ""} aria-label="${t.dug ? "Tuile creusée" : "Creuser cette tuile"}">${html}${sniffed ? `<span class="dig-sniff-paw" aria-hidden="true">&#128062;</span>` : ""}</button>`;
+    return `<button type="button" class="dig-tile ${cls} ${sniffed ? "sniffed" : ""}" title="${sniffed ? "Milo flaire quelque chose ici !" : ""}" data-tile-index="${i}" data-variant="${variant}" ${reward ? `data-reward="${reward}"` : ""} ${disabled ? "disabled" : ""} aria-label="${t.dug ? "Tuile creusée" : "Creuser cette tuile"}">${html}${sniffed ? `<span class="dig-sniff-paw" aria-hidden="true">&#128062;</span>` : ""}</button>`;
   }).join("");
   board.querySelectorAll(".dig-tile:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", () => doDig(Number(btn.dataset.tileIndex), btn));
@@ -409,31 +409,31 @@ function renderKennel(res) {
     frenzyBtn.hidden = !need || (bones < need && !tired);
     frenzyBtn.disabled = bones < need || left > 0 || tired > 0;
     frenzyBtn.innerHTML = `&#129322; Mode excité (${need} os)`;
-    frenzyBtn.title = left > 0 ? "Attends que le chien rentre de sa sortie" : tired ? "Le chien se repose" : `${need} os d'un coup : il creuse ${res.frenzyBoards} grilles tout de suite (poussières ×2), rapporte un crâne de dinosaure garanti, puis il dort ${res.frenzyRestHours} h`;
+    frenzyBtn.title = left > 0 ? "Attends que Milo rentre de sa sortie" : tired ? "Milo se repose" : `${need} os d'un coup : il creuse ${res.frenzyBoards} grilles tout de suite (poussières ×2), rapporte un crâne de dinosaure garanti, puis il dort ${res.frenzyRestHours} h`;
     frenzyBtn.dataset.boards = res.frenzyBoards || "";
     frenzyBtn.dataset.rest = res.frenzyRestHours || "";
   }
   document.getElementById("dig-kennel-dog").classList.toggle("tired", tired > 0);
   useBtn.title = bonesLeft != null ? `Encore ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui` : "";
-  useBtn.innerHTML = left > 0 ? "&#129460; Prolonger de 2 h" : "&#129460; Lancer le chien";
+  useBtn.innerHTML = left > 0 ? "&#129460; Prolonger de 2 h" : "&#129460; Envoyer Milo";
   document.getElementById("dig-kennel-dog").classList.toggle("digging", left > 0);
   const text = document.getElementById("dig-kennel-text");
   if (kennelTimer) { clearInterval(kennelTimer); kennelTimer = null; }
   if (tired > 0) {
     const h = Math.floor(tired / 3600), m = Math.floor((tired % 3600) / 60);
-    text.textContent = `😴 Épuisé après sa folie de fouille, le chien dort encore ${h ? h + " h " : ""}${m} min. Ni os ni mode excité d'ici là.`;
+    text.textContent = `😴 Épuisé après sa folie de fouille, Milo dort encore ${h ? h + " h " : ""}${m} min. Ni os ni mode excité d'ici là.`;
   } else if (left > 0) {
     let remaining = left;
     const render = () => {
       const h = Math.floor(remaining / 3600), m = Math.floor((remaining % 3600) / 60);
-      text.textContent = `Le chien creuse pour toi encore ${h ? h + " h " : ""}${m} min (1 tuile toutes les ${Math.round((res.dogInterval || 300) / 60)} min). Il flaire les trésors et te montre où creuser 🐾`;
+      text.textContent = `Milo creuse pour toi encore ${h ? h + " h " : ""}${m} min (1 tuile toutes les ${Math.round((res.dogInterval || 300) / 60)} min). Il flaire les trésors et te montre où creuser 🐾`;
     };
     render();
     kennelTimer = setInterval(() => { remaining -= 30; if (remaining <= 0) { clearInterval(kennelTimer); kennelTimer = null; loadDig(); return; } render(); }, 30000);
   } else {
     text.textContent = bones
       ? `Donne-lui un os : il creuse 2 h pour toi sans énergie (24 tuiles), flaire les trésors, rapporte cartes et poussières et te montre où creuser.${bonesLeft != null ? ` ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui.` : ""}`
-      : "Un os envoie le chien creuser 2 h à ta place : 24 tuiles, du flair pour les trésors, les cartes et les poussières rapportées (4 os par jour au plus).";
+      : "Un os envoie Milo creuser 2 h à ta place : 24 tuiles, du flair pour les trésors, les cartes et les poussières rapportées (nombre d'os limité par jour).";
   }
   announceDogReport(res.dogReport);
 }
@@ -457,7 +457,7 @@ function showDogPostcard(r, parts) {
   const overlay = document.createElement("div");
   overlay.className = "card-modal-overlay dog-postcard-overlay";
   overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-label", "Rapport du chien");
+  overlay.setAttribute("aria-label", "Rapport de Milo");
   overlay.innerHTML = `
     <div class="dog-postcard">
       <div class="dog-postcard-stamp" aria-hidden="true">&#128062;</div>
@@ -466,7 +466,7 @@ function showDogPostcard(r, parts) {
         <div class="dog-postcard-title">${r.frenzy ? "WOUAF WOUAF WOUAF !!!" : "Bons baisers du chantier !"}</div>
         <p>${r.frenzy ? `Mode excité : j'ai retourné <strong>${r.boards || (r.frenzy && r.frenzy.boards) || ""} grilles</strong> d'un coup (${r.tiles} tuiles). Maintenant… je suis crevé. Zzz.` : `Pendant ton absence, j'ai creusé <strong>${r.tiles} tuile${r.tiles > 1 ? "s" : ""}</strong>.`}</p>
         ${parts.length ? `<ul>${parts.map((p) => `<li>${p}</li>`).join("")}</ul>` : "<p>Rien trouvé cette fois… mais j'ai bien remué la terre !</p>"}
-        <div class="dog-postcard-sign">Ton chien, Wouf &#128062;</div>
+        <div class="dog-postcard-sign">Ton chien, Milo &#128062;</div>
       </div>
       <button type="button" class="btn dog-postcard-close">Merci !</button>
     </div>`;
@@ -479,7 +479,7 @@ function showDogPostcard(r, parts) {
 // Mode excite : confirmation, chien surexcite, puis carte postale speciale.
 async function dogFrenzy(btn) {
   const need = btn.textContent.match(/\d+/);
-  const okGo = await Confirm.show(`Donner <strong>${need ? need[0] : ""} os d'un coup</strong> au chien ? Surexcité, il creuse <strong>${btn.dataset.boards} grilles entières</strong> tout de suite (poussières ×2) et rapporte à coup sûr un <strong>crâne de dinosaure</strong> 💀, puis il dort <strong>${btn.dataset.rest} h</strong> : ni os ni mode excité pendant ce temps.`, { title: "Mode excité", confirmText: "C'est parti !" });
+  const okGo = await Confirm.show(`Donner <strong>${need ? need[0] : ""} os d'un coup</strong> à Milo ? Surexcité, il creuse <strong>${btn.dataset.boards} grilles entières</strong> tout de suite (poussières ×2) et rapporte à coup sûr un <strong>crâne de dinosaure</strong> 💀, puis il dort <strong>${btn.dataset.rest} h</strong> : ni os ni mode excité pendant ce temps.`, { title: "Mode excité", confirmText: "C'est parti !" });
   if (!okGo) return;
   btn.disabled = true;
   const dog = document.getElementById("dig-kennel-dog");
@@ -494,13 +494,13 @@ async function dogFrenzy(btn) {
     // Crane de dinosaure garanti (api/src/native/dino.js).
     if (res.dinoSkull) {
       document.getElementById("tab-dino-btn").style.display = "";
-      setTimeout(() => Toast.success(`💀 Le chien a déterré un CRÂNE DE DINOSAURE ! Tu en as ${res.dinoSkull.total}. Avec ${res.dinoSkull.hatchBones} os, ramène-le à la vie dans l'onglet Dinos.`), 900);
+      setTimeout(() => Toast.success(`💀 Milo a déterré un CRÂNE DE DINOSAURE ! Tu en as ${res.dinoSkull.total}. Avec ${res.dinoSkull.hatchBones} os, ramène-le à la vie dans l'onglet Dinos.`), 900);
     }
     await loadDig();
   } catch (e) {
     dog.classList.remove("frenzy");
     btn.disabled = false;
-    Toast.error({ not_enough_bones: "Pas assez d'os pour le mode excité.", dog_tired: "Le chien se repose encore.", dog_busy: "Attends que le chien rentre de sa sortie." }[e.code] || friendlyError(e));
+    Toast.error({ not_enough_bones: "Pas assez d'os pour le mode excité.", dog_tired: "Milo se repose encore.", dog_busy: "Attends que Milo rentre de sa sortie." }[e.code] || friendlyError(e));
   }
 }
 
@@ -508,12 +508,12 @@ async function kennelAction(kind, btn) {
   btn.disabled = true;
   try {
     if (kind === "buy") { await API.buyBone(Session.userId); Toast.success("&#129460; Os acheté !"); }
-    else { await API.useBone(Session.userId); Toast.success(btn.textContent.includes("Prolonger") ? "&#128021; 2 h de fouille en plus !" : "&#128021; Le chien part creuser pour 2 h !"); }
+    else { await API.useBone(Session.userId); Toast.success(btn.textContent.includes("Prolonger") ? "&#128021; 2 h de fouille en plus !" : "&#128021; Milo part creuser pour 2 h !"); }
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     await loadDig();
   } catch (e) {
     btn.disabled = false;
-    const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Le chien creuse déjà !", dog_max_time: "Le chien a déjà assez de travail pour le moment.", dog_daily_limit: "Le chien a assez creusé aujourd'hui (4 os par jour) : reviens demain !" };
+    const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Milo creuse déjà !", dog_max_time: "Milo a déjà assez de travail pour le moment.", dog_daily_limit: "Milo a assez creusé aujourd'hui : reviens demain !" };
     Toast.error(msg[e.code] || friendlyError(e));
   }
 }
