@@ -1148,6 +1148,30 @@ Tables et colonnes creees automatiquement au demarrage de l'API (rien a faire a 
 | AppSettings | Key = balance-2026-10-11 | Text | migration d'equilibrage : date et reglages modifies (anciennes valeurs) |
 | Users | GardenExtraPlots | Numeric | parcelles de jardin achetees en plus des 4 offertes |
 | SeasonProgress | ChestClaimed | Bool | coffre de saison ouvert |
+| Users | HugDay, WearDay, ModeDays, ModeCards, LuckyOpenDay, LuckyOpenCount, WeeklyGoal | Text, Text, Text, Text, Text, Numeric, Text | bonus et malus des modes (modeperks.js) : câlin du chien, usure du jour, jours joués par mode (JSON), cartes de mode obtenues, ouvertures chanceuses, contrat de la semaine (JSON) |
+| Pulls | ForgedInFire | Bool | carte forgée dans le feu (mode Hard) : protégée du sacrifice |
+| DecraftUndo | User, Card, Finish, Quality, Serial, Dust, At, Undone | Ref:Users, Ref:Cards, Text, Text, Numeric, Numeric, Numeric, Bool | decrafts annulables 24 h (mode Cool) |
+| Users | MachineMonth, MachineStage, MachineVote | Text, Numeric, Text | salle des machines : mois en cours, étape atteinte (0 à 5), mode voté |
+| Users | MachineSpent, MachineHistory, MachineLoyaltyAt, MachineEventVote | Numeric, Text, Text, Text | salle des machines : points sacrifiés du mois, mois terminés (JSON), dernière récompense d'assiduité, événement voté |
+| Users | ModeStreak, ModeStats, ChaosSeen, HardSession, HardScore, UmbrellaUntil | Text, Text, Text, Numeric, Numeric, Numeric | succès de mode (série de jours, compteurs, règles du Chaos vues), classement Hard, parapluie |
+| Users | SeasonTreatDay, SeasonDropDay, SeasonDropCount | Text, Text, Numeric | cadeau saisonnier du jour, trouvailles saisonnières (3 par jour) |
+| Users | PhantomMonth, PhantomFragments, PhantomDone | Text, Text, Text | carte fantôme du mois : fragments trouvés (JSON), mois reconstitué |
+| Users | LotteryWeek, LotteryTickets | Text, Numeric | tickets de loterie de la semaine |
+| Users | TeamMonth, Team, TeamPoints | Text, Text, Numeric | guerre des équipes : équipe et points du mois |
+| Pulls | Edition | Text | édition limitée (frost, tropical, prism, ember, glitch, firework, heart, pastel, prank, solar, cursed, snow, phantom) |
+| DuoExpeditions | From, To, FromPull, ToPull, FromCard, ToCard, Status, CreatedAt, StartAt, EndAt, FromClaimed, ToClaimed, Loot | Ref:Users ×2, Numeric ×2, Ref:Cards ×2, Text, Numeric ×3, Bool ×2, Text | expéditions en duo (invited, running, declined, cancelled ; butin JSON) |
+| AppSettings | Key = modeSchedule, lottery, lotteryLast, wanted, teamWar, seasonBoss, machineSettled, machineChief | Text | changement de mode programmé, loterie (cagnotte, dernier tirage), avis de recherche de la semaine, résultat de la guerre des équipes, boss saisonnier créé, bilan mensuel et chef de la salle des machines |
+| Users | BingoMonth, BingoStats, BingoDone, BingoClaimed, BingoJoker | Text | bingo v2 : mois, compteurs des objectifs (JSON), cases validées, lignes récupérées (et full), case du joker |
+| PullHistory | Card, Serial, At, Kind, User, Other, Source, Detail | Ref:Cards, Numeric ×2, Text, Numeric ×2, Text ×2 | historique d'un exemplaire (cards.js) : created, moved (changement de propriétaire), changed (finition / état / édition), deleted ; Source = route à l'origine, Detail = JSON |
+| Users | MasteredCards, LastShareAt | Text, Numeric | maître d'une carte (JSON { cardId: date } quand les 6 finitions sont possédées), dernier partage Discord (anti-spam ShareCardCooldown) |
+| Users | DinoGoldPoop, DinoEggs, DinoDex, DinoAccessories, DinoDecor, DinoStar, DinoCompanion | Numeric, Text ×4, Numeric ×2 | dinos (lot 2) : engrais dorés, œufs (JSON : id, laidAt, hatchAt, parents, genes), Dinodex (JSON : species, patterns, colors, stages, claimed), accessoires et décorations possédés, dino vedette, compagnon d'expédition |
+| Users | DogTiredUntil | Numeric | chien fatigue apres le mode excite (dig.json, action frenzy : DogFrenzyBones os, DogFrenzyBoards grilles d'un coup, DogFrenzyRestHours de repos) |
+| Users | Discoveries | Text | ressources déjà découvertes (JSON : clés de discoveries.js), pour ne jouer l'animation qu'une fois |
+| AppSettings | Key = dinoFirsts | Text | premières des dinos pour le livre d'or (premier chromatique, première couleur rare, premier adulte, éleveur) |
+| Users | DinoSkulls, Dinos, DinoFood, DinoPoop | Numeric, Text, Text, Numeric | dinos de compagnie (dino.js) : crânes trouvés, dinos (JSON : id, name, species, hue, pattern, shiny, bornAt, at, food, happy, xp, digest, poops, playAt), nourriture pêchée (JSON { fish, seaweed, shrimp }), engrais ramassés |
+| AppSettings | Key = bingo:AAAA-MM | Text | bingo v2 : cartes imposées et graine du tirage d'un mois |
+| AppSettings | Key = modeFeatures | Text | fonctionnalités fermées par mode : JSON { fonctionnalité: [modes] } (features.js) ; absent = valeurs par défaut |
+| AppSettings | Key = machineRoom | Text | résultat du dernier vote de la salle des machines (mois, votes, gagnant) |
 | ScheduledEvents | Label, StartAt, EndAt, Enabled, DustMultiplier, FinishMultiplier, FishingRare, WormsMultiplier | | evenements planifies (events.js) |
 | AppSettings | Key = inflationMode | Text | etat du mode anti-inflation (jours d'alerte, jours calmes, actif depuis) |
 | Users | LuckCharges, XpBoostUntil | Numeric | elixir de chance (boosters restants), potion de savoir (fin de l'XP x2) |

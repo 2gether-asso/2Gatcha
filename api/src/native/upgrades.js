@@ -17,7 +17,7 @@ export const schema = {
 };
 
 const TRACKS = {
-  kennel: { label: 'Chenil', icon: '🐕', per: 0.1, effect: (n) => `+${n * 10} % de poussières rapportées par le chien` },
+  kennel: { label: 'Chenil', icon: '🐕', per: 0.1, effect: (n) => `+${n * 10} % de poussières rapportées par Milo` },
   greenhouse: { label: 'Serre', icon: '🌱', per: 0.06, effect: (n) => `−${n * 6} % de temps de pousse au jardin` },
   rod: { label: 'Canne renforcée', icon: '🎣', per: 0.1, effect: (n) => `+${n * 10} % de poussières et de perles pêchées` }
 };

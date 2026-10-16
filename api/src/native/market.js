@@ -25,7 +25,11 @@ import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
 import { price as indexed, taxMultiplier } from './inflation.js';
+import { modeIs, luxuryFactor, addToPot } from './modeperks.js';
 import { addFeed } from './feed.js';
+import { editionCarrier, editionLoss } from './editions.js';
+import { happyFactor, happyHourNow } from './moderules.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: { ShopWeek: { type: 'Text' }, ShopBought: { type: 'Numeric' }, RepairWeek: { type: 'Text' }, RepairCounts: { type: 'Text' } },
@@ -119,7 +123,11 @@ function handleInsurance({ store, body }) {
 // Exemplaires assures (et cartes ★) mis de cote pendant les workflows qui
 // consomment des exemplaires : marques InVault (ignores par tous les
 // workflows, comme le coffre-fort), remis en place juste apres.
-const CONSUMING = { 'disenchant': null, 'foil-upgrade': null, 'card-quality-repair': null, 'altar-sacrifice': null, 'trade': ['create', 'counter', 'respond'], 'guild-chest': ['deposit'] };
+// Editions limitees (editions.js) : mises de cote de la meme facon, sauf
+// exemplaire choisi a la main (perte confirmee, voir plus bas).
+const CONSUMING = { 'disenchant': null, 'foil-upgrade': null, 'card-quality-repair': null, 'altar-sacrifice': null, 'trade': ['create', 'counter', 'respond'], 'guild-chest': ['deposit'], 'community-boss': ['attack'] };
+// Workflows dont le resultat garde l'edition d'un exemplaire consomme.
+const CARRIES_EDITION = new Set(['foil-upgrade', 'card-quality-repair']);
 
 function repairSurcharge(store, user, cardId) {
   const counts = user.RepairWeek === weekKey() ? parse(user.RepairCounts, {}) : {};
@@ -152,7 +160,15 @@ export function beforeWorkflow({ store, path, request }) {
     const p = store.get('Pulls', Number(body.pullId));
     if (p && p.Starred) request._starred = true;
   }
-  const hide = mine.filter((p) => p.Insured || (p.Starred && !explicit.has(p.id)));
+  // Echange : l'exemplaire change de main avec son edition, rien n'est perdu.
+  if (path !== 'trade') {
+    const chosen = mine.filter((p) => p.Edition && explicit.has(p.id) && refId(p.User) === user.id);
+    const carried = CARRIES_EDITION.has(path) ? editionCarrier(chosen, body.keepPullId) : null;
+    const denied = editionLoss(store, chosen.filter((p) => p !== carried), body, carried);
+    if (denied) return denied;
+    request._editionCarry = carried ? carried.Edition : null;
+  }
+  const hide = mine.filter((p) => p.Insured || ((p.Starred || p.Edition) && !explicit.has(p.id)));
   hide.forEach((p) => store.update('Pulls', p.id, { InVault: true }));
   request._hidden = hide.map((p) => p.id);
   return null;
@@ -169,7 +185,7 @@ function shopState(store, user) {
   const week = weekKey();
   const bought = user.ShopWeek === week ? Number(user.ShopBought) || 0 : 0;
   const cap = setting(store, 'BoosterShopWeeklyCap');
-  return { week, bought, cap, left: Math.max(0, cap - bought), price: Math.round(indexed(store, setting(store, 'BoosterShopPrice')) * (1 + setting(store, 'BoosterShopIncrease') * bought)), stardust: dust(user) };
+  return { week, bought, cap, left: Math.max(0, cap - bought), price: Math.round(indexed(store, setting(store, 'BoosterShopPrice')) * (1 + setting(store, 'BoosterShopIncrease') * bought) * happyFactor(store)), happyHour: happyHourNow(store), stardust: dust(user) };
 }
 
 function handleShop({ store, body }) {
@@ -194,7 +210,7 @@ const CONTRACTS = [
   { key: 'legend1', label: '1 Légendaire', icon: '🌟', rarity: 'legendaire', count: 1, reward: { boosters: 3 } },
   { key: 'ghost1', label: '1 carte ghost', icon: '👻', finish: 'ghost', count: 1, reward: { chests: 1, keys: 1 } },
   { key: 'rare-mint', label: '2 Rares en parfait état', icon: '💎', rarity: 'rare', quality: 'mint', count: 2, reward: { dust: 300 } },
-  { key: 'damaged8', label: '8 cartes abîmées', icon: '🩹', quality: 'damaged', count: 8, reward: { dust: 200 } },
+  { key: 'damaged8', label: '8 cartes usées', icon: '🩹', quality: 'damaged', count: 8, reward: { dust: 200 } },
   { key: 'diamond1', label: '1 carte diamant', icon: '💠', finish: 'diamond', count: 1, reward: { boosters: 2, dust: 200 } },
   { key: 'epic3', label: '3 Épiques', icon: '🔮', rarity: 'epique', count: 3, reward: { chests: 1, keys: 1, dust: 100 } }
 ];
@@ -208,7 +224,7 @@ function weekContracts(store, week = weekKey()) {
 }
 
 function matches(store, c, p) {
-  if (p.InVault || p.Insured || p.Starred) return false;
+  if (p.InVault || p.Insured || p.Starred || p.Edition) return false;
   if (c.rarity && rarityKeyOf(store, refId(p.Card)) !== c.rarity) return false;
   if (c.finish && (p.Finish || 'normal') !== c.finish) return false;
   if (c.quality && (p.Quality || 'damaged') !== c.quality) return false;
@@ -280,8 +296,10 @@ function settleAuctions(store, t = now()) {
     const bidder = refId(a.Bidder);
     if (bidder && Number(a.CurrentBid) > 0) {
       const seller = store.get('Users', refId(a.Seller));
-      const rate = Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store)) * (1 - (seller ? talentValue(seller, 'master') : 0));
+      const lux = luxuryFactor(store, seller);
+      const rate = ruleOn(store, 'cool.noTax') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * lux) * (1 - (seller ? talentValue(seller, 'master') : 0));
       const tax = Math.round(Number(a.CurrentBid) * rate);
+      if (lux > 1 && tax > 0) addToPot(store, tax - tax / lux);
       if (pull) store.update('Pulls', pull.id, { User: bidder });
       if (seller) store.update('Users', seller.id, { StardustCount: dust(seller) + Number(a.CurrentBid) - tax });
       store.update('Auctions', a.id, { Status: 'sold', SettledAt: t, Tax: tax });
@@ -310,6 +328,7 @@ function auctionView(store, a, me, users) {
   const bidder = users.get(refId(a.Bidder));
   return {
     id: a.id, card: card ? cardSummary(store, card) : null, serialNumber: a.Serial || null, finish: a.Finish || 'normal', quality: a.Quality || 'damaged', starred: !!a.Starred,
+    edition: (a.Pull && (store.get('Pulls', Number(a.Pull)) || {}).Edition) || null,
     seller: seller ? seller.Pseudo : '?', mine: refId(a.Seller) === me, startPrice: Number(a.StartPrice) || 0,
     currentBid: Number(a.CurrentBid) || 0, bids: Number(a.Bids) || 0, leading: refId(a.Bidder) === me, bidder: bidder ? bidder.Pseudo : null,
     minNext: minNext(a), endsAt: a.EndsAt, status: a.Status, settledAt: a.SettledAt || null
@@ -334,7 +353,7 @@ function auctionList(store, user) {
     open: all.filter((a) => a.Status === 'open').sort((a, b) => (a.EndsAt || 0) - (b.EndsAt || 0)).map((a) => withPrices(auctionView(store, a, user.id, users), a)),
     history: all.filter((a) => a.Status !== 'open' && (a.SettledAt || 0) > t - 7 * 86400 && (refId(a.Seller) === user.id || refId(a.Bidder) === user.id))
       .sort((a, b) => (b.SettledAt || 0) - (a.SettledAt || 0)).slice(0, 20).map((a) => auctionView(store, a, user.id, users)),
-    taxPct: Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
+    taxPct: ruleOn(store, 'cool.noTax') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * luxuryFactor(store, user)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
     stardust: dust(user)
   };
 }

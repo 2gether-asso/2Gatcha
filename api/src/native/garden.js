@@ -9,7 +9,10 @@
 // Jardin vivant (2026-10-11) : une plante prete fane apres GardenWiltHours
 // heures (recolte reduite de moitie, sans appat ni poussieres) ; recolter
 // plusieurs jours de suite donne une chance de recolte rare (des 3 jours).
-//   POST /webhook/garden { userId, action: 'status' | 'plant' | 'harvest' | 'buyPlot', plot?, seed? }
+// Engrais (2026-10-15) : un caca de dino (Users.DinoPoop, voir dino.js) sur
+// une parcelle en train de pousser saute DinoFertilizerBoost de son temps de
+// pousse et double les vers de la recolte. Un engrais par plantation.
+//   POST /webhook/garden { userId, action: 'status' | 'plant' | 'harvest' | 'buyPlot' | 'fertilize', plot?, seed? }
 
 import { ok, fail, userById, now, parisDay } from './common.js';
 import { setting } from './settings.js';
@@ -18,6 +21,9 @@ import { talentValue } from './talents.js';
 import { diceFace } from './daily.js';
 import { price as indexed } from './inflation.js';
 import { upgradeValue } from './upgrades.js';
+import { modeIs } from './modeperks.js';
+import { dinoTalent } from './dino.js';
+import { ruleOn } from './moderules.js';
 
 export const PLOTS = 4;
 
@@ -55,17 +61,19 @@ function gardenStreak(user) {
   const day = user.GardenStreakDay;
   return day === parisDay(0) || day === parisDay(-1) ? Number(user.GardenStreak) || 0 : 0;
 }
-const rareChance = (store, streak) => (streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
+const rareChance = (store, streak) => Math.max(ruleOn(store, 'cool.magicGarden') ? 0.2 : 0, streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
+// Stegosaure content : les plantes ne fanent plus (dino.js).
+const wiltSeconds = (store, user) => (ruleOn(store, 'cool.magicGarden') || dinoTalent(user, 'stego') ? 0 : setting(store, 'GardenWiltHours') * 3600);
 
 function state(store, user) {
   const grow = growSeconds(store, user);
-  const wilt = setting(store, 'GardenWiltHours') * 3600;
+  const wilt = wiltSeconds(store, user);
   const t = now();
   const plots = plotsOf(user, plotCount(store, user)).map((p, i) => {
     if (!p) return { plot: i, planted: false };
     const g = Math.round(grow * seedMult(p));
     const wiltAt = p.plantedAt + g + wilt;
-    return { plot: i, planted: true, seed: p.seed || 'mix', plantedAt: p.plantedAt, readyAt: p.plantedAt + g, ready: p.plantedAt + g <= t, wiltAt, wilted: wilt > 0 && wiltAt <= t, progress: Math.min(1, (t - p.plantedAt) / g) };
+    return { plot: i, planted: true, seed: p.seed || 'mix', fertilized: !!p.fert, goldFertilized: !!p.gfert, plantedAt: p.plantedAt, readyAt: p.plantedAt + g, ready: p.plantedAt + g <= t, wiltAt, wilted: wilt > 0 && wiltAt <= t, progress: Math.min(1, (t - p.plantedAt) / g) };
   });
   const streak = gardenStreak(user);
   const base = setting(store, 'GardenPlantCost');
@@ -75,9 +83,9 @@ function state(store, user) {
     seeds: Object.entries(SEEDS).map(([key, s]) => ({ key, label: s.label, icon: s.icon, desc: s.desc, cost: base * s.cost, growHours: Math.round((grow * s.grow / 3600) * 10) / 10 })),
     extraPlot: plots.length < max ? { price: plotPrice(store, user), owned: plots.length, max } : { price: null, owned: plots.length, max },
     baitChance: Math.min(1, setting(store, 'GardenBaitChance') + gardenLevel(store, user).perks.baitBonus), level: gardenLevel(store, user), stardust: Number(user.StardustCount) || 0,
-    goldBait: Number(user.GoldBait) || 0, worms: Number(user.Worms) || 0,
+    goldBait: Number(user.GoldBait) || 0, worms: Number(user.Worms) || 0, fertilizer: Number(user.DinoPoop) || 0, goldFertilizer: Number(user.DinoGoldPoop) || 0,
     readyCount: plots.filter((p) => p.ready).length,
-    streak, rareChance: rareChance(store, streak + (user.GardenStreakDay === parisDay(-1) ? 1 : 0)), wiltHours: setting(store, 'GardenWiltHours')
+    streak, rareChance: rareChance(store, streak + (user.GardenStreakDay === parisDay(-1) ? 1 : 0)), wiltHours: wiltSeconds(store, user) / 3600
   };
 }
 
@@ -93,6 +101,31 @@ function handleGarden({ store, body }) {
     if ((Number(user.StardustCount) || 0) < price) return fail('not_enough_dust', 400, { price });
     user = store.update('Users', user.id, { StardustCount: (Number(user.StardustCount) || 0) - price, GardenExtraPlots: (Number(user.GardenExtraPlots) || 0) + 1 });
     return ok({ ...state(store, user), boughtPlot: true, paid: price });
+  }
+  if (action === 'fertilize' && (body.gold === true || body.gold === 'true')) {
+    const grow = growSeconds(store, user);
+    const t = now();
+    const i = Number(body.plot);
+    if (!(i >= 0 && i < n) || !plots[i] || plots[i].gfert || plots[i].plantedAt + Math.round(grow * seedMult(plots[i])) <= t) return fail('nothing_to_fertilize');
+    const have = Number(user.DinoGoldPoop) || 0;
+    if (have < 1) return fail('no_fertilizer');
+    plots[i] = { ...plots[i], plantedAt: t - Math.round(grow * seedMult(plots[i])), gfert: true };
+    user = store.update('Users', user.id, { GardenPlots: JSON.stringify(plots), DinoGoldPoop: have - 1 });
+    return ok({ ...state(store, user), fertilized: 1, gold: true });
+  }
+  if (action === 'fertilize') {
+    const grow = growSeconds(store, user);
+    const t = now();
+    const growing = (i) => plots[i] && !plots[i].fert && plots[i].plantedAt + Math.round(grow * seedMult(plots[i])) > t;
+    const targets = (body.plot == null ? plots.map((_, i) => i) : [Number(body.plot)]).filter((i) => i >= 0 && i < n && growing(i));
+    if (!targets.length) return fail('nothing_to_fertilize');
+    const have = Number(user.DinoPoop) || 0;
+    if (have < 1) return fail('no_fertilizer');
+    const used = targets.slice(0, have);
+    const boost = setting(store, 'DinoFertilizerBoost');
+    for (const i of used) plots[i] = { ...plots[i], plantedAt: plots[i].plantedAt - Math.round(grow * seedMult(plots[i]) * boost), fert: true };
+    user = store.update('Users', user.id, { GardenPlots: JSON.stringify(plots), DinoPoop: have - used.length });
+    return ok({ ...state(store, user), fertilized: used.length });
   }
   if (action === 'plant') {
     const seed = SEEDS[body.seed] ? body.seed : 'mix';
@@ -114,7 +147,8 @@ function handleGarden({ store, body }) {
     let worms = 0, bait = 0, dust = 0;
     const items = [];
     let xp = 0;
-    const wilt = setting(store, 'GardenWiltHours') * 3600;
+    const wilt = wiltSeconds(store, user);
+    const diplo = dinoTalent(user, 'long');
     for (const i of ready) {
       const seed = (plots[i] && plots[i].seed) || 'mix';
       const item = { plot: i, seed, worms: 0, bait: 0, dust: 0 };
@@ -127,6 +161,9 @@ function handleGarden({ store, body }) {
         if (Math.random() < baitChance) item.bait = 1;
         if (Math.random() < 0.15) item.dust = 15 + Math.floor(Math.random() * 26);
       }
+      if (plots[i].fert) { item.fertilized = true; item.worms *= 2; }
+      if (plots[i].gfert) { item.goldFertilized = true; item.bait = Math.max(1, item.bait); }
+      if (diplo) { item.dino = true; item.worms += 1; }
       if (wilted) { item.wilted = true; item.worms = Math.floor(item.worms / 2); item.bait = 0; item.dust = 0; }
       worms += item.worms; bait += item.bait; dust += item.dust;
       xp += seed === 'mix' || seed === 'worm' ? 2 : 3;

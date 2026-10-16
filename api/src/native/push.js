@@ -27,7 +27,7 @@ export const schema = {
 
 // Categories reglables par le joueur (2026-10-07) : tout est active par defaut.
 const PUSH_KINDS = [
-  { key: 'expedition', label: 'Expédition terminée' }, { key: 'dog', label: 'Le chien a fini de creuser' }, { key: 'garden', label: 'Jardin prêt à récolter' },
+  { key: 'expedition', label: 'Expédition terminée' }, { key: 'dog', label: 'Milo a fini de creuser' }, { key: 'garden', label: 'Jardin prêt à récolter' },
   { key: 'guess', label: 'Carte du jour à deviner' }, { key: 'streak', label: 'Série de connexion en danger' }, { key: 'lucky', label: 'Heure de chance (1 h avant)' },
   { key: 'evening', label: 'Missions du soir' }, { key: 'trade', label: 'Propositions d’échange' }, { key: 'auction', label: 'Enchères (surenchère, vente, victoire)' },
   { key: 'season-end', label: 'Fin de saison' }, { key: 'challenges-end', label: 'Fin des défis de la semaine' }, { key: 'goal', label: 'Objectif commun atteint' },
@@ -103,7 +103,7 @@ function dueFor(store, user, sinceSub, ctx) {
   const until = Number(user.ExpeditionUntil) || 0;
   if (until && until <= t && until > t - 12 * 3600) out.push({ kind: 'expedition', key: String(until), title: '🧭 Expédition terminée', body: 'Ton explorateur est rentré : viens récupérer son butin !', url: 'jeux.html' });
   const dog = Number(user.DogUntil) || 0;
-  if (dog && dog <= t && dog > t - 12 * 3600) out.push({ kind: 'dog', key: String(dog), title: '🐕 Le chien a fini de creuser', body: 'Viens voir ce qu’il a déterré pour toi.', url: 'jeux.html' });
+  if (dog && dog <= t && dog > t - 12 * 3600) out.push({ kind: 'dog', key: String(dog), title: '🐕 Milo a fini de creuser', body: 'Viens voir ce qu’il a déterré pour toi.', url: 'jeux.html' });
   // Jardin pret, heure de chance, encheres, missions du soir (2026-10-07).
   try {
     const plots = JSON.parse(user.GardenPlots || '[]');

@@ -29,7 +29,14 @@ const HIDDEN = [
   { key: 'prestige', label: 'Recommencer pour mieux briller', desc: 'Passer un métier en prestige.', icon: '🌟' },
   { key: 'boss50', label: 'Fléau des boss', desc: 'Envoyer 50 cartes aux boss.', icon: '🗡️', stat: 'boss', target: 50 },
   { key: 'broke', label: 'Fauché', desc: 'Tomber à 0 poussière.', icon: '🕳️' },
-  { key: 'rich', label: 'Tas d’étoiles', desc: 'Avoir 5 000 poussières en même temps.', icon: '💰' }
+  { key: 'rich', label: 'Tas d’étoiles', desc: 'Avoir 5 000 poussières en même temps.', icon: '💰' },
+  // Succes de mode (2026-10-15, modeextras.js) : visibles, debloquables seulement dans leur mode.
+  { key: 'modeCool7', mode: 'cool', label: 'Zen absolu', desc: 'Jouer 7 jours de suite en mode Cool.', icon: '😎' },
+  { key: 'modeChill50', mode: 'chill', label: 'Vacancier', desc: 'Ouvrir 50 boosters en mode Chill.', icon: '🌴' },
+  { key: 'modeMedium5', mode: 'medium', label: 'Parieur avisé', desc: 'Gagner 5 paris du booster en mode Medium.', icon: '🎲' },
+  { key: 'modeHardBoss', mode: 'hard', label: 'Tueur de géants', desc: 'Attaquer le boss avec 10 cartes en mode Hard.', icon: '⚔️' },
+  { key: 'modeHard7', mode: 'hard', label: 'Survivant de l’enfer', desc: 'Jouer 7 jours de suite en mode Hard.', icon: '🔥' },
+  { key: 'modeChaos5', mode: 'chaos', label: 'Agent du chaos', desc: 'Jouer sous 5 règles du Chaos différentes.', icon: '👾' }
 ];
 
 const THEMES = [
@@ -49,7 +56,8 @@ export const schema = {
 };
 
 
-// Debloque un succes cache (une seule fois) ; renvoie l'annonce ou null.
+// Debloque un succes (une seule fois) ; renvoie l'annonce ou null.
+export function unlockAchievement(store, userId, key) { return unlockHidden(store, userId, key); }
 function unlockHidden(store, userId, key) {
   const user = store.get('Users', userId);
   const def = HIDDEN.find((h) => h.key === key);
@@ -58,7 +66,7 @@ function unlockHidden(store, userId, key) {
   if (got[key]) return null;
   got[key] = now();
   store.update('Users', userId, { HiddenAchievements: JSON.stringify(got), StardustCount: (Number(user.StardustCount) || 0) + setting(store, 'HiddenAchievementDust') });
-  return { userId, kind: 'achievement', icon: def.icon, label: `Succès secret débloqué : ${def.label} (+${setting(store, 'HiddenAchievementDust')} ✨)` };
+  return { userId, kind: 'achievement', icon: def.icon, label: `${def.mode ? 'Succès de mode' : 'Succès secret'} débloqué : ${def.label} (+${setting(store, 'HiddenAchievementDust')} ✨)` };
 }
 
 const STAT_OF = { 'fishCatch:nothing': 'boots', fish: 'fish', board: 'boards', tradeDone: 'trades', harvest: 'harvests', bossAttack: 'boss' };
@@ -98,8 +106,8 @@ export function onBalance(store, user) {
 export function hiddenList(store, user) {
   const got = parse(user.HiddenAchievements, {});
   const stats = parse(user.HiddenStats, {});
-  return HIDDEN.map((h) => got[h.key]
-    ? { key: h.key, unlocked: true, label: h.label, desc: h.desc, icon: h.icon, at: got[h.key] }
+  return HIDDEN.map((h) => got[h.key] || h.mode
+    ? { key: h.key, unlocked: !!got[h.key], mode: h.mode || null, label: h.label, desc: h.desc, icon: h.icon, at: got[h.key] || null }
     : { key: h.key, unlocked: false, label: '???', desc: h.target ? `Progression : ${Math.min(stats[h.stat] || 0, h.target)} / ?` : 'Un succès secret…', icon: '❔' });
 }
 

@@ -39,9 +39,7 @@ function defaultApiUrl() {
   return window.location.origin;
 }
 
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
+const escapeHtml = escHtml; // core.js
 
 function formatBytes(n) {
   if (n == null) return "—";

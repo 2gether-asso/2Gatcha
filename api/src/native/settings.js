@@ -37,13 +37,13 @@ export const REGISTRY = {
   ChestDustMax: { ...int('Poussières maximum', 120, 'Coffres', ''), storage: 'app' },
   ChestCardChance: { ...pct('Chance d’une carte', 0.7, 'Coffres', ''), storage: 'app' },
   ChestSecondCardChance: { ...pct('Chance d’une 2e carte', 0.2, 'Coffres', ''), storage: 'app' },
-  ChestBoosterChance: { ...pct('Chance d’un booster', 0.35, 'Coffres', ''), storage: 'app' },
-  ChestDoubleBoosterChance: { ...pct('Chance de 2 boosters', 0.08, 'Coffres', ''), storage: 'app' },
+  ChestBoosterChance: { ...pct('Chance d’un booster', 0.6, 'Coffres', ''), storage: 'app' },
+  ChestDoubleBoosterChance: { ...pct('Chance de 2 boosters', 0.15, 'Coffres', ''), storage: 'app' },
   ChestSpecialFinishChance: { ...pct('Chance de finition spéciale (cartes du coffre)', 0.15, 'Coffres', ''), storage: 'app' },
 
   // --- Peche
   FishingCost: { ...int('Vers de terre par lancer', 1, 'Pêche', 'Les vers se trouvent dans la terre restante à la fin d’une fouille.', 1), storage: 'app' },
-  WormsPerBoard: { ...int('Vers par grille de fouille terminée', 2, 'Pêche', 'Gagnés quand tous les trésors d’une grille sont trouvés (joueur ou chien).'), storage: 'app' },
+  WormsPerBoard: { ...int('Vers par grille de fouille terminée', 2, 'Pêche', 'Gagnés quand tous les trésors d’une grille sont trouvés (joueur ou Milo).'), storage: 'app' },
   WormsPerLeftoverTile: { ...int('Vers par case de terre restante', 2, 'Pêche', 'En plus, pour chaque case jamais creusée à la fin de la grille.'), storage: 'app' },
   StarterWorms: { ...int('Vers offerts au lancement', 5, 'Pêche', 'Donnés une seule fois à chaque joueur existant, pour pouvoir pêcher tout de suite.'), storage: 'app' },
   FishingDailyCasts: { ...int('Lancers par jour', 20, 'Pêche', '0 = illimité. +2 par niveau de pêche au-dessus du 1.'), storage: 'app' },
@@ -63,7 +63,7 @@ export const REGISTRY = {
       { type: 'pearl', weight: 6, min: 80, max: 180, label: 'Perle noire' },
       { type: 'bait', weight: 12, min: 1, max: 1, label: 'Appât doré' },
       { type: 'bone', weight: 6, min: 1, max: 2 },
-      { type: 'booster', weight: 4, min: 1, max: 1 },
+      { type: 'booster', weight: 12, min: 1, max: 1 },
       { type: 'chest', weight: 9, min: 1, max: 1 },
       { type: 'key', weight: 7, min: 1, max: 1 },
       { type: 'part', weight: 7, min: 1, max: 1, label: 'Pièce détachée' }
@@ -78,7 +78,7 @@ export const REGISTRY = {
       { type: 'nothing', weight: 28, label: 'Une vieille botte' },
       { type: 'dust', weight: 30, min: 10, max: 45 },
       { type: 'bone', weight: 8, min: 1, max: 1 },
-      { type: 'booster', weight: 3, min: 1, max: 1 },
+      { type: 'booster', weight: 10, min: 1, max: 1 },
       { type: 'chest', weight: 8, min: 1, max: 1 },
       { type: 'key', weight: 5, min: 1, max: 1 },
       { type: 'part', weight: 3, min: 1, max: 1, label: 'Pièce détachée' }
@@ -157,7 +157,7 @@ export const REGISTRY = {
     def: [
       { key: 'worms10', group: 'resources', label: 'Sac de 10 vers', icon: '🪱', desc: 'De quoi lancer ta ligne 10 fois.', price: 60, weekly: 5, give: { Worms: 10 } },
       { key: 'bait', group: 'resources', label: 'Appât doré', icon: '🪝', desc: 'Aucune prise vide et prises rares ×2,5 pour un lancer.', price: 150, weekly: 5, give: { GoldBait: 1 } },
-      { key: 'bone', group: 'resources', label: 'Os pour le chien', icon: '🦴', desc: 'Envoie le chien creuser pour toi pendant 2 h.', price: 180, weekly: 3, give: { BoneCount: 1 } },
+      { key: 'bone', group: 'resources', label: 'Os pour Milo', icon: '🦴', desc: 'Envoie Milo, le chien, creuser pour toi pendant 2 h.', price: 180, weekly: 3, give: { BoneCount: 1 } },
       { key: 'chest', group: 'resources', label: 'Coffre', icon: '🧰', desc: 'Poussières à coup sûr, souvent une carte, parfois des boosters.', price: 130, weekly: 5, give: { ChestCount: 1 } },
       { key: 'key', group: 'resources', label: 'Clé de coffre', icon: '🔑', desc: 'Ouvre un coffre (ou pioche au choix dans le coffre de guilde).', price: 400, weekly: 2, give: { KeyCount: 1 } },
       { key: 'part', group: 'resources', label: 'Pièce détachée', icon: '🔩', desc: 'Remplace un exemplaire dans une fusion ou une restauration.', price: 350, weekly: 2, give: { SpareParts: 1 } },
@@ -183,7 +183,12 @@ export const REGISTRY = {
   MarketPriceMultiplier: { ...num('Marché noir : prix (× coût de craft)', 1.5, 'Économie', '', 0.2, 10), storage: 'app' },
   MarketDealMultiplier: { ...num('Marché noir : prix du coup de cœur (× coût de craft)', 0.8, 'Économie', '', 0.1, 10), storage: 'app' },
   MarketMaxPurchases: { ...int('Marché noir : achats max par offre', 3, 'Économie', '', 1, 50), storage: 'app' },
-  EconomyAlertBoostersPerPlayer: { ...num('Alerte : boosters créés par joueur actif et par jour', 3, 'Économie', 'Au-delà, alerte dans le tableau de bord de l’économie.', 0.5, 100), storage: 'app' },
+  // Cible (2026-10-16) : ~40 boosters crees par joueur actif et par jour, a
+  // plus ou moins 20 (20 a 60), codes de jeu exclus du calcul (souvent 20
+  // boosters offerts d'un coup). Le seuil d'alerte est le haut de la fourchette ;
+  // 7 jours d'alerte d'affilee activent le mode anti-inflation.
+  BoosterTargetPerDay: { ...num('Cible : boosters créés par joueur actif et par jour', 40, 'Économie', 'Hors codes de jeu. La fourchette va de la cible moins l’écart (seuil d’alerte − cible) au seuil d’alerte : 20 à 60 par défaut.', 1, 500), storage: 'app' },
+  EconomyAlertBoostersPerPlayer: { ...num('Alerte : boosters créés par joueur actif et par jour', 60, 'Économie', 'Haut de la fourchette (cible 40 + 20 par défaut), codes de jeu exclus. Au-delà, alerte dans le tableau de bord de l’économie ; 7 jours d’alerte d’affilée activent le mode anti-inflation.', 0.5, 500), storage: 'app' },
   EconomyAlertDustRatio: { ...num('Alerte : poussières gagnées pour 1 dépensée', 3, 'Économie', '', 1, 100), storage: 'app' },
 
   // --- Serie de connexion
@@ -205,13 +210,17 @@ export const REGISTRY = {
   BossQualityMultipliers: { label: 'Multiplicateurs d’état', type: 'json', group: 'Boss', storage: 'app', help: '', def: { damaged: 0.75, worn: 1, good: 1.25, mint: 1.5 } },
 
   // --- Fouille / coffre-fort perso (lus par les workflows)
-  DogBoneCost: { ...int('Prix d’un os (poussières)', 250, 'Fouille', 'Envoie le chien creuser 2 h.', 1), storage: 'config' },
+  DogBoneCost: { ...int('Prix d’un os (poussières)', 250, 'Fouille', 'Envoie Milo creuser 2 h.', 1), storage: 'config' },
   DigRegenSeconds: { ...int('Fouille : secondes pour regagner 1 énergie', 600, 'Fouille', 'Réduit de 5 % par niveau de fouille.', 30, 86400), storage: 'config' },
-  DigBoosterKeepChance: { ...pct('Fouille : chance de garder un booster trouvé', 0.5, 'Fouille', 'Sinon il devient 25 à 50 poussières. Au-delà du plein rendement du jour, jamais de booster.'), storage: 'app' },
-  DogBonesPerDay: { ...int('Chien : os utilisables par jour', 4, 'Fouille', '0 = illimité.', 0, 24), storage: 'app' },
-  DogBoosterDust: { ...int('Chien : poussières à la place d’un booster', 40, 'Fouille', 'Le chien ne rapporte plus de boosters.'), storage: 'app' },
-  DailyQuestRewardBoosters: { ...int('Quêtes du jour : boosters', 1, 'Boosters', '', 1, 20), storage: 'config' },
-  WeeklyQuestRewardBoosters: { ...int('Quêtes de la semaine : boosters', 3, 'Boosters', '', 1, 50), storage: 'config' },
+  DigBoosterKeepChance: { ...pct('Fouille : chance de garder un booster trouvé', 1, 'Fouille', 'Sinon il devient 25 à 50 poussières. Au-delà du plein rendement du jour, jamais de booster.'), storage: 'app' },
+  DogBonesPerDay: { ...int('Milo (chien) : os utilisables par jour', 6, 'Fouille', '0 = illimité. Le mode excité n’est pas compté.', 0, 24), storage: 'app' },
+  DogKeepBoosters: { label: 'Milo (chien) : il rapporte les boosters trouvés', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: 'Désactivé : chaque booster trouvé par Milo devient des poussières (réglage ci-dessous).' },
+  DogFrenzyBones: { ...int('Milo excité : os donnés d’un coup', 50, 'Fouille', 'Milo creuse aussitôt plusieurs grilles entières (poussières ×2), puis il est fatigué. Hors limite d’os du jour.', 2, 1000), storage: 'app' },
+  DogFrenzyBoards: { ...int('Milo excité : grilles creusées d’un coup', 15, 'Fouille', '', 1, 100), storage: 'app' },
+  DogFrenzyRestHours: { ...int('Milo excité : heures de fatigue ensuite', 24, 'Fouille', 'Ni os ni mode excité pendant ce temps.', 0, 336), storage: 'app' },
+  DogBoosterDust: { ...int('Milo (chien) : poussières à la place d’un booster', 40, 'Fouille', 'Seulement si « Milo rapporte les boosters » est désactivé.'), storage: 'app' },
+  DailyQuestRewardBoosters: { ...int('Quêtes du jour : boosters', 5, 'Boosters', '', 1, 20), storage: 'config' },
+  WeeklyQuestRewardBoosters: { ...int('Quêtes de la semaine : boosters', 14, 'Boosters', '', 1, 50), storage: 'config' },
   DigLevelXpStep: { ...int('XP pour le niveau 2 de fouille', 20, 'Fouille', 'Chaque niveau suivant demande ce palier en plus (20, 60, 120…). 1 XP par case, +5 par trésor.', 1), storage: 'config' },
   VaultBoostersPerRow: { ...int('Coffre-fort : boosters par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
@@ -252,9 +261,9 @@ export const REGISTRY = {
   AuctionHours: { ...int('Enchères : durée (heures)', 24, 'Économie', '', 1, 168), storage: 'app' },
   ExchangeRateSwing: { ...num('Cours du décraft : variation max', 0.3, 'Économie', '0,30 = la valeur de décraft d’une rareté varie de −30 % à +30 % selon l’offre et la demande de la semaine passée (une rareté très décraftée perd de la valeur).', 0, 0.5), storage: 'app' },
   InsuranceCostPerTier: { ...int('Assurance : prix par rang de rareté', 40, 'Économie', 'Commune = 1 rang, rare = 2… Payé une fois.'), storage: 'app' },
-  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 450, 'Économie', '', 1), storage: 'app' },
+  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 300, 'Économie', '', 1), storage: 'app' },
   BoosterShopIncrease: { ...num('Boutique : hausse par booster acheté dans la semaine', 0.35, 'Économie', '', 0, 5), storage: 'app' },
-  BoosterShopWeeklyCap: { ...int('Boutique : boosters max par semaine', 3, 'Économie', '0 = boutique fermée.'), storage: 'app' },
+  BoosterShopWeeklyCap: { ...int('Boutique : boosters max par semaine', 14, 'Économie', '0 = boutique fermée.'), storage: 'app' },
   // --- Pity par rarete et booster mystere (pity.js)
   RarityPityMultiplier: { ...num('Pity par rareté : tirages garantis (× la moyenne)', 2.5, 'Boosters', 'Chaque rareté qui sort dans moins de 15 % des tirages est garantie après ce multiple du nombre moyen de tirages pour l’obtenir (2,5 × 17 = 43 pour une rareté à 6 %). 0 = désactivé.', 0, 20), storage: 'app' },
   MysteryFinishBonus: { ...pct('Booster mystère : bonus de finition spéciale', 0.03, 'Boosters', '0,03 = +3 points de chance de finition spéciale par carte.'), storage: 'app' },
@@ -279,22 +288,87 @@ export const REGISTRY = {
 
   // --- Confort et rendez-vous (comfort.js, rendezvous.js, 2026-10-11)
   RipenMaxPoints: { ...int('Booster mûri : points de finition au maximum', 3, 'Boosters', '+1 point de chance de finition spéciale par jour sans ouvrir de booster, appliqué au booster suivant. 0 = désactivé.', 0, 10), storage: 'app' },
-  ShardsPerBooster: { ...int('Fragments : nombre pour 1 booster', 10, 'Boosters', 'Gagnés en jouant (grilles de fouille, récoltes, prises vides, expéditions…). 0 = désactivé.', 0, 100), storage: 'app' },
-  ShardsDailyCap: { ...int('Fragments : maximum par jour', 6, 'Boosters', '0 = illimité.', 0, 100), storage: 'app' },
+  ShardsPerBooster: { ...int('Fragments : nombre pour 1 booster', 5, 'Boosters', 'Gagnés en jouant (grilles de fouille, récoltes, prises vides, expéditions…). 0 = désactivé.', 0, 100), storage: 'app' },
+  ShardsDailyCap: { ...int('Fragments : maximum par jour', 10, 'Boosters', '0 = illimité.', 0, 100), storage: 'app' },
   GoldenHourEnabled: { label: 'Heure dorée hebdomadaire', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Une heure par semaine (vendredi à dimanche, 18 h à 22 h), annoncée la veille.' },
   GoldenHourFinishMultiplier: { ...num('Heure dorée : finitions spéciales (×)', 2, 'Événements', '', 1, 5), storage: 'app' },
   BoosterRainEnabled: { label: 'Pluie de boosters (objectif commun)', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Objectif commun atteint : chaque joueur qui passe dans les 24 h reçoit des boosters.' },
   BoosterRainBoosters: { ...int('Pluie de boosters : boosters par joueur', 1, 'Événements', '', 1, 10), storage: 'app' },
-  DogGiftEnabled: { label: 'Visite du chien (trouvaille du jour)', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: '' },
+  DogGiftEnabled: { label: 'Visite de Milo (trouvaille du jour)', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: '' },
   GardenWiltHours: { ...int('Jardin : heures avant qu’une plante prête fane', 24, 'Pêche', 'Fanée : récolte divisée par deux, sans appât ni poussières. 0 = jamais.', 0, 168), storage: 'app' },
   GardenRareChancePerDay: { ...pct('Jardin : chance de récolte rare par jour de série (dès 3 jours)', 0.1, 'Pêche', '0,1 = 10 % à 3 jours, 20 % à 4 jours… (50 % au plus).'), storage: 'app' },
   SundayMarketEnabled: { label: 'Marché du dimanche', type: 'bool', def: true, group: 'Économie', storage: 'app', help: '4 cartes par joueur (manquantes d’abord) à prix réduit, une journée.' },
   SundayMarketDay: { ...int('Marché du dimanche : jour (0 = dimanche … 6 = samedi)', 0, 'Économie', '', 0, 6), storage: 'app' },
   SundayMarketDiscount: { ...num('Marché du dimanche : prix (× le coût de craft)', 0.6, 'Économie', '0,6 = 40 % moins cher que le craft.', 0.1, 1), storage: 'app' },
 
+  // --- Bonus et malus des modes (modeperks.js, 2026-10-14)
+  BoosterBetStake: { ...int('Medium : mise du pari du booster (poussières)', 100, 'Modes de jeu', 'Triplée si le booster contient une épique ou mieux.', 1), storage: 'app' },
+  ChillLuckyDuplicateChance: { ...pct('Chill : chance qu’un doublon devienne une carte manquante', 0.1, 'Modes de jeu', ''), storage: 'app' },
+  HardWearChance: { ...pct('Hard : chance d’usure d’un doublon par jour', 0.25, 'Modes de jeu', 'Jamais un #001, un exemplaire assuré, ★ ou au coffre.'), storage: 'app' },
+  HardFinishLoss: { ...pct('Hard : part des finitions spéciales perdues à l’ouverture', 0.25, 'Modes de jeu', ''), storage: 'app' },
+  LuxuryTaxMultiplier: { ...num('Hard : taxe de luxe (× pour les plus riches que la moyenne)', 1.5, 'Modes de jeu', 'Le surplus est redistribué chaque lundi aux joueurs actifs.', 1, 5), storage: 'app' },
+  ModeCards: { label: 'Carte exclusive de chaque mode', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet { cool, chill, medium, hard } : id de la carte (promo conseillée) donnée avec l’objectif commun pendant ce mode. 0 = aucune.', def: { cool: 0, chill: 0, medium: 0, hard: 0 } },
+
+  // --- Salle des machines (machine.js, 2026-10-14)
+  MachineRoomEnabled: { label: 'Salle des machines (vote mensuel de la difficulté)', type: 'bool', def: true, group: 'Modes de jeu', storage: 'app', help: 'Une fois par mois, les joueurs sacrifient des ressources pour voter le mode de jeu, appliqué jusqu’à la fin du mois.' },
+  MachineVoteDay: { ...int('Salle des machines : dernier jour du vote', 0, 'Modes de jeu', '0 = vote ouvert tout le mois, le mode gagnant s’applique le 1er du mois suivant. 1 à 28 = le vote se ferme à la fin de ce jour et le mode gagnant s’applique aussitôt jusqu’à la fin du mois.', 0, 28), storage: 'app' },
+  MachineRoomCosts: { label: 'Salle des machines : sacrifices', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet : keys, dust, worms, parts, bait, boosters, cards (doublons).', def: { keys: 20, dust: 500, worms: 30, parts: 5, bait: 3, boosters: 3, cards: 10 } },
+
+  // --- Cartes et ouverture (cards.js, 2026-10-15)
+  GodPackChance: { ...num('God pack : chance par booster', 0.002, 'Ouverture', 'Booster ne contenant que des épiques ou mieux (0,002 = 1 sur 500).', 0, 0.2), storage: 'app' },
+  ShareCardCooldown: { ...int('Partage de carte sur Discord : délai entre deux partages (s)', 120, 'Ouverture', '', 10, 86400), storage: 'app' },
+
+  // --- Dinos de compagnie (dino.js, 2026-10-15)
+  DinoSkullChance: { ...num('Dinos : chance de crâne par tuile creusée', 0.001, 'Dinos', 'Crâne de dinosaure trouvé en creusant (0,001 = 1 tuile sur 1 000).', 0, 0.1), storage: 'app' },
+  DinoHatchBones: { ...int('Dinos : os pour ramener un dino à la vie', 10, 'Dinos', 'En plus d’un crâne. 5 dinos au maximum par joueur.', 0, 500), storage: 'app' },
+  DinoFoodChance: { ...pct('Dinos : chance de nourriture par lancer de pêche', 0.5, 'Dinos', 'Poisson, algues ou crevette en plus de la prise, seulement pour les joueurs qui ont un dino ou un crâne.'), storage: 'app' },
+  DinoDigHours: { ...int('Dinos : heures entre deux trouvailles de la fouille automatique', 6, 'Dinos', 'Dinos adultes et contents seulement (Tricératops 2 fois plus vite). 4 trouvailles en attente au plus.', 1, 48), storage: 'app' },
+  DinoAutoSkullChance: { ...num('Dinos : chance de crâne par trouvaille automatique', 0.003, 'Dinos', '', 0, 0.1), storage: 'app' },
+  DinoGoldPoopChance: { ...pct('Dinos : chance de caca doré par crevette mangée', 0.3, 'Dinos', 'Engrais doré : parcelle prête tout de suite, appât doré garanti.'), storage: 'app' },
+  DinoSeasonalChance: { ...pct('Dinos : chance de Ptérodactyle saisonnier à l’éclosion', 0.3, 'Dinos', 'Seulement pendant un événement saisonnier.'), storage: 'app' },
+  DinoFertilizerBoost: { ...pct('Dinos : avance donnée par un engrais', 0.5, 'Dinos', 'Part du temps de pousse sautée quand on met un caca de dino sur une parcelle (la récolte de vers est aussi doublée).'), storage: 'app' },
+
+  // --- Bingo du mois, version 2 (bingo.js)
+  BingoV2From: { ...int('Bingo : premier mois de la nouvelle version (AAAAMM)', 202611, 'Bingo', 'Avant ce mois, l’ancien bingo (9 cartes) continue tel quel ; à partir de ce mois, grille 5 × 5 avec lignes et carton plein.', 202001, 209912), storage: 'app' },
+  BingoCardCells: { ...int('Bingo : nombre de cases « carte »', 8, 'Bingo', 'Les autres cases sont des objectifs du mois (boosters, fouille, pêche…).', 0, 12), storage: 'app' },
+  BingoLineReward: { label: 'Bingo : récompense d’une ligne', type: 'json', group: 'Bingo', storage: 'app', help: 'Objet : dust, shards (fragments de booster), boosters. 12 lignes possibles par mois.', def: { dust: 120, shards: 2, boosters: 0 } },
+  BingoFullReward: { label: 'Bingo : récompense du carton plein', type: 'json', group: 'Bingo', storage: 'app', help: 'Objet : boosters, dust. Le carton plein donne aussi le titre « Roi du bingo » du mois.', def: { boosters: 3, dust: 500 } },
+  BingoJokerPrice: { ...int('Bingo : prix du joker (poussières)', 500, 'Bingo', 'Un joker par mois : valide la case de son choix.', 0, 100000), storage: 'app' },
+
+  // --- Salle des machines, suite (machine.js, 2026-10-15)
+  MachinePressureGoal: { ...int('Salle des machines : objectif de la jauge commune', 15, 'Modes de jeu', 'Nombre de salles terminées dans le mois pour que chaque participant reçoive 1 booster le 1er du mois suivant (0 = désactivé).', 0, 1000), storage: 'app' },
+  MachineOverheatCosts: { label: 'Salle des machines : surchauffe (étape 6)', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Étape facultative qui fait compter le vote double. Objet : boosters, legendary (doublons légendaires ou mieux).', def: { boosters: 3, legendary: 1 } },
+  MachineLoyaltyCard: { ...int('Salle des machines : carte promo d’assiduité (id)', 0, 'Modes de jeu', 'Carte donnée après 3 mois d’affilée à terminer la salle. 0 = 3 boosters à la place.', 0, 1000000), storage: 'app' },
+  MachineEventVote: { label: 'Salle des machines : vote de l’événement du mois prochain', type: 'bool', def: true, group: 'Modes de jeu', storage: 'app', help: 'Second vote : l’événement gagnant est planifié tout seul le 2e week-end du mois suivant.' },
+  // --- Modes de jeu, suite (modeextras.js, 2026-10-15)
+  ModeNoticeHours: { ...int('Préavis de changement de mode (heures)', 24, 'Modes de jeu', 'Bandeau affiché avant un changement de mode programmé ou la fin du vote de la salle des machines.', 0, 168), storage: 'app' },
+  UmbrellaPrice: { ...int('Parapluie (boutique) : prix en poussières', 350, 'Modes de jeu', 'Protège de toute usure du mode Hard pendant UmbrellaDays jours.', 1, 100000), storage: 'app' },
+  UmbrellaDays: { ...int('Parapluie : durée (jours)', 7, 'Modes de jeu', '', 1, 60), storage: 'app' },
+  // --- Communauté (2026-10-15)
+  TeamWarEnabled: { label: 'Guerre des équipes mensuelle', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: '4 équipes tirées au hasard chaque mois ; toute activité rapporte des points ; l’équipe gagnante reçoit un titre.' },
+  LotteryEnabled: { label: 'Loterie du dimanche', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Tickets en poussières, cagnotte tirée le dimanche à 21 h.' },
+  LotteryTicketPrice: { ...int('Loterie : prix du ticket', 100, 'Communauté', '', 1, 100000), storage: 'app' },
+  LotteryWeeklyCap: { ...int('Loterie : tickets max par joueur et par semaine', 20, 'Communauté', '', 1, 1000), storage: 'app' },
+  LotteryBurnPct: { ...num('Loterie : part détruite de chaque ticket', 0.2, 'Communauté', 'Le reste va dans la cagnotte (0,2 = 20 % détruits).', 0, 0.9), storage: 'app' },
+  LotterySeed: { ...int('Loterie : cagnotte de départ', 200, 'Communauté', '', 0, 100000), storage: 'app' },
+  WantedEnabled: { label: 'Avis de recherche hebdomadaire', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Une carte réclamée par le serveur chaque semaine ; les premiers donateurs sont récompensés et la carte rejoint le coffre de guilde.' },
+  WantedSlots: { ...int('Avis de recherche : donateurs récompensés', 5, 'Communauté', '', 1, 100), storage: 'app' },
+  WantedRewardDust: { ...int('Avis de recherche : poussières par don', 250, 'Communauté', '', 0, 100000), storage: 'app' },
+  DuoExpeditionEnabled: { label: 'Expédition en duo', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Deux joueurs envoient chacun une carte ; plus long, butin partagé plus gros.' },
+  DuoExpeditionHours: { ...int('Expédition en duo : durée (heures)', 12, 'Communauté', '', 1, 72), storage: 'app' },
+  DuoExpeditionDust: { ...int('Expédition en duo : poussières de base par joueur', 250, 'Communauté', 'Augmentées selon la rareté des deux cartes.', 0, 100000), storage: 'app' },
+  // --- Saisons et éditions (seasonal.js, editions.js, phantom.js, 2026-10-15)
+  SeasonalEventsEnabled: { label: 'Événements saisonniers (Halloween, Noël…)', type: 'bool', def: true, group: 'Saisons et éditions', storage: 'app', help: 'Thème du site, cadeau du jour, trouvailles saisonnières, boss d’Halloween et de Noël, édition limitée.' },
+  EditionChance: { ...num('Édition limitée : chance par carte (mode de jeu)', 0.03, 'Saisons et éditions', 'Chance qu’une carte tirée porte l’édition du mode en cours (Givrée, Tropicale, Prismatique, Braise, Glitch).', 0, 0.5), storage: 'app' },
+  SeasonalEditionChance: { ...num('Édition limitée : chance par carte (événement saisonnier)', 0.06, 'Saisons et éditions', 'Pendant un événement saisonnier, l’édition de l’événement remplace celle du mode.', 0, 0.5), storage: 'app' },
+  SeasonalDropChance: { ...num('Trouvaille saisonnière : chance par action', 0.25, 'Saisons et éditions', 'Récolte, pêche, fouille : citrouille, flocon, cœur…', 0, 1), storage: 'app' },
+  PhantomEnabled: { label: 'Carte fantôme du mois', type: 'bool', def: true, group: 'Saisons et éditions', storage: 'app', help: '5 fragments (pêche, fouille, jardin, boss, salle des machines) reconstituent une carte en édition Fantôme.' },
+  PhantomDropChance: { ...num('Carte fantôme : chance de fragment par action', 0.12, 'Saisons et éditions', 'Boss et salle des machines : fragment garanti.', 0, 1), storage: 'app' },
+  PhantomCardId: { ...int('Carte fantôme : carte imposée (id)', 0, 'Saisons et éditions', '0 = une carte épique ou mieux tirée au sort chaque mois.', 0, 1000000), storage: 'app' },
+
   // --- Pilotage de l'inflation (inflation.js)
   PriceIndexEnabled: { label: 'Prix indexés sur la richesse moyenne', type: 'bool', def: true, group: 'Inflation', storage: 'app', help: 'Boutique, os, relances, coffres : les prix suivent le solde moyen des joueurs actifs (14 jours).' },
-  WealthReference: { ...int('Richesse de référence (poussières)', 3000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },
+  WealthReference: { ...int('Richesse de référence (poussières)', 8000, 'Inflation', 'Tant que le solde moyen reste sous ce montant, les prix ne bougent pas. Au-dessus, ils montent (racine carrée du rapport).', 100), storage: 'app' },
   PriceIndexMax: { ...num('Hausse maximale des prix (×)', 2.5, 'Inflation', '2,5 = les prix indexés ne dépassent jamais 2,5 fois leur valeur de base.', 1, 10), storage: 'app' },
   AutoTightDays: { ...int('Mode anti-inflation : jours d’alerte avant activation', 7, 'Inflation', 'Jours d’affilée avec une alerte dans le tableau de l’économie.', 1, 60), storage: 'app' },
   TightCalmDays: { ...int('Mode anti-inflation : jours calmes avant retour à la normale', 3, 'Inflation', '', 1, 60), storage: 'app' },
@@ -316,8 +390,22 @@ function appRow(store, key) {
   return store.tables.has('AppSettings') ? store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key) : null;
 }
 
-// Valeur effective d'un reglage (defaut si jamais regle).
+// Surcouche temporaire des reglages (mode Chaos, modeextras.js) :
+// fn(store, key, raw) -> valeur, ou undefined pour garder la valeur reglee.
+let overlay = null, inOverlay = false;
+export function setOverlay(fn) { overlay = fn; }
+
+// Valeur effective d'un reglage (defaut si jamais regle), surcouche comprise.
 export function setting(store, key) {
+  if (overlay && !inOverlay) {
+    inOverlay = true;
+    try { const o = overlay(store, key, () => rawSetting(store, key)); if (o !== undefined) return o; } finally { inOverlay = false; }
+  }
+  return rawSetting(store, key);
+}
+
+// Valeur reglee, sans surcouche (admin, detection du mode en cours).
+export function rawSetting(store, key) {
   const r = REGISTRY[key];
   if (!r) throw new Error('Reglage inconnu : ' + key);
   if (r.storage === 'config') {
@@ -366,7 +454,7 @@ function writeSetting(store, key, value) {
 function listSettings(store) {
   return Object.entries(REGISTRY).map(([key, r]) => {
     const custom = r.storage === 'config' ? (() => { const v = configRow(store)[key]; return !(v == null || v === '' || Number(v) === 0); })() : !!appRow(store, key);
-    return { key, label: r.label, group: r.group, type: r.type, help: r.help || '', unit: r.unit || '', min: r.min, max: r.max, step: r.step, def: r.def, value: setting(store, key), custom };
+    return { key, label: r.label, group: r.group, type: r.type, help: r.help || '', unit: r.unit || '', min: r.min, max: r.max, step: r.step, def: r.def, value: rawSetting(store, key), custom };
   });
 }
 

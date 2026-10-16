@@ -541,7 +541,7 @@
     } else {
       body = `
         <div class="confirm-title">&#128165; Sacrifice échoué</div>
-        <div class="confirm-message">Les 3 cartes sacrifiées sont perdues.${res.boneGained ? `<br><br><span class="altar-bone-gain">&#129460; L'autel te laisse un <strong>os</strong>${res.newBoneCount ? ` (tu en as ${res.newBoneCount})` : ""}. Un chien saura quoi en faire dans la Fouille...</span>` : ""}</div>`;
+        <div class="confirm-message">Les 3 cartes sacrifiées sont perdues.${res.boneGained ? `<br><br><span class="altar-bone-gain">&#129460; L'autel te laisse un <strong>os</strong>${res.newBoneCount ? ` (tu en as ${res.newBoneCount})` : ""}. Milo saura quoi en faire dans la Fouille...</span>` : ""}</div>`;
     }
     overlay.innerHTML = `<div class="confirm-box" role="dialog" aria-modal="true">${body}<div class="confirm-actions"><button type="button" class="altar-result-close-btn">Fermer</button></div></div>`;
     document.body.appendChild(overlay);

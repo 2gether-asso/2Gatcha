@@ -28,6 +28,8 @@ export const config = {
   },
   // Mot de passe de la page d'administration de la base (vide = desactivee).
   adminToken: env.ADMIN_TOKEN || '',
+  // Serveur de test seulement : sert site/dev-login.html (connexion sans Discord).
+  devLogin: env.DEV_LOGIN === '1',
   // Origines autorisees pour le CORS ("*" par defaut).
   allowedOrigins: (env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim()).filter(Boolean),
   // Valeurs injectees dans la sortie des noeuds "Set Config" des workflows :

@@ -652,21 +652,26 @@ function econBars(days, key, label) {
       <div class="econ-axis"><span>${new Date(days[0].day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
     </div>`;
 }
-// Sante de l'economie (2026-10-11) : d'ou viennent les boosters crees, par
-// joueur actif et par jour, face a la cible de ~5 par jour.
-const BOOSTER_TARGET = 5;
+// Sante de l'economie : d'ou viennent les boosters crees, par joueur actif et
+// par jour, face a la cible (40 a +/- 20 par defaut, reglages BoosterTargetPerDay
+// et EconomyAlertBoostersPerPlayer). Les codes de jeu sont exclus du calcul.
 function econBoosterSources(f) {
-  const total = f.sources.reduce((s, x) => s + x.boostersIn, 0);
-  if (!total) return "";
+  const excluded = new Set(f.excludedSources || []);
+  const counted = f.sources.filter((x) => x.boostersIn > 0 && !excluded.has(x.source));
+  const total = counted.reduce((s, x) => s + x.boostersIn, 0);
+  if (!total && !f.excludedBoosters) return "";
   const perPlayer = f.boostersPerPlayerDay || 0;
+  const t = f.target || { target: 40, low: 20, high: 60 };
   const rows = f.sources.filter((x) => x.boostersIn > 0).sort((a, b) => b.boostersIn - a.boostersIn);
   const max = rows[0].boostersIn;
+  const verdict = perPlayer > t.high ? '<strong class="econ-hot">trop généreux</strong>' : perPlayer < t.low ? "(plutôt serré)" : "(dans la cible)";
   return `
     <h3 style="margin-top:20px;">&#129658; D'où viennent les boosters (7 j)</h3>
-    <p class="lead" style="font-size:0.82rem;">${perPlayer.toLocaleString("fr-FR")} booster${perPlayer >= 2 ? "s" : ""} créé${perPlayer >= 2 ? "s" : ""} par joueur actif et par jour · cible ~${BOOSTER_TARGET} ${perPlayer > BOOSTER_TARGET * 1.5 ? '<strong class="econ-hot">trop généreux</strong>' : perPlayer < BOOSTER_TARGET / 2 ? "(plutôt serré)" : "(dans la cible)"}</p>
+    <p class="lead" style="font-size:0.82rem;">${perPlayer.toLocaleString("fr-FR")} booster${perPlayer >= 2 ? "s" : ""} créé${perPlayer >= 2 ? "s" : ""} par joueur actif et par jour, hors codes de jeu · cible ${t.target} (${t.low} à ${t.high}) ${verdict}${f.excludedBoosters ? ` · ${f.excludedBoosters.toLocaleString("fr-FR")} booster${f.excludedBoosters > 1 ? "s" : ""} de codes de jeu non comptés` : ""}</p>
     <ul class="econ-sources">${rows.map((x) => {
-      const share = x.boostersIn / total;
-      return `<li><span class="es-name">${x.source}</span><span class="es-bar"><span style="width:${Math.round((x.boostersIn / max) * 100)}%"></span></span><span class="es-val">${Math.round(share * 100)} % · ${(perPlayer * share).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/j</span></li>`;
+      const out = excluded.has(x.source);
+      const share = out || !total ? 0 : x.boostersIn / total;
+      return `<li class="${out ? "es-excluded" : ""}"><span class="es-name">${x.source}</span><span class="es-bar"><span style="width:${Math.round((x.boostersIn / max) * 100)}%"></span></span><span class="es-val">${out ? `${x.boostersIn.toLocaleString("fr-FR")} · hors calcul` : `${Math.round(share * 100)} % · ${(perPlayer * share).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/j`}</span></li>`;
     }).join("")}</ul>`;
 }
 
@@ -677,7 +682,7 @@ function econFlows(f, fmt) {
     <h3 style="margin-top:20px;">&#128200; Inflation : créations et dépenses</h3>
     ${f.alerts.length ? `<div class="econ-alerts">${f.alerts.map((a) => `<div class="econ-alert">&#9888;&#65039; ${a}</div>`).join("")}</div>` : '<div class="econ-ok">&#9989; Aucune alerte : l\'économie semble équilibrée.</div>'}
     <div class="stats-grid">
-      <div class="stat-tile"><div class="stat-value">${f.boostersPerPlayerDay}</div><div class="stat-label">Boosters créés / joueur actif / jour (7 j)</div></div>
+      <div class="stat-tile"><div class="stat-value">${f.boostersPerPlayerDay}</div><div class="stat-label">Boosters créés / joueur actif / jour (7 j, hors codes)</div></div>
       <div class="stat-tile"><div class="stat-value">${f.dustRatio}</div><div class="stat-label">Poussières gagnées pour 1 dépensée (7 j)</div></div>
     </div>
     <div class="econ-charts">
@@ -713,21 +718,70 @@ function renderPresets(st) {
         ${rec.key === p.key ? '<span class="preset-badge">Recommandé</span>' : ""}
         <div class="preset-title"><span aria-hidden="true">${p.icon}</span> <strong>${esc(p.label)}</strong></div>
         <p class="preset-desc">${esc(p.desc)}</p>
+        <label class="preset-card-pick">&#127183; Carte exclusive du mode
+          <select data-mode-card="${p.key}"><option value="0">— aucune —</option>${pickableCards().map((c) => `<option value="${c.cardId}" ${Number((st.modeCards || {})[p.key]) === c.cardId ? "selected" : ""}>${esc(c.name)}${c.isPromo ? " (promo)" : ""}</option>`).join("")}</select>
+        </label>
         ${p.active ? '<p class="preset-state">&#10004; Mode actif</p>' : `<details class="preset-changes"><summary>${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} changer${p.changes.length > 1 ? "ont" : "a"}</summary>
           <ul>${p.changes.map((c) => `<li><span>${esc(c.label)}</span><span class="preset-diff">${esc(c.current)} &rarr; <strong>${esc(c.target)}</strong></span></li>`).join("")}</ul></details>
           <button type="button" class="btn preset-apply" data-preset="${p.key}">Passer en ${esc(p.label)}</button>`}
       </article>`).join("")}</div>
-    <label class="checkbox-inline preset-announce"><input type="checkbox" id="preset-announce" checked /> Annoncer le changement aux joueurs (fil du serveur)</label>`;
+    <label class="checkbox-inline preset-announce"><input type="checkbox" id="preset-announce" checked /> Annoncer le changement aux joueurs (fil du serveur)</label>
+    <div class="preset-schedule" id="preset-schedule"></div>`;
+  loadModeSchedule();
 }
+
+// Changement de mode programme (api/src/native/modeextras.js) : bandeau de preavis avant.
+async function loadModeSchedule() {
+  const box = document.getElementById("preset-schedule");
+  if (!box || !presetState) return;
+  let st;
+  try { st = await API.adminModeSchedule(Session.discordId); } catch (e) { box.innerHTML = ""; return; }
+  const s = st.scheduled;
+  const opt = presetState.presets.map((p) => `<option value="${p.key}">${p.icon} ${escHtml(p.label)}</option>`).join("");
+  const def = new Date(Date.now() + 86400000); def.setMinutes(0, 0, 0);
+  const local = new Date(def.getTime() - def.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  box.innerHTML = `
+    <h4>&#9200; Programmer un changement de mode</h4>
+    ${s ? `<p>Prévu : <strong>${escHtml((presetState.presets.find((p) => p.key === s.key) || {}).label || s.key)}</strong> le ${new Date(s.at * 1000).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}. Les joueurs voient un bandeau de préavis avant. <button type="button" class="btn-ghost" id="schedule-clear">Annuler</button></p>` : "<p class=\"preset-rec\">Le mode change tout seul à la date choisie ; un bandeau prévient les joueurs avant (réglage ModeNoticeHours).</p>"}
+    <div class="preset-schedule-row"><select id="schedule-preset">${opt}</select><input type="datetime-local" id="schedule-at" value="${local}" /><button type="button" class="btn" id="schedule-save">Programmer</button></div>`;
+}
+document.addEventListener("click", async (e) => {
+  const save = e.target.closest && e.target.closest("#schedule-save");
+  const clear = e.target.closest && e.target.closest("#schedule-clear");
+  if (!save && !clear) return;
+  try {
+    if (clear) await API.adminModeSchedule(Session.discordId, "clear");
+    else {
+      const at = Math.floor(new Date(document.getElementById("schedule-at").value).getTime() / 1000);
+      await API.adminModeSchedule(Session.discordId, "set", { preset: document.getElementById("schedule-preset").value, at });
+    }
+    Toast.success(clear ? "Changement annulé." : "Changement de mode programmé.");
+    loadModeSchedule();
+  } catch (err) { Toast.error(err.code === "invalid_date" ? "Choisis une date dans le futur." : "Impossible. (" + err.message + ")"); }
+});
 async function loadPresets() {
-  try { renderPresets(await API.adminPreset(Session.discordId)); }
+  try {
+    const [st, set] = await Promise.all([API.adminPreset(Session.discordId), API.adminGetSettings(Session.discordId).catch(() => null)]);
+    const mc = set && (set.settings || []).find((x) => x.key === "ModeCards");
+    st.modeCards = mc ? mc.value : {};
+    renderPresets(st);
+  }
   catch (err) { const box = document.getElementById("preset-zone"); if (box) box.innerHTML = `<p class="empty-state">Modes de jeu indisponibles (${err.message}).</p>`; }
 }
+// Carte exclusive d'un mode : enregistree des qu'on la choisit.
+document.addEventListener("change", async (e) => {
+  const sel = e.target.closest && e.target.closest("[data-mode-card]");
+  if (!sel || !presetState) return;
+  const cards = { cool: 0, chill: 0, medium: 0, hard: 0, ...(presetState.modeCards || {}) };
+  cards[sel.dataset.modeCard] = Number(sel.value) || 0;
+  try { await API.adminSetSettings(Session.discordId, { ModeCards: cards }); presetState.modeCards = cards; Toast.success("Carte du mode enregistrée."); }
+  catch (err) { Toast.error("Impossible d'enregistrer. (" + err.message + ")"); }
+});
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest && e.target.closest("[data-preset]");
   if (!btn || !presetState) return;
   const p = presetState.presets.find((x) => x.key === btn.dataset.preset);
-  const ok = await Confirm.show(`Passer le jeu en mode <strong>${p.icon} ${p.label}</strong> ? ${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} vont changer tout de suite (fouille, chien, pêche, quêtes, doublons, boutique, taxes, pity…). Tu pourras revenir à un autre mode à tout moment.`, { title: "Changer de mode de jeu", confirmText: `Passer en ${p.label}` });
+  const ok = await Confirm.show(`Passer le jeu en mode <strong>${p.icon} ${p.label}</strong> ? ${p.changes.length} réglage${p.changes.length > 1 ? "s" : ""} vont changer tout de suite (fouille, Milo, pêche, quêtes, doublons, boutique, taxes, pity…). Tu pourras revenir à un autre mode à tout moment.`, { title: "Changer de mode de jeu", confirmText: `Passer en ${p.label}` });
   if (!ok) return;
   btn.disabled = true;
   try {
@@ -736,6 +790,57 @@ document.addEventListener("click", async (e) => {
     Toast.success(`${p.icon} Le jeu est en mode ${p.label}.`);
     if (typeof settingsCache !== "undefined") settingsCache.length = 0;
   } catch (err) { btn.disabled = false; Toast.error("Impossible de changer de mode. (" + (err.data && err.data.errors ? err.data.errors.join(", ") : err.message) + ")"); }
+});
+
+// Fonctionnalites ouvertes par mode (api/src/native/features.js) : la matrice
+// est modifiee en local puis enregistree d'un coup.
+let mfState = null, mfDraft = null;
+const MF_MODE = { cool: "😎 Cool", chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard", chaos: "👾 Chaos" };
+function renderModeFeatures() {
+  const box = document.getElementById("mode-features-zone");
+  if (!box || !mfState) return;
+  const esc = escHtml;
+  const dirty = JSON.stringify(mfDraft) !== JSON.stringify(Object.fromEntries(mfState.features.map((f) => [f.key, f.off])));
+  let group = null;
+  const rows = mfState.features.map((f) => {
+    const head = f.group !== group ? `<tr class="mf-group"><td colspan="${mfState.modes.length + 1}">${esc(f.group)}</td></tr>` : "";
+    group = f.group;
+    const defaults = f.defaultOff.length ? `fermé par défaut en ${f.defaultOff.map((m) => MF_MODE[m].split(" ")[1]).join(", ")}` : "";
+    return head + `<tr><td>${f.icon} ${esc(f.label)}${defaults ? ` <span class="mf-default">(${defaults})</span>` : ""}</td>${mfState.modes.map((m) => {
+      const off = mfDraft[f.key].includes(m);
+      return `<td class="${m === mfState.current ? "current" : ""}"><button type="button" class="mf-toggle ${off ? "off" : ""}" data-mf="${f.key}" data-mf-mode="${m}" aria-pressed="${off}" title="${esc(f.label)} en ${MF_MODE[m]} : ${off ? "fermé" : "ouvert"}">${off ? "&#10005;" : "&#10003;"}</button></td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  box.innerHTML = `
+    <div class="mf-head"><h3>&#128274; Fonctionnalités par mode</h3><small>Mode actuel : <strong>${MF_MODE[mfState.current]}</strong></small></div>
+    <p class="mf-help">&#10003; = ouvert, &#10005; = fermé dans ce mode. Une fonctionnalité fermée disparaît du site (onglets, widgets, liens) ; une page fermée affiche un message ; l'API refuse ses actions (les lectures restent permises).</p>
+    <div class="table-scroll"><table class="mf-table"><thead><tr><th>Fonctionnalité</th>${mfState.modes.map((m) => `<th class="${m === mfState.current ? "current" : ""}">${MF_MODE[m]}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="mf-actions"><button type="button" class="btn" id="mf-save" ${dirty ? "" : "disabled"}>Enregistrer</button><button type="button" class="btn-ghost" id="mf-reset">Revenir aux valeurs par défaut</button></div>`;
+}
+async function loadModeFeatures() {
+  try {
+    mfState = await API.adminModeFeatures(Session.discordId);
+    mfDraft = Object.fromEntries(mfState.features.map((f) => [f.key, [...f.off]]));
+    renderModeFeatures();
+  } catch (err) { const box = document.getElementById("mode-features-zone"); if (box) box.innerHTML = `<p class="empty-state">Fonctionnalités par mode indisponibles (${err.message}).</p>`; }
+}
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest && e.target.closest("[data-mf], #mf-save, #mf-reset");
+  if (!t || !mfState) return;
+  if (t.dataset.mf) {
+    const list = mfDraft[t.dataset.mf], m = t.dataset.mfMode;
+    mfDraft[t.dataset.mf] = list.includes(m) ? list.filter((x) => x !== m) : [...list, m];
+    return renderModeFeatures();
+  }
+  const reset = t.id === "mf-reset";
+  if (reset && !(await Confirm.show("Remettre la matrice des fonctionnalités par mode aux valeurs par défaut ?", { title: "Valeurs par défaut", confirmText: "Remettre" }))) return;
+  t.disabled = true;
+  try {
+    mfState = await API.adminModeFeatures(Session.discordId, reset ? "reset" : "set", reset ? undefined : mfDraft);
+    mfDraft = Object.fromEntries(mfState.features.map((f) => [f.key, [...f.off]]));
+    renderModeFeatures();
+    Toast.success(reset ? "Valeurs par défaut remises." : "Fonctionnalités par mode enregistrées.");
+  } catch (err) { t.disabled = false; Toast.error("Impossible d'enregistrer. (" + err.message + ")"); }
 });
 
 // Journal detaille (api/src/native/ledger.js).
@@ -770,6 +875,7 @@ async function loadEconomy() {
     const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
     const list = (rows, fn) => rows.length ? `<ol class="econ-list">${rows.map(fn).join("")}</ol>` : '<p class="lead" style="font-size:0.8rem;">—</p>';
     el.innerHTML = `<div id="preset-zone" class="preset-zone"></div>
+      <div id="mode-features-zone" class="mf-zone"></div>
       <div class="stats-grid">
         <div class="stat-tile"><div class="stat-value">${fmt(t.players)}</div><div class="stat-label">Joueurs</div></div>
         <div class="stat-tile"><div class="stat-value">${t.active1d} / ${t.active7d} / ${t.active30d}</div><div class="stat-label">Actifs 24 h / 7 j / 30 j</div></div>
@@ -802,6 +908,7 @@ async function loadEconomy() {
       </div>
       <div id="econ-log"></div>`;
     loadPresets();
+    if (typeof loadModeFeatures === "function") loadModeFeatures();
     loadEconomyLog();
   } catch (err) {
     el.className = "empty-state";
@@ -834,7 +941,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const reset = e.target.closest("[data-reset-setting]");
       if (reset) {
         try { renderSettings((await API.adminResetSetting(Session.discordId, reset.dataset.resetSetting)).settings); Toast.info("Valeur par défaut rétablie."); }
-        catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+        catch (err) { Toast.errorfriendlyError(err); }
       }
     });
     document.getElementById("season-admin-zone").addEventListener("click", async (e) => {
@@ -843,7 +950,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const season = btn.dataset.seasonSave;
       const cardId = Number(document.querySelector(`[data-season-card="${season}"]`).value) || 0;
       try { await loadSeasonAdmin(await API.adminSetSeasonCard(Session.discordId, season, cardId)); Toast.success("Carte de saison enregistrée."); }
-      catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      catch (err) { Toast.errorfriendlyError(err); }
     });
     document.getElementById("event-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -861,11 +968,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         renderEventAdmin(ev);
         Toast.success("Événement lancé !");
-      } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.errorfriendlyError(err); }
     });
     document.getElementById("event-stop-btn").addEventListener("click", async () => {
       if (!(await Confirm.show("Arrêter l'événement en cours maintenant ?", { title: "Arrêter l'événement", confirmText: "Arrêter", dangerous: true }))) return;
-      try { renderEventAdmin(await API.adminSetEvent(Session.discordId, { active: false })); Toast.info("Événement arrêté."); } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      try { renderEventAdmin(await API.adminSetEvent(Session.discordId, { active: false })); Toast.info("Événement arrêté."); } catch (err) { Toast.errorfriendlyError(err); }
     });
     populateMarketCardSelect();
     updateMarketCardPreview();

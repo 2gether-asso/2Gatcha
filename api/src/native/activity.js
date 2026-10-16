@@ -19,7 +19,13 @@ export function eventsFrom(store, path, body = {}, response = {}) {
   const out = [];
   switch (path) {
     case 'open-pack':
-      if (!body.dryRun && Array.isArray(json.cards)) out.push(ev('boosterOpened'), ev('cardsPulled', json.cards.length));
+      if (!body.dryRun && Array.isArray(json.cards)) {
+        out.push(ev('boosterOpened'), ev('cardsPulled', json.cards.length));
+        const shiny = json.cards.filter((c) => (c.finish || 'normal') !== 'normal').length;
+        const editions = json.cards.filter((c) => c.edition).length;
+        if (shiny) out.push(ev('shinyPulled', shiny));
+        if (editions) out.push(ev('editionPulled', editions));
+      }
       break;
     case 'craft':
       if (json.crafted) out.push(ev('craft'));
@@ -67,13 +73,29 @@ export function eventsFrom(store, path, body = {}, response = {}) {
       }
       break;
     case 'chests':
-      if (body.action === 'open' && json.opened) out.push(ev('chestOpened'));
+      if (body.action === 'open' && json.opened) out.push(ev('chestOpened', Number(json.opened) || 1));
       break;
     case 'boss-attack':
       if (!json.error && Array.isArray(body.pullIds)) out.push(ev('bossAttack', body.pullIds.length));
       break;
     case 'personal-vault':
       if (json.reward) out.push(ev('vaultRow'));
+      break;
+    // Fonctionnalites natives suivies par le bingo (bingo.js).
+    case 'machine-room':
+      if (body.action === 'advance' && json.advanced === 'calibrate') out.push(ev('machineDone'));
+      break;
+    case 'lottery':
+      if (body.action === 'buy' && json.bought) out.push(ev('lotteryTicket', Number(json.bought) || 1));
+      break;
+    case 'wanted':
+      if (body.action === 'donate' && json.donated) out.push(ev('wantedDonate'));
+      break;
+    case 'duo-expedition':
+      if (body.action === 'claim' && json.loot) out.push(ev('duoDone'));
+      break;
+    case 'login-streak':
+      if (json.claimed) out.push(ev('login'));
       break;
     case 'unique-counter':
       if (json.redeemed) out.push(ev('unique'));

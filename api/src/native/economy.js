@@ -51,6 +51,16 @@ export function record(store, source, before, after) {
   }
 }
 
+// Sources exclues du calcul des boosters par joueur : codes de jeu (souvent
+// 20 boosters offerts d'un coup lors d'un evenement).
+export const EXCLUDED_BOOSTER_SOURCES = ['redeem-code'];
+// Fourchette visee : cible +/- ecart (ecart = seuil d'alerte - cible).
+export function boosterTarget(store) {
+  const target = setting(store, 'BoosterTargetPerDay');
+  const high = setting(store, 'EconomyAlertBoostersPerPlayer');
+  const margin = Math.max(0, high - target);
+  return { target, low: Math.max(0, target - margin), high };
+}
 export function flows(store, activePlayers) {
   if (!store.tables.has('EconomyDaily')) return null;
   const rows = store.getAll('EconomyDaily');
@@ -69,17 +79,20 @@ export function flows(store, activePlayers) {
     bySource.set(r.Source, x);
   });
   const w = daily.slice(-7);
-  const boostersPerPlayerDay = sum(w, 'boostersIn') / 7 / Math.max(1, activePlayers);
+  const excludedIn = week.filter((r) => EXCLUDED_BOOSTER_SOURCES.includes(r.Source)).reduce((s, r) => s + (Number(r.BoostersIn) || 0), 0);
+  const boostersPerPlayerDay = Math.max(0, sum(w, 'boostersIn') - excludedIn) / 7 / Math.max(1, activePlayers);
+  const target = boosterTarget(store);
   const dustRatio = sum(w, 'dustIn') / Math.max(1, sum(w, 'dustOut'));
   const alerts = [];
   const maxB = setting(store, 'EconomyAlertBoostersPerPlayer');
-  if (boostersPerPlayerDay > maxB) alerts.push(`Inflation de boosters : ${boostersPerPlayerDay.toFixed(1)} créés par joueur actif et par jour (seuil ${maxB}).`);
+  if (boostersPerPlayerDay > maxB) alerts.push(`Inflation de boosters : ${boostersPerPlayerDay.toFixed(1)} créés par joueur actif et par jour hors codes de jeu (cible ${target.target}, seuil ${maxB}).`);
   const maxR = setting(store, 'EconomyAlertDustRatio');
   if (dustRatio > maxR) alerts.push(`Les poussières s'accumulent : ${dustRatio.toFixed(1)} gagnées pour 1 dépensée cette semaine (seuil ${maxR}).`);
   if (sum(w, 'boostersIn') > 0 && sum(w, 'boostersOut') < sum(w, 'boostersIn') / 3) alerts.push('Les boosters gagnés sont peu ouverts : les réserves des joueurs grossissent.');
   return {
     daily, sources: [...bySource.values()].sort((a, b) => (b.boostersIn + b.dustIn / 100) - (a.boostersIn + a.dustIn / 100)),
-    boostersPerPlayerDay: Math.round(boostersPerPlayerDay * 10) / 10, dustRatio: Math.round(dustRatio * 10) / 10, alerts
+    boostersPerPlayerDay: Math.round(boostersPerPlayerDay * 10) / 10, dustRatio: Math.round(dustRatio * 10) / 10, alerts,
+    target, excludedSources: EXCLUDED_BOOSTER_SOURCES, excludedBoosters: excludedIn
   };
 }
 

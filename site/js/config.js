@@ -81,6 +81,9 @@ window.APP_CONFIG = {
     cardInfo: "/card-info",             // GET ?cardId=&userId=
     wishlistAlerts: "/wishlist-alerts", // POST { userId }
     profileWall: "/profile-wall",       // GET ?profileId= | POST { userId, action: 'post'|'delete' }
+    discoveries: "/discoveries",             // POST { userId, action: 'reset' } (revoir les animations de decouverte)
+    discoveriesCatalog: "/discoveries-catalog", // GET (previsualisation des animations, admin)
+    dino: "/dino",                      // POST { userId, action: 'status'|'hatch'|'feed'|'play'|'clean'|'rename', dino?, food?, name? }
     garden: "/garden",                  // POST { userId, action: 'status'|'plant'|'harvest' }
     communityDig: "/community-dig",     // POST { userId, action: 'status'|'dig', tile? }
     prestige: "/prestige",              // POST { userId, skill: 'fishing'|'dig'|'expedition'|'garden' }
@@ -129,7 +132,29 @@ window.APP_CONFIG = {
     // Lot 2026-10-09 : inflation, pity par rarete, course aux tresors, prestige, evenements planifies
     upgrades: "/upgrades",             // POST { userId, action: 'status'|'buy', key? } (chenil, serre, canne)
     finishReroll: "/finish-reroll",     // POST { userId, pullId, action: 'status'|'reroll' }
-    dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille du chien
+    adminModeFeatures: "/admin-mode-features", // POST { discordId, action: 'status'|'set'|'reset', matrix? }
+    machineRoom: "/machine-room",
+    cardHistory: "/card-history",            // GET ?cardId=&serial= (historique d'un exemplaire)
+    cardPrice: "/card-price",                // GET ?cardId= (cote : ventes aux encheres)
+    shareCard: "/share-card",                // POST { userId, cardId, image, ... } (partage Discord)
+    adminModeSchedule: "/admin-mode-schedule", // POST { discordId, action: 'status'|'set'|'clear', preset?, at? }
+    hardLeaderboard: "/hard-leaderboard",    // GET ?userId=
+    seasonal: "/seasonal",                   // POST { userId, action: 'status'|'claim' }
+    phantom: "/phantom",                     // GET ?userId=
+    lottery: "/lottery",                     // POST { userId, action: 'status'|'buy', count? }
+    wanted: "/wanted",                       // POST { userId, action: 'status'|'donate' }
+    hallOfFame: "/hall-of-fame",             // GET
+    teams: "/teams",                         // POST { userId }
+    duoExpedition: "/duo-expedition",        // POST { userId, action, toPseudo?, pullId?, id? }       // POST { userId, action: 'status'|'advance'|'vote', mode? } (salle des machines)
+    decraftUndo: "/decraft-undo",       // POST { userId, action: 'list'|'undo', id? } (mode Cool)
+    weeklyGoal: "/weekly-goal",         // POST { userId, action: 'status'|'claim' } (mode Medium)
+    // Regles par difficulte (2026-10-16, api/src/native/moderules.js, modefun.js, draft.js, chaosvote.js).
+    adminModeRules: "/admin-mode-rules", // POST { discordId, action: 'status'|'set'|'mode'|'reset', key?, on?, mode? }
+    modeRules: "/mode-rules",           // GET -> regles actives du mode en cours
+    modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode
+    draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }
+    chaosVote: "/chaos-vote",           // POST { userId, action: 'status'|'vote', rule? }
+    dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille de Milo (le chien)
     sundayMarket: "/sunday-market",     // POST { userId, action: 'status'|'buy', cardId? }
     playerGift: "/player-gift",         // POST { userId, action: 'status'|'send'|'claim', toUserId?, kind? }
     weeklyRecap: "/weekly-recap",       // GET ?userId= -> recapitulatif de la semaine passee

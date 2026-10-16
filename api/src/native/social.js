@@ -103,7 +103,9 @@ function handleWishAlerts({ store, body }) {
 function profileExtras(store, user) {
   const fish = levelInfo(user.FishingXP, setting(store, 'FishingLevelXpStep'));
   const dig = levelInfo(user.DigXP, setting(store, 'DigLevelXpStep'));
-  const hidden = hiddenList(store, user).filter((h) => h.unlocked).map(({ key, label, icon, desc }) => ({ key, label, icon, desc }));
+  const all = hiddenList(store, user);
+  const hidden = all.filter((h) => h.unlocked && !h.mode).map(({ key, label, icon, desc }) => ({ key, label, icon, desc }));
+  const modeAchievements = all.filter((h) => h.mode).map(({ key, label, icon, desc, mode, unlocked }) => ({ key, label, icon, desc, mode, unlocked }));
   const themes = themesState(store, user.id).themes.filter((t) => t.claimed).map(({ key, label, icon, title }) => ({ key, label, icon, title }));
   const unique = uniqueRarity(store);
   const uniqueCount = unique ? new Set(store.getAll('Pulls').filter((p) => refId(p.User) === user.id && refId(store.get('Cards', refId(p.Card))?.Rarity) === unique.id).map((p) => refId(p.Card))).size : 0;
@@ -121,7 +123,7 @@ function profileExtras(store, user) {
     },
     rank: ranksFor(store, [user.id])[user.id],
     tiers: tierState(store, user).families.filter((f) => f.level > 0).map(({ key, label, icon, level }) => ({ key, label, icon, level })),
-    hidden, themes, uniqueCount
+    hidden, modeAchievements, themes, uniqueCount
   };
 }
 

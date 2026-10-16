@@ -120,7 +120,12 @@ const API = {
           body: JSON.stringify({ calls: todo.map((c) => ({ path: window.APP_CONFIG.endpoints[c.name].replace(/^\//, ""), method: c.method, query: c.query, body: c.body })) })
         });
         if (res.status === 404) throw Object.assign(new Error("batch_unsupported"), { unsupported: true });
-        if (res.status === 429) { this._onRejected(res, await res.json().catch(() => ({}))); }
+        if (res.status === 429) {
+          this._onRejected(res, await res.json().catch(() => ({})));
+          // Trop de requetes : surtout ne pas relancer chaque lecture une par
+          // une (20 a 30 appels de plus, tous refuses a leur tour).
+          throw Object.assign(new Error("rate_limited"), { rateLimited: true });
+        }
         if (!res.ok) throw new Error("batch_failed");
         const { results } = await res.json();
         todo.forEach((c, i) => {
@@ -128,8 +133,10 @@ const API = {
           const { entry, resolve, reject } = resolvers.get(c.key);
           entry.pending = false;
           entry.ts = Date.now();
-          if (r.status >= 200 && r.status < 300) resolve(r.json);
-          else {
+          if (r.status >= 200 && r.status < 300) {
+            if (r.json && Array.isArray(r.json.discoveries) && r.json.discoveries.length && typeof DiscoveryFx !== "undefined") DiscoveryFx.show(r.json.discoveries);
+            resolve(r.json);
+          } else {
             if (r.status === 401) this._onRejected({ status: 401 }, r.json || {});
             const err = new Error((r.json && r.json.error) || `Erreur API (${c.name}): ${r.status}`);
             err.code = r.json && r.json.error;
@@ -139,6 +146,14 @@ const API = {
         });
       } catch (e) {
         if (e.unsupported) this._batchSupported = false;
+        if (e.rateLimited) {
+          todo.forEach((c) => {
+            const { reject } = resolvers.get(c.key);
+            this._memo.delete(c.key);
+            reject(Object.assign(new Error("rate_limited"), { code: "rate_limited" }));
+          });
+          return Promise.all(list.map(() => null));
+        }
         // Repli : chaque lecture repart en individuel.
         todo.forEach((c) => {
           const { resolve, reject } = resolvers.get(c.key);
@@ -154,7 +169,15 @@ const API = {
     if (this._isRead("POST", body)) return this._shared(this._readKey("POST", name, body), () => this._post(name, body));
     this.invalidate();
     try {
-      const data = await this._post(name, body);
+      let data;
+      try {
+        data = await this._post(name, body);
+      } catch (e) {
+        // Exemplaire en edition limitee qui disparaitrait (api/src/native/editions.js).
+        if (e.code !== "edition_copy" || (body && body.confirmEdition) || typeof Confirm === "undefined") throw e;
+        if (!(await this._confirmEditionLoss(e.data || {}))) { const k = new Error("edition_kept"); k.code = "edition_kept"; throw k; }
+        data = await this._post(name, { ...(body || {}), confirmEdition: true });
+      }
       // Bonus d'un week-end evenement (api/src/native/events.js) : annonce.
       if (data && data.eventBonus && typeof Toast !== "undefined") {
         const b = data.eventBonus;
@@ -167,6 +190,15 @@ const API = {
       // qu'elle tournait.
       this.invalidate();
     }
+  },
+
+  // Confirmation de la perte d'exemplaires en edition limitee.
+  _confirmEditionLoss(data) {
+    const copies = data.copies || [];
+    const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+    const list = copies.map((c) => `<li>${c.icon} <strong>${esc(c.cardName)}</strong> ${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : ""} · édition <strong>${esc(c.label)}</strong></li>`).join("");
+    const kept = data.carried && typeof EDITIONS !== "undefined" && EDITIONS[data.carried] ? `<br>Le nouvel exemplaire garde l'édition <strong>${EDITIONS[data.carried].label}</strong>, mais pas les autres.` : "";
+    return Confirm.show(`${copies.length > 1 ? "Ces exemplaires sont" : "Cet exemplaire est"} en <strong>édition limitée</strong> et ${copies.length > 1 ? "vont" : "va"} disparaître :<ul style="text-align:left">${list}</ul>${kept}Tu es sûr ?`, { title: "Édition limitée", confirmText: "Oui, je sacrifie", dangerous: true });
   },
 
   // En-tetes communs : jeton signe du joueur connecte (voir api/src/native/auth.js).
@@ -200,7 +232,7 @@ const API = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         this._onRejected(res, data);
-        const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
+        const err = new Error((data.error === "feature_disabled" && data.message) || data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
         err.data = data;
         // "Deja recupere" (bouton reste affiche apres une recuperation
@@ -230,6 +262,7 @@ const API = {
       if (pos.length) Toast.success(`&#10024; Bonus : ${pos.map((b) => `${b.label} +${b.dust}`).join(" · ")}`);
       if (neg.length) Toast.info(`${neg.map((b) => `${b.label} ${b.dust}`).join(" · ")} &#10024;`);
     }
+    if (Array.isArray(data.discoveries) && data.discoveries.length && typeof DiscoveryFx !== "undefined") DiscoveryFx.show(data.discoveries);
     if (data.repairSurcharge) Toast.info(`&#129520; Restauration répétée cette semaine : +${data.repairSurcharge} poussières.`);
     if (!Array.isArray(data.notices)) return;
     data.notices.forEach((n, i) => setTimeout(() => {
@@ -254,11 +287,13 @@ const API = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         this._onRejected(res, data);
-        const err = new Error(data.error || `Erreur API (${name}): ${res.status}`);
+        const err = new Error((data.error === "feature_disabled" && data.message) || data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
         err.data = data;
         throw err;
       }
+      // Premiere ressource obtenue (discoveries.js) : peut arriver sur une lecture.
+      if (data && Array.isArray(data.discoveries) && data.discoveries.length && typeof DiscoveryFx !== "undefined") DiscoveryFx.show(data.discoveries);
       return data;
     } finally {
       if (typeof TopLoadingBar !== "undefined") TopLoadingBar.stop();
@@ -322,8 +357,8 @@ const API = {
     return data;
   },
 
-  openPack(userId, extensionId, mystery = false) {
-    return this.post("openPack", mystery ? { userId, mystery: true } : { userId, extensionId });
+  openPack(userId, extensionId, mystery = false, opts = {}) {
+    return this.post("openPack", { ...(mystery ? { userId, mystery: true } : { userId, extensionId }), ...(opts.bet ? { bet: true } : {}), ...(opts.edge ? { edge: true } : {}) });
   },
 
   // Annonce Discord automatique (Mythique/Legendaire/Epique) - appelee par
@@ -574,6 +609,10 @@ const API = {
   useBone(userId) {
     return this.post("dig", { userId, action: "useBone" });
   },
+  // Mode excite (2026-10-15) : beaucoup d'os d'un coup, plusieurs grilles creusees aussitot.
+  dogFrenzy(userId) {
+    return this.post("dig", { userId, action: "frenzy" });
+  },
 
   getBingoStatus(userId) {
     return this.post("bingo", { userId, action: "status" });
@@ -640,6 +679,9 @@ const API = {
   },
   deleteProfileWall(userId, messageId) {
     return this.post("profileWall", { userId, action: "delete", messageId });
+  },
+  dino(userId, action = "status", extra = {}) {
+    return this.post("dino", { userId, action, ...extra });
   },
   garden(userId, action = "status", extra = {}) {
     return this.post("garden", { userId, action, ...extra });
@@ -764,6 +806,23 @@ const API = {
   upgrades(userId, action = "status", key) { return this.post("upgrades", { userId, action, key }); },
   finishReroll(userId, pullId, action = "status") { return this.post("finishReroll", { userId, pullId, action }); },
   claimSeasonChest(userId) { return this.post("season", { userId, action: "claimChest" }); },
+  adminModeFeatures(discordId, action = "status", matrix) { return this.post("adminModeFeatures", { discordId, action, matrix }); },
+  machineRoom(userId, action = "status", mode, event) { return this.post("machineRoom", { userId, action, mode, event }); },
+  adminModeSchedule(discordId, action = "status", params = {}) { return this.post("adminModeSchedule", { discordId, action, ...params }); },
+  hardLeaderboard(userId) { return this.get("hardLeaderboard", { userId }); },
+  seasonal(userId, action = "status") { return this.post("seasonal", { userId, action }); },
+  phantom(userId) { return this.get("phantom", { userId }); },
+  lottery(userId, action = "status", count) { return this.post("lottery", { userId, action, count }); },
+  wanted(userId, action = "status") { return this.post("wanted", { userId, action }); },
+  hallOfFame() { return this.get("hallOfFame"); },
+  teams(userId) { return this.post("teams", { userId, action: "status" }); },
+  duoExpedition(userId, action = "status", params = {}) { return this.post("duoExpedition", { userId, action, ...params }); },
+  decraftUndo(userId, action = "list", id) { return this.post("decraftUndo", { userId, action, id }); },
+  weeklyGoal(userId, action = "status") { return this.post("weeklyGoal", { userId, action }); },
+  modeRules() { return this.get("modeRules"); },
+  modeExtra(userId, action = "status", params = {}) { return this.post("modeExtra", { userId, action, ...params }); },
+  draft(userId, action = "status", params = {}) { return this.post("draft", { userId, action, ...params }); },
+  chaosVote(userId, action = "status", rule) { return this.post("chaosVote", { userId, action, rule }); },
   dogGift(userId, action = "status") { return this.post("dogGift", { userId, action }); },
   sundayMarket(userId, action = "status", cardId) { return this.post("sundayMarket", { userId, action, cardId }); },
   playerGift(userId, action = "status", params = {}) { return this.post("playerGift", { userId, action, ...params }); },
@@ -776,8 +835,8 @@ const API = {
   findTreasure(userId, clue, page) { return this.post("treasureHunt", { userId, clue, page }); },
   getAccountPrestige(userId) { return this.get("accountPrestige", { userId }); },
   adminEvents(discordId, action = "list", params = {}) { return this.post("adminEvents", { discordId, action, ...params }); },
-  chests(userId, action) {
-    return this.post("chests", { userId, action });
+  chests(userId, action, count) {
+    return this.post("chests", count ? { userId, action, count } : { userId, action });
   },
   pushAction(userId, action, subscription) {
     return this.post("push", { userId, action, subscription });

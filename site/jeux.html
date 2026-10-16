@@ -26,6 +26,7 @@
         <button type="button" class="tab" id="tab-expedition-btn" role="tab" aria-selected="false">&#129517; Expédition</button>
         <button type="button" class="tab" id="tab-fish-btn" role="tab" aria-selected="false">&#127907; Pêche</button>
         <button type="button" class="tab" id="tab-garden-btn" role="tab" aria-selected="false">&#127793; Jardin</button>
+        <button type="button" class="tab" id="tab-dino-btn" role="tab" aria-selected="false" style="display:none;">&#129430; Dinos</button>
         <button type="button" class="tab" id="tab-bingo-btn" role="tab" aria-selected="false">&#127922; Bingo</button>
         <button type="button" class="tab" id="tab-vault-btn" role="tab" aria-selected="false" style="display:none;">&#128274; Coffre-fort</button>
       </div>
@@ -47,12 +48,13 @@
         <div id="dig-kennel" class="dig-kennel" style="display:none;">
           <span class="dig-kennel-dog-wrap" id="dig-kennel-dog-wrap" aria-hidden="true"><span class="dig-dog-cape"></span><span class="dig-kennel-dog" id="dig-kennel-dog">&#128021;</span><span class="dig-dog-collar"></span></span>
           <div class="dig-kennel-body">
-            <div class="dig-kennel-title">Chenil <span class="dig-kennel-bones" id="dig-kennel-bones"></span></div>
+            <div class="dig-kennel-title">Chenil de Milo &#128021; <span class="dig-kennel-bones" id="dig-kennel-bones"></span></div>
             <div class="dig-kennel-text" id="dig-kennel-text"></div>
           </div>
           <div class="dig-kennel-actions">
             <button type="button" class="btn-secondary" id="dig-buy-bone-btn"></button>
-            <button type="button" class="btn" id="dig-use-bone-btn">&#129460; Lancer le chien</button>
+            <button type="button" class="btn" id="dig-use-bone-btn">&#129460; Envoyer Milo</button>
+            <button type="button" class="btn-secondary dig-frenzy-btn" id="dig-frenzy-btn" hidden></button>
           </div>
         </div>
         <div class="dig-site">
@@ -79,6 +81,7 @@
         <p class="lead" style="font-size:0.85rem;">Envoie une de tes cartes en expédition, puis reviens récupérer son butin. Plus l'expédition est longue, plus elle rapporte — et une carte plus rare ramène davantage de poussières. La carte reste dans ta collection pendant ce temps.</p>
         <div class="skill-level" id="expe-level" hidden></div>
         <div id="expedition-zone"><div class="skeleton-line">Chargement...</div></div>
+        <section class="duo-expedition panel" id="duo-expedition" hidden></section>
       </div>
 
       <div id="bingo-pane" style="display:none;">
@@ -94,7 +97,7 @@
       </div>
 
       <div id="fish-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;">Chaque lancer coûte un <strong>ver de terre</strong> &#129713; : tu en trouves dans la terre qui reste à la fin d'une grille de fouille. Avec de la chance, tu remontes un os pour le chien, une clé, un booster, un coffre ou une pièce détachée (remplace un exemplaire dans l'atelier Finitions / Qualité). Plus tu pêches, plus ton niveau monte.</p>
+        <p class="lead" style="font-size:0.85rem;">Chaque lancer coûte un <strong>ver de terre</strong> &#129713; : tu en trouves dans la terre qui reste à la fin d'une grille de fouille. Avec de la chance, tu remontes un os pour Milo, une clé, un booster, un coffre ou une pièce détachée (remplace un exemplaire dans l'atelier Finitions / Qualité). Plus tu pêches, plus ton niveau monte.</p>
         <div class="fish-scene" id="fish-scene" aria-live="polite">
           <div class="fish-sky" aria-hidden="true"></div>
           <div class="fish-weather-fx" aria-hidden="true"></div>
@@ -113,6 +116,7 @@
         <div class="fish-controls">
           <button type="button" class="btn" id="fish-cast-btn">&#127907; Lancer</button>
           <button type="button" class="btn-secondary" id="fish-cast5-btn">Lancer ×5</button>
+          <button type="button" class="btn-ghost" id="fish-castall-btn" hidden></button>
           <span class="fish-meta" id="fish-meta"></span>
         </div>
         <div class="fish-log" id="fish-log"></div>
@@ -137,6 +141,20 @@
           <button type="button" class="btn-secondary" id="garden-harvest-btn">&#129530; Tout récolter</button>
           <button type="button" class="btn-ghost" id="garden-buyplot-btn" hidden>&#10133; Parcelle</button>
         </div>
+      </div>
+
+      <div id="dino-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Tes dinos de compagnie : nourris-les avec ta pêche (&#128031; poissons, &#127807; algues, &#129424; crevettes, &#129713; vers), joue avec eux et ramasse leurs cacas : chaque caca devient un <strong>engrais</strong> qui fait pousser le jardin plus vite. Un dino négligé devient triste, et si sa satiété et son bonheur tombent à zéro, il meurt : il ne reste qu’un tas d’os (tu récupères les os et la place). Adultes et contents, ils fouillent pour toi.</p>
+        <div class="dino-meta" id="dino-meta"></div>
+        <div class="dino-top-actions">
+          <button type="button" class="btn" id="dino-hatch-btn" hidden></button>
+          <button type="button" class="btn-secondary" id="dino-collect-btn" hidden></button>
+          <button type="button" class="btn-ghost" id="dino-clean-all-btn" hidden>&#129529; Tout ramasser</button>
+        </div>
+        <div id="dino-scene-box"></div>
+        <div id="dino-eggs"></div>
+        <div class="dino-list" id="dino-list"></div>
+        <div id="dino-extra"></div>
       </div>
 
       <div id="vault-pane" style="display:none;">
@@ -168,5 +186,9 @@
   <script src="js/shell.js"></script>
   <script src="js/jeux.js"></script>
   <script src="js/jeux-summary.js"></script>
+  <script src="js/jeux-duo.js"></script>
+  <script src="js/jeux-bingo.js"></script>
+  <script src="js/dino-art.js"></script>
+  <script src="js/jeux-dino.js"></script>
 </body>
 </html>

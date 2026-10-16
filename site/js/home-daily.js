@@ -94,7 +94,7 @@
         Toast.success(`&#127873; Colis récupéré : +${w.gift.boosters} booster${w.gift.boosters > 1 ? "s" : ""} et +${w.gift.dust} poussières !`);
         if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.4 } });
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.errorfriendlyError(err); }
       d.close();
       d.remove();
     });
@@ -114,7 +114,7 @@
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       setTimeout(() => { btn.hidden = true; }, 4000);
       loadWhatNow();
-    } catch (err) { btn.classList.remove("opening"); btn.disabled = false; Toast.error("Erreur. (" + err.message + ")"); }
+    } catch (err) { btn.classList.remove("opening"); btn.disabled = false; Toast.errorfriendlyError(err); }
   }
 
   async function rollDice(btn) {
@@ -134,7 +134,7 @@
       eff.innerHTML = `${res.effect.icon} ${esc(res.effect.label)}`;
       Toast.success(`&#127922; ${res.face} : ${esc(res.effect.label)}`);
       loadWhatNow();
-    } catch (err) { clearInterval(spin); btn.classList.remove("rolling"); btn.disabled = false; Toast.error("Erreur. (" + err.message + ")"); }
+    } catch (err) { clearInterval(spin); btn.classList.remove("rolling"); btn.disabled = false; Toast.errorfriendlyError(err); }
   }
 
   async function loadWhatNow() {
@@ -190,7 +190,7 @@
         Toast.success(`&#127769; Missions du soir : +${res.claimedDust} poussières !`);
         renderEvening(res);
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.errorfriendlyError(err); }
       btn.disabled = false;
     });
     window.addEventListener("api:claimed", () => setTimeout(loadWhatNow, 500));

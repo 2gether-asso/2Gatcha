@@ -12,6 +12,9 @@ import { setting } from './settings.js';
 import { weekKey, digLevel } from './levels.js';
 import { growSeconds, seedMult } from './garden.js';
 import { price as indexed } from './inflation.js';
+import { happyFactor, happyHourNow } from './moderules.js';
+// Happy hour (mode Chill) : -30 % sur toute la boutique.
+const shopPrice = (store, base) => Math.round(indexed(store, base) * happyFactor(store));
 
 export const schema = {
   Users: { ShopItemsWeek: { type: 'Text' }, ShopItemsBought: { type: 'Text' }, LuckCharges: { type: 'Numeric' }, XpBoostUntil: { type: 'Numeric' } }
@@ -19,12 +22,17 @@ export const schema = {
 
 // Colonnes qu'un objet peut crediter (liste blanche).
 const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges'];
-const EFFECTS = ['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow'];
+const EFFECTS = ['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow', 'umbrella'];
 
 const dust = (u) => Number(u.StardustCount) || 0;
 
+// Objets ajoutes par le code, meme si le catalogue a ete personnalise dans l'admin.
+const BUILTIN = (store) => [
+  { key: 'umbrella', group: 'boosts', icon: '☂️', label: 'Parapluie', desc: `Protège tes cartes de l’usure du mode Hard pendant ${setting(store, 'UmbrellaDays')} jours.`, price: setting(store, 'UmbrellaPrice'), weekly: 1, effect: 'umbrella' }
+];
 function catalog(store) {
-  return setting(store, 'ShopCatalog').filter((it) => it && it.key && Number(it.price) > 0 && (it.give || EFFECTS.includes(it.effect)));
+  const list = setting(store, 'ShopCatalog').filter((it) => it && it.key && Number(it.price) > 0 && (it.give || EFFECTS.includes(it.effect)));
+  return [...list, ...BUILTIN(store).filter((b) => !list.some((it) => it.key === b.key))];
 }
 
 function boughtThisWeek(user) {
@@ -38,10 +46,11 @@ function stateOf(store, user) {
     stardust: dust(user),
     luckCharges: Number(user.LuckCharges) || 0,
     xpBoostUntil: (Number(user.XpBoostUntil) || 0) > t ? Number(user.XpBoostUntil) : null,
+    umbrellaUntil: (Number(user.UmbrellaUntil) || 0) > t ? Number(user.UmbrellaUntil) : null,
     items: catalog(store).map((it) => {
       const weekly = Number(it.weekly) || 0;
       const n = Number(bought[it.key]) || 0;
-      return { key: it.key, group: it.group || 'resources', label: it.label, icon: it.icon || '🎁', desc: it.desc || '', price: indexed(store, it.price), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
+      return { key: it.key, group: it.group || 'resources', label: it.label, icon: it.icon || '🎁', desc: it.desc || '', price: shopPrice(store, it.price), basePrice: indexed(store, it.price), happyHour: happyHourNow(store), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
     })
   };
 }
@@ -66,6 +75,9 @@ function effectFields(store, user, it) {
     if (!n) return { error: 'nothing_growing' };
     return { GardenPlots: JSON.stringify(next) };
   }
+  if (it.effect === 'umbrella') {
+    return { UmbrellaUntil: Math.max(t, Number(user.UmbrellaUntil) || 0) + setting(store, 'UmbrellaDays') * 86400 };
+  }
   if (it.effect === 'expeditionNow') {
     if (!((Number(user.ExpeditionUntil) || 0) > t)) return { error: 'no_expedition' };
     return { ExpeditionUntil: t };
@@ -83,7 +95,7 @@ function handleShop({ store, body }) {
   const bought = boughtThisWeek(user);
   const weekly = Number(it.weekly) || 0;
   if (weekly && (Number(bought[it.key]) || 0) >= weekly) return fail('weekly_cap', 400, stateOf(store, user));
-  const price = indexed(store, it.price);
+  const price = shopPrice(store, it.price);
   if (dust(user) < price) return fail('not_enough_dust', 400, stateOf(store, user));
   const fields = {};
   if (it.effect) {

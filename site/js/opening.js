@@ -12,7 +12,7 @@
 // inline dans la page : la page ne montre que le choix du pack a ouvrir.
 
 const FINISH_LABELS = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 let isBusy = false;
 let skipToken = null;
@@ -55,6 +55,8 @@ function setSimMode(modifiers) {
 const usableBoosters = () => (simMode ? OPEN_ALL_MAX : boosterCount);
 
 const RARITY_ORDER = { commune: 0, rare: 1, epique: 2, legendaire: 3, mythique: 4, unique: 5 };
+// Dernier lot ouvert : god pack (cinematique sur la meilleure carte).
+let lastGodPack = false;
 
 // Attend `ms` millisecondes, sauf si l'utilisateur tape pour accelerer.
 function wait(ms) {
@@ -96,6 +98,7 @@ function buildCardEl(card, index, cardBackImageId) {
   // finition/qualite speciale affichee ailleurs, pas juste un petit badge.
   wrap.dataset.finish = card.finish || "normal";
   wrap.dataset.quality = card.quality || "damaged";
+  if (card.edition) wrap.dataset.edition = card.edition;
 
   const color = card.rarity?.colorHex || "#9aa0b4";
   const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
@@ -141,6 +144,7 @@ function buildCardEl(card, index, cardBackImageId) {
       ${finishBadge}
       ${qualityBadge}
       ${card.serialNumber === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+      ${card.edition ? editionBadge(card.edition) : ""}
     </div>
     <div class="card-info">
       <div class="card-name">${card.name}</div>
@@ -165,10 +169,24 @@ function buildCardEl(card, index, cardBackImageId) {
     if (wrap.dataset.active !== "true") return;
     const rowMode = !!(wrap.parentElement && wrap.parentElement.classList.contains("row-reveal"));
     if (!wrap.classList.contains("revealed")) {
+      const isLast = stackCardEls.length > 1 && stackCardEls[stackCardEls.length - 1] === wrap;
+      if (quiet !== true && isLast && !wrap._suspensed && !wrap.classList.contains("sim-skip")) {
+        wrap._suspensed = true;
+        OpeningFx.suspense(wrap, card.rarity?.key, color).then(() => flip(quiet));
+        return;
+      }
       wrap.classList.add("revealed");
       if (quiet === true) { if (card.firstOfRarity) celebrateFirstOfRarity(card, wrap, color, true); renderStackPips(); return; }
       Sfx.flip();
       setTimeout(() => Sfx.reveal(card.rarity?.key), 260);
+      if (card.finish && card.finish !== "normal") Sfx.finish(card.finish);
+      const rank = OpeningFx.RANK[card.rarity?.key] ?? 0;
+      if (rank >= 1) OpeningFx.vibrate(rank >= 3 ? [40, 50, 80] : rank === 2 ? [30, 40, 30] : 20);
+      // Cinematique : legendaire et mieux, ou la meilleure carte d'un god pack.
+      if (!card.lootType && (rank >= OpeningFx.RANK.legendaire || (lastGodPack && isLast))) {
+        const god = !!(lastGodPack && isLast);
+        setTimeout(() => OpeningFx.cinematic(wrap, card, color, god ? "GOD PACK !" : (card.rarity?.name || "") + " !", OpeningFx.tierOf(card.rarity?.key, god)), 650);
+      }
       // celebrateRarity lit getBoundingClientRect() (spawnRarityBurst) : lu a
       // chaud, dans le meme tick que le classList.add ci-dessus, ca force un
       // reflow synchrone qui peut faire sauter la transition CSS du flip sur
@@ -358,6 +376,9 @@ let lastPackTags = [];
 function resetRevealView() {
   const stage = document.querySelector("#pack-modal-overlay .pack-modal-stage");
   if (stage) stage.classList.remove("reveal-row");
+  // La revelation precedente a pu faire defiler la fenetre vers les cartes :
+  // sans ca, le booster ou le coffre suivant apparait au-dessus du bord.
+  if (stage) stage.scrollTop = 0;
   const sum = document.getElementById("reveal-summary");
   if (sum) { sum.hidden = true; sum.innerHTML = ""; }
 }
@@ -406,8 +427,9 @@ function onAllRevealed() {
   // a chaque fois.
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn && lastOpenMode === "chest") {
-    const can = chestState && chestState.chests > 0 && chestState.keys > 0;
-    openAnotherBtn.innerHTML = can ? `&#129520; Ouvrir un autre coffre (${chestState.chests} restant${chestState.chests > 1 ? "s" : ""})` : "";
+    const can = chestAvail() > 0;
+    const again = Math.min(chestOpenCount, chestAvail());
+    openAnotherBtn.innerHTML = can ? (again > 1 ? `&#129520; Ouvrir encore ×${again} (${chestState.chests} restant${chestState.chests > 1 ? "s" : ""})` : `&#129520; Ouvrir un autre coffre (${chestState.chests} restant${chestState.chests > 1 ? "s" : ""})`) : "";
     openAnotherBtn.style.display = can ? "inline-flex" : "none";
   } else if (openAnotherBtn) {
     if (lastOpenedExtension && lastOpenMode === "sim") {
@@ -514,6 +536,12 @@ function celebrateRarity(key, cardEl, colorHex) {
     spawnCardAuraRing(cardEl, colorHex, tier);
     if (RARITY_FLASH_TOASTS[key]) Toast.success(RARITY_FLASH_TOASTS[key]);
   }
+}
+
+function modeOptions() {
+  const box = document.getElementById("mode-options");
+  if (!box || box.hidden) return {};
+  return { bet: document.getElementById("opt-bet").checked, edge: document.getElementById("opt-edge").checked };
 }
 
 function extensionById(id) {
@@ -852,9 +880,16 @@ function openModalFor(extensionId) {
   hint.textContent = "Tape sur le booster pour l'ouvrir";
 
   pack.onclick = () => {
+    // Un glisser qui vient de dechirer le paquet ne compte pas comme un tap.
+    if (pack._swiped) { pack._swiped = false; return; }
     if (isBusy) requestSkip();
     else { Sfx.click(); startOpening(ext); }
   };
+  // Dechirure au doigt (glisser sur le paquet) et choix parmi 3 boosters.
+  pack._ext = ext;
+  OpeningFx.attachSwipe(pack, () => { if (!isBusy && pack._ext) { Sfx.click(); startOpening(pack._ext); } });
+  hint.textContent = "Choisis ton booster";
+  OpeningFx.packChoice(pack, pack.innerHTML, () => { hint.textContent = "Glisse sur le booster pour le déchirer, ou tape dessus"; });
 
   // Skin de fond par extension : le packet flou en toile de fond de la
   // modale, pour que chaque extension ait une ambiance visuelle distincte.
@@ -883,6 +918,13 @@ function openModalFor(extensionId) {
     });
   }
   renderPackTags(simMode ? [{ kind: "sim", html: "&#129514; Simulation : rien n'est gagné ni dépensé" }] : []);
+  // Options du mode Medium (modeperks.js) : pari et booster a double tranchant.
+  const modeOpts = document.getElementById("mode-options");
+  if (modeOpts) {
+    modeOpts.hidden = document.documentElement.dataset.gameMode !== "medium" || !!simMode || !!ext.mystery;
+    document.getElementById("opt-bet").checked = false;
+    document.getElementById("opt-edge").checked = false;
+  }
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn) openAnotherBtn.style.display = "none";
 
@@ -1059,18 +1101,33 @@ async function startOpening(ext) {
     const mysteryNames = [];
     let backImageId = ext.cardBackImageId;
     let pityHits = [];
-    let ripened = 0;
+    let ripened = 0, betNet = 0, betWins = 0, bets = 0, luckyOpen = false, edge = 0, forged = 0, luckyDup = 0, finishLost = 0;
+    let godPack = false;
+    const editionsSeen = [];
+    const modeTags = { wish: null, cursed: 0, mutants: 0, glitch: 0 };
     for (let i = 0; i < quantity; i++) {
       const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
       const res = sim
         ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
-        : await API.openPack(Session.userId, ext.id, !!ext.mystery);
+        : await API.openPack(Session.userId, ext.id, !!ext.mystery, modeOptions());
       if (ext.mystery) {
         const real = extensionById(res.mystery ? res.mystery.extensionId : simExt.id);
         if (real) { mysteryNames.push(real.name); backImageId = backImageId || real.cardBackImageId; }
       }
       if (res.rarityPity) pityHits.push(res.rarityPity.name);
       if (res.ripened) ripened = Math.max(ripened, res.ripened);
+      if (res.bet) { betNet += res.bet.won ? res.bet.payout - res.bet.stake : -res.bet.stake; betWins += res.bet.won ? 1 : 0; bets++; }
+      if (res.luckyOpen) luckyOpen = true;
+      if (res.edge) edge++;
+      if (res.forged) forged += res.forged;
+      if (res.luckyDuplicates) luckyDup += res.luckyDuplicates;
+      finishLost += (res.cards || []).filter((c) => c.finishLost).length;
+      (res.cards || []).forEach((c) => { if (c.edition) editionsSeen.push(c.edition); });
+      // Regles du mode (api/src/native/modefun.js).
+      if (res.wishbox) modeTags.wish = res.wishbox.cardName;
+      modeTags.cursed += Number(res.cursed) || 0;
+      modeTags.mutants += Number(res.mutants) || 0;
+      if (res.glitchPack) modeTags.glitch++;
       if (res.error === "no_boosters") {
         if (i === 0) {
           pack.classList.remove("charging");
@@ -1086,6 +1143,7 @@ async function startOpening(ext) {
       allCards.push(...(res.cards || []));
       if (res.batchId && !sim) batchIds.push(res.batchId);
       if (res.pack?.shiny) packShiny = true;
+      if (res.pack?.godPack) godPack = true;
       if (res.pack?.bonusCard) bonusCards++;
       if (res.duplicateDust) duplicateDust += res.duplicateDust.total || 0;
       if (res.personalBoost) boosted += (res.personalBoost.finishes || 0) + (res.personalBoost.qualities || 0);
@@ -1105,6 +1163,13 @@ async function startOpening(ext) {
     }, "commune");
     const somethingSpecial = (RARITY_ORDER[bestRarity] ?? 0) >= (RARITY_ORDER.epique ?? 2);
     if (somethingSpecial) pack.classList.add("charging-special");
+    lastGodPack = godPack;
+    if (godPack) {
+      pack.classList.add("god-pack");
+      Sfx.fanfare();
+      OpeningFx.vibrate([60, 40, 60, 40, 120]);
+      Toast.success("&#127775; GOD PACK ! Que des épiques ou mieux !");
+    }
     if (packShiny) {
       pack.classList.add("pack-shiny");
       Toast.success("&#127752; Booster SHINY ! Ses cartes sont meilleures que d'habitude.");
@@ -1132,6 +1197,7 @@ async function startOpening(ext) {
     if (bonusCards) Toast.info(`&#127873; +${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus dans ce booster !`);
     lastPackTags = sim ? [{ kind: "sim", html: "&#129514; Simulation", short: "simulation" }] : [];
     if (packShiny) lastPackTags.push({ kind: "shiny", html: "&#127752; Booster shiny : meilleures cartes", short: "booster shiny" });
+    if (godPack) lastPackTags.push({ kind: "shiny", html: "&#127775; GOD PACK : que des épiques ou mieux", short: "god pack" });
     if (duplicateDust) lastPackTags.push({ kind: "dust", html: `&#10024; +${duplicateDust} poussières (doublons)`, short: `+${duplicateDust} poussières de doublons` });
     if (boosted) lastPackTags.push({ kind: "bonus", html: `&#127808; ${boosted} carte${boosted > 1 ? "s" : ""} améliorée${boosted > 1 ? "s" : ""} par tes bonus`, short: `${boosted} améliorée${boosted > 1 ? "s" : ""}` });
     if (bonusCards) lastPackTags.push({ kind: "bonus", html: `&#127873; ${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus`, short: `${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus` });
@@ -1140,17 +1206,34 @@ async function startOpening(ext) {
       lastPackTags.push({ kind: "mystery", html: `&#10067; Mystère : ${names.join(", ")}`, short: `mystère (${names.join(", ")})` });
       Toast.info(`&#10067; Booster mystère : ${names.join(", ")} !`);
     }
+    if (bets) lastPackTags.push({ kind: betNet >= 0 ? "bonus" : "sim", html: `&#127922; Pari ${betWins ? "gagné" : "perdu"} : ${betNet >= 0 ? "+" : ""}${betNet} &#10024;`, short: "pari" });
+    if (luckyOpen) lastPackTags.push({ kind: "bonus", html: "&#127808; Coup de chance du jour : finitions doublées", short: "coup de chance" });
+    if (edge) lastPackTags.push({ kind: "bonus", html: "&#9876;&#65039; Double tranchant : 3 cartes, une rare garantie", short: "double tranchant" });
+    if (editionsSeen.length) {
+      const e = EDITIONS[editionsSeen[0]] || { icon: "✨", label: "limitée" };
+      lastPackTags.push({ kind: "shiny", html: `${e.icon} ${editionsSeen.length} carte${editionsSeen.length > 1 ? "s" : ""} en édition limitée ${e.label} !`, short: "édition " + e.label });
+      Toast.success(`${e.icon} Édition limitée ${e.label} !`);
+    }
+    if (modeTags.wish) { lastPackTags.push({ kind: "shiny", html: `🎀 Souhait exaucé : <strong>${escHtml(modeTags.wish)}</strong> !`, short: "souhait" }); Toast.success(`🎀 Boîte à souhaits : ${escHtml(modeTags.wish)} !`); }
+    if (modeTags.glitch) lastPackTags.push({ kind: "shiny", html: "📦 Booster glitché : une carte hors-série en plus !", short: "glitché" });
+    if (modeTags.cursed) lastPackTags.push({ kind: "sim", html: `🕯️ ${modeTags.cursed} carte${modeTags.cursed > 1 ? "s" : ""} maudite${modeTags.cursed > 1 ? "s" : ""} : purifie-les sous 48 h (page Mode du moment)`, short: "maudite" });
+    if (modeTags.mutants) lastPackTags.push({ kind: "bonus", html: `🧬 ${modeTags.mutants} carte${modeTags.mutants > 1 ? "s" : ""} va muter dans les 24 h…`, short: "mutante" });
+    if (forged) lastPackTags.push({ kind: "shiny", html: `&#128293; ${forged} arc-en-ciel forgée${forged > 1 ? "s" : ""} dans les flammes !`, short: "forgée" });
+    if (finishLost) lastPackTags.push({ kind: "sim", html: `&#128293; Mode Hard : ${finishLost} finition${finishLost > 1 ? "s" : ""} brûlée${finishLost > 1 ? "s" : ""}`, short: "brûlée" });
+    if (luckyDup) lastPackTags.push({ kind: "bonus", html: `&#127808; ${luckyDup} doublon${luckyDup > 1 ? "s" : ""} changé${luckyDup > 1 ? "s" : ""} en carte manquante`, short: "porte-bonheur" });
     if (ripened) lastPackTags.push({ kind: "bonus", html: `&#127815; Booster mûri : +${ripened} pt${ripened > 1 ? "s" : ""} de finition`, short: "mûri" });
     if (pityHits.length) lastPackTags.push({ kind: "pity", html: `&#127919; ${[...new Set(pityHits)].join(", ")} garantie (pity)`, short: "pity" });
     renderPackTags(lastPackTags);
     pack.classList.add("tearing");
+    Sfx.tear();
+    OpeningFx.vibrate(35);
     if (chargeRing) chargeRing.classList.remove("active");
     spawnFoilShards(pack);
     flash.classList.add("flash-active");
     skipHint.classList.remove("visible");
 
     await wait(750);
-    pack.classList.remove("tearing");
+    pack.classList.remove("tearing", "god-pack");
     pack.style.visibility = "hidden";
 
     await wait(250);
@@ -1220,6 +1303,10 @@ async function startOpening(ext) {
 // ---------------------------------------------------------------------------
 let chestState = null;
 let lastOpenMode = "pack";
+// Nombre de coffres de la prochaine ouverture (plusieurs d'un coup, 2026-10-15).
+let chestOpenCount = 1;
+const CHEST_MAX_BATCH = 20;
+const chestAvail = () => (chestState ? Math.min(chestState.chests, chestState.keys, CHEST_MAX_BATCH) : 0);
 const CHEST_ERRORS = { not_enough_dust: "Pas assez de poussières.", no_chest: "Tu n'as pas de coffre.", no_key: "Il te faut une clé pour ouvrir un coffre." };
 
 function renderChests() {
@@ -1231,12 +1318,23 @@ function renderChests() {
   document.getElementById("chest-keys").innerHTML = `&#128273; ${st.keys} clé${st.keys > 1 ? "s" : ""}`;
   document.getElementById("chest-next").textContent = `Prochain coffre offert au niveau ${st.nextChestLevel}, prochaine clé au niveau ${st.nextKeyLevel} (tu es niveau ${st.level}).`;
   const openBtn = document.getElementById("chest-open-btn");
-  openBtn.disabled = !(st.chests > 0 && st.keys > 0);
+  const avail = chestAvail();
+  openBtn.disabled = avail < 1;
   openBtn.title = st.chests < 1 ? "Aucun coffre" : st.keys < 1 ? "Il te faut une clé" : "";
+  // Plusieurs d'un coup : autant que de coffres ET de clés (20 au plus).
+  const open5 = document.getElementById("chest-open5-btn");
+  open5.hidden = avail < 5;
+  const openAll = document.getElementById("chest-openall-btn");
+  openAll.hidden = avail < 2 || avail === 5;
+  openAll.innerHTML = `Tout ouvrir (×${avail})`;
+  openAll.title = st.chests > st.keys ? `Limité par tes clés (${st.keys})` : st.chests > CHEST_MAX_BATCH ? `${CHEST_MAX_BATCH} coffres au plus d'un coup` : "";
   const buyBtn = document.getElementById("chest-buy-btn");
   buyBtn.innerHTML = `Acheter un coffre (${st.cost} &#10024;)`;
   buyBtn.disabled = st.stardust < st.cost;
   buyBtn.title = st.stardust < st.cost ? `Il te faut ${st.cost} poussières (tu en as ${st.stardust})` : "";
+  const buy5 = document.getElementById("chest-buy5-btn");
+  buy5.innerHTML = `Acheter ×5 (${st.cost * 5} &#10024;)`;
+  buy5.disabled = st.stardust < st.cost * 5;
 }
 
 function announceLevelGrant(g) {
@@ -1256,23 +1354,24 @@ async function loadChests() {
   } catch (e) { /* panneau facultatif */ }
 }
 
-async function buyChest(btn) {
+async function buyChest(btn, n = 1) {
   const cost = chestState ? chestState.cost : 100;
-  if (!(await Confirm.show(`Acheter un coffre pour <strong>${cost} poussières d'étoile</strong> ?`, { title: "Acheter un coffre", confirmText: "Acheter" }))) return;
+  if (!(await Confirm.show(n > 1 ? `Acheter <strong>${n} coffres</strong> pour <strong>${cost * n} poussières d'étoile</strong> ?` : `Acheter un coffre pour <strong>${cost} poussières d'étoile</strong> ?`, { title: n > 1 ? `Acheter ${n} coffres` : "Acheter un coffre", confirmText: "Acheter" }))) return;
   btn.disabled = true;
   try {
-    chestState = await API.chests(Session.userId, "buy");
-    Toast.success("&#129520; Coffre acheté !");
+    chestState = await API.chests(Session.userId, "buy", n);
+    Toast.success(n > 1 ? `&#129520; ${n} coffres achetés !` : "&#129520; Coffre acheté !");
     loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error(CHEST_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(CHEST_ERRORS[e.code] || friendlyError(e));
   }
   renderChests();
 }
 
 // Meme modale que les boosters, avec un coffre a la place du pack.
-function openChestModal() {
-  if (isBusy || !chestState || chestState.chests < 1 || chestState.keys < 1) return;
+function openChestModal(count = 1) {
+  if (isBusy || !chestState || chestAvail() < 1) return;
+  chestOpenCount = Math.max(1, Math.min(count, chestAvail()));
   lastOpenMode = "chest";
   lastPackTags = [];
   renderPackTags([]);
@@ -1289,16 +1388,26 @@ function openChestModal() {
   const oldRevealAll = document.getElementById("reveal-all-btn");
   if (oldRevealAll) oldRevealAll.remove();
   pack.classList.remove("locked", "charging", "tearing", "pack-shiny", "charging-special");
+  // Eventail de boosters laisse ouvert (fenetre fermee avant le choix) et
+  // dechirure au doigt : rien de tout ca ne doit agir sur le coffre.
+  pack.parentElement.querySelectorAll(".pack-fan").forEach((f) => f.remove());
+  pack._ext = null;
+  pack.classList.remove("tear-drag", "god-pack");
   pack.classList.add("chest-pack");
   pack.style.visibility = "visible";
   pack.style.setProperty("--pity-ratio", "0");
-  pack.innerHTML = `<div class="booster-emoji chest-emoji">&#129520;</div><div class="booster-title">Coffre</div><div class="booster-sub">&#128273; 1 clé</div>`;
-  document.getElementById("booster-hint").textContent = "Tape sur le coffre pour l'ouvrir avec une clé";
+  const many = chestOpenCount > 1;
+  pack.innerHTML = `<div class="booster-emoji chest-emoji">&#129520;${many ? `<span class="chest-multi">×${chestOpenCount}</span>` : ""}</div><div class="booster-title">${many ? `${chestOpenCount} coffres` : "Coffre"}</div><div class="booster-sub">&#128273; ${chestOpenCount} clé${many ? "s" : ""}</div>`;
+  pack.classList.toggle("chest-many", many);
+  document.getElementById("booster-hint").textContent = many ? `Tape pour ouvrir les ${chestOpenCount} coffres d'un coup` : "Tape sur le coffre pour l'ouvrir avec une clé";
   pack.onclick = () => { if (!isBusy) { Sfx.click(); startChestOpening(); } };
   crossfadeModalBackground(null);
   attachPackTilt(pack);
   const qtyPicker = document.getElementById("quantity-picker");
   if (qtyPicker) qtyPicker.style.display = "none";
+  // Pari et double tranchant : options de booster, pas de coffre.
+  const modeOpts = document.getElementById("mode-options");
+  if (modeOpts) modeOpts.hidden = true;
   const openAnotherBtn = document.getElementById("open-another-btn");
   if (openAnotherBtn) openAnotherBtn.style.display = "none";
   const stageEl = overlay.querySelector(".pack-modal-stage");
@@ -1325,7 +1434,7 @@ async function startChestOpening() {
   const hint = document.getElementById("booster-hint");
   pack.classList.add("charging");
   try {
-    const res = await API.chests(Session.userId, "open");
+    const res = await API.chests(Session.userId, "open", chestOpenCount);
     chestState = res;
     const cards = chestItemsToCards(res.items || []);
     const realCards = cards.filter((c) => !c.lootType);
@@ -1349,7 +1458,9 @@ async function startChestOpening() {
     pack.style.visibility = "hidden";
     await wait(250);
     hint.textContent = "Tape sur chaque objet pour le révéler";
-    lastPackTags = [{ kind: "chest", html: `&#129520; Coffre : ${res.items.length} objet${res.items.length > 1 ? "s" : ""}`, short: "coffre ouvert" }];
+    const n = Number(res.opened) || 1;
+    // Recapitulatif du butin (regroupe quand plusieurs coffres).
+    lastPackTags = [{ kind: "chest", html: `&#129520; ${n > 1 ? `${n} coffres` : "Coffre"} : +${res.dust} &#10024;${res.boosters ? ` · +${res.boosters} booster${res.boosters > 1 ? "s" : ""}` : ""} · ${res.cardCount ?? realCards.length} carte${(res.cardCount ?? realCards.length) > 1 ? "s" : ""}`, short: n > 1 ? `${n} coffres ouverts` : "coffre ouvert" }];
     renderPackTags(lastPackTags);
     realCards.forEach((card) => {
       const before = ownedCountMap.get(card.cardId) || 0;
@@ -1386,7 +1497,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("booster-zone").style.display = "block";
   loadChests();
   document.getElementById("chest-buy-btn").addEventListener("click", (e) => buyChest(e.currentTarget));
-  document.getElementById("chest-open-btn").addEventListener("click", openChestModal);
+  document.getElementById("chest-open-btn").addEventListener("click", () => openChestModal(1));
+  document.getElementById("chest-open5-btn").addEventListener("click", () => openChestModal(5));
+  document.getElementById("chest-openall-btn").addEventListener("click", () => openChestModal(chestAvail()));
+  document.getElementById("chest-buy5-btn").addEventListener("click", (e) => buyChest(e.currentTarget, 5));
 
   const overlay = document.getElementById("pack-modal-overlay");
   document.getElementById("pack-modal-close").addEventListener("click", closeModal);
@@ -1412,14 +1526,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (lastOpenMode === "chest") {
         if (isBusy) return;
         Sfx.click();
-        openChestModal();
+        openChestModal(chestOpenCount);
         startChestOpening();
         return;
       }
       if (isBusy || !lastOpenedExtension || usableBoosters() < 1) return;
       Sfx.click();
       openModalFor(lastOpenedExtension.id);
-      startOpening(lastOpenedExtension);
+      // Vrai booster : on repasse par le choix parmi 3 puis la dechirure
+      // (lancer l'ouverture tout de suite sautait l'eventail). La simulation
+      // reste directe.
+      if (lastOpenMode === "sim") startOpening(lastOpenedExtension);
     });
   }
 

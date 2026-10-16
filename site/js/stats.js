@@ -7,7 +7,7 @@
   const esc = escHtml;
   const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
   const FINISH = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-  const QUALITY = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+  const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   // Sources du grand livre (chemins de l'API) -> libelles.
   const SOURCES = {
     "disenchant": "&#9851;&#65039; Décraft", "craft": "&#10024; Craft", "open-pack": "&#127183; Doublons des boosters", "dig": "&#9935;&#65039; Fouille", "fishing": "&#127907; Pêche",

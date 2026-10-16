@@ -79,6 +79,26 @@ import * as ledger from './ledger.js';
 import * as presets from './presets.js';
 import * as comfort from './comfort.js';
 import * as rendezvous from './rendezvous.js';
+import * as modeperks from './modeperks.js';
+import * as machine from './machine.js';
+import * as features from './features.js';
+import * as modeextras from './modeextras.js';
+import * as seasonal from './seasonal.js';
+import * as editions from './editions.js';
+import * as phantom from './phantom.js';
+import * as lottery from './lottery.js';
+import * as wanted from './wanted.js';
+import * as halloffame from './halloffame.js';
+import * as teams from './teams.js';
+import * as duo from './duo.js';
+import * as bingo from './bingo.js';
+import * as cards from './cards.js';
+import * as dino from './dino.js';
+import * as discoveries from './discoveries.js';
+import * as moderules from './moderules.js';
+import * as chaosvote from './chaosvote.js';
+import * as modefun from './modefun.js';
+import * as draft from './draft.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
@@ -86,9 +106,11 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort];
+const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun];
+// La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
+moderules.useFeatures(features);
 // XP doublee pendant l'action du jour (daily.js).
 const XP_FIELDS = ['XP', 'FishingXP', 'DigXP', 'ExpeditionXP', 'GardenXP'];
 
@@ -158,6 +180,8 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     } catch (e) { console.error(e); captureError(e, { hook: 'ledger' }); }
     return row;
   };
+  // Historique de chaque exemplaire (cards.js) : creations, echanges, changements.
+  cards.installHistory(store, captureError);
   // Evenements d'une action -> abonnes ; annonces du joueur dans la reponse.
   const observe = (path, body, response) => {
     const ctx = currentContext();
@@ -165,6 +189,10 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       const events = activity.eventsFrom(store, path, body, response);
       ctx.notices.push(...activity.dispatch(store, SUBSCRIBERS, events));
     } catch (e) { console.error(e); captureError(e, { hook: 'activity:' + path }); }
+    // Premiere fois qu'une ressource est obtenue (discoveries.js).
+    if (ctx.userId && response && response.status === 200 && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
+      try { const found = discoveries.check(store, ctx.userId); if (found) response.json.discoveries = found; } catch (e) { console.error(e); captureError(e, { hook: 'discoveries' }); }
+    }
     const mine = ctx.notices.filter((n) => n && n.userId === ctx.userId);
     if (mine.length && response && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
       response.json.notices = [...(response.json.notices || []), ...mine.map(({ kind, icon, label }) => ({ kind, icon, label }))];
@@ -193,7 +221,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       ctx.actor = body.discordId ? 'admin:' + body.discordId : ctx.userId ? 'joueur:' + ctx.userId : 'anonyme';
       ctx.detail = ledger.summarizeBody(body);
       ctx.notices = [];
-      for (const m of [unique, rules, fishing, market, inflation]) {
+      for (const m of [unique, rules, fishing, market, inflation, modeextras, modeperks, machine, seasonal, lottery, teams, modefun]) {
         try { m.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeRequest' }); }
       }
       const userId = Number(body.userId || query.userId) || 0;
@@ -203,7 +231,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      for (const m of [pity, balance, comfort, rules, levels, market]) {
+      for (const m of [features, modeperks, pity, balance, comfort, rules, levels, market, modefun]) {
         try {
           const denied = m.beforeWorkflow({ store, path, request });
           if (denied) { market.restoreHidden(store, request); return denied; }
@@ -217,6 +245,9 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     endRequest() { Object.assign(currentContext(), { source: null, action: null, userId: 0, actor: null, detail: null, notices: [] }); },
     // A appeler sous le verrou.
     run(method, path, { body = {}, query = {} } = {}) {
+      // Fonctionnalite fermee dans le mode en cours (features.js) : ecriture refusee.
+      const closed = features.gate(store, method, path, body);
+      if (closed) return closed;
       const response = routes.get(`${method} ${path}`)({ store, body, query });
       if (method === 'POST') observe(path, body, response);
       return response;

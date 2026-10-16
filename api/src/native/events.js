@@ -13,6 +13,12 @@
 import { refId, now, ok, fail, configRow, isAdmin } from './common.js';
 import { setting } from './settings.js';
 import { goldenState } from './comfort.js';
+import { currentMode } from './presets.js';
+import { modeCardFor } from './modeperks.js';
+import { modePerks, publicRules } from './moderules.js';
+import { publicView as featuresOff } from './features.js';
+import { chaosRule, nextMode } from './modeextras.js';
+import { publicSeason } from './seasonal.js';
 
 export const schema = {
   ScheduledEvents: {
@@ -61,8 +67,17 @@ export function eventState(store) {
   };
 }
 
+// Mode en cours, ce qu'il change et sa carte exclusive (annonce cote site).
+function modeView(store) {
+  const m = currentMode(store);
+  const mc = modeCardFor(store);
+  const rule = chaosRule(store);
+  return { ...m, perks: modePerks(store, m.key), rules: publicRules(store), card: mc ? { cardId: mc.card.id, name: mc.card.Name } : null, off: featuresOff(store),
+    chaosRule: rule ? { key: rule.key, icon: rule.icon, label: rule.label } : null, next: nextMode(store) };
+}
+
 function handleStatus({ store }) {
-  return ok({ ...eventState(store), goldenHour: goldenState(store) });
+  return ok({ ...eventState(store), goldenHour: goldenState(store), gameMode: modeView(store), season: publicSeason(store) });
 }
 
 function handleAdmin({ store, body }) {

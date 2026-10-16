@@ -18,6 +18,24 @@ import { previousSeason } from '../src/native/seasons.js';
 import * as balance from '../src/native/balance.js';
 import * as ledger from '../src/native/ledger.js';
 import { goldenWindow } from '../src/native/comfort.js';
+import * as modeperks from '../src/native/modeperks.js';
+import * as machine from '../src/native/machine.js';
+import * as modeextras from '../src/native/modeextras.js';
+import * as seasonal from '../src/native/seasonal.js';
+import * as editions from '../src/native/editions.js';
+import * as phantom from '../src/native/phantom.js';
+import * as lottery from '../src/native/lottery.js';
+import * as teams from '../src/native/teams.js';
+import * as bingo from '../src/native/bingo.js';
+import * as cardsMod from '../src/native/cards.js';
+import * as hallOfFame from '../src/native/halloffame.js';
+import * as dinoMod from '../src/native/dino.js';
+import * as moderules from '../src/native/moderules.js';
+import * as modefun from '../src/native/modefun.js';
+import * as chaosvote from '../src/native/chaosvote.js';
+import * as economy from '../src/native/economy.js';
+import { setting, rawSetting } from '../src/native/settings.js';
+
 import { requestContext, freshContext } from '../src/native/context.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -273,10 +291,13 @@ await test('encheres : sequestre, surenchere remboursee, vente reglee avec taxe'
 
 await test('boutique de boosters : prix croissant, plafond hebdomadaire', () => {
   store.update('Users', 1, { StardustCount: 5000, ShopWeek: '', ShopBought: 0 });
+  // Base 30 boosters/jour : 300 poussieres (+35 % par achat), plafond ramene a 3 pour le test.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BoosterShopWeeklyCap: 3 } } });
   const prices = [];
   for (let i = 0; i < 3; i++) prices.push(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.paid);
-  assert.deepEqual(prices, [450, 608, 765]);
+  assert.deepEqual(prices, [300, 405, 510]);
   assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.error, 'weekly_cap');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'BoosterShopWeeklyCap' } });
 });
 
 await test('restaurations repetees : supplement croissant pour la meme carte dans la semaine', () => {
@@ -377,13 +398,13 @@ await test('inflation : prix indexes sur la richesse, mode serre force (prix, ta
   inflation._reset();
   // Solde moyen 400 pour 100 de reference : racine(4) = 2 (plafond 2).
   assert.equal(call('GET', 'economy-state', { query: {} }).json.priceFactor, 2);
-  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, 900);
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, 600);
   set({ PriceIndexEnabled: false, InflationModeForce: 1 });
   inflation._reset();
   const st = call('GET', 'economy-state', { query: {} }).json;
   assert.equal(st.tight, true);
   assert.equal(st.priceFactor, 1.25);
-  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, Math.round(450 * 1.25));
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'status' } }).json.price, Math.round(300 * 1.25));
   assert.equal(inflation.taxMultiplier(store), 1.5);
   assert.equal(inflation.gainMultiplier(store), 0.5);
   set({ InflationModeForce: 0 });
@@ -493,7 +514,6 @@ await test('jardin etendu : graines, parcelle achetee, recolte selon la graine',
   store.update('Users', 1, { GardenPlots: JSON.stringify(plots) });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GardenWiltHours: 0 } } });
   const h = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GardenWiltHours' } });
   const worm = h.items.find((i) => i.seed === 'worm'), dust = h.items.find((i) => i.seed === 'dust');
   assert.ok(worm.worms >= 3 && worm.dust === 0);
   assert.ok(dust.dust >= 30 && dust.worms === 0);
@@ -542,7 +562,7 @@ await test('evenements planifies : appliques tout seuls entre le debut et la fin
 // ------------------------------------------------------------------ equilibrage 2026-10-11
 await test('equilibrage : boosters de fouille et du chien convertis, os limites par jour', () => {
   const set = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
-  set({ DigBoosterKeepChance: 0 });
+  set({ DigBoosterKeepChance: 0, DogKeepBoosters: false, DogBonesPerDay: 4 });
   store.update('Users', 1, { BoosterCount: 10, StardustCount: 0, DigDay: '', DigDayCount: 0, BoneUseDay: '', BoneUseCount: 0 });
   // Fouille : booster trouve -> poussieres.
   const dig = { status: 200, json: { outcome: 'booster', boosterGranted: true, dustGained: 0, newBoosterCount: 10, newStardust: 0 } };
@@ -565,7 +585,7 @@ await test('equilibrage : boosters de fouille et du chien convertis, os limites 
     native.afterWorkflow('dig', { body: { userId: 1, action: 'useBone' } }, { status: 200, json: {} });
   }
   assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'useBone' } }).json.error, 'dog_daily_limit');
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DigBoosterKeepChance' } });
+  for (const key of ['DigBoosterKeepChance', 'DogKeepBoosters', 'DogBonesPerDay']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
 });
 
 await test('equilibrage : migration unique des reglages trop genereux (historique garde)', () => {
@@ -689,8 +709,9 @@ await test('journal : origine inconnue tracee, lignes "autre" supprimees une foi
 await test('modes de jeu : Chill / Medium / Hard, apercu, annonce, personnalise', () => {
   assert.equal(call('POST', 'admin-preset', { body: { discordId: 'x' } }).status, 403);
   let st = call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json;
-  assert.equal(st.presets.length, 3);
-  assert.ok(['chill', 'medium', 'hard'].includes(st.recommendation.key));
+  assert.equal(st.presets.length, 5);
+  assert.ok(['cool', 'chill', 'medium', 'hard'].includes(st.recommendation.key));
+  assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.key, st.current === 'custom' ? (st.last ? st.last.key : 'medium') : st.current);
   const hard = st.presets.find((p) => p.key === 'hard');
   assert.ok(hard.changes.length > 0 && hard.changes.every((c) => c.label));
   st = call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'hard', announce: true } }).json;
@@ -818,6 +839,1289 @@ await test('jardin vivant : plante fanee reduite, serie de recoltes', () => {
   assert.ok(h.items[0].worms <= 2, 'moitie de 3 a 5 vers');
   assert.equal(user(1).GardenStreak, 3);
   assert.equal(h.streak, 3);
+});
+
+// ------------------------------------------------------------------ bonus et malus des modes 2026-10-14
+const chaosvoteRuleTomorrow = () => { const r = chaosvote.votedRuleFor(store, parisDay(1)); return r && r.key; };
+const applyMode = (preset) => call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset } });
+const setS = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
+
+await test('mode Cool : calin, peche sans prise vide, taxes nulles, 2 trouvailles, jardin magique', () => {
+  applyMode('cool');
+  assert.equal(modeperks.modeKey(store), 'cool');
+  store.update('Users', 1, { HugDay: '' });
+  const st = { status: 200, json: { count: 1 } };
+  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, st);
+  assert.ok(st.json.hug, 'calin du jour');
+  assert.equal(st.json.gameMode.key, 'cool');
+  const fish = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.ok(!fish.table.some((x) => x.type === 'nothing'));
+  assert.equal(call('GET', 'economy-rules', { query: { userId: 1 } }).json.tradeTaxPerCard, 0);
+  store.update('Users', 1, { DogGiftDay: '', DogGiftCount: 0 });
+  call('POST', 'dog-gift', { body: { userId: 1, action: 'claim' } });
+  assert.equal(call('POST', 'dog-gift', { body: { userId: 1 } }).json.available, true, 'deuxieme trouvaille');
+  call('POST', 'dog-gift', { body: { userId: 1, action: 'claim' } });
+  assert.equal(call('POST', 'dog-gift', { body: { userId: 1 } }).json.available, false);
+  assert.equal(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours, 0);
+  const ev = call('GET', 'event-status', { query: {} }).json;
+  assert.ok(ev.gameMode.perks.length >= 5);
+});
+
+await test('mode Cool : decraft annulable pendant 24 h', () => {
+  const card = cards()[0];
+  const pid = mk(1, card.id, 'holo', 'good');
+  const req = { body: { userId: 1, cardId: card.id, pullId: pid } };
+  native.beforeWorkflow('disenchant', req);
+  store.delete('Pulls', pid);
+  const resp = { status: 200, json: { disenchanted: true, dustGained: 40, newStardust: 0 } };
+  native.afterWorkflow('disenchant', req, resp);
+  assert.ok(resp.json.undoId);
+  store.update('Users', 1, { StardustCount: 500 });
+  const list = call('POST', 'decraft-undo', { body: { userId: 1 } }).json;
+  assert.ok(list.items.some((x) => x.id === resp.json.undoId));
+  const before = store.getAll('Pulls').length;
+  const u = call('POST', 'decraft-undo', { body: { userId: 1, action: 'undo', id: resp.json.undoId } }).json;
+  assert.equal(u.undone, true);
+  assert.equal(store.getAll('Pulls').length, before + 1);
+  assert.equal(user(1).StardustCount, 500 - list.items.find((x) => x.id === resp.json.undoId).dust);
+  assert.equal(call('POST', 'decraft-undo', { body: { userId: 1, action: 'undo', id: resp.json.undoId } }).json.error, 'not_undoable');
+});
+
+await test('mode Chill : 4 defis, deux heures de chance, doublon porte-bonheur', () => {
+  applyMode('chill');
+  assert.equal(call('POST', 'challenges', { body: { userId: 1 } }).json.maxPicks, 4);
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(daily.luckyWindows('2026-10-14').length, 2, 'mercredi : deux heures');
+  // Doublon porte-bonheur force a 100 %.
+  setS({ ChillLuckyDuplicateChance: 1 });
+  const rar = store.getAll('Rarities').find((r) => r.Key === 'commune');
+  const ext = refIdOf(cards()[0].Extension);
+  const owned = store.create('Cards', { Name: 'Deja la', Active: true, Rarity: rar.id, Extension: ext });
+  const missing = store.create('Cards', { Name: 'Manquante', Active: true, Rarity: rar.id, Extension: ext });
+  store.create('Pulls', { User: 1, Card: owned.id, SerialNumber: 7701, BatchId: 'old-lucky' });
+  // Toutes les autres communes de l'extension sont possedees.
+  for (const c of store.getAll('Cards').filter((x) => x.Active && refIdOf(x.Rarity) === rar.id && refIdOf(x.Extension) === ext && x.id !== missing.id)) store.create('Pulls', { User: 1, Card: c.id, SerialNumber: 7800 + c.id, BatchId: 'old-lucky' });
+  const batchId = '1-lucky-' + Date.now();
+  store.create('Pulls', { User: 1, Card: owned.id, SerialNumber: 7702, BatchId: batchId });
+  const resp = { status: 200, json: { batchId, booster: { extensionId: ext }, cards: [{ cardId: owned.id, serialNumber: 7702, rarity: { id: rar.id, key: rar.Key, sortOrder: rar.SortOrder } }] } };
+  native.afterWorkflow('open-pack', { body: { userId: 1, extensionId: ext } }, resp);
+  assert.equal(resp.json.cards[0].cardId, missing.id);
+  assert.equal(resp.json.luckyDuplicates, 1);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'ChillLuckyDuplicateChance' } });
+});
+
+await test('mode Medium : pari, double tranchant, contrat de la semaine', () => {
+  applyMode('medium');
+  const rars = store.getAll('Rarities').filter((r) => r.Key !== 'unique').sort((a, b) => a.SortOrder - b.SortOrder);
+  const epic = store.getAll('Rarities').find((r) => r.Key === 'epique');
+  const ext = refIdOf(cards()[0].Extension);
+  // Pari gagnant.
+  store.update('Users', 1, { StardustCount: 1000 });
+  const req = { body: { userId: 1, extensionId: ext, bet: true } };
+  assert.equal(native.beforeWorkflow('open-pack', req), null);
+  assert.equal(req._bet, 100);
+  const resp = { status: 200, json: { batchId: 'bet-1', booster: { extensionId: ext }, cards: [{ cardId: 1, serialNumber: 1, rarity: { id: epic.id, key: 'epique', sortOrder: epic.SortOrder } }] } };
+  native.afterWorkflow('open-pack', req, resp);
+  assert.equal(resp.json.bet.won, true);
+  assert.equal(resp.json.bet.payout, 300);
+  assert.ok(user(1).StardustCount >= 1200, 'mise triplee');
+  // Double tranchant : 5 cartes -> 3, dont une rare ou mieux.
+  const commune = rars[0];
+  const pool = cards().filter((c) => refIdOf(c.Rarity) === commune.id && refIdOf(c.Extension) === ext);
+  const batchId = '1-edge-' + Date.now();
+  const list = [];
+  for (let i = 0; i < 5; i++) { const c = pool[i % pool.length]; store.create('Pulls', { User: 1, Card: c.id, SerialNumber: 9100 + i, BatchId: batchId }); list.push({ cardId: c.id, serialNumber: 9100 + i, rarity: { id: commune.id, key: commune.Key, sortOrder: commune.SortOrder } }); }
+  const r2 = { body: { userId: 1, extensionId: ext, edge: true } };
+  native.beforeWorkflow('open-pack', r2);
+  const e = { status: 200, json: { batchId, booster: { extensionId: ext }, cards: list } };
+  native.afterWorkflow('open-pack', r2, e);
+  assert.equal(e.json.cards.length, 3);
+  assert.equal(store.getAll('Pulls').filter((p) => p.BatchId === batchId).length, 3);
+  assert.ok(e.json.cards.some((c) => c.rarity.sortOrder >= rars[1].SortOrder));
+  // Contrat de la semaine.
+  const g = call('POST', 'weekly-goal', { body: { userId: 1 } }).json;
+  assert.equal(g.active, true);
+  assert.ok(g.label && g.target > 0);
+});
+
+await test('mode Hard : usure, arc-en-ciel forgee, boss enrage, taxe de luxe', () => {
+  applyMode('hard');
+  setS({ HardWearChance: 1, HardFinishLoss: 0 });
+  // Usure d'un doublon.
+  const card = cards()[1];
+  const a = mk(1, card.id, 'normal', 'mint'), b2 = mk(1, card.id, 'normal', 'mint');
+  store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1 && p.id !== a && p.id !== b2).forEach((p) => store.update('Pulls', p.id, { Quality: 'damaged' }));
+  store.update('Users', 1, { WearDay: '' });
+  const st = { status: 200, json: {} };
+  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, st);
+  assert.ok(st.json.wear, 'un doublon s est use');
+  // Arc-en-ciel forgee.
+  const batchId = '1-forge-' + Date.now();
+  const pid = store.create('Pulls', { User: 1, Card: card.id, SerialNumber: 9300, Finish: 'rainbow', BatchId: batchId }).id;
+  const resp = { status: 200, json: { batchId, cards: [{ cardId: card.id, serialNumber: 9300, finish: 'rainbow', rarity: { sortOrder: 1 } }] } };
+  native.afterWorkflow('open-pack', { body: { userId: 1 } }, resp);
+  assert.equal(store.get('Pulls', pid).ForgedInFire, true);
+  const coll = { status: 200, json: {} };
+  native.afterWorkflow('collection', { query: { userId: '1' }, body: {} }, coll);
+  assert.ok(coll.json.forgedPullIds.includes(pid));
+  // Taxe de luxe : plus riche que la moyenne -> x1,5.
+  store.getAll('Users').forEach((u) => store.update('Users', u.id, { LastSeenAt: now(), StardustCount: 100 }));
+  store.update('Users', 1, { StardustCount: 100000 });
+  assert.equal(modeperks.luxuryFactor(store, user(1)), 1.5);
+  assert.equal(modeperks.luxuryFactor(store, user(2)), 1);
+  for (const key of ['HardWearChance', 'HardFinishLoss']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+});
+
+await test('carte exclusive du mode : donnee une fois avec l objectif commun', () => {
+  const card = cards()[0];
+  setS({ ModeCards: { cool: 0, chill: 0, medium: 0, hard: card.id } });
+  store.update('Users', 1, { ModeCards: '[]' });
+  const got = modeperks.grantModeCard(store, 1);
+  assert.equal(got.cardId, card.id);
+  assert.equal(modeperks.grantModeCard(store, 1), null, 'une seule fois');
+  assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.card.cardId, card.id);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'ModeCards' } });
+  applyMode('medium');
+});
+
+await test('salle des machines : 5 sacrifices, vote, mode applique a la fin du vote', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachineVoteDay: 28, MachineRoomCosts: { keys: 2, dust: 10, worms: 1, parts: 1, bait: 1, boosters: 1, cards: 1 } } } });
+  store.update('Users', 1, { MachineMonth: '', MachineStage: 0, MachineVote: '', KeyCount: 1, StardustCount: 100, Worms: 5, SpareParts: 2, GoldBait: 2, BoosterCount: 2 });
+  let st = call('POST', 'machine-room', { body: { userId: 1 } }).json;
+  assert.equal(st.stages.length, 6);
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json.error, 'not_enough', 'il manque une cle');
+  store.update('Users', 1, { KeyCount: 2 });
+  const card = cards()[2];
+  mk(1, card.id, 'normal', 'worn'); mk(1, card.id, 'normal', 'worn');
+  for (let i = 0; i < 5; i++) st = call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json;
+  assert.equal(st.done, true);
+  assert.equal(user(1).KeyCount, 0);
+  assert.equal(user(1).BoosterCount, 1);
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1, action: 'vote', mode: 'cool' } }).json.voted, 'cool');
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1, action: 'vote', mode: 'hard' } }).json.error, 'already_voted');
+  // Fermeture du vote : le mode gagnant est applique.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachineVoteDay: 1 } } });
+  const r = store.getAll('AppSettings').find((x) => x.Key === 'machineRoom');
+  if (r) store.delete('AppSettings', r.id);
+  machine._reset();
+  const today = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()).slice(8, 10));
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  if (today > 1) {
+    assert.equal(modeperks.modeKey(store), 'cool');
+    assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.result.winner, 'cool');
+  }
+  for (const key of ['MachineVoteDay', 'MachineRoomCosts']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  // Par defaut : salle ouverte tout le mois, resultat le mois suivant.
+  const def = call('POST', 'machine-room', { body: { userId: 1 } }).json;
+  assert.equal(def.open, true);
+  assert.equal(def.appliesNextMonth, true);
+  // Changement de mois : les votes du mois precedent appliquent le mode gagnant.
+  const [y, mo] = def.month.split('-').map(Number);
+  const prev = mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`;
+  store.update('Users', 1, { MachineMonth: prev, MachineStage: 5, MachineVote: 'hard' });
+  const old = store.getAll('AppSettings').find((x) => x.Key === 'machineRoom');
+  if (old) store.delete('AppSettings', old.id);
+  machine._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(modeperks.modeKey(store), 'hard');
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.lastResult.winner, 'hard');
+  assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.stage, 0, 'nouveau mois : on repart de zero');
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+});
+
+await test('fonctionnalites par mode : ecritures refusees, lectures permises, suggestions filtrees', () => {
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'cool' } });
+  // Par defaut : encheres fermees en Cool.
+  const denied = call('POST', 'auctions', { body: { userId: 1, action: 'create', pullId: 1, minBid: 10 } });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error, 'feature_disabled');
+  assert.equal(call('POST', 'auctions', { body: { userId: 1, action: 'list' } }).status, 200, 'lecture permise');
+  const off = call('GET', 'event-status', { query: {} }).json.gameMode.off.map((f) => f.key);
+  assert.ok(off.includes('auctions') && off.includes('blackMarket'), off.join(','));
+  // Matrice modifiee : peche fermee en Cool, encheres rouvertes.
+  const st = call('POST', 'admin-mode-features', { body: { discordId: ADMIN, action: 'set', matrix: { auctions: [], fishing: ['cool'] } } }).json;
+  assert.deepEqual(st.features.find((f) => f.key === 'fishing').off, ['cool']);
+  assert.notEqual(call('POST', 'auctions', { body: { userId: 1, action: 'create', pullId: 1, minBid: 10 } }).json.error, 'feature_disabled');
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json.error, 'feature_disabled');
+  store.update('Users', 1, { Worms: 50 });
+  const items = call('GET', 'what-now', { query: { userId: 1 } }).json.items;
+  assert.ok(!items.some((i) => i.key === 'fishing'), 'pas de suggestion de peche');
+  assert.equal(call('POST', 'admin-mode-features', { body: { userId: 1, action: 'set', matrix: {} } }).status, 403);
+  // Medium : tout ouvert.
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+  assert.equal(call('GET', 'event-status', { query: {} }).json.gameMode.off.length, 0);
+  call('POST', 'admin-mode-features', { body: { discordId: ADMIN, action: 'reset' } });
+});
+
+await test('mode Chaos : regle du jour en surcouche, mode detecte, fonctionnalites du jour fermees', () => {
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'chaos' } });
+  const st = call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json;
+  assert.equal(st.current, 'chaos');
+  assert.equal(st.presets.filter((p) => p.active).length, 1);
+  const rule = modeextras.chaosRuleFor();
+  const gm = call('GET', 'event-status', { query: {} }).json.gameMode;
+  assert.equal(gm.key, 'chaos');
+  assert.equal(gm.chaosRule.key, rule.key);
+  const [key, fn] = Object.entries(rule.settings)[0];
+  assert.equal(setting(store, key), fn(rawSetting(store, key)), 'surcouche appliquee');
+  for (const f of rule.off || []) assert.ok(gm.off.some((x) => x.key === f), 'ferme par la regle : ' + f);
+  // Jamais la meme regle deux jours de suite.
+  const dayAt = (i) => new Date(Date.UTC(2026, 0, 1) + i * 86400000).toISOString().slice(0, 10);
+  for (let i = 0; i < 800; i++) assert.notEqual(modeextras.chaosRuleFor(dayAt(i)).key, modeextras.chaosRuleFor(dayAt(i + 1)).key, dayAt(i));
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+  assert.equal(call('POST', 'admin-preset', { body: { discordId: ADMIN } }).json.current, 'medium');
+});
+
+await test('succes de mode, classement Hard, parapluie', () => {
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'chill' } });
+  modeextras.onEvents(store, [{ userId: 1, type: 'boosterOpened', n: 50, meta: {} }]);
+  const prof = JSON.parse(user(1).HiddenAchievements || '{}');
+  assert.ok(prof.modeChill50, 'succes Vacancier');
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'hard' } });
+  // Le passage en Hard du test precedent peut tomber dans la meme seconde : on compare avant / apres.
+  const before = (call('GET', 'hard-leaderboard', { query: { userId: 1 } }).json.me || { score: 0 }).score;
+  modeextras.onEvents(store, [{ userId: 1, type: 'board', n: 2, meta: {} }, { userId: 2, type: 'fish', n: 1, meta: {} }]);
+  const board = call('GET', 'hard-leaderboard', { query: { userId: 1 } }).json;
+  assert.equal(board.active, true);
+  assert.equal(board.top[0].userId, 1);
+  assert.equal(board.me.score, before + 6);
+  // Parapluie : en boutique, protege de l'usure.
+  store.update('Users', 1, { StardustCount: 5000, UmbrellaUntil: 0, WearDay: '' });
+  const shop = call('POST', 'shop', { body: { userId: 1 } }).json;
+  assert.ok(shop.items.some((i) => i.key === 'umbrella'));
+  const r = call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'umbrella' } }).json;
+  assert.ok(r.umbrellaUntil > now() + 6 * 86400);
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+});
+
+await test('changement de mode programme : preavis public puis application', () => {
+  assert.equal(call('POST', 'admin-mode-schedule', { body: { discordId: ADMIN, action: 'set', preset: 'cool', at: now() - 5 } }).json.error, 'invalid_date');
+  const s = call('POST', 'admin-mode-schedule', { body: { discordId: ADMIN, action: 'set', preset: 'cool', at: now() + 3600 } }).json;
+  assert.equal(s.scheduled.key, 'cool');
+  const next = call('GET', 'event-status', { query: {} }).json.gameMode.next;
+  assert.equal(next.key, 'cool');
+  assert.equal(next.probable, false);
+  // L'heure arrive : applique tout seul.
+  const row = store.getAll('AppSettings').find((x) => x.Key === 'modeSchedule');
+  store.update('AppSettings', row.id, { Value: JSON.stringify({ key: 'cool', at: now() - 1, by: ADMIN }) });
+  modeextras._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(modeperks.modeKey(store), 'cool');
+  assert.equal(call('POST', 'admin-mode-schedule', { body: { discordId: ADMIN } }).json.scheduled, null);
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
+});
+
+await test('editions limitees : posees a l ouverture, listees dans la collection, protegees', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EditionChance: 0.5 } } });
+  const card = cards()[3];
+  const batch = '1-edition-test';
+  const ids = [];
+  for (let i = 0; i < 12; i++) ids.push(store.create('Pulls', { User: 1, Card: card.id, SerialNumber: 9000 + i, Finish: 'normal', Quality: 'good', ObtainedAt: now(), BatchId: batch }).id);
+  const json = { batchId: batch, cards: ids.map((id, i) => ({ cardId: card.id, serialNumber: 9000 + i })) };
+  editions.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json } });
+  const marked = ids.filter((id) => store.get('Pulls', id).Edition === 'prism');
+  assert.ok(marked.length > 0 && marked.length < 12, 'edition Prismatique en Medium : ' + marked.length);
+  assert.equal(json.cards.filter((c) => c.edition === 'prism').length, marked.length);
+  const coll = { status: 200, json: {} };
+  editions.afterWorkflow({ store, path: 'collection', request: { query: { userId: 1 }, body: {} }, response: coll });
+  assert.equal(coll.json.editionPulls[marked[0]], 'prism');
+  ids.forEach((id) => store.delete('Pulls', id));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EditionChance' } });
+});
+
+await test('evenements saisonniers : calendrier (Halloween, Noel, Paques, nouvel an), edition de l evenement', () => {
+  assert.equal(seasonal.currentSeason(store, '2026-10-31').key, 'halloween');
+  assert.equal(seasonal.currentSeason(store, '2026-12-24').key, 'christmas');
+  assert.equal(seasonal.currentSeason(store, '2027-01-02').key, 'newyear');
+  assert.equal(seasonal.currentSeason(store, '2027-03-27').key, 'easter', 'Paques 2027 : 28 mars');
+  assert.equal(seasonal.currentSeason(store, '2026-02-14').key, 'valentine');
+  assert.equal(seasonal.currentSeason(store, '2026-07-14'), null);
+  assert.equal(seasonal.currentSeason(store, '2026-10-31').edition, 'cursed');
+  assert.ok(editions.EDITIONS.cursed && editions.EDITIONS.snow && editions.EDITIONS.ember && editions.EDITIONS.glitch);
+  const st = call('POST', 'seasonal', { body: { userId: 1 } }).json;
+  assert.ok('season' in st);
+});
+
+await test('carte fantome : 5 fragments, carte en edition Fantome, une fois par mois', () => {
+  store.update('Users', 1, { PhantomMonth: '', PhantomFragments: '', PhantomDone: '' });
+  const before = store.getAll('Pulls').filter((p) => p.Edition === 'phantom').length;
+  for (const k of ['fish', 'dig', 'garden', 'boss']) assert.ok(phantom.grantFragment(store, 1, k));
+  assert.equal(phantom.grantFragment(store, 1, 'fish'), null, 'deja trouve');
+  const last = phantom.grantFragment(store, 1, 'machine');
+  assert.ok(/réunis/.test(last.label));
+  assert.equal(store.getAll('Pulls').filter((p) => p.Edition === 'phantom').length, before + 1);
+  const st = call('GET', 'phantom', { query: { userId: 1 } }).json;
+  assert.equal(st.done, true);
+  assert.ok(st.card);
+  assert.equal(phantom.grantFragment(store, 1, 'fish'), null);
+});
+
+await test('loterie du dimanche : tickets, cagnotte, tirage, report sans joueur', () => {
+  store.update('Users', 1, { StardustCount: 2000, LotteryWeek: '', LotteryTickets: 0 });
+  let st = call('POST', 'lottery', { body: { userId: 1, action: 'buy', count: 3 } }).json;
+  assert.equal(st.tickets, 3);
+  assert.equal(user(1).StardustCount, 1700);
+  assert.equal(st.pot, 200 + 240, 'depart 200 + 80 % de 300');
+  assert.equal(call('POST', 'lottery', { body: { userId: 1, action: 'buy', count: 50 } }).json.error, 'weekly_cap');
+  // Le dimanche 21 h est passe : tirage.
+  const past = '2026-01-05';
+  const row = store.getAll('AppSettings').find((x) => x.Key === 'lottery');
+  store.update('AppSettings', row.id, { Value: JSON.stringify({ week: past, pot: 440 }) });
+  store.update('Users', 1, { LotteryWeek: past, LotteryTickets: 3 });
+  lottery._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(user(1).StardustCount, 1700 + 440);
+  const last = call('POST', 'lottery', { body: { userId: 1 } }).json.last;
+  assert.equal(last.userId, 1);
+  assert.equal(last.pot, 440);
+});
+
+await test('avis de recherche : don d un doublon, recompense, coffre de guilde, une fois', () => {
+  let st = call('POST', 'wanted', { body: { userId: 1 } }).json;
+  assert.ok(st.card);
+  mk(1, st.card.cardId, 'normal', 'worn'); mk(1, st.card.cardId, 'normal', 'worn');
+  store.update('Users', 1, { StardustCount: 100, KeyCount: 0 });
+  const deposits = store.tables.has('GuildChestDeposits') ? store.getAll('GuildChestDeposits').length : 0;
+  st = call('POST', 'wanted', { body: { userId: 1, action: 'donate' } }).json;
+  assert.equal(st.donated, true);
+  assert.equal(user(1).StardustCount, 100 + 250);
+  assert.equal(user(1).KeyCount, 1, 'premier donateur : une cle');
+  if (store.tables.has('GuildChestDeposits')) assert.equal(store.getAll('GuildChestDeposits').length, deposits + 1);
+  assert.equal(call('POST', 'wanted', { body: { userId: 1, action: 'donate' } }).json.error, 'already_donated');
+});
+
+await test('livre d or : premieres finitions et editions du serveur', () => {
+  const c = cards()[1];
+  const id = store.create('Pulls', { User: 2, Card: c.id, SerialNumber: 9900, Finish: 'rainbow', Quality: 'good', Edition: 'ember', ObtainedAt: 1000, BatchId: '2-1000' }).id;
+  const r = call('GET', 'hall-of-fame', { query: {} }).json;
+  const rb = r.finishes.find((e) => e.label.includes('Arc-en-ciel'));
+  assert.equal(rb.userId, 2);
+  assert.ok(r.editions.some((e) => e.label.includes('Braise') && e.userId === 2));
+  store.delete('Pulls', id);
+});
+
+await test('guerre des equipes : equipe attribuee, points, titre a l equipe gagnante', () => {
+  const pts0 = call('POST', 'teams', { body: { userId: 1 } }).json.myPoints;
+  teams.onEvents(store, [{ userId: 1, type: 'board', n: 2, meta: {} }]);
+  const st = call('POST', 'teams', { body: { userId: 1 } }).json;
+  assert.ok(st.myTeam);
+  assert.equal(st.myPoints, pts0 + 6);
+  assert.equal(st.teams.length, 4);
+  // Mois precedent : l'equipe du joueur 1 gagne.
+  const [y, m] = st.month.split('-').map(Number);
+  const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  store.update('Users', 1, { TeamMonth: prev, TeamPoints: 50 });
+  const old = store.getAll('AppSettings').find((x) => x.Key === 'teamWar');
+  if (old) store.delete('AppSettings', old.id);
+  teams._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === `team-${st.myTeam}-${prev}`));
+});
+
+await test('expedition en duo : invitation, acceptation, butin partage', () => {
+  const p1 = store.getAll('Pulls').find((p) => p.User === 1);
+  const p2 = store.getAll('Pulls').find((p) => p.User === 2);
+  const pseudo2 = user(2).Pseudo;
+  let r = call('POST', 'duo-expedition', { body: { userId: 1, action: 'invite', toPseudo: pseudo2, pullId: p1.id } }).json;
+  assert.equal(r.invited, pseudo2);
+  assert.equal(call('POST', 'duo-expedition', { body: { userId: 1, action: 'invite', toPseudo: pseudo2, pullId: p1.id } }).json.error, 'already_busy');
+  const inv = call('POST', 'duo-expedition', { body: { userId: 2 } }).json.items[0];
+  r = call('POST', 'duo-expedition', { body: { userId: 2, action: 'accept', id: inv.id, pullId: p2.id } }).json;
+  assert.equal(r.items[0].status, 'running');
+  assert.equal(call('POST', 'duo-expedition', { body: { userId: 2, action: 'claim', id: inv.id } }).json.error, 'not_ready');
+  store.update('DuoExpeditions', inv.id, { EndAt: now() - 1 });
+  const d1 = user(1).StardustCount, d2 = user(2).StardustCount;
+  const l1 = call('POST', 'duo-expedition', { body: { userId: 1, action: 'claim', id: inv.id } }).json.loot;
+  const l2 = call('POST', 'duo-expedition', { body: { userId: 2, action: 'claim', id: inv.id } }).json.loot;
+  assert.deepEqual(l1, l2);
+  assert.equal(user(1).StardustCount, d1 + l1.dust);
+  assert.equal(user(2).StardustCount, d2 + l2.dust);
+});
+
+await test('salle des machines, suite : surchauffe (vote double), jauge, chef mecanicien, assiduite, vote d evenement', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachinePressureGoal: 1, MachineRoomCosts: { keys: 1, dust: 1, worms: 1, parts: 1, bait: 1, boosters: 1, cards: 1 }, MachineOverheatCosts: { boosters: 1, legendary: 1 } } } });
+  const [y, mo] = call('POST', 'machine-room', { body: { userId: 1 } }).json.month.split('-').map(Number);
+  const pm = (yy, mm) => (mm === 1 ? [yy - 1, 12] : [yy, mm - 1]);
+  const [y1, m1] = pm(y, mo), [y2, m2] = pm(y1, m1);
+  const fmt = (yy, mm) => `${yy}-${String(mm).padStart(2, '0')}`;
+  store.update('Users', 1, { MachineMonth: '', MachineStage: 0, MachineVote: '', MachineHistory: JSON.stringify([fmt(y1, m1), fmt(y2, m2)]), MachineLoyaltyAt: '', KeyCount: 5, StardustCount: 500, Worms: 5, SpareParts: 5, GoldBait: 5, BoosterCount: 10 });
+  const card = cards()[2];
+  mk(1, card.id, 'normal', 'worn'); mk(1, card.id, 'normal', 'worn');
+  const legend = store.getAll('Cards').find((c) => { const r = store.get('Rarities', Array.isArray(c.Rarity) ? c.Rarity[1] : c.Rarity); return r && r.Key === 'legendaire'; });
+  if (legend) { mk(1, legend.id, 'normal', 'worn'); mk(1, legend.id, 'normal', 'worn'); }
+  let st;
+  for (let i = 0; i < 5; i++) st = call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json;
+  assert.equal(st.done, true);
+  assert.equal(st.loyaltyReward, '3 boosters', 'assiduite : 3 mois');
+  assert.equal(st.loyalty.months, 3);
+  assert.equal(user(1).BoosterCount, 10 - 1 + 3);
+  assert.ok(st.spent > 0);
+  if (legend) {
+    st = call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json;
+    assert.equal(st.overheated, true);
+  }
+  st = call('POST', 'machine-room', { body: { userId: 1, action: 'vote', mode: 'chill' } }).json;
+  assert.equal(st.votes.chill, legend ? 2 : 1, 'surchauffe : vote double');
+  st = call('POST', 'machine-room', { body: { userId: 1, action: 'voteEvent', event: 'fishing' } }).json;
+  assert.equal(st.eventVote.votes.fishing, 1);
+  assert.equal(st.pressure.reached, true);
+  // Bilan du mois : jauge (1 booster), chef mecanicien.
+  const b = user(1).BoosterCount;
+  machine._settleMonth(store, st.month);
+  assert.equal(user(1).BoosterCount, b + 1);
+  assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === 'machine-chief'));
+  for (const key of ['MachinePressureGoal', 'MachineRoomCosts', 'MachineOverheatCosts']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  store.update('Users', 1, { MachineMonth: '', MachineStage: 0 });
+});
+
+await test('bingo : ancien fonctionnement conserve avant BingoV2From', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BingoV2From: 209901 } } });
+  bingo._reset();
+  const ids = cards().slice(0, 9).map((c) => c.id);
+  assert.equal(call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminSetGrid', cardIds: ids.slice(0, 3) } }).json.error, 'grid_needs_9_cards');
+  assert.equal(call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminSetGrid', cardIds: ids, rewardBoosters: 4 } }).json.saved, true);
+  let st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.hasGrid, true);
+  assert.equal(st.cells.length, 9);
+  assert.equal(st.version, undefined, 'format d origine');
+  ids.forEach((id) => mk(1, id));
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.allOwned, true);
+  const b = user(1).BoosterCount;
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim' } }).json.rewardBoosters, 4);
+  assert.equal(user(1).BoosterCount, b + 4);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim' } }).json.error, 'already_claimed');
+});
+
+await test('bingo v2 : grille 5x5, cases carte et objectif, lignes, joker, carton plein', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BingoV2From: 202001 } } });
+  bingo._reset();
+  store.update('Users', 1, { BingoMonth: '', StardustCount: 5000 });
+  let st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.version, 2);
+  assert.equal(st.cells.length, 25);
+  assert.equal(st.cells[12].type, 'free');
+  assert.equal(st.cells[12].done, true);
+  assert.equal(st.cells.filter((c) => c.type === 'card').length, 8);
+  assert.equal(st.lines.length, 12);
+  // Meme grille pour tout le monde, stable dans le mois.
+  assert.deepEqual(call('POST', 'bingo', { body: { userId: 2, action: 'status' } }).json.cells.map((c) => c.type + (c.key || c.card?.cardId || '')), st.cells.map((c) => c.type + (c.key || c.card?.cardId || '')));
+  // Objectif : evenements du mois.
+  const objIdx = st.cells.findIndex((c) => c.type === 'objective');
+  const obj = bingo.OBJECTIVES.find((o) => o.key === st.cells[objIdx].key);
+  const notices = bingo.onEvents(store, [{ userId: 1, type: obj.event, n: obj.n, meta: {} }]);
+  assert.ok(notices.some((n) => /case validée/.test(n.label)), JSON.stringify(notices));
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.cells[objIdx].done, true);
+  // Case carte : posseder la carte.
+  const cardIdx = st.cells.findIndex((c) => c.type === 'card' && !c.done);
+  if (cardIdx >= 0) { mk(1, st.cells[cardIdx].card.cardId); st = call('POST', 'bingo', { body: { userId: 1, action: 'status' } }).json; assert.equal(st.cells[cardIdx].done, true); }
+  // Joker : une fois par mois, payant.
+  const free = st.cells.findIndex((c) => !c.done);
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'joker', cell: free } }).json;
+  assert.equal(st.cells[free].done, true);
+  assert.equal(st.joker.used, true);
+  assert.equal(user(1).StardustCount, 5000 - 500);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'joker', cell: st.cells.findIndex((c) => !c.done) } }).json.error, 'joker_used');
+  // Ligne : on complete la ligne du milieu a la main, puis recompense.
+  const u = user(1);
+  const done = JSON.parse(u.BingoDone);
+  store.update('Users', 1, { BingoDone: JSON.stringify([...new Set([...done, 10, 11, 13, 14])]) });
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'r0' } }).json.error, call('POST', 'bingo', { body: { userId: 1 } }).json.lines[0].complete ? undefined : 'line_not_complete');
+  const d0 = user(1).StardustCount;
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'r2' } }).json;
+  assert.equal(st.reward.dust, 120);
+  assert.equal(user(1).StardustCount, d0 + 120);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'r2' } }).json.error, 'already_claimed');
+  // Carton plein.
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'full' } }).json.error, 'grid_not_complete');
+  store.update('Users', 1, { BingoDone: JSON.stringify(Array.from({ length: 25 }, (_, i) => i)) });
+  const b0 = user(1).BoosterCount;
+  st = call('POST', 'bingo', { body: { userId: 1, action: 'claim', line: 'full' } }).json;
+  assert.equal(st.fullClaimed, true);
+  assert.equal(user(1).BoosterCount, b0 + 3);
+  assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === 'bingo-full-' + st.month));
+  assert.equal(st.top[0].userId, 1);
+  assert.equal(st.top[0].full, true);
+});
+
+await test('bingo v2 : admin, apercu et cartes imposees, nouveau tirage', () => {
+  const m = call('POST', 'bingo', { body: { userId: 1 } }).json.month;
+  const prev = call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminPreview', month: m } }).json;
+  assert.equal(prev.cells.length, 25);
+  assert.equal(call('POST', 'bingo', { body: { userId: 1, action: 'adminPreview' } }).status, 403);
+  const want = cards().slice(0, 2).map((c) => c.id);
+  const cfg = call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminConfig', month: m, cardIds: want } }).json;
+  const cardIds = cfg.cells.filter((c) => c.type === 'card').map((c) => c.card.cardId);
+  assert.ok(want.every((id) => cardIds.includes(id)), 'cartes imposees presentes');
+  const re = call('POST', 'bingo', { body: { discordId: ADMIN, action: 'adminConfig', month: m, reseed: true } }).json;
+  assert.ok(re.config.seed);
+  // Nettoyage.
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'bingo:' + m);
+  if (row) store.delete('AppSettings', row.id);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'BingoV2From' } });
+  bingo._reset();
+});
+
+await test('historique d un exemplaire : creation, changement de main, amelioration, suppression', () => {
+  const c = cards()[4];
+  const id = mk(1, c.id, 'normal', 'worn');
+  const serial = store.get('Pulls', id).SerialNumber;
+  store.update('Pulls', id, { User: 2 });
+  store.update('Pulls', id, { Finish: 'holo' });
+  let h = call('GET', 'card-history', { query: { cardId: c.id, serial } }).json;
+  assert.deepEqual(h.events.map((e) => e.kind), ['created', 'moved', 'changed']);
+  assert.equal(h.events[1].other, user(1).Pseudo);
+  assert.equal(h.events[1].user, user(2).Pseudo);
+  assert.deepEqual(h.events[2].detail.finish, ['normal', 'holo']);
+  assert.equal(h.owner, user(2).Pseudo);
+  store.delete('Pulls', id);
+  h = call('GET', 'card-history', { query: { cardId: c.id, serial } }).json;
+  assert.equal(h.events[h.events.length - 1].kind, 'deleted');
+  assert.equal(h.exists, false);
+  // Exemplaire anterieur au journal : origine reconstruite par le lot de tirage.
+  const old = store.getAll('Pulls').find((p) => /^\d+-\d+$/.test(String(p.BatchId || '')));
+  if (old) {
+    store.getAll('PullHistory').filter((r) => r.Card === old.Card && r.Serial === old.SerialNumber).forEach((r) => store.delete('PullHistory', r.id));
+    const o = call('GET', 'card-history', { query: { cardId: old.Card, serial: old.SerialNumber } }).json;
+    assert.equal(o.events[0].reconstructed, true);
+  }
+});
+
+await test('cote d une carte, maitre d une carte, god pack', () => {
+  const c = cards()[5];
+  const p = mk(1, c.id);
+  store.create('Auctions', { Seller: 1, Card: c.id, Pull: p, Serial: 1, Finish: 'normal', Quality: 'good', StartPrice: 10, CurrentBid: 300, Bidder: 2, Status: 'sold', EndsAt: now() - 10, SettledAt: now() - 10 });
+  const price = call('GET', 'card-price', { query: { cardId: c.id } }).json;
+  assert.equal(price.stats.last, 300);
+  assert.ok(price.reference.disenchant >= 0);
+  // Maitre : les 6 finitions.
+  for (const f of ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow']) mk(1, c.id, f);
+  const notes = cardsMod.onEvents(store, [{ userId: 1, type: 'cardsPulled', n: 6, meta: {} }]);
+  assert.ok(notes.some((n) => /Maître/.test(n.label)));
+  assert.ok(cardsMod.masteredOf(user(1))[c.id]);
+  hallOfFame._reset();
+  const hall = call('GET', 'hall-of-fame', { query: {} }).json;
+  assert.ok(hall.finishes.some((e) => e.label === 'Maître de ' + c.Name));
+  // God pack : toutes les cartes du booster passent epique ou mieux.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GodPackChance: 0.2 } } });
+  const orig = Math.random; Math.random = () => 0.01;
+  const commune = cards().find((x) => { const r = store.get('Rarities', Array.isArray(x.Rarity) ? x.Rarity[1] : x.Rarity); return r && r.Key === 'commune'; });
+  const batch = '1-' + Date.now();
+  const pid = store.create('Pulls', { User: 1, Card: commune.id, SerialNumber: 8800, Finish: 'normal', Quality: 'good', ObtainedAt: now(), BatchId: batch }).id;
+  const json = { batchId: batch, cards: [{ cardId: commune.id, serialNumber: 8800, rarity: { key: 'commune' } }] };
+  cardsMod.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json } });
+  Math.random = orig;
+  assert.equal(json.pack.godPack, true);
+  const rk = store.get('Rarities', Array.isArray(store.get('Cards', store.get('Pulls', pid).Card).Rarity) ? store.get('Cards', store.get('Pulls', pid).Card).Rarity[1] : store.get('Cards', store.get('Pulls', pid).Card).Rarity).Key;
+  assert.ok(['epique', 'legendaire', 'mythique'].includes(rk), rk);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GodPackChance' } });
+});
+
+await test('partage sur Discord', () => {
+  const c = cards()[5];
+  const img = 'data:image/png;base64,iVBORw0KGgo=';
+  delete process.env.DISCORD_WEBHOOK_URL;
+  assert.equal(call('POST', 'share-card', { body: { userId: 1, cardId: c.id, image: img } }).json.error, 'discord_unavailable');
+  assert.equal(call('POST', 'share-card', { body: { userId: 1, cardId: c.id, image: 'pas une image' } }).json.error, 'invalid_image');
+});
+
+await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardin, nourriture a la peche', () => {
+  store.update('Users', 1, { DinoSkulls: 0, Dinos: '[]', DinoFood: '{}', DinoPoop: 0, BoneCount: 20, Worms: 50, GardenPlots: '[]', StardustCount: 5000 });
+  // Fouille : crane (chance forcee a 100 %).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DinoSkullChance: 0.1 } } });
+  const orig = Math.random; Math.random = () => 0.01;
+  const json = { dug: true };
+  dinoMod.afterWorkflow({ store, path: 'dig', request: { body: { userId: 1, action: 'dig' } }, response: { status: 200, json } });
+  Math.random = orig;
+  assert.equal(json.dinoSkull.total, 1);
+  assert.equal(user(1).DinoSkulls, 1);
+  // Eclosion : crane + 10 os.
+  let st = call('POST', 'dino', { body: { userId: 1, action: 'hatch', name: 'Pistache' } }).json;
+  assert.equal(st.dinos.length, 1);
+  assert.equal(st.hatched.name, 'Pistache');
+  assert.ok(st.hatched.hue >= 0 && st.hatched.hue < 360);
+  assert.equal(user(1).BoneCount, 10);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatch' } }).json.error, 'no_skull');
+  // Le temps passe : faim et tristesse.
+  const d0 = dinoMod.dinosOf(user(1))[0];
+  store.update('Users', 1, { Dinos: JSON.stringify([{ ...d0, at: now() - 30 * 3600 }]) });
+  st = call('POST', 'dino', { body: { userId: 1 } }).json;
+  assert.equal(st.dinos[0].food, 0);
+  assert.equal(st.dinos[0].mood.key, 'hungry');
+  // Nourrir : pas de poisson -> vers de terre ; puis poisson.
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'fish' } }).json.error, 'no_food');
+  store.update('Users', 1, { DinoFood: JSON.stringify({ fish: 5, seaweed: 2, shrimp: 1 }) });
+  for (let i = 0; i < 3; i++) st = call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'fish' } }).json;
+  assert.equal(st.dinos[0].food, 90);
+  assert.equal(st.food.fish, 2);
+  st = call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'worm' } }).json;
+  assert.equal(user(1).Worms, 49);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'seaweed' } }).json.error, 'not_hungry');
+  // Jouer, avec delai.
+  st = call('POST', 'dino', { body: { userId: 1, action: 'play', dino: 1 } }).json;
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'play', dino: 1 } }).json.error, 'play_cooldown');
+  // Cacas : 96 points manges -> 2 cacas, prets 2 h apres.
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'clean' } }).json.error, 'nothing_to_clean');
+  const d1 = dinoMod.dinosOf(user(1))[0];
+  assert.equal(d1.poops.length, 2);
+  store.update('Users', 1, { Dinos: JSON.stringify([{ ...d1, poops: d1.poops.map((p) => p - 3 * 3600) }]) });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'clean' } }).json;
+  assert.equal(st.collected, 2);
+  assert.equal(user(1).DinoPoop, 2);
+  // Engrais au jardin : la plante avance de moitie, vers doubles.
+  call('POST', 'garden', { body: { userId: 1, action: 'plant', seed: 'worm' } });
+  let g = call('POST', 'garden', { body: { userId: 1, action: 'fertilize', plot: 0 } }).json;
+  assert.equal(g.fertilized, 1);
+  assert.ok(g.plots[0].fertilized && g.plots[0].progress >= 0.5);
+  assert.equal(user(1).DinoPoop, 1);
+  assert.equal(call('POST', 'garden', { body: { userId: 1, action: 'fertilize', plot: 0 } }).json.error, 'nothing_to_fertilize');
+  const plots = JSON.parse(user(1).GardenPlots);
+  plots[0].plantedAt -= g.plots[0].readyAt - now() + 60; // pret depuis 1 min (pas fane)
+  store.update('Users', 1, { GardenPlots: JSON.stringify(plots) });
+  g = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  assert.ok(g.items[0].fertilized && g.items[0].worms >= 6, JSON.stringify(g.items[0]));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GardenWiltHours' } });
+  // Peche : nourriture en plus (chance forcee).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DinoFoodChance: 1 } } });
+  store.update('Users', 1, { Worms: 100, FishingCasts: 0 });
+  const fish = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 3 } }).json;
+  assert.equal(fish.bycatch.length, 3, JSON.stringify(fish.error || fish.bycatch));
+  // Sans dino ni crane : pas de nourriture.
+  store.update('Users', 2, { Worms: 100, FishingCasts: 0, Dinos: '[]', DinoSkulls: 0 });
+  assert.equal(call('POST', 'fishing', { body: { userId: 2, action: 'cast', count: 1 } }).json.bycatch.length, 0);
+  // Maximum 5 dinos ; suggestion de l'accueil quand il a faim.
+  const one = dinoMod.dinosOf(user(1))[0];
+  store.update('Users', 1, { DinoSkulls: 1, BoneCount: 99, Dinos: JSON.stringify([1, 2, 3, 4, 5].map((id) => ({ ...one, id, at: now() - 40 * 3600 }))) });
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatch' } }).json.error, 'max_dinos');
+  assert.ok(dinoMod.dinoAlerts(user(1)).some((a) => a.key === 'dino-hungry'));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoSkullChance' } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoFoodChance' } });
+});
+
+await test('dinos (2) : mort et tas d os, fouille auto, oeufs, plat prefere, Dinodex, boutique, vedette, livre d or, engrais dore, talents', () => {
+  const base = { at: now(), food: 90, happy: 90, xp: 0, digest: 0, poops: [], goldPoops: [], playAt: 0, petAt: 0, breedAt: 0, pattern: 'plain', hue: 120, bornAt: now() };
+  const set = (list, extra = {}) => store.update('Users', 1, { Dinos: JSON.stringify(list), DinoEggs: '[]', ...extra });
+  // Mort : satiete et bonheur a zero -> tas d'os, on recupere les os.
+  set([{ ...base, id: 1, name: 'Oublie', species: 'rex', at: now() - 200 * 3600 }], { BoneCount: 0, DinoStar: 1, DinoDex: '{}' });
+  let st = call('POST', 'dino', { body: { userId: 1 } }).json;
+  assert.ok(st.dinos[0].dead && st.dinos[0].mood.key === 'dead');
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 1, food: 'worm' } }).json.error, 'dino_dead');
+  st = call('POST', 'dino', { body: { userId: 1, action: 'bury', dino: 1 } }).json;
+  assert.equal(st.dinos.length, 0);
+  assert.equal(user(1).BoneCount, 10);
+  assert.ok(!user(1).DinoStar);
+  // Fouille automatique : un adulte content depuis 13 h -> 2 trouvailles (6 h).
+  set([{ ...base, id: 1, name: 'Fouineur', species: 'raptor', xp: 250, grownAt: now() - 13 * 3600, digAt: now() - 13 * 3600 }]);
+  const bones = user(1).BoneCount;
+  st = call('POST', 'dino', { body: { userId: 1, action: 'collect' } }).json;
+  assert.equal(st.loot.finds, 2);
+  assert.equal(user(1).BoneCount, bones + 2); // Velociraptor : des os
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'collect' } }).json.error, 'nothing_to_collect');
+  // Oeuf : deux adultes heureux, couleur melangee.
+  set([{ ...base, id: 1, name: 'Papa', species: 'rex', xp: 250, hue: 350 }, { ...base, id: 2, name: 'Maman', species: 'trice', xp: 250, hue: 10 }]);
+  st = call('POST', 'dino', { body: { userId: 1, action: 'breed', a: 1, b: 2 } }).json;
+  assert.equal(st.eggs.length, 1);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'breed', a: 1, b: 2 } }).json.error, 'breed_cooldown');
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatchEgg', egg: 1 } }).json.error, 'egg_not_ready');
+  const eggs = JSON.parse(user(1).DinoEggs); eggs[0].hatchAt = now() - 1;
+  store.update('Users', 1, { DinoEggs: JSON.stringify(eggs) });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'hatchEgg', egg: 1 } }).json;
+  assert.ok(st.fromEgg && ['rex', 'trice', 'ptero'].includes(st.hatched.species));
+  assert.ok(st.hatched.hue >= 335 || st.hatched.hue <= 25, String(st.hatched.hue));
+  // Plat prefere : decouvert au premier repas, +20 bonheur.
+  const kid = JSON.parse(user(1).Dinos).find((d) => d.id === 3);
+  store.update('Users', 1, { DinoFood: JSON.stringify({ fish: 9, seaweed: 9, shrimp: 9 }), Worms: 50 });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'feed', dino: 3, food: kid.fav } }).json;
+  assert.ok(st.fed.fav && st.fed.favFound);
+  assert.equal(st.dinos.find((d) => d.id === 3).fav, kid.fav);
+  // Dinodex : palier de 5 entrees paye une fois.
+  assert.ok(st.dex.count >= 5);
+  assert.ok(st.dex.tiers[0].claimed);
+  // Boutique : accessoire, decoration (bonheur moins vite).
+  store.update('Users', 1, { StardustCount: 5000 });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'buyAcc', key: 'hat' } }).json;
+  st = call('POST', 'dino', { body: { userId: 1, action: 'equip', dino: 3, key: 'hat' } }).json;
+  assert.equal(st.dinos.find((d) => d.id === 3).acc, 'hat');
+  st = call('POST', 'dino', { body: { userId: 1, action: 'buyDecor', key: 'pond' } }).json;
+  assert.equal(st.decorBonus, 6);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'buyDecor', key: 'pond' } }).json.error, 'already_owned');
+  // Vedette : sur la carte de joueur.
+  call('POST', 'dino', { body: { userId: 1, action: 'star', dino: 3 } });
+  assert.equal(call('GET', 'player-card', { query: { pseudo: user(1).Pseudo } }).json.starDino.name, kid.name);
+  // Livre d'or : premier adulte (atteint en jouant, sauf la nuit ou il dort).
+  store.update('Users', 1, { Dinos: JSON.stringify(JSON.parse(user(1).Dinos).map((d) => (d.id === 3 ? { ...d, xp: 198, playAt: 0 } : d))) });
+  st = call('POST', 'dino', { body: { userId: 1, action: 'play', dino: 3 } }).json;
+  if (st.error !== 'sleeping') {
+    assert.equal(st.grown.stage, 'Adulte');
+    hallOfFame._reset();
+    assert.ok(call('GET', 'hall-of-fame', { query: {} }).json.dinos.some((e) => e.label === 'Premier dino adulte'));
+  }
+  // Engrais dore : parcelle prete tout de suite, appat garanti.
+  store.update('Users', 1, { DinoGoldPoop: 1, GardenPlots: '[]' });
+  call('POST', 'garden', { body: { userId: 1, action: 'plant', seed: 'worm' } });
+  let g = call('POST', 'garden', { body: { userId: 1, action: 'fertilize', plot: 0, gold: true } }).json;
+  assert.ok(g.gold && g.plots[0].ready);
+  g = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
+  assert.ok(g.items[0].goldFertilized && g.items[0].bait >= 1);
+  // Talents : Stegosaure content -> plus de fanage.
+  set([{ ...base, id: 1, name: 'Stego', species: 'stego' }]);
+  assert.equal(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours, 0);
+  set([{ ...base, id: 1, name: 'Stego', species: 'stego', food: 5 }]);
+  assert.ok(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours > 0);
+  // Compagnon d'expedition : bonus de poussieres, revient affame.
+  set([{ ...base, id: 1, name: 'Compagnon', species: 'long', happy: 100 }], { DinoCompanion: 1 });
+  assert.equal(dinoMod.companionBonus(user(1)), 0.3);
+  const json = { reward: { dust: 100 } };
+  dinoMod.afterWorkflow({ store, path: 'expedition', request: { body: { userId: 1, action: 'claim' } }, response: { status: 200, json } });
+  assert.equal(json.dinoCompanion.name, 'Compagnon');
+  assert.equal(Math.round(JSON.parse(user(1).Dinos)[0].food), 60);
+  store.update('Users', 1, { Dinos: '[]', DinoCompanion: 0, DinoStar: 0 });
+});
+
+await test('decouvertes : premiere ressource annoncee une seule fois, remise a zero, onglet dinos cache sans crane', () => {
+  // Premier passage : ce qu'il possede deja est annonce aussi (jamais vu).
+  store.update('Users', 2, { Discoveries: '', BoneCount: 3, DinoSkulls: 0, Dinos: '[]', DinoEggs: '[]', DinoDex: '{}', DinoFood: '{}', Worms: 0 });
+  let r = call('POST', 'dino', { body: { userId: 2 } }).json;
+  assert.ok(r.discoveries.some((d) => d.key === 'bone'));
+  assert.equal(r.unlocked, false);
+  assert.ok(!call('POST', 'dino', { body: { userId: 2 } }).json.discoveries);
+  // Remise a zero depuis le menu : tout est rejoue dans la reponse.
+  r = call('POST', 'discoveries', { body: { userId: 2, action: 'reset' } }).json;
+  assert.ok(r.reset && r.discoveries.some((d) => d.key === 'bone'));
+  // Un crane plus tard : decouverte, et l'onglet se debloque.
+  store.update('Users', 2, { DinoSkulls: 1 });
+  r = call('POST', 'dino', { body: { userId: 2 } }).json;
+  assert.equal(r.unlocked, true);
+  assert.deepEqual(r.discoveries.map((d) => d.key), ['skull']);
+  assert.ok(r.discoveries[0].riddle.length > 20);
+  // Deja vue : plus d'annonce, meme apres l'avoir depensee puis retrouvee.
+  store.update('Users', 2, { DinoSkulls: 0 });
+  call('POST', 'dino', { body: { userId: 2 } });
+  store.update('Users', 2, { DinoSkulls: 1 });
+  assert.ok(!call('POST', 'dino', { body: { userId: 2 } }).json.discoveries);
+  assert.ok(call('GET', 'discoveries-catalog', { query: {} }).json.items.some((i) => i.key === 'fish'));
+  store.update('Users', 2, { DinoSkulls: 0 });
+});
+
+await test('coffres : achat et ouverture de plusieurs coffres d un coup, bornes par les cles', () => {
+  const st0 = call('POST', 'chests', { body: { userId: 1, action: 'status' } }).json;
+  store.update('Users', 1, { ChestCount: 0, KeyCount: 3, StardustCount: st0.cost * 5 });
+  let r = call('POST', 'chests', { body: { userId: 1, action: 'buy', count: 5 } }).json;
+  assert.equal(r.bought, 5);
+  assert.equal(r.chests, 5);
+  assert.equal(user(1).StardustCount, 0);
+  // 5 coffres mais 3 cles : 3 ouverts.
+  r = call('POST', 'chests', { body: { userId: 1, action: 'open', count: 5 } }).json;
+  assert.equal(r.opened, 3);
+  assert.deepEqual([r.chests, r.keys], [2, 0]);
+  assert.ok(r.dust >= 3 * setting(store, 'ChestDustMin'));
+  assert.equal(r.items[0].type, 'dust');
+  assert.equal(call('POST', 'chests', { body: { userId: 1, action: 'open' } }).json.error, 'no_key');
+  // Le defi "ouvrir 2 coffres" compte les 3 coffres d'un coup.
+  store.update('Users', 1, { KeyCount: 1 });
+  r = call('POST', 'chests', { body: { userId: 1, action: 'open', count: 99 } }).json;
+  assert.equal(r.opened, 1);
+});
+
+await test('coffre-fort : onglets par edition (apparus une fois l edition obtenue) qui marchent comme le classique', () => {
+  const vault = (action, extra = {}) => call('POST', 'personal-vault', { body: { userId: 1, action, ...extra } });
+  const vaultCard = store.getAll('Cards').find((c) => c.IsVault);
+  if (!store.getAll('Pulls').some((p) => p.User === 1 && p.Card === vaultCard.id && String(p.BatchId || '').startsWith('vault-'))) store.create('Pulls', { User: 1, Card: vaultCard.id, BatchId: 'vault-test1', SerialNumber: 950, Finish: 'rainbow', Quality: 'mint' });
+  // Aucune edition obtenue : pas d'onglet.
+  store.getAll('Pulls').filter((p) => p.User === 1 && p.Edition).forEach((p) => store.update('Pulls', p.id, { Edition: '' }));
+  if (store.tables.has('PullHistory')) store.getAll('PullHistory').filter((h) => h.User === 1).forEach((h) => store.delete('PullHistory', h.id));
+  let st = vault('status').json;
+  assert.equal(st.editions.length, 0);
+  // Une carte Maudite en parfait etat : l'onglet apparait, la carte y est rangeable.
+  const [c1, c2] = cards().slice(0, 2);
+  const cursed = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7001, Finish: 'gold', Quality: 'mint', Edition: 'cursed' });
+  st = vault('status').json;
+  assert.deepEqual(st.editions.map((e) => e.key), ['cursed']);
+  const tab = st.editions[0];
+  // Memes lignes que le classique : une par carte, 6 finitions.
+  const edRow = tab.rows.find((r) => r.cardId === c1.id);
+  assert.equal(edRow.slots.length, 6);
+  assert.equal(edRow.slots.find((x) => x.finish === 'gold').candidates[0].pullId, cursed.id);
+  assert.equal(tab.ready, 1);
+  // Le classique ignore les exemplaires en edition.
+  const row = st.rows.find((r) => r.cardId === c1.id);
+  assert.ok(!row || !row.slots.some((x) => x.candidates.some((c) => c.pullId === cursed.id)));
+  // Rangement : un emplacement par carte, par finition et par edition, sans toucher au classique.
+  st = vault('store', { pullId: cursed.id }).json;
+  assert.equal(st.editions[0].stored, 1);
+  const dupGold = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7002, Finish: 'gold', Quality: 'mint', Edition: 'cursed' });
+  assert.equal(vault('store', { pullId: dupGold.id }).json.error, 'slot_filled');
+  // Ligne Maudite complete (6 finitions) : recompense une fois, notee avec l'edition.
+  const boostersBefore = store.get('Users', 1).BoosterCount || 0;
+  let reward = null;
+  for (const [i, finish] of ['normal', 'holo', 'ghost', 'diamond', 'rainbow'].entries()) {
+    const p = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7100 + i, Finish: finish, Quality: 'mint', Edition: 'cursed' });
+    const r = vault('store', { pullId: p.id });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    reward = r.json.reward || reward;
+  }
+  assert.equal(reward && reward.edition, 'cursed');
+  assert.ok((store.get('Users', 1).BoosterCount || 0) > boostersBefore);
+  const edDone = vault('status').json.editions[0].rows.find((r) => r.cardId === c1.id);
+  assert.ok(edDone.complete && edDone.claimed);
+  assert.ok(store.getAll('VaultRewards').some((r) => r.User === 1 && r.Card === c1.id && r.Edition === 'cursed'));
+  const plainGold = store.create('Pulls', { User: 1, Card: c1.id, SerialNumber: 7003, Finish: 'gold', Quality: 'mint' });
+  const classic = vault('store', { pullId: plainGold.id });
+  assert.equal(classic.status, 200, JSON.stringify(classic.json));
+  // Une autre edition : un onglet de plus ; usee : pas rangeable.
+  const worn = store.create('Pulls', { User: 1, Card: c2.id, SerialNumber: 7004, Finish: 'normal', Quality: 'worn', Edition: 'frost' });
+  st = vault('status').json;
+  assert.deepEqual(st.editions.map((e) => e.key).sort(), ['cursed', 'frost']);
+  assert.equal(vault('store', { pullId: worn.id }).json.error, 'not_mint');
+  // L'onglet reste si la carte a ete echangee (historique des tirages).
+  store.update('Pulls', worn.id, { User: 2 });
+  assert.ok(vault('status').json.editions.some((e) => e.key === 'frost'));
+});
+
+await test('editions limitees : jamais perdues par inadvertance (mise de cote, confirmation, edition gardee par la fusion)', () => {
+  const card = cards()[4];
+  const ed = (finish = 'normal', quality = 'good', edition = 'prism') => { const id = mk(1, card.id, finish, quality); store.update('Pulls', id, { Edition: edition }); return id; };
+  const prism = ed('holo');
+  const plain = mk(1, card.id, 'holo');
+  // Choix automatique (aucun exemplaire precis) : l'edition est mise de cote, rendue apres.
+  let req = { body: { userId: 1, cardId: card.id, fromFinish: 'holo' } };
+  assert.equal(native.beforeWorkflow('foil-upgrade', req), null);
+  assert.equal(store.get('Pulls', prism).InVault, true);
+  assert.ok(!store.get('Pulls', plain).InVault);
+  native.restore(req);
+  assert.ok(!store.get('Pulls', prism).InVault);
+  // Decraft explicite : confirmation demandee, rien ne reste de cote.
+  const denied = native.beforeWorkflow('disenchant', { body: { userId: 1, cardId: card.id, finish: 'holo', quality: 'good', pullId: prism } });
+  assert.equal(denied.json.error, 'edition_copy');
+  assert.equal(denied.json.copies[0].edition, 'prism');
+  assert.equal(denied.json.copies[0].label, 'Prismatique');
+  assert.ok(!store.get('Pulls', prism).InVault);
+  req = { body: { userId: 1, cardId: card.id, finish: 'holo', quality: 'good', pullId: prism, confirmEdition: true } };
+  assert.equal(native.beforeWorkflow('disenchant', req), null);
+  native.restore(req);
+  // Autel : idem (l'edition disparait avec la carte sacrifiee).
+  const altar = native.beforeWorkflow('altar-sacrifice', { body: { userId: 1, pullIds: [prism, plain, mk(1, card.id)] } });
+  assert.equal(altar.json.error, 'edition_copy');
+  // Fusion avec UN exemplaire en edition : pas de confirmation, le resultat garde l'edition.
+  const five = [prism, ...Array.from({ length: 4 }, () => mk(1, card.id, 'holo'))];
+  req = { body: { userId: 1, cardId: card.id, fromFinish: 'holo', pullIds: five, keepPullId: five[1] } };
+  assert.equal(native.beforeWorkflow('foil-upgrade', req), null);
+  assert.equal(req._editionCarry, 'prism');
+  // (le workflow supprime les 5 et cree l'exemplaire dore)
+  five.forEach((id) => store.delete('Pulls', id));
+  const serial = 4242;
+  const fresh = store.create('Pulls', { User: 1, Card: card.id, SerialNumber: serial, Finish: 'gold', Quality: 'good', ObtainedAt: now() });
+  const resp = { status: 200, json: { upgraded: true, cardId: card.id, toFinish: 'gold', serialNumber: serial } };
+  native.afterWorkflow('foil-upgrade', req, resp);
+  assert.equal(store.get('Pulls', fresh.id).Edition, 'prism');
+  assert.equal(resp.json.edition, 'prism');
+  // Deux editions dans la meme fusion : une seule peut etre gardee -> confirmation.
+  const a = ed('normal', 'worn', 'prism'), b = ed('normal', 'worn', 'frost');
+  const two = native.beforeWorkflow('card-quality-repair', { body: { userId: 1, cardId: card.id, fromQuality: 'worn', pullIds: [a, b, mk(1, card.id, 'normal', 'worn')], keepPullId: b } });
+  assert.equal(two.json.error, 'edition_copy');
+  assert.equal(two.json.carried, 'frost');
+  assert.deepEqual(two.json.copies.map((c) => c.pullId), [a]);
+  // Echange : l'exemplaire change de main avec son edition, pas de confirmation.
+  const tr = { body: { userId: 1, action: 'create', offeredPullId: a } };
+  assert.equal(native.beforeWorkflow('trade', tr), null);
+  native.restore(tr);
+  // Boss : confirmation, puis attaque.
+  const boss = store.create('CommunityBoss', { BossName: 'Test', MaxHp: 1e9, CurrentHp: 1e9, Active: true, RewardBoosters: 0 });
+  assert.equal(call('POST', 'boss-attack', { body: { userId: 1, pullIds: [a] } }).json.error, 'edition_copy');
+  assert.ok(store.get('Pulls', a), 'rien de detruit sans confirmation');
+  assert.equal(call('POST', 'boss-attack', { body: { userId: 1, pullIds: [a], confirmEdition: true } }).status, 200);
+  assert.ok(!store.get('Pulls', a));
+  store.update('CommunityBoss', boss.id, { Active: false });
+  // Carte ★ : garde l'edition d'un exemplaire fondu ; deux editions -> confirmation.
+  const r1 = mk(1, card.id, 'rainbow', 'mint'), r2 = ed('rainbow', 'mint', 'prism'), r3 = mk(1, card.id, 'rainbow', 'mint');
+  const star = call('POST', 'card-prestige', { body: { userId: 1, pullIds: [r1, r2, r3] } }).json;
+  assert.equal(star.starred, true);
+  assert.equal(store.get('Pulls', star.pullId).Edition, 'prism');
+  const s1 = ed('rainbow', 'mint', 'prism'), s2 = ed('rainbow', 'mint', 'frost'), s3 = mk(1, card.id, 'rainbow', 'mint');
+  assert.equal(call('POST', 'card-prestige', { body: { userId: 1, pullIds: [s1, s2, s3] } }).json.error, 'edition_copy');
+  // Contrats : jamais d'exemplaire en edition.
+  const st = call('POST', 'contracts', { body: { userId: 1 } }).json;
+  assert.ok(st.contracts.every((c) => !c.eligible.some((p) => store.get('Pulls', p.pullId)?.Edition)));
+  [b, s1, s2, s3, star.pullId, plain].forEach((id) => store.get('Pulls', id) && store.delete('Pulls', id));
+});
+
+// ---------------------------------------------------------------- regles par difficulte (2026-10-16)
+const extra = (userId, action, params = {}) => call('POST', 'mode-extra', { body: { userId, action, ...params } });
+const withRandom = (v, fn) => { const orig = Math.random; Math.random = typeof v === 'function' ? v : () => v; try { return fn(); } finally { Math.random = orig; } };
+// Faux booster ouvert : 5 exemplaires d'une meme carte commune.
+function fakePack(userId, n = 5) {
+  const card = cards().find((c) => store.get('Rarities', refIdOf(c.Rarity))?.Key === 'commune') || cards()[0];
+  const batchId = `${userId}-fake-${Math.random()}`;
+  const list = Array.from({ length: n }, (_, i) => store.create('Pulls', { User: userId, Card: card.id, SerialNumber: 7700 + store.getAll('Pulls').length + i, Finish: 'normal', Quality: 'good', ObtainedAt: now(), BatchId: batchId }));
+  const r = store.get('Rarities', refIdOf(card.Rarity));
+  return { batchId, cards: list.map((p) => ({ cardId: card.id, serialNumber: p.SerialNumber, finish: 'normal', quality: 'good', rarity: { id: r.id, key: r.Key, sortOrder: r.SortOrder || 0 } })) };
+}
+
+await test('regles par difficulte : registre, admin (activer, desactiver, par mode), regles existantes rebranchees', () => {
+  assert.equal(call('POST', 'admin-mode-rules', { body: { discordId: 'x' } }).status, 403);
+  let st = call('POST', 'admin-mode-rules', { body: { discordId: ADMIN } }).json;
+  assert.deepEqual(st.modes.map((m) => m.key), ['cool', 'chill', 'medium', 'hard', 'chaos']);
+  assert.equal(st.modes.reduce((n, m) => n + m.rules.filter((r) => r.isNew).length, 0), 20);
+  assert.ok(st.modes.every((m) => m.presets.length > 0));
+  applyMode('cool');
+  assert.equal(moderules.ruleOn(store, 'cool.fishNoEmpty'), true);
+  assert.equal(moderules.ruleOn(store, 'hard.wear'), false, 'regle hors de son mode');
+  st = call('POST', 'admin-mode-rules', { body: { discordId: ADMIN, action: 'set', key: 'cool.fishNoEmpty', on: false } }).json;
+  assert.equal(st.modes[0].rules.find((r) => r.key === 'cool.fishNoEmpty').on, false);
+  assert.equal(moderules.ruleOn(store, 'cool.fishNoEmpty'), false);
+  // La peche du mode Cool retrouve ses prises vides.
+  assert.ok(call('POST', 'fishing', { body: { userId: 1 } }).json.table.some((x) => x.type === 'nothing'));
+  call('POST', 'admin-mode-rules', { body: { discordId: ADMIN, action: 'set', key: 'cool.fishNoEmpty', on: true } });
+  assert.ok(!call('POST', 'fishing', { body: { userId: 1 } }).json.table.some((x) => x.type === 'nothing'));
+  // Tout le mode d'un coup ; annonce des bonus = regles actives.
+  call('POST', 'admin-mode-rules', { body: { discordId: ADMIN, action: 'mode', mode: 'cool', on: false } });
+  assert.equal(call('GET', 'event-status', {}).json.gameMode.perks.length, 0);
+  assert.equal(call('GET', 'mode-rules', {}).json.rules.length, 0);
+  call('POST', 'admin-mode-rules', { body: { discordId: ADMIN, action: 'reset' } });
+  assert.ok(call('GET', 'event-status', {}).json.gameMode.perks.length >= 10);
+  // Edition du mode desactivable.
+  applyMode('medium');
+  assert.equal(editions.activeEdition(store).key, 'prism');
+  call('POST', 'admin-mode-rules', { body: { discordId: ADMIN, action: 'set', key: 'medium.edition', on: false } });
+  assert.equal(editions.activeEdition(store), null);
+  call('POST', 'admin-mode-rules', { body: { discordId: ADMIN, action: 'reset' } });
+});
+
+await test('mode Cool : boite a souhaits garantie en 10 boosters, atelier gratuit, seconde chance, vacances des dinos', () => {
+  applyMode('cool');
+  // Boite a souhaits.
+  const wish = cards().find((c) => store.get('Rarities', refIdOf(c.Rarity))?.Key !== 'commune') || cards()[1];
+  store.getAll('Wishlist').filter((w) => refIdOf(w.User) === 1).forEach((w) => store.delete('Wishlist', w.id));
+  store.update('Users', 1, { WishBox: '' });
+  assert.equal(extra(1, 'wishbox', { cardId: wish.id }).json.error, 'not_in_wishlist');
+  store.create('Wishlist', { User: 1, Card: wish.id });
+  assert.equal(extra(1, 'wishbox', { cardId: wish.id }).json.wishbox.left, 10);
+  assert.equal(extra(1, 'wishbox', { cardId: wish.id }).json.error, 'already_set');
+  let got = null;
+  for (let i = 0; i < 10 && !got; i++) {
+    const json = fakePack(1);
+    withRandom(0.99, () => modefun.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json } }));
+    if (json.wishbox) got = json;
+  }
+  assert.ok(got, 'carte souhaitee au plus tard au 10e booster');
+  const swapped = got.cards.find((c) => c.wishbox);
+  assert.equal(swapped.cardId, wish.id);
+  assert.ok(store.getAll('Pulls').some((p) => p.BatchId === got.batchId && refIdOf(p.Card) === wish.id));
+  assert.equal(extra(1, 'status').json.wishbox.done, true);
+  // Atelier gratuit : un cran d'etat, une fois par jour.
+  store.update('Users', 1, { FreeRepairDay: '' });
+  const worn = mk(1, cards()[2].id, 'holo', 'worn');
+  assert.deepEqual([extra(1, 'free-repair', { pullId: worn }).json.to, store.get('Pulls', worn).Quality], ['good', 'good']);
+  assert.equal(extra(1, 'free-repair', { pullId: worn }).json.error, 'already_used');
+  // Seconde chance : une carte du dernier booster, meme rarete, finition gardee.
+  store.update('Users', 1, { SecondChanceDay: '' });
+  const pack = fakePack(1, 3);
+  modefun.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json: pack } });
+  const target = store.getAll('Pulls').find((p) => p.BatchId === pack.batchId);
+  const before = refIdOf(target.Card);
+  const r = extra(1, 'second-chance', { pullId: target.id }).json;
+  assert.equal(r.rerolled, true);
+  assert.notEqual(refIdOf(store.get('Pulls', target.id).Card), before);
+  assert.equal(store.get('Pulls', target.id).Finish, 'normal');
+  assert.equal(extra(1, 'second-chance', { pullId: target.id }).json.error, 'already_used');
+  assert.equal(extra(1, 'second-chance', { pullId: worn }).status, 400);
+  // Vacances des dinos : jauges figees pendant le mode Cool, aucun retard compte ensuite.
+  applyMode('medium');
+  native.beforeRequest({ userId: 1 }, {}, 'mode-rules');
+  assert.equal(dinoMod.dinoHoliday(), false);
+  const t0 = now() - 10 * 3600;
+  store.update('Users', 1, { Dinos: JSON.stringify([{ id: 1, name: 'Rex', species: 'rex', xp: 500, bornAt: t0, at: t0, food: 90, happy: 90, poops: [], goldPoops: [] }]) });
+  applyMode('cool');
+  native.beforeRequest({ userId: 1 }, {}, 'mode-rules');
+  assert.equal(dinoMod.dinoHoliday(), true);
+  const frozen = call('POST', 'dino', { body: { userId: 1 } }).json.dinos[0];
+  assert.ok(frozen.food < 90, 'decroissance reelle comptee jusqu au debut des vacances');
+  const food = frozen.food;
+  const d = JSON.parse(user(1).Dinos)[0];
+  store.update('Users', 1, { Dinos: JSON.stringify([{ ...d, at: now() - 20 * 3600 }]) });
+  assert.equal(call('POST', 'dino', { body: { userId: 1 } }).json.dinos[0].food, food, 'pas de faim pendant les vacances');
+  applyMode('medium');
+  native.beforeRequest({ userId: 1 }, {}, 'mode-rules');
+  assert.equal(dinoMod.dinoHoliday(), false);
+  assert.equal(call('POST', 'dino', { body: { userId: 1 } }).json.dinos[0].food, food, 'fin des vacances : on repart de la');
+});
+
+await test('mode Chill : happy hour sur les prix, jardin partage (arrosage, recolte partagee), balade du dino', () => {
+  applyMode('chill');
+  assert.equal(moderules.happyFactor(store), moderules.happyHourNow(store) ? 0.7 : 1);
+  // Jardin partage.
+  store.getAll('AppSettings').filter((r) => r.Key === 'shared-garden').forEach((r) => store.delete('AppSettings', r.id));
+  let g = extra(1, 'garden-water').json.garden;
+  assert.equal(g.total, 1);
+  assert.equal(extra(1, 'garden-water').json.error, 'too_soon');
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'shared-garden');
+  const v = JSON.parse(row.Value);
+  store.update('AppSettings', row.id, { Value: JSON.stringify({ ...v, goal: 4, waters: { 1: 2, 2: 1 }, lastWater: {} }) });
+  const dust1 = user(1).StardustCount, dust2 = user(2).StardustCount;
+  const h = extra(1, 'garden-water').json;
+  assert.ok(h.harvest, 'recolte au 4e arrosage');
+  assert.equal(user(1).StardustCount, dust1 + 75);
+  assert.equal(user(2).StardustCount, dust2 + 25);
+  assert.equal(h.garden.total, 0);
+  // Balade du dino.
+  const t0 = now();
+  store.update('Users', 1, { Dinos: JSON.stringify([{ id: 1, name: 'Rex', species: 'rex', xp: 500, bornAt: t0, at: t0, food: 90, happy: 50, poops: [], goldPoops: [] }]) });
+  const sleeping = (() => { const hh = Number(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', hour12: false }).format(new Date())); return hh >= 23 || hh < 7; })();
+  const w = call('POST', 'dino', { body: { userId: 1, action: 'walk', dino: 1 } }).json;
+  if (sleeping) { assert.equal(w.error, 'sleeping'); return; }
+  assert.equal(w.walking, 1);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'walk-back', dino: 1 } }).json.error, 'still_walking');
+  const d = JSON.parse(user(1).Dinos)[0];
+  store.update('Users', 1, { Dinos: JSON.stringify([{ ...d, walkUntil: now() - 1 }]) });
+  const dust = user(1).StardustCount;
+  const back = call('POST', 'dino', { body: { userId: 1, action: 'walk-back', dino: 1 } }).json;
+  assert.ok(back.walked.dust >= 20);
+  assert.equal(user(1).StardustCount, dust + back.walked.dust);
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'walk', dino: 1 } }).json.error, 'walked_today');
+});
+
+await test('mode Medium : bourse des cartes (decraft et craft), quete en chaine, draft a deux', () => {
+  applyMode('medium');
+  // Bourse : carte absente du serveur -> plus chere ; tres repandue -> moins.
+  const rare = cards().find((c) => !store.getAll('Pulls').some((p) => refIdOf(p.Card) === c.id)) || cards()[cards().length - 1];
+  assert.ok(modefun.stockFactor(store, rare.id) > 1);
+  const st = extra(1, 'status').json;
+  assert.ok(st.stock.up.length > 0);
+  const req = { body: { userId: 1, cardId: rare.id } };
+  store.update('Users', 1, { StardustCount: 100000 });
+  assert.equal(native.beforeWorkflow('craft', req), null);
+  assert.ok(req._stockDelta > 0);
+  const resp = { status: 200, json: { crafted: true } };
+  native.afterWorkflow('craft', req, resp);
+  assert.equal(user(1).StardustCount, 100000 - req._stockDelta);
+  // Quete en chaine : progression par evenements, etape recuperee.
+  store.update('Users', 1, { QuestChain: '' });
+  let q = extra(1, 'status').json.quest;
+  const plan = q.steps;
+  assert.equal(plan.length, 5);
+  // On pousse l'evenement de l'etape courante jusqu'a la cible.
+  for (const t of ['fish', 'board', 'boosterOpened', 'harvest', 'expedition', 'bossAttack', 'guess', 'chestOpened', 'craft']) modefun.onEvents(store, [{ userId: 1, type: t, n: 20 }]);
+  q = extra(1, 'status').json.quest;
+  assert.equal(q.step.ready, true);
+  const dust = user(1).StardustCount;
+  assert.equal(extra(1, 'quest-claim').json.reward.dust, 120);
+  assert.equal(user(1).StardustCount, dust + 120);
+  assert.equal(extra(1, 'status').json.quest.stepIndex, 1);
+  // Draft a deux : mise, lancement, pioche en serpent jusqu'au bout.
+  store.update('Users', 1, { BoosterCount: 3 });
+  store.update('Users', 2, { BoosterCount: 3 });
+  let d = call('POST', 'draft', { body: { userId: 1, action: 'create' } }).json;
+  assert.equal(user(1).BoosterCount, 2);
+  const id = d.current.id;
+  assert.equal(call('POST', 'draft', { body: { userId: 1, action: 'start', id } }).json.error, 'need_two_players');
+  call('POST', 'draft', { body: { userId: 2, action: 'join', id } });
+  d = call('POST', 'draft', { body: { userId: 1, action: 'start', id } }).json;
+  assert.equal(d.current.status, 'running');
+  assert.equal(d.current.pool.length, 10);
+  const pulls0 = store.getAll('Pulls').length;
+  for (let i = 0; i < 10; i++) {
+    const cur = call('POST', 'draft', { body: { userId: 1 } }).json.current;
+    const who = cur.players.find((p) => p.pseudo === cur.turnPseudo).userId;
+    const other = who === 1 ? 2 : 1;
+    assert.equal(call('POST', 'draft', { body: { userId: other, action: 'pick', id, index: cur.pool.findIndex((p) => !p.takenBy) } }).json.error, 'not_your_turn');
+    call('POST', 'draft', { body: { userId: who, action: 'pick', id, index: cur.pool.findIndex((p) => !p.takenBy) } });
+  }
+  assert.equal(store.getAll('Pulls').length, pulls0 + 10);
+  const done = call('POST', 'draft', { body: { userId: 1 } }).json;
+  assert.equal(done.current, null);
+  assert.equal(done.recent[0].pool.filter((p) => p.mine).length, 5);
+});
+
+await test('mode Hard : ironman, prime de chasse, cartes maudites, larcin, tempetes', () => {
+  applyMode('hard');
+  // Ironman : serment, decraft bloque, renoncer.
+  store.update('Users', 1, { Ironman: '' });
+  assert.equal(extra(1, 'ironman-pledge').json.ironman.pledged, true);
+  assert.equal(native.beforeWorkflow('disenchant', { body: { userId: 1, cardId: cards()[0].id } }).json.error, 'ironman_pledged');
+  // Fin du Hard : recompense a la visite suivante.
+  applyMode('medium');
+  const boosters = user(1).BoosterCount;
+  const resp = { status: 200, json: {} };
+  native.afterWorkflow('booster-status', { body: {}, query: { userId: 1 } }, resp);
+  assert.equal(user(1).BoosterCount, boosters + 5);
+  assert.ok(resp.json.modeNotes.some((n) => n.icon === '🛡️'));
+  applyMode('hard');
+  // Prime de chasse : premier qui livre.
+  store.getAll('AppSettings').filter((r) => r.Key === 'bounty').forEach((r) => store.delete('AppSettings', r.id));
+  const b = extra(1, 'status').json.bounty;
+  assert.ok(b.card);
+  const copy = mk(1, b.card.cardId, 'normal', 'good');
+  const before = user(1).BoosterCount;
+  assert.equal(extra(1, 'bounty-deliver', { pullId: copy }).json.reward.boosters, 4);
+  assert.equal(user(1).BoosterCount, before + 4);
+  assert.ok(!store.get('Pulls', copy));
+  assert.equal(extra(2, 'bounty-deliver', { pullId: mk(2, b.card.cardId) }).json.error, 'bounty_taken');
+  // Cartes maudites : marquees a l'ouverture (jamais une edition), purification, sinon usure.
+  const pack = fakePack(1, 4);
+  withRandom(0, () => modefun.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json: pack } }));
+  assert.equal(pack.cursed, 4);
+  const cursed = store.getAll('Pulls').filter((p) => p.BatchId === pack.batchId);
+  const dust = user(1).StardustCount;
+  const pur = extra(1, 'purify', { pullId: cursed[0].id }).json;
+  assert.equal(user(1).StardustCount, dust - pur.cost);
+  store.update('Pulls', cursed[1].id, { CursedUntil: now() - 1 });
+  const notes = modefun.sweepUser(store, 1);
+  assert.equal(store.get('Pulls', cursed[1].id).Quality, 'worn');
+  assert.ok(notes.some((n) => n.icon === '🕯️'));
+  // Larcin : doublon non protege, cle depensee, victime prevenue.
+  store.update('Users', 1, { KeyCount: 3, TheftDay: '' });
+  store.update('Users', 2, { RobbedDay: '' });
+  store.getAll('Pulls').filter((p) => refIdOf(p.User) === 2).forEach((p) => store.update('Pulls', p.id, { Insured: true }));
+  const c = cards()[5];
+  const a1 = mk(2, c.id), a2 = mk(2, c.id);
+  const r = withRandom(0, () => extra(1, 'steal', { toPseudo: user(2).Pseudo }).json);
+  assert.equal(r.success, true);
+  assert.ok([a1, a2].some((id) => refIdOf(store.get('Pulls', id).User) === 1));
+  assert.equal(user(1).KeyCount, 2);
+  assert.ok(JSON.parse(user(2).ModeInbox).some((m) => m.icon === '🦹'));
+  // Les exemplaires assures ne sont jamais voles.
+  const insured = store.getAll('Pulls').filter((p) => refIdOf(p.User) === 2 && p.Insured).map((p) => p.id);
+  withRandom(0, () => extra(1, 'steal', { toPseudo: user(2).Pseudo }));
+  assert.ok(insured.every((id) => refIdOf(store.get('Pulls', id).User) === 2));
+  store.getAll('Pulls').filter((p) => refIdOf(p.User) === 2).forEach((p) => store.update('Pulls', p.id, { Insured: false }));
+  // Tempetes : deterministes par jour, fenetre de 3 h, pêche ou fouille.
+  const days = Array.from({ length: 20 }, (_, i) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10));
+  const storms = days.map((d) => moderules.stormOf(d)).filter(Boolean);
+  assert.ok(storms.length > 3 && storms.length < 17);
+  assert.ok(storms.every((s) => s.to - s.from === 3 && ['fishing', 'dig'].includes(s.feature)));
+  applyMode('medium');
+  assert.deepEqual(moderules.stormClosed(store), []);
+});
+
+await test('mode Chaos : regle votee, cartes mutantes, booster glitche, carte instable, chasse aux bugs', () => {
+  applyMode('chaos');
+  // Vote pour demain.
+  const v = call('POST', 'chaos-vote', { body: { userId: 1 } }).json;
+  assert.equal(v.active, true);
+  assert.equal(v.candidates.length, 3);
+  const pick = v.candidates[2].key;
+  call('POST', 'chaos-vote', { body: { userId: 1, action: 'vote', rule: pick } });
+  assert.equal(call('POST', 'chaos-vote', { body: { userId: 2, action: 'vote', rule: 'nope' } }).json.error, 'unknown_rule');
+  assert.equal(call('POST', 'chaos-vote', { body: { userId: 1 } }).json.mine, pick);
+  assert.equal(chaosvoteRuleTomorrow(), pick);
+  // Mutantes + booster glitche (hasard force).
+  const pack = fakePack(1, 3);
+  const n0 = pack.cards.length;
+  withRandom(0, () => modefun.afterWorkflow({ store, path: 'open-pack', request: { body: { userId: 1 } }, response: { status: 200, json: pack } }));
+  assert.equal(pack.mutants, 3);
+  assert.equal(pack.glitchPack, true);
+  assert.equal(pack.cards.length, n0 + 1);
+  assert.equal(pack.cards[n0].edition, 'glitch');
+  const mutant = store.getAll('Pulls').find((p) => p.BatchId === pack.batchId && Number(p.MutateAt) > 0);
+  store.update('Pulls', mutant.id, { MutateAt: now() - 1 });
+  const before = [mutant.Finish, mutant.Quality].join();
+  const notes = modefun.sweepUser(store, 1);
+  const after = store.get('Pulls', mutant.id);
+  assert.ok(notes.some((x) => x.icon === '🧬'));
+  assert.ok(!(Number(after.MutateAt) > 0));
+  assert.ok([after.Finish, after.Quality].join() !== before || after.Finish === 'normal' || after.Quality === 'mint' || after.Quality === 'damaged');
+  // Carte instable : une par periode, change chaque jour.
+  store.update('Users', 1, { UnstableSession: 0 });
+  const u = extra(1, 'unstable-claim').json.unstable;
+  assert.ok(u.card);
+  assert.equal(extra(1, 'unstable-claim').json.error, 'already_claimed');
+  store.update('Pulls', u.card.pullId, { UnstableDay: '2000-01-01' });
+  modefun.sweepUser(store, 1);
+  assert.equal(store.get('Pulls', u.card.pullId).UnstableDay, parisDay(0));
+  assert.equal(store.get('Pulls', u.card.pullId).Edition, 'glitch');
+  // Bugs : 5 par jour, chacun une fois.
+  store.update('Users', 1, { Bugs: '' });
+  const bugs = extra(1, 'status').json.bugs;
+  assert.equal(bugs.list.length, 5);
+  const dust = user(1).StardustCount;
+  assert.equal(extra(1, 'bug-found', { id: bugs.list[0].id }).json.dust, 25);
+  assert.equal(user(1).StardustCount, dust + 25);
+  assert.equal(extra(1, 'bug-found', { id: bugs.list[0].id }).json.error, 'unknown_bug');
+  assert.equal(extra(1, 'bug-found', { id: 'faux' }).json.error, 'unknown_bug');
+  applyMode('medium');
+  assert.equal(extra(1, 'bug-found', { id: bugs.list[1].id }).json.error, 'wrong_mode');
+});
+
+await test('inflation : ancienne migration du seuil (base 30 -> 45), toujours unique', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 60);
+  // Valeur basse enregistree (ancienne base) : relevee une seule fois, historique garde.
+  store.getAll('AppSettings').filter((r) => r.Key === 'inflation-2026-10-15').forEach((r) => store.delete('AppSettings', r.id));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EconomyAlertBoostersPerPlayer: 3 } } });
+  balance.migrateInflationBase(store);
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 45);
+  const log = JSON.parse(store.getAll('AppSettings').find((r) => r.Key === 'inflation-2026-10-15').Value);
+  assert.deepEqual([log.base, log.changes[0].from, log.changes[0].to], [30, 3, 45]);
+  // Deja faite : un nouveau reglage de l'admin n'est plus touche.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EconomyAlertBoostersPerPlayer: 20 } } });
+  balance.migrateInflationBase(store);
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 20);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
+});
+
+await test('cible de boosters : 40 par joueur actif (20 a 60), codes de jeu exclus, migration du seuil a 60', () => {
+  assert.deepEqual(economy.boosterTarget(store), { target: 40, low: 20, high: 60 });
+  const day = parisDay(0);
+  const base = economy.flows(store, 1).boostersPerPlayerDay;
+  const codes = store.create('EconomyDaily', { Day: day, Source: 'redeem-code', BoostersIn: 140, BoostersOut: 0, DustIn: 0, DustOut: 0 });
+  let f = economy.flows(store, 1);
+  assert.equal(f.boostersPerPlayerDay, base, 'les codes de jeu ne comptent pas');
+  assert.ok(f.excludedBoosters >= 140);
+  const dig = store.create('EconomyDaily', { Day: day, Source: 'test-dig', BoostersIn: 70, BoostersOut: 70, DustIn: 0, DustOut: 0 });
+  f = economy.flows(store, 1);
+  assert.equal(Math.round((f.boostersPerPlayerDay - base) * 10) / 10, 10);
+  assert.deepEqual(f.target, { target: 40, low: 20, high: 60 });
+  store.delete('EconomyDaily', codes.id); store.delete('EconomyDaily', dig.id);
+  // Migration unique : un seuil enregistre a 45 passe a 60 ; ensuite l'admin decide.
+  store.getAll('AppSettings').filter((r) => r.Key === 'booster-target-2026-10-16').forEach((r) => store.delete('AppSettings', r.id));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EconomyAlertBoostersPerPlayer: 45 } } });
+  balance.migrateBoosterTarget(store);
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 60);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EconomyAlertBoostersPerPlayer: 50 } } });
+  balance.migrateBoosterTarget(store);
+  assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 50);
+  assert.deepEqual(economy.boosterTarget(store), { target: 40, low: 30, high: 50 });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
+});
+
+await test('equilibrage 30 boosters/jour : valeurs, migration unique, chien qui garde ses boosters, crane garanti au mode excite', () => {
+  // Valeurs par defaut.
+  for (const [k, v] of [['DigBoosterKeepChance', 1], ['DogBonesPerDay', 6], ['DailyQuestRewardBoosters', 5], ['WeeklyQuestRewardBoosters', 14], ['BoosterShopWeeklyCap', 14], ['ShardsPerBooster', 5], ['WealthReference', 8000]]) {
+    call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: k } });
+    assert.equal(setting(store, k), v, k);
+  }
+  assert.equal(setting(store, 'DogKeepBoosters'), true);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
+  assert.equal(setting(store, 'FishingLoot').find((x) => x.type === 'booster').weight, 10);
+  // Migration : reglages enregistres plus avares -> releves, une seule fois.
+  store.getAll('AppSettings').filter((r) => r.Key === 'balance-2026-10-15').forEach((r) => store.delete('AppSettings', r.id));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DigBoosterKeepChance: 0.5, DogBonesPerDay: 4, BoosterShopPrice: 450, DogKeepBoosters: false } } });
+  const cfg = store.getAll('Config')[0];
+  store.update('Config', cfg.id, { DailyQuestRewardBoosters: 1, WeeklyQuestRewardBoosters: 0 });
+  balance.migrateBalance30(store);
+  assert.deepEqual([setting(store, 'DigBoosterKeepChance'), setting(store, 'DogBonesPerDay'), setting(store, 'BoosterShopPrice'), setting(store, 'DogKeepBoosters')], [1, 6, 300, true]);
+  assert.deepEqual([store.getAll('Config')[0].DailyQuestRewardBoosters, store.getAll('Config')[0].WeeklyQuestRewardBoosters], [5, 14]);
+  const log = JSON.parse(store.getAll('AppSettings').find((r) => r.Key === 'balance-2026-10-15').Value);
+  assert.equal(log.base, 30);
+  assert.ok(log.changes.some((c) => c.key === 'DogBonesPerDay' && c.from === 4));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DogBonesPerDay: 2 } } });
+  balance.migrateBalance30(store);
+  assert.equal(setting(store, 'DogBonesPerDay'), 2);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DogBonesPerDay' } });
+  // Chien : ses boosters sont gardes (plus convertis en poussieres).
+  const before = user(1).BoosterCount || 0;
+  store.update('Users', 1, { BoosterCount: before + 3 });
+  const dog = { status: 200, json: { dogReport: { tiles: 24, boosters: 3, dust: 10, cards: [] } } };
+  balance.afterWorkflow({ store, path: 'dig', request: { body: { userId: 1, action: 'status' } }, response: dog });
+  assert.equal(user(1).BoosterCount, before + 3);
+  assert.equal(dog.json.dogReport.boosters, 3);
+  // Mode excite : crane de dinosaure garanti.
+  store.update('Users', 1, { DinoSkulls: 0 });
+  const fr = { status: 200, json: { frenzy: { boards: 15 }, dogReport: { tiles: 200, boosters: 0, cards: [] } } };
+  dinoMod.afterWorkflow({ store, path: 'dig', request: { body: { userId: 1, action: 'frenzy' } }, response: fr });
+  assert.equal(user(1).DinoSkulls, 1);
+  assert.ok(fr.json.dinoSkull && fr.json.dinoSkull.guaranteed);
 });
 
 store.db.close();

@@ -16,7 +16,9 @@
 // (ou des le premier prestige), table DeepFishingLoot, lancer plus cher
 // (DeepFishingCostMult vers), nouvelles prises : perle noire (grosse somme de
 // poussieres) et appat dore.
-//   POST /webhook/fishing  { userId, action: 'status' | 'cast', count?: 1..5, zone?: 'shore' | 'deep' }
+//   POST /webhook/fishing  { userId, action: 'status' | 'cast', count?: 1..MAX_CASTS, zone?: 'shore' | 'deep' }
+// "Tout pecher" (2026-10-15) : jusqu'a MAX_CASTS lancers d'un coup (bornes par
+// les vers, les lancers du jour et les appats).
 
 import { ok, fail, userById, parisDay, now } from './common.js';
 import { setting } from './settings.js';
@@ -25,6 +27,9 @@ import { levelInfo, weeklyXpFields } from './levels.js';
 import { eventState } from './events.js';
 import { grantCosmetic } from './cosmetics.js';
 import { upgradeValue } from './upgrades.js';
+import { modeIs } from './modeperks.js';
+import { fishingBycatch } from './dino.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' }, Worms: { type: 'Numeric' },
@@ -152,7 +157,8 @@ function fishingLevel(store, user) {
 // bait : appat dore du jardin (aucune prise vide, prises rares x2,5) ;
 // eventRare : multiplicateur d'un evenement "semaine de la peche".
 function lootTable(store, perks = { emptyReduction: 0, rareBoost: 0 }, weather = {}, { bait = false, eventRare = 1, deep = false } = {}) {
-  const loot = setting(store, deep ? 'DeepFishingLoot' : 'FishingLoot').filter((x) => x && LABELS[x.type] && Number(x.weight) > 0 && !(bait && x.type === 'nothing')).map((x) => {
+  const noEmpty = bait || ruleOn(store, 'cool.fishNoEmpty');
+  const loot = setting(store, deep ? 'DeepFishingLoot' : 'FishingLoot').filter((x) => x && LABELS[x.type] && Number(x.weight) > 0 && !(noEmpty && x.type === 'nothing')).map((x) => {
     let k = x.type === 'nothing' ? Math.max(0.05, 1 - perks.emptyReduction - (weather.emptyReduction || 0)) : x.type === 'dust' || x.type === 'pearl' ? 1 : (1 + perks.rareBoost + (weather.rareBoost || 0)) * eventRare * (bait ? 2.5 : 1);
     if (x.type === 'part') k *= 1 + (weather.partBoost || 0);
     return { ...x, weight: Number(x.weight) * k };
@@ -208,12 +214,13 @@ function statusOf(store, user) {
   };
 }
 
+const MAX_CASTS = 50;
 function handleFishing({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
   const st = statusOf(store, user);
   if (body.action !== 'cast') return ok(st);
-  const count = Math.min(5, Math.max(1, Number(body.count) || 1));
+  const count = Math.min(MAX_CASTS, Math.max(1, Math.floor(Number(body.count) || 1)));
   const deep = body.zone === 'deep';
   if (deep && !st.deep.unlocked) return fail('deep_locked', 400, st);
   const cost = deep ? st.deep.cost : st.cost;
@@ -266,9 +273,11 @@ function handleFishing({ store, body }) {
   Object.assign(fields, weeklyXpFields(user, 'Fishing', xp));
   fields.FishingRecords = JSON.stringify(records);
   if (tk) Object.assign(fields, { TourneyKey: tk, TourneyCasts: tCasts, TourneyScore: tScore });
+  const bycatch = fishingBycatch(store, user, count);
+  if (bycatch) Object.assign(fields, bycatch.fields);
   user = store.update('Users', user.id, fields);
   const after = statusOf(store, user);
-  return ok({ catches, zone: deep ? 'deep' : 'shore', xpGained: xp, reducedRewards: reducedAny, baitUsed: useBait ? count : 0, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, newWorms: user.Worms, newGoldBait: user.GoldBait, ...after });
+  return ok({ catches, bycatch: bycatch ? bycatch.items : [], zone: deep ? 'deep' : 'shore', xpGained: xp, reducedRewards: reducedAny, baitUsed: useBait ? count : 0, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, newWorms: user.Worms, newGoldBait: user.GoldBait, ...after });
 }
 
 export const routes = { 'POST fishing': handleFishing, 'GET fishing-tournament': handleTourney };

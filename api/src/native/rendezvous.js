@@ -17,9 +17,11 @@ import { refId, now, ok, fail, userById, parisDay, cardSummary, parseJson } from
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { parisEpoch } from './daily.js';
+import { modeIs } from './modeperks.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
-  Users: { DogGiftDay: { type: 'Text' }, SundayBought: { type: 'Text' }, GiftSentDay: { type: 'Text' } },
+  Users: { DogGiftDay: { type: 'Text' }, DogGiftCount: { type: 'Numeric' }, SundayBought: { type: 'Text' }, GiftSentDay: { type: 'Text' } },
   PlayerGifts: { From: { type: 'Ref:Users' }, To: { type: 'Ref:Users' }, Kind: { type: 'Text' }, Amount: { type: 'Numeric' }, At: { type: 'Numeric' }, Claimed: { type: 'Bool' } }
 };
 
@@ -41,7 +43,9 @@ function handleDogGift({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
   const today = parisDay(0);
-  const available = !!setting(store, 'DogGiftEnabled') && user.DogGiftDay !== today;
+  const taken = user.DogGiftDay === today ? Math.max(1, Number(user.DogGiftCount) || 1) : 0;
+  const perDay = ruleOn(store, 'cool.dogTwice') ? 2 : 1;
+  const available = !!setting(store, 'DogGiftEnabled') && taken < perDay;
   if ((body.action || 'status') === 'status') return ok({ available });
   if (body.action !== 'claim') return fail('unknown_action');
   if (!available) return fail('already_claimed');
@@ -49,12 +53,13 @@ function handleDogGift({ store, body }) {
   let r = Math.random() * total, pick = DOG_LOOT[0];
   for (const x of DOG_LOOT) { r -= x.weight; if (r <= 0) { pick = x; break; } }
   const n = pick.min + Math.floor(Math.random() * (pick.max - pick.min + 1));
-  user = store.update('Users', user.id, { DogGiftDay: today, [pick.field]: addNum(user, pick.field, n) });
-  return ok({ available: false, gift: { type: pick.type, amount: n, icon: pick.icon, label: pick.label(n) }, newStardust: user.StardustCount });
+  user = store.update('Users', user.id, { DogGiftDay: today, DogGiftCount: taken + 1, [pick.field]: addNum(user, pick.field, n) });
+  return ok({ available: taken + 1 < perDay, left: Math.max(0, perDay - taken - 1), gift: { type: pick.type, amount: n, icon: pick.icon, label: pick.label(n) }, newStardust: user.StardustCount });
 }
 
 // ------------------------------------------------------------------ marche du dimanche
-const marketOpen = (store) => new Date(parisDay(0) + 'T12:00:00Z').getUTCDay() === setting(store, 'SundayMarketDay');
+const marketDays = (store) => (ruleOn(store, 'chill.wednesdayMarket') ? [setting(store, 'SundayMarketDay'), 3] : [setting(store, 'SundayMarketDay')]);
+const marketOpen = (store) => marketDays(store).includes(new Date(parisDay(0) + 'T12:00:00Z').getUTCDay());
 
 function marketOffers(store, user) {
   const day = parisDay(0);
@@ -85,10 +90,10 @@ function marketOffers(store, user) {
 }
 
 function nextMarketAt(store) {
-  const target = setting(store, 'SundayMarketDay');
+  const days = marketDays(store);
   for (let i = 1; i <= 7; i++) {
     const d = parisDay(i);
-    if (new Date(d + 'T12:00:00Z').getUTCDay() === target) return parisEpoch(d, 0);
+    if (days.includes(new Date(d + 'T12:00:00Z').getUTCDay())) return parisEpoch(d, 0);
   }
   return null;
 }

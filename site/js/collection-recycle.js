@@ -28,7 +28,7 @@
       if (!prefs.rarities.includes(card.rarity?.key)) return;
       if (prefs.keepWishlist && st.wishlist && st.wishlist.has(cardId)) return;
       const copies = (owned.copies || []).filter((c) =>
-        !(st.insured && st.insured.has(c.pullId)) && !(st.starred && st.starred.has(c.pullId)) && c.serialNumber !== 1 && !c.inVault);
+        !(st.insured && st.insured.has(c.pullId)) && !(st.starred && st.starred.has(c.pullId)) && c.serialNumber !== 1 && !c.inVault && !Coll.isEdition(c));
       // On garde d'abord les plus beaux exemplaires.
       const score = (c) => Coll.FINISH_ORDER.indexOf(Coll.finishOf(c)) * 10 + Coll.QUALITY_ORDER.indexOf(Coll.qualityOf(c));
       const sorted = [...copies].sort((a, b) => score(b) - score(a) || (a.serialNumber || 1e9) - (b.serialNumber || 1e9));

@@ -38,6 +38,10 @@ const LOOT_CAPS = { FishingLoot: { booster: 3, bone: 8 }, DeepFishingLoot: { boo
 const tooGenerous = (v, target, dir) => (dir === 'max' ? v > target : v < target);
 
 export function init({ store }) {
+  // Base d'inflation (30 boosters/jour) : migrations a part, avant le return.
+  migrateInflationBase(store);
+  migrateBoosterTarget(store);
+  migrateBalance30(store);
   if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === MIGRATION)) return;
   const changes = [];
   const appRow = (key) => store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key);
@@ -76,12 +80,93 @@ export function init({ store }) {
   if (changes.length) console.log(`Equilibrage ${MIGRATION} : ${changes.length} reglage(s) ajuste(s) (${changes.map((c) => c.key).join(', ')})`);
 }
 
+// Inflation (2026-10-15) : on estime qu'un joueur ouvre au moins ~30 boosters
+// par jour. Un seuil d'alerte enregistre plus bas (ancienne base ~3) est
+// releve une seule fois a 45 ; l'ancienne valeur reste dans l'historique.
+const INFLATION_MIGRATION = 'inflation-2026-10-15';
+export function migrateInflationBase(store) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === INFLATION_MIGRATION)) return;
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'setting:EconomyAlertBoostersPerPlayer');
+  const changes = [];
+  let v = null;
+  try { v = row ? JSON.parse(row.Value) : null; } catch (e) { v = null; }
+  if (row && typeof v === 'number' && v < 45) { store.update('AppSettings', row.id, { Value: JSON.stringify(45) }); changes.push({ key: 'EconomyAlertBoostersPerPlayer', from: v, to: 45 }); }
+  store.create('AppSettings', { Key: INFLATION_MIGRATION, Value: JSON.stringify({ at: now(), base: 30, changes }) });
+  if (changes.length) console.log(`Inflation : seuil d'alerte releve de ${v} a 45 boosters par joueur et par jour (base 30)`);
+}
+
+// Cible de 40 boosters par jour a +/- 20 (2026-10-16), codes de jeu exclus :
+// un seuil d'alerte enregistre sous 60 est releve une seule fois a 60.
+const TARGET_MIGRATION = 'booster-target-2026-10-16';
+export function migrateBoosterTarget(store) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === TARGET_MIGRATION)) return;
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'setting:EconomyAlertBoostersPerPlayer');
+  let v = null;
+  try { v = row ? JSON.parse(row.Value) : null; } catch (e) { v = null; }
+  const changes = [];
+  if (row && typeof v === 'number' && v < 60) { store.update('AppSettings', row.id, { Value: JSON.stringify(60) }); changes.push({ key: 'EconomyAlertBoostersPerPlayer', from: v, to: 60 }); }
+  store.create('AppSettings', { Key: TARGET_MIGRATION, Value: JSON.stringify({ at: now(), target: 40, margin: 20, changes }) });
+  if (changes.length) console.log(`Cible de boosters : seuil d'alerte releve de ${v} a 60 (cible 40 +/- 20, hors codes)`);
+}
+
+// Base de 30 boosters par jour (2026-10-15) : l'equilibrage du 11/10 visait
+// ~5 boosters par jour ; on vise maintenant ~30 pour un joueur actif (fouille
+// 3, chien 10, peche 3, coffres 1,5, quetes 7, fragments 2, boutique 2, le
+// reste ~1). Migration unique : les reglages enregistres moins genereux que
+// les nouvelles valeurs sont releves ; les anciennes valeurs restent dans
+// l'historique (AppSettings 'balance-2026-10-15').
+const BALANCE30 = 'balance-2026-10-15';
+const APP_RULES_30 = [
+  ['DigBoosterKeepChance', 1, 'min'], ['DogBonesPerDay', 6, 'min'], ['ChestBoosterChance', 0.6, 'min'], ['ChestDoubleBoosterChance', 0.15, 'min'],
+  ['BoosterShopPrice', 300, 'max'], ['BoosterShopWeeklyCap', 14, 'min'], ['ShardsPerBooster', 5, 'max'], ['ShardsDailyCap', 10, 'min'],
+  ['WealthReference', 8000, 'min'], ['DogKeepBoosters', true, 'bool']
+];
+const CONFIG_RULES_30 = [['DailyQuestRewardBoosters', 5], ['WeeklyQuestRewardBoosters', 14]];
+const LOOT_FLOORS_30 = { FishingLoot: { booster: 10 }, DeepFishingLoot: { booster: 12 } };
+export function migrateBalance30(store) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === BALANCE30)) return;
+  const changes = [];
+  const appRow = (key) => store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key);
+  for (const [key, target, dir] of APP_RULES_30) {
+    const row = appRow(key);
+    if (!row) continue;
+    let v; try { v = JSON.parse(row.Value); } catch (e) { continue; }
+    const stingy = dir === 'bool' ? v !== target : typeof v === 'number' && (dir === 'min' ? v < target : v > target);
+    if (stingy) { store.update('AppSettings', row.id, { Value: JSON.stringify(target) }); changes.push({ key, from: v, to: target }); }
+  }
+  const cfg = store.tables.has('Config') ? store.getAll('Config')[0] : null;
+  if (cfg) {
+    const fields = {};
+    for (const [key, target] of CONFIG_RULES_30) {
+      // Vide = valeur de secours du workflow (ancienne) : on ecrit la nouvelle.
+      const v = Number(cfg[key]) || 0;
+      if (v < target) { fields[key] = target; changes.push({ key, from: v || null, to: target }); }
+    }
+    if (Object.keys(fields).length) store.update('Config', cfg.id, fields);
+  }
+  for (const [key, floors] of Object.entries(LOOT_FLOORS_30)) {
+    const row = appRow(key);
+    if (!row) continue;
+    let table; try { table = JSON.parse(row.Value); } catch (e) { continue; }
+    if (!Array.isArray(table)) continue;
+    let touched = false;
+    const next = table.map((x) => (x && floors[x.type] != null && Number(x.weight) < floors[x.type] ? (touched = true, { ...x, weight: floors[x.type] }) : x));
+    if (touched) { store.update('AppSettings', row.id, { Value: JSON.stringify(next) }); changes.push({ key, to: floors }); }
+  }
+  store.create('AppSettings', { Key: BALANCE30, Value: JSON.stringify({ at: now(), base: 30, changes }) });
+  if (changes.length) console.log(`Equilibrage ${BALANCE30} (30 boosters/jour) : ${changes.length} reglage(s) releve(s) (${changes.map((c) => c.key).join(', ')})`);
+}
+
 // Os du jour deja utilises.
 const bonesToday = (user) => (user.BoneUseDay === parisDay(0) ? Number(user.BoneUseCount) || 0 : 0);
 
 export function beforeWorkflow({ store, path, request }) {
   const body = request.body || {};
-  if (path !== 'dig' || body.action !== 'useBone') return null;
+  if (path !== 'dig') return null;
+  // Reglages du mode excite du chien, transmis au workflow (toujours ecrases :
+  // jamais ceux envoyes par le joueur).
+  request.body = { ...body, frenzyBones: setting(store, 'DogFrenzyBones'), frenzyBoards: setting(store, 'DogFrenzyBoards'), frenzyRestHours: setting(store, 'DogFrenzyRestHours') };
+  if (body.action !== 'useBone') return null;
   const user = store.get('Users', Number(body.userId));
   if (!user) return null;
   const max = setting(store, 'DogBonesPerDay');
@@ -115,7 +200,7 @@ export function afterWorkflow({ store, path, request, response }) {
   }
   // Chien : pas de boosters, des poussieres a la place.
   const dogBoosters = json.dogReport ? Number(json.dogReport.boosters) || 0 : 0;
-  if (dogBoosters > 0) {
+  if (dogBoosters > 0 && !setting(store, 'DogKeepBoosters')) {
     const gain = dogBoosters * setting(store, 'DogBoosterDust');
     boosters = Math.max(0, boosters - dogBoosters);
     dust += gain;

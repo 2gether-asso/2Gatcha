@@ -25,6 +25,7 @@
           <a class="btn-ghost" href="admin-db.html">&#128451;&#65039; Base de données</a>
           <a class="btn-ghost" href="admin-db.html#extensions">&#129513; Extensions &amp; cartes</a>
           <a class="btn-ghost" href="card-preview-tool.html">&#128444;&#65039; Prévisualiser une carte</a>
+          <a class="btn-ghost" href="anim-preview-tool.html">&#127916; Prévisualiser les animations</a>
         </nav>
       </div>
 
@@ -40,10 +41,12 @@
           <button type="button" role="tab" data-pane="accueil"><span aria-hidden="true">&#127968;</span> Vue d'ensemble</button>
           <button type="button" role="tab" data-pane="codes"><span aria-hidden="true">&#127915;</span> Codes &amp; dons</button>
           <button type="button" role="tab" data-pane="economie"><span aria-hidden="true">&#128176;</span> Économie</button>
+          <button type="button" role="tab" data-pane="modes"><span aria-hidden="true">&#127922;</span> Difficultés</button>
           <button type="button" role="tab" data-pane="evenements"><span aria-hidden="true">&#128197;</span> Événements</button>
           <button type="button" role="tab" data-pane="contenu"><span aria-hidden="true">&#127183;</span> Contenu</button>
           <button type="button" role="tab" data-pane="reglages"><span aria-hidden="true">&#9881;&#65039;</span> Réglages</button>
           <button type="button" role="tab" data-pane="site"><span aria-hidden="true">&#128736;&#65039;</span> Site</button>
+          <button type="button" role="tab" data-pane="doc"><span aria-hidden="true">&#128214;</span> Documentation</button>
         </nav>
 
         <div class="adm-panes">
@@ -144,8 +147,8 @@
                 </label>
                 <label id="gift-quality-label">Qualité
                   <select id="gift-quality-select">
-                    <option value="damaged">Abîmé</option>
-                    <option value="worn">Usé</option>
+                    <option value="damaged">Usé</option>
+                    <option value="worn">Abîmé</option>
                     <option value="good" selected>Bon état</option>
                     <option value="mint">Parfait état</option>
                   </select>
@@ -266,8 +269,25 @@
             </section>
 
             <details class="adm-card adm-fold">
-              <summary class="adm-card-head"><h2>&#127922; Bingo de collection</h2><p>9 cartes par mois. Recréer la grille d'un mois la remplace. « Autogénérer » prépare le <strong>mois prochain</strong> (rien n'est enregistré sans « Enregistrer »). Ne touche pas à la grille du mois en cours si des joueurs jouent.</p></summary>
+              <summary class="adm-card-head"><h2>&#127922; Bingo du mois</h2><p>Nouvelle version (grille 5 × 5, lignes, joker, carton plein) à partir du mois réglé dans <code>BingoV2From</code> (novembre 2026 par défaut) : la grille se génère toute seule chaque mois, tu peux imposer des cartes. Les récompenses se règlent dans Réglages &gt; Bingo.</p></summary>
               <div class="adm-fold-body">
+                <div class="bingo2-admin">
+                  <h3>Nouvelle version : grille d'un mois</h3>
+                  <div class="b2a-row">
+                    <label>Mois <input type="text" id="bingo2-month" pattern="[0-9]{4}-[0-9]{2}" placeholder="2026-11" /></label>
+                    <button type="button" class="btn-secondary" id="bingo2-preview-btn">Aperçu</button>
+                    <button type="button" class="btn-secondary" id="bingo2-reseed-btn">&#127922; Nouveau tirage</button>
+                  </div>
+                  <label class="b2a-cards">Cartes imposées (facultatif, Ctrl / Cmd pour en choisir plusieurs ; le reste est tiré au sort : communes, rares, épiques)
+                    <select id="bingo2-cards" multiple size="6"></select>
+                  </label>
+                  <div class="b2a-row">
+                    <button type="button" class="btn" id="bingo2-save-btn">Enregistrer les cartes</button>
+                    <button type="button" class="btn-ghost" id="bingo2-clear-btn">Tout tirer au sort</button>
+                  </div>
+                  <div id="bingo2-admin-preview"></div>
+                </div>
+                <h3 class="b2a-legacy-title">Ancienne version (jusqu'à octobre 2026) : 9 cartes</h3>
                 <button type="button" class="btn-secondary" id="bingo-autogen-btn">&#127922; Autogénérer la grille du mois prochain</button>
                 <form id="create-bingo-form" class="admin-form">
                   <label>Mois (AAAA-MM, vide = mois courant)
@@ -343,6 +363,22 @@
             </section>
           </section>
 
+          <!-- ============================== Documentation ============================== -->
+          <section class="adm-pane" id="pane-doc" role="tabpanel" data-title="Documentation" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128214; Documentation du jeu</h2><p>Toutes les fonctionnalités et règles métier, avec les valeurs actuelles des réglages. À mettre à jour à chaque ajout, modification ou suppression.</p></header>
+              <div id="doc-zone" class="adoc empty-state">Chargement de la documentation…</div>
+            </section>
+          </section>
+
+          <!-- ============================== Difficultes ============================== -->
+          <section class="adm-pane" id="pane-modes" role="tabpanel" data-title="Difficultés" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127922; Règles par difficulté</h2><p>Tout ce qui change selon le mode de jeu : bonus, malus et fonctionnalités exclusives. Une règle ne joue que pendant son mode ; désactivée, elle ne joue plus du tout (effet immédiat). Les réglages chiffrés (prix, boosters…) restent ceux du mode.</p></header>
+              <div id="modes-admin-zone" class="amr-zone empty-state">Chargement des règles…</div>
+            </section>
+          </section>
+
           <!-- ============================== Site ============================== -->
           <section class="adm-pane" id="pane-site" role="tabpanel" data-title="Site" hidden>
             <section class="adm-card">
@@ -384,7 +420,7 @@
     </div>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/core.js"></script>
@@ -394,5 +430,8 @@
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
   <script src="js/admin-home.js"></script>
+  <script src="js/admin-bingo.js"></script>
+  <script src="js/admin-modes.js"></script>
+  <script src="js/admin-doc.js"></script>
 </body>
 </html>

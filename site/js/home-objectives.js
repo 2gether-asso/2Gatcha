@@ -12,6 +12,7 @@
     { id: "quests-panel", label: "Du jour", icon: "&#9989;", claim: (el) => [...el.querySelectorAll("button")].some((b) => /récupérer|reclamer|réclamer/i.test(b.textContent) && !b.disabled && !b.hidden && b.style.display !== "none") },
     { id: "challenges-panel", label: "Défis", icon: "&#127919;", claim: () => { const b = document.getElementById("challenges-claim"); return !!b && !b.hidden; } },
     { id: "weekly-quests-panel", label: "Semaine", icon: "&#128197;", claim: (el) => [...el.querySelectorAll("button")].some((b) => /récupérer|réclamer/i.test(b.textContent) && !b.disabled && !b.hidden && b.style.display !== "none") },
+    { id: "weekly-goal-block", label: "Contrat", icon: "&#128220;", claim: () => { const b = document.getElementById("weekly-goal-claim"); return !!b && !b.hidden; } },
     { id: "evening-block", label: "Ce soir", icon: "&#127769;", claim: () => { const b = document.getElementById("evening-claim"); return !!b && !b.hidden; } }
   ];
   let active = null;
@@ -33,6 +34,27 @@
         <span aria-hidden="true">${p.icon}</span> ${p.label}${withClaim.includes(p) ? '<span class="obj-dot" title="À récupérer"></span>' : ""}
       </button>`).join("");
     PANES.forEach((p) => { const el = document.getElementById(p.id); if (el) el.classList.toggle("obj-inactive", p.id !== active); });
+  }
+
+  // Contrat de la semaine (mode Medium, modeperks.js).
+  async function loadGoal() {
+    const el = document.getElementById("weekly-goal-block");
+    if (!el || !API.weeklyGoal) return;
+    let g;
+    try { g = await API.weeklyGoal(Session.userId); } catch (e) { return; }
+    if (!g.active) { el.hidden = true; return; }
+    const pct = Math.round((g.progress / g.target) * 100);
+    el.hidden = false;
+    el.innerHTML = `<p class="lead" style="font-size:0.85rem;">Ton contrat personnel de la semaine (mode Medium) : 1 booster et le titre « Contractuel ».</p>
+      <div class="goal-line"><strong>${escHtml(g.label)}</strong><span>${g.progress} / ${g.target}</span></div>
+      <div class="challenge-bar"><div style="width:${pct}%"></div></div>
+      ${g.claimed ? '<p class="goal-done">&#10004; Contrat rempli cette semaine.</p>' : `<button type="button" class="btn" id="weekly-goal-claim" ${g.done ? "" : "hidden"}>Récupérer la récompense</button>`}`;
+    const btn = document.getElementById("weekly-goal-claim");
+    if (btn) btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try { await API.weeklyGoal(Session.userId, "claim"); Toast.success("&#128220; Contrat rempli : +1 booster et le titre « Contractuel » !"); loadGoal(); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); }
+      catch (err) { btn.disabled = false; Toast.errorfriendlyError(err); }
+    });
   }
 
   let pending = null;
@@ -58,5 +80,6 @@
     });
     if (location.hash === "#defis") active = "challenges-panel";
     render();
+    loadGoal();
   });
 })();

@@ -93,6 +93,7 @@
                 <option value="name">Trier : alphabétique</option>
                 <option value="artist">Trier : par artiste</option>
                 <option value="recent">Trier : récemment obtenues</option>
+                <option value="edition">Trier : par édition</option>
               </select>
               <select id="artist-filter" aria-label="Filtrer par artiste">
                 <option value="">Tous les artistes</option>
@@ -116,11 +117,12 @@
               </select>
               <select id="quality-filter" aria-label="Filtrer par état">
                 <option value="">Tous les états</option>
-                <option value="damaged">Abîmé</option>
-                <option value="worn">Usé</option>
+                <option value="damaged">Usé</option>
+                <option value="worn">Abîmé</option>
                 <option value="good">Bon état</option>
                 <option value="mint">Parfait état</option>
               </select>
+              <select id="edition-filter" aria-label="Filtrer par édition"></select>
               <button type="button" class="btn-secondary" id="first-serial-toggle" title="Seulement les premiers exemplaires en circulation">#001</button>
             </div>
             <div class="toolbar-group" data-only-mode="craft">
@@ -179,6 +181,7 @@
             <span id="disenchant-bulk-summary"></span>
             <button type="button" class="btn-danger" id="disenchant-bulk-btn">Décrafter la sélection</button>
           </div>
+          <div class="undo-panel" id="undo-panel" hidden></div>
           <div id="disenchant-grid" class="craft-grid"></div>
         </section>
 
@@ -220,7 +223,7 @@
         <section class="coll-pane" id="pane-quality" role="tabpanel" style="display:none;">
           <p class="coll-pane-help">
             Fusionne 3 exemplaires identiques (même carte, même qualité) pour obtenir 1
-            exemplaire de la qualité supérieure : Abîmé &rarr; Usé &rarr; Bon état
+            exemplaire de la qualité supérieure : Usé &rarr; Abîmé &rarr; Bon état
             &rarr; Parfait état. Toujours garanti, pas de hasard.
           </p>
           <div id="quality-tiers" class="finish-tiers"></div>
@@ -235,10 +238,12 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/collection-core.js"></script>
+  <script src="js/card-extras.js"></script>
   <script src="js/collection-binder.js"></script>
   <script src="js/collection-workshop.js"></script>
   <script src="js/collection-themes.js"></script>
   <script src="js/collection-progress.js"></script>
   <script src="js/collection-recycle.js"></script>
+  <script src="js/collection-undo.js"></script>
 </body>
 </html>

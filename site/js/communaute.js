@@ -34,10 +34,11 @@ const MARKET_ERRORS = {
 const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
 const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
 const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
-const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 let allCards = [];
 let ownedMap = new Map();
+let editionPullIds = new Set(); // exemplaires en edition limitee (jamais envoyes au boss)
 let activeTab = "calendar";
 let bossSearchQuery = "";
 let chestSearchQuery = "";
@@ -50,7 +51,7 @@ function normalize(str) {
 // Memorise le dernier onglet visite (QoL 2026-09-30).
 const LAST_TAB_KEY = "2gatcha_last_tab_communaute";
 // Ancre d'URL de chaque onglet (2026-10-05) : communaute.html#ensemble...
-const TAB_HASH = { calendar: "calendrier", boss: "boss", chest: "coffre", market: "marche", together: "ensemble", skills: "metiers", auctions: "encheres" };
+const TAB_HASH = { calendar: "calendrier", boss: "boss", chest: "coffre", market: "marche", together: "ensemble", skills: "metiers", auctions: "encheres", machine: "machines", board: "affichage", teams: "equipes" };
 const HASH_TAB = Object.fromEntries(Object.entries(TAB_HASH).map(([k, v]) => [v, k]));
 function getInitialTab() {
   const fromHash = HASH_TAB[location.hash.slice(1)];
@@ -84,7 +85,10 @@ function setActiveTab(tab) {
     renderTabDots();
     if (typeof loadNavBadges === "function") loadNavBadges();
   }
-  ["calendar", "boss", "chest", "market", "together", "skills", "auctions"].forEach((key) => {
+  // Onglet actif visible dans la bande defilante (mobile).
+  const activeBtn = document.getElementById("tab-" + tab + "-btn");
+  if (activeBtn && activeBtn.scrollIntoView) activeBtn.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  ["calendar", "boss", "chest", "market", "together", "skills", "auctions", "machine", "board", "teams"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
@@ -98,6 +102,9 @@ function setActiveTab(tab) {
   if (tab === "market") loadMarket();
   if (tab === "skills") { loadSkills(); loadTourney(); }
   if (tab === "auctions" && typeof window.loadAuctions === "function") window.loadAuctions();
+  if (tab === "machine" && typeof window.loadMachineRoom === "function") window.loadMachineRoom();
+  if (tab === "board" && typeof window.loadBoard === "function") window.loadBoard();
+  if (tab === "teams" && typeof window.loadTeams === "function") window.loadTeams();
 }
 
 // --- Ensemble : objectif commun + grande fouille (api/src/native) ---------
@@ -143,7 +150,7 @@ async function digCommunity(tile, btn) {
     }
   } catch (e) {
     btn.disabled = false;
-    Toast.error({ no_digs_left: "Plus de coups de pioche aujourd'hui : reviens demain !", tile_already_dug: "Quelqu'un vient de creuser ici." }[e.code] || "Erreur. (" + e.message + ")");
+    Toast.error({ no_digs_left: "Plus de coups de pioche aujourd'hui : reviens demain !", tile_already_dug: "Quelqu'un vient de creuser ici." }[e.code] || friendlyError(e));
     loadTogether();
   }
 }
@@ -192,6 +199,8 @@ async function loadSkills() {
 }
 
 async function loadCalendar() {
+  // Calendrier complet (communaute-calendar.js) : saisons, bonus, rendez-vous, asso.
+  if (typeof window.loadCalendarFull === "function") return window.loadCalendarFull();
   const loading = document.getElementById("calendar-loading");
   const list = document.getElementById("calendar-list");
   try {
@@ -218,6 +227,7 @@ async function ensureCollectionLoaded() {
   const [cardsRes, collectionRes] = await Promise.all([API.getCards(), API.getCollection(Session.userId)]);
   allCards = cardsRes.cards || [];
   ownedMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o]));
+  editionPullIds = new Set(Object.keys(collectionRes.editionPulls || {}).map(Number));
 }
 
 // Regroupe les exemplaires possedes d'une carte par variante EXACTE
@@ -333,7 +343,7 @@ let bossRules = { finish: { normal: 1, holo: 1.5, gold: 2, ghost: 2.5, diamond: 
 let bossState = null;
 const bossSelection = new Map(); // cle de variante -> quantite
 const BOSS_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const BOSS_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const BOSS_QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 const bossVolley = (n) => Math.round((1 + bossRules.volleyStep * Math.max(0, Math.min(n, bossRules.maxCards) - 1)) * 100) / 100;
 const bossSerial = (n) => "#" + String(n ?? "?").padStart(3, "0");
@@ -346,7 +356,7 @@ function bossVariants() {
   allCards.filter((c) => !c.isPromo && ownedMap.has(c.cardId)).forEach((card) => {
     const owned = ownedMap.get(card.cardId);
     const groups = new Map();
-    (owned.copies || []).forEach((cp) => {
+    (owned.copies || []).filter((cp) => !editionPullIds.has(cp.pullId)).forEach((cp) => {
       const finish = cp.finish || "normal", quality = cp.quality || "damaged";
       const key = card.cardId + "::" + finish + "::" + quality;
       if (!groups.has(key)) groups.set(key, { key, card, finish, quality, copies: [], totalOwned: owned.count });
@@ -527,7 +537,7 @@ async function attackBoss() {
   } catch (e) {
     if (btn) btn.disabled = false;
     const msg = { no_active_boss: "Le boss n'est plus actif.", card_not_owned: "Un exemplaire n'est plus dans ta collection : recharge la page.", too_many_cards: `${bossRules.maxCards} cartes maximum par salve.`, promo_not_donatable: "Les cartes promo ne peuvent pas être données." };
-    Toast.error(msg[e.code] || BOSS_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(msg[e.code] || BOSS_ERRORS[e.code] || friendlyError(e));
   }
 }
 
@@ -635,7 +645,7 @@ async function depositChest(cardId, finish, quality) {
     allCards = [];
     await loadChest();
   } catch (e) {
-    Toast.error(CHEST_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(CHEST_ERRORS[e.code] || friendlyError(e));
   }
 }
 
@@ -643,7 +653,7 @@ async function depositChest(cardId, finish, quality) {
 // renvoye par le serveur que si le joueur possede une clef - sans clef, cette
 // zone n'existe tout simplement pas pour lui (les clefs restent un secret).
 const CHEST_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const CHEST_QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const CHEST_QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 function renderChestKeyPool(res) {
   const zone = document.getElementById("chest-key-zone");
   const pool = res.pool || [];
@@ -682,7 +692,7 @@ async function pickChestWithKey(depositId, btn) {
     await loadChest();
   } catch (err) {
     btn.disabled = false;
-    Toast.error(CHEST_ERRORS[err.code] || ({ no_key: "Il te faut une clé secrète.", deposit_unavailable: "Cette carte vient d'être prise par quelqu'un d'autre." }[err.code]) || ("Erreur. (" + err.message + ")"));
+    Toast.error(CHEST_ERRORS[err.code] || ({ no_key: "Il te faut une clé secrète.", deposit_unavailable: "Cette carte vient d'être prise par quelqu'un d'autre." }[err.code]) || friendlyError(err));
     if (err.code === "deposit_unavailable") { allCards = []; await loadChest(); }
   }
 }
@@ -701,7 +711,7 @@ document.addEventListener("click", async (e) => {
       allCards = [];
       await loadChest();
     } catch (err) {
-      Toast.error(CHEST_ERRORS[err.code] || ("Erreur. (" + err.message + ")"));
+      Toast.error(CHEST_ERRORS[err.code] || friendlyError(err));
     }
   }
 });
@@ -753,7 +763,7 @@ async function buyMarket(offerId) {
     if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
     await loadMarket();
   } catch (e) {
-    Toast.error(MARKET_ERRORS[e.code] || ("Erreur. (" + e.message + ")"));
+    Toast.error(MARKET_ERRORS[e.code] || friendlyError(e));
   }
 }
 
@@ -783,12 +793,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-skills-btn").addEventListener("click", () => setActiveTab("skills"));
   document.getElementById("tab-auctions-btn").addEventListener("click", () => setActiveTab("auctions"));
   document.getElementById("tab-together-btn").addEventListener("click", () => setActiveTab("together"));
+  document.getElementById("tab-machine-btn").addEventListener("click", () => setActiveTab("machine"));
+  document.getElementById("tab-board-btn").addEventListener("click", () => setActiveTab("board"));
+  document.getElementById("tab-teams-btn").addEventListener("click", () => setActiveTab("teams"));
   window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
   document.getElementById("cdig-board").addEventListener("click", (e) => { const b = e.target.closest("[data-cdig]"); if (b) digCommunity(Number(b.dataset.cdig), b); });
   document.getElementById("goal-card").addEventListener("click", async (e) => {
     if (!e.target.closest("#goal-claim-btn")) return;
     try { const res = await API.communityGoal(Session.userId, "claim"); renderGoal(res); Toast.success(`&#129309; +${res.claimedNow.dust} poussières et +${res.claimedNow.worms} vers !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); }
-    catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+    catch (err) { Toast.errorfriendlyError(err); }
   });
 
   let bossSearchTimer = null;

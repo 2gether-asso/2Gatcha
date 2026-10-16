@@ -18,7 +18,7 @@ const Coll = (() => {
   const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const FINISH_LABELS_LONG = { normal: "Normal", holo: "Holographique", gold: "Doré", ghost: "Ghost Rare", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
-  const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+  const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
   const SOLD_OUT = "Tous les exemplaires de cette carte ont déjà été distribués.";
   const ERRORS = {
@@ -72,7 +72,7 @@ const Coll = (() => {
     }
   };
   function errorText(kind, e) {
-    return (ERRORS[kind] && ERRORS[kind][e && e.code]) || ("Erreur. (" + (e && e.message) + ")");
+    return (ERRORS[kind] && ERRORS[kind][e && e.code]) || (typeof friendlyError === "function" ? friendlyError(e) : "Erreur. (" + (e && e.message) + ")");
   }
 
   // Modes : cle interne -> ancre d'URL + palier de niveau (FEATURE_UNLOCK_LEVEL).
@@ -106,15 +106,14 @@ const Coll = (() => {
   function normalize(str) {
     return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   }
-  function escapeHtml(s) {
-    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
+  const escapeHtml = escHtml; // core.js
   function serial(n) {
     return "#" + String(n ?? "?").padStart(3, "0");
   }
   function finishOf(c) { return c.finish || "normal"; }
   function qualityOf(c) { return c.quality || "damaged"; }
-  function isPrecious(c) { return c.serialNumber === 1 || finishOf(c) === "rainbow" || qualityOf(c) === "mint" || !!(state.starred && state.starred.has(c.pullId)); }
+  const isEdition = (c) => !!(c && (c.edition || (state.editions && state.editions.has(c.pullId))));
+  function isPrecious(c) { return c.serialNumber === 1 || finishOf(c) === "rainbow" || qualityOf(c) === "mint" || !!(state.starred && state.starred.has(c.pullId)) || isEdition(c); }
 
   // Montant de decraft reel : valeur de base de la rarete x multiplicateur
   // de finition x multiplicateur de qualite (meme calcul que disenchant.json).
@@ -151,6 +150,8 @@ const Coll = (() => {
     const starred = (c) => state.starred && state.starred.has(c.pullId);
     return [...copies].filter((c) => !(state.insured && state.insured.has(c.pullId))).sort((a, b) => {
       if (starred(a) !== starred(b)) return starred(a) ? 1 : -1;
+      // Editions limitees : en tout dernier recours (le serveur demande confirmation).
+      if (isEdition(a) !== isEdition(b)) return isEdition(a) ? 1 : -1;
       if (a.serialNumber === 1) return 1;
       if (b.serialNumber === 1) return -1;
       return (b.serialNumber || 0) - (a.serialNumber || 0);
@@ -294,6 +295,11 @@ const Coll = (() => {
     state.protectedMap = new Map((collection.protectedCards || []).map((o) => [o.cardId, o.copies || []]));
     // Cartes ★, exemplaires assures, cartes obtenues en premier sur le serveur (2026-10-07).
     state.starred = new Set(collection.starredPullIds || []);
+    state.forged = new Set(collection.forgedPullIds || []);
+    state.mastered = new Set(collection.masteredCards || []);
+    state.editions = new Map(Object.entries(collection.editionPulls || {}).map(([k, v]) => [Number(k), v]));
+    // Edition de chaque exemplaire (choix d'exemplaires, fusions...).
+    state.ownedMap.forEach((o) => (o.copies || []).forEach((c) => { c.edition = state.editions.get(c.pullId) || ""; }));
     state.insured = new Set(collection.insuredPullIds || []);
     state.firstMine = new Map((collection.firstObtained || []).map((x) => [x.cardId, x.at]));
     state.stardust = status.stardust || 0;
@@ -381,7 +387,7 @@ const Coll = (() => {
       if (typeof loadNavBadges === "function") loadNavBadges();
     } catch (e) {
       if (btn) btn.disabled = false;
-      Toast.error({ set_incomplete: "Il manque encore des cartes à ce set.", already_claimed: "Récompense déjà récupérée." }[e.code] || ("Erreur. (" + e.message + ")"));
+      Toast.error({ set_incomplete: "Il manque encore des cartes à ce set.", already_claimed: "Récompense déjà récupérée." }[e.code] || friendlyError(e));
     }
   }
 
@@ -729,7 +735,7 @@ const Coll = (() => {
     get mode() { return mode; },
     registerPane, setMode, isLocked, isDiscovered, claimSet, refresh, renderActive, updateCounts, renderSummary,
     filterCards, errorText, estimateDust, buildVariants, copiesToSpend, attachTilt,
-    normalize, escapeHtml, serial, finishOf, qualityOf, isPrecious, rarityBadge,
+    normalize, escapeHtml, serial, finishOf, qualityOf, isPrecious, isEdition, rarityBadge,
     loadPrefs, savePrefs, loadSet, saveSet
   };
 })();

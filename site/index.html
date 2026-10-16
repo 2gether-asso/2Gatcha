@@ -68,6 +68,7 @@
          ordre fixe en CSS. -->
     <div class="home-layout">
       <div class="home-col home-main">
+      <section class="seasonal-treat" id="seasonal-treat" hidden></section>
       <div class="panel today-panel" id="today-panel" hidden>
         <span id="aujourdhui" class="anchor"></span>
         <h2>&#9728;&#65039; Aujourd'hui</h2>
@@ -85,6 +86,7 @@
           </button>
         </div>
         <div class="today-dice-effect" id="today-dice-effect" hidden></div>
+        <div class="weekly-goal" id="weekly-goal-block" hidden></div>
         <div class="evening" id="evening-block" hidden>
           <div class="evening-head"><h3>&#127769; Missions du soir</h3><span class="evening-when" id="evening-when"></span></div>
           <ul class="evening-list" id="evening-list"></ul>
@@ -218,7 +220,7 @@
           <option value="">Toutes les extensions</option>
         </select>
         <div id="activity-loading" class="loading-row"><div class="spinner"></div></div>
-        <div id="activity-feed" class="activity-feed"></div>
+        <div id="activity-feed" class="activity-feed" tabindex="0" role="region" aria-label="Activité récente"></div>
       </div>
     </div>
 
@@ -291,6 +293,7 @@
   <script src="js/home-objectives.js"></script>
   <script src="js/home-recap.js"></script>
   <script src="js/home-daily.js"></script>
+  <script src="js/home-season.js"></script>
   <script>
     function refreshLoginUI() {
       const loginZone = document.getElementById("login-zone");

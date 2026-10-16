@@ -6,7 +6,7 @@
   const esc = escHtml;
   const fr = (n, d = 1) => Number(n || 0).toLocaleString("fr-FR", { maximumFractionDigits: d });
   const settle = (p) => p.then((v) => v, () => null);
-  const PRESET_LABEL = { chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard", custom: "Personnalisé" };
+  const PRESET_LABEL = { cool: "😎 Cool", chill: "🌴 Chill", medium: "⚖️ Medium", hard: "🔥 Hard", chaos: "👾 Chaos", custom: "Personnalisé" };
 
   async function render() {
     const box = document.getElementById("adm-overview");
@@ -22,7 +22,7 @@
     const upcoming = events ? events.events.filter((e) => e.status === "upcoming") : [];
     const tiles = [
       { goto: "economie", k: "Mode de jeu", v: preset ? PRESET_LABEL[preset.current] : "—", s: rec ? `Recommandé : ${PRESET_LABEL[rec.key]}` : "", tone: rec && preset.current !== rec.key ? "warn" : "" },
-      { goto: "economie", k: "Boosters / joueur actif / jour", v: rec ? fr(rec.perDay) : "—", s: rec ? `cible ~5 · ${rec.activePlayers} joueur${rec.activePlayers > 1 ? "s" : ""} actif${rec.activePlayers > 1 ? "s" : ""} (7 j)` : "", tone: rec && rec.perDay > 8 ? "bad" : "" },
+      { goto: "economie", k: "Boosters / joueur actif / jour", v: rec ? fr(rec.perDay) : "—", s: rec ? `cible ${rec.target ? `${rec.target.target} (${rec.target.low} à ${rec.target.high})` : "40"} hors codes · ${rec.activePlayers} joueur${rec.activePlayers > 1 ? "s" : ""} actif${rec.activePlayers > 1 ? "s" : ""} (7 j)` : "", tone: rec && rec.target && rec.perDay > rec.target.high ? "bad" : rec && rec.target && rec.perDay < rec.target.low ? "warn" : "" },
       { goto: "economie", k: "Inflation", v: eco ? (eco.tight ? "Mode anti-inflation" : "Normale") : "—", s: eco ? `prix ×${fr(eco.priceFactor, 2)} · solde moyen ${fr(eco.avgWealth, 0)} ✨` : "", tone: eco && eco.tight ? "warn" : "" },
       { goto: "evenements", k: "Événement", v: events && events.current.active ? esc(events.current.label) : "Aucun", s: events && events.current.active && events.current.endsAt ? `fin ${new Date(events.current.endsAt * 1000).toLocaleString("fr-FR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : upcoming.length ? `${upcoming.length} à venir` : "rien de planifié", tone: events && events.current.active ? "on" : "" },
       { goto: "codes", k: "Codes actifs", v: String(activeCodes.length), s: activeCodes.length ? activeCodes.slice(0, 3).map((c) => esc(c.code)).join(", ") : "aucun code en cours" },

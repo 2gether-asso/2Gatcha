@@ -13,6 +13,10 @@
 
 import { refId, now, ok, fail, userById } from './common.js';
 import { setting } from './settings.js';
+import { modeIs } from './modeperks.js';
+import { grantCosmetic } from './cosmetics.js';
+import { editionLoss } from './editions.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   CommunityBoss: { Finisher: { type: 'Ref:Users' } },
@@ -40,7 +44,8 @@ function activeBoss(store) {
 // Fin du boss : recompense commune a chaque participant + bonus du coup final.
 function defeatBoss(store, boss, finisherId) {
   store.update('CommunityBoss', boss.id, { Active: false, CurrentHp: 0, Finisher: finisherId });
-  const reward = Number(boss.RewardBoosters) || 0;
+  const enraged = ruleOn(store, 'hard.bossEnraged');
+  const reward = (Number(boss.RewardBoosters) || 0) * (enraged ? 3 : 1);
   const contributors = new Set(store.getAll('BossContributions').filter((c) => refId(c.Boss) === boss.id).map((c) => refId(c.User)));
   if (reward > 0) {
     for (const uid of contributors) {
@@ -48,6 +53,7 @@ function defeatBoss(store, boss, finisherId) {
       if (u) store.update('Users', uid, { BoosterCount: (Number(u.BoosterCount) || 0) + reward });
     }
   }
+  if (enraged) for (const uid of contributors) grantCosmetic(store, uid, 'title-rage-slayer', { type: 'title', label: 'Tueur de boss enragé' });
   const bonus = finisherBoosters(store);
   let finisher = store.get('Users', finisherId);
   if (bonus > 0 && finisher) finisher = store.update('Users', finisherId, { BoosterCount: (Number(finisher.BoosterCount) || 0) + bonus });
@@ -67,6 +73,7 @@ function handleAttack({ store, body }) {
   const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
   const volley = volleyMultiplier(ids.length, rules);
   const details = [];
+  const editionCopies = [];
   for (const pullId of ids) {
     const pull = store.get('Pulls', pullId);
     if (!pull || refId(pull.User) !== user.id || pull.InVault) return fail('card_not_owned', 400, { pullId });
@@ -74,13 +81,16 @@ function handleAttack({ store, body }) {
     if (!card) return fail('card_not_found', 400, { pullId });
     if (card.IsPromo) return fail('promo_not_donatable', 400, { pullId });
     if (pull.Insured || pull.Starred) return fail('insured_copy', 400, { pullId });
+    if (pull.Edition) editionCopies.push(pull);
     const rarity = rarities.get(refId(card.Rarity));
     const base = Math.max(1, Number(rarity && rarity.DisenchantValue) || 0);
     const finish = pull.Finish || 'normal', quality = pull.Quality || 'damaged';
     const multiplier = (rules.finish[finish] || 1) * (rules.quality[quality] || 1);
-    details.push({ pullId, cardId: card.id, name: card.Name, serialNumber: pull.SerialNumber ?? null, finish, quality, rarity: rarity ? rarity.Name : '', base, multiplier, damage: Math.round(base * multiplier * volley) });
+    details.push({ pullId, cardId: card.id, name: card.Name, serialNumber: pull.SerialNumber ?? null, finish, quality, rarity: rarity ? rarity.Name : '', base, multiplier, damage: Math.max(1, Math.round(base * multiplier * volley * (ruleOn(store, 'hard.bossEnraged') ? 0.5 : 1))) });
   }
 
+  const denied = editionLoss(store, editionCopies, body);
+  if (denied) return denied;
   const total = details.reduce((s, d) => s + d.damage, 0);
   const t = now();
   for (const d of details) {

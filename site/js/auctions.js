@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
   const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-  const QUALITY = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+  const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
   let data = null;
   let copies = [];
@@ -23,7 +23,7 @@
     return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}`;
   }
 
-  function variant(a) { return [FINISH[a.finish], QUALITY[a.quality], serial(a.serialNumber)].filter(Boolean).join(" · "); }
+  function variant(a) { return [a.edition && EDITIONS[a.edition] ? EDITIONS[a.edition].icon + " " + EDITIONS[a.edition].label : null, FINISH[a.finish], QUALITY[a.quality], serial(a.serialNumber)].filter(Boolean).join(" · "); }
 
   function render() {
     if (!data) return;
@@ -54,6 +54,7 @@
       const cards = new Map((cat.cards || []).map((c) => [c.cardId, c]));
       const fm = cat.finishMultipliers || {}, qm = cat.qualityMultipliers || {};
       const insured = new Set(col.insuredPullIds || []);
+      const editionOf = col.editionPulls || {};
       const rarities = new Map();
       copies = [];
       (col.owned || []).forEach((o) => (o.copies || []).forEach((c) => {
@@ -62,13 +63,15 @@
         const finish = c.finish || "normal", quality = c.quality || "damaged";
         if (card.rarity) rarities.set(card.rarity.key, card.rarity);
         const value = Math.round((card.rarity?.disenchantValue || 0) * (fm[finish] ?? 1) * (qm[quality] ?? 1));
+        const edition = editionOf[c.pullId] || "";
         copies.push({
-          pullId: c.pullId, card, finish, quality, serialNumber: c.serialNumber, count: o.count, value,
+          pullId: c.pullId, card, finish, quality, edition, serialNumber: c.serialNumber, count: o.count, value,
           label: `${card.name} · ${card.rarity?.name || ""}${finish !== "normal" ? " · " + FINISH[finish] : ""} · ${QUALITY[quality]} ${serial(c.serialNumber)}`
         });
       }));
-      // Les plus belles d'abord : rarete, finition, etat, puis nom.
-      copies.sort((a, b) => ((b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0)) || ((RANK[b.finish] || 0) - (RANK[a.finish] || 0)) || (QRANK[b.quality] - QRANK[a.quality]) || a.card.name.localeCompare(b.card.name, "fr"));
+      // Les plus belles d'abord : rarete, edition, finition, etat, puis nom.
+      copies.sort((a, b) => ((b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0)) || (editionRank(a.edition) - editionRank(b.edition)) || ((RANK[b.finish] || 0) - (RANK[a.finish] || 0)) || (QRANK[b.quality] - QRANK[a.quality]) || a.card.name.localeCompare(b.card.name, "fr"));
+      if (!$("auction-edition").options.length) $("auction-edition").innerHTML = editionFilterOptions("Toutes éditions");
       $("auction-rarity").innerHTML = '<option value="">Toutes raretés</option>' + [...rarities.values()].sort((a, b) => (b.sortOrder || 0) - (a.sortOrder || 0)).map((r) => `<option value="${r.key}">${esc(r.name)}</option>`).join("");
       renderCopies();
     } catch (e) { /* collection indisponible */ }
@@ -77,13 +80,15 @@
     const q = ($("auction-search").value || "").toLowerCase();
     const rarity = $("auction-rarity").value;
     const dupes = $("auction-dupes").checked;
-    const list = copies.filter((c) => (!q || c.card.name.toLowerCase().includes(q)) && (!rarity || c.card.rarity?.key === rarity) && (!dupes || c.count > 1));
+    const edition = $("auction-edition").value;
+    const list = copies.filter((c) => (!q || c.card.name.toLowerCase().includes(q)) && (!rarity || c.card.rarity?.key === rarity) && editionMatches(edition, c.edition) && (!dupes || c.count > 1));
     $("auction-pull").innerHTML = list.length ? list.slice(0, 120).map((c) => `
       <button type="button" class="auction-pick-card ${selectedPull === c.pullId ? "selected" : ""}" data-pull="${c.pullId}" data-rarity="${esc(c.card.rarity?.key || "commune")}" data-finish="${c.finish}" role="option" aria-selected="${selectedPull === c.pullId}" title="${esc(c.label)}">
         <span class="apc-art">
           <img src="${API.imageUrl(c.card.imageId) || ""}" alt="" loading="lazy" />
           ${c.finish !== "normal" ? `<span class="finish-indicator" data-finish="${c.finish}">${FINISH[c.finish]}</span>` : ""}
           <span class="quality-indicator" data-quality="${c.quality}">${QUALITY[c.quality]}</span>
+          ${c.edition ? editionBadge(c.edition) : ""}
           ${c.count > 1 ? `<span class="apc-count">×${c.count}</span>` : ""}
         </span>
         <span class="apc-name">${esc(c.card.name)}</span>
@@ -121,6 +126,7 @@
     if (!$("auction-list")) return;
     $("auction-search").addEventListener("input", renderCopies);
     $("auction-rarity").addEventListener("change", renderCopies);
+    $("auction-edition").addEventListener("change", renderCopies);
     $("auction-dupes").addEventListener("change", renderCopies);
     $("auction-pull").addEventListener("click", (e) => { const b = e.target.closest("[data-pull]"); if (b) selectCopy(Number(b.dataset.pull)); });
     $("auction-form").addEventListener("submit", async (e) => {
@@ -138,7 +144,7 @@
         selectCopy(null);
         renderCopies();
         Toast.success("&#128296; Ta carte est aux enchères !");
-      } catch (err) { Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.error(ERR[err.code] || friendlyError(err)); }
     });
     $("auction-list").addEventListener("click", async (e) => {
       const bid = e.target.closest("[data-bid]");
@@ -152,9 +158,9 @@
           render();
           Toast.success(`&#128296; Enchère de ${amount} poussières placée !`);
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { bid.disabled = false; Toast.error(ERR[err.code] ? ERR[err.code] + (err.data && err.data.minNext ? ` (minimum ${err.data.minNext})` : "") : "Erreur. (" + err.message + ")"); }
+        } catch (err) { bid.disabled = false; Toast.error(ERR[err.code] ? ERR[err.code] + (err.data && err.data.minNext ? ` (minimum ${err.data.minNext})` : "") : friendlyError(err)); }
       } else if (cancel) {
-        try { data = await API.auctions(Session.userId, "cancel", { auctionId: Number(cancel.dataset.cancel) }); render(); copies = []; loadCopies(); Toast.success("Vente retirée, la carte est revenue."); } catch (err) { Toast.error(ERR[err.code] || "Erreur. (" + err.message + ")"); }
+        try { data = await API.auctions(Session.userId, "cancel", { auctionId: Number(cancel.dataset.cancel) }); render(); copies = []; loadCopies(); Toast.success("Vente retirée, la carte est revenue."); } catch (err) { Toast.error(ERR[err.code] || friendlyError(err)); }
       }
     });
   });

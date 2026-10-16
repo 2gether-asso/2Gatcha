@@ -30,7 +30,7 @@
       try {
         st = await API.playerGift(Session.userId, "send", { toUserId: x.userId, kind: b.dataset.gift });
         Toast.success(`&#127873; Cadeau envoyé à ${esc(st.sent.to)} : il le recevra à sa prochaine visite.`);
-      } catch (err) { Toast.error(err.code === "already_sent" ? "Tu as déjà offert ton cadeau du jour." : "Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.error(err.code === "already_sent" ? "Tu as déjà offert ton cadeau du jour." : friendlyError(err)); }
       draw();
     });
   }
@@ -74,6 +74,7 @@
       </div>
       ${x.tiers && x.tiers.length ? `<div class="profile-block"><h3>&#127941; Maîtrises</h3><div class="profile-chips">${x.tiers.map((t) => `<span class="profile-chip tier-${t.level}" title="${esc(t.label)} : palier ${["I", "II", "III"][t.level - 1]}">${t.icon} ${esc(t.label)} <strong>${["I", "II", "III"][t.level - 1]}</strong></span>`).join("")}</div></div>` : ""}
       ${x.themes.length ? `<div class="profile-block"><h3>&#127912; Collections thématiques</h3><div class="profile-chips">${x.themes.map((t) => `<span class="profile-chip" title="${esc(t.label)}">${t.icon} ${esc(t.title)}</span>`).join("")}</div></div>` : ""}
+      ${x.modeAchievements && x.modeAchievements.length ? `<div class="profile-block"><h3>&#127918; Succès de mode (${x.modeAchievements.filter((a) => a.unlocked).length}/${x.modeAchievements.length})</h3><div class="profile-chips">${x.modeAchievements.map((a) => `<span class="profile-chip mode-ach ${a.unlocked ? "" : "locked"}" title="${esc(a.desc)}${a.unlocked ? "" : " (à débloquer en mode " + esc(a.mode) + ")"}">${a.icon} ${esc(a.label)}</span>`).join("")}</div></div>` : ""}
       ${x.hidden.length ? `<div class="profile-block"><h3>&#128274; Succès secrets (${x.hidden.length})</h3><div class="profile-chips">${x.hidden.map((h) => `<span class="profile-chip" title="${esc(h.desc)}">${h.icon} ${esc(h.label)}</span>`).join("")}</div></div>` : ""}`;
     loadWall();
     if (typeof window.renderOwnProgress === "function" && Session.isLoggedIn() && Number(Session.userId) === Number(x.userId)) window.renderOwnProgress();
@@ -113,14 +114,14 @@
         renderWall((await API.postProfileWall(Session.userId, profileId, text)).messages);
         input.value = "";
       } catch (err) {
-        Toast.error({ slow_down: "Doucement : attends quelques secondes entre deux messages.", empty_message: "Message vide." }[err.code] || "Erreur. (" + err.message + ")");
+        Toast.error({ slow_down: "Doucement : attends quelques secondes entre deux messages.", empty_message: "Message vide." }[err.code] || friendlyError(err));
       }
     });
     document.getElementById("wall-list")?.addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-wall-del]");
       if (!btn) return;
       try { renderWall((await API.deleteProfileWall(Session.userId, Number(btn.dataset.wallDel))).messages); }
-      catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      catch (err) { Toast.errorfriendlyError(err); }
     });
   });
 })();

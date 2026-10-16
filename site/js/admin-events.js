@@ -95,7 +95,7 @@
       Toast.success(event.id ? "Événement modifié." : "Événement planifié.");
       fill(null);
       load();
-    } catch (err) { Toast.error(err.code === "invalid_dates" ? "La fin doit être après le début." : "Erreur. (" + err.message + ")"); }
+    } catch (err) { Toast.error(err.code === "invalid_dates" ? "La fin doit être après le début." : friendlyError(err)); }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -129,7 +129,7 @@
       if (del) {
         const ev = events.find((x) => x.id === Number(del.dataset.evdDel));
         if (!(await Confirm.show(`Supprimer « ${esc(ev ? ev.label : "")} » ?`, { title: "Supprimer l'événement", confirmText: "Supprimer", dangerous: true }))) return;
-        try { await API.adminEvents(Session.discordId, "delete", { id: Number(del.dataset.evdDel) }); load(); } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+        try { await API.adminEvents(Session.discordId, "delete", { id: Number(del.dataset.evdDel) }); load(); } catch (err) { Toast.errorfriendlyError(err); }
       }
     });
   });

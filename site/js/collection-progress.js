@@ -77,7 +77,7 @@
         if (typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } });
         renderMastery(res);
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { btn.disabled = false; Toast.error("Erreur. (" + err.message + ")"); }
+      } catch (err) { btn.disabled = false; Toast.errorfriendlyError(err); }
     });
     $("sky-grid").addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-sky]");
@@ -88,7 +88,7 @@
         Toast.success(btn.dataset.sky === "sky" ? `&#127756; Le ciel est complet : +${res.claimed.boosters} boosters et le titre « Astronome » !` : `&#11088; Étoile allumée : +${res.claimed.dust} poussières !`);
         if (typeof confetti === "function") confetti({ particleCount: 60, spread: 70, colors: ["#ffd76e", "#ffffff", "#7dd3fc"], origin: { y: 0.4 } });
         renderSky(res);
-      } catch (err) { btn.disabled = false; Toast.error("Erreur. (" + err.message + ")"); }
+      } catch (err) { btn.disabled = false; Toast.errorfriendlyError(err); }
     });
   });
 })();

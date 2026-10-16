@@ -81,13 +81,13 @@
         renderTalents(st);
         const def = st.talents.find((x) => x.key === st.learned);
         Toast.success(`&#127795; ${def ? esc(def.label) + " : rang " + def.rank : "Talent appris"} !`);
-      } catch (err) { t.disabled = false; Toast.error({ no_points: "Plus de point à dépenser : monte de niveau !", talent_locked: "Il faut d'abord 6 points dans cette branche." }[err.code] || "Erreur. (" + err.message + ")"); }
+      } catch (err) { t.disabled = false; Toast.error({ no_points: "Plus de point à dépenser : monte de niveau !", talent_locked: "Il faut d'abord 6 points dans cette branche." }[err.code] || friendlyError(err)); }
       return;
     }
     if (e.target.closest("#talents-reset")) {
       const okReset = await Confirm.show("Réinitialiser tous tes talents ? Tes points te seront rendus pour les répartir autrement.", { title: "Réinitialiser les talents ?", confirmText: "Réinitialiser" });
       if (!okReset) return;
-      try { renderTalents(await API.talents(Session.userId, "reset")); Toast.success("Talents réinitialisés."); } catch (err) { Toast.error(err.code === "not_enough_dust" ? "Pas assez de poussières." : "Erreur. (" + err.message + ")"); }
+      try { renderTalents(await API.talents(Session.userId, "reset")); Toast.success("Talents réinitialisés."); } catch (err) { Toast.error(err.code === "not_enough_dust" ? "Pas assez de poussières." : friendlyError(err)); }
       return;
     }
     if (e.target.closest("#tiers-claim-all")) {
@@ -96,7 +96,7 @@
         Toast.success(`&#127941; Maîtrises : +${res.claimed.dust} poussières${res.claimed.titles.length ? ` et le titre « ${res.claimed.titles.map(esc).join(" », « ")} »` : ""} !`);
         if (typeof confetti === "function") confetti({ particleCount: 90, spread: 90, origin: { y: 0.4 } });
         renderTiers(res);
-      } catch (err) { Toast.error("Erreur. (" + err.message + ")"); }
+      } catch (err) { Toast.errorfriendlyError(err); }
     }
   });
 })();

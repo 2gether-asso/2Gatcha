@@ -36,6 +36,7 @@
           <div id="profile-complete-badge" class="reward-banner" style="display:none;">&#127942; Collection complète !</div>
         </div>
 
+        <div id="profile-dino" class="profile-dino" hidden></div>
         <div id="profile-sets-zone" style="display:none;">
           <div id="profile-sets-badges" class="set-badge-row"></div>
         </div>
@@ -88,6 +89,7 @@
   <script src="js/core.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/dino-art.js"></script>
   <script src="js/profile-extras.js"></script>
   <script src="js/profile-progress.js"></script>
   <script>
@@ -95,7 +97,7 @@
     // profil public doit montrer le meme traitement visuel (filtre image,
     // contour, degrade par finition/etat) qu'ailleurs, pas des vignettes nues.
     const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-    const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+    const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
     const BADGE_ERRORS = {
       badge_not_found: "Badge introuvable.",
@@ -163,7 +165,13 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
-      const pseudo = new URLSearchParams(window.location.search).get("pseudo");
+      let pseudo = new URLSearchParams(window.location.search).get("pseudo");
+      // Sans ?pseudo= (liens rapides de l'accueil, ex. profile.html#talents) :
+      // c'est mon profil. On complete l'adresse en gardant l'ancre.
+      if (!pseudo && Session.isLoggedIn() && Session.pseudo) {
+        pseudo = Session.pseudo;
+        history.replaceState(null, "", "profile.html?pseudo=" + encodeURIComponent(pseudo) + location.hash);
+      }
       const loading = document.getElementById("profile-loading");
       if (!pseudo) {
         loading.style.display = "none";
@@ -186,6 +194,12 @@
         }
         if (res.isComplete) document.getElementById("profile-complete-badge").style.display = "block";
         if (typeof renderProfileExtras === "function") renderProfileExtras(res);
+        // Dino vedette (api/src/native/dino.js).
+        if (res.starDino && window.DinoArt) {
+          const dz = document.getElementById("profile-dino");
+          dz.innerHTML = `<div class="profile-dino-pen">${DinoArt.svg(res.starDino, { scale: 1 })}</div><div><small class="muted">Dino de compagnie</small><strong>${escHtml(res.starDino.name)}</strong><small>${escHtml(res.starDino.speciesLabel)} · ${escHtml(res.starDino.stageLabel)} · ${res.starDino.mood.icon} ${escHtml(res.starDino.mood.label)}</small></div>`;
+          dz.hidden = false;
+        }
 
         if (res.level) {
           const levelBadge = document.getElementById("profile-level-badge");

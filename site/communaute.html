@@ -22,7 +22,7 @@
         affaiblir, coffre de guilde et marché noir éphémère.
       </p>
 
-      <div class="tabs" role="tablist">
+      <div class="tabs tabs-scroll" role="tablist">
         <button type="button" class="tab active" id="tab-calendar-btn" role="tab" aria-selected="true">&#128197; Calendrier</button>
         <button type="button" class="tab" id="tab-boss-btn" role="tab" aria-selected="false">&#128128; Boss</button>
         <button type="button" class="tab" id="tab-chest-btn" role="tab" aria-selected="false">&#127873; Coffre de guilde</button>
@@ -30,10 +30,13 @@
         <button type="button" class="tab" id="tab-together-btn" role="tab" aria-selected="false">&#129309; Ensemble</button>
         <button type="button" class="tab" id="tab-skills-btn" role="tab" aria-selected="false">&#127942; Métiers</button>
         <button type="button" class="tab" id="tab-auctions-btn" role="tab" aria-selected="false">&#128296; Enchères</button>
+        <button type="button" class="tab" id="tab-machine-btn" role="tab" aria-selected="false">&#9881;&#65039; Salle des machines</button>
+        <button type="button" class="tab" id="tab-board-btn" role="tab" aria-selected="false">&#128204; Tableau d'affichage</button>
+        <button type="button" class="tab" id="tab-teams-btn" role="tab" aria-selected="false">&#127987;&#65039; Équipes</button>
       </div>
 
       <div id="calendar-pane">
-        <p class="lead" style="font-size:0.85rem;">Les évènements à venir ou en cours (l'asso distribue les codes oralement/à l'écran).</p>
+        <p class="lead" style="font-size:0.85rem;">Tout ce qui arrive : événements saisonniers, bonus, rendez-vous de la semaine et évènements de l'asso (codes donnés sur place ou à l'écran). Le bouton « Agenda » l'ajoute à ton téléphone.</p>
         <div id="calendar-loading" class="loading-row"><div class="spinner"></div></div>
         <div id="calendar-list" class="quests-list"></div>
       </div>
@@ -115,6 +118,18 @@
         </div>
       </div>
 
+      <div id="board-pane" style="display:none;">
+        <div class="board-grid" id="board-zone"><div class="loading-row"><div class="spinner"></div></div></div>
+      </div>
+
+      <div id="teams-pane" style="display:none;">
+        <div class="teams-zone" id="teams-zone"><div class="loading-row"><div class="spinner"></div></div></div>
+      </div>
+
+      <div id="machine-pane" style="display:none;">
+        <div class="machine-room" id="machine-room"><div class="loading-row"><div class="spinner"></div></div></div>
+      </div>
+
       <div id="auctions-pane" style="display:none;">
         <p class="lead" style="font-size:0.85rem;" id="auctions-lead">Mets un exemplaire en vente aux enchères, ou enchéris sur ceux des autres. Une enchère surpassée est remboursée aussitôt.</p>
         <details class="auction-sell" id="auction-sell">
@@ -123,6 +138,7 @@
             <div class="auction-pick-toolbar">
               <input type="search" id="auction-search" placeholder="Rechercher une carte…" autocomplete="off" aria-label="Rechercher une carte" />
               <select id="auction-rarity" aria-label="Rareté"><option value="">Toutes raretés</option></select>
+              <select id="auction-edition" aria-label="Édition"></select>
               <label class="auction-dupes"><input type="checkbox" id="auction-dupes" checked /> Doublons seulement</label>
             </div>
             <div id="auction-pull" class="auction-pick" role="listbox" aria-label="Exemplaire à vendre"></div>
@@ -165,5 +181,8 @@
   <script src="js/shell.js"></script>
   <script src="js/communaute.js"></script>
   <script src="js/auctions.js"></script>
+  <script src="js/machine-room.js"></script>
+  <script src="js/communaute-board.js"></script>
+  <script src="js/communaute-calendar.js"></script>
 </body>
 </html>

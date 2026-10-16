@@ -15,6 +15,8 @@
 
 import { refId, ok, fail, userById, configRow, firstAttachment, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
+import { modeIs } from './modeperks.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: { RarityPity: { type: 'Text' } }
@@ -112,6 +114,47 @@ export function afterWorkflow({ store, path, request, response }) {
       json.missingPity = { key: rarity.Key, name: rarity.Name };
     }
   }
+  const sortOfC = (c) => (c.rarity && c.rarity.sortOrder != null ? Number(c.rarity.sortOrder) : (store.get('Rarities', Number(c.rarity && c.rarity.id)) || {}).SortOrder || 0);
+  const rarById = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
+  // Medium : booster a double tranchant -> 3 cartes, dont une rare (ou mieux) garantie.
+  if (request._edge) {
+    const ps = pullsOf();
+    const sorted = [...json.cards].sort((a, b) => sortOfC(b) - sortOfC(a));
+    const keep = sorted.slice(0, 3);
+    for (const c of sorted.slice(3)) { const p = ps.find((x) => refId(x.Card) === c.cardId && x.SerialNumber === c.serialNumber); if (p) store.delete('Pulls', p.id); }
+    json.cards = json.cards.filter((c) => keep.includes(c));
+    const ordered = [...rarById.values()].filter((r) => r.Key !== 'unique' && (Number(r.Weight) || 0) > 0).sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0));
+    const rareRank = ordered[1] ? ordered[1].SortOrder || 0 : 0;
+    if (ordered.length > 1 && !json.cards.some((c) => sortOfC(c) >= rareRank)) {
+      const upper = ordered.slice(1);
+      let roll = Math.random() * upper.reduce((s, r) => s + (Number(r.Weight) || 0), 0);
+      let rar = upper[0];
+      for (const r of upper) { roll -= Number(r.Weight) || 0; if (roll <= 0) { rar = r; break; } }
+      const pool = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && refId(c.Extension) === extId0 && refId(c.Rarity) === rar.id);
+      const target = [...json.cards].sort((a, b) => sortOfC(a) - sortOfC(b))[0];
+      const pull = target && pullsOf().find((p) => refId(p.Card) === target.cardId && p.SerialNumber === target.serialNumber);
+      if (pool.length && pull) { const choices = preferMissing(pool, owned); swapCard(store, userId, pull, target, choices[Math.floor(Math.random() * choices.length)], rar); target.pityUpgrade = true; }
+    }
+    json.edge = true;
+  }
+  // Chill : un doublon sur dix devient une carte manquante de la meme rarete.
+  if (ruleOn(store, 'chill.luckyDupe')) {
+    let lucky = 0;
+    const inPack = new Set(json.cards.map((c) => c.cardId));
+    for (const c of json.cards) {
+      if (!owned.has(c.cardId) || Math.random() >= setting(store, 'ChillLuckyDuplicateChance')) continue;
+      const rid = Number(c.rarity && c.rarity.id);
+      const pool = store.getAll('Cards').filter((x) => x.Active && !x.IsPromo && refId(x.Extension) === extId0 && refId(x.Rarity) === rid && !owned.has(x.id) && !inPack.has(x.id));
+      const pull = pullsOf().find((p) => refId(p.Card) === c.cardId && p.SerialNumber === c.serialNumber);
+      if (!pool.length || !pull || !rarById.get(rid)) continue;
+      const card = pool[Math.floor(Math.random() * pool.length)];
+      swapCard(store, userId, pull, c, card, rarById.get(rid));
+      c.luckySwap = true;
+      inPack.add(card.id);
+      lucky++;
+    }
+    if (lucky) json.luckyDuplicates = lucky;
+  }
   const tracked = pityRarities(store);
   if (!tracked.length) return;
   const sortOf = (c) => (c.rarity && c.rarity.sortOrder != null ? Number(c.rarity.sortOrder) : (store.get('Rarities', Number(c.rarity && c.rarity.id)) || {}).SortOrder || 0);
@@ -121,7 +164,9 @@ export function afterWorkflow({ store, path, request, response }) {
   for (const { r, threshold } of tracked) {
     const order = r.SortOrder || 0;
     if (json.cards.some((c) => sortOf(c) >= order)) { counts[r.id] = 0; continue; }
-    counts[r.id] = (Number(counts[r.id]) || 0) + json.cards.length;
+    const dow = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()) + 'T12:00:00Z').getUTCDay();
+    const pace = ruleOn(store, 'chill.weekendPity') && (dow === 0 || dow === 6) ? 2 : 1;
+    counts[r.id] = (Number(counts[r.id]) || 0) + json.cards.length * pace;
     if (upgraded || counts[r.id] < threshold) continue;
     const pool = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && refId(c.Extension) === extId && refId(c.Rarity) === r.id);
     if (!pool.length) continue;

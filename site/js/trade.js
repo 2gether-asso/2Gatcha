@@ -32,7 +32,7 @@ const STALE_STATE_ERRORS = new Set(["offer_no_longer_available", "pull_not_owned
 // son finish/quality reels sont connus et affichables - indispensable pour
 // juger si un echange est equitable (demande explicite : "plus de details").
 const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-const QUALITY_LABELS = { damaged: "Abîmé", worn: "Usé", good: "Bon état", mint: "Parfait état" };
+const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 const STATUS_LABELS = {
   pending: "En attente",
@@ -50,8 +50,11 @@ function formatSerial(serial) {
 // Libelle d'un exemplaire precis : numero + finition/etat, pour choisir en
 // connaissance de cause QUEL exemplaire on donne (jusqu'ici seul le numero
 // etait affiche - impossible de distinguer un Holo d'un normal).
+let editionByPull = {};
 function copyLabel(c) {
   const parts = [c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "?"];
+  const ed = editionByPull[c.pullId];
+  if (ed && EDITIONS[ed]) parts.push(EDITIONS[ed].icon + " " + EDITIONS[ed].label);
   if (c.finish && c.finish !== "normal") parts.push(FINISH_LABELS[c.finish] || c.finish);
   if (c.quality) parts.push(QUALITY_LABELS[c.quality] || c.quality);
   return parts.join(" · ");
@@ -142,6 +145,9 @@ async function loadFormOptions() {
   // joueur, pour choisir PRECISEMENT quelle carte donner (pas juste "une
   // carte au hasard parmi les doublons").
   ownedCopiesByCard = new Map((collection.owned || []).map((o) => [o.cardId, o.copies || []]));
+  editionByPull = collection.editionPulls || {};
+  // Exemplaires en edition limitee en fin de liste : jamais proposes par defaut.
+  ownedCopiesByCard.forEach((list) => list.sort((a, b) => (!!editionByPull[a.pullId] - !!editionByPull[b.pullId]) || editionRank(editionByPull[a.pullId]) - editionRank(editionByPull[b.pullId])));
 
   allCards = (cardsRes.cards || []).filter((c) => !c.isPromo);
   myOwnedCards = allCards.filter((c) => myOwnedCountByCard.has(c.cardId));
@@ -609,7 +615,7 @@ async function openCounterModal(trade) {
 }
 
 function handleTradeError(e) {
-  Toast.error(TRADE_ERROR_MESSAGES[e.code] || ("Erreur. (" + e.message + ")"));
+  Toast.error(TRADE_ERROR_MESSAGES[e.code] || friendlyError(e));
   if (STALE_STATE_ERRORS.has(e.code)) refreshAfterMutation();
 }
 
@@ -874,7 +880,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       await refreshAfterMutation();
     } catch (err) {
-      Toast.error(TRADE_ERROR_MESSAGES[err.code] || ("Erreur. (" + err.message + ")"));
+      Toast.error(TRADE_ERROR_MESSAGES[err.code] || friendlyError(err));
     }
   });
 
