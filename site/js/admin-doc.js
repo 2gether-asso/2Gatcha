@@ -40,6 +40,10 @@
         <li><strong>Carte ★</strong> : 3 exemplaires Arc-en-ciel parfait état d'une carte fusionnés (le plus petit numéro est gardé). Décraft ×{{StarDecraftMultiplier}}. Une carte ★ garde l'édition d'un exemplaire fondu.</li>
         <li><strong>God pack</strong> : {{GodPackChance}} de chance qu'un booster ne contienne que des épiques ou mieux. <strong>Booster brillant</strong> : {{ShinyPackChance}}. <strong>Carte bonus</strong> : {{BonusCardChance}} par booster.</li>
         <li><strong>Maître d'une carte</strong> : posséder ses 6 finitions (badge, livre d'or).</li>
+        <li><strong>Forgée dans les flammes 🔥</strong> : une carte qui sort <em>Arc-en-ciel</em> d'un booster pendant le mode <strong>Hard</strong> (règle « Finitions forgées »), après avoir survécu au malus qui fait retomber une finition spéciale sur quatre ({{HardFinishLoss}}) en normale. Seule l'ouverture de booster compte : une arc-en-ciel obtenue par fusion, craft, coffre, draft ou relance n'est jamais forgée. Badge 🔥 dans la collection ; jamais prise par la salle des machines ni l'avis de recherche ; pas de bonus chiffré (marque de prestige).</li>
+        <li><strong>Cartes secrètes</strong> : une clé (2 % de chance par case de fouille, aussi pour le chien) permet d'ouvrir la serrure cachée de la page Code (5 clics sur le cadeau pour la révéler) ; la clé est consommée, qu'une carte secrète tombe ou non.</li>
+        <li><strong>Carte du grand coffre-fort</strong> : une carte promo marquée par l'admin (Cards.IsVault), visible mais enfermée tant qu'on n'a pas <strong>6 clés</strong> ; l'ouvrir débloque aussi le coffre-fort perso.</li>
+        <li><strong>Cartes exclusives</strong> : carte du mode de jeu (donnée à la récupération de l'objectif commun, une fois par joueur et par carte), carte de la saison mensuelle (dernier palier), carte fantôme du mois, cartes Unique du Comptoir.</li>
       </ul>` },
 
     { id: "boosters", icon: "🎁", title: "Obtenir et ouvrir des boosters", body: `
@@ -53,10 +57,11 @@
       </ul>
       <h3>À l'ouverture</h3>
       <ul>
-        <li><strong>Pity par rareté</strong> : au-delà d'un nombre de tirages sans une rareté, elle est garantie (multiplicateur {{RarityPityMultiplier}}). Le pity historique se règle dans Réglages &rarr; Règles de base.</li>
+        <li><strong>Pity par rareté</strong> : au-delà d'un nombre de tirages sans une rareté, elle est garantie (multiplicateur {{RarityPityMultiplier}}), en donnant d'abord une carte qui te <em>manque</em>. Le pity historique se règle dans Réglages &rarr; Règles de base.</li>
+        <li>Selon le mode : pari du booster et booster à double tranchant (Medium), finitions brûlées / forgées (Hard), doublon porte-bonheur (Chill), boîte à souhaits (Cool), cartes maudites (Hard), mutantes et booster glitché (Chaos), édition limitée du mode : voir « Modes de jeu ».</li>
         <li><strong>Doublons</strong> : chaque doublon rapporte des poussières ({{DuplicateDustCommon}} pour une commune, {{DuplicateDustOther}} au-delà), jusqu'à {{DuplicateDustCapCopies}} exemplaires.</li>
         <li><strong>Booster mûri</strong> : +1 point de finition par jour sans ouverture ({{RipenMaxPoints}} au plus). <strong>Booster mystère</strong> : extension tirée au hasard, +{{MysteryFinishBonus}} de finition.</li>
-        <li>+{{XpPerBoosterOpen}} XP par booster ouvert ; les ouvertures remarquables vont dans le fil du serveur.</li>
+        <li>+{{XpPerBoosterOpen}} XP par booster ouvert ; les ouvertures remarquables vont dans le fil du serveur, et les tirages Épique, Légendaire et Mythique sont annoncés automatiquement sur Discord une fois la révélation terminée.</li>
         <li>Cinématique selon la rareté (sans fermeture automatique) ; on peut rouvrir parmi trois boosters.</li>
       </ul>` },
 
@@ -70,7 +75,10 @@
         <li><strong>Autel de sacrifice</strong> : 3 exemplaires &rarr; une carte au hasard de la rareté supérieure.</li>
         <li><strong>Recyclage automatique</strong> : décraft en masse selon des règles (raretés, exemplaires gardés, finitions et états protégés, liste de souhaits) ; ne touche jamais aux #001, ★, assurés, rangés ni éditions.</li>
         <li><strong>Assurance</strong> : {{InsuranceCostPerTier}} ✨ par palier de rareté ; l'exemplaire ne peut plus être décrafté, fusionné, sacrifié, déposé ni échangé. Retirable gratuitement.</li>
-        <li>Favoris, vitrine de profil (aussi pour les cartes protégées), liste de souhaits, filtres et tri par rareté, finition, état et <strong>édition</strong> partout (collection, enchères, échanges).</li>
+        <li>Favoris, vitrine de profil (6 cartes, aussi les cartes protégées), liste de souhaits (alertes quand une carte souhaitée apparaît chez un joueur ou en vente), filtres et tri par rareté, finition, état et <strong>édition</strong> partout (collection, enchères, échanges).</li>
+        <li><strong>Améliorations permanentes</strong> (Boutique) : chenil (poussières du chien), serre (pousse du jardin), canne (poussières et perles pêchées) ; 5 niveaux chacune, prix doublé à chaque niveau ({{UpgradeBasePrice}} ✨ au départ, indexé sur la richesse moyenne) ; aucune ne crée de booster.</li>
+        <li><strong>Fiche d'une carte</strong> : historique de chaque exemplaire (créations, changements de propriétaire, fusions), cote (ventes aux enchères, références décraft / craft), exemplaires en circulation et propriétaires, où l'obtenir, qui la souhaite ; partage d'une image de la carte sur Discord (une fois toutes les {{ShareCardCooldown}} s).</li>
+        <li><strong>Journal des tirages</strong> (page dédiée) : chaque carte obtenue et sa source (booster, fouille, coffre, craft, fusion, échange, code…). <strong>Correspondances d'échange</strong> : doublons des autres joueurs qui sont dans ta liste de souhaits, et inversement.</li>
       </ul>
       <p>Les fusions et restaurations demandent de cocher les exemplaires exacts : les exemplaires précieux (#001, arc-en-ciel, parfait état, éditions) ne sont jamais cochés d'office.</p>` },
 
@@ -105,16 +113,20 @@
       <h3>⛏️ Fouille et chien</h3>
       <p>Grilles à creuser avec de l'énergie (1 point toutes les {{DigRegenSeconds}} s) ; plein rendement pour les {{DigFullRewardsPerDay}} premières cases du jour. Trésors : poussières, boosters, vers (terre restante : {{WormsPerLeftoverTile}} par case), très rarement un crâne de dinosaure ({{DinoSkullChance}} par case). Le <strong>chien</strong> creuse à ta place avec des os ({{DogBonesPerDay}} par jour, os à {{DogBoneCost}} ✨, prix qui monte de {{BoneWeeklyIncrease}} par semaine). <strong>Mode excité</strong> : {{DogFrenzyBones}} os d'un coup &rarr; {{DogFrenzyBoards}} grilles et un crâne garanti, puis {{DogFrenzyRestHours}} h de repos. Trouvaille quotidienne du chien.</p>
       <h3>🎣 Pêche</h3>
-      <p>{{FishingCost}} ver par lancer, {{FishingDailyCasts}} lancers par jour (+ niveau), plein rendement pour {{FishingFullRewardsPerDay}} lancers. Météo du jour (relançable {{WeatherRerollCost}} ✨), appât doré (aucune prise vide, rares ×2,5), carnet de pêche, tournoi du week-end, eaux profondes au niveau {{DeepFishingLevel}} (coût ×{{DeepFishingCostMult}}). « Tout pêcher » lance jusqu'à 50 fois d'un coup. Avec un dino ou un crâne : {{DinoFoodChance}} de chance par lancer de ramener poisson, algues ou crevette (regroupés à l'affichage).</p>
+      <p>{{FishingCost}} ver par lancer, {{FishingDailyCasts}} lancers par jour (+ niveau), plein rendement pour {{FishingFullRewardsPerDay}} lancers. Météo du jour (relançable {{WeatherRerollCost}} ✨), appât doré (aucune prise vide, rares ×2,5), carnet de pêche, tournoi du week-end, eaux profondes au niveau {{DeepFishingLevel}} (coût ×{{DeepFishingCostMult}}). « Tout pêcher » lance jusqu'à 50 fois d'un coup. Prises possibles : rien, poussières, os, clé, booster, coffre, pièce détachée (remplace un exemplaire dans une fusion ou une restauration), appât doré, et en eaux profondes des perles noires. Niveau de pêche (1 à 10 : lancers en plus, moins de prises vides, plus de rares), prestige de pêche, classement de la semaine, prix du tournoi pour les premiers. Avec un dino ou un crâne : {{DinoFoodChance}} de chance par lancer de ramener poisson, algues ou crevette (regroupés à l'affichage).</p>
       <h3>🌱 Jardin</h3>
       <p>Graines à {{GardenPlantCost}} ✨, récolte en {{GardenGrowHours}} h, les plantes fanent après {{GardenWiltHours}} h. Parcelles à {{GardenPlotPrice}} ✨ ({{GardenMaxPlots}} max). Récoltes : vers, appâts dorés ({{GardenBaitChance}}), poussières ; engrais de dino ({{DinoFertilizerBoost}}).</p>
       <h3>🧭 Expéditions</h3>
       <p>Partir quelques heures, revenir avec des poussières et parfois un booster ; accélérer coûte {{ExpeditionRushCost}} ✨. <strong>Expédition en duo</strong> : {{DuoExpeditionHours}} h à deux, butin partagé ({{DuoExpeditionDust}} ✨).</p>
       <h3>🦖 Dinos de compagnie</h3>
-      <p>Un crâne + {{DinoHatchBones}} os = un dino (5 au maximum, espèce, couleur et motif au hasard). Satiété, bonheur et propreté baissent avec le temps ; nourris-le (poisson, algues, crevette, vers), joue, caresse, ramasse les cacas (engrais, caca doré {{DinoGoldPoopChance}}). Satiété et bonheur à zéro : il meurt (on récupère ses os). Adulte et content, il fouille pour toi toutes les {{DinoDigHours}} h. Talents par espèce, œufs (deux adultes heureux), plat préféré, Dinodex, accessoires et décorations, compagnon d'expédition, dino vedette. En Cool : vacances (rien ne baisse, ponte ×2). En Chill : balade d'une heure par jour.</p>
+      <p>Un crâne + {{DinoHatchBones}} os = un dino (5 au maximum, espèce, couleur et motif au hasard). Satiété, bonheur et propreté baissent avec le temps ; nourris-le (poisson, algues, crevette, vers), joue, caresse, ramasse les cacas (engrais, caca doré {{DinoGoldPoopChance}}). Satiété et bonheur à zéro : il meurt (on récupère ses os). Adulte et content, il fouille pour toi toutes les {{DinoDigHours}} h. Talents par espèce (Tyrannosaure : +25 % de poussières de fouille ; Tricératops : fouille auto 2× plus rapide ; Diplodocus : +1 ver par parcelle ; Stégosaure : plantes qui ne fanent plus ; Vélociraptor : rapporte des os ; Ptérodactyle : rapporte du poisson), œufs (deux adultes heureux, couleurs mélangées, éclosion en 12 h), plat préféré à découvrir, Dinodex (titre « Paléontologue »), couleurs nommées ultra-rares et 3 % de chromatiques, Ptérodactyle saisonnier ({{DinoSeasonalChance}} pendant un événement), accessoires et décorations (bonheur qui baisse moins vite), compagnon d'expédition (jusqu'à +30 % de poussières), dino vedette sur le profil, premières au livre d'or, sommeil la nuit (23 h – 7 h). En Cool : vacances (rien ne baisse, ponte ×2). En Chill : balade d'une heure par jour.</p>
+      <h3>🧰 Coffres et clés</h3>
+      <p>Un coffre s'achète {{ChestCost}} ✨ (ou se gagne : 1 tous les {{ChestEveryLevels}} niveaux, pêche, boutique…) et s'ouvre avec une clé. Il donne {{ChestDustMin}} à {{ChestDustMax}} ✨, une carte avec {{ChestCardChance}} de chance (une deuxième : {{ChestSecondCardChance}}, finition spéciale : {{ChestSpecialFinishChance}}), un booster avec {{ChestBoosterChance}} (deux : {{ChestDoubleBoosterChance}}). Les clés (2 % par case de fouille, 1 tous les {{KeyEveryLevels}} niveaux, pêche, boutique) servent aussi aux cartes secrètes, au grand coffre-fort (6 clés), à la relance de la roue, au coffre de guilde et au larcin (Hard).</p>
       <h3>Et aussi</h3>
       <ul>
-        <li><strong>Devinettes</strong>, <strong>grand coffre-fort</strong> (débloque le coffre perso), <strong>course aux trésors</strong> (5 indices cachés sur le site, {{TreasureClueDust}} ✨ chacun).</li>
+        <li><strong>Roue du jour</strong> : un tirage gratuit par jour (50 % : 10 à 25 ✨ ; 20 % : 50 à 100 ✨ ; 15 % : 1 booster ; 15 % : jackpot 2 boosters + 100 ✨), jamais de carte ; relance contre une clé.</li>
+        <li><strong>Devine la carte</strong> : chaque jour, le même zoom sur l'illustration d'une carte pour tout le monde, 4 propositions, un seul essai ; bonne réponse = poussières et série, un booster tous les 7 jours de série.</li>
+        <li><strong>Grand coffre-fort</strong> : 6 clés pour libérer sa carte promo ; débloque le coffre-fort perso. <strong>Course aux trésors</strong> : 5 indices cachés sur 5 pages du site (positions propres à chaque joueur), {{TreasureClueDust}} ✨ chacun et un bonus pour les 5.</li>
         <li><strong>Bingo du mois</strong> : grille 5 × 5 commune (case centrale offerte, {{BingoCardCells}} cases cartes, le reste en objectifs), 12 lignes et un carton plein à récupérer, joker à {{BingoJokerPrice}} ✨.</li>
         <li><strong>Découvertes</strong> : la première fois qu'on possède une ressource, une animation la présente (rejouable depuis le menu joueur).</li>
       </ul>` },
@@ -128,6 +140,9 @@
         <li><strong>Succès</strong> (dont secrets, {{HiddenAchievementDust}} ✨), maîtrises I/II/III, <strong>collections thématiques</strong> ({{ThemeRewardDust}} ✨ + titre), <strong>sets complets</strong> ({{SetRewardBoosters}} boosters + {{SetRewardDust}} ✨).</li>
         <li><strong>Saison mensuelle</strong> : {{SeasonTiers}} paliers de {{SeasonXpPerTier}} XP, carte exclusive au dernier palier, coffre de saison ouvert le mois suivant.</li>
         <li><strong>Série de connexion</strong> (cycle de 7 jours, gel de série à {{StreakFreezeCost}} ✨), cosmétiques (titres, cadres, couleurs de pseudo), livre d'or des premières.</li>
+        <li><strong>Récompenses par niveau</strong> : un tableau réglable dans l'admin (poussières, boosters, carte) ; passer du niveau n au niveau n+1 coûte 50 × n XP ; +1 booster bonus par niveau franchi.</li>
+        <li><strong>Badges</strong> : achetés et affichés à côté du pseudo. <strong>Titres et cadres de progression</strong> gagnés en jouant (paliers d'activité), titres de mode, de saison et d'événements.</li>
+        <li><strong>Profil public</strong> (vitrine, dino vedette, succès, mur de messages), <strong>carte de joueur</strong> au survol d'un pseudo, <strong>statistiques perso</strong> (grand livre des poussières, tirages, activité), classements (collection, métiers, Hard, bingo…).</li>
       </ul>` },
 
     { id: "quotidien", icon: "📅", title: "Rendez-vous quotidiens", body: `
@@ -142,7 +157,10 @@
         <li><strong>Boss commun</strong> : on sacrifie jusqu'à {{BossMaxCards}} exemplaires précis en salve (+{{BossVolleyStep}} de multiplicateur par carte, finition et état comptent) ; le coup final rapporte {{BossFinisherBoosters}} boosters, tout le monde partage la récompense.</li>
         <li><strong>Objectif commun</strong> : un objectif collectif ; atteint, chacun reçoit {{CommunityGoalDust}} ✨ et la pluie de boosters tombe.</li>
         <li><strong>Grande fouille commune</strong> : {{CommunityDigPerDay}} cases par jour, grand trésor partagé ({{GrandTreasureDust}} ✨, {{GrandTreasureBoosters}} booster).</li>
-        <li><strong>Guerre des équipes</strong> (mensuelle), <strong>loterie du dimanche</strong> (ticket {{LotteryTicketPrice}} ✨, {{LotteryWeeklyCap}} par semaine, {{LotteryBurnPct}} détruit), <strong>salle des machines</strong> (sacrifices mensuels puis vote du prochain mode de jeu), fil du serveur, classements, profils et murs.</li>
+        <li><strong>Guerre des équipes</strong> : chaque mois, 4 équipes équilibrées marquent des points par activité ; titre de champion à l'équipe gagnante le 1er du mois.</li>
+        <li><strong>Loterie du dimanche</strong> : ticket {{LotteryTicketPrice}} ✨, {{LotteryWeeklyCap}} par semaine, {{LotteryBurnPct}} de la mise détruite (anti-inflation), cagnotte tirée le dimanche à 21 h, reportée s'il n'y a pas de joueur.</li>
+        <li><strong>Salle des machines</strong> (une fois par mois) : 5 sacrifices successifs (clés, poussières + vers, pièces + appâts, boosters, doublons — jamais un #001, un assuré, une ★, une édition, une forgée, une arc-en-ciel ni un parfait état), puis un vote pour le mode du mois suivant (Chaos compris), appliqué automatiquement. Étape 6 « Surchauffe » facultative (vote double), jauge commune ({{MachinePressureGoal}} salles terminées = 1 booster par participant), titre et cadre de chef mécanicien jusqu'au mois suivant, assiduité (3 mois d'affilée = une carte ou 3 boosters), second vote pour l'événement du 2e week-end du mois suivant.</li>
+        <li>Fil du serveur en direct, profils et murs.</li>
       </ul>` },
 
     { id: "economie", icon: "💰", title: "Économie et inflation", body: `
@@ -150,13 +168,41 @@
         <li><strong>Cible</strong> : {{BoosterTargetPerDay}} boosters créés par joueur actif et par jour, <strong>codes de jeu exclus</strong> (un code offre souvent 20 boosters d'un coup). Fourchette jusqu'à {{EconomyAlertBoostersPerPlayer}} (seuil d'alerte), et autant en dessous de la cible (20 à 60 par défaut). Alerte aussi si les poussières gagnées dépassent {{EconomyAlertDustRatio}} fois les poussières dépensées. La recommandation de mode suit cette fourchette (au-dessus : Hard ; en dessous : Chill, très en dessous : Cool).</li>
         <li><strong>Index des prix</strong> : les prix en poussières suivent le solde moyen des joueurs actifs (référence {{WealthReference}} ✨, ×{{PriceIndexMax}} au plus).</li>
         <li><strong>Mode anti-inflation</strong> automatique après {{AutoTightDays}} jours d'alerte (doublons ÷2, prix +25 %, taxes ×1,5, décraft -10 %), levé après {{TightCalmDays}} jours calmes.</li>
-        <li>Taxes d'échange et d'enchère (redistribuées en Hard via la taxe de luxe), boutique d'objets à plafonds hebdomadaires, journal détaillé et tableau de bord dans Admin &rarr; Économie.</li>
+        <li>Taxes d'échange et d'enchère (redistribuées en Hard via la taxe de luxe), journal détaillé et tableau de bord dans Admin &rarr; Économie.</li>
+        <li><strong>Boutique d'objets</strong> (catalogue réglable, plafonds par semaine, prix indexés) : vers, appât doré, os, coffre, clé, pièce détachée, élixir de chance (finitions), potion d'XP, café du fouilleur, engrais, boussole d'expédition, parapluie (Hard) ; boutique de cosmétiques (titres, cadres, couleurs de pseudo) et de badges.</li>
       </ul>` },
 
     { id: "modes", icon: "🎲", title: "Modes de jeu (difficultés)", body: `
       <p>Cinq difficultés : <strong>😎 Cool</strong> (détente, beaucoup de boosters), <strong>🌴 Chill</strong> (généreux), <strong>⚖️ Medium</strong> (équilibré, valeurs par défaut), <strong>🔥 Hard</strong> (serré, contre l'inflation) et <strong>👾 Chaos</strong> (base Medium + une règle surprise par jour). Passer dans un mode applique d'un coup ses réglages chiffrés (Admin &rarr; Économie ou Difficultés). Changement programmable avec préavis ({{ModeNoticeHours}} h), ou voté chaque mois dans la salle des machines. Chaque mode a sa carte exclusive (objectif commun) et ses succès.</p>
       <p>Chaque règle ci-dessous ne joue que dans son mode et peut être coupée dans <strong>Admin &rarr; Difficultés</strong> (✅ active, ⛔ désactivée). Toutes les exclusivités interactives sont regroupées pour les joueurs sur la page <strong>Mode du moment</strong>.</p>
       {{RULES}}
+      <h3>Détails des règles historiques</h3>
+      <ul>
+        <li><strong>Câlin du jour</strong> (Cool) : à la première visite du jour, 40 % : 3 vers ; 35 % : 30 ✨ ; 25 % : 2 fragments de booster.</li>
+        <li><strong>Décraft annulable</strong> (Cool) : pendant 24 h, rendre les poussières reçues récupère l'exemplaire (même numéro s'il est libre).</li>
+        <li><strong>Pêche sans prise vide, chien généreux (2 trouvailles par jour), jardin magique</strong> (plus de fanaison, 20 % de récoltes rares), <strong>échanges et enchères sans taxe</strong> (Cool).</li>
+        <li><strong>Deux heures de chance</strong>, <strong>pity ×2 le samedi et le dimanche</strong>, <strong>marché aussi le mercredi</strong>, <strong>4e défi</strong> (et 2 fragments par défi récupéré), <strong>doublon porte-bonheur</strong> ({{ChillLuckyDuplicateChance}} d'un doublon remplacé par une carte manquante de même rareté) (Chill).</li>
+        <li><strong>Pari du booster</strong> (Medium) : miser {{BoosterBetStake}} ✨ à l'ouverture ; une épique ou mieux = mise triplée, sinon perdue. <strong>Contrat de la semaine</strong> : un objectif personnel (épiques, boosters, grilles, récoltes, pêche, échanges), 1 booster et le titre « Contractuel ». <strong>Double tranchant</strong> : 3 cartes au lieu de 5, une rare ou mieux garantie. <strong>Coup de chance</strong> : le n-ième booster du jour (n entre 1 et 4, propre à chaque joueur) a ses chances de finition doublées.</li>
+        <li><strong>Usure des doublons</strong> (Hard) : une fois par jour, {{HardWearChance}} de chance qu'un doublon perde un cran d'état (jamais un #001, un assuré, une ★, un rangé ni une édition) ; le <strong>parapluie</strong> de la boutique ({{UmbrellaPrice}} ✨) protège {{UmbrellaDays}} jours.</li>
+        <li><strong>Finitions forgées</strong> (Hard) : {{HardFinishLoss}} des finitions spéciales tirées retombent en normale ; les arc-en-ciel restantes sont « forgées dans les flammes » (voir « Les cartes »).</li>
+        <li><strong>Boss enragé</strong> (Hard) : dégâts divisés par 2, récompense ×3. <strong>Marché noir brûlant</strong> : offres de 3 jours au plus, 1 achat pour le coup de cœur et 2 pour les autres.</li>
+        <li><strong>Taxe de luxe</strong> (Hard) : un joueur plus riche que la moyenne des actifs paie ses taxes ×{{LuxuryTaxMultiplier}} ; la cagnotte est redistribuée chaque lundi à parts égales aux joueurs actifs de la semaine.</li>
+        <li><strong>Succès de survie</strong> (Hard) : titre « Survivant 🔥 » pour une légendaire (ou mieux) tirée en Hard, Cadre infernal après 7 jours joués en Hard. <strong>Classement Hard</strong> : points par action (grille 3, expédition 3, booster 2, boss 2, échange 2, coffre 2, pêche, récolte, devinette et craft 1), remis à zéro à chaque passage en Hard.</li>
+        <li><strong>Règle du jour</strong> (Chaos) : chaque jour à minuit (heure de Paris), une règle parmi les 9 ci-dessous s'applique à tout le serveur, jamais deux jours de suite la même (tirée au hasard, ou votée la veille si la « Règle votée » est active). Elle modifie temporairement des réglages et peut fermer des fonctionnalités ; elle est annoncée dans le bandeau en haut du site.
+          <ul>
+            <li>🎣 <strong>Frénésie de pêche</strong> : lancer à moitié prix, deux fois plus de lancers à plein rendement ; le jardin est fermé.</li>
+            <li>✨ <strong>Pluie d'étoiles</strong> : les doublons rapportent deux fois plus de poussières.</li>
+            <li>🤝 <strong>Marché libre</strong> : aucune taxe d'échange ni d'enchère ; le marché noir est fermé.</li>
+            <li>🧩 <strong>Tempête de fragments</strong> : un booster coûte deux fois moins de fragments (2 au minimum), plafond de fragments par jour doublé.</li>
+            <li>🧰 <strong>Soldes des coffres</strong> : coffres à moitié prix, mais boosters de la boutique deux fois plus chers.</li>
+            <li>🍀 <strong>Fête de la chance</strong> : la rareté garantie par le pity arrive deux fois plus vite ; la boutique de boosters est fermée.</li>
+            <li>⚡ <strong>Heure de pointe</strong> : accélérer une expédition et changer la météo sont gratuits, os du chien à moitié prix.</li>
+            <li>🔒 <strong>Nuit des secrets</strong> : les succès secrets rapportent trois fois plus de poussières.</li>
+            <li>🌑 <strong>Panne générale</strong> : fouille et pêche fermées, mais doublons ×1,5 en poussières.</li>
+          </ul>
+        </li>
+        <li><strong>Pour tous les modes</strong> : carte exclusive du mode, succès de mode (« Zen absolu » 7 jours en Cool, « Vacancier » 50 boosters en Chill, « Survivant de l'enfer » 7 jours en Hard, « Tueur de géants » boss avec 10 cartes en Hard, « Agent du chaos » 5 règles différentes), Cadre « Toutes saisons » après 5 jours joués en Cool, Chill, Medium et Hard, annonce du changement de mode, recommandation de mode dans l'admin (selon la cible de boosters et l'inflation).</li>
+      </ul>
       <h3>Détails des exclusivités</h3>
       <ul>
         <li><strong>Boîte à souhaits</strong> (Cool) : une carte de la liste de souhaits par semaine, remplace la carte la moins rare d'un des 10 boosters suivants (chance 1/n restant, garantie au 10e).</li>
@@ -187,7 +233,7 @@
       <ul>
         <li><strong>Week-ends événement</strong> : poussières ×N et finitions ×N (Admin &rarr; Événements), événements planifiés.</li>
         <li><strong>Heure dorée</strong> hebdomadaire : finitions ×{{GoldenHourFinishMultiplier}}, annoncée la veille. <strong>Pluie de boosters</strong> : {{BoosterRainBoosters}} booster par joueur quand l'objectif commun est atteint.</li>
-        <li><strong>Événements saisonniers</strong> (Nouvel an, Saint-Valentin, Pâques, Poisson d'avril, Fête de la musique, Halloween, Noël) : thème du site, cadeau du jour, trouvailles en jouant ({{SeasonalDropChance}} par action), boss saisonnier, édition saisonnière.</li>
+        <li><strong>Événements saisonniers</strong> (Nouvel an, Saint-Valentin, Pâques, Poisson d'avril, Fête de la musique, Halloween, Noël) : thème du site, cadeau du jour (avec un « sort » possible), trouvailles en jouant ({{SeasonalDropChance}} par action), boss d'Halloween et de Noël créé tout seul, édition saisonnière, costumes des dinos et Ptérodactyle.</li>
         <li><strong>Carte fantôme du mois</strong> : 5 fragments ({{PhantomDropChance}} par action dans 5 activités) &rarr; la carte en Ghost et édition Fantôme.</li>
         <li>Calendrier des événements dans Communauté.</li>
       </ul>` },
@@ -198,6 +244,7 @@
         <li>Jeton de session signé ({{AuthTokenDays}} jours) ; limite de {{RateLimitWritesPerMinute}} écritures et {{RateLimitReadsPerMinute}} lectures par minute et par joueur.</li>
         <li>Pages : codes & dons, économie (mode de jeu, matrice des fonctionnalités, journal), difficultés, événements, contenu (cartes, saisons, bingo, boss), réglages (taux, règles de base, réglages avancés), site (maintenance, sauvegardes).</li>
         <li>Notifications push (silence de {{PushQuietStart}} h à {{PushQuietEnd}} h).</li>
+        <li>Outils : codes événement (boosters ou carte, expiration, nombre d'utilisations), dons directs à un joueur, remise à zéro d'un compte, extensions et cartes, récompenses par niveau, saison et carte du mois, boss, bingo, simulateur d'ouverture (calcul pur, sans écriture), bandeau du site et mode maintenance (les non-admins sont redirigés), prévisualisation des cartes et des animations.</li>
         <li><strong>Cette documentation doit être mise à jour à chaque ajout, modification ou suppression d'une fonctionnalité ou d'une règle.</strong></li>
       </ul>` },
 
