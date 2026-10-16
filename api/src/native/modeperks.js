@@ -23,6 +23,7 @@ import { grantCosmetic } from './cosmetics.js';
 import { addFeed } from './feed.js';
 import { addShards } from './comfort.js';
 import { setExtraLucky } from './daily.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: {
@@ -79,10 +80,10 @@ function goalOf(user) {
 function goalView(store, user) {
   const g = goalOf(user);
   const t = GOALS.find((x) => x.key === g.key);
-  return { active: modeIs(store, 'medium'), week: g.week, key: g.key, label: t.label, target: t.target, progress: Math.min(t.target, g.progress), done: g.progress >= t.target, claimed: !!g.claimed, reward: { boosters: 1, title: 'Contractuel' } };
+  return { active: ruleOn(store, 'medium.contract'), week: g.week, key: g.key, label: t.label, target: t.target, progress: Math.min(t.target, g.progress), done: g.progress >= t.target, claimed: !!g.claimed, reward: { boosters: 1, title: 'Contractuel' } };
 }
 function bumpGoal(store, userId, type, n) {
-  if (!modeIs(store, 'medium')) return;
+  if (!ruleOn(store, 'medium.contract')) return;
   const user = store.get('Users', userId);
   if (!user) return;
   const g = goalOf(user);
@@ -119,7 +120,7 @@ function handleUndo({ store, body }) {
   const list = () => (store.tables.has('DecraftUndo') ? store.getAll('DecraftUndo') : []).filter((r) => refId(r.User) === user.id && !r.Undone && (Number(r.At) || 0) >= limit)
     .sort((a, b) => b.At - a.At).slice(0, 20)
     .map((r) => { const c = store.get('Cards', refId(r.Card)); return { id: r.id, card: c ? cardSummary(store, c) : null, finish: r.Finish, quality: r.Quality, dust: Number(r.Dust) || 0, at: r.At, until: (Number(r.At) || 0) + 24 * 3600 }; });
-  const active = modeIs(store, 'cool');
+  const active = ruleOn(store, 'cool.decraftUndo');
   if ((body.action || 'list') === 'list') return ok({ active, items: active ? list() : [] });
   if (body.action !== 'undo') return fail('unknown_action');
   if (!active) return fail('wrong_mode');
@@ -140,7 +141,7 @@ export function beforeWorkflow({ store, path, request }) {
   const body = request.body || {};
   if (path === 'disenchant') {
     // Cool : on note ce qui va etre decrafte (le workflow supprime l'exemplaire).
-    if (modeIs(store, 'cool')) {
+    if (ruleOn(store, 'cool.decraftUndo')) {
       const pulls = store.getAll('Pulls').filter((p) => refId(p.User) === Number(body.userId) && refId(p.Card) === Number(body.cardId));
       const pull = body.pullId ? pulls.find((p) => p.id === Number(body.pullId)) : pulls.find((p) => (!body.finish || (p.Finish || 'normal') === body.finish) && (!body.quality || (p.Quality || 'damaged') === body.quality));
       if (pull) request._undo = { card: refId(pull.Card), finish: pull.Finish || 'normal', quality: pull.Quality || 'damaged', serial: pull.SerialNumber || null };
@@ -150,20 +151,19 @@ export function beforeWorkflow({ store, path, request }) {
   if (path !== 'open-pack' || body.dryRun) return null;
   const user = store.get('Users', Number(body.userId));
   if (!user) return null;
-  const mode = modeKey(store);
-  if (mode === 'medium') {
+  if (modeIs(store, 'medium')) {
     // Pari du booster.
-    if (body.bet) {
+    if (body.bet && ruleOn(store, 'medium.bet')) {
       const stake = setting(store, 'BoosterBetStake');
       if ((Number(user.StardustCount) || 0) < stake) return { status: 400, json: { error: 'not_enough_dust_bet', stake } };
       request._bet = stake;
     }
-    if (body.edge) request._edge = true;
+    if (body.edge && ruleOn(store, 'medium.edge')) request._edge = true;
     // Coup de chance aleatoire : le n-ieme booster du jour (n tire par joueur et par jour).
     const today = parisDay(0);
     const count = user.LuckyOpenDay === today ? Number(user.LuckyOpenCount) || 0 : 0;
     let h = 0; for (const ch of `${today}:${user.id}`) h = (h * 33 + ch.charCodeAt(0)) >>> 0;
-    if (count + 1 === 1 + (h % 4)) request._luckyOpen = true;
+    if (count + 1 === 1 + (h % 4) && ruleOn(store, 'medium.luckyOpen')) request._luckyOpen = true;
     store.update('Users', user.id, { LuckyOpenDay: today, LuckyOpenCount: count + 1 });
   }
   return null;
@@ -180,11 +180,11 @@ function dailyVisit(store, user, json) {
     days[mode] = (Number(days[mode]) || 0) + 1;
     days.last = today;
     fields.ModeDays = JSON.stringify(days);
-    if (mode === 'hard' && days.hard >= 7 && grantCosmetic(store, user.id, 'frame-inferno', { type: 'frame', label: 'Cadre Infernal' })) json.modeUnlock = 'Cadre Infernal (7 jours en Hard)';
+    if (mode === 'hard' && ruleOn(store, 'hard.survival') && days.hard >= 7 && grantCosmetic(store, user.id, 'frame-inferno', { type: 'frame', label: 'Cadre Infernal' })) json.modeUnlock = 'Cadre Infernal (7 jours en Hard)';
     if (['cool', 'chill', 'medium', 'hard'].every((k) => (Number(days[k]) || 0) >= 5) && grantCosmetic(store, user.id, 'frame-seasons', { type: 'frame', label: 'Cadre Toutes saisons' })) json.modeUnlock = 'Cadre Toutes saisons';
   }
   // Cool : calin du jour.
-  if (mode === 'cool' && user.HugDay !== today) {
+  if (ruleOn(store, 'cool.hug') && user.HugDay !== today) {
     fields.HugDay = today;
     const r = Math.random();
     if (r < 0.4) { fields.Worms = (Number(user.Worms) || 0) + 3; json.hug = '🪱 3 vers de terre'; }
@@ -192,7 +192,7 @@ function dailyVisit(store, user, json) {
     else { json.hug = '🧩 2 fragments de booster'; json._hugShards = 2; }
   }
   // Hard : usure d'un doublon (jamais un #001, un exemplaire assure, ★ ou au coffre).
-  if (mode === 'hard' && user.WearDay !== today) {
+  if (ruleOn(store, 'hard.wear') && user.WearDay !== today) {
     fields.WearDay = today;
     if ((Number(user.UmbrellaUntil) || 0) > now()) json.umbrella = true;
     else if (Math.random() < setting(store, 'HardWearChance')) {
@@ -221,7 +221,7 @@ function afterOpenPack(store, request, json) {
   const mode = modeKey(store);
   const pulls = () => store.getAll('Pulls').filter((p) => p.BatchId === json.batchId && refId(p.User) === userId);
   // Hard : un quart des finitions speciales retombent en normale ; les arc-en-ciel restantes sont forgees.
-  if (mode === 'hard') {
+  if (ruleOn(store, 'hard.forge')) {
     let forged = 0;
     for (const c of json.cards) {
       const pull = pulls().find((p) => refId(p.Card) === c.cardId && p.SerialNumber === c.serialNumber);
@@ -230,7 +230,9 @@ function afterOpenPack(store, request, json) {
       if (c.finish === 'rainbow') { store.update('Pulls', pull.id, { ForgedInFire: true }); c.forgedInFire = true; forged++; }
     }
     if (forged) { json.forged = forged; addFeed(store, { userId, kind: 'forged', icon: '🔥', text: `forge une arc-en-ciel dans les flammes du mode Hard !` }); }
-    // Succes de survie : une legendaire (ou mieux) en mode Hard.
+  }
+  // Succes de survie : une legendaire (ou mieux) en mode Hard.
+  if (ruleOn(store, 'hard.survival')) {
     if (json.cards.some((c) => sortOf(store, c) >= rarityRank(store, 'legendaire')) && grantCosmetic(store, userId, 'title-survivor', { type: 'title', label: 'Survivant 🔥' })) json.modeUnlock = 'Titre « Survivant 🔥 »';
   }
   // Medium : coup de chance (deja applique par boosts.js), pari.
@@ -307,7 +309,7 @@ function averageWealth(store) {
 }
 // Multiplicateur de taxe d'un joueur (1, ou 1,5 s'il est plus riche que la moyenne en Hard).
 export function luxuryFactor(store, user) {
-  if (!user || !modeIs(store, 'hard')) return 1;
+  if (!user || !ruleOn(store, 'hard.luxuryTax')) return 1;
   return (Number(user.StardustCount) || 0) > averageWealth(store) ? setting(store, 'LuxuryTaxMultiplier') : 1;
 }
 export function addToPot(store, amount) {
@@ -319,7 +321,7 @@ export function addToPot(store, amount) {
 // Redistribution chaque lundi (premiere requete de la semaine).
 let potChecked = null;
 export function beforeRequest({ store }) {
-  setExtraLucky(modeIs(store, 'chill'));
+  setExtraLucky(ruleOn(store, 'chill.luckyHours'));
   const week = weekKey();
   if (potChecked === week || !store.tables.has('AppSettings')) return;
   potChecked = week;

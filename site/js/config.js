@@ -148,6 +148,12 @@ window.APP_CONFIG = {
     duoExpedition: "/duo-expedition",        // POST { userId, action, toPseudo?, pullId?, id? }       // POST { userId, action: 'status'|'advance'|'vote', mode? } (salle des machines)
     decraftUndo: "/decraft-undo",       // POST { userId, action: 'list'|'undo', id? } (mode Cool)
     weeklyGoal: "/weekly-goal",         // POST { userId, action: 'status'|'claim' } (mode Medium)
+    // Regles par difficulte (2026-10-16, api/src/native/moderules.js, modefun.js, draft.js, chaosvote.js).
+    adminModeRules: "/admin-mode-rules", // POST { discordId, action: 'status'|'set'|'mode'|'reset', key?, on?, mode? }
+    modeRules: "/mode-rules",           // GET -> regles actives du mode en cours
+    modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode
+    draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }
+    chaosVote: "/chaos-vote",           // POST { userId, action: 'status'|'vote', rule? }
     dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille du chien
     sundayMarket: "/sunday-market",     // POST { userId, action: 'status'|'buy', cardId? }
     playerGift: "/player-gift",         // POST { userId, action: 'status'|'send'|'claim', toUserId?, kind? }

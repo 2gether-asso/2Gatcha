@@ -15,6 +15,8 @@ import { setting, setOverlay } from './settings.js';
 import { currentMode, applyPreset, lastPreset, PRESET_INFO } from './presets.js';
 import { unlockAchievement } from './achievements.js';
 import { addFeed } from './feed.js';
+import { ruleOn, ruleEnabled } from './moderules.js';
+import { votedRuleFor } from './chaosvote.js';
 
 export const schema = {
   Users: {
@@ -45,7 +47,8 @@ export function chaosRuleFor(day = parisDay(0)) {
   return CHAOS_RULES[(((4 * d + Math.floor(d / n)) % n) + n) % n];
 }
 export function chaosRule(store) {
-  return currentMode(store).key === 'chaos' ? chaosRuleFor() : null;
+  if (currentMode(store).key !== 'chaos' || !ruleEnabled(store, 'chaos.dailyRule')) return null;
+  return votedRuleFor(store) || chaosRuleFor();
 }
 // Surcouche des reglages : seulement en Chaos, seulement les cles de la regle.
 setOverlay((store, key, raw) => {
@@ -95,7 +98,7 @@ export function onEvents(store, events) {
       if (mode === 'chaos') {
         user = store.get('Users', e.userId);
         const list = parseJson(user.ChaosSeen, []);
-        const rule = chaosRuleFor().key;
+        const rule = (chaosRule(store) || chaosRuleFor()).key;
         if (!list.includes(rule)) { list.push(rule); store.update('Users', user.id, { ChaosSeen: JSON.stringify(list) }); }
         if (list.length >= 5) push(unlockAchievement(store, user.id, 'modeChaos5'));
       }
@@ -104,7 +107,7 @@ export function onEvents(store, events) {
     if (mode === 'chill' && e.type === 'boosterOpened' && bumpStat(store, user, 'chillOpen', e.n) >= 50) push(unlockAchievement(store, user.id, 'modeChill50'));
     if (mode === 'hard' && e.type === 'bossAttack' && bumpStat(store, store.get('Users', e.userId), 'hardBoss', e.n) >= 10) push(unlockAchievement(store, user.id, 'modeHardBoss'));
     // Classement Hard.
-    if (mode === 'hard' && HARD_POINTS[e.type]) {
+    if (mode === 'hard' && ruleEnabled(store, 'hard.leaderboard') && HARD_POINTS[e.type]) {
       user = store.get('Users', e.userId);
       const session = hardSession(store);
       const score = (Number(user.HardSession) === session ? Number(user.HardScore) || 0 : 0) + HARD_POINTS[e.type] * (Number(e.n) || 1);
@@ -127,7 +130,7 @@ export function afterWorkflow({ store, path, request, response }) {
 
 function hardBoard(store, userId) {
   const session = hardSession(store);
-  const active = currentMode(store).key === 'hard';
+  const active = ruleOn(store, 'hard.leaderboard');
   const rows = store.getAll('Users').filter((u) => Number(u.HardSession) === session && (Number(u.HardScore) || 0) > 0)
     .sort((a, b) => (Number(b.HardScore) || 0) - (Number(a.HardScore) || 0));
   const rank = rows.findIndex((u) => u.id === Number(userId));

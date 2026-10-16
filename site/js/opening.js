@@ -1104,6 +1104,7 @@ async function startOpening(ext) {
     let ripened = 0, betNet = 0, betWins = 0, bets = 0, luckyOpen = false, edge = 0, forged = 0, luckyDup = 0, finishLost = 0;
     let godPack = false;
     const editionsSeen = [];
+    const modeTags = { wish: null, cursed: 0, mutants: 0, glitch: 0 };
     for (let i = 0; i < quantity; i++) {
       const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
       const res = sim
@@ -1122,6 +1123,11 @@ async function startOpening(ext) {
       if (res.luckyDuplicates) luckyDup += res.luckyDuplicates;
       finishLost += (res.cards || []).filter((c) => c.finishLost).length;
       (res.cards || []).forEach((c) => { if (c.edition) editionsSeen.push(c.edition); });
+      // Regles du mode (api/src/native/modefun.js).
+      if (res.wishbox) modeTags.wish = res.wishbox.cardName;
+      modeTags.cursed += Number(res.cursed) || 0;
+      modeTags.mutants += Number(res.mutants) || 0;
+      if (res.glitchPack) modeTags.glitch++;
       if (res.error === "no_boosters") {
         if (i === 0) {
           pack.classList.remove("charging");
@@ -1208,6 +1214,10 @@ async function startOpening(ext) {
       lastPackTags.push({ kind: "shiny", html: `${e.icon} ${editionsSeen.length} carte${editionsSeen.length > 1 ? "s" : ""} en édition limitée ${e.label} !`, short: "édition " + e.label });
       Toast.success(`${e.icon} Édition limitée ${e.label} !`);
     }
+    if (modeTags.wish) { lastPackTags.push({ kind: "shiny", html: `🎀 Souhait exaucé : <strong>${escHtml(modeTags.wish)}</strong> !`, short: "souhait" }); Toast.success(`🎀 Boîte à souhaits : ${escHtml(modeTags.wish)} !`); }
+    if (modeTags.glitch) lastPackTags.push({ kind: "shiny", html: "📦 Booster glitché : une carte hors-série en plus !", short: "glitché" });
+    if (modeTags.cursed) lastPackTags.push({ kind: "sim", html: `🕯️ ${modeTags.cursed} carte${modeTags.cursed > 1 ? "s" : ""} maudite${modeTags.cursed > 1 ? "s" : ""} : purifie-les sous 48 h (page Mode du moment)`, short: "maudite" });
+    if (modeTags.mutants) lastPackTags.push({ kind: "bonus", html: `🧬 ${modeTags.mutants} carte${modeTags.mutants > 1 ? "s" : ""} va muter dans les 24 h…`, short: "mutante" });
     if (forged) lastPackTags.push({ kind: "shiny", html: `&#128293; ${forged} arc-en-ciel forgée${forged > 1 ? "s" : ""} dans les flammes !`, short: "forgée" });
     if (finishLost) lastPackTags.push({ kind: "sim", html: `&#128293; Mode Hard : ${finishLost} finition${finishLost > 1 ? "s" : ""} brûlée${finishLost > 1 ? "s" : ""}`, short: "brûlée" });
     if (luckyDup) lastPackTags.push({ kind: "bonus", html: `&#127808; ${luckyDup} doublon${luckyDup > 1 ? "s" : ""} changé${luckyDup > 1 ? "s" : ""} en carte manquante`, short: "porte-bonheur" });

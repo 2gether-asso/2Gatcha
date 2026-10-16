@@ -14,7 +14,8 @@ import { refId, now, ok, fail, configRow, isAdmin } from './common.js';
 import { setting } from './settings.js';
 import { goldenState } from './comfort.js';
 import { currentMode } from './presets.js';
-import { MODE_PERKS, modeCardFor } from './modeperks.js';
+import { modeCardFor } from './modeperks.js';
+import { modePerks, publicRules } from './moderules.js';
 import { publicView as featuresOff } from './features.js';
 import { chaosRule, nextMode } from './modeextras.js';
 import { publicSeason } from './seasonal.js';
@@ -71,7 +72,7 @@ function modeView(store) {
   const m = currentMode(store);
   const mc = modeCardFor(store);
   const rule = chaosRule(store);
-  return { ...m, perks: MODE_PERKS[m.key] || [], card: mc ? { cardId: mc.card.id, name: mc.card.Name } : null, off: featuresOff(store),
+  return { ...m, perks: modePerks(store, m.key), rules: publicRules(store), card: mc ? { cardId: mc.card.id, name: mc.card.Name } : null, off: featuresOff(store),
     chaosRule: rule ? { key: rule.key, icon: rule.icon, label: rule.label } : null, next: nextMode(store) };
 }
 

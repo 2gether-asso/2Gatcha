@@ -15,6 +15,7 @@ import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
 import { price as indexed, taxMultiplier } from './inflation.js';
 import { modeIs, luxuryFactor, addToPot } from './modeperks.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: {
@@ -34,7 +35,7 @@ function tradeTax(store, body) {
   return Math.round(tradeTaxPerCard(store) * Math.max(1, cards) * (1 - talentValue(user, 'master')) * luxuryFactor(store, user));
 }
 
-const tradeTaxPerCard = (store) => (modeIs(store, 'cool') ? 0 : Math.round(setting(store, 'TradeTaxPerCard') * taxMultiplier(store)));
+const tradeTaxPerCard = (store) => (ruleOn(store, 'cool.noTax') ? 0 : Math.round(setting(store, 'TradeTaxPerCard') * taxMultiplier(store)));
 
 // --- prix de l'os ----------------------------------------------------------
 function bonePrice(store, user) {
@@ -118,7 +119,7 @@ export function generateMarket(store, week = weekKey()) {
     const i = pool.findIndex((x) => (r -= x.w) <= 0);
     picked.push(pool.splice(i < 0 ? pool.length - 1 : i, 1)[0].c);
   }
-  const hard = modeIs(store, 'hard');
+  const hard = ruleOn(store, 'hard.blackMarket');
   const expires = hard ? Math.min(weekEndsAt(week), now() + 3 * 86400) : weekEndsAt(week);
   picked.forEach((c, i) => {
     const craft = Number(rarities.get(refId(c.Rarity))?.CraftCost) || 200;

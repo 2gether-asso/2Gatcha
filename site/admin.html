@@ -41,10 +41,12 @@
           <button type="button" role="tab" data-pane="accueil"><span aria-hidden="true">&#127968;</span> Vue d'ensemble</button>
           <button type="button" role="tab" data-pane="codes"><span aria-hidden="true">&#127915;</span> Codes &amp; dons</button>
           <button type="button" role="tab" data-pane="economie"><span aria-hidden="true">&#128176;</span> Économie</button>
+          <button type="button" role="tab" data-pane="modes"><span aria-hidden="true">&#127922;</span> Difficultés</button>
           <button type="button" role="tab" data-pane="evenements"><span aria-hidden="true">&#128197;</span> Événements</button>
           <button type="button" role="tab" data-pane="contenu"><span aria-hidden="true">&#127183;</span> Contenu</button>
           <button type="button" role="tab" data-pane="reglages"><span aria-hidden="true">&#9881;&#65039;</span> Réglages</button>
           <button type="button" role="tab" data-pane="site"><span aria-hidden="true">&#128736;&#65039;</span> Site</button>
+          <button type="button" role="tab" data-pane="doc"><span aria-hidden="true">&#128214;</span> Documentation</button>
         </nav>
 
         <div class="adm-panes">
@@ -361,6 +363,22 @@
             </section>
           </section>
 
+          <!-- ============================== Documentation ============================== -->
+          <section class="adm-pane" id="pane-doc" role="tabpanel" data-title="Documentation" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128214; Documentation du jeu</h2><p>Toutes les fonctionnalités et règles métier, avec les valeurs actuelles des réglages. À mettre à jour à chaque ajout, modification ou suppression.</p></header>
+              <div id="doc-zone" class="adoc empty-state">Chargement de la documentation…</div>
+            </section>
+          </section>
+
+          <!-- ============================== Difficultes ============================== -->
+          <section class="adm-pane" id="pane-modes" role="tabpanel" data-title="Difficultés" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127922; Règles par difficulté</h2><p>Tout ce qui change selon le mode de jeu : bonus, malus et fonctionnalités exclusives. Une règle ne joue que pendant son mode ; désactivée, elle ne joue plus du tout (effet immédiat). Les réglages chiffrés (prix, boosters…) restent ceux du mode.</p></header>
+              <div id="modes-admin-zone" class="amr-zone empty-state">Chargement des règles…</div>
+            </section>
+          </section>
+
           <!-- ============================== Site ============================== -->
           <section class="adm-pane" id="pane-site" role="tabpanel" data-title="Site" hidden>
             <section class="adm-card">
@@ -413,5 +431,7 @@
   <script src="js/admin-events.js"></script>
   <script src="js/admin-home.js"></script>
   <script src="js/admin-bingo.js"></script>
+  <script src="js/admin-modes.js"></script>
+  <script src="js/admin-doc.js"></script>
 </body>
 </html>

@@ -183,9 +183,12 @@ export const REGISTRY = {
   MarketPriceMultiplier: { ...num('Marché noir : prix (× coût de craft)', 1.5, 'Économie', '', 0.2, 10), storage: 'app' },
   MarketDealMultiplier: { ...num('Marché noir : prix du coup de cœur (× coût de craft)', 0.8, 'Économie', '', 0.1, 10), storage: 'app' },
   MarketMaxPurchases: { ...int('Marché noir : achats max par offre', 3, 'Économie', '', 1, 50), storage: 'app' },
-  // Base (2026-10-15) : un joueur ouvre au moins ~30 boosters par jour ; alerte
-  // (et, 7 jours d'affilee, mode anti-inflation) au-dela de +50 %.
-  EconomyAlertBoostersPerPlayer: { ...num('Alerte : boosters créés par joueur actif et par jour', 45, 'Économie', 'Base : un joueur ouvre au moins ~30 boosters par jour. Au-delà de ce seuil (30 + 50 % de marge), alerte dans le tableau de bord de l’économie ; 7 jours d’alerte d’affilée activent le mode anti-inflation.', 0.5, 500), storage: 'app' },
+  // Cible (2026-10-16) : ~40 boosters crees par joueur actif et par jour, a
+  // plus ou moins 20 (20 a 60), codes de jeu exclus du calcul (souvent 20
+  // boosters offerts d'un coup). Le seuil d'alerte est le haut de la fourchette ;
+  // 7 jours d'alerte d'affilee activent le mode anti-inflation.
+  BoosterTargetPerDay: { ...num('Cible : boosters créés par joueur actif et par jour', 40, 'Économie', 'Hors codes de jeu. La fourchette va de la cible moins l’écart (seuil d’alerte − cible) au seuil d’alerte : 20 à 60 par défaut.', 1, 500), storage: 'app' },
+  EconomyAlertBoostersPerPlayer: { ...num('Alerte : boosters créés par joueur actif et par jour', 60, 'Économie', 'Haut de la fourchette (cible 40 + 20 par défaut), codes de jeu exclus. Au-delà, alerte dans le tableau de bord de l’économie ; 7 jours d’alerte d’affilée activent le mode anti-inflation.', 0.5, 500), storage: 'app' },
   EconomyAlertDustRatio: { ...num('Alerte : poussières gagnées pour 1 dépensée', 3, 'Économie', '', 1, 100), storage: 'app' },
 
   // --- Serie de connexion

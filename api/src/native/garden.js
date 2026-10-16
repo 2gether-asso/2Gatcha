@@ -23,6 +23,7 @@ import { price as indexed } from './inflation.js';
 import { upgradeValue } from './upgrades.js';
 import { modeIs } from './modeperks.js';
 import { dinoTalent } from './dino.js';
+import { ruleOn } from './moderules.js';
 
 export const PLOTS = 4;
 
@@ -60,9 +61,9 @@ function gardenStreak(user) {
   const day = user.GardenStreakDay;
   return day === parisDay(0) || day === parisDay(-1) ? Number(user.GardenStreak) || 0 : 0;
 }
-const rareChance = (store, streak) => Math.max(modeIs(store, 'cool') ? 0.2 : 0, streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
+const rareChance = (store, streak) => Math.max(ruleOn(store, 'cool.magicGarden') ? 0.2 : 0, streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
 // Stegosaure content : les plantes ne fanent plus (dino.js).
-const wiltSeconds = (store, user) => (modeIs(store, 'cool') || dinoTalent(user, 'stego') ? 0 : setting(store, 'GardenWiltHours') * 3600);
+const wiltSeconds = (store, user) => (ruleOn(store, 'cool.magicGarden') || dinoTalent(user, 'stego') ? 0 : setting(store, 'GardenWiltHours') * 3600);
 
 function state(store, user) {
   const grow = growSeconds(store, user);

@@ -63,6 +63,7 @@ const NAV_ITEMS = [
   { href: "index.html", label: "Accueil", icon: "&#127968;", auth: false, badgeKey: "rewards" },
   { href: "ouverture.html", label: "Ouvrir un booster", icon: "&#127873;", auth: false, badgeKey: "boosters", group: "jouer", groupLabel: "Jouer" },
   { href: "redeem.html", label: "Réclamer un code", icon: "&#127915;", auth: true, group: "jouer" },
+  { href: "mode.html", label: "Mode du moment", icon: "&#127922;", auth: true, group: "jouer" },
   { href: "collection.html", label: "Ma collection", icon: "&#128218;", auth: false, group: "collection", groupLabel: "Collection" },
   // Craft / decraft : modes de la page collection depuis la fusion (2026-10-04).
   { href: "collection.html#decrafter", label: "Craft & décraft", icon: "&#10024;", auth: true, group: "collection" },
@@ -130,7 +131,7 @@ function renderBottomNav() {
     if (sheet && !sheet.hidden && !e.target.closest(".bn-sheet")) { sheet.hidden = true; btn?.setAttribute("aria-expanded", "false"); }
   });
 }
-const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "craft.html": "Atelier", "admin.html": "Admin", "stats.html": "Stats" };
+const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "mode.html": "Mode", "craft.html": "Atelier", "admin.html": "Admin", "stats.html": "Stats" };
 
 // Pastille sur "Plus" quand un element du panneau en a une.
 function syncBottomMoreDot() {
@@ -832,6 +833,11 @@ try { const s = localStorage.getItem("2gatcha_season"); if (s) document.document
 function modeBanners(el, mode) {
   const bits = [];
   if (mode.chaosRule) bits.push(`<div class="beta-banner banner-chaos">${mode.chaosRule.icon} <strong>Règle du Chaos du jour :</strong> ${escHtml(mode.chaosRule.label)}</div>`);
+  // Regles par difficulte (moderules.js) : happy hour, tempete.
+  const r = mode.rules || {};
+  if (r.happyHour && r.happyHour.active) bits.push(`<a class="beta-banner banner-happy banner-link" href="boutique.html">🍹 <strong>Happy hour</strong> : boutique à -${Math.round(r.happyHour.discount * 100)} % jusqu'à ${r.happyHour.to} h !</a>`);
+  if (r.storm && (r.storm.active || r.storm.soon)) bits.push(`<a class="beta-banner banner-storm banner-link" href="mode.html">⛈️ ${r.storm.active ? `<strong>Tempête</strong> : ${escHtml(r.storm.label)} est fermée jusqu'à ${r.storm.to} h.` : `Une tempête approche : ${escHtml(r.storm.label)} fermera de ${r.storm.from} h à ${r.storm.to} h.`}</a>`);
+  if (r.on && r.on.includes("chaos.bugs") && typeof Session !== "undefined" && Session.isLoggedIn()) setTimeout(spawnModeBugs, 1500);
   const n = mode.next;
   if (n && n.key !== mode.key) {
     const when = new Date(n.at * 1000).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" });
@@ -839,6 +845,45 @@ function modeBanners(el, mode) {
     bits.push(`<a class="beta-banner banner-next-mode banner-link" href="communaute.html#calendrier">⏳ Dernières heures du mode ${escHtml(mode.label)} : profites-en ! ${lead}.</a>`);
   }
   if (bits.length) { el.insertAdjacentHTML("afterbegin", bits.join("")); syncHeaderOffset(); }
+}
+
+// Chasse aux bugs (mode Chaos, modefun.js) : les bugs du jour de cette page.
+let modeBugsDone = false;
+async function spawnModeBugs() {
+  if (modeBugsDone) return;
+  modeBugsDone = true;
+  let st;
+  try { st = await API.modeExtra(Session.userId, "status"); } catch (e) { return; }
+  const page = (location.pathname.split("/").pop() || "index.html");
+  const list = ((st && st.bugs && st.bugs.list) || []).filter((b) => b.page === page);
+  const LOOK = { flee: "🐛", flip: "ʇnᗺ", pixel: "", shake: "🐞" };
+  list.forEach((b) => {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "mode-bug mode-bug-" + b.kind;
+    el.style.left = b.x + "vw";
+    el.style.top = b.y + "vh";
+    el.setAttribute("aria-label", "Un bug ! Clique pour le signaler");
+    el.textContent = LOOK[b.kind] || "🐛";
+    let flees = b.kind === "flee" ? 3 : 0;
+    el.addEventListener("pointerenter", (e) => {
+      if (!flees || e.pointerType === "touch") return;
+      flees--;
+      el.style.left = (5 + Math.random() * 85) + "vw";
+      el.style.top = (15 + Math.random() * 70) + "vh";
+    });
+    el.addEventListener("click", async () => {
+      el.disabled = true;
+      try {
+        const r = await API.modeExtra(Session.userId, "bug-found", { id: b.id });
+        el.classList.add("is-squashed");
+        setTimeout(() => el.remove(), 500);
+        Toast.success(`🐛 Bug signalé ! +${r.dust} ✨ (${r.bugs.found} / ${r.bugs.total} aujourd'hui)`);
+        if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+      } catch (e) { el.remove(); }
+    });
+    document.body.appendChild(el);
+  });
 }
 
 // Week-end evenement (api/src/native/events.js) : bandeau festif tant qu'il dure.
@@ -1015,6 +1060,8 @@ async function loadHeaderBoosterBadge() {
       if (status.hug) Toast.success(`&#128526; Câlin du jour (mode Cool) : ${status.hug} !`);
       if (status.wear) Toast.info(`&#129533; Usure (mode Hard) : un doublon de <strong>${escHtml(status.wear.card)}</strong> s'est usé.`);
       if (status.modeUnlock) Toast.success(`&#127942; Débloqué : ${escHtml(status.modeUnlock)} !`);
+      // Malediction, mutation, larcin subi, serment tenu… (modefun.js).
+      (status.modeNotes || []).forEach((n) => Toast.info(`${n.icon} ${escHtml(n.text)}`));
     }
     // Pluie de boosters (objectif commun atteint) : annonce une seule fois.
     if (status.rain && typeof Toast !== "undefined") {

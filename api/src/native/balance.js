@@ -40,6 +40,7 @@ const tooGenerous = (v, target, dir) => (dir === 'max' ? v > target : v < target
 export function init({ store }) {
   // Base d'inflation (30 boosters/jour) : migrations a part, avant le return.
   migrateInflationBase(store);
+  migrateBoosterTarget(store);
   migrateBalance30(store);
   if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === MIGRATION)) return;
   const changes = [];
@@ -92,6 +93,20 @@ export function migrateInflationBase(store) {
   if (row && typeof v === 'number' && v < 45) { store.update('AppSettings', row.id, { Value: JSON.stringify(45) }); changes.push({ key: 'EconomyAlertBoostersPerPlayer', from: v, to: 45 }); }
   store.create('AppSettings', { Key: INFLATION_MIGRATION, Value: JSON.stringify({ at: now(), base: 30, changes }) });
   if (changes.length) console.log(`Inflation : seuil d'alerte releve de ${v} a 45 boosters par joueur et par jour (base 30)`);
+}
+
+// Cible de 40 boosters par jour a +/- 20 (2026-10-16), codes de jeu exclus :
+// un seuil d'alerte enregistre sous 60 est releve une seule fois a 60.
+const TARGET_MIGRATION = 'booster-target-2026-10-16';
+export function migrateBoosterTarget(store) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === TARGET_MIGRATION)) return;
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'setting:EconomyAlertBoostersPerPlayer');
+  let v = null;
+  try { v = row ? JSON.parse(row.Value) : null; } catch (e) { v = null; }
+  const changes = [];
+  if (row && typeof v === 'number' && v < 60) { store.update('AppSettings', row.id, { Value: JSON.stringify(60) }); changes.push({ key: 'EconomyAlertBoostersPerPlayer', from: v, to: 60 }); }
+  store.create('AppSettings', { Key: TARGET_MIGRATION, Value: JSON.stringify({ at: now(), target: 40, margin: 20, changes }) });
+  if (changes.length) console.log(`Cible de boosters : seuil d'alerte releve de ${v} a 60 (cible 40 +/- 20, hors codes)`);
 }
 
 // Base de 30 boosters par jour (2026-10-15) : l'equilibrage du 11/10 visait

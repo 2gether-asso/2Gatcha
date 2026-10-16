@@ -12,6 +12,7 @@
 import { ok, fail, isAdmin, now } from './common.js';
 import { currentMode, MODE_KEYS } from './presets.js';
 import { chaosRule } from './modeextras.js';
+import { stormClosed, stormState } from './moderules.js';
 
 const MODES = MODE_KEYS;
 const KEY = 'modeFeatures';
@@ -75,11 +76,12 @@ let cache = { at: 0, store: null, mode: null, off: null };
 export function disabled(store) {
   const t = Date.now();
   const rule = chaosRule(store);
-  const mode = currentMode(store).key + (rule ? ':' + rule.key : '');
+  const storm = stormClosed(store);
+  const mode = currentMode(store).key + (rule ? ':' + rule.key : '') + (storm.length ? ':storm-' + storm.join() : '');
   if (cache.store === store && cache.mode === mode && t - cache.at < 30000) return cache.off;
   const m = matrix(store);
   const ruleOff = new Set(rule && rule.off ? rule.off : []);
-  const off = FEATURES.filter((f) => (m[f.key] || []).includes(currentMode(store).key) || ruleOff.has(f.key));
+  const off = FEATURES.filter((f) => (m[f.key] || []).includes(currentMode(store).key) || ruleOff.has(f.key) || storm.includes(f.key));
   cache = { at: t, store, mode, off };
   return off;
 }
@@ -100,6 +102,8 @@ export function gate(store, method, path, body = {}) {
   const f = disabled(store).find((x) => x.paths.includes(path));
   if (!f) return null;
   const mode = currentMode(store);
+  const storm = stormState(store);
+  if (storm && storm.active && storm.feature === f.key) return fail('feature_disabled', 403, { feature: f.key, label: f.label, mode: mode.key, storm: true, message: `⛈️ Tempête : ${storm.label} est fermée jusqu’à ${storm.to} h.` });
   return fail('feature_disabled', 403, { feature: f.key, label: f.label, mode: mode.key, message: `Fermé en mode ${mode.label} : ${f.label.replace(/\s*\(.*\)$/, '')}.` });
 }
 export function beforeWorkflow({ store, path, request }) {

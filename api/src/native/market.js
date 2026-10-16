@@ -28,6 +28,8 @@ import { price as indexed, taxMultiplier } from './inflation.js';
 import { modeIs, luxuryFactor, addToPot } from './modeperks.js';
 import { addFeed } from './feed.js';
 import { editionCarrier, editionLoss } from './editions.js';
+import { happyFactor, happyHourNow } from './moderules.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: { ShopWeek: { type: 'Text' }, ShopBought: { type: 'Numeric' }, RepairWeek: { type: 'Text' }, RepairCounts: { type: 'Text' } },
@@ -183,7 +185,7 @@ function shopState(store, user) {
   const week = weekKey();
   const bought = user.ShopWeek === week ? Number(user.ShopBought) || 0 : 0;
   const cap = setting(store, 'BoosterShopWeeklyCap');
-  return { week, bought, cap, left: Math.max(0, cap - bought), price: Math.round(indexed(store, setting(store, 'BoosterShopPrice')) * (1 + setting(store, 'BoosterShopIncrease') * bought)), stardust: dust(user) };
+  return { week, bought, cap, left: Math.max(0, cap - bought), price: Math.round(indexed(store, setting(store, 'BoosterShopPrice')) * (1 + setting(store, 'BoosterShopIncrease') * bought) * happyFactor(store)), happyHour: happyHourNow(store), stardust: dust(user) };
 }
 
 function handleShop({ store, body }) {
@@ -295,7 +297,7 @@ function settleAuctions(store, t = now()) {
     if (bidder && Number(a.CurrentBid) > 0) {
       const seller = store.get('Users', refId(a.Seller));
       const lux = luxuryFactor(store, seller);
-      const rate = modeIs(store, 'cool') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * lux) * (1 - (seller ? talentValue(seller, 'master') : 0));
+      const rate = ruleOn(store, 'cool.noTax') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * lux) * (1 - (seller ? talentValue(seller, 'master') : 0));
       const tax = Math.round(Number(a.CurrentBid) * rate);
       if (lux > 1 && tax > 0) addToPot(store, tax - tax / lux);
       if (pull) store.update('Pulls', pull.id, { User: bidder });
@@ -351,7 +353,7 @@ function auctionList(store, user) {
     open: all.filter((a) => a.Status === 'open').sort((a, b) => (a.EndsAt || 0) - (b.EndsAt || 0)).map((a) => withPrices(auctionView(store, a, user.id, users), a)),
     history: all.filter((a) => a.Status !== 'open' && (a.SettledAt || 0) > t - 7 * 86400 && (refId(a.Seller) === user.id || refId(a.Bidder) === user.id))
       .sort((a, b) => (b.SettledAt || 0) - (a.SettledAt || 0)).slice(0, 20).map((a) => auctionView(store, a, user.id, users)),
-    taxPct: modeIs(store, 'cool') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * luxuryFactor(store, user)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
+    taxPct: ruleOn(store, 'cool.noTax') ? 0 : Math.min(0.9, setting(store, 'AuctionTaxPct') * taxMultiplier(store) * luxuryFactor(store, user)) * (1 - talentValue(user, 'master')), hours: setting(store, 'AuctionHours'), maxActive: setting(store, 'AuctionMaxActive'),
     stardust: dust(user)
   };
 }

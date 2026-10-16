@@ -18,6 +18,7 @@ import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { parisEpoch } from './daily.js';
 import { modeIs } from './modeperks.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: { DogGiftDay: { type: 'Text' }, DogGiftCount: { type: 'Numeric' }, SundayBought: { type: 'Text' }, GiftSentDay: { type: 'Text' } },
@@ -43,7 +44,7 @@ function handleDogGift({ store, body }) {
   if (!user) return fail('unknown_user', 404);
   const today = parisDay(0);
   const taken = user.DogGiftDay === today ? Math.max(1, Number(user.DogGiftCount) || 1) : 0;
-  const perDay = modeIs(store, 'cool') ? 2 : 1;
+  const perDay = ruleOn(store, 'cool.dogTwice') ? 2 : 1;
   const available = !!setting(store, 'DogGiftEnabled') && taken < perDay;
   if ((body.action || 'status') === 'status') return ok({ available });
   if (body.action !== 'claim') return fail('unknown_action');
@@ -57,7 +58,7 @@ function handleDogGift({ store, body }) {
 }
 
 // ------------------------------------------------------------------ marche du dimanche
-const marketDays = (store) => (modeIs(store, 'chill') ? [setting(store, 'SundayMarketDay'), 3] : [setting(store, 'SundayMarketDay')]);
+const marketDays = (store) => (ruleOn(store, 'chill.wednesdayMarket') ? [setting(store, 'SundayMarketDay'), 3] : [setting(store, 'SundayMarketDay')]);
 const marketOpen = (store) => marketDays(store).includes(new Date(parisDay(0) + 'T12:00:00Z').getUTCDay());
 
 function marketOffers(store, user) {

@@ -10,7 +10,7 @@
 
 import { ok, fail, isAdmin, now } from './common.js';
 import { rawSetting as setting, setSettings, REGISTRY } from './settings.js';
-import { flows } from './economy.js';
+import { flows, boosterTarget } from './economy.js';
 import { isTight, priceMultiplier } from './inflation.js';
 import { addFeed } from './feed.js';
 
@@ -95,6 +95,8 @@ function recommendation(store) {
   const active = store.getAll('Users').filter((u) => (Number(u.LastSeenAt) || 0) >= since).length;
   const f = flows(store, active);
   const perDay = f ? f.boostersPerPlayerDay : 0;
+  // Fourchette visee (economy.js) : 40 boosters par joueur actif et par jour, +/- 20, hors codes.
+  const goal = boosterTarget(store);
   const ratio = f ? f.dustRatio : 0;
   const tight = isTight(store);
   const factor = Math.round(priceMultiplier(store) * 100) / 100;
@@ -102,19 +104,19 @@ function recommendation(store) {
   let key = 'medium';
   if (!perDay && !ratio && !tight) {
     reasons.push('pas encore assez de données sur 7 jours (journal de l’économie vide)');
-  } else if (tight || perDay > 8 || ratio > 4) {
+  } else if (tight || perDay > goal.high || ratio > 4) {
     key = 'hard';
     if (tight) reasons.push('le mode anti-inflation est actif');
-    if (perDay > 8) reasons.push(`${perDay} boosters créés par joueur actif et par jour (cible ~5)`);
+    if (perDay > goal.high) reasons.push(`${perDay} boosters créés par joueur actif et par jour hors codes (cible ${goal.target}, ${goal.low} à ${goal.high})`);
     if (ratio > 4) reasons.push(`${ratio} poussières gagnées pour 1 dépensée`);
-  } else if (perDay < 1 && ratio < 1 && factor <= 1) {
+  } else if (perDay < goal.low / 2 && ratio < 1 && factor <= 1) {
     key = 'cool';
     reasons.push(`à peine ${perDay} booster par joueur actif et par jour`, 'économie très calme : les joueurs peuvent souffler');
-  } else if (perDay < 2 && ratio < 1.5 && factor <= 1) {
+  } else if (perDay < goal.low && ratio < 1.5 && factor <= 1) {
     key = 'chill';
     reasons.push(`seulement ${perDay} booster(s) par joueur actif et par jour`, 'poussières peu accumulées, prix non indexés');
   } else reasons.push(`${perDay} boosters par joueur actif et par jour, ${ratio} poussières gagnées pour 1 dépensée`);
-  return { key, reasons, perDay, ratio, tight, priceFactor: factor, activePlayers: active };
+  return { key, reasons, perDay, ratio, tight, priceFactor: factor, activePlayers: active, target: goal };
 }
 
 function status(store) {
@@ -178,3 +180,4 @@ export function currentMode(store) {
 }
 
 export const routes = { 'POST admin-preset': handlePreset };
+export { PRESETS };

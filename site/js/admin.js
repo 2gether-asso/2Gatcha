@@ -652,21 +652,26 @@ function econBars(days, key, label) {
       <div class="econ-axis"><span>${new Date(days[0].day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
     </div>`;
 }
-// Sante de l'economie (2026-10-11) : d'ou viennent les boosters crees, par
-// joueur actif et par jour, face a la cible de ~5 par jour.
-const BOOSTER_TARGET = 5;
+// Sante de l'economie : d'ou viennent les boosters crees, par joueur actif et
+// par jour, face a la cible (40 a +/- 20 par defaut, reglages BoosterTargetPerDay
+// et EconomyAlertBoostersPerPlayer). Les codes de jeu sont exclus du calcul.
 function econBoosterSources(f) {
-  const total = f.sources.reduce((s, x) => s + x.boostersIn, 0);
-  if (!total) return "";
+  const excluded = new Set(f.excludedSources || []);
+  const counted = f.sources.filter((x) => x.boostersIn > 0 && !excluded.has(x.source));
+  const total = counted.reduce((s, x) => s + x.boostersIn, 0);
+  if (!total && !f.excludedBoosters) return "";
   const perPlayer = f.boostersPerPlayerDay || 0;
+  const t = f.target || { target: 40, low: 20, high: 60 };
   const rows = f.sources.filter((x) => x.boostersIn > 0).sort((a, b) => b.boostersIn - a.boostersIn);
   const max = rows[0].boostersIn;
+  const verdict = perPlayer > t.high ? '<strong class="econ-hot">trop généreux</strong>' : perPlayer < t.low ? "(plutôt serré)" : "(dans la cible)";
   return `
     <h3 style="margin-top:20px;">&#129658; D'où viennent les boosters (7 j)</h3>
-    <p class="lead" style="font-size:0.82rem;">${perPlayer.toLocaleString("fr-FR")} booster${perPlayer >= 2 ? "s" : ""} créé${perPlayer >= 2 ? "s" : ""} par joueur actif et par jour · cible ~${BOOSTER_TARGET} ${perPlayer > BOOSTER_TARGET * 1.5 ? '<strong class="econ-hot">trop généreux</strong>' : perPlayer < BOOSTER_TARGET / 2 ? "(plutôt serré)" : "(dans la cible)"}</p>
+    <p class="lead" style="font-size:0.82rem;">${perPlayer.toLocaleString("fr-FR")} booster${perPlayer >= 2 ? "s" : ""} créé${perPlayer >= 2 ? "s" : ""} par joueur actif et par jour, hors codes de jeu · cible ${t.target} (${t.low} à ${t.high}) ${verdict}${f.excludedBoosters ? ` · ${f.excludedBoosters.toLocaleString("fr-FR")} booster${f.excludedBoosters > 1 ? "s" : ""} de codes de jeu non comptés` : ""}</p>
     <ul class="econ-sources">${rows.map((x) => {
-      const share = x.boostersIn / total;
-      return `<li><span class="es-name">${x.source}</span><span class="es-bar"><span style="width:${Math.round((x.boostersIn / max) * 100)}%"></span></span><span class="es-val">${Math.round(share * 100)} % · ${(perPlayer * share).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/j</span></li>`;
+      const out = excluded.has(x.source);
+      const share = out || !total ? 0 : x.boostersIn / total;
+      return `<li class="${out ? "es-excluded" : ""}"><span class="es-name">${x.source}</span><span class="es-bar"><span style="width:${Math.round((x.boostersIn / max) * 100)}%"></span></span><span class="es-val">${out ? `${x.boostersIn.toLocaleString("fr-FR")} · hors calcul` : `${Math.round(share * 100)} % · ${(perPlayer * share).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/j`}</span></li>`;
     }).join("")}</ul>`;
 }
 
@@ -677,7 +682,7 @@ function econFlows(f, fmt) {
     <h3 style="margin-top:20px;">&#128200; Inflation : créations et dépenses</h3>
     ${f.alerts.length ? `<div class="econ-alerts">${f.alerts.map((a) => `<div class="econ-alert">&#9888;&#65039; ${a}</div>`).join("")}</div>` : '<div class="econ-ok">&#9989; Aucune alerte : l\'économie semble équilibrée.</div>'}
     <div class="stats-grid">
-      <div class="stat-tile"><div class="stat-value">${f.boostersPerPlayerDay}</div><div class="stat-label">Boosters créés / joueur actif / jour (7 j)</div></div>
+      <div class="stat-tile"><div class="stat-value">${f.boostersPerPlayerDay}</div><div class="stat-label">Boosters créés / joueur actif / jour (7 j, hors codes)</div></div>
       <div class="stat-tile"><div class="stat-value">${f.dustRatio}</div><div class="stat-label">Poussières gagnées pour 1 dépensée (7 j)</div></div>
     </div>
     <div class="econ-charts">

@@ -16,6 +16,7 @@ import { setting } from './settings.js';
 import { modeIs } from './modeperks.js';
 import { grantCosmetic } from './cosmetics.js';
 import { editionLoss } from './editions.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   CommunityBoss: { Finisher: { type: 'Ref:Users' } },
@@ -43,7 +44,7 @@ function activeBoss(store) {
 // Fin du boss : recompense commune a chaque participant + bonus du coup final.
 function defeatBoss(store, boss, finisherId) {
   store.update('CommunityBoss', boss.id, { Active: false, CurrentHp: 0, Finisher: finisherId });
-  const enraged = modeIs(store, 'hard');
+  const enraged = ruleOn(store, 'hard.bossEnraged');
   const reward = (Number(boss.RewardBoosters) || 0) * (enraged ? 3 : 1);
   const contributors = new Set(store.getAll('BossContributions').filter((c) => refId(c.Boss) === boss.id).map((c) => refId(c.User)));
   if (reward > 0) {
@@ -85,7 +86,7 @@ function handleAttack({ store, body }) {
     const base = Math.max(1, Number(rarity && rarity.DisenchantValue) || 0);
     const finish = pull.Finish || 'normal', quality = pull.Quality || 'damaged';
     const multiplier = (rules.finish[finish] || 1) * (rules.quality[quality] || 1);
-    details.push({ pullId, cardId: card.id, name: card.Name, serialNumber: pull.SerialNumber ?? null, finish, quality, rarity: rarity ? rarity.Name : '', base, multiplier, damage: Math.max(1, Math.round(base * multiplier * volley * (modeIs(store, 'hard') ? 0.5 : 1))) });
+    details.push({ pullId, cardId: card.id, name: card.Name, serialNumber: pull.SerialNumber ?? null, finish, quality, rarity: rarity ? rarity.Name : '', base, multiplier, damage: Math.max(1, Math.round(base * multiplier * volley * (ruleOn(store, 'hard.bossEnraged') ? 0.5 : 1))) });
   }
 
   const denied = editionLoss(store, editionCopies, body);

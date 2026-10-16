@@ -95,6 +95,10 @@ import * as bingo from './bingo.js';
 import * as cards from './cards.js';
 import * as dino from './dino.js';
 import * as discoveries from './discoveries.js';
+import * as moderules from './moderules.js';
+import * as chaosvote from './chaosvote.js';
+import * as modefun from './modefun.js';
+import * as draft from './draft.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
@@ -102,9 +106,11 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards];
+const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun];
+// La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
+moderules.useFeatures(features);
 // XP doublee pendant l'action du jour (daily.js).
 const XP_FIELDS = ['XP', 'FishingXP', 'DigXP', 'ExpeditionXP', 'GardenXP'];
 
@@ -215,7 +221,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       ctx.actor = body.discordId ? 'admin:' + body.discordId : ctx.userId ? 'joueur:' + ctx.userId : 'anonyme';
       ctx.detail = ledger.summarizeBody(body);
       ctx.notices = [];
-      for (const m of [unique, rules, fishing, market, inflation, modeextras, modeperks, machine, seasonal, lottery, teams]) {
+      for (const m of [unique, rules, fishing, market, inflation, modeextras, modeperks, machine, seasonal, lottery, teams, modefun]) {
         try { m.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeRequest' }); }
       }
       const userId = Number(body.userId || query.userId) || 0;
@@ -225,7 +231,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      for (const m of [features, modeperks, pity, balance, comfort, rules, levels, market]) {
+      for (const m of [features, modeperks, pity, balance, comfort, rules, levels, market, modefun]) {
         try {
           const denied = m.beforeWorkflow({ store, path, request });
           if (denied) { market.restoreHidden(store, request); return denied; }

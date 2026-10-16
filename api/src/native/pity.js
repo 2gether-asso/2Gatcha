@@ -16,6 +16,7 @@
 import { refId, ok, fail, userById, configRow, firstAttachment, parseJson as parse } from './common.js';
 import { setting } from './settings.js';
 import { modeIs } from './modeperks.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: { RarityPity: { type: 'Text' } }
@@ -137,7 +138,7 @@ export function afterWorkflow({ store, path, request, response }) {
     json.edge = true;
   }
   // Chill : un doublon sur dix devient une carte manquante de la meme rarete.
-  if (modeIs(store, 'chill')) {
+  if (ruleOn(store, 'chill.luckyDupe')) {
     let lucky = 0;
     const inPack = new Set(json.cards.map((c) => c.cardId));
     for (const c of json.cards) {
@@ -164,7 +165,7 @@ export function afterWorkflow({ store, path, request, response }) {
     const order = r.SortOrder || 0;
     if (json.cards.some((c) => sortOf(c) >= order)) { counts[r.id] = 0; continue; }
     const dow = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()) + 'T12:00:00Z').getUTCDay();
-    const pace = modeIs(store, 'chill') && (dow === 0 || dow === 6) ? 2 : 1;
+    const pace = ruleOn(store, 'chill.weekendPity') && (dow === 0 || dow === 6) ? 2 : 1;
     counts[r.id] = (Number(counts[r.id]) || 0) + json.cards.length * pace;
     if (upgraded || counts[r.id] < threshold) continue;
     const pool = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && refId(c.Extension) === extId && refId(c.Rarity) === r.id);

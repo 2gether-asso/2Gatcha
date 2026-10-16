@@ -18,6 +18,7 @@ import { setting } from './settings.js';
 import { currentMode } from './presets.js';
 import { currentSeason } from './seasonal.js';
 import { addFeed } from './feed.js';
+import { ruleEnabled } from './moderules.js';
 
 export const schema = { Pulls: { Edition: { type: 'Text' } } };
 
@@ -67,8 +68,9 @@ const MODE_EDITION = Object.fromEntries(Object.entries(EDITIONS).filter(([, e]) 
 export function activeEdition(store) {
   const season = currentSeason(store);
   if (season) return { key: season.edition, chance: setting(store, 'SeasonalEditionChance') };
-  const key = MODE_EDITION[currentMode(store).key];
-  return key ? { key, chance: setting(store, 'EditionChance') } : null;
+  const mode = currentMode(store).key;
+  const key = MODE_EDITION[mode];
+  return key && ruleEnabled(store, mode + '.edition') ? { key, chance: setting(store, 'EditionChance') } : null;
 }
 
 export function afterWorkflow({ store, path, request, response }) {

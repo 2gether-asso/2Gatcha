@@ -10,6 +10,7 @@ import { talentValue } from './talents.js';
 import { luckyState, diceFace } from './daily.js';
 import { masteryFinishBonus } from './progression.js';
 import { rateFactor } from './market.js';
+import { stockFactor } from './modefun.js';
 import { expeditionLevel } from './levels.js';
 import { isTight } from './inflation.js';
 import { dinoTalent, companionBonus } from './dino.js';
@@ -73,6 +74,7 @@ export function afterWorkflow({ store, path, request, response }) {
     const starMult = request._starred ? setting(store, 'StarDecraftMultiplier') - 1 : 0;
     applyDust(store, userId, json, json.dustGained, [
       { k: rate - 1, label: rate >= 1 ? '📈 Cours du décraft' : '📉 Cours du décraft' },
+      { k: stockFactor(store, Number(body.cardId)) - 1, label: '📊 Bourse des cartes' },
       { k: isTight(store) ? -0.1 : 0, label: '🏦 Mode anti-inflation' },
       { k: starMult, label: '⭐ Carte ★' },
       { k: talentValue(user, 'patron'), label: '💰 Talent Mécène' },

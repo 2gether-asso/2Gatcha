@@ -65,6 +65,15 @@
     </article>`;
   }
 
+  // Balade (mode Chill) : partir, ou rentrer avec les trouvailles.
+  function walkButton(d, st, t) {
+    if (d.walkUntil) return d.walkUntil > t
+      ? `<span class="dino-walk-chip">🦕 En balade, retour dans ${dur(d.walkUntil - t)}</span>`
+      : `<button type="button" class="btn" data-dino-walkback="${d.id}">🦕 Le récupérer de balade</button>`;
+    if (!st.walkOn) return "";
+    return `<button type="button" class="btn-ghost" data-dino-walk="${d.id}" ${d.walkedToday || d.sleeping ? "disabled" : ""} title="Une heure de promenade, une fois par jour : trouvailles et bonne humeur">🦕 ${d.walkedToday ? "Déjà promené" : "Balade (1 h)"}</button>`;
+  }
+
   function card(d, st) {
     if (d.dead) return deadCard(d, st);
     const t = Date.now() / 1000;
@@ -101,6 +110,7 @@
         <div class="dino-actions">
           <button type="button" class="btn-secondary" data-dino-play="${d.id}" ${playLeft || d.sleeping ? "disabled" : ""}>🎾 ${d.sleeping ? "Il dort" : playLeft ? "Jouer dans " + dur(playLeft) : "Jouer"}</button>
           <button type="button" class="btn-ghost" data-dino-clean="${d.id}" ${d.poops + d.goldPoops ? "" : "disabled"}>🧹 Ramasser${d.poops + d.goldPoops ? ` (${d.poops + d.goldPoops})` : ""}</button>
+          ${walkButton(d, st, t)}
         </div>
         <small class="dino-dig">${adult ? (d.digging ? `⛏️ Fouille pour toi${d.finds ? ` : <strong>${d.finds} trouvaille${d.finds > 1 ? "s" : ""}</strong>` : ""}` : "⛏️ Trop affamé ou triste pour fouiller") : "⛏️ Fouillera pour toi une fois adulte"}</small>
         <div class="dino-more">
@@ -151,6 +161,7 @@
       <span title="Cacas ramassés : engrais pour le jardin">💩 <strong>${st.poop}</strong> engrais${st.goldPoop ? ` · <strong class="gold">${st.goldPoop}</strong> doré${st.goldPoop > 1 ? "s" : ""}` : ""}</span>
       <span title="Nourriture pêchée">🐟 ${st.food.fish} · 🌿 ${st.food.seaweed} · 🦐 ${st.food.shrimp} · 🪱 ${st.food.worm}</span>
       <span>🦖 ${used} / ${st.max}</span>
+      ${st.holiday ? '<span class="dino-holiday-note">🏖️ Vacances des dinos (mode Cool) : ni faim ni tristesse, et ils pondent deux fois plus vite.</span>' : ""}
       ${st.season && st.season.ptero ? `<span class="dino-season">${st.season.icon} ${esc(st.season.label)} : costumes, et le <strong>${esc(st.season.ptero)}</strong> peut éclore !</span>` : ""}`;
     const hatch = $("dino-hatch-btn");
     hatch.hidden = !st.skulls || used >= st.max;
@@ -214,6 +225,12 @@
         if (res.fed.favFound) Toast.success(`❤️ C'est son plat préféré : ${foodIcon(res.fed.food)} ! Il le rend bien plus heureux.`);
       }
       if (res.played) pop(res.played, "🎾 ❤️");
+      if (res.walking) pop(res.walking, "🦕 en route !");
+      if (res.walked) {
+        const w = res.walked;
+        pop(w.dino, "🦕 ❤️");
+        Toast.success(`🦕 Retour de balade : +${w.dust} ✨, +${w.worms} ver${w.worms > 1 ? "s" : ""}, +${w.food.n} ${w.food.icon} ${esc(w.food.label.toLowerCase())}${w.bone ? " et un os !" : ""}`);
+      }
       if (res.petted) pop(res.petted, res.quiet ? "💗" : "💗 +bonheur");
       if (res.collected || res.collectedGold) Toast.success(`🧹 +${res.collected} engrais${res.collectedGold ? ` et +${res.collectedGold} engrais DORÉ${res.collectedGold > 1 ? "S" : ""} ✨` : ""} ! Utilise-les au <a href="jeux.html#jardin">jardin</a>.`);
       if (res.loot) {
@@ -259,6 +276,8 @@
     if (b.dataset.dinoPet) return act("pet", { dino: Number(b.dataset.dinoPet) });
     if (b.dataset.dinoFeed) return act("feed", { dino: Number(b.dataset.dinoFeed), food: b.dataset.food }, b);
     if (b.dataset.dinoPlay) return act("play", { dino: Number(b.dataset.dinoPlay) }, b);
+    if (b.dataset.dinoWalk) return act("walk", { dino: Number(b.dataset.dinoWalk) }, b);
+    if (b.dataset.dinoWalkback) return act("walk-back", { dino: Number(b.dataset.dinoWalkback) }, b);
     if (b.dataset.dinoClean) return act("clean", { dino: Number(b.dataset.dinoClean) }, b);
     if (b.dataset.dinoEgg) return act("hatchEgg", { egg: Number(b.dataset.dinoEgg) }, b);
     if (b.dataset.dinoBury) return act("bury", { dino: Number(b.dataset.dinoBury) }, b);

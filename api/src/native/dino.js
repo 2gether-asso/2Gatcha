@@ -31,6 +31,7 @@ import { setting } from './settings.js';
 import { addFeed } from './feed.js';
 import { grantCosmetic } from './cosmetics.js';
 import { currentSeason } from './seasonal.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = {
   Users: {
@@ -118,10 +119,22 @@ const favOf = (d) => d.fav || FOOD_KEYS[(d.id || 0) % FOOD_KEYS.length];
 const decorK = (user) => 1 - Math.min(0.3, decorOf(user).length * DECOR_BONUS);
 const sleepingNow = () => { const h = parisHour(); return h >= 23 || h < 7; };
 
+// Vacances des dinos (mode Cool, moderules.js) : faim et humeur figees, ponte
+// deux fois plus rapide. Au debut et a la fin des vacances, tous les dinos
+// sont "figes" (holidayTransition) : aucun temps n'est compte en retard.
+let holiday = false;
+export const dinoHoliday = () => holiday;
+const breedCooldown = () => BREED_COOLDOWN / (holiday ? 2 : 1);
+const eggHours = () => EGG_HOURS / (holiday ? 2 : 1);
+
 // Valeurs du moment depuis le dernier releve. k : ralentissement du bonheur
 // (decorations). Un dino deja mort le reste.
 function live(d, t = now(), k = 1) {
   if (d.deadAt) return { food: 0, happy: 0, ripe: 0, clean: 0, dead: true, deadAt: d.deadAt };
+  if (holiday) {
+    const ripeNow = (d.poops || []).filter((p) => p <= t).length;
+    return { food: clamp(d.food ?? 80), happy: clamp(d.happy ?? 80), ripe: ripeNow, clean: clamp(100 - 25 * ripeNow), dead: false };
+  }
   const at = d.at || t;
   const dt = Math.max(0, t - at) / HOUR;
   const food0 = d.food ?? 80, happy0 = d.happy ?? 80;
@@ -181,12 +194,28 @@ function view(store, user, d, t = now()) {
     food: Math.round(v.food), happy: Math.round(v.happy), clean: v.clean, poops: v.ripe,
     goldPoops: v.dead ? 0 : (d.goldPoops || []).filter((p) => p <= t).length,
     nextPoopAt: [...(d.poops || []), ...(d.goldPoops || [])].filter((p) => p > t).sort((a, b) => a - b)[0] || null,
-    canPlayAt: (d.playAt || 0) + PLAY_COOLDOWN, canPetAt: (d.petAt || 0) + PET_COOLDOWN, canBreedAt: (d.breedAt || 0) + BREED_COOLDOWN,
+    canPlayAt: (d.playAt || 0) + PLAY_COOLDOWN, canPetAt: (d.petAt || 0) + PET_COOLDOWN, canBreedAt: (d.breedAt || 0) + breedCooldown(),
     fav: d.favKnown ? favOf(d) : null, sleeping, dead: v.dead, deadAt: v.deadAt || null,
     finds: v.dead ? 0 : findsOf(store, d, v, t), digging: !v.dead && st.key === 'adulte' && content(v),
-    mood: moodOf(v, sleeping)
+    mood: moodOf(v, sleeping),
+    walkUntil: d.walkUntil || null, walkedToday: d.walkDay === parisDayKey()
   };
 }
+
+const parisDayKey = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+
+// Debut / fin des vacances : on fige tous les dinos avec l'ancien regime, puis on bascule.
+export function holidayTransition(store, on) {
+  const t = now();
+  for (const user of store.getAll('Users')) {
+    if (!user.Dinos) continue;
+    const list = dinosOf(user);
+    if (!list.length) continue;
+    store.update('Users', user.id, { Dinos: JSON.stringify(list.map((d) => settle(user, d, t))) });
+  }
+  holiday = !!on;
+}
+export function setDinoHoliday(on) { holiday = !!on; }
 
 // Fige les valeurs du moment (avant une modification).
 function settle(user, d, t = now()) {
@@ -306,6 +335,8 @@ function state(store, user) {
     unlocked: (Number(user.DinoSkulls) || 0) > 0 || dinos.length > 0 || eggsOf(user).length > 0 || Object.keys(dex.species).length > 0,
     dinos: dinos.map((d) => view(store, user, d, t)),
     max: MAX_DINOS,
+    // Regles du mode (moderules.js) : balade (Chill), vacances (Cool).
+    walkOn: ruleOn(store, 'chill.dinoWalk'), holiday,
     skulls: Number(user.DinoSkulls) || 0,
     bones: Number(user.BoneCount) || 0,
     hatchBones: setting(store, 'DinoHatchBones'),
@@ -466,9 +497,9 @@ function handleDino({ store, body }) {
       const v = live(d, t, k);
       if (v.dead || stageOf(d.xp).key !== 'adulte') return fail('not_adult');
       if (v.happy < 70 || v.food < 40) return fail('not_happy_enough');
-      if ((d.breedAt || 0) + BREED_COOLDOWN > t) return fail('breed_cooldown', 429, { wait: d.breedAt + BREED_COOLDOWN - t });
+      if ((d.breedAt || 0) + breedCooldown() > t) return fail('breed_cooldown', 429, { wait: d.breedAt + breedCooldown() - t });
     }
-    const egg = { id: Math.max(0, ...eggs.map((e) => e.id || 0)) + 1, laidAt: t, hatchAt: t + EGG_HOURS * HOUR, parents: [a.name, b.name], genes: eggGenes(a, b) };
+    const egg = { id: Math.max(0, ...eggs.map((e) => e.id || 0)) + 1, laidAt: t, hatchAt: t + eggHours() * HOUR, parents: [a.name, b.name], genes: eggGenes(a, b) };
     const list = dinos.map((d) => (d === a || d === b ? { ...settle(user, d, t), breedAt: t, happy: clamp(settle(user, d, t).happy - 10) } : d));
     user = save(list, { DinoEggs: JSON.stringify([...eggs, egg]) });
     addFeed(store, { userId: user.id, kind: 'dino', icon: '🥚', text: `attend un œuf de ${a.name} et ${b.name} !` });
@@ -506,6 +537,32 @@ function handleDino({ store, body }) {
   }
   if (action === 'star') return ok(state(store, store.update('Users', user.id, { DinoStar: Number(user.DinoStar) === d.id ? 0 : d.id })));
   if (action === 'companion') return ok(state(store, store.update('Users', user.id, { DinoCompanion: Number(user.DinoCompanion) === d.id ? 0 : d.id })));
+
+  // Balade (mode Chill) : une heure, une fois par jour et par dino.
+  if (action === 'walk') {
+    if (!ruleOn(store, 'chill.dinoWalk')) return fail('wrong_mode');
+    if (sleepingNow()) return fail('sleeping');
+    if (d.walkUntil) return fail('already_walking');
+    if (d.walkDay === parisDayKey()) return fail('walked_today');
+    dinos[idx] = { ...d, walkUntil: t + HOUR, walkDay: parisDayKey() };
+    return ok({ ...state(store, save(dinos)), walking: d.id });
+  }
+  if (action === 'walk-back') {
+    if (!d.walkUntil) return fail('not_walking');
+    if (d.walkUntil > t) return fail('still_walking', 429, { wait: d.walkUntil - t });
+    const loot = { dust: 20 + Math.floor(Math.random() * 41), worms: 1 + Math.floor(Math.random() * 3) };
+    const foodKey = ['fish', 'seaweed', 'shrimp'][Math.floor(Math.random() * 3)];
+    loot.food = { key: foodKey, label: FOODS[foodKey].label, icon: FOODS[foodKey].icon, n: 1 + (Math.random() < 0.3 ? 1 : 0) };
+    loot.bone = Math.random() < 0.08 ? 1 : 0;
+    const stock = foodOf(user);
+    stock[foodKey] = (stock[foodKey] || 0) + loot.food.n;
+    const { walkUntil, ...rest } = d;
+    dinos[idx] = grow({ ...rest, happy: clamp(d.happy + 15) }, 4);
+    return finishCare(store, user, dinos, idx, d, { walked: { dino: d.id, ...loot } }, {
+      StardustCount: (Number(user.StardustCount) || 0) + loot.dust, Worms: (Number(user.Worms) || 0) + loot.worms,
+      BoneCount: (Number(user.BoneCount) || 0) + loot.bone, DinoFood: JSON.stringify(stock)
+    });
+  }
 
   if (action === 'pet') {
     if ((d.petAt || 0) + PET_COOLDOWN > t) return ok({ ...state(store, user), petted: d.id, quiet: true });

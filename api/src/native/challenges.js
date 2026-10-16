@@ -14,9 +14,10 @@
 import { ok, fail, userById, parseJson as parse } from './common.js';
 import { startRain, addShards } from './comfort.js';
 import { modeIs, grantModeCard } from './modeperks.js';
-const maxPicks = (store) => (modeIs(store, 'chill') ? 4 : 3);
+const maxPicks = (store) => (ruleOn(store, 'chill.fourthChallenge') ? 4 : 3);
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
+import { ruleOn } from './moderules.js';
 
 const TEMPLATES = [
   { key: 'fish10', label: 'Pêcher 10 fois', type: 'fish', target: 10, dust: 120, icon: '🎣' },
@@ -120,7 +121,7 @@ function handleChallenges({ store, body }) {
     store.update('Users', user.id, { StardustCount: (Number(u.StardustCount) || 0) + dust, BoosterCount: (Number(u.BoosterCount) || 0) + boosters });
     // Chill : 2 fragments de booster par defi recupere.
     let shards = 0;
-    if (modeIs(store, 'chill') && dust > 0) { shards = 2 * st.offered.filter((c) => c.picked && c.done && !c.claimed).length; addShards(store, user.id, shards); }
+    if (ruleOn(store, 'chill.fourthChallenge') && dust > 0) { shards = 2 * st.offered.filter((c) => c.picked && c.done && !c.claimed).length; addShards(store, user.id, shards); }
     return ok({ ...challengeState(store, store.get('Users', user.id)), reward: shards ? { dust, boosters, shards } : { dust, boosters } });
   } else if (action !== 'status') return fail('unknown_action');
   return ok(challengeState(store, user));

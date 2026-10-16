@@ -12,6 +12,9 @@ import { setting } from './settings.js';
 import { weekKey, digLevel } from './levels.js';
 import { growSeconds, seedMult } from './garden.js';
 import { price as indexed } from './inflation.js';
+import { happyFactor, happyHourNow } from './moderules.js';
+// Happy hour (mode Chill) : -30 % sur toute la boutique.
+const shopPrice = (store, base) => Math.round(indexed(store, base) * happyFactor(store));
 
 export const schema = {
   Users: { ShopItemsWeek: { type: 'Text' }, ShopItemsBought: { type: 'Text' }, LuckCharges: { type: 'Numeric' }, XpBoostUntil: { type: 'Numeric' } }
@@ -47,7 +50,7 @@ function stateOf(store, user) {
     items: catalog(store).map((it) => {
       const weekly = Number(it.weekly) || 0;
       const n = Number(bought[it.key]) || 0;
-      return { key: it.key, group: it.group || 'resources', label: it.label, icon: it.icon || '🎁', desc: it.desc || '', price: indexed(store, it.price), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
+      return { key: it.key, group: it.group || 'resources', label: it.label, icon: it.icon || '🎁', desc: it.desc || '', price: shopPrice(store, it.price), basePrice: indexed(store, it.price), happyHour: happyHourNow(store), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
     })
   };
 }
@@ -92,7 +95,7 @@ function handleShop({ store, body }) {
   const bought = boughtThisWeek(user);
   const weekly = Number(it.weekly) || 0;
   if (weekly && (Number(bought[it.key]) || 0) >= weekly) return fail('weekly_cap', 400, stateOf(store, user));
-  const price = indexed(store, it.price);
+  const price = shopPrice(store, it.price);
   if (dust(user) < price) return fail('not_enough_dust', 400, stateOf(store, user));
   const fields = {};
   if (it.effect) {
