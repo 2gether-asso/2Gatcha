@@ -330,6 +330,11 @@ const server = http.createServer(async (req, res) => {
     if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic(req, res, url.pathname)) return;
     sendJson(res, req, 404, { error: 'not_found' });
   } catch (err) {
+    // Client parti avant la fin de la requete (body incomplet) : ni panne ni bug.
+    if (err && (err.code === 'ECONNRESET' || err.message === 'aborted') && req.destroyed) {
+      if (!res.headersSent && !res.destroyed) res.destroy();
+      return;
+    }
     console.error(err);
     const status = err.status || err.httpCode || 500;
     // Les 4xx sont des erreurs de saisie (colonne inconnue...), pas des pannes.
