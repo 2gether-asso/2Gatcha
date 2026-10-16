@@ -27,6 +27,7 @@ import { talentValue } from './talents.js';
 import { price as indexed, taxMultiplier } from './inflation.js';
 import { modeIs, luxuryFactor, addToPot } from './modeperks.js';
 import { addFeed } from './feed.js';
+import { editionCarrier, editionLoss } from './editions.js';
 
 export const schema = {
   Users: { ShopWeek: { type: 'Text' }, ShopBought: { type: 'Numeric' }, RepairWeek: { type: 'Text' }, RepairCounts: { type: 'Text' } },
@@ -120,7 +121,11 @@ function handleInsurance({ store, body }) {
 // Exemplaires assures (et cartes ★) mis de cote pendant les workflows qui
 // consomment des exemplaires : marques InVault (ignores par tous les
 // workflows, comme le coffre-fort), remis en place juste apres.
-const CONSUMING = { 'disenchant': null, 'foil-upgrade': null, 'card-quality-repair': null, 'altar-sacrifice': null, 'trade': ['create', 'counter', 'respond'], 'guild-chest': ['deposit'] };
+// Editions limitees (editions.js) : mises de cote de la meme facon, sauf
+// exemplaire choisi a la main (perte confirmee, voir plus bas).
+const CONSUMING = { 'disenchant': null, 'foil-upgrade': null, 'card-quality-repair': null, 'altar-sacrifice': null, 'trade': ['create', 'counter', 'respond'], 'guild-chest': ['deposit'], 'community-boss': ['attack'] };
+// Workflows dont le resultat garde l'edition d'un exemplaire consomme.
+const CARRIES_EDITION = new Set(['foil-upgrade', 'card-quality-repair']);
 
 function repairSurcharge(store, user, cardId) {
   const counts = user.RepairWeek === weekKey() ? parse(user.RepairCounts, {}) : {};
@@ -153,7 +158,15 @@ export function beforeWorkflow({ store, path, request }) {
     const p = store.get('Pulls', Number(body.pullId));
     if (p && p.Starred) request._starred = true;
   }
-  const hide = mine.filter((p) => p.Insured || (p.Starred && !explicit.has(p.id)));
+  // Echange : l'exemplaire change de main avec son edition, rien n'est perdu.
+  if (path !== 'trade') {
+    const chosen = mine.filter((p) => p.Edition && explicit.has(p.id) && refId(p.User) === user.id);
+    const carried = CARRIES_EDITION.has(path) ? editionCarrier(chosen, body.keepPullId) : null;
+    const denied = editionLoss(store, chosen.filter((p) => p !== carried), body, carried);
+    if (denied) return denied;
+    request._editionCarry = carried ? carried.Edition : null;
+  }
+  const hide = mine.filter((p) => p.Insured || ((p.Starred || p.Edition) && !explicit.has(p.id)));
   hide.forEach((p) => store.update('Pulls', p.id, { InVault: true }));
   request._hidden = hide.map((p) => p.id);
   return null;
@@ -209,7 +222,7 @@ function weekContracts(store, week = weekKey()) {
 }
 
 function matches(store, c, p) {
-  if (p.InVault || p.Insured || p.Starred) return false;
+  if (p.InVault || p.Insured || p.Starred || p.Edition) return false;
   if (c.rarity && rarityKeyOf(store, refId(p.Card)) !== c.rarity) return false;
   if (c.finish && (p.Finish || 'normal') !== c.finish) return false;
   if (c.quality && (p.Quality || 'damaged') !== c.quality) return false;

@@ -146,8 +146,8 @@ async function loadFormOptions() {
   // carte au hasard parmi les doublons").
   ownedCopiesByCard = new Map((collection.owned || []).map((o) => [o.cardId, o.copies || []]));
   editionByPull = collection.editionPulls || {};
-  // Exemplaires en edition limitee en tete de liste.
-  ownedCopiesByCard.forEach((list) => list.sort((a, b) => editionRank(editionByPull[a.pullId]) - editionRank(editionByPull[b.pullId])));
+  // Exemplaires en edition limitee en fin de liste : jamais proposes par defaut.
+  ownedCopiesByCard.forEach((list) => list.sort((a, b) => (!!editionByPull[a.pullId] - !!editionByPull[b.pullId]) || editionRank(editionByPull[a.pullId]) - editionRank(editionByPull[b.pullId])));
 
   allCards = (cardsRes.cards || []).filter((c) => !c.isPromo);
   myOwnedCards = allCards.filter((c) => myOwnedCountByCard.has(c.cardId));

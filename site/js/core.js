@@ -19,6 +19,8 @@
 // parentheses (utile pour un signalement). Les pages gardent leurs messages
 // propres en priorite : MESSAGES[e.code] || friendlyError(e).
 const COMMON_ERRORS = {
+  edition_kept: "Annulé : ton exemplaire en édition limitée est conservé.",
+  edition_copy: "Cet exemplaire est en édition limitée : confirme pour le sacrifier.",
   not_enough_dust: "Pas assez de poussières d'étoile.",
   not_enough_boosters: "Pas assez de boosters.", no_boosters: "Tu n'as plus de booster.",
   not_enough_keys: "Il te faut une clé.", no_key: "Il te faut une clé.",

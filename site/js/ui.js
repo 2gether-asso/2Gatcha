@@ -222,12 +222,15 @@ const FusionPicker = {
       const FIN = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
       const QUA = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
       const sorted = [...copies].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999));
-      const byDefault = [...copies].sort((a, b) => (otherRank(a) - otherRank(b)) || ((b.serialNumber || 0) - (a.serialNumber || 0)));
+      // Editions limitees : jamais cochees d'office.
+      const isEd = (c) => !!c.edition;
+      const byDefault = [...copies].sort((a, b) => (isEd(a) - isEd(b)) || (otherRank(a) - otherRank(b)) || ((b.serialNumber || 0) - (a.serialNumber || 0)));
       const selected = new Set(byDefault.slice(0, required).map((c) => c.pullId));
       const lowestSelected = () => sorted.find((c) => selected.has(c.pullId)) || null;
       let keep = lowestSelected()?.pullId ?? null;
       const serial = (c) => (c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "#?");
-      const precious = (c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint";
+      const precious = (c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint" || isEd(c);
+      const edLabel = (c) => (isEd(c) && typeof EDITIONS !== "undefined" && EDITIONS[c.edition] ? `${EDITIONS[c.edition].icon} ${EDITIONS[c.edition].label}` : "");
 
       const overlay = document.createElement("div");
       overlay.className = "card-modal-overlay confirm-overlay";
@@ -238,7 +241,7 @@ const FusionPicker = {
           <div class="fusion-picker-list">
             ${sorted.map((c) => `
               <div class="fusion-row" data-pull="${c.pullId}">
-                <label class="fusion-pick"><input type="checkbox" data-pick="${c.pullId}" /> <strong>${serial(c)}</strong> · ${FIN[c.finish || "normal"]} · ${QUA[c.quality || "damaged"]}${precious(c) ? ' <span class="fusion-precious">précieux</span>' : ""}</label>
+                <label class="fusion-pick"><input type="checkbox" data-pick="${c.pullId}" /> <strong>${serial(c)}</strong> · ${FIN[c.finish || "normal"]} · ${QUA[c.quality || "damaged"]}${isEd(c) ? ` <span class="fusion-edition">${edLabel(c)}</span>` : precious(c) ? ' <span class="fusion-precious">précieux</span>' : ""}</label>
                 <label class="fusion-keep" title="Le nouvel exemplaire portera ce numéro"><input type="radio" name="fusion-keep" data-keep="${c.pullId}" /> garder ce n°</label>
               </div>`).join("")}
           </div>
@@ -263,10 +266,14 @@ const FusionPicker = {
           radio.disabled = !on;
           radio.checked = on && id === keep;
         });
-        const lost = [...selected].map((id) => copies.find((c) => c.pullId === id)).filter((c) => c && c.pullId !== keep && precious(c));
+        // Edition gardee : celle du numero conserve, sinon la premiere cochee (comme le serveur).
+        const picked = [...selected].map((id) => copies.find((c) => c.pullId === id)).filter(Boolean);
+        const keptCopy = picked.find((c) => c.pullId === keep && isEd(c)) || picked.find(isEd) || null;
+        const lost = picked.filter((c) => c.pullId !== keep && precious(c) && c !== keptCopy);
         overlay.querySelector(".fusion-picker-count").innerHTML =
           `${selected.size} / ${required} sélectionné${required > 1 ? "s" : ""}` +
-          (lost.length ? ` · <span class="fusion-warning">&#9888; tu sacrifies ${lost.map(serial).join(", ")} (précieux)</span>` : "");
+          (keptCopy ? ` · <span class="fusion-edition">le nouvel exemplaire garde l'édition ${edLabel(keptCopy)}</span>` : "") +
+          (lost.length ? ` · <span class="fusion-warning">&#9888; tu sacrifies ${lost.map((c) => serial(c) + (isEd(c) ? " " + edLabel(c) : "")).join(", ")} (précieux)</span>` : "");
         okBtn.disabled = selected.size !== required;
       };
       const trimSelection = () => {

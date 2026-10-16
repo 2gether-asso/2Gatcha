@@ -15,6 +15,7 @@ import { refId, now, ok, fail, userById } from './common.js';
 import { setting } from './settings.js';
 import { modeIs } from './modeperks.js';
 import { grantCosmetic } from './cosmetics.js';
+import { editionLoss } from './editions.js';
 
 export const schema = {
   CommunityBoss: { Finisher: { type: 'Ref:Users' } },
@@ -71,6 +72,7 @@ function handleAttack({ store, body }) {
   const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
   const volley = volleyMultiplier(ids.length, rules);
   const details = [];
+  const editionCopies = [];
   for (const pullId of ids) {
     const pull = store.get('Pulls', pullId);
     if (!pull || refId(pull.User) !== user.id || pull.InVault) return fail('card_not_owned', 400, { pullId });
@@ -78,6 +80,7 @@ function handleAttack({ store, body }) {
     if (!card) return fail('card_not_found', 400, { pullId });
     if (card.IsPromo) return fail('promo_not_donatable', 400, { pullId });
     if (pull.Insured || pull.Starred) return fail('insured_copy', 400, { pullId });
+    if (pull.Edition) editionCopies.push(pull);
     const rarity = rarities.get(refId(card.Rarity));
     const base = Math.max(1, Number(rarity && rarity.DisenchantValue) || 0);
     const finish = pull.Finish || 'normal', quality = pull.Quality || 'damaged';
@@ -85,6 +88,8 @@ function handleAttack({ store, body }) {
     details.push({ pullId, cardId: card.id, name: card.Name, serialNumber: pull.SerialNumber ?? null, finish, quality, rarity: rarity ? rarity.Name : '', base, multiplier, damage: Math.max(1, Math.round(base * multiplier * volley * (modeIs(store, 'hard') ? 0.5 : 1))) });
   }
 
+  const denied = editionLoss(store, editionCopies, body);
+  if (denied) return denied;
   const total = details.reduce((s, d) => s + d.damage, 0);
   const t = now();
   for (const d of details) {

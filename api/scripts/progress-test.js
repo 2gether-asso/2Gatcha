@@ -1674,6 +1674,73 @@ await test('coffre-fort : onglets par edition (apparus une fois l edition obtenu
   assert.ok(vault('status').json.editions.some((e) => e.key === 'frost'));
 });
 
+await test('editions limitees : jamais perdues par inadvertance (mise de cote, confirmation, edition gardee par la fusion)', () => {
+  const card = cards()[4];
+  const ed = (finish = 'normal', quality = 'good', edition = 'prism') => { const id = mk(1, card.id, finish, quality); store.update('Pulls', id, { Edition: edition }); return id; };
+  const prism = ed('holo');
+  const plain = mk(1, card.id, 'holo');
+  // Choix automatique (aucun exemplaire precis) : l'edition est mise de cote, rendue apres.
+  let req = { body: { userId: 1, cardId: card.id, fromFinish: 'holo' } };
+  assert.equal(native.beforeWorkflow('foil-upgrade', req), null);
+  assert.equal(store.get('Pulls', prism).InVault, true);
+  assert.ok(!store.get('Pulls', plain).InVault);
+  native.restore(req);
+  assert.ok(!store.get('Pulls', prism).InVault);
+  // Decraft explicite : confirmation demandee, rien ne reste de cote.
+  const denied = native.beforeWorkflow('disenchant', { body: { userId: 1, cardId: card.id, finish: 'holo', quality: 'good', pullId: prism } });
+  assert.equal(denied.json.error, 'edition_copy');
+  assert.equal(denied.json.copies[0].edition, 'prism');
+  assert.equal(denied.json.copies[0].label, 'Prismatique');
+  assert.ok(!store.get('Pulls', prism).InVault);
+  req = { body: { userId: 1, cardId: card.id, finish: 'holo', quality: 'good', pullId: prism, confirmEdition: true } };
+  assert.equal(native.beforeWorkflow('disenchant', req), null);
+  native.restore(req);
+  // Autel : idem (l'edition disparait avec la carte sacrifiee).
+  const altar = native.beforeWorkflow('altar-sacrifice', { body: { userId: 1, pullIds: [prism, plain, mk(1, card.id)] } });
+  assert.equal(altar.json.error, 'edition_copy');
+  // Fusion avec UN exemplaire en edition : pas de confirmation, le resultat garde l'edition.
+  const five = [prism, ...Array.from({ length: 4 }, () => mk(1, card.id, 'holo'))];
+  req = { body: { userId: 1, cardId: card.id, fromFinish: 'holo', pullIds: five, keepPullId: five[1] } };
+  assert.equal(native.beforeWorkflow('foil-upgrade', req), null);
+  assert.equal(req._editionCarry, 'prism');
+  // (le workflow supprime les 5 et cree l'exemplaire dore)
+  five.forEach((id) => store.delete('Pulls', id));
+  const serial = 4242;
+  const fresh = store.create('Pulls', { User: 1, Card: card.id, SerialNumber: serial, Finish: 'gold', Quality: 'good', ObtainedAt: now() });
+  const resp = { status: 200, json: { upgraded: true, cardId: card.id, toFinish: 'gold', serialNumber: serial } };
+  native.afterWorkflow('foil-upgrade', req, resp);
+  assert.equal(store.get('Pulls', fresh.id).Edition, 'prism');
+  assert.equal(resp.json.edition, 'prism');
+  // Deux editions dans la meme fusion : une seule peut etre gardee -> confirmation.
+  const a = ed('normal', 'worn', 'prism'), b = ed('normal', 'worn', 'frost');
+  const two = native.beforeWorkflow('card-quality-repair', { body: { userId: 1, cardId: card.id, fromQuality: 'worn', pullIds: [a, b, mk(1, card.id, 'normal', 'worn')], keepPullId: b } });
+  assert.equal(two.json.error, 'edition_copy');
+  assert.equal(two.json.carried, 'frost');
+  assert.deepEqual(two.json.copies.map((c) => c.pullId), [a]);
+  // Echange : l'exemplaire change de main avec son edition, pas de confirmation.
+  const tr = { body: { userId: 1, action: 'create', offeredPullId: a } };
+  assert.equal(native.beforeWorkflow('trade', tr), null);
+  native.restore(tr);
+  // Boss : confirmation, puis attaque.
+  const boss = store.create('CommunityBoss', { BossName: 'Test', MaxHp: 1e9, CurrentHp: 1e9, Active: true, RewardBoosters: 0 });
+  assert.equal(call('POST', 'boss-attack', { body: { userId: 1, pullIds: [a] } }).json.error, 'edition_copy');
+  assert.ok(store.get('Pulls', a), 'rien de detruit sans confirmation');
+  assert.equal(call('POST', 'boss-attack', { body: { userId: 1, pullIds: [a], confirmEdition: true } }).status, 200);
+  assert.ok(!store.get('Pulls', a));
+  store.update('CommunityBoss', boss.id, { Active: false });
+  // Carte ★ : garde l'edition d'un exemplaire fondu ; deux editions -> confirmation.
+  const r1 = mk(1, card.id, 'rainbow', 'mint'), r2 = ed('rainbow', 'mint', 'prism'), r3 = mk(1, card.id, 'rainbow', 'mint');
+  const star = call('POST', 'card-prestige', { body: { userId: 1, pullIds: [r1, r2, r3] } }).json;
+  assert.equal(star.starred, true);
+  assert.equal(store.get('Pulls', star.pullId).Edition, 'prism');
+  const s1 = ed('rainbow', 'mint', 'prism'), s2 = ed('rainbow', 'mint', 'frost'), s3 = mk(1, card.id, 'rainbow', 'mint');
+  assert.equal(call('POST', 'card-prestige', { body: { userId: 1, pullIds: [s1, s2, s3] } }).json.error, 'edition_copy');
+  // Contrats : jamais d'exemplaire en edition.
+  const st = call('POST', 'contracts', { body: { userId: 1 } }).json;
+  assert.ok(st.contracts.every((c) => !c.eligible.some((p) => store.get('Pulls', p.pullId)?.Edition)));
+  [b, s1, s2, s3, star.pullId, plain].forEach((id) => store.get('Pulls', id) && store.delete('Pulls', id));
+});
+
 await test('inflation : base de 30 boosters par jour, seuil d alerte a 45, migration unique', () => {
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
   assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 45);

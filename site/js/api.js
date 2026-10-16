@@ -169,7 +169,15 @@ const API = {
     if (this._isRead("POST", body)) return this._shared(this._readKey("POST", name, body), () => this._post(name, body));
     this.invalidate();
     try {
-      const data = await this._post(name, body);
+      let data;
+      try {
+        data = await this._post(name, body);
+      } catch (e) {
+        // Exemplaire en edition limitee qui disparaitrait (api/src/native/editions.js).
+        if (e.code !== "edition_copy" || (body && body.confirmEdition) || typeof Confirm === "undefined") throw e;
+        if (!(await this._confirmEditionLoss(e.data || {}))) { const k = new Error("edition_kept"); k.code = "edition_kept"; throw k; }
+        data = await this._post(name, { ...(body || {}), confirmEdition: true });
+      }
       // Bonus d'un week-end evenement (api/src/native/events.js) : annonce.
       if (data && data.eventBonus && typeof Toast !== "undefined") {
         const b = data.eventBonus;
@@ -182,6 +190,15 @@ const API = {
       // qu'elle tournait.
       this.invalidate();
     }
+  },
+
+  // Confirmation de la perte d'exemplaires en edition limitee.
+  _confirmEditionLoss(data) {
+    const copies = data.copies || [];
+    const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+    const list = copies.map((c) => `<li>${c.icon} <strong>${esc(c.cardName)}</strong> ${c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : ""} · édition <strong>${esc(c.label)}</strong></li>`).join("");
+    const kept = data.carried && typeof EDITIONS !== "undefined" && EDITIONS[data.carried] ? `<br>Le nouvel exemplaire garde l'édition <strong>${EDITIONS[data.carried].label}</strong>, mais pas les autres.` : "";
+    return Confirm.show(`${copies.length > 1 ? "Ces exemplaires sont" : "Cet exemplaire est"} en <strong>édition limitée</strong> et ${copies.length > 1 ? "vont" : "va"} disparaître :<ul style="text-align:left">${list}</ul>${kept}Tu es sûr ?`, { title: "Édition limitée", confirmText: "Oui, je sacrifie", dangerous: true });
   },
 
   // En-tetes communs : jeton signe du joueur connecte (voir api/src/native/auth.js).

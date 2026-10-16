@@ -72,7 +72,7 @@ const Coll = (() => {
     }
   };
   function errorText(kind, e) {
-    return (ERRORS[kind] && ERRORS[kind][e && e.code]) || ("Erreur. (" + (e && e.message) + ")");
+    return (ERRORS[kind] && ERRORS[kind][e && e.code]) || (typeof friendlyError === "function" ? friendlyError(e) : "Erreur. (" + (e && e.message) + ")");
   }
 
   // Modes : cle interne -> ancre d'URL + palier de niveau (FEATURE_UNLOCK_LEVEL).
@@ -112,7 +112,8 @@ const Coll = (() => {
   }
   function finishOf(c) { return c.finish || "normal"; }
   function qualityOf(c) { return c.quality || "damaged"; }
-  function isPrecious(c) { return c.serialNumber === 1 || finishOf(c) === "rainbow" || qualityOf(c) === "mint" || !!(state.starred && state.starred.has(c.pullId)); }
+  const isEdition = (c) => !!(c && (c.edition || (state.editions && state.editions.has(c.pullId))));
+  function isPrecious(c) { return c.serialNumber === 1 || finishOf(c) === "rainbow" || qualityOf(c) === "mint" || !!(state.starred && state.starred.has(c.pullId)) || isEdition(c); }
 
   // Montant de decraft reel : valeur de base de la rarete x multiplicateur
   // de finition x multiplicateur de qualite (meme calcul que disenchant.json).
@@ -149,6 +150,8 @@ const Coll = (() => {
     const starred = (c) => state.starred && state.starred.has(c.pullId);
     return [...copies].filter((c) => !(state.insured && state.insured.has(c.pullId))).sort((a, b) => {
       if (starred(a) !== starred(b)) return starred(a) ? 1 : -1;
+      // Editions limitees : en tout dernier recours (le serveur demande confirmation).
+      if (isEdition(a) !== isEdition(b)) return isEdition(a) ? 1 : -1;
       if (a.serialNumber === 1) return 1;
       if (b.serialNumber === 1) return -1;
       return (b.serialNumber || 0) - (a.serialNumber || 0);
@@ -295,6 +298,8 @@ const Coll = (() => {
     state.forged = new Set(collection.forgedPullIds || []);
     state.mastered = new Set(collection.masteredCards || []);
     state.editions = new Map(Object.entries(collection.editionPulls || {}).map(([k, v]) => [Number(k), v]));
+    // Edition de chaque exemplaire (choix d'exemplaires, fusions...).
+    state.ownedMap.forEach((o) => (o.copies || []).forEach((c) => { c.edition = state.editions.get(c.pullId) || ""; }));
     state.insured = new Set(collection.insuredPullIds || []);
     state.firstMine = new Map((collection.firstObtained || []).map((x) => [x.cardId, x.at]));
     state.stardust = status.stardust || 0;
@@ -730,7 +735,7 @@ const Coll = (() => {
     get mode() { return mode; },
     registerPane, setMode, isLocked, isDiscovered, claimSet, refresh, renderActive, updateCounts, renderSummary,
     filterCards, errorText, estimateDust, buildVariants, copiesToSpend, attachTilt,
-    normalize, escapeHtml, serial, finishOf, qualityOf, isPrecious, rarityBadge,
+    normalize, escapeHtml, serial, finishOf, qualityOf, isPrecious, isEdition, rarityBadge,
     loadPrefs, savePrefs, loadSet, saveSet
   };
 })();

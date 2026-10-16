@@ -38,6 +38,7 @@ const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mi
 
 let allCards = [];
 let ownedMap = new Map();
+let editionPullIds = new Set(); // exemplaires en edition limitee (jamais envoyes au boss)
 let activeTab = "calendar";
 let bossSearchQuery = "";
 let chestSearchQuery = "";
@@ -226,6 +227,7 @@ async function ensureCollectionLoaded() {
   const [cardsRes, collectionRes] = await Promise.all([API.getCards(), API.getCollection(Session.userId)]);
   allCards = cardsRes.cards || [];
   ownedMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o]));
+  editionPullIds = new Set(Object.keys(collectionRes.editionPulls || {}).map(Number));
 }
 
 // Regroupe les exemplaires possedes d'une carte par variante EXACTE
@@ -354,7 +356,7 @@ function bossVariants() {
   allCards.filter((c) => !c.isPromo && ownedMap.has(c.cardId)).forEach((card) => {
     const owned = ownedMap.get(card.cardId);
     const groups = new Map();
-    (owned.copies || []).forEach((cp) => {
+    (owned.copies || []).filter((cp) => !editionPullIds.has(cp.pullId)).forEach((cp) => {
       const finish = cp.finish || "normal", quality = cp.quality || "damaged";
       const key = card.cardId + "::" + finish + "::" + quality;
       if (!groups.has(key)) groups.set(key, { key, card, finish, quality, copies: [], totalOwned: owned.count });

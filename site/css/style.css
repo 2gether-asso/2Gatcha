@@ -9402,3 +9402,7 @@ a.beta-banner.banner-link:hover { filter: brightness(1.12); }
 :root:not(#fx) .collection-card.locked .card-art { box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.6); }
 .collection-card.locked .locked-card-number { z-index: 2; }
 @media (prefers-reduced-motion: reduce) { :root:not(#fx) .collection-card.locked .card-art::after { animation: none !important; } }
+
+/* Choix des exemplaires : edition limitee (2026-10-16). */
+.fusion-edition { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 0.78em; font-weight: 700; color: #e9e4ff; background: linear-gradient(90deg, rgba(125, 211, 252, 0.28), rgba(167, 139, 250, 0.32), rgba(255, 110, 199, 0.28)); border: 1px solid rgba(167, 139, 250, 0.55); }
+.fusion-picker-count .fusion-edition { margin-left: 2px; }

@@ -22,6 +22,7 @@ import { refId, now, ok, fail, userById, cardSummary, parseJson as parse } from 
 import { setting } from './settings.js';
 import { grantCosmetic } from './cosmetics.js';
 import { addFeed } from './feed.js';
+import { editionCarrier, editionLoss } from './editions.js';
 
 export const schema = {
   Pulls: { Starred: { type: 'Bool' }, Insured: { type: 'Bool' } },
@@ -268,8 +269,12 @@ function handleCardPrestige({ store, body }) {
   if (pulls.some((p) => refId(p.Card) !== cardId)) return fail('different_cards');
   if (pulls.some((p) => p.Finish !== 'rainbow' || p.Quality !== 'mint')) return fail('need_rainbow_mint');
   const keep = [...pulls].sort((a, b) => (a.SerialNumber || 1e9) - (b.SerialNumber || 1e9))[0];
+  // La carte ★ garde l'edition (la sienne, sinon celle d'un exemplaire fondu).
+  const carried = editionCarrier(pulls, keep.id);
+  const denied = editionLoss(store, pulls.filter((p) => p.Edition && p !== carried), body, carried);
+  if (denied) return denied;
   pulls.filter((p) => p.id !== keep.id).forEach((p) => store.delete('Pulls', p.id));
-  store.update('Pulls', keep.id, { Starred: true });
+  store.update('Pulls', keep.id, { Starred: true, ...(carried ? { Edition: carried.Edition } : {}) });
   const card = store.get('Cards', cardId);
   addFeed(store, { userId: user.id, kind: 'star', icon: '⭐', text: `a forgé une carte ★ : ${card ? card.Name : '?'} #${keep.SerialNumber || '?'}`, cardId });
   return ok({ starred: true, pullId: keep.id, serialNumber: keep.SerialNumber || null, card: card ? cardSummary(store, card) : null });

@@ -584,7 +584,8 @@
         } catch (e) { btn.disabled = false; Toast.error(e.code === "not_enough_dust" ? "Pas assez de poussières." : friendlyError(e)); }
       }));
       overlay.querySelector("[data-forge]")?.addEventListener("click", async (ev) => {
-        const pick = copies.filter((c) => !state.starred.has(c.pullId) && !state.insured.has(c.pullId)).sort((a, b) => (a.serialNumber || 1e9) - (b.serialNumber || 1e9)).slice(0, 3);
+        // Exemplaires en edition en dernier (la carte ★ garde au plus une edition).
+        const pick = copies.filter((c) => !state.starred.has(c.pullId) && !state.insured.has(c.pullId)).sort((a, b) => (Coll.isEdition(a) - Coll.isEdition(b)) || (a.serialNumber || 1e9) - (b.serialNumber || 1e9)).slice(0, 3);
         const okForge = await Confirm.show(`Fusionner <strong>3 exemplaires arc-en-ciel parfait état</strong> de ${escapeHtml(card.name)} (${pick.map((c) => Coll.serial(c.serialNumber)).join(", ")}) en <strong>une carte ★</strong> ? Le plus petit numéro est conservé, les 2 autres disparaissent.`, { title: "Forger une carte ★ ?", confirmText: "Forger" });
         if (!okForge) return;
         ev.currentTarget.disabled = true;
@@ -594,7 +595,7 @@
           if (typeof confetti === "function") confetti({ particleCount: 160, spread: 110, colors: ["#ffd76e", "#ff6ec7", "#7dd3fc", "#a78bfa"], origin: { y: 0.4 } });
           close();
           await Coll.refresh();
-        } catch (e) { Toast.errorfriendlyError(e); }
+        } catch (e) { Toast.error(friendlyError(e)); }
       });
       loadCardInfo(overlay, card, owned);
     }
@@ -687,7 +688,8 @@
     if (!card || !owned) return;
     const copy = Coll.copiesToSpend(variantCopies(owned, finish, quality), 1)[0];
     const label = `${card.name} (${finish !== "normal" ? FINISH_LABELS[finish] + ", " : ""}${QUALITY_LABELS[quality]}${copy && copy.serialNumber != null ? " " + Coll.serial(copy.serialNumber) : ""})`;
-    const warn = copy && Coll.isPrecious(copy) ? `<br><br>&#9888; Exemplaire précieux${copy.serialNumber === 1 ? " : c'est le <strong>#001</strong>" : ""}.` : "";
+    const ed = copy && copy.edition && EDITIONS[copy.edition];
+    const warn = copy && Coll.isPrecious(copy) ? `<br><br>&#9888; Exemplaire précieux${copy.serialNumber === 1 ? " : c'est le <strong>#001</strong>" : ed ? ` : édition limitée <strong>${ed.icon} ${ed.label}</strong>` : ""}.` : "";
     const lastOne = owned.count === 1 ? "<br>C'est ton <strong>dernier exemplaire</strong> de cette carte." : "";
     const ok = await Confirm.show(
       `Décrafter <strong>${escapeHtml(label)}</strong> contre <strong>${disenchantLabel(card, finish, quality)}</strong> ? Cette action est irréversible.${lastOne}${warn}`,

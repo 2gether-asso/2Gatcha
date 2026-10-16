@@ -6,6 +6,12 @@
 // chance de porter l'edition en cours (celle de l'evenement en priorite).
 // Une carte en edition limitee n'est jamais usee (Hard) ni sacrifiee
 // automatiquement (salle des machines).
+// Protection (2026-10-16) : comme une carte ★, un exemplaire en edition n'est
+// jamais pris d'office par un workflow qui consomme des exemplaires (market.js
+// le met de cote). Choisi a la main, il faut confirmer (body.confirmEdition)
+// des que l'edition va disparaitre (erreur edition_copy sinon). Fusion de
+// finition / restauration d'etat / carte ★ : le nouvel exemplaire GARDE
+// l'edition (celle de l'exemplaire dont il garde le numero, sinon la premiere).
 
 import { refId } from './common.js';
 import { setting } from './settings.js';
@@ -33,6 +39,28 @@ export const EDITIONS = {
   // Carte fantome du mois
   phantom: { label: 'Fantôme', icon: '👻' }
 };
+// Fiche d'un exemplaire en edition (messages de confirmation).
+export function editionCopyView(store, p) {
+  const card = store.get('Cards', refId(p.Card));
+  const e = EDITIONS[p.Edition] || { label: p.Edition, icon: '✨' };
+  return { pullId: p.id, edition: p.Edition, label: e.label, icon: e.icon, cardName: card ? card.Name : '?', serialNumber: p.SerialNumber ?? null };
+}
+// Exemplaire dont l'edition passe au resultat d'une fusion : celui dont le
+// numero est garde s'il a une edition, sinon le premier (ordre du catalogue).
+export function editionCarrier(pulls, keepId = null) {
+  const eds = pulls.filter((p) => p && p.Edition);
+  if (!eds.length) return null;
+  const keep = eds.find((p) => p.id === Number(keepId));
+  if (keep) return keep;
+  const order = Object.keys(EDITIONS);
+  return [...eds].sort((a, b) => order.indexOf(a.Edition) - order.indexOf(b.Edition))[0];
+}
+// Refus tant que la perte d'exemplaires en edition n'est pas confirmee.
+export function editionLoss(store, lost, body, carried = null) {
+  if (!lost.length || (body && body.confirmEdition)) return null;
+  return { status: 400, json: { error: 'edition_copy', copies: lost.map((p) => editionCopyView(store, p)), carried: carried ? carried.Edition : null } };
+}
+
 const MODE_EDITION = Object.fromEntries(Object.entries(EDITIONS).filter(([, e]) => e.mode).map(([k, e]) => [e.mode, k]));
 
 // Edition qu'une carte peut recevoir maintenant, et sa chance.
@@ -66,6 +94,15 @@ export function afterWorkflow({ store, path, request, response }) {
       const e = EDITIONS[ed.key];
       addFeed(store, { userId, kind: 'edition', icon: e.icon, text: `tire ${n > 1 ? n + ' cartes' : 'une carte'} en édition limitée ${e.label} !` });
     }
+    return;
+  }
+  // Fusion / restauration : le nouvel exemplaire garde l'edition choisie (market.js).
+  if ((path === 'foil-upgrade' || path === 'card-quality-repair') && request._editionCarry) {
+    const userId = Number(body.userId);
+    const fresh = store.getAll('Pulls')
+      .filter((p) => refId(p.User) === userId && refId(p.Card) === Number(json.cardId) && !p.Edition && (json.serialNumber == null || p.SerialNumber === json.serialNumber))
+      .sort((a, b) => b.id - a.id)[0];
+    if (fresh) { store.update('Pulls', fresh.id, { Edition: request._editionCarry }); json.edition = request._editionCarry; }
     return;
   }
   if (path === 'collection') {
