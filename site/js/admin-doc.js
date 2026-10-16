@@ -237,6 +237,7 @@
   function render(filter = "") {
     const box = document.getElementById("doc-zone");
     if (!box) return;
+    box.classList.remove("empty-state");
     const q = filter.trim().toLowerCase();
     const sections = DOC.map((s) => ({ ...s, html: fill(s.body) }));
     const shown = q ? sections.filter((s) => (s.title + " " + s.html.replace(/<[^>]+>/g, " ")).toLowerCase().includes(q)) : sections;

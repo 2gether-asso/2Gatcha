@@ -9533,23 +9533,31 @@ a.beta-banner.banner-link:hover { filter: brightness(1.12); }
 .econ-sources li.es-excluded { opacity: 0.55; }
 .econ-sources li.es-excluded .es-bar span { background: var(--text-dim); }
 
-/* Admin > Documentation (2026-10-16) */
-.adoc { display: grid; gap: 14px; }
-.adoc.empty-state { display: block; }
-.adoc-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
-.adoc-tools input { flex: 1 1 280px; min-width: 0; }
-.adoc-toc { display: flex; flex-wrap: wrap; gap: 6px; }
-.adoc-toc a { padding: 4px 10px; border-radius: 999px; background: var(--bg-panel-solid); border: 1px solid var(--border-soft); font-size: 0.8rem; text-decoration: none; color: var(--text); }
-.adoc-toc a:hover { border-color: var(--accent); }
-.adoc-section { padding: 14px 16px; border-radius: 14px; background: var(--bg-panel-solid); border: 1px solid var(--border-soft); scroll-margin-top: 90px; }
-.adoc-section h2 { margin: 0 0 8px; font-size: 1.05rem; }
-.adoc-section h3 { margin: 14px 0 6px; font-size: 0.95rem; }
-.adoc-section p, .adoc-section li { font-size: 0.88rem; line-height: 1.55; max-width: 80ch; }
-.adoc-section ul { padding-left: 1.2em; }
-.adoc-val { display: inline-block; padding: 0 6px; border-radius: 6px; background: rgba(139, 92, 246, 0.18); color: #ddd6fe; font-weight: 700; font-variant-numeric: tabular-nums; }
-.adoc-rules { list-style: none; padding: 0 !important; display: grid; gap: 4px; }
+/* Admin > Documentation (2026-10-16) : mise en page de lecture. */
+.adoc { display: grid; gap: 16px; text-align: left; color: var(--text); }
+.adoc.empty-state { display: block; text-align: center; }
+.adoc-tools { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.adoc-tools input { flex: 1 1 320px; min-width: 0; padding: 10px 14px; border-radius: 10px; font-size: 0.92rem; }
+.adoc-tools .muted { font-size: 0.78rem; }
+.adoc-toc { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border-radius: 12px; background: color-mix(in srgb, var(--bg-panel-solid) 94%, transparent); border: 1px solid var(--border-soft); backdrop-filter: blur(6px); }
+.adoc-toc a { padding: 4px 10px; border-radius: 999px; background: var(--bg-panel-2); font-size: 0.78rem; line-height: 1.4; text-decoration: none; color: var(--text-dim); white-space: nowrap; }
+.adoc-toc a:hover, .adoc-toc a:focus-visible { color: var(--text); background: rgba(139, 92, 246, 0.22); }
+.adoc-section { padding: 20px 24px 22px; border-radius: 14px; background: var(--bg-panel-solid); border: 1px solid var(--border-soft); scroll-margin-top: 140px; }
+.adoc-section h2 { margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); font-size: 1.15rem; text-align: left; }
+.adoc-section h3 { margin: 20px 0 6px; font-size: 0.98rem; color: var(--accent-2); text-align: left; }
+.adoc-section p, .adoc-section li { max-width: 72ch; font-size: 0.93rem; line-height: 1.7; color: #d8d9ee; text-align: left; }
+.adoc-section p { margin: 0 0 10px; }
+.adoc-section ul { margin: 0 0 10px; padding-left: 1.3em; display: grid; gap: 6px; }
+.adoc-section li::marker { color: var(--accent); }
+.adoc-section strong { color: var(--text); }
+.adoc-section em { color: var(--text-dim); }
+.adoc-val { display: inline-block; padding: 0 5px; border-radius: 5px; background: rgba(139, 92, 246, 0.16); color: #e4ddff; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.5; white-space: nowrap; }
+.adoc-rules { list-style: none; padding: 0 !important; gap: 4px !important; }
+.adoc-rules li { padding: 6px 10px; border-radius: 8px; background: var(--bg-panel-2); max-width: none; }
 .adoc-rules li.is-off { opacity: 0.55; }
-.adoc-settings { margin: 6px 0; }
+.adoc-section .table-scroll { margin: 6px 0 10px; }
+.adoc-section table td, .adoc-section table th { text-align: left; font-size: 0.86rem; line-height: 1.5; padding: 6px 10px; vertical-align: top; }
+.adoc-settings { margin: 8px 0; border-radius: 10px; background: var(--bg-panel-2); padding: 8px 12px; }
 .adoc-settings summary { cursor: pointer; font-weight: 600; }
-.adoc-settings td { font-size: 0.82rem; vertical-align: top; }
 .adoc-settings td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .adoc-section { padding: 16px; } .adoc-toc { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .adoc-section p, .adoc-section li { font-size: 0.9rem; } }

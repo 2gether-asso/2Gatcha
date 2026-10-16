@@ -65,6 +65,7 @@
   function render() {
     const box = document.getElementById("modes-admin-zone");
     if (!box || !state) return;
+    box.classList.remove("empty-state");
     const total = state.modes.reduce((s, m) => s + m.rules.length, 0);
     const on = state.modes.reduce((s, m) => s + m.rules.filter((r) => r.on).length, 0);
     box.innerHTML = `
