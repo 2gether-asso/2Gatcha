@@ -34,6 +34,9 @@ import * as moderules from '../src/native/moderules.js';
 import * as modefun from '../src/native/modefun.js';
 import * as chaosvote from '../src/native/chaosvote.js';
 import * as economy from '../src/native/economy.js';
+import { talentValue as talentValueOf } from '../src/native/talents.js';
+import { constellations as skyConstellations } from '../src/native/progression.js';
+import { catchSpecies } from '../src/native/aquarium.js';
 import { setting, rawSetting } from '../src/native/settings.js';
 
 import { requestContext, freshContext } from '../src/native/context.js';
@@ -53,7 +56,7 @@ const refIdOf = (v) => (Array.isArray(v) ? v[1] : v);
 const cards = () => store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && refIdOf(c.Extension));
 const mk = (userId, cardId, finish = 'normal', quality = 'good') => store.create('Pulls', { User: userId, Card: cardId, SerialNumber: 5000 + store.getAll('Pulls').length, Finish: finish, Quality: quality, ObtainedAt: now(), BatchId: `${userId}-${Date.now()}` }).id;
 // Pas de variation aleatoire du cours du decraft pendant les tests.
-call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ExchangeRateSwing: 0, PriceIndexEnabled: false } } });
+call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ExchangeRateSwing: 0, PriceIndexEnabled: false, FishingMaxEnergy: 200, StarterEnabled: false, SurpriseEnabled: false } } }); // energie de peche large : les tests lancent beaucoup
 
 let passed = 0;
 async function test(name, fn) {
@@ -72,13 +75,13 @@ await test('talents : points par niveau, rangs, talent ultime verrouille, remise
   assert.equal(call('POST', 'talents', { body: { userId: 1, action: 'learn', key: 'tireless' } }).json.error, 'talent_locked');
   for (let i = 0; i < 3; i++) call('POST', 'talents', { body: { userId: 1, action: 'learn', key: 'greenthumb' } });
   assert.equal(call('POST', 'talents', { body: { userId: 1, action: 'learn', key: 'tireless' } }).json.learned, 'tireless');
-  // Effet : +6 lancers de peche par jour.
+  // Effet : +6 energie de peche max.
   const fish = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
-  const base = fish.dailyLimit;
+  const base = fish.maxEnergy;
   st = call('POST', 'talents', { body: { userId: 1, action: 'reset' } }).json;
   assert.equal(st.spent, 0);
   assert.equal(user(1).StardustCount, 500);
-  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.dailyLimit, base - 6);
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.maxEnergy, base - 6);
 });
 
 await test('maitrise : 3 couches, niveau 10 seulement avec tout, recompenses reclamables une fois', () => {
@@ -172,7 +175,7 @@ await test('assurance : payee, bloque le decraft explicite, mise de cote sinon, 
 });
 
 await test('maitrises de succes : palier atteint, reclame une fois, titre au palier III', () => {
-  store.update('Users', 1, { ActivityCounts: JSON.stringify({ disenchant: 1500 }) });
+  store.update('Users', 1, { ActivityCounts: JSON.stringify({ disenchant: 10000 }) });
   const st = call('POST', 'achievement-tiers', { body: { userId: 1 } }).json;
   const rec = st.families.find((f) => f.key === 'recycler');
   assert.equal(rec.level, 3);
@@ -491,10 +494,11 @@ await test('course aux tresors : 5 indices sur 5 pages, recompense, bonus final'
 });
 
 await test('eaux profondes : verrouillees avant le niveau 10, perles et appats ensuite', () => {
-  store.update('Users', 1, { FishingXP: 0, FishingPrestige: 0, Worms: 50, FishingDay: '', FishingCasts: 0 });
+  store.update('Users', 1, { FishingXP: 0, FishingPrestige: 0, Worms: 50, FishingDay: '', FishingCasts: 0, FishingEnergy: null });
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', zone: 'deep' } }).json.error, 'deep_locked');
   store.update('Users', 1, { FishingPrestige: 1 });
   const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', zone: 'deep', count: 3 } }).json;
+  assert.ok(!r.error, r.error);
   assert.equal(r.zone, 'deep');
   assert.equal(user(1).Worms, 50 - 3 * r.deep.cost);
   assert.ok(r.deep.table.some((x) => x.type === 'pearl'));
@@ -534,14 +538,36 @@ await test('coffre de saison : rempli par l XP, ouvert une fois la saison passee
   assert.equal(call('POST', 'season', { body: { userId: 1, action: 'claimChest' } }).json.error, 'nothing_to_claim');
 });
 
-await test('prestige du compte : etoiles, point de talent, titre et cadre', () => {
-  store.update('Users', 1, { XP: 30000, Talents: '{}' });
+await test('prestige du compte : etoiles, recompenses une fois, progression, talents de prestige', () => {
+  store.getAll('ProgressClaims').filter((c) => refIdOf(c.User) === 1 && String(c.Kind).startsWith('prestige:')).forEach((c) => store.delete('ProgressClaims', c.id));
+  // Niveau 41 : 3 etoiles (31, 36, 41).
+  store.update('Users', 1, { XP: 25 * 41 * 40, Talents: '{}', BoosterCount: 0, StardustCount: 0 });
   const p = call('GET', 'account-prestige', { query: { userId: 1 } }).json;
-  assert.ok(p.stars >= 1);
-  const t = call('POST', 'talents', { body: { userId: 1, action: 'status' } }).json;
-  assert.equal(t.points, p.level - 1 + p.stars);
+  assert.deepEqual([p.level, p.stars, p.nextLevel], [41, 3, 46]);
+  assert.equal(p.progress, 0);
+  assert.equal(p.fresh.boosters, 9);
+  assert.equal(user(1).StardustCount, 1500);
+  assert.equal(call('GET', 'account-prestige', { query: { userId: 1 } }).json.fresh, null, 'une seule fois');
   assert.ok(store.getAll('UserCosmetics').some((c) => refIdOf(c.User) === 1 && c.Key === 'frame-prestige'));
-  store.update('Users', 1, { XP: 0 });
+  // 43 points : la branche Aventurier complete ouvre son talent de prestige.
+  let t = call('POST', 'talents', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(t.points, 40 + 3);
+  assert.equal(call('POST', 'talents', { body: { userId: 1, action: 'learn', key: 'pLegend' } }).json.error, 'talent_locked');
+  for (const k of ['angler', 'greenthumb', 'explorer']) for (let i = 0; i < 3; i++) call('POST', 'talents', { body: { userId: 1, action: 'learn', key: k } });
+  call('POST', 'talents', { body: { userId: 1, action: 'learn', key: 'tireless' } });
+  t = call('POST', 'talents', { body: { userId: 1, action: 'learn', key: 'pLegend' } }).json;
+  assert.equal(t.learned, 'pLegend');
+  // Effets ajoutes aux talents de la branche.
+  assert.equal(talentValueOf(user(1), 'angler'), 3 * 2 + 1);
+  assert.equal(Math.round(talentValueOf(user(1), 'explorer') * 100), 35);
+  assert.equal(Math.round(talentValueOf(user(1), 'tireless') * 100), 20);
+  // Nouvelle etoile annoncee avec le statut des boosters.
+  store.update('Users', 1, { XP: 25 * 46 * 45 });
+  const resp = { status: 200, json: {} };
+  native.afterWorkflow('booster-status', { body: {}, query: { userId: 1 } }, resp);
+  assert.equal(resp.json.prestigeUnlocked.star, 4);
+  assert.equal(resp.json.prestigeUnlocked.boosters, 3);
+  store.update('Users', 1, { XP: 0, Talents: '{}' });
 });
 
 await test('evenements planifies : appliques tout seuls entre le debut et la fin', () => {
@@ -728,18 +754,52 @@ await test('modes de jeu : Chill / Medium / Hard, apercu, annonce, personnalise'
 });
 
 // ------------------------------------------------------------------ confort 2026-10-11
-await test('booster muri : +1 point par jour sans ouvrir, consomme a l ouverture', () => {
-  store.update('Users', 1, { RipenSince: now() - 2.5 * 86400 });
-  const st = { status: 200, json: { count: 3 } };
-  native.afterWorkflow('booster-status', { query: { userId: '1' }, body: {} }, st);
-  assert.equal(st.json.ripeness.points, 2);
-  const req = { body: { userId: 1, extensionId: 1 } };
-  native.beforeWorkflow('open-pack', req);
-  assert.equal(req._ripe, 2);
-  const resp = { status: 200, json: { batchId: 'x-ripe', cards: [] } };
-  native.afterWorkflow('open-pack', req, resp);
-  assert.equal(resp.json.ripened, 2);
-  assert.ok(now() - user(1).RipenSince < 5);
+await test('murissoir : lot mis de cote au distributeur, minuteur, reprise gratuite, bonus par booster, finition garantie au stade Dore', () => {
+  const rip = (body) => call('POST', 'ripen', { body: { userId: 1, ...body } }).json;
+  store.update('Users', 1, { BoosterCount: 5, RipenLots: '[]', RipeReady: '', XP: 0 });
+  let v = rip({ action: 'status' });
+  assert.equal(v.slots.total, 3, 'Medium : 3 lots au plus');
+  assert.equal(v.slots.open, 1, 'niveau 1 : un seul lot');
+  // Lot de 2 boosters, 72 h (Dore) : jetons mis de cote.
+  v = rip({ action: 'store', items: { 1: 2 }, stage: 2 });
+  assert.equal(v.stored, 2);
+  assert.equal(user(1).BoosterCount, 3);
+  assert.equal(v.lots.length, 1);
+  assert.equal(v.lots[0].ready, false);
+  assert.equal(rip({ action: 'store', items: { 1: 1 }, stage: 0 }).error, 'no_slot');
+  assert.equal(rip({ action: 'claim', lotId: v.lots[0].id }).error, 'lot_not_ready');
+  // Annuler avant l'heure : jetons rendus sans bonus.
+  rip({ action: 'cancel', lotId: v.lots[0].id });
+  assert.equal(user(1).BoosterCount, 5);
+  v = rip({ action: 'store', items: { 1: 2 }, stage: 2 });
+  const lots = JSON.parse(user(1).RipenLots); lots[0].readyAt = now() - 5;
+  store.update('Users', 1, { RipenLots: JSON.stringify(lots) });
+  v = rip({ action: 'status' });
+  assert.equal(v.lots[0].ready, true);
+  v = rip({ action: 'claim', lotId: v.lots[0].id });
+  assert.equal(v.ripe.remaining, 2);
+  assert.equal(user(1).BoosterCount, 5, 'jetons du lot rendus');
+  // Deux ouvertures : bonus a chacune, puis termine.
+  for (let i = 0; i < 2; i++) {
+    const req = { body: { userId: 1, extensionId: 1 } };
+    native.beforeWorkflow('open-pack', req);
+    assert.equal(req._ripe, 35);
+    const card = cards()[0];
+    const batch = 'x-ripe-' + i + '-' + Date.now();
+    store.create('Pulls', { User: 1, Card: card.id, SerialNumber: 7770 + i, Finish: 'normal', Quality: 'good', BatchId: batch, ObtainedAt: now() });
+    const resp = { status: 200, json: { batchId: batch, cards: [{ cardId: card.id, serialNumber: 7770 + i, finish: 'normal' }] } };
+    native.afterWorkflow('open-pack', req, resp);
+    assert.equal(resp.json.ripened.label, 'Doré');
+    assert.equal(resp.json.ripened.remaining, 1 - i);
+    if (store.tables.has('Finishes') && store.getAll('Finishes').some((f) => f.Key !== 'normal' && f.DropWeight > 0)) assert.notEqual(resp.json.cards[0].finish, 'normal', 'finition garantie');
+  }
+  const req3 = { body: { userId: 1, extensionId: 1 } };
+  native.beforeWorkflow('open-pack', req3);
+  assert.equal(req3._ripe, undefined, 'plus de bonus apres le lot');
+  // Hard : 2 lots au plus.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { RipenMaxPoints: 2 } } });
+  assert.equal(rip({ action: 'status' }).slots.total, 2);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { RipenMaxPoints: 3 } } });
 });
 
 await test('fragments de booster : activites, plafond du jour, conversion en booster', () => {
@@ -1200,22 +1260,41 @@ await test('livre d or : premieres finitions et editions du serveur', () => {
   store.delete('Pulls', id);
 });
 
-await test('guerre des equipes : equipe attribuee, points, titre a l equipe gagnante', () => {
+await test('guerre des equipes : equipe attribuee, points plafonnes par jour, score ajuste, titre et poussieres', () => {
+  store.update('Users', 1, { TeamDay: '', TeamDayPoints: 0 });
   const pts0 = call('POST', 'teams', { body: { userId: 1 } }).json.myPoints;
   teams.onEvents(store, [{ userId: 1, type: 'board', n: 2, meta: {} }]);
-  const st = call('POST', 'teams', { body: { userId: 1 } }).json;
+  let st = call('POST', 'teams', { body: { userId: 1 } }).json;
   assert.ok(st.myTeam);
   assert.equal(st.myPoints, pts0 + 6);
+  assert.equal(st.myToday, 6);
   assert.equal(st.teams.length, 4);
-  // Mois precedent : l'equipe du joueur 1 gagne.
+  assert.ok(st.teams.every((t) => typeof t.score === 'number'));
+  // Plafond du jour (40 par defaut).
+  teams.onEvents(store, [{ userId: 1, type: 'expedition', n: 100, meta: {} }]);
+  st = call('POST', 'teams', { body: { userId: 1 } }).json;
+  assert.equal(st.myToday, st.dailyCap);
+  assert.equal(st.myPoints, pts0 + st.dailyCap);
+  // Mois precedent : l'equipe du joueur 1 gagne (titre + poussieres), le joueur 2 touche la participation.
   const [y, m] = st.month.split('-').map(Number);
   const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
-  store.update('Users', 1, { TeamMonth: prev, TeamPoints: 50 });
+  const other = st.teams.find((t) => t.key !== st.myTeam).key;
+  store.getAll('Users').forEach((u) => { if (u.TeamMonth === prev) store.update('Users', u.id, { TeamMonth: '' }); });
+  store.update('Users', 1, { TeamMonth: prev, TeamPoints: 50, StardustCount: 0 });
+  store.update('Users', 2, { TeamMonth: prev, Team: other, TeamPoints: 30, StardustCount: 0 });
   const old = store.getAll('AppSettings').find((x) => x.Key === 'teamWar');
   if (old) store.delete('AppSettings', old.id);
   teams._reset();
   native.beforeRequest({}, {}, 'x'); native.endRequest();
   assert.ok(store.getAll('UserCosmetics').some((r) => r.User === 1 && r.Key === `team-${st.myTeam}-${prev}`));
+  assert.ok(user(1).StardustCount >= 300, 'poussieres des gagnants');
+  assert.ok(user(2).StardustCount >= 80 && user(2).StardustCount < user(1).StardustCount + 1000, 'participation');
+  // Placement : un nouveau va dans l'equipe la moins forte.
+  const month = st.month;
+  store.getAll('Users').forEach((u) => store.update('Users', u.id, { TeamMonth: '' }));
+  store.update('Users', 1, { TeamMonth: month, Team: 'ruby', TeamPoints: 500 });
+  store.update('Users', 2, { TeamMonth: '', Team: '', TeamLastPoints: 0 });
+  assert.notEqual(call('POST', 'teams', { body: { userId: 2 } }).json.myTeam, 'ruby');
 });
 
 await test('expedition en duo : invitation, acceptation, butin partage', () => {
@@ -1252,7 +1331,7 @@ await test('salle des machines, suite : surchauffe (vote double), jauge, chef me
   let st;
   for (let i = 0; i < 5; i++) st = call('POST', 'machine-room', { body: { userId: 1, action: 'advance' } }).json;
   assert.equal(st.done, true);
-  assert.equal(st.loyaltyReward, '3 boosters', 'assiduite : 3 mois');
+  assert.equal(st.loyaltyReward, '3 jetons booster', 'assiduite : 3 mois');
   assert.equal(st.loyalty.months, 3);
   assert.equal(user(1).BoosterCount, 10 - 1 + 3);
   assert.ok(st.spent > 0);
@@ -1484,11 +1563,11 @@ await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardi
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'GardenWiltHours' } });
   // Peche : nourriture en plus (chance forcee).
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DinoFoodChance: 1 } } });
-  store.update('Users', 1, { Worms: 100, FishingCasts: 0 });
+  store.update('Users', 1, { Worms: 100, FishingCasts: 0, FishingEnergy: null });
   const fish = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 3 } }).json;
   assert.equal(fish.bycatch.length, 3, JSON.stringify(fish.error || fish.bycatch));
   // Sans dino ni crane : pas de nourriture.
-  store.update('Users', 2, { Worms: 100, FishingCasts: 0, Dinos: '[]', DinoSkulls: 0 });
+  store.update('Users', 2, { Worms: 100, FishingCasts: 0, FishingEnergy: null, Dinos: '[]', DinoSkulls: 0 });
   assert.equal(call('POST', 'fishing', { body: { userId: 2, action: 'cast', count: 1 } }).json.bycatch.length, 0);
   // Maximum 5 dinos ; suggestion de l'accueil quand il a faim.
   const one = dinoMod.dinosOf(user(1))[0];
@@ -2083,6 +2162,661 @@ await test('cible de boosters : 40 par joueur actif (20 a 60), codes de jeu excl
   assert.equal(setting(store, 'EconomyAlertBoostersPerPlayer'), 50);
   assert.deepEqual(economy.boosterTarget(store), { target: 40, low: 30, high: 50 });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EconomyAlertBoostersPerPlayer' } });
+});
+
+await test('bon retour : boosters sortis pendant l absence, extensions existantes non annoncees', async () => {
+  const daily = await import('../src/native/daily.js');
+  store.getAll('Extensions').forEach((e) => store.update('Extensions', e.id, { ReleasedAt: null }));
+  daily.stampExtensions(store, true);
+  assert.ok(store.getAll('Extensions').every((e) => Number(e.ReleasedAt) === 1), 'premiere fois : toutes anciennes');
+  const t = Math.floor(Date.now() / 1000);
+  const ext = store.create('Extensions', { Name: 'Nouvelle vague', Key: 'nv-' + t, Active: true, SortOrder: 99 });
+  daily.stampExtensions(store, true);
+  assert.ok(Number(store.get('Extensions', ext.id).ReleasedAt) >= t);
+  store.update('Users', 1, { ReturnPending: JSON.stringify({ since: t - 10 * 86400, days: 10 }) });
+  const w = call('POST', 'welcome-back', { body: { userId: 1 } }).json;
+  assert.deepEqual(w.newBoosters.map((b) => b.name), ['Nouvelle vague']);
+  store.update('Users', 1, { ReturnPending: '' });
+  store.update('Extensions', ext.id, { Active: false });
+});
+
+await test('peche : 5 lieux (niveau, prestige, cout, prises rares), lieu verrouille refuse', () => {
+  store.update('Users', 1, { FishingXP: 0, FishingPrestige: 0, Worms: 100, FishingEnergy: null, FishingDay: '', FishingCasts: 0 });
+  let st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.deepEqual(st.zones.map((z) => z.key), ['shore', 'pond', 'river', 'deep', 'abyss']);
+  assert.deepEqual(st.zones.map((z) => z.unlocked), [true, false, false, false, false]);
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', zone: 'pond' } }).json.error, 'zone_locked');
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', zone: 'abyss' } }).json.error, 'zone_locked');
+  // Niveau 6 : etang et riviere ouverts ; la riviere coute 2 vers et a plus de rares.
+  store.update('Users', 1, { FishingXP: 15 * 15 });
+  st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  const river = st.zones.find((z) => z.key === 'river');
+  assert.ok(river.unlocked && st.zones.find((z) => z.key === 'pond').unlocked);
+  assert.equal(river.cost, 2 * st.cost);
+  const nothing = (z) => (z.table.find((x) => x.type === 'nothing') || { chance: 0 }).chance;
+  assert.ok(nothing(river) < nothing(st.zones[0]), 'moins de prises vides a la riviere');
+  const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', zone: 'river' } }).json;
+  assert.equal(r.zone, 'river');
+  assert.equal(user(1).Worms, 100 - river.cost);
+  // Un prestige : tout s'ouvre, abysses compris.
+  store.update('Users', 1, { FishingXP: 0, FishingPrestige: 1 });
+  st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.ok(st.zones.every((z) => z.unlocked));
+  assert.equal(call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingZones: [{ key: 'pond', pool: 'lake' }] } } }).status, 400);
+  store.update('Users', 1, { FishingPrestige: 0, FishingXP: 0 });
+});
+
+await test('fouille v2 : profondeurs debloquees par le niveau, config transmise au workflow, mineraux credites, comptoir', () => {
+  store.update('Users', 1, { DigXP: 0, DigDepth: 1, Minerals: '{}', StardustCount: 0, BoneCount: 0, KeyCount: 0, BoosterCount: 0 });
+  // Profondeur verrouillee puis ouverte (niveau 5 = 200 XP avec le palier 20).
+  assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'setDepth', depth: 3 } }).json.error, 'depth_locked');
+  store.update('Users', 1, { DigXP: 200 });
+  const set = native.beforeWorkflow('dig', { body: { userId: 1, action: 'setDepth', depth: 3 } });
+  assert.equal(set.status, 200);
+  assert.equal(set.json.digDepth.depth, 3);
+  assert.deepEqual(set.json.digDepth.depths.map((d) => d.unlocked), [true, true, true, false, false]);
+  assert.equal(user(1).DigBoardState, '', 'grille neuve a la nouvelle profondeur');
+  // Le workflow recoit la profondeur et ses tresors.
+  const req = { body: { userId: 1, action: 'status' } };
+  assert.equal(native.beforeWorkflow('dig', req), null);
+  const cfg = JSON.parse(req.body.depthCfg);
+  assert.equal(cfg.depth, 3);
+  assert.equal(cfg.mineralMax, 3);
+  assert.ok(cfg.treasures.some((t) => t.reward === 'mineral'));
+  assert.ok(req.body.maxEnergyBase >= 1);
+  // Mineraux credites (joueur et Milo).
+  const resp = { status: 200, json: { mineralTier: 4, dogReport: { minerals: [1, 1, 2] } } };
+  native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, resp);
+  assert.equal(resp.json.mineral.tier, 4);
+  assert.equal(resp.json.dogReport.mineralItems.length, 3);
+  const owned = JSON.parse(user(1).Minerals);
+  assert.equal(Object.values(owned).reduce((x, n) => x + n, 0), 4);
+  assert.equal(resp.json.digDepth.minerals, 4);
+  // Comptoir : revente et echange.
+  const mins = (body) => call('POST', 'minerals', { body: { userId: 1, ...body } }).json;
+  let st = mins({});
+  assert.equal(st.minerals.length, 23);
+  const t4 = st.minerals.find((m) => m.tier === 4 && m.count > 0);
+  const sold = mins({ action: 'sell', key: t4.key });
+  assert.equal(sold.sold.dust, 250);
+  assert.equal(user(1).StardustCount, 250);
+  assert.equal(mins({ action: 'sell', key: t4.key }).error, 'not_enough_minerals');
+  store.update('Users', 1, { Minerals: JSON.stringify({ calcaire: 6, fer: 4 }) });
+  const tr = mins({ action: 'trade', index: 1 });
+  assert.deepEqual(tr.traded, { BoneCount: 1 });
+  assert.equal(user(1).BoneCount, 1);
+  assert.deepEqual(JSON.parse(user(1).Minerals), { calcaire: 0, fer: 0 });
+  assert.equal(mins({ action: 'trade', index: 6 }).error, 'not_enough_minerals');
+  assert.equal(call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DigDepths: [{ treasures: [{ reward: 'card', cells: 40, n: 1 }] }] } } }).status, 400);
+  store.update('Users', 1, { DigDepth: 1, DigXP: 0, Minerals: '{}' });
+});
+
+await test('Grand Chantier : objectifs par joueur actif, part max par joueur, etape recompensee, NG+1, doublons de cartes', () => {
+  store.getAll('GuildWorks').forEach((r) => store.delete('GuildWorks', r.id));
+  const gw = (uid, body = {}) => call('POST', 'guild-works', { body: { userId: uid, ...body } }).json;
+  let st = gw(1);
+  assert.equal(st.level, 0);
+  assert.equal(st.stages.length, 5);
+  assert.ok(st.players >= 3);
+  const dust = st.stage.needs.find((n) => n.key === 'dust');
+  assert.equal(dust.target, Math.ceil(400 * st.players));
+  // Part max : 40 % de l'objectif.
+  store.update('Users', 1, { StardustCount: 100000 });
+  let r = gw(1, { action: 'give', resource: 'dust', amount: 100000 });
+  assert.equal(r.given.amount, Math.ceil(dust.target * 0.4));
+  assert.equal(gw(1, { action: 'give', resource: 'dust', amount: 10 }).error, 'share_reached');
+  assert.equal(gw(1, { action: 'give', resource: 'card_rare', amount: 1 }).error, 'not_needed');
+  // Une etape minuscule, part 100 % : etape terminee puis NG+1.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GuildWorksStages: [{ label: 'Test', icon: 'T', needs: { worms: 0.01 }, reward: { dust: 50, boosters: 1 } }], GuildWorksPlayerShare: 1 } } });
+  store.getAll('GuildWorks').forEach((x) => store.delete('GuildWorks', x.id));
+  store.update('Users', 1, { Worms: 10, StardustCount: 0, BoosterCount: 0 });
+  r = gw(1, { action: 'give', resource: 'worms', amount: 5 });
+  assert.equal(r.completed.contributors, 1);
+  assert.equal(r.level, 1, 'NG+1');
+  assert.equal(user(1).StardustCount, 50);
+  assert.equal(user(1).BoosterCount, 1);
+  // Doublons de cartes : jamais le dernier exemplaire ni un precieux.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GuildWorksStages: [{ label: 'Cartes', icon: 'C', needs: { card_commune: 50 }, reward: { dust: 1 } }] } } });
+  store.getAll('GuildWorks').forEach((x) => store.delete('GuildWorks', x.id));
+  const common = store.getAll('Rarities').find((x) => x.Key === 'commune');
+  const commonCards = new Set(store.getAll('Cards').filter((c) => refIdOf(c.Rarity) === common.id && !c.IsPromo).map((c) => c.id));
+  const ownedBefore = new Set(store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1 && commonCards.has(refIdOf(p.Card))).map((p) => refIdOf(p.Card)));
+  st = gw(1);
+  const have = st.stage.needs[0].have;
+  r = gw(1, { action: 'give', resource: 'card_commune', amount: 100000 });
+  assert.ok(r.given.amount <= have);
+  const ownedAfter = new Set(store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1 && commonCards.has(refIdOf(p.Card))).map((p) => refIdOf(p.Card)));
+  assert.equal(ownedAfter.size, ownedBefore.size, 'au moins un exemplaire garde par carte');
+  for (const key of ['GuildWorksStages', 'GuildWorksPlayerShare']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  store.getAll('GuildWorks').forEach((x) => store.delete('GuildWorks', x.id));
+});
+
+await test('visuels : renommage applique aux mineraux et coffres, image televersee, reinitialisation, admin seulement', async () => {
+  const vis = (body) => call('POST', 'admin-visuals', { body: { discordId: ADMIN, ...body } }).json;
+  assert.equal(call('POST', 'admin-visuals', { body: { discordId: '1', action: 'list' } }).json.error, 'forbidden');
+  let r = vis({ action: 'set', key: 'Fouille/Rubis.PNG', label: 'Rubis du dragon' });
+  assert.equal(r.overrides['Fouille/Rubis.PNG'].label, 'Rubis du dragon');
+  await new Promise((res) => setTimeout(res, 2100)); // cache des noms (2 s)
+  const mins = call('POST', 'minerals', { body: { userId: 1 } }).json;
+  assert.equal(mins.minerals.find((m) => m.key === 'rubis').name, 'Rubis du dragon');
+  vis({ action: 'set', key: 'Coffres/8.PNG', label: 'Coffre des abysses' });
+  await new Promise((res) => setTimeout(res, 2100));
+  assert.equal(call('POST', 'chests', { body: { userId: 1, action: 'status' } }).json.tiers[7].name, 'Coffre des abysses');
+  // Image : PNG minuscule.
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  r = vis({ action: 'upload', key: 'Os.PNG', data: png, mime: 'image/png' });
+  assert.ok(r.overrides['Os.PNG'].imageId > 0);
+  assert.ok(store.getAttachment(r.overrides['Os.PNG'].imageId));
+  assert.equal(vis({ action: 'upload', key: 'Os.PNG', data: png, mime: 'text/html' }).error, 'invalid_image');
+  assert.equal(vis({ action: 'set', key: '../secret', label: 'x' }).error, 'invalid_key');
+  assert.ok(call('GET', 'visuals', {}).json.overrides['Os.PNG']);
+  for (const key of ['Fouille/Rubis.PNG', 'Coffres/8.PNG', 'Os.PNG']) vis({ action: 'reset', key });
+  assert.deepEqual(call('GET', 'visuals', {}).json.overrides, {});
+});
+
+await test('coffre de guilde v2 : depots contre credits, dernier exemplaire garde, prise par credits ou cle, pioche gratuite, limites', () => {
+  const gc = (uid, body = {}) => call('POST', 'guild-chest', { body: { userId: uid, ...body } }).json;
+  store.getAll('GuildChestDeposits').forEach((d) => store.update('GuildChestDeposits', d.id, { Claimed: true }));
+  store.update('Users', 1, { GuildCredits: 0, GCDay: '', GCDeposits: 0, GCTakes: 0, GCFreeDay: '' });
+  store.update('Users', 2, { GuildCredits: 0, GCDay: '', GCDeposits: 0, GCTakes: 0, GCFreeDay: '', KeyCount: 1 });
+  // Une carte a 3 exemplaires pour le joueur 1.
+  const card = cards()[0];
+  const ids = [mk(1, card.id), mk(1, card.id), mk(1, card.id)];
+  let st = gc(1);
+  const g = st.donatable.find((x) => x.cardId === card.id && x.finish === 'normal' && x.quality === 'good');
+  assert.ok(g && g.count >= 2, 'doublons deposables');
+  // Dernier exemplaire d'une carte : refuse.
+  const solo = store.create('Cards', { Name: 'Solo du coffre', Active: true, Rarity: card.Rarity, Extension: card.Extension });
+  const soloPull = mk(1, solo.id);
+  assert.equal(gc(1, { action: 'deposit', pullIds: [soloPull] }).error, 'last_copy');
+  store.delete('Pulls', soloPull); store.update('Cards', solo.id, { Active: false });
+  let r = gc(1, { action: 'deposit', pullIds: ids.slice(0, 2) });
+  assert.equal(r.deposited, 2);
+  assert.ok(r.creditsGained > 0);
+  assert.equal(user(1).GuildCredits, r.creditsGained);
+  // Le joueur 1 ne peut pas prendre son propre depot ; le joueur 2 oui (cle), puis credits insuffisants.
+  const dep = r.pool.find((p) => p.mine);
+  assert.equal(gc(1, { action: 'take', depositId: dep.depositId }).error, 'own_deposit');
+  r = gc(2, { action: 'take', depositId: dep.depositId, pay: 'key' });
+  assert.equal(r.taken.cardId, card.id);
+  assert.equal(user(2).KeyCount, 0);
+  const other = gc(2).pool.find((p) => !p.mine);
+  assert.equal(gc(2, { action: 'take', depositId: other.depositId }).error, 'not_enough_credits');
+  store.update('Users', 2, { GuildCredits: 1000 });
+  r = gc(2, { action: 'take', depositId: other.depositId });
+  assert.equal(user(2).GuildCredits, 1000 - other.cost);
+  // Pioche gratuite : une fois par jour.
+  gc(1, { action: 'deposit', pullIds: [ids[2]].filter((id) => store.get('Pulls', id)) });
+  store.update('Users', 1, { GCDay: '', GCDeposits: 0 });
+  const extra = mk(1, card.id); gc(1, { action: 'deposit', pullIds: [extra] });
+  st = gc(2);
+  if (st.freeAvailable) {
+    assert.ok(gc(2, { action: 'free' }).taken);
+    assert.equal(gc(2, { action: 'free' }).error, 'already_drawn_today');
+  }
+  assert.equal(call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GuildChestValues: [1, 2] } } }).status, 400);
+  // Selection multiple sur deux finitions de la meme carte : tout le deposable
+  // passe d'un coup et l'exemplaire garde est le meilleur (Holo).
+  store.update('Users', 1, { GCDay: '', GCDeposits: 0 });
+  const two = store.create('Cards', { Name: 'Double finition', Active: true, Rarity: card.Rarity, Extension: card.Extension });
+  const holo = mk(1, two.id, 'holo'); mk(1, two.id); mk(1, two.id);
+  const groupsOf = gc(1).donatable.filter((x) => x.cardId === two.id);
+  const all = groupsOf.flatMap((x) => x.pullIds);
+  assert.equal(all.length, 2);
+  assert.ok(!all.includes(holo), 'le Holo est garde');
+  assert.equal(gc(1, { action: 'deposit', pullIds: all }).deposited, 2);
+  assert.ok(store.get('Pulls', holo));
+  store.update('Cards', two.id, { Active: false });
+});
+
+await test('expedition v2 : destinations, niveau requis, ressources au retour, affinite du jour', async () => {
+  const ex2 = await import('../src/native/expedition2.js');
+  store.update('Users', 1, { ExpeditionXP: 0, ExpeditionTrip: '', Worms: 0, BoneCount: 0, Minerals: '{}' });
+  // Mine : niveau 2 requis.
+  const locked = native.beforeWorkflow('expedition', { body: { userId: 1, action: 'start', destination: 'mine', hours: 2, cardId: 1 } });
+  assert.equal(locked && locked.json.error, 'destination_locked');
+  assert.equal(native.beforeWorkflow('expedition', { body: { userId: 1, action: 'start', destination: 'nulle-part' } }).json.error, 'unknown_destination');
+  // Foret, 24 h, avec une carte de la rarete du jour.
+  const aff = ex2._affinity(store, 'foret');
+  const rarity = store.getAll('Rarities').find((r) => r.Key === aff.rarity.key);
+  const card = store.getAll('Cards').find((c) => c.Active && refIdOf(c.Rarity) === rarity.id);
+  const startReq = { body: { userId: 1, action: 'start', destination: 'foret', hours: 24, cardId: card.id } };
+  assert.equal(native.beforeWorkflow('expedition', startReq), null);
+  store.update('Users', 1, { ExpeditionUntil: Math.floor(Date.now() / 1000) - 1, ExpeditionDuration: 24, ExpeditionCard: card.id });
+  const started = { status: 200, json: { expedition: { active: true, secondsLeft: 0 } } };
+  native.afterWorkflow('expedition', startReq, started);
+  assert.equal(started.json.expedition.destination.key, 'foret');
+  assert.equal(started.json.expedition.destination.rarity, true);
+  assert.ok(started.json.destinations.length >= 5 && started.json.destinations.find((d) => d.key === 'mine').unlocked === false);
+  const claimReq = { body: { userId: 1, action: 'claim' } };
+  native.beforeWorkflow('expedition', claimReq);
+  const claimed = { status: 200, json: { reward: { dust: 100 }, expedition: { active: false } } };
+  native.afterWorkflow('expedition', claimReq, claimed);
+  const worms = claimed.json.reward.resources.find((r) => r.key === 'Worms');
+  assert.ok(worms && worms.n >= 15, 'au moins 3 x 5 (24 h) x 0,75 x 1,5 (affinite) vers');
+  assert.equal(user(1).Worms, worms.n);
+  assert.equal(claimed.json.reward.destination.key, 'foret');
+  assert.equal(user(1).ExpeditionTrip, '');
+  // Reglage valide.
+  assert.equal(call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ExpeditionDestinations: [{ key: 'x', name: 'X', loot: { Diamants: 1 } }] } } }).status, 400);
+  store.update('Users', 1, { ExpeditionUntil: 0, ExpeditionDuration: 0, ExpeditionCard: 0 });
+});
+
+await test('compte test admin : connexion sans Discord, niveaux, difficulte propre, isolation, remise a zero', async () => {
+  const auth = await import('../src/native/auth.js');
+  const { setting } = await import('../src/native/settings.js');
+  const { requestContext, freshContext } = await import('../src/native/context.js');
+  const tester = store.create('Users', { Pseudo: 'Le Grand Test', XP: 0, StardustCount: 0 });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { TestAccountId: tester.id } } });
+  const ta = (body) => call('POST', 'admin-test-account', { body: { discordId: ADMIN, ...body } }).json;
+  assert.equal(call('POST', 'admin-test-account', { body: { discordId: '123', action: 'status' } }).json.error, 'forbidden');
+  // Connexion : jeton du compte test.
+  const login = ta({ action: 'login' });
+  assert.equal(auth.verifyToken(login.token).u, tester.id);
+  // Niveaux et ressources.
+  let st = ta({ action: 'set', levels: { account: 10, dig: 5 }, resources: { StardustCount: 5000, Worms: 50 } });
+  assert.equal(st.level, 10);
+  assert.equal(st.skills.dig.level, 5);
+  assert.ok(user(tester.id).StardustCount >= 5000);
+  assert.equal(ta({ action: 'set', resources: { Hack: 1 } }).error, 'unknown_resource');
+  // Difficulte propre : seulement pendant ses requetes.
+  ta({ action: 'set', mode: 'cool' });
+  const inCtx = (uid, fn) => requestContext.run({ ...freshContext(), userId: uid }, fn);
+  assert.equal(inCtx(tester.id, () => setting(store, 'BoosterShopPrice')), 250);
+  assert.notEqual(inCtx(1, () => setting(store, 'BoosterShopPrice')), 250);
+  // Isolation : actions partagees refusees, absent des listes des autres.
+  assert.equal(call('POST', 'guild-chest', { body: { userId: tester.id, action: 'deposit', pullIds: [1] } }).json.error, 'test_account_isolated');
+  assert.equal(call('POST', 'guild-chest', { body: { userId: tester.id, action: 'status' } }).status, 200);
+  const list = { players: [{ userId: tester.id, pseudo: 'Le Grand Test' }, { userId: 1, pseudo: 'Helldwin' }] };
+  assert.equal(native.scrub(JSON.parse(JSON.stringify(list)), { userId: 1 }).players.length, 1);
+  assert.equal(native.scrub(JSON.parse(JSON.stringify(list)), { userId: tester.id }).players.length, 2);
+  // Une carte de chaque, puis remise a zero en nouveau joueur.
+  assert.ok(ta({ action: 'cards' }).given > 0);
+  st = ta({ action: 'reset' });
+  assert.equal(st.cards, 0);
+  assert.equal(st.level, 1);
+  assert.equal(user(tester.id).StardustCount, 0);
+  assert.equal(user(tester.id).Pseudo, 'Le Grand Test');
+  assert.equal(user(tester.id).TestMode, 'cool', 'la difficulte choisie reste');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { TestAccountId: 0 } } });
+});
+
+await test('nouveau joueur : parcours dans l ordre, progression par evenements, recompenses, deblocages par niveau, anciens comptes jamais verrouilles', async () => {
+  const starter = await import('../src/native/starter.js');
+  const set = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
+  const since = Math.floor(Date.now() / 1000) - 100;
+  set({ StarterEnabled: true, StarterSince: since });
+  const veteran = store.create('Users', { Pseudo: 'Ancien', XP: 0, CreatedAt: since - 1000, BoosterCount: 0 });
+  const novice = store.create('Users', { Pseudo: 'Novice', XP: 0, CreatedAt: since + 10, BoosterCount: 0, StardustCount: 0 });
+  const st = (uid) => call('GET', 'starter', { query: { userId: uid } }).json;
+  // Verrous : seulement le nouveau compte.
+  assert.equal(st(veteran.id).locks.length, 0);
+  assert.equal(st(veteran.id).active, false);
+  let s = st(novice.id);
+  assert.equal(s.active, true);
+  assert.ok(s.locks.some((l) => l.key === 'fishing' && l.level === 2));
+  const locked = call('POST', 'fishing', { body: { userId: novice.id, action: 'cast' } });
+  assert.equal(locked.json.error, 'level_locked');
+  assert.equal(locked.json.level, 2);
+  assert.notEqual(call('POST', 'fishing', { body: { userId: novice.id, action: 'status' } }).json.error, 'level_locked', 'lecture permise');
+  // Etape 1 : kit de depart (immediat). Etape 3 pas encore la sienne.
+  const claim = (key) => call('POST', 'starter', { body: { userId: novice.id, action: 'claim', key } }).json;
+  assert.equal(claim('gift').error, 'not_current_step');
+  let r = claim('welcome');
+  assert.equal(r.claimed, 'welcome');
+  assert.equal(user(novice.id).BoosterCount, 3);
+  // Etape 2 : premier booster, via l'evenement.
+  assert.equal(claim('open1').error, 'step_not_complete');
+  starter.onEvents(store, [{ userId: novice.id, type: 'boosterOpened', n: 1, meta: {} }]);
+  r = claim('open1');
+  assert.equal(r.claimed, 'open1');
+  assert.ok(user(novice.id).XP >= 20);
+  // Progression en avance : la fouille compte meme avant son tour.
+  starter.onEvents(store, [{ userId: novice.id, type: 'dig', n: 5, meta: {} }]);
+  assert.equal(st(novice.id).steps.find((x) => x.key === 'dig').complete, true);
+  // Niveau 2 atteint : la peche se debloque.
+  store.update('Users', novice.id, { XP: 60 });
+  assert.ok(!st(novice.id).locks.some((l) => l.key === 'fishing'));
+  // Tout le parcours puis le bonus final, une seule fois.
+  const steps = st(novice.id).steps;
+  const types = { gift: 'wheel', guess: 'guess', open3: 'boosterOpened', recycle: 'disenchant', craft: 'craft', fish: 'fish', expedition: 'expedition' };
+  for (const x of steps.filter((y) => !y.claimed)) {
+    if (types[x.key]) starter.onEvents(store, [{ userId: novice.id, type: types[x.key], n: 5, meta: {} }]);
+    assert.equal(claim(x.key).claimed, x.key, x.key);
+  }
+  const boostersBefore = user(novice.id).BoosterCount;
+  r = claim('final');
+  assert.equal(r.claimed, 'final');
+  assert.ok(user(novice.id).BoosterCount >= boostersBefore + 3);
+  assert.equal(r.active, false);
+  assert.equal(claim('final').error, 'already_done');
+  // Reglages valides.
+  assert.equal(set({ StarterUnlocks: { fishing: 0 } }).status, 400);
+  assert.equal(set({ StarterSteps: [{ key: 'a', label: 'A', target: 2 }] }).status, 400);
+  set({ StarterEnabled: false });
+});
+
+await test('valeurs par difficulte : n importe quel reglage par mode, application immediate sur le mode en cours, retrait, retour au code', async () => {
+  const { setting } = await import('../src/native/settings.js');
+  const pre = (body) => call('POST', 'admin-preset', { body: { discordId: ADMIN, ...body } }).json;
+  assert.ok(pre({ action: 'apply', preset: 'medium' }).applied);
+  // Mode Hard (pas en cours) : un reglage hors preset ajoute, sans effet immediat.
+  const before = setting(store, 'GuessDust');
+  let v = pre({ action: 'override-set', mode: 'hard', key: 'GuessDust', value: 7 });
+  assert.equal(v.modes.find((m) => m.key === 'hard').values.find((x) => x.key === 'GuessDust').value, 7);
+  assert.equal(setting(store, 'GuessDust'), before);
+  assert.equal(v.appliedLive, false);
+  // Valeur invalide refusee.
+  assert.equal(pre({ action: 'override-set', mode: 'hard', key: 'GuessDust', value: -5 }).error, 'invalid_settings');
+  // Passer en Hard l'applique.
+  pre({ action: 'apply', preset: 'hard' });
+  assert.equal(setting(store, 'GuessDust'), 7);
+  assert.equal(pre({ action: 'status' }).current, 'hard', 'toujours reconnu comme Hard');
+  // Mode en cours : modification appliquee tout de suite, le mode reste reconnu.
+  const price = pre({ action: 'overrides' }).modes.find((m) => m.key === 'hard').values.find((x) => x.key === 'BoosterShopPrice');
+  v = pre({ action: 'override-set', mode: 'hard', key: 'BoosterShopPrice', value: price.value + 11 });
+  assert.equal(v.appliedLive, true);
+  assert.equal(setting(store, 'BoosterShopPrice'), price.value + 11);
+  assert.equal(pre({ action: 'status' }).current, 'hard');
+  // Retour au code : valeur d'origine, appliquee aussi.
+  v = pre({ action: 'override-reset', mode: 'hard', key: 'BoosterShopPrice' });
+  assert.equal(setting(store, 'BoosterShopPrice'), price.base);
+  assert.equal(v.modes.find((m) => m.key === 'hard').values.find((x) => x.key === 'BoosterShopPrice').changed, false);
+  // Retrait : le mode ne touche plus a ce reglage.
+  v = pre({ action: 'override-set', mode: 'hard', key: 'GuessDust', value: null });
+  assert.ok(!v.modes.find((m) => m.key === 'hard').values.some((x) => x.key === 'GuessDust'));
+  pre({ action: 'override-reset', mode: 'hard', key: 'GuessDust' });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { GuessDust: before } } });
+  pre({ action: 'apply', preset: 'medium' });
+});
+
+await test('musee du coffre-fort : vitrines poissons, mineraux, objets, dinos ; une piece vue reste exposee', () => {
+  const visitor = store.create('Users', { Pseudo: 'Visiteur', Minerals: JSON.stringify({ agathe: 2 }), Worms: 3, Aquarium: JSON.stringify({ fish: { gardon: { count: 2, best: 18, first: 1 } }, claimed: [] }) });
+  const m = (uid) => call('GET', 'museum', { query: { userId: uid } }).json;
+  let v = m(visitor.id);
+  assert.deepEqual(v.sections.map((s) => s.key), ['fish', 'minerals', 'items', 'dinos']);
+  const sec = (k) => v.sections.find((s) => s.key === k);
+  assert.ok(sec('fish').items.find((i) => i.key === 'gardon').seen);
+  assert.ok(!sec('fish').items.find((i) => i.key === 'kraken').seen);
+  assert.ok(sec('minerals').items.find((i) => i.key === 'agathe').seen);
+  assert.ok(sec('items').items.find((i) => i.key === 'worm').seen);
+  assert.equal(v.seen, 3);
+  // Tout depense : toujours expose.
+  store.update('Users', visitor.id, { Minerals: '{}', Worms: 0 });
+  v = m(visitor.id);
+  assert.ok(sec('minerals').items.find((i) => i.key === 'agathe').seen);
+  assert.ok(sec('items').items.find((i) => i.key === 'worm').seen);
+  assert.ok(v.total >= 60 && v.pct >= 1);
+});
+
+await test('defis de saison, histoire, evenement surprise, bonus de prestige, badges du musee', async () => {
+  const sq = await import('../src/native/seasonquests.js');
+  const st = await import('../src/native/story.js');
+  const sp = await import('../src/native/surprise.js');
+  const { setting } = await import('../src/native/settings.js');
+  const set = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
+  const p = store.create('Users', { Pseudo: 'Testeur saison', XP: 0, StardustCount: 0, BoosterCount: 0 });
+  // Defis de saison : XP de saison, pas d'XP de compte.
+  const season = () => call('POST', 'season', { body: { userId: p.id } }).json;
+  const xp0 = season().xp;
+  const quests = sq.weekQuests();
+  assert.equal(quests.length, 3);
+  sq.onEvents(store, quests.map((q) => ({ userId: p.id, type: q.type, n: q.target, meta: {} })));
+  const sqc = (key) => call('POST', 'season-quests', { body: { userId: p.id, action: 'claim', key } }).json;
+  assert.equal(sqc(quests[0].key).seasonXp, 60);
+  sqc(quests[1].key);
+  const last = sqc(quests[2].key);
+  assert.equal(last.allBonus, 60, 'bonus des 3 defis');
+  assert.equal(season().xp, xp0 + 240);
+  assert.equal(user(p.id).XP, 0, 'XP du compte inchangee');
+  assert.equal(sqc(quests[0].key).error, 'already_claimed');
+  // Histoire : chapitre 1 (creuser 15 cases).
+  const story = (body = {}) => call('POST', 'story', { body: { userId: p.id, ...body } }).json;
+  let s = story();
+  assert.equal(s.unlocked, true);
+  assert.equal(s.chapter.title, 'Le flair de Milo');
+  assert.equal(story({ action: 'claim' }).error, 'chapter_not_complete');
+  st.onEvents(store, [{ userId: p.id, type: 'dig', n: 15, meta: {} }]);
+  s = story({ action: 'claim' });
+  assert.equal(s.claimed, 0);
+  assert.equal(user(p.id).BoneCount, 2);
+  assert.equal(s.chapter.title, 'Moka a faim');
+  // Evenement surprise : lance par l'admin, reglage double, XP x2, puis arrete.
+  set({ SurpriseEnabled: true }); sp._reset();
+  const sur = (body) => call('POST', 'admin-surprise', { body: { discordId: ADMIN, ...body } }).json;
+  const guessBefore = setting(store, 'GuessDust');
+  let r = sur({ action: 'start', key: 'guessBonus', announce: false });
+  assert.equal(r.active.key, 'guessBonus');
+  assert.equal(setting(store, 'GuessDust'), guessBefore * 2);
+  sur({ action: 'start', key: 'xp2', announce: false });
+  store.update('Users', p.id, { XP: (user(p.id).XP || 0) + 10 });
+  const xpAfter = user(p.id).XP;
+  assert.ok(xpAfter >= 20, 'double XP (' + xpAfter + ')');
+  r = sur({ action: 'stop' });
+  assert.equal(r.active, null);
+  assert.equal(setting(store, 'GuessDust'), guessBefore);
+  // Prestige : +2 % d'XP par etoile.
+  const lvlXp = (L) => Math.ceil(((50 * L - 25) ** 2 - 625) / 100);
+  store.update('Users', p.id, { XP: lvlXp(setting(store, 'AccountPrestigeLevel')) });
+  const base = user(p.id).XP;
+  store.update('Users', p.id, { XP: base + 100 });
+  assert.equal(user(p.id).XP, base + 102, '1 etoile = +2 %');
+  // Musee : vitrine des mineraux complete -> badge Geologue.
+  const { MINERALS } = await import('../src/native/digdepth.js');
+  store.update('Users', p.id, { Minerals: JSON.stringify(Object.fromEntries(MINERALS.map((m) => [m.key, 1]))) });
+  const mu = call('GET', 'museum', { query: { userId: p.id } }).json;
+  assert.ok(mu.badges.find((b) => b.key === 'minerals').earned);
+  assert.ok(mu.newBadges.includes('Géologue'));
+  assert.equal(call('GET', 'museum', { query: { userId: p.id } }).json.newBadges.length, 0, 'une seule fois');
+  // Recap enrichi.
+  const rc = call('GET', 'weekly-recap', { query: { userId: p.id } }).json;
+  assert.ok(rc.level >= 1 && rc.museum && rc.museum.total > 0 && 'aquarium' in rc);
+  set({ SurpriseEnabled: false }); sp._reset();
+});
+
+await test('minuteurs : fouille, peche, expedition, jardin, Milo, nouveau jour, prets en premier', () => {
+  const t = Math.floor(Date.now() / 1000);
+  const u = store.create('Users', { Pseudo: 'Minuteur', XP: 0, DigEnergy: 0, LastDigEnergyAt: t, ExpeditionUntil: t - 10, DogUntil: t + 3600,
+    GardenPlots: JSON.stringify([{ plantedAt: t, seed: 'mix' }, { plantedAt: t - 999999, seed: 'mix' }]) });
+  const r = call('GET', 'timers', { query: { userId: u.id } }).json;
+  const by = (k) => r.items.find((i) => i.key === k);
+  assert.ok(by('dig') && by('dig').at > t && !by('dig').ready, 'fouille a recharger');
+  assert.ok(by('fish'), 'peche');
+  assert.ok(by('expedition').ready, 'expedition rentree');
+  assert.ok(by('dog').at === t + 3600);
+  assert.ok(by('garden').ready && by('garden-all') && !by('garden-all').ready, 'une parcelle prete, pas toutes');
+  assert.ok(by('day').at > t);
+  const firstNotReady = r.items.findIndex((i) => !i.ready);
+  assert.ok(r.items.slice(firstNotReady).every((i) => !i.ready), 'les prets d’abord');
+});
+
+await test('devine la carte v2 : 5 manches, 3 essais avec zoom qui recule, gains degressifs, bon de craft rembourse', async () => {
+  const gg = await import('../src/native/guessgame.js');
+  store.update('Users', 1, { GuessState: '', GuessDate: '', GuessStreak: 0, CraftCoupons: '{}', StardustCount: 0 });
+  const guess = (body) => call('POST', 'guess-card', { body: { userId: 1, ...body } }).json;
+  let st = guess({});
+  assert.equal(st.rounds.length, 5);
+  assert.ok(st.rounds.every((r) => r.choices.length === 4 && r.triesLeft === 3 && !r.answerCardId));
+  const answers = gg._answers(store);
+  // Manche 0 : une erreur puis la bonne reponse (60 %).
+  const wrong = st.rounds[0].choices.find((c) => c.cardId !== answers[0]).cardId;
+  let r = guess({ action: 'guess', round: 0, cardId: wrong });
+  assert.equal(r.correct, false);
+  assert.equal(r.rounds[0].triesLeft, 2);
+  assert.ok(r.rounds[0].zoom.scale < st.rounds[0].zoom.scale, 'le zoom recule');
+  assert.ok(r.rounds[0].choices.find((c) => c.cardId === wrong).wrong);
+  r = guess({ action: 'guess', round: 0, cardId: answers[0] });
+  assert.equal(r.correct, true);
+  assert.equal(r.reward.dust, 12);
+  assert.equal(guess({ action: 'guess', round: 0, cardId: answers[0] }).error, 'already_played');
+  // Les 4 autres du premier coup : journee finie, serie lancee.
+  for (let i = 1; i < 5; i++) r = guess({ action: 'guess', round: i, cardId: answers[i] });
+  assert.equal(r.finished, true);
+  assert.equal(user(1).GuessStreak, 1);
+  assert.equal(r.reward.perfect, false, 'manche 0 trouvee au 2e essai');
+  // Bon de craft : carte du jour non possedee.
+  const owned = new Set(store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1).map((p) => refIdOf(p.Card)));
+  if (!owned.has(answers[1])) assert.ok(r.coupons.some((c) => c.cardId === answers[1]));
+  // Remboursement apres un craft.
+  store.update('Users', 1, { CraftCoupons: JSON.stringify({ 5: Math.floor(Date.now() / 1000) + 3600 }), StardustCount: 0 });
+  const resp = { status: 200, json: { crafted: true, craftCost: 200 } };
+  native.afterWorkflow('craft', { body: { userId: 1, cardId: 5 } }, resp);
+  assert.equal(resp.json.couponRefund, 80);
+  assert.equal(user(1).StardustCount, 80);
+  assert.deepEqual(JSON.parse(user(1).CraftCoupons), {});
+  store.update('Users', 1, { GuessState: '', GuessDate: '', GuessStreak: 0 });
+});
+
+await test('gatchapon : une piece fait tomber une boule, ouverture par palier avec une clef, butin croissant, compat ancienne ouverture', () => {
+  const ch = (body) => call('POST', 'chests', { body: { userId: 1, ...body } }).json;
+  store.update('Users', 1, { ChestCount: 0, KeyCount: 0, ChestBalls: '[]', XP: 0, ChestLevelGranted: 999 });
+  assert.equal(ch({ action: 'spin' }).error, 'no_chest');
+  store.update('Users', 1, { ChestCount: 5, KeyCount: 1 });
+  let r = ch({ action: 'spin', count: 3 });
+  assert.equal(r.spun, 3);
+  assert.equal(r.drawn.length, 3);
+  assert.equal(r.balls, 3);
+  assert.equal(user(1).ChestCount, 2);
+  assert.equal(r.tiers.length, 8);
+  assert.equal(Math.round(r.tiers.reduce((x, t) => x + t.chance, 0)), 100);
+  // Ouverture d'une boule de palier 8 (forcee) contre une clef.
+  store.update('Users', 1, { ChestBalls: JSON.stringify([8, 1]), KeyCount: 1, StardustCount: 0 });
+  assert.equal(ch({ action: 'open', tier: 5 }).error, 'no_ball');
+  r = ch({ action: 'open', tier: 8 });
+  assert.equal(r.opened, 1);
+  assert.equal(r.tier.tier, 8);
+  assert.deepEqual(JSON.parse(user(1).ChestBalls), [1]);
+  assert.equal(user(1).KeyCount, 0);
+  assert.ok(r.dust >= 40, 'butin du coffre mystique');
+  assert.equal(ch({ action: 'open', tier: 1 }).error, 'no_key');
+  // Reglages : 8 nombres exiges.
+  assert.equal(call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ChestTierWeights: [1, 2] } } }).status, 400);
+  // Ancienne ouverture directe toujours possible.
+  store.update('Users', 1, { ChestCount: 1, KeyCount: 1 });
+  assert.equal(ch({ action: 'open' }).opened, 1);
+  store.update('Users', 1, { ChestBalls: '[]' });
+});
+
+await test('Moka le chat : poisson donne, peche passive creditee une fois, jamais de booster, plafonds', () => {
+  const cat = (action = 'status', count) => call('POST', 'cat', { body: { userId: 1, action, count } }).json;
+  store.update('Users', 1, { CatFish: 0, CatState: '', CatFedDay: '', CatFedCount: 0, Worms: 100, FishingEnergy: null, ShopItemsWeek: '', ShopItemsBought: '{}', StardustCount: 5000 });
+  assert.equal(cat('feed').error, 'no_cat_fish');
+  // Boite de sardines : 3 poissons.
+  call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'sardines' } });
+  assert.equal(user(1).CatFish, 3);
+  let r = cat('feed', 2);
+  assert.equal(r.fed, 2);
+  assert.equal(r.cat.fish, 1);
+  assert.ok(Math.abs(r.cat.secondsLeft - 2 * r.cat.minutesPerFish * 60) <= 2);
+  // Plafond de temps devant lui (240 min) : 2 x 30 + 7 x 30 > 240.
+  store.update('Users', 1, { CatFish: 20, CatFedCount: 0 });
+  assert.equal(cat('feed', 7).error, 'cat_max_time');
+  // Table forcee : que des boosters -> remplaces par des poussieres.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingLoot: [{ type: 'booster', weight: 1, min: 1, max: 1 }] } } });
+  const t = Math.floor(Date.now() / 1000);
+  store.update('Users', 1, { CatState: JSON.stringify({ start: t - 3600, until: t, done: 0 }), BoosterCount: 7, StardustCount: 0 });
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.catReport, null, 'statut simple : rien de credite');
+  const st = call('POST', 'fishing', { body: { userId: 1, action: 'status', settleCat: true } }).json;
+  assert.equal(st.catReport.casts, 6, '60 min / 10 min');
+  assert.equal(user(1).BoosterCount, 7, 'jamais de booster');
+  assert.ok(user(1).StardustCount >= 6 * 15);
+  assert.equal(st.catReport.done, true);
+  assert.equal(user(1).CatState, '');
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status', settleCat: true } }).json.catReport, null, 'credite une seule fois');
+  // Sortie en cours : credit partiel, la suite plus tard.
+  store.update('Users', 1, { CatState: JSON.stringify({ start: t - 1500, until: t + 1500, done: 0 }) });
+  r = cat();
+  assert.equal(r.catReport.casts, 2);
+  assert.equal(JSON.parse(user(1).CatState).done, 2);
+  assert.equal(cat().catReport, null);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
+  // Plafond du jour : 8 poissons.
+  store.update('Users', 1, { CatState: '', CatFedCount: 7, CatFish: 5 });
+  assert.equal(cat('feed', 2).error, 'cat_daily_limit');
+  assert.equal(cat('feed', 1).fed, 1);
+  store.update('Users', 1, { CatState: '', CatFish: 0, CatFedCount: 0 });
+});
+
+await test('aquarium : especes pechees, ferrage, records, paliers reclames une fois, thermos', () => {
+  store.update('Users', 1, { Aquarium: '', Worms: 500, StardustCount: 0, BoosterCount: 0, FishingEnergy: null, FishingEnergyAt: null });
+  // Le lancer renvoie le ferrage (aussi pour un lot) et la liste des especes.
+  const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', strike: 'perfect' } }).json;
+  assert.equal(r.strike, 'perfect');
+  assert.ok(Array.isArray(r.species));
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 2, strike: 'good' } }).json.strike, 'good');
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', strike: 'triche' } }).json.strike, null);
+  // Tirage force (Math.random() = 0) : toujours une espece, la premiere de la zone.
+  store.update('Users', 1, { Aquarium: '' });
+  const rnd = Math.random;
+  Math.random = () => 0;
+  let got;
+  try { got = catchSpecies(user(1), { count: 1, weatherKey: 'soleil', strike: 'perfect' }); } finally { Math.random = rnd; }
+  const f = got.items[0];
+  assert.deepEqual([f.key, f.first, f.record], ['gardon', true, false]);
+  assert.ok(f.dust > 0 && f.size >= 10);
+  store.update('Users', 1, got.fields);
+  const again = catchSpecies(user(1), { count: 40, weatherKey: 'soleil' });
+  assert.ok(again && again.items.every((x) => !(x.key === 'gardon' && x.first)), 'deja connu : plus « nouvelle espece »');
+  const aq = call('POST', 'aquarium', { body: { userId: 1 } }).json;
+  assert.equal(aq.found, 1);
+  assert.equal(aq.species.find((s) => s.key === 'gardon').count, 1);
+  assert.equal(aq.species.filter((s) => !s.found).every((s) => s.name === '???'), true, 'especes inconnues masquees');
+  assert.equal(call('POST', 'aquarium', { body: { userId: 1, action: 'claim' } }).json.error, 'nothing_to_claim');
+  // 12 especes connues : 2 paliers d'un coup, puis plus rien.
+  const fish = Object.fromEntries(['gardon', 'perche', 'carpe', 'ecrevisse', 'brochet', 'truite', 'anguille', 'grenouille', 'tortue', 'silure', 'lune', 'koi'].map((k) => [k, { count: 1, best: 10, first: 1 }]));
+  store.update('Users', 1, { Aquarium: JSON.stringify({ fish, claimed: [] }), StardustCount: 0, BoosterCount: 0 });
+  const c = call('POST', 'aquarium', { body: { userId: 1, action: 'claim' } }).json;
+  assert.deepEqual([c.claimed.dust, c.claimed.boosters], [300, 2]);
+  assert.deepEqual([user(1).StardustCount, user(1).BoosterCount], [300, 2]);
+  assert.equal(call('POST', 'aquarium', { body: { userId: 1, action: 'claim' } }).json.error, 'nothing_to_claim');
+  // Thermos du pecheur : recharge l'energie, refuse si deja pleine.
+  store.update('Users', 1, { StardustCount: 5000, FishingEnergy: 0, FishingEnergyAt: Math.floor(Date.now() / 1000), ShopItemsWeek: '', ShopItemsBought: '{}' });
+  assert.ok(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'thermos' } }).json.ok !== false);
+  const st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.energy, st.maxEnergy);
+  assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'thermos' } }).json.error, 'energy_full');
+  store.update('Users', 1, { Aquarium: '', FishingEnergy: null, FishingEnergyAt: null });
+});
+
+await test('arbre celeste : points des constellations allumees, voisinage, cout, supernova, bonus ajoutes aux talents, remise a zero', () => {
+  store.update('Users', 1, { SkyNodes: '[]', Talents: '{}', StardustCount: 5000 });
+  const sky = (action = 'status', key) => call('POST', 'sky-tree', { body: { userId: 1, action, key } }).json;
+  const start = sky();
+  const polaris = start.nodes.find((n) => n.key === 'polaris');
+  assert.equal(polaris.lit, true, 'Etoile polaire offerte');
+  assert.ok(Math.round(talentValueOf(user(1), 'patron') * 100) >= 0);
+  // Allume 3 constellations de plus : autant de points que de constellations
+  // nouvellement completes (des cartes partagees peuvent en completer d'autres).
+  const owned = new Set(store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1).map((p) => refIdOf(p.Card)));
+  const complete = () => skyConstellations(store).filter((c) => c.cardIds.every((id) => owned.has(id))).length;
+  const before = complete();
+  const todo = skyConstellations(store).filter((c) => !c.cardIds.every((id) => owned.has(id))).slice(0, 3);
+  todo.forEach((c) => c.cardIds.forEach((id) => { if (!owned.has(id)) { mk(1, id); owned.add(id); } }));
+  const st = sky();
+  assert.ok(complete() - before >= todo.length);
+  assert.equal(st.points, start.points + complete() - before);
+  // Non reliee : refusee ; reliee : allumee.
+  assert.equal(sky('light', 'vega').error, 'star_unreachable');
+  let r = sky('light', 'sirius');
+  assert.equal(r.litStar, 'sirius');
+  assert.equal(r.available, st.available - 1);
+  assert.equal(sky('light', 'sirius').error, 'already_lit');
+  // Bonus ajoute au talent Oeil de lynx (sans aucun rang appris).
+  assert.equal(Math.round(talentValueOf(user(1), 'lynx') * 1000), 5);
+  assert.equal(Math.round(talentValueOf(user(1), 'patron') * 100), 2, 'Etoile polaire : +2 % au decraft');
+  // Supernova : exige le bout des trois bras.
+  assert.equal(sky('light', 'supernova').error, 'star_unreachable');
+  // Plus de points : refus.
+  store.update('Users', 1, { SkyNodes: JSON.stringify(['sirius', 'vega', 'arcturus', 'procyon', 'pollux', 'capella']) });
+  const full = sky();
+  if (full.available < 2) assert.equal(sky('light', 'rigel').error, 'no_star_points');
+  // Remise a zero payante, points rendus.
+  r = sky('reset');
+  assert.equal(r.reset, true);
+  assert.equal(r.spent, 0);
+  assert.equal(user(1).StardustCount, 5000 - r.resetCost);
+  assert.equal(sky('reset').error, 'nothing_to_reset');
+  store.update('Users', 1, { SkyNodes: '[]' });
 });
 
 await test('equilibrage 30 boosters/jour : valeurs, migration unique, chien qui garde ses boosters, crane garanti au mode excite', () => {

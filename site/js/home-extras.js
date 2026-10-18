@@ -67,7 +67,7 @@
     const days = Math.max(0, Math.ceil((st.endsAt - Date.now() / 1000) / 86400));
     $("challenges-sub").innerHTML = st.picksLeft
       ? `Choisis encore <strong>${st.picksLeft}</strong> défi${st.picksLeft > 1 ? "s" : ""} parmi les ${st.offered.length} proposés. Fin dans ${days} j.`
-      : `Tes ${st.maxPicks || 3} défis de la semaine : fin dans ${days} j. Les ${st.maxPicks || 3} accomplis = +${st.bonus.boosters} booster${st.bonus.boosters > 1 ? "s" : ""} bonus${st.bonus.claimed ? " (reçu)" : ""}.${(st.maxPicks || 3) > 3 ? " Mode Chill : chaque défi rapporte aussi 2 fragments." : ""}`;
+      : `Tes ${st.maxPicks || 3} défis de la semaine : fin dans ${days} j. Les ${st.maxPicks || 3} accomplis = +${st.bonus.boosters} jeton${st.bonus.boosters > 1 ? "s" : ""} booster bonus${st.bonus.claimed ? " (reçu)" : ""}.${(st.maxPicks || 3) > 3 ? " Mode Chill : chaque défi rapporte aussi 2 fragments." : ""}`;
     $("challenges-list").innerHTML = st.offered.filter((c) => st.picksLeft || c.picked).map((c) => {
       const pct = Math.round((c.progress / c.target) * 100);
       return `<li class="challenge ${c.picked ? "picked" : ""} ${c.done ? "done" : ""} ${c.claimed ? "claimed" : ""}">
@@ -117,7 +117,7 @@
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       } catch (err) {
         // Deja recupere (ex. via "Tout recuperer") : message doux (API.BENIGN_ERRORS).
-        Toast.errorfriendlyError(err);
+        Toast.error(friendlyError(err));
       }
       btn.disabled = false;
       // Dans tous les cas, le panneau se remet a jour (bouton masque si plus rien).

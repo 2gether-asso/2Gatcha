@@ -99,6 +99,25 @@ import * as moderules from './moderules.js';
 import * as chaosvote from './chaosvote.js';
 import * as modefun from './modefun.js';
 import * as draft from './draft.js';
+import * as skytree from './skytree.js';
+import * as aquarium from './aquarium.js';
+import * as cat from './cat.js';
+import * as digdepth from './digdepth.js';
+import * as guildworks from './guildworks.js';
+import * as visuals from './visuals.js';
+import * as guildchest from './guildchest.js';
+import * as guessgame from './guessgame.js';
+import * as expedition2 from './expedition2.js';
+import * as testaccount from './testaccount.js';
+import * as starter from './starter.js';
+import * as museum from './museum.js';
+import * as seasonquests from './seasonquests.js';
+import * as story from './story.js';
+import * as surprise from './surprise.js';
+import * as patchnotes from './patchnotes.js';
+import * as timers from './timers.js';
+import * as ripen from './ripen.js';
+import { isTestUser } from './testuser.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
@@ -106,9 +125,9 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun];
+const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, starter, seasonquests, story];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
 moderules.useFeatures(features);
 // XP doublee pendant l'action du jour (daily.js).
@@ -131,8 +150,11 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   auth.init({ store });
   unique.init({ store });
   fishing.init({ store });
+  digdepth.init({ store });
   balance.init({ store });
   ledger.init({ store });
+  starter.init({ store });
+  presets.init({ store });
   Object.assign(currentContext(), { source: null, actor: null });
 
   // Contexte de la requete en cours (propre a chaque requete, voir
@@ -145,15 +167,22 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     if (name !== 'Users' || !fields) return rawUpdate(name, id, fields);
     const xpWrite = XP_FIELDS.some((f) => f in fields);
     if (!xpWrite && !('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return rawUpdate(name, id, fields);
+    // Outils du compte test admin (testaccount.js) : ecriture brute, sans
+    // bonus d'XP, journal, statistiques de l'economie ni succes.
+    if (currentContext().source === 'admin-test-account') return rawUpdate(name, id, fields);
     const before = store.get('Users', id);
     // XP doublee : action du jour (daily.js) et potion de savoir (shop.js).
     const boosted = xpWrite && before && (Number(before.XpBoostUntil) || 0) > Math.floor(Date.now() / 1000);
     const ctx = currentContext();
     const house = xpWrite && before && ctx.source && daily.isHouseSource(ctx.source);
-    if (house || boosted) {
+    // Evenement surprise « Double XP » (surprise.js) et bonus permanent du prestige (account-prestige.js).
+    const surge = xpWrite && before ? surprise.surpriseXpMult(store) : 1;
+    const stars = xpWrite && before ? Math.min(10, accountPrestige.prestigeStars(store, before)) : 0;
+    const prestigeMult = 1 + (stars * setting(store, 'AccountPrestigeXpPct')) / 100;
+    if (house || boosted || surge > 1 || prestigeMult > 1) {
       try {
         fields = { ...fields };
-        const mult = (house ? setting(store, 'HouseXpMultiplier') : 1) * (boosted ? 2 : 1);
+        const mult = (house ? setting(store, 'HouseXpMultiplier') : 1) * (boosted ? 2 : 1) * surge * prestigeMult;
         for (const f of XP_FIELDS) {
           if (!(f in fields)) continue;
           const delta = (Number(fields[f]) || 0) - (Number(before[f]) || 0);
@@ -174,8 +203,11 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     const row = rawUpdate(name, id, fields);
     if (!('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return row;
     try {
-      economy.record(store, ctx.source || 'inconnu', before, row);
-      ledger.log(store, ctx, before, row);
+      // Compte test admin : hors des statistiques de l'economie (inflation, journal).
+      if (!isTestUser(store, id)) {
+        economy.record(store, ctx.source || 'inconnu', before, row);
+        ledger.log(store, ctx, before, row);
+      }
       if ('StardustCount' in fields) ctx.notices.push(...achievements.onBalance(store, row));
     } catch (e) { console.error(e); captureError(e, { hook: 'ledger' }); }
     return row;
@@ -187,11 +219,15 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     const ctx = currentContext();
     try {
       const events = activity.eventsFrom(store, path, body, response);
-      ctx.notices.push(...activity.dispatch(store, SUBSCRIBERS, events));
+      // Compte test admin : pas de points d'equipe.
+      const subs = isTestUser(store, ctx.userId) ? SUBSCRIBERS.filter((m) => m !== teams) : SUBSCRIBERS;
+      ctx.notices.push(...activity.dispatch(store, subs, events));
     } catch (e) { console.error(e); captureError(e, { hook: 'activity:' + path }); }
     // Premiere fois qu'une ressource est obtenue (discoveries.js).
     if (ctx.userId && response && response.status === 200 && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
       try { const found = discoveries.check(store, ctx.userId); if (found) response.json.discoveries = found; } catch (e) { console.error(e); captureError(e, { hook: 'discoveries' }); }
+      // Musee : mineraux et objets eus au moins une fois (museum.js).
+      try { museum.note(store, ctx.userId); } catch (e) { console.error(e); captureError(e, { hook: 'museum' }); }
     }
     const mine = ctx.notices.filter((n) => n && n.userId === ctx.userId);
     if (mine.length && response && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
@@ -202,6 +238,11 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
 
   return {
     has: (method, path) => routes.has(`${method} ${path}`),
+    // Compte test admin retire des listes vues par les autres (pas pour un admin).
+    scrub(json, body = {}, query = {}) {
+      if (body.discordId || query.discordId) return json;
+      try { return testaccount.scrub(store, json, body.userId || query.userId); } catch (e) { console.error(e); return json; }
+    },
     // Authentification + limite de debit, avant toute execution. null = OK,
     // sinon { status, json, headers? } a renvoyer tel quel.
     gate({ token, ip, body = {}, query = {}, isWrite = false, rate = true }) {
@@ -231,7 +272,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      for (const m of [features, modeperks, pity, balance, comfort, rules, levels, market, modefun]) {
+      for (const m of [testaccount, features, starter, ripen, digdepth, modeperks, pity, balance, comfort, rules, levels, expedition2, market, modefun]) {
         try {
           const denied = m.beforeWorkflow({ store, path, request });
           if (denied) { market.restoreHidden(store, request); return denied; }
@@ -248,6 +289,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       // Fonctionnalite fermee dans le mode en cours (features.js) : ecriture refusee.
       const closed = features.gate(store, method, path, body);
       if (closed) return closed;
+      if (method === 'POST') { const iso = testaccount.denied(store, path, body) || starter.gate(store, method, path, body); if (iso) return iso; }
       const response = routes.get(`${method} ${path}`)({ store, body, query });
       if (method === 'POST') observe(path, body, response);
       return response;

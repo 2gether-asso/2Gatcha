@@ -23,7 +23,7 @@ export const RESOURCES = [
   { key: 'worm', icon: '🪱', name: 'Ver de terre', has: num('Worms'), riddle: 'Il se tortille, il gigote. Il ne paie pas de mine, mais ceux qui vivent sous l’eau ne voient pas les choses du même œil.' },
   { key: 'bait', icon: '🌼', name: 'Appât doré', has: num('GoldBait'), riddle: 'Il luit d’une lueur étrange. Ce qui mord à ça ne repart jamais les mains vides.' },
   { key: 'part', icon: '🔩', name: 'Pièce détachée', has: num('SpareParts'), riddle: 'Un rouage oublié. Glissé au bon endroit, il pourrait remplacer bien plus que lui-même.' },
-  { key: 'chest', icon: '🧰', name: 'Coffre', has: num('ChestCount'), riddle: 'Fermé à double tour. Ça cliquette quand on le secoue… Il faudrait de quoi l’ouvrir.' },
+  { key: 'chest', icon: '🪙', name: 'Pièce de gatchapon', has: num('ChestCount'), riddle: 'Une drôle de pièce frappée d’un kraken. Quelque part, une machine à boules n’attend qu’elle.' },
   { key: 'shard', icon: '💠', name: 'Éclat de booster', has: num('BoosterShards'), riddle: 'Un fragment scintillant. Seul, il ne vaut pas grand-chose. Mais rassemblés…' },
   { key: 'ticket', icon: '🎟️', name: 'Ticket de loterie', has: num('LotteryTickets'), riddle: 'Un bout de papier plein de promesses. Le dimanche dira s’il valait quelque chose.' },
   { key: 'uticket', icon: '🎫', name: 'Ticket de rattrapage', has: num('UniqueTickets'), riddle: 'Un ticket marqué d’un sceau rare. On dit qu’il ouvre la porte à ce qui n’existe qu’en un seul exemplaire.' },

@@ -60,7 +60,7 @@
       <div class="dino-info">
         <div class="dino-name"><strong>${esc(d.name)}</strong></div>
         <p class="dino-dead-text">Sans nourriture ni affection, ${esc(d.name)} n’a pas survécu. Il ne reste qu’un tas d’os.</p>
-        <button type="button" class="btn-secondary" data-dino-bury="${d.id}">🦴 Récupérer les os (+${st.hatchBones}) et libérer la place</button>
+        <button type="button" class="btn-secondary" data-dino-bury="${d.id}">${resIcon("bone")} Récupérer les os (+${st.hatchBones}) et libérer la place</button>
       </div>
     </article>`;
   }
@@ -156,17 +156,17 @@
     const used = st.dinos.length;
     const canHatch = st.skulls > 0 && st.bones >= st.hatchBones && used < st.max;
     const finds = st.dinos.reduce((s, d) => s + (d.finds || 0), 0);
-    $("dino-meta").innerHTML = `<span title="Crânes de dinosaure">💀 <strong>${st.skulls}</strong> crâne${st.skulls > 1 ? "s" : ""}</span>
-      <span title="Os (pêche, Milo le chien de fouille)">🦴 <strong>${st.bones}</strong> os</span>
+    $("dino-meta").innerHTML = `<span title="Crânes de dinosaure"><img class="ico-art" src="assets/CraneDeDino.png" alt="" /> <strong>${st.skulls}</strong> crâne${st.skulls > 1 ? "s" : ""}</span>
+      <span title="Os (pêche, Milo le chien de fouille)">${resIcon("bone")} <strong>${st.bones}</strong> os</span>
       <span title="Cacas ramassés : engrais pour le jardin">💩 <strong>${st.poop}</strong> engrais${st.goldPoop ? ` · <strong class="gold">${st.goldPoop}</strong> doré${st.goldPoop > 1 ? "s" : ""}` : ""}</span>
-      <span title="Nourriture pêchée">🐟 ${st.food.fish} · 🌿 ${st.food.seaweed} · 🦐 ${st.food.shrimp} · 🪱 ${st.food.worm}</span>
+      <span title="Nourriture pêchée">${resIcon("fish")} ${st.food.fish} · ${resIcon("seaweed")} ${st.food.seaweed} · ${resIcon("shrimp")} ${st.food.shrimp} · ${resIcon("worm")} ${st.food.worm}</span>
       <span>🦖 ${used} / ${st.max}</span>
       ${st.holiday ? '<span class="dino-holiday-note">🏖️ Vacances des dinos (mode Cool) : ni faim ni tristesse, et ils pondent deux fois plus vite.</span>' : ""}
       ${st.season && st.season.ptero ? `<span class="dino-season">${st.season.icon} ${esc(st.season.label)} : costumes, et le <strong>${esc(st.season.ptero)}</strong> peut éclore !</span>` : ""}`;
     const hatch = $("dino-hatch-btn");
     hatch.hidden = !st.skulls || used >= st.max;
     hatch.disabled = !canHatch;
-    hatch.innerHTML = `💀 Ramener un dino à la vie (1 crâne + ${st.hatchBones} os)`;
+    hatch.innerHTML = `<img class="ico-art" src="assets/CraneDeDino.png" alt="" /> Ramener un dino à la vie (1 crâne + ${st.hatchBones} os)`;
     const collect = $("dino-collect-btn");
     collect.hidden = !finds;
     collect.innerHTML = `⛏️ Récupérer les trouvailles de tes dinos (${finds})`;
@@ -175,7 +175,7 @@
     $("dino-eggs").innerHTML = eggsHtml(st);
     $("dino-list").innerHTML = st.dinos.length
       ? st.dinos.map((d) => card(d, st)).join("")
-      : `<div class="dino-empty"><span aria-hidden="true">💀</span><p>${st.skulls
+      : `<div class="dino-empty"><span aria-hidden="true"><img class="dino-empty-skull" src="assets/CraneDeDino.png" alt="" /></span><p>${st.skulls
         ? `Tu as un crâne de dinosaure ! Avec <strong>${st.hatchBones} os</strong> (pêche, ou achetés au chenil de la fouille), ramène-le à la vie.`
         : `Pas encore de dino. En creusant dans la <a href="jeux.html#fouille">fouille</a>, tu as une chance <strong>extrêmement rare</strong> de déterrer un <strong>crâne de dinosaure</strong>. Avec ${st.hatchBones} os en plus, il revient à la vie : couleur au hasard, 5 dinos au maximum.`}</p></div>`;
     $("dino-extra").innerHTML = shopHtml(st) + dexHtml(st);
@@ -239,7 +239,7 @@
         if (l.skulls && typeof confetti === "function") confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 } });
       }
       if (res.laid) Toast.success("🥚 Un œuf ! Il éclora dans 12 heures.");
-      if (res.buried) Toast.info(`🦴 Tu récupères ${res.buried.bones} os. Repose en paix, ${esc(res.buried.name)}…`);
+      if (res.buried) Toast.info(`${resIcon("bone")} Tu récupères ${res.buried.bones} os. Repose en paix, ${esc(res.buried.name)}…`);
       if (res.grown) { Toast.success(`🌟 Ton dino grandit : stade ${esc(res.grown.stage)} !`); if (res.grown.stage === "Adulte") Toast.info("⛏️ Adulte : il fouille maintenant pour toi quand il est content."); }
       if (res.bought) Toast.success("🛍️ Acheté !");
     } catch (e) {

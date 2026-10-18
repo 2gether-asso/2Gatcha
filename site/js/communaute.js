@@ -98,7 +98,8 @@ function setActiveTab(tab) {
   if (tab === "together") loadTogether();
   if (tab === "calendar") loadCalendar();
   if (tab === "boss") loadBoss();
-  if (tab === "chest") loadChest();
+  // Coffre de guilde v2 (2026-10-18) ; l'ancien ecran reste masque.
+  if (tab === "chest") { if (window.GuildChest) GuildChest.load(); else loadChest(); }
   if (tab === "market") loadMarket();
   if (tab === "skills") { loadSkills(); loadTourney(); }
   if (tab === "auctions" && typeof window.loadAuctions === "function") window.loadAuctions();
@@ -108,7 +109,6 @@ function setActiveTab(tab) {
 }
 
 // --- Ensemble : objectif commun + grande fouille (api/src/native) ---------
-const CDIG_ICON = { dust: "&#10024;", worms: "&#129713;", bait: "&#127907;", booster: "&#127873;", part: "&#128297;", grand: "&#128081;" };
 function renderGoal(g) {
   const box = document.getElementById("goal-card");
   const pct = Math.round((g.progress / Math.max(1, g.target)) * 100);
@@ -123,38 +123,12 @@ function renderGoal(g) {
     </div>
     ${g.top.length ? `<div class="goal-top">${g.top.map((t) => `<span>${skillsEscape(t.pseudo)} <strong>${t.n}</strong></span>`).join("")}</div>` : ""}`;
 }
-function renderCommunityDig(st) {
-  document.getElementById("cdig-meta").innerHTML = `Coups de pioche aujourd'hui : <strong>${st.digsLeft} / ${st.perDay}</strong> · trésors restants : ${st.treasuresLeft} · ${st.participants} participant${st.participants > 1 ? "s" : ""}${st.grand ? ` · &#128081; grand trésor trouvé par <strong>${skillsEscape(st.grand.by)}</strong> !` : ` · grand trésor : ${st.reward.dust} &#10024; + ${st.reward.boosters} booster pour chacun`}`;
-  document.getElementById("cdig-board").innerHTML = st.tiles.map((t, i) => t.dug
-    ? `<span class="cdig-tile dug ${t.reward ? "found reward-" + t.reward : ""}" title="${t.by ? "Creusé par " + skillsEscape(t.by) : ""}">${t.reward ? CDIG_ICON[t.reward] || "" : ""}</span>`
-    : `<button type="button" class="cdig-tile" data-cdig="${i}" ${st.digsLeft ? "" : "disabled"} aria-label="Creuser la case ${i + 1}"></button>`).join("");
-  document.getElementById("cdig-top").innerHTML = st.top.map((t) => `<li>${skillsEscape(t.pseudo)} <strong>${t.n}</strong></li>`).join("") || "<li>Personne pour l'instant.</li>";
-  document.getElementById("cdig-log").innerHTML = st.log.map((l) => `<li><strong>${skillsEscape(l.pseudo)}</strong> a trouvé ${skillsEscape(l.label)}</li>`).join("") || "<li>Aucune trouvaille pour l'instant.</li>";
-}
 async function loadTogether() {
   if (!Session.isLoggedIn()) return;
   API.communityGoal(Session.userId).then(renderGoal).catch(() => { document.getElementById("goal-card").innerHTML = ""; });
-  API.communityDig(Session.userId).then(renderCommunityDig).catch(() => { document.getElementById("cdig-meta").textContent = "Impossible de charger la grande fouille."; });
+  // Grand Chantier (2026-10-18) a la place de la grande fouille.
+  if (window.GuildWorks) GuildWorks.load();
 }
-async function digCommunity(tile, btn) {
-  btn.disabled = true;
-  try {
-    const res = await API.communityDig(Session.userId, "dig", tile);
-    renderCommunityDig(res);
-    if (res.found) {
-      if (res.found.kind === "grand") {
-        Toast.success(`&#128081; GRAND TRÉSOR ! Les ${res.found.shared.participants} participants reçoivent ${res.found.shared.dust} &#10024; et ${res.found.shared.boosters} booster (et toi un de plus) !`);
-        if (typeof confetti === "function") confetti({ particleCount: 250, spread: 150, origin: { y: 0.5 } });
-      } else Toast.success(`${CDIG_ICON[res.found.kind] || ""} Tu as trouvé ${res.found.label} !`);
-      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-    }
-  } catch (e) {
-    btn.disabled = false;
-    Toast.error({ no_digs_left: "Plus de coups de pioche aujourd'hui : reviens demain !", tile_already_dug: "Quelqu'un vient de creuser ici." }[e.code] || friendlyError(e));
-    loadTogether();
-  }
-}
-
 // --- Tournoi de peche du week-end (Metiers) -------------------------------
 async function loadTourney() {
   const box = document.getElementById("tourney-card");
@@ -673,7 +647,7 @@ function renderChestKeyPool(res) {
         <div class="card-info">
           <div class="card-name">${p.name}</div>
           <div class="owned-count">${p.rarity?.name || ""}${p.serialNumber != null ? " · #" + String(p.serialNumber).padStart(3, "0") : ""}</div>
-          <button type="button" class="btn-secondary chest-key-pick-btn" data-deposit-id="${p.depositId}">Prendre (&minus;1 &#128273;)</button>
+          <button type="button" class="btn-secondary chest-key-pick-btn" data-deposit-id="${p.depositId}"><span>Prendre (&minus;1 ${resIcon("key")})</span></button>
         </div>
       </div>
     `;
@@ -725,6 +699,7 @@ async function loadMarket() {
     return;
   }
   document.getElementById("market-zone").style.display = "block";
+  if (window.MineralCounter) MineralCounter.load();
   const loading = document.getElementById("market-loading");
   const grid = document.getElementById("market-grid");
   try {
@@ -797,11 +772,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-board-btn").addEventListener("click", () => setActiveTab("board"));
   document.getElementById("tab-teams-btn").addEventListener("click", () => setActiveTab("teams"));
   window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
-  document.getElementById("cdig-board").addEventListener("click", (e) => { const b = e.target.closest("[data-cdig]"); if (b) digCommunity(Number(b.dataset.cdig), b); });
   document.getElementById("goal-card").addEventListener("click", async (e) => {
     if (!e.target.closest("#goal-claim-btn")) return;
     try { const res = await API.communityGoal(Session.userId, "claim"); renderGoal(res); Toast.success(`&#129309; +${res.claimedNow.dust} poussières et +${res.claimedNow.worms} vers !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); }
-    catch (err) { Toast.errorfriendlyError(err); }
+    catch (err) { Toast.error(friendlyError(err)); }
   });
 
   let bossSearchTimer = null;

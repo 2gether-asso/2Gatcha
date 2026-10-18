@@ -517,11 +517,13 @@ async function loadLevelRewardsAdmin() {
 // registre du serveur, groupe par theme.
 let settingsCache = [];
 const settingsEscape = escHtml;
+// Editeurs en tableaux des reglages JSON (js/json-table.js), par cle.
+const settingsJson = {};
 
 function settingInput(s) {
   const id = "setting-" + s.key;
   if (s.type === "bool") return `<label class="checkbox-inline"><input type="checkbox" id="${id}" data-setting="${s.key}" ${s.value ? "checked" : ""} /> activé</label>`;
-  if (s.type === "json") return `<textarea id="${id}" data-setting="${s.key}" spellcheck="false">${settingsEscape(JSON.stringify(s.value, null, 2))}</textarea>`;
+  if (s.type === "json") return `<div id="${id}" class="json-setting" data-setting="${s.key}"></div>`;
   return `<input type="number" id="${id}" data-setting="${s.key}" value="${s.value}" ${s.min != null ? `min="${s.min}"` : ""} ${s.max != null ? `max="${s.max}"` : ""} step="${s.step || "any"}" />`;
 }
 
@@ -545,6 +547,12 @@ function renderSettings(list) {
     </div>`).join("") + `
     <div class="settings-errors" id="settings-errors"></div>
     <div class="settings-actions"><button type="button" class="btn" id="settings-save-btn">Enregistrer les modifications</button></div>`;
+  // Reglages JSON : tableaux editables (JSON brut en secours).
+  list.filter((s) => s.type === "json").forEach((s) => {
+    const el = document.getElementById("setting-" + s.key);
+    if (el && typeof JsonTable !== "undefined") settingsJson[s.key] = JsonTable.mount(el, s.value, s.def);
+    else if (el) el.innerHTML = `<textarea data-raw spellcheck="false">${settingsEscape(JSON.stringify(s.value, null, 2))}</textarea>`;
+  });
 }
 
 async function loadSettings() {
@@ -561,7 +569,10 @@ async function saveSettings() {
     if (!s) return;
     let v;
     if (s.type === "bool") v = el.checked;
-    else if (s.type === "json") { try { v = JSON.parse(el.value); } catch (e) { errors.push(`${s.label} : JSON invalide`); return; } }
+    else if (s.type === "json") {
+      try { v = settingsJson[s.key] ? settingsJson[s.key].get() : JSON.parse(el.querySelector("[data-raw]").value); }
+      catch (e) { errors.push(`${s.label} : ${e.message || "JSON invalide"}`); return; }
+    }
     else v = Number(el.value);
     if (JSON.stringify(v) !== JSON.stringify(s.value)) values[s.key] = v;
   });
@@ -941,7 +952,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const reset = e.target.closest("[data-reset-setting]");
       if (reset) {
         try { renderSettings((await API.adminResetSetting(Session.discordId, reset.dataset.resetSetting)).settings); Toast.info("Valeur par défaut rétablie."); }
-        catch (err) { Toast.errorfriendlyError(err); }
+        catch (err) { Toast.error(friendlyError(err)); }
       }
     });
     document.getElementById("season-admin-zone").addEventListener("click", async (e) => {
@@ -950,7 +961,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const season = btn.dataset.seasonSave;
       const cardId = Number(document.querySelector(`[data-season-card="${season}"]`).value) || 0;
       try { await loadSeasonAdmin(await API.adminSetSeasonCard(Session.discordId, season, cardId)); Toast.success("Carte de saison enregistrée."); }
-      catch (err) { Toast.errorfriendlyError(err); }
+      catch (err) { Toast.error(friendlyError(err)); }
     });
     document.getElementById("event-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -968,11 +979,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         renderEventAdmin(ev);
         Toast.success("Événement lancé !");
-      } catch (err) { Toast.errorfriendlyError(err); }
+      } catch (err) { Toast.error(friendlyError(err)); }
     });
     document.getElementById("event-stop-btn").addEventListener("click", async () => {
       if (!(await Confirm.show("Arrêter l'événement en cours maintenant ?", { title: "Arrêter l'événement", confirmText: "Arrêter", dangerous: true }))) return;
-      try { renderEventAdmin(await API.adminSetEvent(Session.discordId, { active: false })); Toast.info("Événement arrêté."); } catch (err) { Toast.errorfriendlyError(err); }
+      try { renderEventAdmin(await API.adminSetEvent(Session.discordId, { active: false })); Toast.info("Événement arrêté."); } catch (err) { Toast.error(friendlyError(err)); }
     });
     populateMarketCardSelect();
     updateMarketCardPreview();

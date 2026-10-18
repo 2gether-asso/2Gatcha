@@ -144,7 +144,7 @@
       body = `<p>Salon de <strong>${esc(cur.hostPseudo)}</strong> : ${cur.players.map((p) => esc(p.pseudo)).join(", ")} (${cur.players.length} / ${cur.max}).</p>
         <div class="md-form">${cur.host === Number(Session.userId) ? `<button type="button" class="btn" data-draft="start" data-id="${cur.id}" ${cur.players.length < 2 ? "disabled" : ""}>Lancer le draft</button>` : ""}<button type="button" class="btn-ghost" data-draft="leave" data-id="${cur.id}">${cur.host === Number(Session.userId) ? "Annuler (boosters rendus)" : "Quitter (booster rendu)"}</button></div>`;
     } else if (d.active) {
-      body = `<p>Mise <strong>1 booster</strong> pour rejoindre un draft (2 à 4 joueurs) : 5 cartes par booster misé sont étalées au centre et chacun pioche à son tour. Tu as ${d.boosters} booster${d.boosters > 1 ? "s" : ""}.</p>
+      body = `<p>Mise <strong>1 booster</strong> pour rejoindre un draft (2 à 4 joueurs) : 5 cartes par booster misé sont étalées au centre et chacun pioche à son tour. Tu as ${d.boosters} jeton${d.boosters > 1 ? "s" : ""} booster.</p>
         ${d.lobbies.length ? `<ul class="md-list">${d.lobbies.map((l) => `<li>Salon de <strong>${esc(l.hostPseudo)}</strong> · ${l.players.length} / ${l.max} <button type="button" class="btn-secondary" data-draft="join" data-id="${l.id}">Rejoindre</button></li>`).join("")}</ul>` : `<p class="muted">Aucun salon ouvert.</p>`}
         <button type="button" class="btn" data-draft="create">Ouvrir un salon</button>`;
     } else return "";

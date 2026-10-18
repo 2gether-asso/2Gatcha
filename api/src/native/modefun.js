@@ -145,7 +145,7 @@ function gardenWater(store, user) {
       const dust = Math.min(300, 25 * n(w)), boosters = n(w) >= 3 ? 1 : 0;
       store.update('Users', u.id, { StardustCount: n(u.StardustCount) + dust, BoosterCount: n(u.BoosterCount) + boosters });
       shares.push({ userId: u.id, dust, boosters });
-      if (u.id !== user.id) inbox(store, u.id, '🌻', `Le jardin partagé a fleuri : +${dust} poussières${boosters ? ' et 1 booster' : ''} pour tes ${w} arrosage${w > 1 ? 's' : ''}.`);
+      if (u.id !== user.id) inbox(store, u.id, '🌻', `Le jardin partagé a fleuri : +${dust} poussières${boosters ? ' et 1 jeton booster' : ''} pour tes ${w} arrosage${w > 1 ? 's' : ''}.`);
     }
     harvest = { at: now(), gardeners: shares.length, mine: shares.find((s) => s.userId === user.id) || null };
     addFeed(store, { kind: 'garden', icon: '🌻', text: `Le jardin partagé a fleuri grâce à ${shares.length} jardinier${shares.length > 1 ? 's' : ''} : récolte partagée !` });
@@ -210,7 +210,7 @@ function questView(store, user) {
   const step = plan.steps[q.step] || null;
   return {
     week: q.week, title: plan.title, stepIndex: q.step, total: plan.steps.length, done: !!q.done,
-    step: step && !q.done ? { text: step.text, target: step.target, progress: Math.min(step.target, n(q.progress)), ready: n(q.progress) >= step.target, reward: q.step === plan.steps.length - 1 ? '2 boosters + titre « Aventurier »' : '120 poussières' } : null,
+    step: step && !q.done ? { text: step.text, target: step.target, progress: Math.min(step.target, n(q.progress)), ready: n(q.progress) >= step.target, reward: q.step === plan.steps.length - 1 ? '2 jetons booster + titre « Aventurier »' : '120 poussières' } : null,
     steps: plan.steps.map((s, i) => ({ text: s.text, state: q.done || i < q.step ? 'done' : i === q.step ? 'current' : 'locked' }))
   };
 }
@@ -533,7 +533,7 @@ export function afterWorkflow({ store, path, request, response }) {
   if (path === 'booster-status' || path === 'collection') {
     const notes = sweepUser(store, user.id);
     const iron = ironmanSettle(store, store.get('Users', user.id));
-    if (iron) notes.push({ icon: '🛡️', text: `Serment Ironman tenu : +${iron.boosters} boosters, titre « ${iron.title} » et ${iron.frame} !` });
+    if (iron) notes.push({ icon: '🛡️', text: `Serment Ironman tenu : +${iron.boosters} jetons booster, titre « ${iron.title} » et ${iron.frame} !` });
     if (path === 'booster-status') notes.push(...popInbox(store, store.get('Users', user.id)));
     if (notes.length) json.modeNotes = notes;
     if (path === 'collection') {

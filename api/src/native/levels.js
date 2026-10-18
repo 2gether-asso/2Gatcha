@@ -9,7 +9,7 @@
 //   - +10 % de poussieres trouvees par niveau au-dessus du 1 ;
 //   - chenil : le chien creuse 5 % plus vite et a +3 points de flair par
 //     niveau (lus par dig.json).
-// Peche : voir fishing.js (XP par lancer, lancers en plus, meilleures prises).
+// Peche : voir fishing.js (XP par lancer, energie en plus, meilleures prises).
 //
 // Classement des metiers (page Communaute) : XP gagnee dans la semaine (lundi
 // heure de Paris), meilleurs pecheurs et fouilleurs.

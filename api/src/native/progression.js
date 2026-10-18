@@ -235,6 +235,12 @@ function constellationState(store, user) {
   };
 }
 
+// Points de l'arbre celeste (skytree.js) : constellations allumees ou deja recuperees.
+export function litConstellations(store, user) {
+  const st = constellationState(store, user);
+  return st.stars.filter((s) => s.lit || s.claimed).length;
+}
+
 function handleConstellations({ store, body }) {
   const user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
@@ -281,16 +287,19 @@ function handleCardPrestige({ store, body }) {
 }
 
 // --- maitrises de succes (paliers I, II, III) ------------------------------
+// Paliers recales le 2026-10-17 sur l'economie actuelle (~40 boosters par jour
+// et par joueur actif) : le III reste un objectif de plusieurs mois. Les
+// paliers deja recuperes restent acquis.
 const TIER_FAMILIES = [
-  { key: 'collector', label: 'Collectionneur', icon: '📚', title: 'Grand collectionneur', unit: 'cartes différentes', targets: [25, 75, 150] },
-  { key: 'puller', label: 'Ouvreur de boosters', icon: '🎴', title: 'Déchireur de boosters', unit: 'cartes tirées', targets: [250, 1000, 5000] },
+  { key: 'collector', label: 'Collectionneur', icon: '📚', title: 'Grand collectionneur', unit: 'cartes différentes', targets: [50, 150, 300] },
+  { key: 'puller', label: 'Ouvreur de boosters', icon: '🎴', title: 'Déchireur de boosters', unit: 'cartes tirées', targets: [1000, 10000, 50000] },
   { key: 'legends', label: 'Chasseur de légendes', icon: '🌟', title: 'Seigneur des légendes', unit: 'légendaires ou mythiques différentes', targets: [5, 15, 40] },
   { key: 'trader', label: 'Négociant', icon: '🤝', title: 'Magnat de 2gether', unit: 'échanges conclus', targets: [10, 50, 150] },
-  { key: 'artisan', label: 'Artisan', icon: '⚒️', title: 'Maître forgeron', unit: 'crafts, fusions et restaurations', targets: [10, 60, 250] },
-  { key: 'recycler', label: 'Recycleur', icon: '♻️', title: 'Alchimiste des étoiles', unit: 'cartes décraftées', targets: [50, 300, 1500] },
-  { key: 'fisher', label: 'Pêcheur', icon: '🎣', title: 'Seigneur des océans', unit: 'lancers', targets: [100, 500, 2000] },
-  { key: 'digger', label: 'Fouilleur', icon: '⛏️', title: 'Roi des taupes', unit: 'grilles terminées', targets: [25, 100, 400] },
-  { key: 'gardener', label: 'Jardinier', icon: '🌻', title: 'Druide', unit: 'récoltes', targets: [20, 100, 400] },
+  { key: 'artisan', label: 'Artisan', icon: '⚒️', title: 'Maître forgeron', unit: 'crafts, fusions et restaurations', targets: [25, 150, 600] },
+  { key: 'recycler', label: 'Recycleur', icon: '♻️', title: 'Alchimiste des étoiles', unit: 'cartes décraftées', targets: [200, 2000, 10000] },
+  { key: 'fisher', label: 'Pêcheur', icon: '🎣', title: 'Seigneur des océans', unit: 'lancers', targets: [200, 1500, 6000] },
+  { key: 'digger', label: 'Fouilleur', icon: '⛏️', title: 'Roi des taupes', unit: 'grilles terminées', targets: [50, 300, 1200] },
+  { key: 'gardener', label: 'Jardinier', icon: '🌻', title: 'Druide', unit: 'récoltes', targets: [30, 200, 800] },
   { key: 'explorer', label: 'Explorateur', icon: '🧭', title: 'Grand aventurier', unit: 'expéditions', targets: [10, 50, 200] },
   { key: 'slayer', label: 'Pourfendeur', icon: '🗡️', title: 'Fléau des boss', unit: 'cartes envoyées aux boss', targets: [50, 250, 1000] }
 ];

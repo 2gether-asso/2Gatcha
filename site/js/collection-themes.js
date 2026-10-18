@@ -40,7 +40,7 @@
         Toast.success(`&#127912; Collection terminée : +${res.dust} poussières et le titre « ${res.claimedNow.map((c) => c.title).join(", ")} » !`);
         if (typeof confetti === "function") confetti({ particleCount: 140, spread: 100, origin: { y: 0.5 } });
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { btn.disabled = false; Toast.errorfriendlyError(err); }
+      } catch (err) { btn.disabled = false; Toast.error(friendlyError(err)); }
     });
   });
 })();

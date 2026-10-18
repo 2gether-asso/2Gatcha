@@ -8,6 +8,67 @@
   const KIND = { bonus: { label: "Bonus", cls: "bonus" }, malus: { label: "Malus", cls: "malus" }, extra: { label: "Exclusivité", cls: "extra" } };
   let state = null;
   let open = null; // mode deplie
+  // Valeurs par difficulte (api/src/native/presets.js, 2026-10-18) : chaque
+  // reglage du mode est modifiable, on peut en ajouter ou en retirer.
+  let ov = null;
+  const ovMode = (key) => (ov ? ov.modes.find((m) => m.key === key) : null);
+  function valueInput(v, mode) {
+    const attrs = `data-ov-mode="${mode}" data-ov-key="${v.key}"`;
+    if (v.type === "bool") return `<input type="checkbox" ${attrs} ${v.value ? "checked" : ""} />`;
+    if (v.type === "json") return `<button type="button" class="btn-ghost" data-ov-json ${attrs}>Modifier le tableau</button>`;
+    return `<input type="number" class="amr-num" ${attrs} value="${v.value}" step="${v.step || "any"}" ${v.min != null ? `min="${v.min}"` : ""} ${v.max != null ? `max="${v.max}"` : ""} />`;
+  }
+  function presetsBlock(m) {
+    const o = ovMode(m.key);
+    if (!o) return `<div class="table-scroll"><table class="admin-table amr-presets"><tbody>${m.presets.map((p) => `<tr><td>${esc(p.label)}</td><td class="num">${fmtVal(p.value)}</td></tr>`).join("")}</tbody></table></div>`;
+    const inMode = new Set(o.values.map((v) => v.key));
+    const groups = {};
+    ov.available.filter((a) => !inMode.has(a.key)).forEach((a) => { (groups[a.group] = groups[a.group] || []).push(a); });
+    return `
+      <div class="table-scroll"><table class="admin-table amr-presets amr-ov"><tbody>${o.values.map((v) => `
+        <tr class="${v.changed ? "is-changed" : ""}">
+          <td>${esc(v.label)}${v.changed ? ' <span class="amr-new">modifié</span>' : ""}${!v.inBase ? ' <span class="amr-kind amr-kind-extra">ajouté</span>' : ""}<small class="muted"> · ${esc(v.group)}</small></td>
+          <td class="num">${valueInput(v, m.key)}</td>
+          <td class="amr-ov-actions">${v.changed && v.inBase ? `<button type="button" class="jt-mini" data-ov-reset data-ov-mode="${m.key}" data-ov-key="${v.key}" title="Valeur d'origine (${esc(String(fmtVal(v.base)))})">&#8634;</button>` : ""}<button type="button" class="jt-mini" data-ov-drop data-ov-mode="${m.key}" data-ov-key="${v.key}" title="Ce mode ne touche plus à ce réglage">&times;</button></td>
+        </tr>`).join("")}</tbody></table></div>
+      ${o.dropped.length ? `<p class="muted amr-dropped">Retirés de ce mode : ${o.dropped.map((d) => `<button type="button" class="amr-chip" data-ov-reset data-ov-mode="${m.key}" data-ov-key="${d.key}" title="Remettre">${esc(d.label)} &#8634;</button>`).join(" ")}</p>` : ""}
+      <div class="amr-ov-add">
+        <select data-ov-add-select="${m.key}"><option value="">Ajouter un réglage à ce mode…</option>${Object.entries(groups).map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((a) => `<option value="${a.key}">${esc(a.label)}</option>`).join("")}</optgroup>`).join("")}</select>
+        <button type="button" class="btn-ghost" data-ov-add="${m.key}">Ajouter</button>
+      </div>`;
+  }
+  async function ovCall(body, okMsg) {
+    try {
+      ov = await API.post("adminPreset", { discordId: Session.discordId, ...body });
+      render();
+      if (okMsg) Toast.success(okMsg + (ov.appliedLive ? " Appliqué tout de suite (mode en cours)." : ""));
+      return true;
+    } catch (err) {
+      Toast.error((err.data && err.data.errors && err.data.errors.join(" · ")) || friendlyError(err));
+      return false;
+    }
+  }
+  // Reglage JSON du mode : tableau dans une fenetre.
+  function editJson(mode, key) {
+    const o = ovMode(mode);
+    const v = o && o.values.find((x) => x.key === key);
+    if (!v) return;
+    const overlay = document.createElement("div");
+    overlay.className = "ta-modal";
+    overlay.innerHTML = `<div class="ta-modal-box" role="dialog" aria-label="${esc(v.label)}"><button type="button" class="ta-close" aria-label="Fermer">&times;</button>
+      <h3>${esc(o.label)} : ${esc(v.label)}</h3><div class="amr-json"></div>
+      <div class="ta-actions"><button type="button" class="btn" data-save>Enregistrer pour ${esc(o.label)}</button></div></div>`;
+    document.body.appendChild(overlay);
+    const editor = JsonTable.mount(overlay.querySelector(".amr-json"), v.value, v.base);
+    const close = () => overlay.remove();
+    overlay.querySelector(".ta-close").addEventListener("click", close);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector("[data-save]").addEventListener("click", async () => {
+      let value;
+      try { value = editor.get(); } catch (err) { Toast.error(err.message); return; }
+      if (await ovCall({ action: "override-set", mode, key, value }, `${v.label} enregistré pour ${o.label}.`)) close();
+    });
+  }
 
   const fmtVal = (v) => (typeof v === "number" ? (v > 0 && v < 1 ? Math.round(v * 100) + " %" : v.toLocaleString("fr-FR")) : v === true ? "oui" : v === false ? "non" : esc(String(v)));
 
@@ -48,9 +109,9 @@
           <ul class="amr-rules">${m.rules.map(ruleRow).join("")}</ul>
           <div class="amr-extra">
             <details>
-              <summary>&#128290; Réglages chiffrés du mode (${m.presets.length})</summary>
-              <div class="table-scroll"><table class="admin-table amr-presets"><tbody>${m.presets.map((p) => `<tr><td>${esc(p.label)}</td><td class="num">${fmtVal(p.value)}</td></tr>`).join("")}</tbody></table></div>
-              <p class="muted">Appliqués d'un coup quand on passe dans ce mode (Économie &rarr; Mode de jeu).</p>
+              <summary>&#128290; Réglages chiffrés du mode (${ovMode(m.key) ? ovMode(m.key).values.length : m.presets.length})</summary>
+              ${presetsBlock(m)}
+              <p class="muted">Appliqués d'un coup quand on passe dans ce mode. N'importe quel réglage peut avoir sa valeur pour ce mode ; si c'est le mode en cours, une modification s'applique tout de suite.</p>
             </details>
             <div class="amr-closed">
               <strong>&#128683; Fermé dans ce mode :</strong>
@@ -92,13 +153,36 @@
   document.addEventListener("DOMContentLoaded", () => {
     const box = document.getElementById("modes-admin-zone");
     if (!box) return;
-    const load = () => call("status");
+    const load = () => { call("status"); ovCall({ action: "overrides" }); };
     if (typeof AdminNav !== "undefined" && AdminNav.onFirstShow) AdminNav.onFirstShow("modes", load); else load();
     box.addEventListener("change", (e) => {
       const cb = e.target.closest("[data-rule]");
       if (cb) call("set", { key: cb.dataset.rule, on: cb.checked }, cb.checked ? "Règle activée." : "Règle désactivée.");
+      const inp = e.target.closest("input[data-ov-key]");
+      if (inp) {
+        const value = inp.type === "checkbox" ? inp.checked : Number(inp.value);
+        if (inp.type !== "checkbox" && !Number.isFinite(value)) { Toast.error("Nombre attendu."); return; }
+        open = inp.dataset.ovMode;
+        ovCall({ action: "override-set", mode: inp.dataset.ovMode, key: inp.dataset.ovKey, value }, "Valeur du mode enregistrée.");
+      }
     });
     box.addEventListener("click", async (e) => {
+      const ovb = e.target.closest("[data-ov-json],[data-ov-reset],[data-ov-drop],[data-ov-add]");
+      if (ovb) {
+        if (ovb.dataset.ovAdd) {
+          const sel = box.querySelector(`[data-ov-add-select="${ovb.dataset.ovAdd}"]`);
+          const a = ov.available.find((x) => x.key === sel.value);
+          if (!a) { Toast.info("Choisis d'abord un réglage."); return; }
+          open = ovb.dataset.ovAdd;
+          ovCall({ action: "override-set", mode: ovb.dataset.ovAdd, key: a.key, value: a.value }, `${a.label} ajouté au mode (valeur actuelle, à ajuster).`);
+          return;
+        }
+        const mode = ovb.dataset.ovMode, key = ovb.dataset.ovKey;
+        open = mode;
+        if (ovb.hasAttribute("data-ov-json")) return editJson(mode, key);
+        if (ovb.hasAttribute("data-ov-reset")) return ovCall({ action: "override-reset", mode, key }, "Valeur d'origine rétablie.");
+        if (ovb.hasAttribute("data-ov-drop")) return ovCall({ action: "override-set", mode, key, value: null }, "Ce mode ne touche plus à ce réglage.");
+      }
       const t = e.target.closest("[data-open],[data-bulk],[data-apply],#amr-reset,[data-goto]");
       if (!t) return;
       if (t.dataset.open) { open = open === t.dataset.open ? null : t.dataset.open; render(); return; }
@@ -122,6 +206,7 @@
           await API.adminPreset(Session.discordId, "apply", { preset: m.key, announce: true });
           open = m.key;
           await call("status", {}, `Mode ${m.label} appliqué.`);
+          ovCall({ action: "overrides" });
         } catch (err) { Toast.error(friendlyError(err)); }
       }
     });

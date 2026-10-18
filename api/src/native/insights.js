@@ -17,6 +17,8 @@ import { rankOf, rankFor, collectionValues, valueMaps, pullValue, counts } from 
 import { talentRanks, TALENTS } from './talents.js';
 import { growSeconds, PLOTS, seedMult } from './garden.js';
 import { nudgeOff } from './features.js';
+import { lockedFor } from './starter.js';
+import { prestigeStars } from './account-prestige.js';
 import { dinoAlerts, starDinoOf } from './dino.js';
 
 export const schema = { Users: { PullStats: { type: 'Text' }, DustLedger: { type: 'Text' } } };
@@ -56,9 +58,9 @@ function whatNow(store, user) {
   const dig = digEnergy(store, user);
   if (dig.energy >= dig.max) add(76, 'dig', '⛏️', `Énergie de fouille pleine (${dig.max}/${dig.max})`, 'jeux.html#fouille');
   else if (dig.energy > 0) add(40, 'dig-some', '⛏️', `${dig.energy} coup${dig.energy > 1 ? 's' : ''} de pelle disponible${dig.energy > 1 ? 's' : ''}`, 'jeux.html#fouille');
-  if ((Number(user.ChestCount) || 0) > 0 && (Number(user.KeyCount) || 0) > 0) add(72, 'chest', '🧰', 'Tu as un coffre et une clé : ouvre-le !', 'ouverture.html');
+  if ((Number(user.ChestCount) || 0) > 0) add(72, 'chest', '🪙', 'Tu as une pièce de gatchapon : fais tomber une boule !', 'ouverture.html');
   const boosters = Number(user.BoosterCount) || 0;
-  if (boosters > 0) add(lucky.active ? 97 : 70, 'boosters', '🎴', `${boosters} booster${boosters > 1 ? 's' : ''} à ouvrir`, 'ouverture.html');
+  if (boosters > 0) add(lucky.active ? 97 : 70, 'boosters', '🎴', `${boosters} jeton${boosters > 1 ? 's' : ''} booster à utiliser`, 'ouverture.html');
   if (store.tables.has('Auctions') && store.getAll('Auctions').some((a) => a.Status === 'open' && refId(a.OutbidUser) === user.id && (a.OutbidAt || 0) > t - 86400 && refId(a.Bidder) !== user.id)) add(69, 'outbid', '🔨', 'On a surenchéri sur toi aux enchères', 'communaute.html#encheres');
   if (parisHour() >= EVENING_START) {
     const progress = user.EveningDay === today ? parse(user.EveningProgress, {}) : {};
@@ -79,7 +81,10 @@ function whatNow(store, user) {
   const house = houseOf();
   add(50, 'house', house.icon, `Action du jour : ${house.label} (XP ×${setting(store, 'HouseXpMultiplier')})`, house.url);
   // Rien vers une fonctionnalite fermee dans le mode en cours (features.js).
-  return items.filter((i) => !nudgeOff(store, i)).sort((a, b) => b.priority - a.priority);
+  // Ni vers une fonctionnalite pas encore debloquee (nouveaux comptes, starter.js).
+  const locked = lockedFor(store, user).map((l) => l.feature);
+  const lockedNudge = (i) => locked.some((f) => (f.nudges || []).includes(i.key) || (f.urls || []).some((u) => String(i.url || '').startsWith(u)));
+  return items.filter((i) => !nudgeOff(store, i) && !lockedNudge(i)).sort((a, b) => b.priority - a.priority);
 }
 
 function handleWhatNow({ store, query }) {
@@ -149,7 +154,7 @@ function handlePlayerCard({ store, query }) {
   const showcase = store.tables.has('ProfileShowcase') ? store.getAll('ProfileShowcase').filter((r) => refId(r.User) === user.id).sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0)).slice(0, 6)
     .map((r) => store.get('Cards', refId(r.Card))).filter(Boolean).map((c) => cardSummary(store, c)) : [];
   return ok({
-    pseudo: user.Pseudo, avatar: user.DiscordAvatar || null, discordId: user.DiscordId || null, level: levelForXp(user.XP),
+    pseudo: user.Pseudo, avatar: user.DiscordAvatar || null, discordId: user.DiscordId || null, level: levelForXp(user.XP), prestigeStars: prestigeStars(store, user),
     rank: rankOf(store, user), decor: decorations(store, [user.id])[user.id] || null, showcase,
     skills: { fishing: levelInfo(user.FishingXP, setting(store, 'FishingLevelXpStep')).level, dig: digLevel(store, user).level },
     starDino: starDinoOf(store, user)

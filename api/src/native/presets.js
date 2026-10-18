@@ -9,7 +9,7 @@
 //   POST /webhook/admin-preset { discordId, action: 'status' | 'apply', preset?, announce? }
 
 import { ok, fail, isAdmin, now } from './common.js';
-import { rawSetting as setting, setSettings, REGISTRY } from './settings.js';
+import { rawSetting as setting, setSettings, REGISTRY, validateSetting } from './settings.js';
 import { flows, boosterTarget } from './economy.js';
 import { isTight, priceMultiplier } from './inflation.js';
 import { addFeed } from './feed.js';
@@ -79,6 +79,75 @@ PRESETS.chaos = {
   label: 'Chaos', icon: '👾', desc: 'Imprévisible : base Medium, mais chaque jour une règle tirée au hasard change le jeu (pêche à moitié prix, doublons ×2, marché noir fermé…).',
   values: { ...PRESETS.medium.values }
 };
+// Valeurs par difficulte modifiables dans l'admin (2026-10-18) : AppSettings
+// 'presetOverrides' = { mode : { reglage : valeur | null } } fusionne sur les
+// valeurs du code (null = le mode ne touche plus a ce reglage). Les valeurs
+// effectives sont ecrites DANS PRESETS[mode].values : tout le code qui lit les
+// presets (application d'un mode, detection du mode en cours, compte test,
+// Admin > Difficultes) voit les memes valeurs.
+const OVERRIDES_KEY = 'presetOverrides';
+const BASE = Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, JSON.parse(JSON.stringify(p.values))]));
+export function overridesOf(store) {
+  const row = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((r) => r.Key === OVERRIDES_KEY) : null;
+  try { const v = row ? JSON.parse(row.Value) : {}; return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; }
+}
+export function refreshOverrides(store) {
+  const o = overridesOf(store);
+  for (const [mode, p] of Object.entries(PRESETS)) {
+    const values = JSON.parse(JSON.stringify(BASE[mode]));
+    for (const [k, v] of Object.entries(o[mode] || {})) { if (!REGISTRY[k]) continue; if (v === null) delete values[k]; else values[k] = v; }
+    p.values = values;
+  }
+  modeCache = { at: 0, store: null, value: null };
+}
+function saveOverrides(store, o) {
+  const row = store.getAll('AppSettings').find((r) => r.Key === OVERRIDES_KEY);
+  const value = JSON.stringify(o);
+  if (row) store.update('AppSettings', row.id, { Value: value }); else store.create('AppSettings', { Key: OVERRIDES_KEY, Value: value });
+  refreshOverrides(store);
+}
+function overridesView(store) {
+  const o = overridesOf(store);
+  const cur = status(store).current;
+  return {
+    current: cur,
+    modes: Object.entries(PRESETS).map(([key, p]) => ({
+      key, label: p.label, icon: p.icon, current: key === cur,
+      values: Object.entries(p.values).map(([k, v]) => ({ key: k, label: REGISTRY[k].label, group: REGISTRY[k].group, type: REGISTRY[k].type, min: REGISTRY[k].min, max: REGISTRY[k].max, step: REGISTRY[k].step, value: v, base: k in BASE[key] ? BASE[key][k] : null, inBase: k in BASE[key], changed: o[key] && k in o[key] })),
+      dropped: Object.entries((o[key] || {})).filter(([, v]) => v === null).map(([k]) => ({ key: k, label: REGISTRY[k] ? REGISTRY[k].label : k }))
+    })),
+    available: Object.entries(REGISTRY).filter(([, r]) => r.storage !== 'internal').map(([k, r]) => ({ key: k, label: r.label, group: r.group, type: r.type, min: r.min, max: r.max, step: r.step, value: setting(store, k) }))
+  };
+}
+// { mode, key, value } : valeur du mode (null = ne plus y toucher) ; reset : retour au code.
+function setOverride(store, body) {
+  const mode = body.mode;
+  if (!PRESETS[mode]) return fail('unknown_preset');
+  if (!REGISTRY[body.key]) return fail('unknown_setting');
+  const wasCurrent = status(store).current === mode;
+  const o = overridesOf(store);
+  o[mode] = o[mode] || {};
+  let live;
+  if (body.action === 'override-reset') {
+    delete o[mode][body.key];
+    if (body.key in BASE[mode]) live = BASE[mode][body.key];
+  } else if (body.value === null) {
+    o[mode][body.key] = null;
+  } else {
+    try { live = validateSetting(body.key, body.value); } catch (e) { return fail('invalid_settings', 400, { errors: [e.message] }); }
+    o[mode][body.key] = live;
+  }
+  if (!Object.keys(o[mode]).length) delete o[mode];
+  saveOverrides(store, o);
+  // Mode en cours : la nouvelle valeur s'applique tout de suite.
+  if (wasCurrent && live !== undefined) {
+    const errors = setSettings(store, { [body.key]: live });
+    if (errors.length) return fail('invalid_settings', 400, { errors });
+  }
+  return ok({ ...overridesView(store), appliedLive: wasCurrent && live !== undefined });
+}
+export function init({ store }) { refreshOverrides(store); }
+
 // Libelles et icones (machine.js, features.js, modeextras.js).
 export const PRESET_INFO = Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, icon: p.icon }]));
 export const MODE_KEYS = Object.keys(PRESETS);
@@ -156,6 +225,8 @@ export function applyPreset(store, key, by) {
 function handlePreset({ store, body }) {
   if (!isAdmin(body.discordId)) return fail('forbidden', 403);
   if ((body.action || 'status') === 'status') return ok(status(store));
+  if (body.action === 'overrides') return ok(overridesView(store));
+  if (body.action === 'override-set' || body.action === 'override-reset') return setOverride(store, body);
   if (body.action !== 'apply') return fail('unknown_action');
   const p = PRESETS[body.preset];
   if (!p) return fail('unknown_preset');
@@ -168,7 +239,12 @@ function handlePreset({ store, body }) {
 // Mode affiche aux joueurs (couleurs du menu, animation du logo) : le mode
 // exact, sinon le dernier applique (reglages retouches a la main ensuite).
 let modeCache = { at: 0, store: null, value: null };
+// Mode propre au compte test (testaccount.js), seulement pendant ses requetes.
+let modeHook = null;
+export const setModeHook = (fn) => { modeHook = fn; };
 export function currentMode(store) {
+  const o = modeHook && modeHook(store);
+  if (o) return o;
   const t = Date.now();
   if (modeCache.store === store && t - modeCache.at < 30000) return modeCache.value;
   const st = status(store);

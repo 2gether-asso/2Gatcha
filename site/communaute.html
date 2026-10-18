@@ -24,15 +24,18 @@
 
       <div class="tabs tabs-scroll" role="tablist">
         <button type="button" class="tab active" id="tab-calendar-btn" role="tab" aria-selected="true">&#128197; Calendrier</button>
-        <button type="button" class="tab" id="tab-boss-btn" role="tab" aria-selected="false">&#128128; Boss</button>
-        <button type="button" class="tab" id="tab-chest-btn" role="tab" aria-selected="false">&#127873; Coffre de guilde</button>
-        <button type="button" class="tab" id="tab-market-btn" role="tab" aria-selected="false">&#127761; Marché noir</button>
-        <button type="button" class="tab" id="tab-together-btn" role="tab" aria-selected="false">&#129309; Ensemble</button>
-        <button type="button" class="tab" id="tab-skills-btn" role="tab" aria-selected="false">&#127942; Métiers</button>
-        <button type="button" class="tab" id="tab-auctions-btn" role="tab" aria-selected="false">&#128296; Enchères</button>
-        <button type="button" class="tab" id="tab-machine-btn" role="tab" aria-selected="false">&#9881;&#65039; Salle des machines</button>
         <button type="button" class="tab" id="tab-board-btn" role="tab" aria-selected="false">&#128204; Tableau d'affichage</button>
+        <span class="tab-sep" role="presentation" title="Jouer ensemble"></span>
+        <button type="button" class="tab" id="tab-boss-btn" role="tab" aria-selected="false">&#128128; Boss</button>
+        <button type="button" class="tab" id="tab-together-btn" role="tab" aria-selected="false">&#129309; Ensemble</button>
         <button type="button" class="tab" id="tab-teams-btn" role="tab" aria-selected="false">&#127987;&#65039; Équipes</button>
+        <button type="button" class="tab" id="tab-machine-btn" role="tab" aria-selected="false">&#9881;&#65039; Salle des machines</button>
+        <span class="tab-sep" role="presentation" title="Commerce"></span>
+        <button type="button" class="tab" id="tab-market-btn" role="tab" aria-selected="false">&#127761; Marché noir</button>
+        <button type="button" class="tab" id="tab-auctions-btn" role="tab" aria-selected="false">&#128296; Enchères</button>
+        <button type="button" class="tab" id="tab-chest-btn" role="tab" aria-selected="false">&#127873; Coffre de guilde</button>
+        <span class="tab-sep" role="presentation" title="Classements"></span>
+        <button type="button" class="tab" id="tab-skills-btn" role="tab" aria-selected="false">&#127942; Métiers</button>
       </div>
 
       <div id="calendar-pane">
@@ -80,6 +83,7 @@
         <div id="chest-guest-warning" style="display:none;">
           <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
         </div>
+        <section class="guildchest" id="guildchest"><div class="loading-row"><div class="spinner"></div></div></section>
         <div id="chest-zone" style="display:none;">
           <div class="wheel-widget">
             <span id="chest-icon" class="wheel-icon chest-icon" aria-hidden="true">&#127873;</span>
@@ -94,7 +98,7 @@
           </div>
           <p class="lead" style="font-size:0.85rem;margin-top:16px;">Donne un doublon non-promo au pot commun, ou pioche-en un au hasard - chaque action est limitée à une fois par jour. Ta propre carte déposée ne compte pas pour ta propre pioche : il faut qu'un autre joueur dépose pour que tu puisses piocher.</p>
           <div id="chest-key-zone" class="chest-key-zone" style="display:none;">
-            <h3 class="chest-key-title">&#128273; Choisir une carte avec une clé</h3>
+            <h3 class="chest-key-title"><img class="ico-token" src="assets/cl%C3%A9s.PNG" alt="" /> Choisir une carte avec une clé</h3>
             <p class="chest-key-hint">Une clé secrète te permet de prendre la carte de ton choix dans le pot commun, en plus de ta pioche du jour.</p>
             <div id="chest-key-grid" class="craft-grid"></div>
           </div>
@@ -108,14 +112,7 @@
 
       <div id="together-pane" style="display:none;">
         <div class="goal-card" id="goal-card"><div class="loading-row"><div class="spinner"></div></div></div>
-        <h2 class="together-title">&#127959;&#65039; Grande fouille de la semaine</h2>
-        <p class="lead" style="font-size:0.85rem;">Une grande grille que tout le monde creuse ensemble. Chaque trésor revient à celui qui le déterre ; le <strong>grand trésor</strong> récompense <strong>tous</strong> les participants de la semaine.</p>
-        <div class="cdig-meta" id="cdig-meta"></div>
-        <div class="cdig-board" id="cdig-board" role="grid" aria-label="Grande fouille commune"></div>
-        <div class="cdig-side">
-          <div><h3>Les plus actifs</h3><ol class="cdig-top" id="cdig-top"></ol></div>
-          <div><h3>Dernières trouvailles</h3><ul class="cdig-log" id="cdig-log"></ul></div>
-        </div>
+        <section class="guildworks" id="guildworks"><div class="loading-row"><div class="spinner"></div></div></section>
       </div>
 
       <div id="board-pane" style="display:none;">
@@ -168,6 +165,7 @@
           <p class="lead" style="font-size:0.85rem;">Offres limitées dans le temps et en quantité, contre poussières d'étoile.</p>
           <div id="market-loading" class="loading-row"><div class="spinner"></div></div>
           <div id="market-grid" class="craft-grid"></div>
+          <section class="mineral-counter" id="mineral-counter"></section>
         </div>
       </div>
     </div>
@@ -180,6 +178,9 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/communaute.js"></script>
+  <script src="js/minerals.js"></script>
+  <script src="js/guildworks.js"></script>
+  <script src="js/guildchest.js"></script>
   <script src="js/auctions.js"></script>
   <script src="js/machine-room.js"></script>
   <script src="js/communaute-board.js"></script>

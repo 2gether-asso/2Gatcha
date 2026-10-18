@@ -53,7 +53,7 @@ export const FEATURES = [
   { key: 'dailyDice', group: 'Quotidien', icon: '🎲', label: 'Dé du jour', paths: ['daily-dice'], hide: ['#today-dice'], nudges: ['dice'], off: [] },
   { key: 'evening', group: 'Quotidien', icon: '🌙', label: 'Missions du soir', paths: ['evening'], hide: ['#evening-block'], nudges: ['evening', 'evening-claim'], off: [] },
   { key: 'welcomeBack', group: 'Quotidien', icon: '🎁', label: 'Colis de retour', paths: ['welcome-back'], hide: [], nudges: ['welcome'], off: ['hard'] },
-  { key: 'boosterShop', group: 'Quotidien', icon: '🃏', label: 'Boosters de la semaine (achat)', paths: ['booster-shop'], hide: ['#offres'], off: ['hard'] },
+  { key: 'boosterShop', group: 'Quotidien', icon: '🃏', label: 'Jetons booster de la semaine (achat)', paths: ['booster-shop'], hide: ['#offres'], off: ['hard'] },
   { key: 'sundayMarket', group: 'Quotidien', icon: '☀️', label: 'Marché du dimanche', paths: ['sunday-market'], hide: ['#dimanche'], off: ['hard'] },
   { key: 'playerGift', group: 'Quotidien', icon: '💌', label: 'Cadeaux entre joueurs', paths: ['player-gift'], hide: [], off: [] }
 ];

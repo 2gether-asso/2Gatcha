@@ -53,7 +53,7 @@
     if (btn) btn.addEventListener("click", async () => {
       btn.disabled = true;
       try { await API.weeklyGoal(Session.userId, "claim"); Toast.success("&#128220; Contrat rempli : +1 booster et le titre « Contractuel » !"); loadGoal(); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); }
-      catch (err) { btn.disabled = false; Toast.errorfriendlyError(err); }
+      catch (err) { btn.disabled = false; Toast.error(friendlyError(err)); }
     });
   }
 

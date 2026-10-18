@@ -211,7 +211,11 @@ const FusionPicker = {
   // remplace un des exemplaires requis.
   // dustPerCopy / stardust : exemplaires manquants payes en poussieres
   // (restauration de qualite uniquement).
-  open({ title, intro, copies, required: baseRequired, otherRank, confirmText = "Fusionner", parts = 0, dustPerCopy = 0, stardust = 0 }) {
+  // Ergonomie (2026-10-18) : resume de la selection en haut (puces
+  // retirables), apercu du resultat, actions rapides, ligne entiere
+  // cliquable, numero garde en un clic (etoile), defilement jusqu'a la
+  // premiere copie choisie.
+  open({ title, intro, copies, required: baseRequired, otherRank, confirmText = "Fusionner", parts = 0, dustPerCopy = 0, stardust = 0, resultLabel = null }) {
     return new Promise((resolve) => {
       const maxDust = dustPerCopy > 0 ? Math.min(baseRequired - 1, Math.floor(stardust / dustPerCopy)) : 0;
       // Piece cochee d'office seulement si les poussieres ne suffisent pas a combler.
@@ -224,13 +228,14 @@ const FusionPicker = {
       const sorted = [...copies].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999));
       // Editions limitees : jamais cochees d'office.
       const isEd = (c) => !!c.edition;
-      const byDefault = [...copies].sort((a, b) => (isEd(a) - isEd(b)) || (otherRank(a) - otherRank(b)) || ((b.serialNumber || 0) - (a.serialNumber || 0)));
+      const precious = (c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint" || isEd(c);
+      const byDefault = [...copies].sort((a, b) => (isEd(a) - isEd(b)) || (precious(a) - precious(b)) || (otherRank(a) - otherRank(b)) || ((b.serialNumber || 0) - (a.serialNumber || 0)));
       const selected = new Set(byDefault.slice(0, required).map((c) => c.pullId));
       const lowestSelected = () => sorted.find((c) => selected.has(c.pullId)) || null;
       let keep = lowestSelected()?.pullId ?? null;
       const serial = (c) => (c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "#?");
-      const precious = (c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint" || isEd(c);
       const edLabel = (c) => (isEd(c) && typeof EDITIONS !== "undefined" && EDITIONS[c.edition] ? `${EDITIONS[c.edition].icon} ${EDITIONS[c.edition].label}` : "");
+      const byId = new Map(copies.map((c) => [c.pullId, c]));
 
       const overlay = document.createElement("div");
       overlay.className = "card-modal-overlay confirm-overlay";
@@ -238,15 +243,27 @@ const FusionPicker = {
         <div class="confirm-box fusion-picker">
           <div class="confirm-title">${title}</div>
           <div class="confirm-message">${intro}</div>
+          <div class="fp-summary">
+            <div class="fp-progress"><span class="fp-progress-fill"></span></div>
+            <div class="fp-chips" aria-live="polite"></div>
+            <div class="fp-result"></div>
+          </div>
+          <div class="fp-tools">
+            <button type="button" class="btn-ghost fp-auto">&#10024; Les moins précieux</button>
+            <button type="button" class="btn-ghost fp-none">Tout décocher</button>
+            <span class="fp-hint">Clique une ligne pour la cocher, &#9733; pour garder son numéro.</span>
+          </div>
           <div class="fusion-picker-list">
             ${sorted.map((c) => `
-              <div class="fusion-row" data-pull="${c.pullId}">
-                <label class="fusion-pick"><input type="checkbox" data-pick="${c.pullId}" /> <strong>${serial(c)}</strong> · ${FIN[c.finish || "normal"]} · ${QUA[c.quality || "damaged"]}${isEd(c) ? ` <span class="fusion-edition">${edLabel(c)}</span>` : precious(c) ? ' <span class="fusion-precious">précieux</span>' : ""}</label>
-                <label class="fusion-keep" title="Le nouvel exemplaire portera ce numéro"><input type="radio" name="fusion-keep" data-keep="${c.pullId}" /> garder ce n°</label>
+              <div class="fusion-row" data-pull="${c.pullId}" role="checkbox" tabindex="0">
+                <input type="checkbox" class="fp-check" data-pick="${c.pullId}" tabindex="-1" aria-hidden="true" />
+                <span class="fp-serial">${serial(c)}</span>
+                <span class="fp-meta">${FIN[c.finish || "normal"]} · ${QUA[c.quality || "damaged"]}${isEd(c) ? ` <span class="fusion-edition">${edLabel(c)}</span>` : precious(c) ? ' <span class="fusion-precious">précieux</span>' : ""}</span>
+                <button type="button" class="fp-keep" data-keep="${c.pullId}" title="Le nouvel exemplaire portera ce numéro" aria-label="Garder le numéro ${serial(c)}">&#9733;</button>
               </div>`).join("")}
           </div>
-          ${parts > 0 ? `<label class="fusion-part"><input type="checkbox" data-use-part ${usePart ? "checked" : ""} ${partForced ? "disabled" : ""} /> &#128297; Utiliser une <strong>pièce détachée</strong> à la place d'un exemplaire <span class="muted">(il t'en reste ${parts})</span></label>` : ""}
-          ${maxDust > 0 ? `<label class="fusion-part fusion-dust">&#10024; Payer en poussières <select data-dust-copies>${Array.from({ length: maxDust + 1 }, (_, n) => `<option value="${n}" ${n === dustCopies ? "selected" : ""}>${n} exemplaire${n > 1 ? "s" : ""}${n ? ` (${n * dustPerCopy} ✨)` : ""}</option>`).join("")}</select> <span class="muted">(${dustPerCopy} ✨ chacun, tu as ${stardust} ✨)</span></label>` : ""}
+          ${parts > 0 ? `<label class="fusion-part"><input type="checkbox" data-use-part ${usePart ? "checked" : ""} ${partForced ? "disabled" : ""} /> <span>${resIcon("part")} Utiliser une <strong>pièce détachée</strong> à la place d'un exemplaire <span class="muted">(il t'en reste ${parts})</span></span></label>` : ""}
+          ${maxDust > 0 ? `<label class="fusion-part fusion-dust"><span>&#10024; Payer en poussières</span> <select data-dust-copies>${Array.from({ length: maxDust + 1 }, (_, n) => `<option value="${n}" ${n === dustCopies ? "selected" : ""}>${n} exemplaire${n > 1 ? "s" : ""}${n ? ` (${n * dustPerCopy} ✨)` : ""}</option>`).join("")}</select> <span class="muted">(${dustPerCopy} ✨ chacun, tu as ${stardust} ✨)</span></label>` : ""}
           <div class="fusion-picker-count"></div>
           <div class="confirm-actions">
             <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
@@ -261,15 +278,22 @@ const FusionPicker = {
           const id = Number(row.dataset.pull);
           const on = selected.has(id);
           row.classList.toggle("selected", on);
+          row.setAttribute("aria-checked", String(on));
           row.querySelector("[data-pick]").checked = on;
-          const radio = row.querySelector("[data-keep]");
-          radio.disabled = !on;
-          radio.checked = on && id === keep;
+          const star = row.querySelector("[data-keep]");
+          star.disabled = !on;
+          star.classList.toggle("on", on && id === keep);
         });
-        // Edition gardee : celle du numero conserve, sinon la premiere cochee (comme le serveur).
-        const picked = [...selected].map((id) => copies.find((c) => c.pullId === id)).filter(Boolean);
+        const picked = [...selected].map((id) => byId.get(id)).filter(Boolean);
         const keptCopy = picked.find((c) => c.pullId === keep && isEd(c)) || picked.find(isEd) || null;
         const lost = picked.filter((c) => c.pullId !== keep && precious(c) && c !== keptCopy);
+        overlay.querySelector(".fp-progress-fill").style.width = `${Math.min(100, (selected.size / Math.max(1, required)) * 100)}%`;
+        overlay.querySelector(".fp-progress").classList.toggle("done", selected.size === required);
+        overlay.querySelector(".fp-chips").innerHTML = picked.length
+          ? [...picked].sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0)).map((c) => `<button type="button" class="fp-chip ${c.pullId === keep ? "kept" : ""} ${precious(c) ? "precious" : ""}" data-unpick="${c.pullId}" title="Retirer de la sélection">${c.pullId === keep ? "&#9733; " : ""}${serial(c)} <span aria-hidden="true">&times;</span></button>`).join("")
+          : `<span class="muted">Aucun exemplaire choisi.</span>`;
+        const keptRef = byId.get(keep);
+        overlay.querySelector(".fp-result").innerHTML = keptRef && resultLabel ? `Résultat : <strong>${serial(keptRef)}</strong> · ${resultLabel(picked)}` : "";
         overlay.querySelector(".fusion-picker-count").innerHTML =
           `${selected.size} / ${required} sélectionné${required > 1 ? "s" : ""}` +
           (keptCopy ? ` · <span class="fusion-edition">le nouvel exemplaire garde l'édition ${edLabel(keptCopy)}</span>` : "") +
@@ -282,6 +306,15 @@ const FusionPicker = {
           selected.delete(drop.pullId);
         }
       };
+      const toggle = (id) => {
+        if (selected.has(id)) selected.delete(id);
+        else {
+          // Deja complet : on remplace le moins utile par celui-ci.
+          if (selected.size >= required) { const drop = [...byDefault].reverse().find((c) => selected.has(c.pullId) && c.pullId !== keep) || [...byDefault].reverse().find((c) => selected.has(c.pullId)); if (drop) selected.delete(drop.pullId); }
+          selected.add(id);
+        }
+        refresh();
+      };
       const dustSel = overlay.querySelector("[data-dust-copies]");
       if (dustSel) dustSel.addEventListener("change", () => {
         dustCopies = Number(dustSel.value) || 0;
@@ -293,19 +326,22 @@ const FusionPicker = {
       if (partBox) partBox.addEventListener("change", () => {
         usePart = partBox.checked;
         required = Math.max(1, baseRequired - (usePart ? 1 : 0) - dustCopies);
-        // Trop d'exemplaires coches : on retire le plus precieux a garder.
-        while (selected.size > required) {
-          const drop = [...byDefault].reverse().find((c) => selected.has(c.pullId));
-          selected.delete(drop.pullId);
-        }
+        trimSelection();
         refresh();
       });
-      overlay.querySelectorAll("[data-pick]").forEach((cb) => cb.addEventListener("change", () => {
-        const id = Number(cb.dataset.pick);
-        if (cb.checked) selected.add(id); else selected.delete(id);
-        refresh();
-      }));
-      overlay.querySelectorAll("[data-keep]").forEach((r) => r.addEventListener("change", () => { keep = Number(r.dataset.keep); refresh(); }));
+      overlay.querySelector(".fusion-picker-list").addEventListener("click", (e) => {
+        const star = e.target.closest("[data-keep]");
+        if (star) { if (!star.disabled) { keep = Number(star.dataset.keep); refresh(); } return; }
+        const row = e.target.closest(".fusion-row");
+        if (row) toggle(Number(row.dataset.pull));
+      });
+      overlay.querySelector(".fusion-picker-list").addEventListener("keydown", (e) => {
+        const row = e.target.closest(".fusion-row");
+        if (row && (e.key === " " || e.key === "Enter")) { e.preventDefault(); toggle(Number(row.dataset.pull)); }
+      });
+      overlay.querySelector(".fp-chips").addEventListener("click", (e) => { const c = e.target.closest("[data-unpick]"); if (c) { selected.delete(Number(c.dataset.unpick)); refresh(); } });
+      overlay.querySelector(".fp-auto").addEventListener("click", () => { selected.clear(); byDefault.slice(0, required).forEach((c) => selected.add(c.pullId)); keep = lowestSelected()?.pullId ?? null; refresh(); });
+      overlay.querySelector(".fp-none").addEventListener("click", () => { selected.clear(); refresh(); });
       const finish = (result) => { overlay.remove(); syncScrollLock(); resolve(result); };
       overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
       overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
@@ -313,6 +349,9 @@ const FusionPicker = {
       document.body.appendChild(overlay);
       syncScrollLock();
       refresh();
+      // La premiere copie choisie bien visible dans la liste.
+      const first = overlay.querySelector(".fusion-row.selected");
+      if (first) first.parentElement.scrollTop = Math.max(0, first.offsetTop - first.parentElement.offsetTop - 8);
     });
   }
 };
@@ -998,7 +1037,7 @@ const DiscoveryFx = (function () {
       <div class="cine-skip">Tape pour continuer</div>`;
     document.body.appendChild(ov);
     if (typeof Sfx !== "undefined") { if (Sfx.whoosh) Sfx.whoosh(); setTimeout(() => { if (Sfx.fanfare) Sfx.fanfare(); else if (Sfx.click) Sfx.click(); }, 900); }
-    try { if (navigator.vibrate) navigator.vibrate([30, 60, 30, 60, 90]); } catch (e) { /* non supporte */ }
+    if (typeof Haptics !== "undefined") Haptics.buzz([30, 60, 30, 60, 90]);
     let done = false;
     const close = () => {
       if (done) return;

@@ -2,18 +2,17 @@
 // en lot les doublons selon des regles simples (raretes, exemplaires a
 // garder, finitions et etats a proteger), avec un apercu avant de lancer.
 // Les exemplaires assures, ★ et les numeros #1 ne sont jamais touches. Les
-// decrafts partent un par un, espaces (moins de 60 par minute), et le lot
-// peut etre arrete a tout moment.
+// decrafts partent par paquets (une requete pour 25 exemplaires,
+// /webhook/batch-write, 2026-10-18) et le lot peut etre arrete entre deux paquets.
 
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
   const PREF_KEY = "2gatcha_recycle_prefs";
-  const PACE_MS = 1100;
   const RARITY_ORDER = ["commune", "rare", "epique", "legendaire", "mythique"];
 
   const loadPrefs = () => {
-    const def = { rarities: ["commune", "rare"], keep: 1, keepFinish: true, keepQuality: true, keepWishlist: true };
+    const def = { rarities: ["commune", "rare"], keep: 1, keepFinish: true, keepQuality: true, keepWishlist: true, keepBest: true };
     try { return { ...def, ...(JSON.parse(localStorage.getItem(PREF_KEY) || "{}")) }; } catch (e) { return def; }
   };
   const savePrefs = (p) => { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) { /* stockage indisponible */ } };
@@ -34,7 +33,10 @@
       const sorted = [...copies].sort((a, b) => score(b) - score(a) || (a.serialNumber || 1e9) - (b.serialNumber || 1e9));
       const protectedCount = (owned.copies || []).length - copies.length;
       const keepN = Math.max(0, prefs.keep - protectedCount);
+      // Toujours garder la plus belle finition et le meilleur etat de la carte.
+      const best = prefs.keepBest ? Coll.keepBestIds(owned.copies || [], copies) : new Set();
       sorted.slice(keepN).forEach((c) => {
+        if (best.has(c.pullId)) return;
         const finish = Coll.finishOf(c), quality = Coll.qualityOf(c);
         if (prefs.keepFinish && finish !== "normal") return;
         if (prefs.keepQuality && (quality === "good" || quality === "mint")) return;
@@ -65,6 +67,7 @@
             <div class="recycle-chips">${[1, 2, 3].map((n) => `<label class="recycle-chip"><input type="radio" name="recycle-keep" value="${n}" ${prefs.keep === n ? "checked" : ""} /> ${n}</label>`).join("")}</div>
           </fieldset>
           <fieldset class="recycle-group"><legend>Protéger</legend>
+            <label class="recycle-check"><input type="checkbox" data-pref="keepBest" ${prefs.keepBest ? "checked" : ""} /> Toujours ma meilleure finition et mon meilleur état de chaque carte</label>
             <label class="recycle-check"><input type="checkbox" data-pref="keepFinish" ${prefs.keepFinish ? "checked" : ""} /> Les finitions spéciales (holo, dorée…)</label>
             <label class="recycle-check"><input type="checkbox" data-pref="keepQuality" ${prefs.keepQuality ? "checked" : ""} /> Les cartes en bon ou parfait état</label>
             <label class="recycle-check"><input type="checkbox" data-pref="keepWishlist" ${prefs.keepWishlist ? "checked" : ""} /> Les cartes de ma wishlist</label>
@@ -122,17 +125,15 @@
       go.disabled = false;
       go.textContent = "Arrêter";
       let ok = 0, dust = 0, failed = 0;
-      for (const [i, x] of list.entries()) {
-        if (running.stop) break;
-        $("recycle-count").innerHTML = `${i + 1} / ${list.length} · +${dust.toLocaleString("fr-FR")} poussières`;
-        try {
-          const res = await API.disenchantCard(Session.userId, x.card.cardId, x.finish, x.quality, x.copy.pullId);
-          ok++; dust += res.dustGained || 0;
-        } catch (err) {
-          failed++;
-          if (err.code === "rate_limited" || err.status === 429) await new Promise((r) => setTimeout(r, 5000));
-        }
-        if (i < list.length - 1) await new Promise((r) => setTimeout(r, PACE_MS));
+      $("recycle-count").innerHTML = `0 / ${list.length}`;
+      try {
+        const results = await API.batchWrite("disenchant", list.map((x) => ({ userId: Session.userId, cardId: x.card.cardId, finish: x.finish, quality: x.quality, pullId: x.copy.pullId })), {
+          chunk: 25, shouldStop: () => running.stop,
+          onChunk: (done, total) => { $("recycle-count").innerHTML = `${done} / ${total}`; }
+        });
+        results.forEach((r) => { if (r.status === 200 && r.json && !r.json.error) { ok++; dust += r.json.dustGained || 0; } else failed++; });
+      } catch (err) {
+        Toast.error(friendlyError(err));
       }
       running.done = true;
       Toast.success(`&#9851;&#65039; ${ok} exemplaire${ok > 1 ? "s" : ""} recyclé${ok > 1 ? "s" : ""} : +${dust.toLocaleString("fr-FR")} poussières${failed ? ` (${failed} ignoré${failed > 1 ? "s" : ""})` : ""}.`);

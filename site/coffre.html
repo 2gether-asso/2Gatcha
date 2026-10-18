@@ -23,7 +23,12 @@
         plus être échangée, décraftée ou fusionnée tant qu'elle est au coffre.
         Tu peux la retirer quand tu veux.
       </p>
+      <nav class="tabs coffre-switch" id="coffre-switch" role="tablist" aria-label="Coffre-fort ou musée">
+        <button type="button" class="tab active" role="tab" aria-selected="true" data-coffre-view="vault">&#128274; Coffre-fort</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-coffre-view="museum">&#127963;&#65039; Musée</button>
+      </nav>
       <div id="pv-guest" class="error-box" style="display:none">Connecte-toi pour accéder à ton coffre-fort.</div>
+      <div id="vault-view">
       <div id="pv-locked" class="pv-locked" style="display:none">
         <div class="pv-locked-icon">&#128274;</div>
         <p>Ton coffre-fort perso est encore scellé. Ouvre d'abord le grand coffre-fort (onglet <strong>Coffre-fort</strong> de la page Jeux) pour le débloquer.</p>
@@ -62,6 +67,11 @@
         <button type="button" class="btn pv-store-all" id="pv-store-all" hidden>📥 Tout ranger</button>
         <div id="pv-rows" class="pv-rows"></div>
       </div>
+      </div>
+      <div id="museum-view" hidden>
+        <p class="lead" style="font-size:0.85rem;">Tout ce que tu as trouvé au moins une fois, exposé pour toujours : poissons de l'aquarium, minéraux, objets et dinos. Ce que tu n'as pas encore trouvé reste en silhouette.</p>
+        <div id="museum-zone"><div class="skeleton-line">Chargement…</div></div>
+      </div>
     </div>
   </main>
 
@@ -71,5 +81,6 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/coffre.js"></script>
+  <script src="js/museum.js"></script>
 </body>
 </html>

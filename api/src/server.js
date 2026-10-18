@@ -273,6 +273,43 @@ async function handleBatch(req, res, url) {
   return sendJson(res, req, 200, { results });
 }
 
+// --------------------------------------------------------------- batch-write
+// POST /webhook/batch-write { path, calls: [body, ...] } (2026-10-18) :
+// plusieurs ECRITURES du meme type en une seule requete HTTP (recyclage et
+// sacrifice intelligents), au lieu d'un appel par carte espace d'une seconde.
+// Seulement les chemins de BATCH_WRITE_PATHS ; chaque appel passe les memes
+// controles (identite du joueur, regles natives) et donne la meme reponse
+// qu'en individuel ; le lot compte pour une seule ecriture dans la limite de
+// debit. Un echec n'arrete pas le lot (chaque resultat a son statut).
+const BATCH_WRITE_PATHS = new Set(['disenchant', 'altar-sacrifice', 'craft']);
+const BATCH_WRITE_MAX = 50;
+async function handleBatchWrite(req, res, url) {
+  const { path: rawPath, calls } = await readBody(req);
+  const hookPath = String(rawPath || '').replace(/^\/+|\/+$/g, '');
+  if (!BATCH_WRITE_PATHS.has(hookPath) || !Array.isArray(calls) || !calls.length || calls.length > BATCH_WRITE_MAX) return sendJson(res, req, 400, { error: 'invalid_batch' });
+  const token = bearer(req);
+  const limited = native.gate({ token, ip: clientIp(req), body: calls[0] && typeof calls[0] === 'object' ? calls[0] : {}, isWrite: true });
+  if (limited) return sendGate(res, req, limited);
+  const isNative = native.has('POST', hookPath);
+  const route = isNative ? null : routes.get(`POST ${hookPath}`);
+  if (!isNative && !route) return sendJson(res, req, 404, { error: 'not_found' });
+  const results = [];
+  for (const c of calls) {
+    const body = c && typeof c === 'object' ? c : {};
+    const denied = native.gate({ token, body, query: {}, rate: false });
+    if (denied) { results.push({ status: denied.status, json: denied.json }); continue; }
+    try {
+      if (isNative) { results.push(await runNative('POST', hookPath, body, {})); continue; }
+      const resp = await runWorkflow(route, { headers: req.headers, params: {}, query: {}, body, webhookUrl: `${url.origin}/webhook/${hookPath}`, executionMode: 'production' }, hookPath);
+      results.push({ status: resp.status, json: resp.raw ? null : resp.json });
+    } catch (e) {
+      captureError(e, { hook: 'batch-write:' + hookPath });
+      results.push({ status: 500, json: { error: 'internal_error' } });
+    }
+  }
+  return sendJson(res, req, 200, { results });
+}
+
 // Page d'admin de la base : ses modifications sont journalisees comme telles.
 const adminLock = (fn) => withLock(() => { Object.assign(requestContext.getStore(), { source: 'admin-db', actor: 'Page admin de la base' }); return fn(); });
 const handleAdmin = createAdmin({ store, withLock: adminLock, token: config.adminToken, sendJson, backups, workflowsDir: config.workflowsDir });
@@ -285,6 +322,11 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/admin/api/')) return await handleAdmin(req, res, url);
     if (url.pathname === '/health') return sendJson(res, req, 200, { ok: true, workflows: routes.size, tables: store.stats(), backups: backups ? { enabled: true, lastBackupAt: backups.status.lastBackup?.at || null, lastError: backups.status.lastError } : { enabled: false } });
 
+    if (url.pathname === '/webhook/batch-write' && req.method === 'POST') {
+      await handleBatchWrite(req, res, url);
+      if (process.env.LOG_REQUESTS !== '0') console.log(`POST /webhook/batch-write ${Date.now() - started}ms`);
+      return;
+    }
     if (url.pathname === '/webhook/batch' && req.method === 'POST') {
       await handleBatch(req, res, url);
       if (process.env.LOG_REQUESTS !== '0') console.log(`POST /webhook/batch ${Date.now() - started}ms`);
@@ -308,7 +350,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (isNativeRoute) {
         const resp = await runNative(req.method, hookPath, body, query);
-        sendJson(res, req, resp.status, resp.json);
+        sendJson(res, req, resp.status, native.scrub(resp.json, body, query));
         if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${resp.status} ${Date.now() - started}ms (natif)`);
         return;
       }
@@ -322,7 +364,7 @@ const server = http.createServer(async (req, res) => {
       };
       const response = await runWorkflow(route, request, hookPath);
       if (response.raw) send(res, req, response.status, response.headers || {}, response.raw);
-      else sendJson(res, req, response.status, response.json, response.headers || {});
+      else sendJson(res, req, response.status, native.scrub(response.json, body, query), response.headers || {});
       if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${response.status} ${Date.now() - started}ms`);
       return;
     }

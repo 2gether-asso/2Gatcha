@@ -1,8 +1,11 @@
 // Arbre de talents (2026-10-07) : un point par niveau de compte au-dessus du 1,
 // a repartir dans 3 branches (Collectionneur, Artisan, Aventurier). Chaque
 // branche a 3 talents a 3 rangs et un talent ultime qui demande 6 points dans
-// la branche : 30 points pour tout debloquer (niveau 31), de quoi faire des
-// choix pendant longtemps. Remise a zero payante (TalentResetCost).
+// la branche : 30 points pour tout debloquer (niveau 31). Talents de prestige
+// (2026-10-17) : un par branche, 5 rangs, ouvert quand la branche est complete
+// (10 points) ; ils se nourrissent des points des etoiles de prestige
+// (account-prestige.js) et renforcent les talents de leur branche (adds) :
+// 45 points en tout. Remise a zero payante (TalentResetCost).
 //   POST /webhook/talents { userId, action: 'status' | 'learn' | 'reset', key? }
 // Effets appliques ailleurs (boosts.js, fishing.js, garden.js, rules.js,
 // market.js) via talentValue(user, key).
@@ -10,6 +13,7 @@
 import { ok, fail, userById, levelForXp } from './common.js';
 import { prestigeStars } from './account-prestige.js';
 import { setting } from './settings.js';
+import { skyAdd } from './skytree.js';
 
 const BRANCHES = [
   { key: 'collector', label: 'Collectionneur', icon: '🎴' },
@@ -26,10 +30,14 @@ export const TALENTS = [
   { key: 'restorer', branch: 'artisan', label: 'Restaurateur', icon: '🧰', max: 3, per: 0.25, desc: '−25 % par rang sur le supplément des restaurations répétées.' },
   { key: 'founder', branch: 'artisan', label: 'Fondeur', icon: '🔥', max: 3, per: 0.1, desc: '10 % de chance par rang de récupérer des poussières après une fusion ou une restauration.' },
   { key: 'master', branch: 'artisan', label: 'Maître artisan', icon: '🛠️', max: 1, req: 6, per: 0.5, desc: 'Taxes d’échange et d’enchères divisées par 2.' },
-  { key: 'angler', branch: 'adventurer', label: 'Pêcheur assidu', icon: '🎣', max: 3, per: 2, desc: '+2 lancers de pêche par jour par rang.' },
+  { key: 'angler', branch: 'adventurer', label: 'Pêcheur assidu', icon: '🎣', max: 3, per: 2, desc: '+2 énergie de pêche max par rang.' },
   { key: 'greenthumb', branch: 'adventurer', label: 'Main verte', icon: '🌱', max: 3, per: 0.1, desc: 'Le jardin pousse 10 % plus vite par rang.' },
   { key: 'explorer', branch: 'adventurer', label: 'Explorateur', icon: '🗺️', max: 3, per: 0.1, desc: '+10 % de poussières rapportées d’expédition par rang.' },
-  { key: 'tireless', branch: 'adventurer', label: 'Fouilleur infatigable', icon: '⛏️', max: 1, req: 6, per: 0.15, desc: '+15 % de poussières trouvées à la fouille.' }
+  { key: 'tireless', branch: 'adventurer', label: 'Fouilleur infatigable', icon: '⛏️', max: 1, req: 6, per: 0.15, desc: '+15 % de poussières trouvées à la fouille.' },
+  // Talents de prestige : branche complete exigee, effets ajoutes aux talents de la branche.
+  { key: 'pLuck', branch: 'collector', label: 'Chance insolente', icon: '🍀', max: 5, req: 10, prestige: true, per: 0, adds: { lynx: 0.005, born: 0.01 }, desc: '+0,5 point de finition spéciale et +1 % de chance qu’une carte gagne un état, par rang.' },
+  { key: 'pVirtuoso', branch: 'artisan', label: 'Virtuose', icon: '💎', max: 5, req: 10, prestige: true, per: 0, adds: { thrifty: 0.03, patron: 0.03 }, desc: '−3 % sur le craft et +3 % de poussières au décraft, par rang.' },
+  { key: 'pLegend', branch: 'adventurer', label: 'Légende vivante', icon: '🏔️', max: 5, req: 10, prestige: true, per: 0, adds: { angler: 1, explorer: 0.05, tireless: 0.05 }, desc: '+1 énergie de pêche max, +5 % de poussières d’expédition et de fouille, par rang.' }
 ];
 
 export const schema = { Users: { Talents: { type: 'Text' } } };
@@ -38,11 +46,17 @@ export function talentRanks(user) {
   try { const t = JSON.parse((user && user.Talents) || '{}'); return t && typeof t === 'object' ? t : {}; } catch (e) { return {}; }
 }
 
-// Valeur de l'effet d'un talent pour un joueur (rang x valeur par rang).
+// Valeur de l'effet d'un talent pour un joueur (rang x valeur par rang),
+// plus ce qu'y ajoutent les talents de prestige.
 export function talentValue(user, key) {
+  if (!user) return 0;
+  const ranks = talentRanks(user);
+  const rank = (t) => Math.min(t.max, Number(ranks[t.key]) || 0);
   const def = TALENTS.find((t) => t.key === key);
-  if (!def || !user) return 0;
-  return Math.min(def.max, Number(talentRanks(user)[key]) || 0) * def.per;
+  let v = def ? rank(def) * def.per : 0;
+  for (const t of TALENTS) if (t.adds && t.adds[key]) v += rank(t) * t.adds[key];
+  // Etoiles allumees de l'arbre celeste (skytree.js).
+  return v + skyAdd(user, key);
 }
 
 function state(store, user) {

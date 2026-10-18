@@ -35,7 +35,7 @@ const call = (method, p, args) => native.run(method, p, args);
 const ADMIN = '785223211730075709';
 // Resultats independants de l'heure du lancement : l'heure de chance du jour
 // (daily.js) ajoute sinon des poussieres et des finitions a certains tests.
-call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { LuckyHourDustBonus: 0, LuckyHourFinishBonus: 0 } } });
+call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { LuckyHourDustBonus: 0, LuckyHourFinishBonus: 0, StarterEnabled: false, SurpriseEnabled: false } } });
 
 let passed = 0;
 async function test(name, fn) {
@@ -212,11 +212,11 @@ await test('reglages : defauts, modification validee, remise a zero, lus par les
   const bad = call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: -5, LoginStreakRewards: [{ dust: 1 }] } } });
   assert.equal(bad.status, 400);
   assert.equal(bad.json.errors.length, 2);
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SetRewardDust: 777, SpecialFinishChance: 0.25, FishingDailyCasts: 0 } } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SetRewardDust: 777, SpecialFinishChance: 0.25, FishingMaxEnergy: 30 } } });
   assert.equal(setting(store, 'SetRewardDust'), 777);
   assert.equal(setting(store, 'SpecialFinishChance'), 0.25);
   assert.equal(store.getAll('Config')[0].SpecialFinishChance, 0.25);
-  assert.equal(setting(store, 'FishingDailyCasts'), 0);
+  assert.equal(setting(store, 'FishingMaxEnergy'), 30);
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SetRewardDust' } });
   assert.equal(setting(store, 'SetRewardDust'), 300);
 });
@@ -280,15 +280,26 @@ await test('saison : XP du mois, paliers reclames une fois, carte exclusive au d
   assert.equal(call('POST', 'season', { body: { userId: 1, action: 'claim' } }).json.error, 'nothing_to_claim');
 });
 
-await test('peche : cout, prises appliquees, limite par jour', () => {
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: 10, FishingDailyCasts: 6, FishingLevelXpStep: 100000, FishingLoot: [{ type: 'key', weight: 1, min: 1, max: 1 }] } } });
-  store.update('Users', 1, { Worms: 100, KeyCount: 0, FishingDay: '', FishingCasts: 0, FishingXP: 0 });
+await test('peche : cout, prises appliquees, energie qui se recharge', () => {
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingCost: 10, FishingMaxEnergy: 6, FishingRegenSeconds: 600, FishingLevelXpStep: 100000, FishingLoot: [{ type: 'key', weight: 1, min: 1, max: 1 }] } } });
+  store.update('Users', 1, { Worms: 100, KeyCount: 0, FishingDay: '', FishingCasts: 0, FishingXP: 0, FishingEnergy: null, FishingEnergyAt: null, Talents: '{}', SkyNodes: '[]' });
+  assert.deepEqual((({ energy, maxEnergy }) => [energy, maxEnergy])(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json), [6, 6], 'jauge pleine au depart');
   const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 5 } }).json;
   assert.equal(r.catches.length, 5);
   assert.equal(user(1).Worms, 50, 'le lancer coute des vers');
   assert.equal(user(1).KeyCount, 5);
-  assert.equal(r.castsLeft, 1);
-  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 2 } }).json.error, 'daily_limit');
+  assert.equal(r.energy, 1);
+  assert.ok(r.secondsUntilNext > 0 && r.secondsUntilNext <= 600);
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 2 } }).json.error, 'no_energy');
+  // Recharge : 25 min plus tard, 2 points de plus et la progression vers le 3e est gardee.
+  const at = Number(user(1).FishingEnergyAt);
+  store.update('Users', 1, { FishingEnergyAt: at - 1500 });
+  const st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
+  assert.equal(st.energy, 3);
+  assert.ok(Math.abs(st.secondsUntilNext - 300) <= 2, 'reste ~5 min avant le prochain point');
+  call('POST', 'fishing', { body: { userId: 1, action: 'cast' } });
+  assert.equal(Number(user(1).FishingEnergyAt), at - 1500 + 1200, 'progression gardee apres une depense');
+  store.update('Users', 1, { FishingEnergy: null, FishingEnergyAt: null });
   store.update('Users', 1, { Worms: 5 });
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast' } }).json.error, 'not_enough_worms');
   assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.table[0].chance, 100);
@@ -456,16 +467,16 @@ await test('piece detachee : remplace un exemplaire en Finitions (4 + 1) et en Q
 
 await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), fouille (XP, bonus de poussieres, chenil)', () => {
   assert.deepEqual([levels.levelFor(0, 20), levels.levelFor(19, 20), levels.levelFor(20, 20), levels.levelFor(60, 20), levels.levelFor(99999, 20)], [1, 1, 2, 3, 10]);
-  for (const key of ['FishingCost', 'FishingDailyCasts', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  for (const key of ['FishingCost', 'FishingMaxEnergy', 'FishingRegenSeconds', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
   // Peche : niveau 1 puis niveau 3 (FishingLevelXpStep 15 -> 45 XP).
   store.update('Users', 1, { FishingXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 5000, Worms: 5000 });
   let st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
-  assert.deepEqual([st.level.level, st.dailyLimit], [1, 20]);
+  assert.deepEqual([st.level.level, st.maxEnergy, st.regenSeconds], [1, 12, 600]);
   assert.ok(st.table.some((x) => x.type === 'part'), 'piece detachee dans la table');
   const empty1 = st.table.find((x) => x.type === 'nothing').chance;
   store.update('Users', 1, { FishingXP: 45 });
   st = call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json;
-  assert.deepEqual([st.level.level, st.dailyLimit], [3, 24]);
+  assert.deepEqual([st.level.level, st.maxEnergy, st.regenSeconds], [3, 14, 540]);
   assert.ok(st.table.find((x) => x.type === 'nothing').chance < empty1, 'moins de prises vides');
   const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 5 } }).json;
   assert.ok(r.xpGained >= 5);
@@ -501,9 +512,9 @@ await test('embellissements : meteo, carnet de peche, classement des metiers, re
   const { weatherOf } = await import('../src/native/fishing.js');
   assert.equal(weatherOf('2026-10-05').key, weatherOf('2026-10-05').key, 'meme meteo toute la journee');
   assert.ok(['soleil', 'pluie', 'brume', 'orage'].includes(weatherOf().key));
-  for (const key of ['FishingCost', 'FishingDailyCasts', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
+  for (const key of ['FishingCost', 'FishingMaxEnergy', 'FishingRegenSeconds', 'FishingLoot', 'FishingLevelXpStep']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingLoot: [{ type: 'dust', weight: 1, min: 10, max: 10 }] } } });
-  store.update('Users', 2, { FishingRecords: '', FishingWeek: '', FishingWeekXP: 0, FishingDay: '', FishingCasts: 0, StardustCount: 1000, Worms: 1000 });
+  store.update('Users', 2, { FishingRecords: '', FishingWeek: '', FishingWeekXP: 0, FishingDay: '', FishingCasts: 0, FishingEnergy: null, FishingEnergyAt: null, StardustCount: 1000, Worms: 1000 });
   let r = call('POST', 'fishing', { body: { userId: 2, action: 'cast' } }).json;
   assert.equal(r.catches[0].first, true);
   assert.equal(r.weather.key, weatherOf().key);
@@ -686,6 +697,17 @@ await test('economie : taxe d echange, prix de l os, marche noir automatique, re
   const created = rules.generateMarket(store, 'test-week');
   assert.equal(created, 4);
   assert.equal(rules.generateMarket(store, 'test-week'), 0);
+  // Nouvel arrivage des que tout est vendu.
+  const batch = store.getAll('BlackMarketOffers').filter((o) => o.Auto && o.Week === 'test-week');
+  assert.equal(rules.restockMarket(store, 'test-week'), 0, 'encore des offres a vendre');
+  batch.forEach((o) => { store.update('BlackMarketOffers', o.id, { MaxPurchases: 1, ExpiresAt: Math.floor(Date.now() / 1000) + 3600, Active: true }); store.create('Pulls', { User: 1, Card: o.CardId, SerialNumber: 9000 + o.id, Finish: 'normal', Quality: 'good', BatchId: `market-${o.id}-1-test` }); });
+  const fresh = rules.restockMarket(store, 'test-week');
+  assert.equal(fresh, created);
+  const second = store.getAll('BlackMarketOffers').filter((o) => o.Auto && o.Week === 'test-week#2');
+  assert.equal(second.length, created);
+  assert.equal(second[0].Label, 'Nouvel arrivage');
+  assert.ok(batch.every((o) => store.get('BlackMarketOffers', o.id).Active === false), 'ancien arrivage desactive');
+  assert.equal(rules.restockMarket(store, 'test-week'), 0, 'le nouvel arrivage est en vente');
   const offers = store.getAll('BlackMarketOffers').filter((o) => o.Auto && o.Active);
   assert.equal(offers.length, 4);
   assert.equal(offers.filter((o) => o.Label).length, 1, 'un coup de coeur');

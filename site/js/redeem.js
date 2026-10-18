@@ -128,9 +128,9 @@ async function redeem() {
 
     if (res.type === "booster") {
       document.getElementById("reward-zone").innerHTML =
-        `<div class="reward-banner">+${res.quantity} booster${res.quantity > 1 ? "s" : ""} ! Tu en as maintenant ${res.newBoosterCount}.</div>`;
+        `<div class="reward-banner">+${res.quantity} jeton${res.quantity > 1 ? "s" : ""} booster ! Tu en as maintenant ${res.newBoosterCount}.</div>`;
       if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
-      Toast.success(`+${res.quantity} booster${res.quantity > 1 ? "s" : ""} !`);
+      Toast.success(`+${res.quantity} jeton${res.quantity > 1 ? "s" : ""} booster !`);
       refreshBoosterStat();
     } else if (res.type === "card") {
       document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">Carte reçue !</div>`;

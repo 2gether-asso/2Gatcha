@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Progression - 2Gatcha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%238b5cf6%27/%3E%3Cstop offset=%271%27 stop-color=%27%2322d3ee%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27url(%23g)%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-family=%27sans-serif%27 font-weight=%27800%27 font-size=%2730%27 fill=%27white%27 text-anchor=%27middle%27%3E2G%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
+  <header id="site-header"></header>
+
+  <main id="main-content">
+    <div class="panel">
+      <h1>&#127775; Progression</h1>
+      <p class="lead">Tout ce qui te fait grandir sur le long terme : talents et prestige du compte, constellations et arbre céleste, maîtrises.</p>
+      <div id="pg-guest" class="error-box" style="display:none">Connecte-toi pour voir ta progression.</div>
+      <div id="pg-summary" class="pg-summary"></div>
+      <nav class="tabs pg-tabs" role="tablist" aria-label="Sections de la progression">
+        <button type="button" class="tab active" role="tab" data-pg="talents" aria-selected="true">&#127795; Talents &amp; prestige</button>
+        <button type="button" class="tab" role="tab" data-pg="ciel" aria-selected="false">&#127756; Constellations</button>
+        <button type="button" class="tab" role="tab" data-pg="maitrises" aria-selected="false">&#127941; Maîtrises</button>
+      </nav>
+
+      <section class="pg-pane" id="pg-talents" role="tabpanel">
+        <section id="own-progress" class="own-progress" hidden>
+          <span id="talents" class="anchor"></span>
+          <div class="talents-panel" id="talents-panel"></div>
+        </section>
+      </section>
+
+      <section class="pg-pane" id="pg-ciel" role="tabpanel" hidden>
+        <div class="sky-tree-wrap">
+          <div class="sky-tree-head">
+            <h2>&#10024; Arbre céleste</h2>
+            <p class="lead">Chaque constellation allumée te donne <strong>1 point d'étoile</strong>. Dépense-les pour allumer les étoiles du ciel, en partant de l'Étoile polaire : une étoile ne s'allume que si elle est reliée à une étoile déjà allumée. Leurs bonus s'ajoutent à tes talents.</p>
+          </div>
+          <div class="sky-tree" id="sky-tree"><p class="muted">Chargement du ciel…</p></div>
+        </div>
+        <details class="themes-panel sky-panel" id="sky-panel" open hidden>
+          <summary>&#127756; Les 40 constellations <span class="themes-count" id="sky-count"></span></summary>
+          <p class="lead" style="font-size:0.85rem;">Chaque constellation réunit 5 cartes d'extensions différentes : possède-les toutes pour l'allumer (des poussières à récupérer et 1 point d'étoile pour l'arbre). Le ciel complet donne des boosters et le titre « Astronome ».</p>
+          <div class="sky-grid" id="sky-grid"></div>
+        </details>
+      </section>
+
+      <section class="pg-pane" id="pg-maitrises" role="tabpanel" hidden>
+        <div class="tiers-panel" id="tiers-panel"></div>
+        <details class="themes-panel mastery-panel" id="mastery-panel" open hidden>
+          <summary>&#127941; Maîtrise des extensions <span class="themes-count" id="mastery-count"></span></summary>
+          <p class="lead" style="font-size:0.85rem;">Niveaux 1 à 10 par extension, sur 3 couches : toutes les cartes, tous les états, toutes les finitions de chaque carte. Chaque niveau augmente un peu tes chances de finition spéciale dans les boosters de l'extension. Le niveau 10 demande <strong>tout</strong>, arc-en-ciel compris.</p>
+          <div class="mastery-grid" id="mastery-grid"></div>
+        </details>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/profile-progress.js"></script>
+  <script src="js/collection-progress.js"></script>
+  <script src="js/progression.js"></script>
+</body>
+</html>

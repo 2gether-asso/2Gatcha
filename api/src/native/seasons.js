@@ -17,7 +17,7 @@ import { setting } from './settings.js';
 
 export const schema = {
   SeasonProgress: {
-    BonusClaimed: { type: 'Numeric' }, ChestClaimed: { type: 'Bool' }, User: { type: 'Ref:Users' }, Season: { type: 'Text' }, StartXP: { type: 'Numeric' }, ClaimedTier: { type: 'Numeric' } },
+    BonusClaimed: { type: 'Numeric' }, BonusXP: { type: 'Numeric' }, ChestClaimed: { type: 'Bool' }, User: { type: 'Ref:Users' }, Season: { type: 'Text' }, StartXP: { type: 'Numeric' }, ClaimedTier: { type: 'Numeric' } },
   SeasonCards: { Season: { type: 'Text' }, Card: { type: 'Ref:Cards' } }
 };
 
@@ -72,18 +72,27 @@ function chestContents(store, xp) {
   };
 }
 
+// XP de saison en plus, sans toucher a l'XP du compte (defis de saison).
+export function addSeasonXp(store, userId, n) {
+  ensureProgress(store, userId);
+  const row = progressRow(store, userId, seasonId());
+  if (!row) return 0;
+  store.update('SeasonProgress', row.id, { BonusXP: (Number(row.BonusXP) || 0) + n });
+  return n;
+}
+
 export function previousSeason(id = seasonId()) {
   const [y, m] = id.split('-').map(Number);
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
 }
 
 function chestOf(store, user, season, row) {
-  const xpNow = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0)) : 0;
+  const xpNow = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0) + (Number(row.BonusXP) || 0)) : 0;
   const prevId = previousSeason(season);
   const prev = progressRow(store, user.id, prevId);
   let previous = null;
   if (prev && row) {
-    const xp = Math.max(0, (Number(row.StartXP) || 0) - (Number(prev.StartXP) || 0));
+    const xp = Math.max(0, (Number(row.StartXP) || 0) - (Number(prev.StartXP) || 0) + (Number(prev.BonusXP) || 0));
     const c = chestContents(store, xp);
     if (xp > 0) previous = { season: prevId, label: seasonLabel(prevId), xp, contents: c, claimed: !!prev.ChestClaimed, claimable: !prev.ChestClaimed && (c.dust + c.boosters + c.keys) > 0 };
   }
@@ -97,7 +106,8 @@ function statusOf(store, user) {
   const perTier = setting(store, 'SeasonXpPerTier');
   const rewards = setting(store, 'SeasonRewards');
   const row = progressRow(store, user.id, season);
-  const xp = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0)) : 0;
+  // XP de saison = XP du compte gagnee ce mois + XP des defis de saison (seasonquests.js).
+  const xp = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0) + (Number(row.BonusXP) || 0)) : 0;
   const claimed = row ? Number(row.ClaimedTier) || 0 : 0;
   const reached = Math.min(tiersCount, Math.floor(xp / perTier));
   const card = seasonCard(store, season);

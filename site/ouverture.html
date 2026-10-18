@@ -38,30 +38,52 @@
           <a href="pull-log.html" class="btn-ghost">&#128220; Mon journal d'ouvertures</a>
         </div>
         <div class="rarity-pity-strip" id="rarity-pity-strip" hidden></div>
-        <div class="extension-picker" id="extension-picker" style="margin-top:20px;"></div>
+        <div class="vending" id="vending">
+          <div class="vending-top"><span class="vending-led" aria-hidden="true"></span><span class="vending-title">Distributeur de boosters</span><span class="vending-led" aria-hidden="true"></span></div>
+          <div class="vending-body">
+            <div class="vending-glass">
+              <div class="extension-picker" id="extension-picker"></div>
+            </div>
+            <aside class="vending-coin" aria-label="Monnayeur">
+              <img class="vending-token" src="assets/JetonBooster.png" alt="" />
+              <div class="vending-coin-count"><strong id="vending-tokens">0</strong><span>jeton(s)</span></div>
+              <div class="vending-slot" aria-hidden="true"></div>
+              <p class="vending-help">1 jeton = 1 booster de ton choix. Clique sur les cases pour remplir ta sélection.</p>
+              <div class="vend-cart" id="vend-cart"></div>
+              <div class="vend-lots" id="vend-lots" aria-live="polite"></div>
+            </aside>
+          </div>
+          <div class="vending-tray" aria-hidden="true"><span>Retrait des boosters</span></div>
+        </div>
 
-        <section class="chest-panel" id="chest-panel" style="display:none;" aria-labelledby="chest-title">
-          <div class="chest-visual" aria-hidden="true">&#129520;</div>
-          <div class="chest-body">
-            <h2 id="chest-title">Coffres</h2>
-            <p class="chest-desc">Un coffre s'ouvre avec une clé et contient à coup sûr des poussières, souvent une carte (parfois deux), parfois des boosters.</p>
+        <div data-shop-strip="ouverture"></div>
+        <section class="chest-panel gatcha" id="chest-panel" style="display:none;" aria-labelledby="chest-title">
+          <div class="gatcha-machine" aria-hidden="true">
+            <div class="gatcha-dome" id="gatcha-dome"></div>
+            <div class="gatcha-base">
+              <span class="gatcha-crank" id="gatcha-crank"></span>
+              <span class="gatcha-chute"><span class="gatcha-drop" id="gatcha-drop" hidden></span></span>
+            </div>
+          </div>
+          <div class="gatcha-side">
+            <h2 id="chest-title">Gatchapon de coffres</h2>
+            <p class="chest-desc">Glisse une pièce : une boule tombe avec un coffre dedans, du coffre en bois au coffre mystique. Ouvre-le avec une clé : plus le coffre est rare, meilleur est le butin (poussières, jetons booster, cartes, finitions).</p>
             <div class="chest-stock">
-              <span class="chest-chip" id="chest-count">&#129520; 0 coffre</span>
-              <span class="chest-chip" id="chest-keys">&#128273; 0 clé</span>
+              <span class="chest-chip" id="chest-count">&#129689; 0 pièce</span>
+              <span class="chest-chip" id="chest-keys"><img class="ico-token" src="assets/cl%C3%A9s.PNG" alt="" /> 0 clé</span>
             </div>
             <p class="chest-next" id="chest-next"></p>
-          </div>
-          <div class="chest-actions">
             <div class="chest-btn-row">
-              <button type="button" class="btn" id="chest-open-btn">Ouvrir un coffre</button>
-              <button type="button" class="btn-secondary" id="chest-open5-btn" hidden>Ouvrir ×5</button>
-              <button type="button" class="btn-secondary" id="chest-openall-btn" hidden></button>
+              <button type="button" class="btn" id="gatcha-spin-btn"><img class="ico-token" src="assets/Pi%C3%A8ceKraken.PNG" alt="" /> Glisser une pièce</button>
+              <button type="button" class="btn-secondary" id="gatcha-spin5-btn" hidden>×5</button>
             </div>
             <div class="chest-btn-row">
-              <button type="button" class="btn-secondary" id="chest-buy-btn">Acheter un coffre</button>
+              <button type="button" class="btn-secondary" id="chest-buy-btn">Acheter une pièce</button>
               <button type="button" class="btn-ghost" id="chest-buy5-btn"></button>
             </div>
+            <details class="gatcha-odds-wrap"><summary>Chances et butin des coffres</summary><div id="gatcha-odds"></div></details>
           </div>
+          <div class="gatcha-tray" id="gatcha-tray" aria-live="polite"></div>
         </section>
 
         <!-- Simulateur (admins, js/opening-sim.js) : pur calcul cote API. -->
@@ -104,6 +126,7 @@
     <button id="pack-modal-close" class="card-modal-close pack-modal-close" aria-label="Fermer">&times;</button>
     <button id="pack-sound-btn" type="button" class="pack-sound-btn" aria-label="Son de l'ouverture"></button>
     <div class="pack-modal-stage">
+      <div class="cart-bar" id="cart-bar" hidden></div>
       <div class="quantity-picker" id="quantity-picker">
         <button type="button" class="btn-secondary active" data-qty="1">Ouvrir x1</button>
         <button type="button" class="btn-secondary" data-qty="5">Ouvrir x5</button>
@@ -149,7 +172,10 @@
   <script src="js/shell.js"></script>
   <script src="js/opening-fx.js"></script>
   <script src="js/card-extras.js"></script>
+  <script src="js/shop-strip.js"></script>
+  <script src="js/ripen.js"></script>
   <script src="js/opening.js"></script>
+  <script src="js/opening-cart.js"></script>
   <script src="js/opening-sim.js"></script>
 </body>
 </html>

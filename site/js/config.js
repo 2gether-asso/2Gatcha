@@ -62,7 +62,7 @@ window.APP_CONFIG = {
     badges: "/badges",                 // POST { userId, action: 'list'|'buy'|'select', badgeKey? } -> { badges, selectedBadge, newStardust? } | { error }
     eventCalendar: "/event-calendar",  // GET -> { events: [{ label, startsAt, expiresAt, isLive }] }
     communityBoss: "/community-boss",  // POST { userId, action: 'status'|'attack'|'adminCreate', cardId?, discordId?, bossName?, maxHp?, rewardBoosters? }
-    guildChest: "/guild-chest",        // POST { userId, action: 'status'|'deposit'|'draw', cardId? }
+    guildChest: "/guild-chest",        // POST { userId, action: 'status'|'deposit'|'take'|'free', pullIds?, depositId?, pay? } (v2 natif, 2026-10-18)
     blackMarket: "/black-market",      // POST { userId, action: 'list'|'buy'|'adminCreate', offerId?, discordId?, cardId?, cost?, expiresInHours?, maxPurchases? }
     adminGift: "/admin-gift",          // POST { discordId, targetUserId, giftType: 'card'|'booster'|'dust', cardId?, finish?, quality?, quantity? } -> { gifted, giftType, quantity, ... } | { error }
     guessCard: "/guess-card",        // POST { userId, action: 'status'|'guess', cardId? }
@@ -85,6 +85,18 @@ window.APP_CONFIG = {
     discoveriesCatalog: "/discoveries-catalog", // GET (previsualisation des animations, admin)
     dino: "/dino",                      // POST { userId, action: 'status'|'hatch'|'feed'|'play'|'clean'|'rename', dino?, food?, name? }
     garden: "/garden",                  // POST { userId, action: 'status'|'plant'|'harvest' }
+    visuals: "/visuals",                // GET -> { overrides } (visuels modifies dans l'admin)
+    ripen: "/ripen",                   // POST { userId, action: 'status'|'store'|'claim'|'cancel', items?, stage?, lotId? } (murissoir du distributeur, 2026-10-18)
+    timers: "/timers",                 // GET ?userId -> { now, items } (minuteurs de l'inventaire, 2026-10-18)
+    seasonQuests: "/season-quests",   // POST { userId, action: 'status'|'claim', key? } (defis de saison, 2026-10-18)
+    story: "/story",                   // POST/GET { userId, action: 'status'|'claim' } (quetes d'histoire)
+    patchNotes: "/patch-notes",        // GET -> { notes, latest } (notes de mise a jour)
+    adminSurprise: "/admin-surprise",  // POST { discordId, action: 'status'|'start'|'stop', key? } (evenements surprises)
+    museum: "/museum",                 // POST/GET { userId } (musee du coffre-fort, 2026-10-18)
+    starter: "/starter",               // POST/GET { userId, action: 'status'|'claim', key? } (parcours du debutant, 2026-10-18)
+    adminTestAccount: "/admin-test-account", // POST { discordId, action: 'status'|'login'|'set'|'reset'|'cards', levels?, resources?, mode? } (compte test, 2026-10-18)
+    adminVisuals: "/admin-visuals",     // POST { discordId, action: 'list'|'set'|'reset'|'upload', key, label?, data?, mime? }
+    guildWorks: "/guild-works",         // POST { userId, action: 'status'|'give', resource?, amount? } -> Grand Chantier de la semaine
     communityDig: "/community-dig",     // POST { userId, action: 'status'|'dig', tile? }
     prestige: "/prestige",              // POST { userId, skill: 'fishing'|'dig'|'expedition'|'garden' }
     // Progression longue, quotidien, marche (2026-10-07)
@@ -129,6 +141,10 @@ window.APP_CONFIG = {
     season: "/season",                  // POST { userId, action: 'status'|'claim' } -> saison mensuelle
     adminSeason: "/admin-season",       // POST { discordId, action: 'get'|'setCard', season?, cardId? }
     fishing: "/fishing",                // POST { userId, action: 'status'|'cast', count? } -> jeu de peche
+    aquarium: "/aquarium",              // POST { userId, action: 'status'|'claim' } -> especes et paliers de l'aquarium
+    cat: "/cat",
+    batchWrite: "/batch-write",         // POST { path, calls: [body...] } -> { results: [{ status, json }] } (decraft, autel, craft en lot)
+    minerals: "/minerals",              // POST { userId, action: 'status'|'sell'|'trade', key?, count?, index? } -> comptoir des mineraux                        // POST { userId, action: 'status'|'feed', count? } -> Moka le chat
     // Lot 2026-10-09 : inflation, pity par rarete, course aux tresors, prestige, evenements planifies
     upgrades: "/upgrades",             // POST { userId, action: 'status'|'buy', key? } (chenil, serre, canne)
     finishReroll: "/finish-reroll",     // POST { userId, pullId, action: 'status'|'reroll' }
@@ -153,6 +169,7 @@ window.APP_CONFIG = {
     modeRules: "/mode-rules",           // GET -> regles actives du mode en cours
     modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode
     draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }
+    skyTree: "/sky-tree",               // POST { userId, action: 'status'|'light'|'reset', key? } (arbre celeste)
     chaosVote: "/chaos-vote",           // POST { userId, action: 'status'|'vote', rule? }
     dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille de Milo (le chien)
     sundayMarket: "/sunday-market",     // POST { userId, action: 'status'|'buy', cardId? }

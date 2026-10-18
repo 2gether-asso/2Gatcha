@@ -61,7 +61,7 @@ function stages(store) {
     { key: 'door', icon: '🚪', label: 'Ouvrir la salle', story: 'La porte blindée ne cède qu’à un trousseau complet.', cost: [{ field: 'KeyCount', n: c.keys, label: 'clés', icon: '🔑' }] },
     { key: 'boiler', icon: '🔥', label: 'Allumer la chaudière', story: 'Il faut de la poussière d’étoile pour le feu et des vers pour… on ne pose pas de questions.', cost: [{ field: 'StardustCount', n: c.dust, label: 'poussières', icon: '✨' }, { field: 'Worms', n: c.worms, label: 'vers de terre', icon: '🪱' }] },
     { key: 'gears', icon: '⚙️', label: 'Graisser les engrenages', story: 'Les rouages grincent : pièces détachées et appâts dorés fondus en graisse.', cost: [{ field: 'SpareParts', n: c.parts, label: 'pièces détachées', icon: '🔩' }, { field: 'GoldBait', n: c.bait, label: 'appâts dorés', icon: '🪝' }] },
-    { key: 'generator', icon: '⚡', label: 'Alimenter le générateur', story: 'Le générateur se nourrit de boosters encore scellés.', cost: [{ field: 'BoosterCount', n: c.boosters, label: 'boosters', icon: '🃏' }] },
+    { key: 'generator', icon: '⚡', label: 'Alimenter le générateur', story: 'Le générateur se nourrit de jetons booster.', cost: [{ field: 'BoosterCount', n: c.boosters, label: 'boosters', icon: '🃏' }] },
     { key: 'calibrate', icon: '🎛️', label: 'Calibrer la machine', story: 'Pour l’étalonnage, la machine avale des cartes en double (jamais un #001, une arc-en-ciel, un parfait état, une édition limitée ni un exemplaire protégé).', cost: [{ field: 'cards', n: c.cards, label: 'cartes en double', icon: '🎴' }] },
     { key: 'overheat', icon: '🌋', optional: true, label: 'Surchauffe (facultatif)', story: 'Pousser la machine au-delà de ses limites : ton vote comptera double.', cost: [{ field: 'BoosterCount', n: o.boosters, label: 'boosters', icon: '🃏' }, { field: 'legendary', n: o.legendary, label: 'légendaire en double (ou mieux)', icon: '🌟' }] }
   ];
@@ -205,7 +205,7 @@ function loyalty(store, user) {
       reward = `la carte ${card.Name}`;
     } else {
       fields.BoosterCount = (Number(user.BoosterCount) || 0) + 3;
-      reward = '3 boosters';
+      reward = '3 jetons booster';
     }
     addFeed(store, { userId: user.id, kind: 'machine', icon: '⚙️', text: `fait tourner la salle des machines 3 mois d’affilée et gagne ${reward} !` });
   }
@@ -316,7 +316,7 @@ function settleMonth(store, m) {
   if (goal > 0 && n >= goal) {
     const players = users.filter((u) => (Number(u.MachineStage) || 0) >= 1);
     players.forEach((u) => store.update('Users', u.id, { BoosterCount: (Number(store.get('Users', u.id).BoosterCount) || 0) + 1 }));
-    addFeed(store, { kind: 'machine', icon: '⚙️', text: `Jauge de la salle des machines remplie (${n}/${goal}) : ${players.length} participant${players.length > 1 ? 's reçoivent' : ' reçoit'} 1 booster !` });
+    addFeed(store, { kind: 'machine', icon: '⚙️', text: `Jauge de la salle des machines remplie (${n}/${goal}) : ${players.length} participant${players.length > 1 ? 's reçoivent' : ' reçoit'} 1 jeton booster !` });
   }
   // Chef mecanicien : titre et cadre jusqu'au mois suivant.
   const best = users.filter((u) => (Number(u.MachineSpent) || 0) > 0).sort((a, b) => (Number(b.MachineSpent) || 0) - (Number(a.MachineSpent) || 0))[0];

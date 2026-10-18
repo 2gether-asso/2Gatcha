@@ -177,14 +177,25 @@
 
   async function runDisenchant(plan, btn) {
     let count = 0, dust = 0, boosters = 0, lastError = null;
-    for (const p of plan) {
-      for (const copy of p.copies) {
-        try {
-          const res = await API.disenchantCard(Session.userId, p.card.cardId, p.variant.finish, p.variant.quality, copy.pullId);
-          dust += res.dustGained || 0;
-          if (res.boosterGranted) boosters++;
-          count++;
-        } catch (e) { lastError = e; break; }
+    const tally = (res) => { dust += res.dustGained || 0; if (res.boosterGranted) boosters++; count++; };
+    const items = plan.flatMap((p) => p.copies.map((copy) => ({ p, copy })));
+    if (items.length > 1) {
+      // En lot (2026-10-18) ; une edition limitee repasse par l'appel seul (confirmation).
+      let results = [];
+      try { results = await API.batchWrite("disenchant", items.map(({ p, copy }) => ({ userId: Session.userId, cardId: p.card.cardId, finish: p.variant.finish, quality: p.variant.quality, pullId: copy.pullId }))); }
+      catch (e) { lastError = e; }
+      for (const [i, r] of results.entries()) {
+        if (r.status === 200 && r.json && !r.json.error) { tally(r.json); continue; }
+        if (r.json && r.json.error === "edition_copy") {
+          const { p, copy } = items[i];
+          try { tally(await API.disenchantCard(Session.userId, p.card.cardId, p.variant.finish, p.variant.quality, copy.pullId)); } catch (e) { lastError = e; }
+          continue;
+        }
+        lastError = Object.assign(new Error((r.json && r.json.error) || "error"), { code: r.json && r.json.error, status: r.status, data: r.json });
+      }
+    } else {
+      for (const { p, copy } of items) {
+        try { tally(await API.disenchantCard(Session.userId, p.card.cardId, p.variant.finish, p.variant.quality, copy.pullId)); } catch (e) { lastError = e; }
       }
     }
     if (!count) { Toast.error(Coll.errorText("disenchant", lastError)); return false; }
@@ -341,9 +352,19 @@
 
   async function runCraft(ids) {
     let count = 0, lastError = null, lastName = "";
-    for (const id of ids) {
-      try { const res = await API.craftCard(Session.userId, id); lastName = res.card.name; count++; }
-      catch (e) { lastError = e; if (ids.every((x) => x === ids[0])) break; }
+    if (ids.length > 1) {
+      // En lot (2026-10-18).
+      let results = [];
+      try { results = await API.batchWrite("craft", ids.map((id) => ({ userId: Session.userId, cardId: id }))); } catch (e) { lastError = e; }
+      results.forEach((r) => {
+        if (r.status === 200 && r.json && !r.json.error && r.json.card) { lastName = r.json.card.name; count++; }
+        else lastError = Object.assign(new Error((r.json && r.json.error) || "error"), { code: r.json && r.json.error, status: r.status, data: r.json });
+      });
+    } else {
+      for (const id of ids) {
+        try { const res = await API.craftCard(Session.userId, id); lastName = res.card.name; count++; }
+        catch (e) { lastError = e; }
+      }
     }
     if (!count) { Toast.error(Coll.errorText("craft", lastError)); return false; }
     if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
@@ -458,11 +479,12 @@
         <div class="altar-slots">${slotHtml}</div>
         <div class="altar-odds">${lockedRarity
           ? `<strong>${escapeHtml(slotted[0].card.rarity.name)}</strong> &rarr; <strong>${nextRarity ? escapeHtml(nextRarity.name) : "?"}</strong> · 50% de réussite · échec : un os &#129460;`
-          : "Pose 3 exemplaires d'une même rareté. 50% de réussite · échec : un os &#129460;"}</div>
+          : "Pose 3 exemplaires d'une même rareté. 50% de réussite · échec : un os " + resIcon("bone")}</div>
         ${precious.length ? `<div class="altar-warning">&#9888; Tu poses des exemplaires précieux : ${precious.map((c) => Coll.serial(c.serialNumber) + " " + escapeHtml(c.card.name)).join(", ")}</div>` : ""}
         <div class="altar-actions">
           <button type="button" class="btn-ghost" data-altar="auto" ${slotted.length >= 3 ? "disabled" : ""} title="Complète l'autel avec les exemplaires les moins précieux d'une même rareté">&#10024; Remplir automatiquement</button>
           <button type="button" class="btn-ghost" data-altar="clear" ${slotted.length ? "" : "disabled"}>Vider l'autel</button>
+          <button type="button" class="btn-secondary" data-altar="smart" title="Sacrifie tes doublons par 3, selon tes règles, avec un aperçu">&#129504; Sacrifice intelligent</button>
           <button type="button" class="btn-danger altar-confirm-btn" data-altar="sacrifice" ${slotted.length === 3 ? "" : "disabled"}>&#128293; Sacrifier</button>
         </div>
       </div>
@@ -561,6 +583,23 @@
   // cartes restaurables apparaissent (les exemplaires manquants peuvent se
   // payer en poussieres).
   const fusionSearch = { finish: "", quality: "" };
+  // Filtre par niveau de depart (2026-10-18).
+  const fusionFrom = { finish: "", quality: "" };
+  // Selection automatique sans exemplaire precieux (#001, arc-en-ciel,
+  // parfait etat, edition, ★, assure) ; null si pas assez d'exemplaires.
+  function autoFusion(kind, cardId, from) {
+    const isFinish = kind === "finish";
+    const need = isFinish ? 5 : 3;
+    const otherRank = (c) => (isFinish ? FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c)) : FUSION_FINISH_RANK.indexOf(Coll.finishOf(c)));
+    const copies = (state.ownedMap.get(cardId)?.copies || [])
+      .filter((c) => (isFinish ? Coll.finishOf(c) : Coll.qualityOf(c)) === from)
+      .filter((c) => !Coll.isPrecious(c) && !(state.insured && state.insured.has(c.pullId)) && !c.inVault)
+      .sort((a, b) => otherRank(a) - otherRank(b) || (b.serialNumber || 0) - (a.serialNumber || 0));
+    if (copies.length < need) return null;
+    const picked = copies.slice(0, need);
+    const keepCopy = [...picked].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999))[0];
+    return { pullIds: picked.map((c) => c.pullId), keepPullId: keepCopy.pullId, parts: 0, dustCopies: 0, keepSerial: keepCopy.serialNumber, picked };
+  }
   let repairDustPerCopy = 60;
   API.getEconomyRules(Session.isLoggedIn() ? Session.userId : undefined).then((r) => { repairDustPerCopy = r.repairDustPerCopy || 60; }).catch(() => {});
   function fusionList(kind) {
@@ -585,7 +624,7 @@
 
   function renderFusions(kind) {
     const el = $(kind === "finish" ? "finish-tiers" : "quality-tiers");
-    if (!el.previousElementSibling || !el.previousElementSibling.classList.contains("fusion-search")) {
+    if (!el.parentNode.querySelector(":scope > .fusion-search")) {
       const input = document.createElement("input");
       input.type = "search";
       input.className = "fusion-search";
@@ -594,9 +633,17 @@
       input.addEventListener("input", () => { fusionSearch[kind] = input.value; renderFusions(kind); });
       el.parentNode.insertBefore(input, el);
     }
-    const list = fusionList(kind);
+    const all = fusionList(kind);
     const labels = kind === "finish" ? FINISH_LABELS_LONG : QUALITY_LABELS;
     const tag = kind === "finish" ? "finish" : "quality";
+    // Puces de filtre par niveau de depart (seulement les niveaux presents).
+    let chips = el.parentNode.querySelector(":scope > .fusion-from-chips");
+    if (!chips) { chips = document.createElement("div"); chips.className = "fusion-from-chips"; el.parentNode.insertBefore(chips, el); }
+    const levels = [...new Set(all.map((u) => u.from))];
+    if (fusionFrom[kind] && !levels.includes(fusionFrom[kind])) fusionFrom[kind] = "";
+    chips.innerHTML = levels.length > 1 ? `<button type="button" class="fusion-chip ${fusionFrom[kind] ? "" : "active"}" data-from-filter="">Tout <small>${all.length}</small></button>` + levels.map((l) => `<button type="button" class="fusion-chip ${fusionFrom[kind] === l ? "active" : ""}" data-from-filter="${l}"><span class="${tag}-tag" data-${tag}="${l}">${labels[l]}</span> <small>${all.filter((u) => u.from === l).length}</small></button>`).join("") : "";
+    chips.onclick = (e) => { const b = e.target.closest("[data-from-filter]"); if (b) { fusionFrom[kind] = b.dataset.fromFilter; renderFusions(kind); } };
+    const list = fusionFrom[kind] ? all.filter((u) => u.from === fusionFrom[kind]) : all;
     if (!list.length) {
       el.innerHTML = `<div class="empty-state">${kind === "finish"
         ? "Aucune fusion possible pour l'instant : il te faut 5 exemplaires identiques (même carte, même finition) d'un coup."
@@ -613,9 +660,12 @@
             <span aria-hidden="true">&#8594;</span>
             <span class="${tag}-tag" data-${tag}="${u.to}">${labels[u.to]}</span>
           </div>
-          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (${u.need} requis${u.withPart ? (kind === "quality" ? " · compléter avec une pièce &#128297; ou des poussières &#10024;" : " · avec une pièce détachée &#128297;") : u.available >= u.need * 2 ? ` · ${Math.floor(u.available / u.need)} fusions possibles` : ""})</div>
+          <div class="finish-upgrade-count">${u.available} exemplaires disponibles (${u.need} requis${u.withPart ? (kind === "quality" ? " · compléter avec une pièce " + resIcon("part") + " ou des poussières &#10024;" : " · avec une pièce détachée " + resIcon("part")) : u.available >= u.need * 2 ? ` · ${Math.floor(u.available / u.need)} fusions possibles` : ""})</div>
         </div>
-        <button type="button" class="btn-secondary" data-fuse="${kind}" data-card-id="${u.card.cardId}" data-from="${u.from}">${kind === "finish" ? "Fusionner" : "Restaurer"}</button>
+        <div class="fusion-actions">
+          ${autoFusion(kind, u.card.cardId, u.from) ? `<button type="button" class="btn" data-fuse-quick="${kind}" data-card-id="${u.card.cardId}" data-from="${u.from}" title="Choix automatique des exemplaires les moins précieux, jamais de #001, d'arc-en-ciel, de parfait état ni d'édition">&#9889; Rapide</button>` : ""}
+          <button type="button" class="btn-secondary" data-fuse="${kind}" data-card-id="${u.card.cardId}" data-from="${u.from}">${kind === "finish" ? "Choisir…" : "Choisir…"}</button>
+        </div>
       </div>`).join("");
   }
 
@@ -630,15 +680,41 @@
       title: "Fusionner en " + labels[to],
       intro: `Choisis les <strong>5 exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> à sacrifier, et le numéro que gardera le nouvel exemplaire <strong>${labels[to]}</strong>. La meilleure qualité sacrifiée est conservée.`,
       copies, required: 5, parts: state.spareParts,
-      otherRank: (c) => FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c))
+      otherRank: (c) => FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c)),
+      resultLabel: (picked) => `${labels[to]} · ${QUALITY_LABELS[[...picked].map((c) => Coll.qualityOf(c)).sort((a, b) => FUSION_QUALITY_RANK.indexOf(b) - FUSION_QUALITY_RANK.indexOf(a))[0] || "damaged"]}`
     } : {
       title: "Restaurer en " + labels[to],
       intro: `Choisis les <strong>3 exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> à consommer, et le numéro que gardera le nouvel exemplaire <strong>${labels[to]}</strong>. La meilleure finition consommée est conservée.`,
       copies, required: 3, parts: state.spareParts, dustPerCopy: repairDustPerCopy, stardust: state.stardust,
       otherRank: (c) => FUSION_FINISH_RANK.indexOf(Coll.finishOf(c)),
+      resultLabel: (picked) => `${labels[to]} · ${FINISH_LABELS_LONG[[...picked].map((c) => Coll.finishOf(c)).sort((a, b) => FUSION_FINISH_RANK.indexOf(b) - FUSION_FINISH_RANK.indexOf(a))[0] || "normal"]}`,
       confirmText: "Restaurer"
     });
     if (!selection) return;
+    await runFuse(kind, cardId, from, selection);
+  }
+
+  // Fusion rapide : selection automatique, une simple confirmation.
+  async function quickFuse(kind, cardId, from) {
+    const sel = autoFusion(kind, cardId, from);
+    if (!sel) return fuse(kind, cardId, from);
+    const isFinish = kind === "finish";
+    const labels = isFinish ? FINISH_LABELS_LONG : QUALITY_LABELS;
+    const order = isFinish ? FINISH_ORDER : QUALITY_ORDER;
+    const to = order[order.indexOf(from) + 1];
+    const card = cardOf(cardId);
+    const serial = (n) => "#" + String(n ?? "?").padStart(3, "0");
+    const ok = await Confirm.show(`${isFinish ? "Fusionner" : "Restaurer"} <strong>${sel.pullIds.length} exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> (${[...sel.picked].sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0)).map((c) => serial(c.serialNumber)).join(", ")}) en un exemplaire <strong>${labels[to]}</strong> qui garde le numéro <strong>${serial(sel.keepSerial)}</strong> ?`, { title: isFinish ? "Fusion rapide" : "Restauration rapide", confirmText: isFinish ? "Fusionner" : "Restaurer" });
+    if (!ok) return;
+    await runFuse(kind, cardId, from, { pullIds: sel.pullIds, keepPullId: sel.keepPullId, parts: 0, dustCopies: 0 });
+  }
+
+  async function runFuse(kind, cardId, from, selection) {
+    const card = cardOf(cardId);
+    const isFinish = kind === "finish";
+    const order = isFinish ? FINISH_ORDER : QUALITY_ORDER;
+    const labels = isFinish ? FINISH_LABELS_LONG : QUALITY_LABELS;
+    const to = order[order.indexOf(from) + 1];
     try {
       if (selection.parts) await screwPartAnimation();
       if (selection.dustCopies) Toast.info(`&#10024; ${selection.dustCopies * repairDustPerCopy} poussières à la place de ${selection.dustCopies} exemplaire${selection.dustCopies > 1 ? "s" : ""}.`);
@@ -744,6 +820,7 @@
       if (act.dataset.altar === "clear") { altarSlots = [null, null, null]; renderAltar(); }
       else if (act.dataset.altar === "auto") autoFillAltar();
       else if (act.dataset.altar === "sacrifice") sacrifice();
+      else if (act.dataset.altar === "smart" && window.AltarSmart) AltarSmart.open();
     });
     altar.addEventListener("input", (e) => {
       if (e.target.id !== "altar-search") return;
@@ -756,6 +833,8 @@
     });
 
     ["finish-tiers", "quality-tiers"].forEach((id) => $(id).addEventListener("click", (e) => {
+      const quick = e.target.closest("[data-fuse-quick]");
+      if (quick) { quickFuse(quick.dataset.fuseQuick, Number(quick.dataset.cardId), quick.dataset.from); return; }
       const btn = e.target.closest("[data-fuse]");
       if (btn) fuse(btn.dataset.fuse, Number(btn.dataset.cardId), btn.dataset.from);
     }));

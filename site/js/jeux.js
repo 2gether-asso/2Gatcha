@@ -73,7 +73,8 @@ function digPerkTexts(p = {}) {
 }
 function fishPerkTexts(p = {}) {
   return [
-    p.extraCasts ? `+${p.extraCasts} lancers par jour` : "",
+    p.energyBonus ? `+${p.energyBonus} énergie de pêche max` : "",
+    p.regenReduction ? `recharge ${Math.round(p.regenReduction * 100)} % plus rapide` : "",
     p.emptyReduction ? `${Math.round(p.emptyReduction * 100)} % de prises vides en moins` : "",
     p.rareBoost ? `+${Math.round(p.rareBoost * 100)} % de chances de prises rares` : ""
   ];
@@ -144,7 +145,7 @@ async function renderFishExtras(st) {
   const parts = [];
   if (st.event) parts.push(`<span class="fish-chip fish-chip-event">&#127881; ${st.event.label}${st.event.fishingRare > 1 ? ` : prises rares ×${st.event.fishingRare}` : ""}${st.event.wormsMultiplier > 1 ? ` · vers ×${st.event.wormsMultiplier}` : ""}</span>`);
   if (st.tourney && st.tourney.active) parts.push(`<a class="fish-chip fish-chip-tourney" href="communaute.html#metiers">&#127942; Tournoi du week-end : ${st.tourney.score} pts · ${Math.max(0, st.tourney.max - st.tourney.casts)} lancer${st.tourney.max - st.tourney.casts > 1 ? "s" : ""} comptant encore</a>`);
-  if (st.goldBait > 0) parts.push(`<label class="fish-chip fish-bait"><input type="checkbox" id="fish-bait" /> &#10024;&#129713; Appât doré (${st.goldBait})</label>`);
+  if (st.goldBait > 0) parts.push(`<label class="fish-chip fish-bait"><input type="checkbox" id="fish-bait" /> ${resIcon("bait")} Appât doré (${st.goldBait})</label>`);
   if (r) parts.push(`<button type="button" class="fish-chip fish-reroll" id="fish-reroll-btn" ${r.weatherRerolledToday ? "disabled" : ""}>&#127780;&#65039; ${r.weatherRerolledToday ? "Météo déjà changée aujourd'hui" : `Changer la météo (${r.weatherRerollCost} ✨)`}</button>`);
   if (st.fullRewardsLeft != null) parts.push(`<span class="fish-chip ${st.fullRewardsLeft ? "" : "fish-chip-warn"}">${st.fullRewardsLeft ? `Plein rendement : encore ${st.fullRewardsLeft} lancer${st.fullRewardsLeft > 1 ? "s" : ""}` : "Rendement réduit pour aujourd'hui"}</span>`);
   const keepBait = document.getElementById("fish-bait")?.checked;
@@ -158,7 +159,11 @@ async function renderFishExtras(st) {
 let gardenTimer = null;
 let gardenSeed = "mix";
 let gardenState = null;
-const SEED_ICONS = { mix: "&#127793;", worm: "&#129713;", bait: "&#127804;", dust: "&#127776;" };
+const SEED_ICONS = { mix: "&#127793;", worm: resIcon("worm"), bait: resIcon("bait"), dust: "&#127776;" };
+// Culture prete : selon la graine (melange : legume different selon la parcelle).
+const CROP_ART = { worm: "Jardin/Champi.PNG", bait: "Jardin/Blé.png", dust: "Jardin/Gingembre.PNG" };
+const MIX_ART = ["Jardin/Carotte.png", "Jardin/Brocoli.png", "Jardin/Poivron.png"];
+const gardenCrop = (p, i) => CROP_ART[p.seed] || MIX_ART[i % MIX_ART.length];
 function renderGardenSeeds(st) {
   const el = document.getElementById("garden-seeds");
   if (!el || !st.seeds) return;
@@ -173,14 +178,14 @@ function renderGarden(st) {
   gardenState = st;
   renderGardenSeeds(st);
   const seedCost = (st.seeds || []).find((s) => s.key === gardenSeed)?.cost ?? st.plantCost;
-  document.getElementById("garden-meta").innerHTML = `&#129713; <strong>${st.worms}</strong> vers · &#10024;&#129713; <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte${st.wiltHours ? ` · une plante prête fane au bout de ${st.wiltHours} h` : ""}`
+  document.getElementById("garden-meta").innerHTML = `${resIcon("worm")} <strong>${st.worms}</strong> vers · ${resIcon("bait")} <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte${st.wiltHours ? ` · une plante prête fane au bout de ${st.wiltHours} h` : ""}`
     + (st.fertilizer || st.goldFertilizer ? `<span class="garden-fert">&#128169; <strong>${st.fertilizer}</strong> engrais de dino${st.goldFertilizer ? ` · <strong class="gold">${st.goldFertilizer}</strong> doré${st.goldFertilizer > 1 ? "s" : ""} (parcelle prête tout de suite, appât garanti)` : ""}</span>` : "")
     + (st.streak ? `<span class="garden-streak">&#128293; ${st.streak} jour${st.streak > 1 ? "s" : ""} de récolte d'affilée${st.rareChance ? ` · ${Math.round(st.rareChance * 100)} % de récolte rare demain` : " · récolte rare dès 3 jours"}</span>` : "");
   const t = Date.now() / 1000;
-  document.getElementById("garden-plots").innerHTML = st.plots.map((p) => {
+  document.getElementById("garden-plots").innerHTML = st.plots.map((p, i) => {
     if (!p.planted) return `<div class="garden-plot empty"><span class="garden-soil" aria-hidden="true"></span><span class="garden-label">Parcelle libre</span></div>`;
     const pct = Math.min(100, Math.round(((t - p.plantedAt) / (p.readyAt - p.plantedAt)) * 100));
-    const stage = pct >= 100 ? "&#127803;" : pct >= 60 ? "&#127807;" : pct >= 25 ? "&#127793;" : "&#127792;";
+    const stage = artImg(p.wilted ? "Jardin/Fanee.PNG" : pct >= 100 ? gardenCrop(p, i) : pct >= 25 ? "Jardin/Pousse.png" : "Jardin/Graine.png");
     const left = Math.max(0, Math.round(p.readyAt - t));
     const wiltLeft = p.wiltAt ? Math.max(0, Math.round(p.wiltAt - t)) : null;
     return `<div class="garden-plot ${pct >= 100 ? "ready" : ""} ${p.wilted ? "wilted" : ""}">${p.seed && p.seed !== "mix" ? `<span class="garden-seed-tag" title="${(st.seeds || []).find((s) => s.key === p.seed)?.label || ""}">${SEED_ICONS[p.seed] || ""}</span>` : ""}<span class="garden-plant" aria-hidden="true">${stage}</span>
@@ -243,6 +248,9 @@ function renderDigLevel(info) {
   if (!info) return;
   digLevelCache = info.level;
   const tool = toolFor(DIG_TOOLS, info.level);
+  // Pioche (site/assets/Fouille) : la seconde a partir du niveau 5.
+  const pick = document.getElementById("dig-pick-img");
+  if (pick) { const key = `Fouille/${info.level >= 5 ? "Pioche_02" : "Pioche_01"}.PNG`; if (pick.dataset.pick !== key) { pick.dataset.pick = key; pick.dataset.vis = key; pick.setAttribute("src", "assets/" + key); if (typeof Visuals !== "undefined") Visuals.apply(pick); } }
   renderSkillLevel("dig-level", tool.icon, "Fouille", info, digPerkTexts(info.perks), tool);
   document.getElementById("dig-pane").dataset.shovel = tool.key;
   // Collier du chien : couleur selon le niveau, cape au niveau max.
@@ -257,7 +265,40 @@ function renderFishLevel(info) {
   document.getElementById("fish-rod").dataset.rod = rod.key;
 }
 
-const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#128142;", booster: "&#127183;", card: "&#127942;", rareCard: "&#127775;" };
+const DIG_REWARD_ICON = { smallDust: "&#10024;", bigDust: "&#127775;", booster: "&#127183;", card: "&#127942;", rareCard: "&#127775;", mineral: "&#128142;" };
+// Fouille v2 (2026-10-18) : profondeurs, sac de mineraux, raccourcis de la boutique.
+let digDepthState = null;
+let digTilesCache = [];
+function renderDigDepths(dd) {
+  if (!dd) return;
+  digDepthState = dd;
+  const el = document.getElementById("dig-depths");
+  el.innerHTML = dd.depths.map((d) => `<button type="button" role="radio" aria-checked="${d.depth === dd.depth}" class="dig-depth ${d.depth === dd.depth ? "active" : ""}" data-depth="${d.depth}" ${d.unlocked ? "" : "disabled"} title="${d.unlocked ? `Profondeur ${d.depth} : ${d.label}` : `Niveau ${d.level} de fouille requis`}"><span class="dig-depth-n">${d.depth}</span> ${d.icon} ${escHtml(d.label)}${d.unlocked ? "" : ` <small>&#128274; niv. ${d.level}</small>`}</button>`).join("");
+  document.getElementById("dig-bag").innerHTML = `<img class="ico-art" src="assets/Fouille/Pioche_01.PNG" alt="" /> Sac : <strong>${dd.minerals}</strong> minér${dd.minerals > 1 ? "aux" : "al"} · <a href="communaute.html#marche">Comptoir des minéraux &rarr;</a>`;
+}
+async function setDigDepth(depth) {
+  if (!digDepthState || depth === digDepthState.depth || digBusy) return;
+  const started = digTilesCache.some((t) => t.dug);
+  if (started && !(await Confirm.show(`Changer de profondeur abandonne la grille en cours (les trésors déjà libérés sont gardés). Descendre à la profondeur <strong>${depth}</strong> ?`, { title: "Changer de profondeur ?", confirmText: "Changer" }))) return;
+  try {
+    const res = await API.digSetDepth(Session.userId, depth);
+    renderDigDepths(res.digDepth);
+    await loadDig();
+  } catch (e) { Toast.error(e.code === "depth_locked" ? `Niveau ${e.data?.level || ""} de fouille requis.` : friendlyError(e)); }
+}
+// Raccourcis de la boutique : bandeaux generiques (js/shop-strip.js). Garde
+// pour compatibilite : rafraichit tous les bandeaux de la page.
+async function renderDigShop() {
+  if (window.ShopStrip) return ShopStrip.load();
+  const el = document.getElementById("dig-shop");
+  if (!el) return;
+  try {
+    const st = await API.shop(Session.userId);
+    const keys = ["coffee", "bone", "xp1h"];
+    const items = keys.map((k) => st.items.find((it) => it.key === k)).filter(Boolean);
+    el.innerHTML = items.length ? `<span class="dig-shop-label">Boutique :</span>${items.map((it) => `<button type="button" class="btn-ghost dig-shop-btn" data-shop-buy="${it.key}" ${it.left === 0 || st.stardust < it.price ? "disabled" : ""} title="${escHtml(it.desc)}${it.left != null ? ` · encore ${it.left} cette semaine` : ""}">${it.icon} ${escHtml(it.label)} <small>${it.price} &#10024;</small></button>`).join("")}<a class="dig-shop-more" href="boutique.html#bonus">Tout voir</a>` : "";
+  } catch (e) { el.innerHTML = ""; }
+}
 
 async function loadDig() {
   try {
@@ -269,6 +310,8 @@ async function loadDig() {
     renderDigBoard(res.tiles || [], res.sniffTile);
     renderKennel(res);
     renderDigLevel(res.digLevel);
+    renderDigDepths(res.digDepth);
+    if (!window.ShopStrip && !document.getElementById("dig-shop").childElementCount) renderDigShop();
     const regenSeconds = res.regenSeconds || 60;
     const regenLabel = regenSeconds < 60 ? `${regenSeconds}s` : regenSeconds === 60 ? "minute" : `${Math.round(regenSeconds / 60)} min`;
     document.getElementById("dig-intro").textContent =
@@ -336,6 +379,7 @@ function digTileContent(tile) {
 
 // sniffTile : tuile a tresor signalee par le chien quand il est actif.
 function renderDigBoard(tiles, sniffTile) {
+  digTilesCache = tiles;
   const board = document.getElementById("dig-board");
   board.innerHTML = tiles.map((t, i) => {
     const { cls, html, reward } = digTileContent(t);
@@ -415,7 +459,7 @@ function renderKennel(res) {
   }
   document.getElementById("dig-kennel-dog").classList.toggle("tired", tired > 0);
   useBtn.title = bonesLeft != null ? `Encore ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui` : "";
-  useBtn.innerHTML = left > 0 ? "&#129460; Prolonger de 2 h" : "&#129460; Envoyer Milo";
+  useBtn.innerHTML = left > 0 ? resIcon("bone") + " Prolonger de 2 h" : resIcon("bone") + " Envoyer Milo";
   document.getElementById("dig-kennel-dog").classList.toggle("digging", left > 0);
   const text = document.getElementById("dig-kennel-text");
   if (kennelTimer) { clearInterval(kennelTimer); kennelTimer = null; }
@@ -442,10 +486,11 @@ function announceDogReport(r) {
   if (r && r.tiles > 0) {
     const parts = [];
     if (r.dust) parts.push(`+${r.dust} poussières`);
-    if (r.boosters) parts.push(`+${r.boosters} booster${r.boosters > 1 ? "s" : ""}`);
+    if (r.boosters) parts.push(`+${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster`);
     if (r.kennelBonus) parts.push(`(dont +${r.kennelBonus} grâce au chenil)`);
-    if (r.keys) parts.push(`+${r.keys} &#128273;`);
-    if (r.worms) parts.push(`+${r.worms} vers de terre &#129713;`);
+    if (r.keys) parts.push(`+${r.keys} ${resIcon("key")}`);
+    if (r.worms) parts.push(`+${r.worms} vers de terre ${resIcon("worm")}`);
+    (r.mineralItems || []).forEach((m) => parts.push(`<img class="ico-art" src="assets/${encodeURI(m.img)}" alt="" /> ${escHtml(m.name)} (palier ${m.tier})`));
     (r.cards || []).forEach((c) => parts.push(`&#127183; ${c.name}${c.serialNumber != null ? " #" + String(c.serialNumber).padStart(3, "0") : ""}`));
     showDogPostcard(r, parts);
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
@@ -507,7 +552,7 @@ async function dogFrenzy(btn) {
 async function kennelAction(kind, btn) {
   btn.disabled = true;
   try {
-    if (kind === "buy") { await API.buyBone(Session.userId); Toast.success("&#129460; Os acheté !"); }
+    if (kind === "buy") { await API.buyBone(Session.userId); Toast.success(resIcon("bone") + " Os acheté !"); }
     else { await API.useBone(Session.userId); Toast.success(btn.textContent.includes("Prolonger") ? "&#128021; 2 h de fouille en plus !" : "&#128021; Milo part creuser pour 2 h !"); }
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     await loadDig();
@@ -531,6 +576,7 @@ async function doDig(tileIndex, tileEl) {
     renderDigBoard(res.tiles || [], res.sniffTile);
     announceDogReport(res.dogReport);
     renderDigLevel(res.digLevel);
+    renderDigDepths(res.digDepth);
     if (res.levelUp) announceLevelUp(toolFor(DIG_TOOLS, res.levelUp).icon, "Fouille", res.levelUp, res.digLevel);
 
     resultEl.style.display = "block";
@@ -540,11 +586,16 @@ async function doDig(tileIndex, tileEl) {
       resultEl.innerHTML = `&#128269; Rien trouvé sous cette tuile.`;
     } else if (res.outcome === "dust") {
       resultEl.innerHTML = `&#10024; Trésor libéré : +${res.dustGained} poussières d'étoile !${res.levelDustBonus ? ` <span class="muted">(dont +${res.levelDustBonus} grâce à ton niveau)</span>` : ""}`;
+    } else if (res.outcome === "mineral" && res.mineral) {
+      resultEl.innerHTML = `<img class="dig-mineral-img" src="assets/${encodeURI(res.mineral.img)}" alt="" /> Minéral trouvé : <strong>${escHtml(res.mineral.name)}</strong> <span class="mineral-tier tier-${res.mineral.tier}">palier ${res.mineral.tier}</span> !`;
+      if (res.mineral.tier >= 4 && typeof confetti === "function") confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
     } else if (res.outcome === "booster") {
-      resultEl.innerHTML = `&#127183; Trésor libéré : +1 booster !`;
+      if (typeof Haptics !== "undefined") Haptics.buzz([20, 40, 20]);
+      resultEl.innerHTML = `&#127183; Trésor libéré : +1 jeton booster !`;
       if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
     } else if (res.outcome === "card") {
       const isRare = res.card.rarity && res.card.rarity.key !== "commune";
+      if (typeof Haptics !== "undefined") Haptics.buzz(isRare ? [30, 50, 30, 50, 80] : [20, 40, 20]);
       const icon = isRare ? "&#127775;" : "&#127942;";
       const rarityLabel = res.card.rarity ? ` (${res.card.rarity.name})` : "";
       resultEl.innerHTML = `${icon} Trésor libéré : tu as trouvé <strong>${res.card.name}</strong>${rarityLabel} !`;
@@ -553,19 +604,20 @@ async function doDig(tileIndex, tileEl) {
 
     if (res.dinoSkull) {
       document.getElementById("tab-dino-btn").style.display = "";
-      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-skull">&#128128; <strong>Incroyable : un crâne de dinosaure !</strong> Avec ${res.dinoSkull.hatchBones} os, ramène-le à la vie dans l'onglet <a href="jeux.html#dinos">Dinos</a>.</div>`);
+      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-skull"><img class="ico-art" src="assets/CraneDeDino.png" alt="" /> <strong>Incroyable : un crâne de dinosaure !</strong> Avec ${res.dinoSkull.hatchBones} os, ramène-le à la vie dans l'onglet <a href="jeux.html#dinos">Dinos</a>.</div>`);
       Toast.success("&#128128; Tu as déterré un CRÂNE DE DINOSAURE !");
       if (typeof confetti === "function") confetti({ particleCount: 250, spread: 140, origin: { y: 0.5 } });
     }
     if (res.foundKey) {
-      Toast.success("&#128273; Tu as trouvé une clef secrète !");
+      if (typeof Haptics !== "undefined") Haptics.buzz(30);
+      Toast.success(resIcon("key") + " Tu as trouvé une clef secrète !");
       if (typeof confetti === "function") confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } });
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     }
 
     if (res.reducedRewards) resultEl.insertAdjacentHTML("beforeend", `<div class="dig-reduced">Rendement réduit : plus de poussières à plein tarif aujourd'hui (reviens demain).</div>`);
     if (res.wormsFound) {
-      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">&#129713; +${res.wormsFound} vers de terre dans la terre qui restait${res.leftoverTiles ? ` (${res.leftoverTiles} case${res.leftoverTiles > 1 ? "s" : ""} jamais creusée${res.leftoverTiles > 1 ? "s" : ""})` : ""} : de quoi pêcher !</div>`);
+      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">${resIcon("worm")} +${res.wormsFound} vers de terre dans la terre qui restait${res.leftoverTiles ? ` (${res.leftoverTiles} case${res.leftoverTiles > 1 ? "s" : ""} jamais creusée${res.leftoverTiles > 1 ? "s" : ""})` : ""} : de quoi pêcher !</div>`);
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     }
     if (res.boardCleared) {
@@ -585,25 +637,40 @@ async function doDig(tileIndex, tileEl) {
 // Peche (api/src/native/fishing.js) : chaque lancer coute des poussieres et
 // ramene une prise tiree dans une table ponderee (reglable dans l'admin).
 // -----------------------------------------------------------------------
-const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: "&#129460;", key: "&#128273;", booster: "&#127873;", chest: "&#129520;", part: "&#128297;", pearl: "&#129450;", bait: "&#127804;" };
+// Visuels peints (site/assets, 2026-10-17). Les noms de fichiers sont sensibles
+// a la casse sur le serveur : garder l'extension exacte (.PNG / .png).
+const artImg = (file, alt = "") => `<img class="ico-art" src="assets/${encodeURI(file)}" alt="${alt}" loading="lazy" decoding="async">`;
+const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: artImg("Os.PNG"), key: artImg("clés.PNG"), booster: artImg("JetonBooster.png"), chest: artImg("Coffres/1.PNG"), part: artImg("PieceDetachee.PNG"), pearl: artImg("Pêche/PerleNoire.png"), bait: artImg("ElixirDePeche.PNG") };
+// Nourriture des dinos pechee en plus.
+const FOOD_ART = { fish: "Pêche/Poisson_12.png", seaweed: "Pêche/Algues.png", shrimp: "Pêche/crevette.png" };
+const foodIcon = (b) => (FOOD_ART[b.type] ? artImg(FOOD_ART[b.type]) : b.icon);
+// Especes de l'aquarium : image si on en a une, sinon l'emoji du serveur.
+const AQ_ART = { gardon: "Pêche/Poisson_5.png", perche: "Pêche/Poisson_20.png", carpe: "Pêche/Poisson_7.png", ecrevisse: "Pêche/crabe.png", brochet: "Pêche/Poisson_15.png", truite: "Pêche/Poisson_11.png", silure: "Pêche/Poisson_10.png", lune: "Pêche/Poisson_16.png", koi: "Pêche/Poisson_2.PNG", doree: "Pêche/Poisson_1.png", maquereau: "Pêche/Poisson_9.png", clown: "Pêche/Poisson_4.PNG", crevette: "Pêche/crevette.png", pieuvre: "Pêche/Poisson_3.png", requin: "Pêche/Poisson_6.png", lanterne: "Pêche/Poisson_14.png", baleine: "Pêche/Poisson_13.png", coelacanthe: "Pêche/Poisson_8.png" };
+const aqIcon = (f) => (f.img ? artImg(f.img, "") : AQ_ART[f.key] ? artImg(AQ_ART[f.key], "") : f.icon);
 let fishState = null;
 // Zone de peche (2026-10-09) : rivage ou eaux profondes (niveau 10).
-let fishZone = (() => { try { return localStorage.getItem("2gatcha_fish_zone") === "deep" ? "deep" : "shore"; } catch (e) { return "shore"; } })();
+let fishZone = (() => { try { return localStorage.getItem("2gatcha_fish_zone") || "shore"; } catch (e) { return "shore"; } })();
 function setFishZone(z) {
   fishZone = z;
   try { localStorage.setItem("2gatcha_fish_zone", z); } catch (e) { /* stockage indisponible */ }
   if (fishState) renderFishing(fishState);
 }
+// 5 lieux de peche (2026-10-18) : rivage, etang, riviere, eaux profondes, abysses.
+function curZone(st) {
+  const zones = (st && st.zones) || [];
+  return zones.find((z) => z.key === fishZone && z.unlocked) || zones[0] || { key: "shore", pool: "shore", cost: st.cost, table: st.table, unlocked: true, mult: 1 };
+}
 function renderFishZones(st) {
   const el = document.getElementById("fish-zones");
   if (!el) return;
-  const deep = st.deep;
-  if (!deep) { el.hidden = true; return; }
-  if (!deep.unlocked && fishZone === "deep") fishZone = "shore";
+  const zones = st.zones || [];
+  if (zones.length < 2) { el.hidden = true; return; }
+  if (!zones.some((z) => z.key === fishZone && z.unlocked)) fishZone = zones[0].key;
   el.hidden = false;
-  el.innerHTML = `
-    <button type="button" role="radio" aria-checked="${fishZone === "shore"}" class="fish-zone ${fishZone === "shore" ? "active" : ""}" data-zone="shore">&#127958;&#65039; Rivage <small>${st.cost} &#129713;</small></button>
-    <button type="button" role="radio" aria-checked="${fishZone === "deep"}" class="fish-zone fish-zone-deep ${fishZone === "deep" ? "active" : ""}" data-zone="deep" ${deep.unlocked ? "" : "disabled"} title="${deep.unlocked ? "Perles noires, appâts dorés et prises plus rares" : `Débloquées au niveau ${deep.level} de pêche`}">&#127754; Eaux profondes <small>${deep.unlocked ? `${deep.cost} &#129713;` : `&#128274; niveau ${deep.level}`}</small></button>`;
+  el.innerHTML = zones.map((z) => {
+    const need = z.prestige ? `Prestige ${z.prestige} de pêche requis` : `Niveau ${z.level} de pêche requis (ou un prestige)`;
+    return `<button type="button" role="radio" aria-checked="${fishZone === z.key}" class="fish-zone fish-zone-${z.key} ${fishZone === z.key ? "active" : ""}" data-zone="${z.key}" ${z.unlocked ? "" : "disabled"} title="${z.unlocked ? `${z.label} : ${z.cost} ver${z.cost > 1 ? "s" : ""} par lancer` : need}">${z.icon} ${escHtml(z.label)} <small>${z.unlocked ? `${z.cost} ${resIcon("worm")}` : `&#128274; ${z.prestige ? "prestige" : "niv. " + z.level}`}</small></button>`;
+  }).join("");
   el.querySelectorAll(".fish-zone:not([disabled])").forEach((b) => b.addEventListener("click", () => setFishZone(b.dataset.zone)));
 }
 let fishBusy = false;
@@ -638,21 +705,25 @@ function renderFishWeather(w) {
 function renderFishing(st) {
   fishState = st;
   renderFishZones(st);
-  const deepOn = fishZone === "deep" && st.deep && st.deep.unlocked;
-  document.getElementById("fish-scene").dataset.zone = deepOn ? "deep" : "shore";
-  if (deepOn) st = { ...st, cost: st.deep.cost, table: st.deep.table };
+  const zone = curZone(st);
+  document.getElementById("fish-scene").dataset.zone = zone.pool === "deep" ? "deep" : "shore";
+  document.getElementById("fish-scene").dataset.spot = zone.key;
+  st = { ...st, cost: zone.cost, table: zone.table };
   renderFishExtras(st);
   renderFishLevel(st.level);
   renderFishWeather(st.weather);
   renderFishBook(st.records);
-  const left = st.castsLeft == null ? "illimités" : `${st.castsLeft} restant${st.castsLeft > 1 ? "s" : ""} aujourd'hui`;
-  const worms = st.worms ?? 0;
-  document.getElementById("fish-meta").innerHTML = `${st.cost} &#129713; le lancer · ${left} · tu as <strong>${worms} ver${worms > 1 ? "s" : ""} de terre</strong>${worms < st.cost ? " · termine une grille de fouille pour en trouver" : ""}`;
-  document.getElementById("fish-cast-btn").innerHTML = `&#127907; Lancer (${st.cost} &#129713;)`;
-  document.getElementById("fish-cast-btn").disabled = fishBusy || worms < st.cost || st.castsLeft === 0;
-  document.getElementById("fish-cast5-btn").innerHTML = `Lancer ×5 (${st.cost * 5} &#129713;)`;
-  document.getElementById("fish-cast5-btn").disabled = fishBusy || worms < st.cost * 5 || (st.castsLeft != null && st.castsLeft < 5);
-  // Tout pecher : autant de lancers que les vers (et les lancers du jour) le permettent.
+  if (st.aquarium) renderAquarium(st.aquarium);
+  if (st.cat) renderCat(st.cat);
+  if (st.catReport) { showCatPostcard(st.catReport); st.catReport = null; fishState.catReport = null; }
+  renderFishEnergy(st);
+  const worms = st.worms ?? 0, energy = st.energy ?? 0;
+  document.getElementById("fish-meta").innerHTML = `${st.cost} ${resIcon("worm")} + 1 &#9889; le lancer · tu as <strong>${worms} ver${worms > 1 ? "s" : ""} de terre</strong>${worms < st.cost ? " · termine une grille de fouille pour en trouver" : ""}`;
+  document.getElementById("fish-cast-btn").innerHTML = `<span>&#127907; Lancer (${st.cost} ${resIcon("worm")})</span>`;
+  document.getElementById("fish-cast-btn").disabled = fishBusy || worms < st.cost || energy < 1;
+  document.getElementById("fish-cast5-btn").innerHTML = `<span>Lancer ×5 (${st.cost * 5} ${resIcon("worm")})</span>`;
+  document.getElementById("fish-cast5-btn").disabled = fishBusy || worms < st.cost * 5 || energy < 5;
+  // Tout pecher : autant de lancers que les vers (et l'energie) le permettent.
   const allBtn = document.getElementById("fish-castall-btn");
   if (allBtn) {
     const n = fishMaxCasts(st);
@@ -668,25 +739,214 @@ function renderFishing(st) {
 }
 
 async function loadFishing() {
-  try { renderFishing(await API.fishing(Session.userId, "status")); }
+  try { renderFishing(await API.fishingStatusWithCat(Session.userId)); }
   catch (e) { document.getElementById("fish-status").textContent = "Impossible de charger la pêche."; }
 }
 
-// Lancers possibles d'un coup : vers (cout de la zone), lancers du jour,
+// Energie de peche (comme la fouille) : jauge, decompte, rechargement de
+// l'etat reel quand le prochain point revient.
+let fishEnergyTimer = null;
+function renderFishEnergy(st) {
+  const bar = document.getElementById("fish-energy-bar");
+  if (!bar || st.maxEnergy == null) return;
+  if (fishEnergyTimer) { clearInterval(fishEnergyTimer); clearTimeout(fishEnergyTimer); fishEnergyTimer = null; }
+  const energy = st.energy, max = st.maxEnergy;
+  bar.innerHTML = Array.from({ length: max }, (_, i) => `<span class="dig-pip ${i < energy ? "filled" : ""}"></span>`).join("");
+  bar.setAttribute("aria-label", `Énergie de pêche : ${energy} sur ${max}`);
+  const text = document.getElementById("fish-energy-text");
+  text.classList.remove("skeleton-line");
+  const regen = Math.round((st.regenSeconds || 600) / 60);
+  const fmt = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return `${m > 0 ? `${m} min ` : ""}${String(s).padStart(m > 0 ? 2 : 1, "0")} s`; };
+  if (energy >= max || !st.secondsUntilNext) { text.textContent = `${energy} / ${max} énergie — +1 toutes les ${regen} min`; return; }
+  let remaining = st.secondsUntilNext;
+  const render = () => { text.textContent = `${energy} / ${max} énergie — ${energy ? "+1" : "prochaine"} dans ${fmt(Math.max(0, remaining))}`; };
+  render();
+  fishEnergyTimer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) { clearInterval(fishEnergyTimer); fishEnergyTimer = null; if (!fishBusy) loadFishing(); return; }
+    render();
+  }, 1000);
+}
+
+// Lancers possibles d'un coup : vers (cout de la zone), energie,
 // appats dores si coches, et le plafond du serveur.
 const FISH_MAX_CASTS = 50;
 function fishMaxCasts(st) {
-  const deep = fishZone === "deep" && st.deep && st.deep.unlocked;
-  const cost = Math.max(1, deep ? st.deep.cost : st.cost);
+  const cost = Math.max(1, curZone(st).cost);
   let n = Math.floor((st.worms || 0) / cost);
-  if (st.castsLeft != null) n = Math.min(n, st.castsLeft);
+  if (st.energy != null) n = Math.min(n, st.energy);
   if (document.getElementById("fish-bait")?.checked) n = Math.min(n, st.goldBait || 0);
   return Math.max(0, Math.min(n, FISH_MAX_CASTS));
 }
 
+// Moka le chat (api/src/native/cat.js) : on lui donne du poisson, il peche
+// a ta place (sans ver ni energie, jamais de booster) ; ses prises arrivent
+// dans une carte postale a ton retour.
+let catTimer = null;
+function catFeedable(c) {
+  const maxByTime = Math.floor(((c.maxMinutes * 60) - c.secondsLeft) / (c.minutesPerFish * 60));
+  const maxByDay = c.dailyFish > 0 ? c.dailyFish - c.fedToday : Infinity;
+  return Math.max(0, Math.min(c.fish, maxByTime, maxByDay));
+}
+function renderCat(c) {
+  const box = document.getElementById("fish-cat");
+  if (!box) return;
+  box.hidden = false;
+  if (catTimer) { clearInterval(catTimer); catTimer = null; }
+  const can = catFeedable(c);
+  const active = c.secondsLeft > 0;
+  document.getElementById("fish-cat-count").textContent = c.fish ? `${c.fish} poisson${c.fish > 1 ? "s" : ""}` : "";
+  document.getElementById("fish-cat-pic").classList.toggle("fishing", active);
+  const sit = document.getElementById("fish-cat-sit");
+  if (sit) sit.hidden = !active;
+  const b1 = document.getElementById("fish-cat-feed1");
+  b1.disabled = can < 1;
+  b1.innerHTML = active ? `&#128031; +${c.minutesPerFish} min (1 poisson)` : "&#128031; Donner 1 poisson";
+  const bm = document.getElementById("fish-cat-feedmax");
+  bm.hidden = can < 2;
+  bm.dataset.count = String(can);
+  bm.innerHTML = `Donner ${can} poissons (${String(Math.round(can * c.minutesPerFish / 60 * 10) / 10).replace(".", ",")} h)`;
+  const dayLeft = c.dailyFish > 0 ? Math.max(0, c.dailyFish - c.fedToday) : null;
+  b1.title = dayLeft != null ? `Encore ${dayLeft} poisson${dayLeft > 1 ? "s" : ""} aujourd'hui` : "";
+  const text = document.getElementById("fish-cat-text");
+  const casts = Math.max(1, Math.round(c.minutesPerFish / c.castMinutes));
+  if (active) {
+    let remaining = c.secondsLeft;
+    const render = () => { const h = Math.floor(remaining / 3600), m = Math.ceil((remaining % 3600) / 60); text.textContent = `Moka pêche pour toi encore ${h ? h + " h " : ""}${m} min (1 lancer toutes les ${c.castMinutes} min, sans ver ni énergie). Reviens voir ce qu'il a attrapé 🐾`; };
+    render();
+    catTimer = setInterval(() => { remaining -= 30; if (remaining <= 0) { clearInterval(catTimer); catTimer = null; loadFishing(); return; } render(); }, 30000);
+  } else {
+    text.textContent = c.fish
+      ? `Donne-lui du poisson : 1 poisson = ${c.minutesPerFish} min de pêche (${casts} lancers) sans ver ni énergie, jusqu'à ${Math.round(c.maxMinutes / 60)} h d'affilée.${dayLeft != null ? ` ${dayLeft} poisson${dayLeft > 1 ? "s" : ""} encore aujourd'hui.` : ""}`
+      : "Moka adore le poisson : chaque espèce que tu remontes pour l'aquarium lui en donne un (ou une boîte de sardines à la boutique). Nourri, il pêche à ta place.";
+  }
+}
+
+function showCatPostcard(r) {
+  if (!r || !r.casts) return;
+  const parts = (r.items || []).map((x) => `${FISH_ICONS[x.type] || ""} ${x.type === "dust" || x.type === "pearl" ? `+${x.amount} poussières` : `${x.label} ×${x.amount}`}`);
+  (r.species || []).forEach((f) => parts.push(`${aqIcon(f)} ${escHtml(f.name)} ${f.size} cm (+${f.dust} ✨)${f.first ? " <strong>nouvelle espèce !</strong>" : ""}`));
+  const overlay = document.createElement("div");
+  overlay.className = "card-modal-overlay dog-postcard-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "Rapport de Moka");
+  overlay.innerHTML = `
+    <div class="dog-postcard cat-postcard">
+      <div class="dog-postcard-stamp" aria-hidden="true">&#128062;</div>
+      <div class="dog-postcard-pic" aria-hidden="true">&#128008;&#127907;</div>
+      <div class="dog-postcard-text">
+        <div class="dog-postcard-title">Miaou du ponton !</div>
+        <p>Pendant ton absence, j'ai lancé ma ligne <strong>${r.casts} fois</strong>${r.done ? " et j'ai fini mon poisson" : ""}.</p>
+        ${parts.length ? `<ul>${parts.map((p) => `<li>${p}</li>`).join("")}</ul>` : "<p>Rien n'a mordu… mais j'ai fait une belle sieste au soleil.</p>"}
+        <div class="dog-postcard-sign">Ton chat, Moka &#128062;</div>
+      </div>
+      <button type="button" class="btn dog-postcard-close">Merci Moka !</button>
+    </div>`;
+  const close = () => { overlay.remove(); syncScrollLock(); };
+  overlay.addEventListener("click", (e) => { if (e.target === overlay || e.target.closest(".dog-postcard-close")) close(); });
+  document.body.appendChild(overlay);
+  syncScrollLock();
+  if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+}
+
+async function feedCat(count, btn) {
+  btn.disabled = true;
+  try {
+    const r = await API.catFeed(Session.userId, count);
+    Toast.success(`&#128008; Moka part pêcher ${count * r.cat.minutesPerFish} min de plus !`);
+    if (r.catReport) showCatPostcard(r.catReport);
+    if (fishState) { fishState = { ...fishState, cat: r.cat }; renderCat(r.cat); }
+  } catch (e) {
+    btn.disabled = false;
+    Toast.error({ no_cat_fish: "Plus de poisson pour Moka : pêche des espèces pour l'aquarium ou achète des sardines.", cat_daily_limit: "Moka a assez mangé aujourd'hui : reviens demain !", cat_max_time: "Moka a déjà assez de pêche devant lui." }[e.code] || friendlyError(e));
+  }
+}
+
+// Aquarium (api/src/native/aquarium.js) : especes, records, paliers de collection.
+const AQ_RARITY = { commune: "Commune", rare: "Rare", epique: "Épique", legendaire: "Légendaire", mythique: "Mythique" };
+function renderAquarium(aq) {
+  const box = document.getElementById("fish-aquarium");
+  if (!box) return;
+  const ready = aq.milestones.filter((m) => m.reached && !m.claimed).length;
+  document.getElementById("fish-aquarium-count").textContent = `${aq.found}/${aq.total}${ready ? " · palier à récupérer !" : ""}`;
+  document.getElementById("fish-aquarium-count").classList.toggle("has-claim", !!ready);
+  const rw = (r) => [r.dust ? `${r.dust} ✨` : "", r.boosters ? `${r.boosters} jetons booster` : "", r.chests ? `${r.chests} coffre` : "", r.title ? `titre « ${escHtml(r.title)} »` : ""].filter(Boolean).join(" + ");
+  box.innerHTML = `
+    <div class="aq-milestones">${aq.milestones.map((m) => `<span class="aq-ms ${m.claimed ? "claimed" : m.reached ? "ready" : ""}" title="${rw(m.reward)}">${m.claimed ? "✓" : m.reached ? "🎁" : "🔒"} ${escHtml(m.label)} <small>${rw(m.reward)}</small></span>`).join("")}
+      ${ready ? '<button type="button" class="btn" id="aq-claim">Récupérer</button>' : ""}</div>
+    <div class="aq-grid">${aq.species.map((s) => `
+      <div class="aq-fish rar-${s.rarity} ${s.found ? "found" : ""} ${s.biteNow && !s.found ? "bite-now" : ""}" title="${escHtml(s.found ? s.name : "Espèce inconnue")} · ${escHtml(s.hint)}">
+        <span class="aq-icon" aria-hidden="true">${s.found ? aqIcon(s) : "?"}</span>
+        <strong>${escHtml(s.name)}</strong>
+        <small>${AQ_RARITY[s.rarity]}${s.found ? ` · ×${s.count} · record ${s.best} cm` : `${s.biteNow ? " · mord en ce moment !" : ""}`}</small>
+        <small class="aq-hint">${escHtml(s.hint)}</small>
+      </div>`).join("")}</div>`;
+}
+
+// Ferrage : une aiguille va et vient, il faut cliquer (ou Espace) quand elle
+// passe dans la zone centrale. Renvoie perfect / good / miss. Plus le lancer
+// utilise de vers (x5, Tout pecher, eaux profondes), plus c'est dur : zones
+// plus etroites, aiguille plus rapide, moins de temps.
+function fishStrikeDifficulty(worms) {
+  const k = Math.min(1, Math.log2(Math.max(1, worms)) / Math.log2(100));
+  return {
+    k, good: 0.2 * (1 - 0.65 * k), perfect: 0.07 * (1 - 0.6 * k), period: 1150 * (1 - 0.5 * k), timeout: 2600 * (1 - 0.25 * k),
+    label: k < 0.2 ? "" : k < 0.5 ? "difficile" : k < 0.8 ? "très difficile" : "extrême"
+  };
+}
+function fishStrike(scene, worms = 1) {
+  return new Promise((resolve) => {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const diff = fishStrikeDifficulty(worms);
+    // La jauge s'affiche dans la scene si elle est bien visible, sinon sur les
+    // boutons (la ou le joueur vient de cliquer) : jamais hors de l'ecran.
+    const r = scene.getBoundingClientRect();
+    const host = r.top >= 0 && r.bottom <= window.innerHeight ? scene : document.querySelector(".fish-controls");
+    const g = document.createElement("div");
+    g.className = "fish-strike" + (host === scene ? "" : " in-controls");
+    const pct = (v) => (v * 100).toFixed(1) + "%";
+    g.innerHTML = `<div class="fs-label">Ferre !${diff.label ? ` <small>${worms} vers : ${diff.label}</small>` : ""}</div><div class="fs-bar"><span class="fs-good" style="left:${pct(0.5 - diff.good)};width:${pct(diff.good * 2)}"></span><span class="fs-perfect" style="left:${pct(0.5 - diff.perfect)};width:${pct(diff.perfect * 2)}"></span><span class="fs-needle"></span></div><button type="button" class="btn fs-btn">🎣 Ferrer</button>`;
+    host.appendChild(g);
+    const needle = g.querySelector(".fs-needle");
+    const period = diff.period * (reduce ? 2 : 1), t0 = performance.now();
+    let pos = 0, done = false, raf = 0;
+    const tick = (t) => { const k = ((t - t0) % period) / period; pos = k < 0.5 ? k * 2 : 2 - k * 2; needle.style.left = (pos * 100) + "%"; raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      cancelAnimationFrame(raf);
+      document.removeEventListener("keydown", onKey);
+      g.classList.add("fs-" + result);
+      g.querySelector(".fs-label").textContent = result === "perfect" ? "Ferrage parfait !" : result === "good" ? "Bien ferré" : "Raté…";
+      if (typeof Haptics !== "undefined") Haptics.buzz(result === "perfect" ? [20, 40, 20] : result === "good" ? 25 : [8, 30, 8]);
+      // On rend le focus avant de retirer la jauge (pas de focus "perdu").
+      setTimeout(() => { if (g.contains(document.activeElement)) document.activeElement.blur(); g.remove(); resolve(result); }, 650);
+    };
+    const hit = () => { const d = Math.abs(pos - 0.5); finish(d <= diff.perfect ? "perfect" : d <= diff.good ? "good" : "miss"); };
+    const onKey = (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); hit(); } };
+    document.addEventListener("keydown", onKey);
+    g.addEventListener("click", hit);
+    g.querySelector(".fs-btn").focus({ preventScroll: true });
+    setTimeout(() => finish("miss"), diff.timeout * (reduce ? 1.6 : 1));
+  });
+}
+
+// Pendant tout le lancer, Espace / Entree ne font pas defiler la page (un
+// appui de trop apres le ferrage faisait "sauter" la fenetre d'un ecran).
+function fishKeyGuard(e) {
+  if ((e.key === " " || e.key === "Enter") && !e.target.closest("input, textarea, select, [contenteditable]")) e.preventDefault();
+}
+
 async function castFishing(count) {
   if (fishBusy || !fishState) return;
+  // Jamais plus de lancers que d'energie (le serveur refuse aussi).
+  if (fishState.energy != null && count > fishState.energy) {
+    Toast.error(fishState.energy ? `Pas assez d'énergie : ${fishState.energy} lancer${fishState.energy > 1 ? "s" : ""} possible${fishState.energy > 1 ? "s" : ""} pour l'instant.` : "Plus d'énergie : elle se recharge avec le temps.");
+    return;
+  }
   fishBusy = true;
+  document.addEventListener("keydown", fishKeyGuard);
   renderFishing(fishState);
   const scene = document.getElementById("fish-scene");
   const status = document.getElementById("fish-status");
@@ -697,20 +957,23 @@ async function castFishing(count) {
   status.textContent = "La ligne file…";
   try {
     const useBait = !!document.getElementById("fish-bait")?.checked;
-    const request = API.fishing(Session.userId, "cast", count, useBait, fishZone === "deep" && fishState.deep && fishState.deep.unlocked ? "deep" : "shore");
-    request.catch(() => {}); // evite un unhandledrejection : l'erreur est geree au Promise.all plus bas
+    const zone = curZone(fishState).key;
+    // On attend la touche, on ferre (plus dur avec plus de vers), puis on remonte la ligne.
     await fishWait(700);
     scene.classList.replace("casting", "waiting");
     status.textContent = "On attend que ça morde…";
-    const [res] = await Promise.all([request, fishWait(900 + Math.random() * 1100)]);
+    await fishWait(900 + Math.random() * 1400);
     scene.classList.replace("waiting", "bite");
-    status.textContent = "Ça mord !";
+    status.textContent = "Ça mord ! Ferre au bon moment…";
     if (typeof Sfx !== "undefined" && Sfx.click) Sfx.click();
-    await fishWait(550);
+    const worms = count * Math.max(1, curZone(fishState).cost);
+    const strike = await fishStrike(scene, worms);
+    const res = await API.fishing(Session.userId, "cast", count, useBait, zone, strike);
     scene.classList.replace("bite", "caught");
     const best = res.catches.reduce((a, c) => (["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(c.tier) > ["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(a.tier) ? c : a), res.catches[0]);
     catchEl.hidden = false;
     catchEl.className = "fish-catch tier-" + best.tier;
+    if (typeof Haptics !== "undefined" && ["epique", "legendaire", "mythique"].includes(best.tier)) Haptics.buzz(best.tier === "epique" ? [30, 50, 30] : [40, 60, 40, 60, 120]);
     catchEl.innerHTML = "";
     // Gros lot : prises regroupees par type plutot qu'une par une.
     if (res.catches.length > 6) {
@@ -730,27 +993,37 @@ async function castFishing(count) {
       catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item tier-${c.tier}"><span class="fish-catch-icon">${FISH_ICONS[c.type] || ""}</span>${fishCatchText(c)}${c.first ? ' <span class="fish-new">1re !</span>' : c.record ? ' <span class="fish-new">record !</span>' : ""}</span>`);
       if (typeof Sfx !== "undefined" && Sfx.click && res.catches.length > 1) Sfx.click();
     }
+    // Especes de poissons (aquarium) : une ligne par espece (regroupees pour les gros lots).
+    const fishes = [...(res.species || []).reduce((m, f) => { const g = m.get(f.key) || { ...f, n: 0, dust: 0, size: 0, first: false, record: false }; g.n++; g.dust += f.dust; g.size = Math.max(g.size, f.size); g.first = g.first || f.first; g.record = g.record || f.record; return m.set(f.key, g); }, new Map()).values()];
+    for (const f of fishes) {
+      await fishWait(280);
+      catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item fish-species tier-${f.tier}"><span class="fish-catch-icon">${aqIcon(f)}</span>${escHtml(f.name)}${f.n > 1 ? ` <strong>×${f.n}</strong>` : ""} · ${f.size} cm <small>(+${f.dust} ✨)</small>${f.first ? ' <span class="fish-new">nouvelle espèce !</span>' : f.record ? ' <span class="fish-new">record !</span>' : ""}</span>`);
+      if (f.first && typeof Sfx !== "undefined" && Sfx.reveal) Sfx.reveal(f.tier === "commune" ? "rare" : f.tier);
+    }
+    if (fishes.some((f) => f.first && ["epique", "legendaire", "mythique"].includes(f.tier)) && typeof confetti === "function") confetti({ particleCount: 120, spread: 100, colors: ["#38bdf8", "#22d3ee", "#fde68a", "#ffffff"], origin: { y: 0.5 } });
     // Nourriture des dinos : regroupee par type (utile pour les gros lots).
     const bycatch = [...(res.bycatch || []).reduce((m, b) => m.set(b.type, { ...b, amount: (m.get(b.type)?.amount || 0) + b.amount }), new Map()).values()];
     for (const b of bycatch) {
       await fishWait(250);
-      catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item fish-bycatch">${b.icon} +${b.amount} ${b.label.toLowerCase()} <small>(pour tes dinos)</small></span>`);
+      catchEl.insertAdjacentHTML("beforeend", `<span class="fish-catch-item fish-bycatch">${foodIcon(b)} +${b.amount} ${b.label.toLowerCase()} <small>(pour tes dinos)</small></span>`);
     }
-    status.textContent = (res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" ? "Pas de chance…" : "Belle prise !")) + (res.baitUsed ? " (appât doré)" : "") + (res.reducedRewards ? " · rendement réduit" : "");
+    status.textContent = (res.strike === "perfect" ? "Ferrage parfait ! " : "") + (res.catches.length > 1 ? `${res.catches.length} prises !` : (best.type === "nothing" && !fishes.length ? "Pas de chance…" : "Belle prise !")) + (res.baitUsed ? " (appât doré)" : "") + (res.reducedRewards ? " · rendement réduit" : "");
     if (["epique", "legendaire", "mythique"].includes(best.tier) && typeof confetti === "function") confetti({ particleCount: best.tier === "mythique" ? 180 : 90, spread: 90, origin: { y: 0.55 } });
     const log = document.getElementById("fish-log");
-    log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join("") + bycatch.map((b) => `<span class="fish-log-item fish-bycatch">${b.icon} +${b.amount} ${b.label.toLowerCase()}</span>`).join(""));
+    log.insertAdjacentHTML("afterbegin", res.catches.map((c) => `<span class="fish-log-item tier-${c.tier}">${FISH_ICONS[c.type] || ""} ${fishCatchText(c)}</span>`).join("") + fishes.map((f) => `<span class="fish-log-item tier-${f.tier}">${aqIcon(f)} ${escHtml(f.name)} ${f.size} cm</span>`).join("") + bycatch.map((b) => `<span class="fish-log-item fish-bycatch">${foodIcon(b)} +${b.amount} ${b.label.toLowerCase()}</span>`).join(""));
     while (log.children.length > 20) log.lastElementChild.remove();
     fishBusy = false;
+    document.removeEventListener("keydown", fishKeyGuard);
     renderFishing(res);
     if (res.levelUp) announceLevelUp("&#127907;", "Pêche", res.levelUp, res.level);
-    if (res.catches.some((c) => c.type === "part")) Toast.info("&#128297; Pièce détachée : dans l'atelier (Finitions ou Qualité), elle remplace un des exemplaires à consommer.");
+    if (res.catches.some((c) => c.type === "part")) Toast.info(resIcon("part") + " Pièce détachée : dans l'atelier (Finitions ou Qualité), elle remplace un des exemplaires à consommer.");
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
     fishBusy = false;
+    document.removeEventListener("keydown", fishKeyGuard);
     scene.classList.remove("casting", "waiting", "bite");
     status.textContent = "Prêt à pêcher";
-    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.", not_enough_bait: "Plus assez d'appâts dorés.", deep_locked: "Les eaux profondes se débloquent au niveau 10 de pêche.", daily_limit: "Plus de lancers pour aujourd'hui : reviens demain !" }[e.code] || friendlyError(e));
+    Toast.error({ not_enough_worms: "Plus de vers de terre : termine une grille de fouille ou récolte au jardin.", not_enough_bait: "Plus assez d'appâts dorés.", deep_locked: "Les eaux profondes se débloquent au niveau 10 de pêche.", zone_locked: "Ce lieu de pêche n'est pas encore débloqué.", no_energy: "Plus assez d'énergie : elle se recharge avec le temps." }[e.code] || friendlyError(e));
     loadFishing();
   }
 }
@@ -816,102 +1089,135 @@ async function claimBingo() {
 // quotidienne) - deverrouillage DEFINITIF, une seule fois par joueur (voir
 // vault.json - pas de colonne d'etat dediee, juste une ligne Pulls au
 // BatchId prefixe 'vault-').
+// Cage a 6 cadenas (2026-10-17) : chaque clef possedee fait sauter un cadenas
+// au clic (cote site, memorise localement) ; au dernier, le coffre s'ouvre
+// (vault.json, les 6 clefs sont alors consommees). Une fois ouvert : coffre
+// vide et lien vers le coffre personnel.
+let vaultState = null;
+const vaultPoppedKey = () => `2gatcha_vault_popped_${Session.userId}`;
+function vaultPopped() { try { return Math.max(0, Number(localStorage.getItem(vaultPoppedKey())) || 0); } catch (e) { return 0; } }
+function setVaultPopped(n) { try { localStorage.setItem(vaultPoppedKey(), String(n)); } catch (e) { /* stockage indisponible */ } }
+
 async function loadVault() {
   try {
     const res = await API.getVaultStatus(Session.userId);
+    vaultState = res;
     if (!res.card) {
       document.getElementById("vault-locked").innerHTML = `<div class="empty-state">Le coffre-fort n'est pas encore configuré.</div>`;
       return;
     }
-    document.getElementById("vault-card-img").src = API.imageUrl(res.card.imageId) || PLACEHOLDER_IMG;
-    document.getElementById("vault-card-img").alt = res.card.name;
-    const vaultNameEl = document.getElementById("vault-card-name");
-    vaultNameEl.classList.remove("skeleton-line");
-    vaultNameEl.textContent = res.card.name;
-    const pct = Math.min(100, Math.round((res.userKeys / res.keysRequired) * 100));
-    document.getElementById("vault-keys-fill").style.width = pct + "%";
-    document.getElementById("vault-keys-label").innerHTML = `&#128273; ${res.userKeys} / ${res.keysRequired} clefs`;
-    const openBtn = document.getElementById("vault-open-btn");
     const lockedZone = document.getElementById("vault-locked");
     const openedZone = document.getElementById("vault-opened");
     if (res.alreadyOpened) {
       lockedZone.style.display = "none";
       openedZone.style.display = "flex";
-      document.getElementById("vault-opened-img").src = API.imageUrl(res.card.imageId) || PLACEHOLDER_IMG;
-      document.getElementById("vault-opened-img").alt = res.card.name;
+      document.getElementById("vault-intro").hidden = true;
       document.getElementById("vault-opened-name").textContent = res.card.name;
-    } else {
-      lockedZone.style.display = "block";
-      openedZone.style.display = "none";
-      openBtn.style.display = res.userKeys >= res.keysRequired ? "inline-flex" : "none";
+      setVaultPopped(0);
+      return;
     }
+    lockedZone.style.display = "block";
+    openedZone.style.display = "none";
+    document.getElementById("vault-card-img").src = API.imageUrl(res.card.imageId) || PLACEHOLDER_IMG;
+    document.getElementById("vault-card-img").alt = res.card.name;
+    const vaultNameEl = document.getElementById("vault-card-name");
+    vaultNameEl.classList.remove("skeleton-line");
+    vaultNameEl.textContent = `Libère ${res.card.name}`;
+    renderPadlocks();
   } catch (e) {
     Toast.error("Impossible de charger le coffre-fort.");
   }
 }
 
+function renderPadlocks() {
+  const res = vaultState;
+  const need = res.keysRequired || 6;
+  const popped = Math.min(vaultPopped(), res.userKeys, need);
+  const box = document.getElementById("vault-padlocks");
+  box.innerHTML = Array.from({ length: need }, (_, i) => {
+    const open = i < popped;
+    const can = !open && i < res.userKeys;
+    return `<button type="button" class="vault-padlock ${open ? "popped" : can ? "can" : "locked"}" data-i="${i}" ${can ? "" : "disabled"} aria-label="${open ? "Cadenas ouvert" : can ? "Faire sauter ce cadenas avec une clef" : "Il manque une clef"}">${open ? "&#128275;" : "&#128274;"}</button>`;
+  }).join("");
+  const left = Math.max(0, need - res.userKeys);
+  document.getElementById("vault-keys-label").innerHTML = `<img class="ico-art" src="assets/${encodeURI("cléSpeciale.png")}" alt="" /> ${res.userKeys} / ${need} clefs · ${popped} cadenas ouvert${popped > 1 ? "s" : ""}${left ? ` · encore ${left} clef${left > 1 ? "s" : ""} à trouver` : popped < need ? " · fais sauter les cadenas !" : ""}`;
+}
+
+async function popPadlock(btn) {
+  const res = vaultState;
+  const need = res.keysRequired || 6;
+  const popped = Math.min(vaultPopped(), res.userKeys, need);
+  if (popped >= res.userKeys) return;
+  btn.classList.add("popping");
+  if (typeof Sfx !== "undefined" && Sfx.click) Sfx.click();
+  await new Promise((r) => setTimeout(r, 380));
+  setVaultPopped(popped + 1);
+  renderPadlocks();
+  if (popped + 1 >= need) openVault();
+}
+
 async function openVault() {
-  const ok = await Confirm.show(
-    `Ouvrir le coffre-fort consomme <strong>6 clefs secrètes</strong> et débloque définitivement la carte arc-en-ciel qu'il contient. Continuer ?`,
-    { title: "Ouvrir le coffre-fort ?", confirmText: "Ouvrir" }
-  );
-  if (!ok) return;
+  const frame = document.querySelector("#vault-locked .vault-card-frame");
   try {
-    const res = await API.openVault(Session.userId);
-    Toast.success(`Coffre-fort ouvert : ${res.card.name} !`);
-    if (typeof confetti === "function") confetti({ particleCount: 250, spread: 140, origin: { y: 0.5 } });
-    const frame = document.querySelector("#vault-locked .vault-card-frame");
     if (frame) frame.classList.add("vault-unlocking");
+    const res = await API.openVault(Session.userId);
+    setVaultPopped(0);
+    Toast.success(`&#127881; La cage s'ouvre : ${res.card.name} est libre !`);
+    if (typeof confetti === "function") confetti({ particleCount: 250, spread: 140, origin: { y: 0.5 } });
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-    setTimeout(() => loadVault(), 1000);
+    setTimeout(() => loadVault(), 1600);
   } catch (e) {
+    if (frame) frame.classList.remove("vault-unlocking");
+    setVaultPopped(0);
     Toast.error(e.code === "not_enough_keys" ? "Pas assez de clefs." : e.code === "already_opened" ? "Déjà ouvert." : friendlyError(e));
+    loadVault();
   }
 }
 
 // -----------------------------------------------------------------------
-// Devine la carte (guess-card.json) : un zoom quotidien sur l'illustration
-// d'une carte, 4 propositions, un seul essai. La reponse n'arrive du
-// serveur qu'une fois le jeu du jour joue.
+// Devine la carte v2 (api/src/native/guessgame.js, 2026-10-18) : 5 cartes
+// par jour, 3 essais par carte (la proposition fausse disparait, le zoom
+// recule, le gain baisse). Trouver une carte qu'on ne possede pas donne un
+// bon de craft. La reponse n'arrive du serveur qu'une fois la manche finie.
 // -----------------------------------------------------------------------
 let guessBusy = false;
+let guessData = null;
+let guessRound = null;
 
 function renderGuess(data) {
+  guessData = data;
+  if (!data.rounds || !data.rounds.length) { document.getElementById("guess-choices").innerHTML = `<div class="empty-state">Jeu indisponible pour le moment.</div>`; return; }
+  if (guessRound == null || !data.rounds[guessRound]) { const next = data.rounds.find((r) => !r.done); guessRound = next ? next.index : 0; }
+  const r = data.rounds[guessRound];
   const img = document.getElementById("guess-img");
-  img.src = API.imageUrl(data.imageId) || "";
+  img.src = API.imageUrl(r.imageId) || "";
   const frame = document.getElementById("guess-frame");
-  const z = data.zoom || { scale: 3, x: 50, y: 50 };
-  // Une fois joue, on dezoome pour devoiler l'illustration entiere.
+  const z = r.zoom || { scale: 3, x: 50, y: 50 };
   img.style.transformOrigin = `${z.x}% ${z.y}%`;
-  img.style.transform = data.played ? "scale(1)" : `scale(${z.scale})`;
-  frame.classList.toggle("revealed", !!data.played);
+  img.style.transform = r.done ? "scale(1)" : `scale(${z.scale})`;
+  frame.classList.toggle("revealed", !!r.done);
 
   const next = data.boosterEvery - ((data.streak || 0) % data.boosterEvery);
-  document.getElementById("guess-streak").innerHTML = `<span>&#128293; Série : <strong>${data.streak || 0}</strong> jour${(data.streak || 0) > 1 ? "s" : ""}</span>` +
-    `<span class="guess-streak-next">Booster bonus dans ${next} bonne${next > 1 ? "s" : ""} réponse${next > 1 ? "s" : ""} d'affilée</span>`;
+  document.getElementById("guess-streak").innerHTML = `
+    <div class="guess-rounds">${data.rounds.map((x) => `<button type="button" class="guess-round ${x.index === guessRound ? "active" : ""} ${x.done ? (x.correct ? "win" : "lose") : ""}" data-guess-round="${x.index}" aria-label="Carte ${x.index + 1}">${x.done ? (x.correct ? "&#10004;" : "&#10008;") : x.index + 1}</button>`).join("")}</div>
+    <span>&#128293; Série : <strong>${data.streak || 0}</strong> jour${(data.streak || 0) > 1 ? "s" : ""} · ${data.found} / ${data.rounds.length} trouvée${data.found > 1 ? "s" : ""} aujourd'hui</span>
+    <span class="guess-streak-next">${data.streakMin} bonnes réponses par jour gardent la série · jeton booster dans ${next} jour${next > 1 ? "s" : ""} de série</span>`;
 
   const box = document.getElementById("guess-choices");
-  box.innerHTML = data.choices.map((c) => {
-    let cls = "";
-    if (data.played) {
-      if (c.cardId === data.answerCardId) cls = "right";
-      else if (c.cardId === data.myChoice) cls = "wrong";
-    }
-    return `<button type="button" class="guess-choice ${cls}" data-card-id="${c.cardId}" ${data.played ? "disabled" : ""}>${c.name}</button>`;
-  }).join("");
+  box.innerHTML = r.choices.map((c) => {
+    const cls = r.done ? (c.cardId === r.answerCardId ? "right" : c.wrong ? "wrong" : "") : c.wrong ? "wrong" : "";
+    return `<button type="button" class="guess-choice ${cls}" data-card-id="${c.cardId}" ${r.done || c.wrong ? "disabled" : ""}>${escHtml(c.name)}</button>`;
+  }).join("") + (r.done ? "" : `<div class="guess-tries">${"&#10084;&#65039;".repeat(r.triesLeft)}${"&#129293;".repeat(3 - r.triesLeft)} <small>${r.triesLeft} essai${r.triesLeft > 1 ? "s" : ""} · gain ${[100, 60, 30][3 - r.triesLeft]} %</small></div>`);
 
   const res = document.getElementById("guess-result");
-  if (data.played) {
-    res.style.display = "block";
-    res.className = `guess-result ${data.correct ? "win" : "lose"}`;
-    const rw = data.reward;
-    res.innerHTML = data.correct
-      ? `&#127881; Bravo, c'était <strong>${data.answerName}</strong> !${rw ? ` +${rw.dust} poussières${rw.boosters ? ` et +${rw.boosters} booster` : ""}.` : ""}`
-      : `C'était <strong>${data.answerName}</strong>.${rw ? ` +${rw.dust} poussières de consolation.` : ""}`;
-    res.innerHTML += `<div class="guess-next">Nouvelle carte demain !</div>`;
-  } else {
-    res.style.display = "none";
-  }
+  const parts = [];
+  if (r.done) parts.push(r.correct ? `&#127881; C'était bien <strong>${escHtml(r.answerName)}</strong> !` : `C'était <strong>${escHtml(r.answerName)}</strong>.`);
+  if (data.finished) parts.push(`<div class="guess-next">Journée terminée : ${data.found} / ${data.rounds.length}. Nouvelles cartes demain !</div>`);
+  else if (r.done) { const n = data.rounds.find((x) => !x.done); if (n) parts.push(`<button type="button" class="btn-secondary" data-guess-round="${n.index}">Carte suivante &rarr;</button>`); }
+  if (data.coupons && data.coupons.length) parts.push(`<div class="guess-coupons"><strong>&#127915; Bons de craft (−${data.couponPct} %)</strong> ${data.coupons.map((c) => `<a href="collection.html#crafter" title="Valable jusqu'au ${new Date(c.until * 1000).toLocaleDateString("fr-FR")}">${escHtml(c.name)}</a>`).join(" · ")}</div>`);
+  res.style.display = parts.length ? "block" : "none";
+  res.className = `guess-result ${r.done ? (r.correct ? "win" : "lose") : ""}`;
+  res.innerHTML = parts.join("");
 }
 
 async function loadGuess() {
@@ -923,17 +1229,21 @@ async function loadGuess() {
 }
 
 async function submitGuess(cardId) {
-  if (guessBusy) return;
+  if (guessBusy || guessRound == null) return;
   guessBusy = true;
   try {
-    const res = await API.guessCard(Session.userId, "guess", cardId);
-    renderGuess({ ...res, myChoice: cardId });
+    const res = await API.post("guessCard", { userId: Session.userId, action: "guess", round: guessRound, cardId });
+    renderGuess(res);
     if (typeof loadNavBadges === "function") loadNavBadges();
-    if (res.correct) Toast.success(`Bonne réponse ! +${res.reward.dust} poussières${res.reward.boosters ? " et +1 booster" : ""}.`);
-    else Toast.info(`Raté, c'était ${res.answerName}.`);
+    const rw = res.reward || {};
+    if (res.correct) Toast.success(`Bonne réponse ! +${rw.dust} poussières${rw.boosters ? " et +1 jeton booster" : ""}${rw.perfect ? " (journée parfaite !)" : ""}.`);
+    else if (res.done) Toast.info("Raté pour cette carte.");
+    else Toast.info("Ce n'est pas ça : le zoom recule, essaie encore !");
+    if (rw.coupon) setTimeout(() => Toast.success(`&#127915; Bon de craft : −${rw.coupon.pct} % sur <strong>${escHtml(rw.coupon.name)}</strong> pendant ${res.couponDays} jours !`), 400);
+    if (res.correct && typeof confetti === "function") confetti({ particleCount: rw.perfect ? 200 : 70, spread: 80, origin: { y: 0.5 } });
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error(e.code === "already_played" ? "Tu as déjà joué aujourd'hui." : friendlyError(e));
+    Toast.error(e.code === "already_played" ? "Carte déjà jouée." : friendlyError(e));
     loadGuess();
   } finally {
     guessBusy = false;
@@ -941,8 +1251,8 @@ async function submitGuess(cardId) {
 }
 
 // -----------------------------------------------------------------------
-// Expedition (expedition.json) : une carte part 2h / 8h / 24h, butin tire
-// au retour. Une seule expedition a la fois.
+// Expedition (expedition.json + expedition2.js) : une carte part 2h / 8h /
+// 24h vers une destination, butin tire au retour. Une seule a la fois.
 // -----------------------------------------------------------------------
 let expeditionTimer = null;
 let expeditionBusy = false;
@@ -983,6 +1293,18 @@ async function loadExpeditionLevel() {
   try { const d = await API.expedition(Session.userId, "status"); if (d.expeditionLevel) renderSkillLevel("expe-level", "&#129517;", "Expédition", d.expeditionLevel, expePerkTexts(d.expeditionLevel.perks)); } catch (e) { /* niveau indisponible */ }
 }
 
+// Destinations (api/src/native/expedition2.js, 2026-10-18) : chaque lieu
+// rapporte des ressources pour les autres jeux ; affinite du jour (rarete +
+// extension) qui augmente ce butin.
+let expeditionDest = (() => { try { return localStorage.getItem("2gatcha_expe_dest") || ""; } catch (e) { return ""; } })();
+const EXPE_MULT = { 2: "×1", 8: "×2,5", 24: "×5" };
+const expeRes = (r) => (r.img ? artImg(r.img, "") : "&#127873;");
+const expePerTrip = (n) => (n >= 1 ? `${Math.round(n * 10) / 10}` : `${Math.round(n * 100)} %`);
+function expeMatch(card, dest) {
+  const a = dest?.affinity || {};
+  return { rarity: !!(a.rarity && card?.rarity?.key === a.rarity.key), extension: !!(a.extension && card?.extension?.id === a.extension.id) };
+}
+
 async function renderExpedition(data) {
   clearInterval(expeditionTimer);
   if (data && data.expeditionLevel) renderSkillLevel("expe-level", "&#129517;", "Expédition", data.expeditionLevel, expePerkTexts(data.expeditionLevel.perks));
@@ -992,14 +1314,15 @@ async function renderExpedition(data) {
     const card = ex.explorer;
     const color = card?.rarity?.colorHex || "#9aa0b4";
     const endAt = Date.now() + (ex.secondsLeft || 0) * 1000;
+    const d = ex.destination;
     zone.innerHTML = `
       <div class="expe-active ${ex.ready ? "ready" : ""}">
         <div class="expe-explorer" style="--expe-color:${color}">
-          <img src="${API.imageUrl(card?.imageId) || ""}" alt="${card?.name || ""}" />
+          <img src="${API.imageUrl(card?.imageId) || ""}" alt="${escHtml(card?.name || "")}" />
         </div>
         <div class="expe-info">
-          <div class="expe-title">${card?.name || "Ton explorateur"} est en route</div>
-          <div class="expe-sub">${ex.hours} h d'expédition</div>
+          <div class="expe-title">${escHtml(card?.name || "Ton explorateur")} est en route${d ? ` : ${d.icon} ${escHtml(d.name)}` : ""}</div>
+          <div class="expe-sub">${ex.hours} h d'expédition${d && d.bonus > 1 ? ` · <span class="expe-aff-ok">affinité +${Math.round((d.bonus - 1) * 100)} % de ressources</span>` : ""}</div>
           <div class="expe-progress"><div class="expe-progress-fill" id="expe-fill"></div></div>
           <div class="expe-countdown" id="expe-countdown"></div>
           <button type="button" class="btn" id="expe-claim-btn" ${ex.ready ? "" : "disabled"}>&#127873; Récupérer le butin</button>
@@ -1032,14 +1355,26 @@ async function renderExpedition(data) {
     zone.innerHTML = `<div class="empty-state">Il te faut au moins une carte pour partir en expédition.</div>`;
     return;
   }
+  const dests = data.destinations || [];
+  if (!dests.some((d) => d.key === expeditionDest && d.unlocked)) expeditionDest = (dests.find((d) => d.unlocked) || {}).key || "";
+  const pct = data.affinityPct || 0;
   const bonus = data.rarityBonus || {};
   zone.innerHTML = `
     <div class="expe-setup">
+      ${dests.length ? `<div class="expe-label">Destination</div>
+      <div class="expe-dests">${dests.map((d) => `
+        <button type="button" class="expe-dest ${d.key === expeditionDest ? "active" : ""} ${d.unlocked ? "" : "locked"}" data-dest="${d.key}" ${d.unlocked ? "" : "disabled"}>
+          <span class="expe-dest-head"><span class="expe-dest-ico" aria-hidden="true">${d.icon}</span><strong>${escHtml(d.name)}</strong>${d.unlocked ? "" : `<span class="expe-dest-lock">&#128274; niv. ${d.level}</span>`}</span>
+          <span class="expe-dest-desc">${escHtml(d.desc)}</span>
+          <span class="expe-dest-loot">${d.loot.map((l) => `<span class="expe-loot-chip" title="${escHtml(l.label)} (pour 2 h)">${expeRes(l)} ${expePerTrip(l.perTrip)}</span>`).join("")}</span>
+          ${d.affinity && (d.affinity.rarity || d.affinity.extension) ? `<span class="expe-dest-aff">Aujourd'hui : ${d.affinity.rarity ? `<b style="color:${d.affinity.rarity.colorHex || "inherit"}">${escHtml(d.affinity.rarity.name)}</b>` : ""}${d.affinity.rarity && d.affinity.extension ? " · " : ""}${d.affinity.extension ? `<b>${escHtml(d.affinity.extension.name)}</b>` : ""}</span>` : ""}
+        </button>`).join("")}</div>` : ""}
       <label class="expe-label" for="expe-card">Explorateur</label>
       <div class="expe-pick">
         <img id="expe-preview" class="expe-preview" src="" alt="" />
         <div class="expe-pick-side">
-          <select id="expe-card">${cards.map((c) => `<option value="${c.cardId}">${c.name} — ${c.rarity?.name || "Commune"}</option>`).join("")}</select>
+          <select id="expe-card">${cards.map((c) => `<option value="${c.cardId}">${escHtml(c.name)} — ${escHtml(c.rarity?.name || "Commune")}${c.extension ? ` · ${escHtml(c.extension.name)}` : ""}</option>`).join("")}</select>
+          ${dests.length ? `<button type="button" class="btn-ghost expe-best" id="expe-best">&#10024; Meilleur explorateur pour ce lieu</button>` : ""}
           <div class="expe-bonus" id="expe-bonus"></div>
         </div>
       </div>
@@ -1051,6 +1386,7 @@ async function renderExpedition(data) {
             <span class="expe-duration-name">${d.label}</span>
             <span class="expe-duration-loot">${d.dust[0]}–${d.dust[1]} poussières</span>
             <span class="expe-duration-loot">${d.guaranteed ? `1 booster garanti + ${Math.round(d.boosterChance * 100)}% d'en avoir un 2e` : `${Math.round(d.boosterChance * 100)}% de chance de booster`}</span>
+            ${dests.length ? `<span class="expe-duration-loot">Ressources ${EXPE_MULT[d.hours] || ""}</span>` : ""}
           </button>`).join("")}
       </div>
     </div>`;
@@ -1059,9 +1395,27 @@ async function renderExpedition(data) {
     const c = cards.find((x) => x.cardId === Number(select.value));
     document.getElementById("expe-preview").src = API.imageUrl(c?.imageId) || "";
     const b = bonus[c?.rarity?.key] || 1;
-    document.getElementById("expe-bonus").textContent = b > 1 ? `Bonus de rareté : +${Math.round((b - 1) * 100)}% de poussières` : "Pas de bonus de rareté";
+    const dest = dests.find((d) => d.key === expeditionDest);
+    const m = expeMatch(c, dest);
+    const lines = [b > 1 ? `Bonus de rareté : +${Math.round((b - 1) * 100)}% de poussières` : "Pas de bonus de rareté"];
+    if (dest) lines.push(m.rarity || m.extension ? `<span class="expe-aff-ok">&#10004; Affinité ${[m.rarity && "rareté", m.extension && "extension"].filter(Boolean).join(" + ")} : +${pct * (m.rarity + m.extension)} % de ressources</span>` : `<span class="muted">Pas d'affinité avec ce lieu aujourd'hui</span>`);
+    document.getElementById("expe-bonus").innerHTML = lines.join("<br>");
+  };
+  // Meilleur explorateur : rarete et extension du jour, puis la rarete la plus haute.
+  const pickBest = () => {
+    const dest = dests.find((d) => d.key === expeditionDest);
+    const score = (c) => { const m = expeMatch(c, dest); return (m.rarity + m.extension) * 100 - EXPEDITION_RARITY_ORDER.indexOf(c.rarity?.key); };
+    const best = [...cards].sort((a, b) => score(b) - score(a))[0];
+    if (best) { select.value = String(best.cardId); updatePreview(); }
   };
   select.addEventListener("change", updatePreview);
+  document.getElementById("expe-best")?.addEventListener("click", pickBest);
+  zone.querySelectorAll(".expe-dest:not([disabled])").forEach((btn) => btn.addEventListener("click", () => {
+    expeditionDest = btn.dataset.dest;
+    try { localStorage.setItem("2gatcha_expe_dest", expeditionDest); } catch (e) { /* stockage indisponible */ }
+    zone.querySelectorAll(".expe-dest").forEach((b) => b.classList.toggle("active", b === btn));
+    updatePreview();
+  }));
   updatePreview();
   zone.querySelectorAll(".expe-duration").forEach((btn) => btn.addEventListener("click", () => startExpedition(Number(btn.dataset.hours), Number(select.value))));
 }
@@ -1078,11 +1432,12 @@ async function startExpedition(hours, cardId) {
   if (expeditionBusy) return;
   expeditionBusy = true;
   try {
-    const res = await API.expedition(Session.userId, "start", { hours, cardId });
-    Toast.success(`C'est parti pour ${hours} h d'expédition !`);
+    const res = await API.expedition(Session.userId, "start", { hours, cardId, destination: expeditionDest || undefined });
+    const d = res.expedition && res.expedition.destination;
+    Toast.success(`C'est parti pour ${hours} h d'expédition${d ? ` : ${d.icon} ${escHtml(d.name)}` : ""} !`);
     await renderExpedition(res);
   } catch (e) {
-    Toast.error({ already_running: "Une expédition est déjà en cours.", card_not_owned: "Tu ne possèdes plus cette carte." }[e.code] || friendlyError(e));
+    Toast.error({ already_running: "Une expédition est déjà en cours.", card_not_owned: "Tu ne possèdes plus cette carte.", destination_locked: `Destination débloquée au niveau ${e.data?.level || "?"} d'expédition.`, unknown_destination: "Destination inconnue." }[e.code] || friendlyError(e));
     loadExpedition();
   } finally {
     expeditionBusy = false;
@@ -1098,12 +1453,15 @@ async function claimExpedition() {
     if (typeof loadNavBadges === "function") loadNavBadges();
     await renderExpedition(res);
     const zone = document.getElementById("expedition-zone");
+    const resList = (r.resources || []).map((x) => `<span class="expe-loot-chip">${expeRes(x)} +${x.n} ${escHtml(x.label)}</span>`).join("");
+    const aff = r.affinity && r.affinity.bonus > 1 ? ` <span class="expe-report-bonus">(affinité +${Math.round((r.affinity.bonus - 1) * 100)} % de ressources)</span>` : "";
     zone.insertAdjacentHTML("afterbegin", `
       <div class="expe-report">
-        <div class="expe-report-title">&#129517; ${r.explorer?.name || "Ton explorateur"} ${r.story} !</div>
-        <div class="expe-report-loot">+${r.dust} poussières${r.boosters ? ` · +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""}${r.bonus > 1 ? ` <span class="expe-report-bonus">(bonus rareté +${Math.round((r.bonus - 1) * 100)}%)</span>` : ""}</div>
+        <div class="expe-report-title">&#129517; ${escHtml(r.explorer?.name || "Ton explorateur")} ${r.destination ? `revient de ${r.destination.icon} ${escHtml(r.destination.name)} : il ` : ""}${r.story} !</div>
+        <div class="expe-report-loot">+${r.dust} poussières${r.boosters ? ` · +${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : ""}${r.bonus > 1 ? ` <span class="expe-report-bonus">(bonus rareté +${Math.round((r.bonus - 1) * 100)}%)</span>` : ""}</div>
+        ${resList ? `<div class="expe-report-res">${resList}${aff}</div>` : ""}
       </div>`);
-    Toast.success(`Butin : +${r.dust} poussières${r.boosters ? ` et +${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""} !`);
+    Toast.success(`Butin : +${r.dust} poussières${r.boosters ? ` et +${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : ""}${(r.resources || []).length ? ", et des ressources !" : " !"}`);
     if (res.dinoCompanion) setTimeout(() => Toast.info(`&#129430; ${escHtml(res.dinoCompanion.name)} rentre de l'expédition${res.dinoCompanion.hungry ? " affamé : va vite le nourrir !" : ", ravi mais un peu affamé."}`), 700);
     if (res.levelUp) LevelUpModal.show({ icon: "&#129517;", name: "Expédition", level: res.levelUp, perks: expePerkTexts(res.expeditionLevel && res.expeditionLevel.perks) });
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
@@ -1135,18 +1493,50 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("fish-extras").addEventListener("click", (e) => { if (e.target.closest("#fish-reroll-btn")) rerollWeather(); });
   document.addEventListener("click", (e) => { const b = e.target.closest("[data-prestige]"); if (b) doPrestige(b.dataset.prestige); });
   document.getElementById("fish-cast-btn").addEventListener("click", () => castFishing(1));
+  document.getElementById("fish-cat-feed1")?.addEventListener("click", (e) => feedCat(1, e.currentTarget));
+  document.getElementById("fish-cat-feedmax")?.addEventListener("click", (e) => feedCat(Number(e.currentTarget.dataset.count) || 1, e.currentTarget));
+  document.getElementById("fish-aquarium")?.addEventListener("click", async (e) => {
+    const b = e.target.closest("#aq-claim");
+    if (!b) return;
+    b.disabled = true;
+    try {
+      const r = await API.aquarium(Session.userId, "claim");
+      const c = r.claimed;
+      Toast.success(`🐠 Aquarium : ${[c.dust ? `+${c.dust} ✨` : "", c.boosters ? `+${c.boosters} jetons booster` : "", c.chests ? `+${c.chests} coffre` : "", ...(c.titles || []).map((t) => `titre « ${escHtml(t)} »`)].filter(Boolean).join(", ")} !`);
+      if (typeof confetti === "function") confetti({ particleCount: 90, spread: 90, origin: { y: 0.5 } });
+      renderAquarium(r);
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    } catch (err) { b.disabled = false; Toast.error(friendlyError(err)); }
+  });
   document.getElementById("fish-cast5-btn").addEventListener("click", () => castFishing(5));
   document.getElementById("fish-castall-btn").addEventListener("click", (e) => { const n = Number(e.currentTarget.dataset.count) || 0; if (n > 0) castFishing(n); });
   document.getElementById("fish-extras").addEventListener("change", (e) => { if (e.target.id === "fish-bait" && fishState) renderFishing(fishState); });
   document.getElementById("tab-bingo-btn").addEventListener("click", () => setActiveTab("bingo"));
   document.getElementById("tab-vault-btn").addEventListener("click", () => setActiveTab("vault"));
   document.getElementById("bingo-claim-btn").addEventListener("click", claimBingo);
+  document.getElementById("guess-pane").addEventListener("click", (e) => { const rb = e.target.closest("[data-guess-round]"); if (rb && guessData) { guessRound = Number(rb.dataset.guessRound); renderGuess(guessData); } });
   document.getElementById("guess-choices").addEventListener("click", (e) => {
     const btn = e.target.closest(".guess-choice");
     if (btn && !btn.disabled) submitGuess(Number(btn.dataset.cardId));
   });
-  document.getElementById("vault-open-btn").addEventListener("click", openVault);
+  document.getElementById("vault-padlocks").addEventListener("click", (e) => { const b = e.target.closest(".vault-padlock.can"); if (b) popPadlock(b); });
   document.getElementById("dig-buy-bone-btn").addEventListener("click", (e) => kennelAction("buy", e.currentTarget));
+  document.getElementById("dig-depths").addEventListener("click", (e) => { const b = e.target.closest(".dig-depth:not([disabled])"); if (b) setDigDepth(Number(b.dataset.depth)); });
+  // Achat depuis un bandeau de la boutique : la partie concernee se rafraichit.
+  document.addEventListener("shop:bought", (e) => {
+    const k = e.detail && e.detail.key;
+    if (k === "coffee" || k === "bone") loadDig();
+    else if (k === "worms10" || k === "bait" || k === "thermos") loadFishing();
+    else if (k === "fertilizer") loadGarden();
+    else if (k === "compass") loadExpedition();
+  });
+  document.getElementById("dig-shop").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-shop-buy]");
+    if (!b || window.ShopStrip) return;
+    b.disabled = true;
+    try { await API.shop(Session.userId, "buy", b.dataset.shopBuy); Toast.success("&#128722; Acheté !"); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); await loadDig(); renderDigShop(); }
+    catch (err) { b.disabled = false; Toast.error({ energy_full: "Ton énergie de fouille est déjà pleine.", weekly_cap: "Limite de la semaine atteinte.", not_enough_dust: "Pas assez de poussières." }[err.code] || friendlyError(err)); }
+  });
   document.getElementById("dig-use-bone-btn").addEventListener("click", (e) => kennelAction("use", e.currentTarget));
   document.getElementById("dig-frenzy-btn").addEventListener("click", (e) => dogFrenzy(e.currentTarget));
   // Onglet Coffre-fort cache tant que le joueur n'a jamais eu de clef : les

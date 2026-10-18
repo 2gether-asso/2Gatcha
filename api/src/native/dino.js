@@ -89,9 +89,9 @@ const DECOR_BONUS = 0.06; // chaque decoration : bonheur 6 % moins vite
 const DEX_TOTAL = Object.keys(SPECIES).length + Object.keys(PATTERNS).length + Object.keys(COLORS).length + STAGES.length;
 const DEX_TIERS = [
   { n: 5, dust: 300, label: '300 poussières' },
-  { n: 10, dust: 500, boosters: 1, label: '500 poussières et 1 booster' },
-  { n: 15, boosters: 3, label: '3 boosters' },
-  { n: DEX_TOTAL, boosters: 5, title: true, label: '5 boosters et le titre « Paléontologue »' }
+  { n: 10, dust: 500, boosters: 1, label: '500 poussières et 1 jeton booster' },
+  { n: 15, boosters: 3, label: '3 jetons booster' },
+  { n: DEX_TOTAL, boosters: 5, title: true, label: '5 jetons booster et le titre « Paléontologue »' }
 ];
 
 const HOUR = 3600;
@@ -628,6 +628,8 @@ function announce(store, user, d, verb) {
 }
 
 export const routes = { 'POST dino': handleDino };
+// Especes (musee du coffre-fort, museum.js).
+export { SPECIES as DINO_SPECIES };
 
 // Profil et carte de joueur : le dino vedette (vivant).
 export function starDinoOf(store, user) {

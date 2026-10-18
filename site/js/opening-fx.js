@@ -77,7 +77,7 @@
 
 const OpeningFx = (function () {
   const RANK = { commune: 0, rare: 1, epique: 2, legendaire: 3, mythique: 4, unique: 5 };
-  const vibrate = (p) => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* non supporte */ } };
+  const vibrate = (p) => { if (typeof Haptics !== "undefined") Haptics.buzz(p); else { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* non supporte */ } } };
   const reduced = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Choix du booster : 3 paquets en eventail, on choisit lequel dechirer.

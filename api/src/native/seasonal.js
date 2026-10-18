@@ -63,19 +63,19 @@ export function currentSeason(store, day = parisDay(0)) {
 }
 export function publicSeason(store) {
   const s = currentSeason(store);
-  return s ? { key: s.key, label: s.label, icon: s.icon, edition: s.edition, endsAt: s.endsAt, treat: s.treat, drop: s.drop, boss: s.boss ? s.boss.name : null } : null;
+  return s ? { key: s.key, label: s.label, icon: s.icon, edition: s.edition, endsAt: s.endsAt, treat: s.treat, drop: s.drop, boss: s.boss ? s.boss.name : null, skin: !!setting(store, 'SeasonSkinEnabled') } : null;
 }
 
 // ------------------------------------------------------------------ cadeau du jour
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 function draw(season, day) {
   // Noel : un booster garanti le 24 et le 25 decembre.
-  if (season.key === 'christmas' && (day.endsWith('12-24') || day.endsWith('12-25'))) return { kind: 'booster', n: 1, label: '🎁 1 booster sous le sapin' };
+  if (season.key === 'christmas' && (day.endsWith('12-24') || day.endsWith('12-25'))) return { kind: 'booster', n: 1, label: '🎁 1 jeton booster sous le sapin' };
   if (season.trick && Math.random() < season.trick) { const n = rnd(20, 50); return { kind: 'trick', n, label: `🙀 Un sort ! Tu perds ${n} ✨` }; }
   const r = Math.random();
-  if (r < 0.05) return { kind: 'booster', n: 1, label: '🎴 1 booster' };
+  if (r < 0.05) return { kind: 'booster', n: 1, label: '🎴 1 jeton booster' };
   if (r < 0.15) return { kind: 'key', n: 1, label: '🔑 1 clé' };
-  if (r < 0.35) return { kind: 'shards', n: 2, label: '🧩 2 fragments de booster' };
+  if (r < 0.35) return { kind: 'shards', n: 2, label: '🧩 2 fragments de jeton booster' };
   const n = rnd(40, 120);
   return { kind: 'dust', n, label: `✨ ${n} poussières` };
 }

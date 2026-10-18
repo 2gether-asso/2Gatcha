@@ -58,6 +58,11 @@
       if (!st && lvl) { st = document.createElement("span"); st.id = "profile-prestige"; st.className = "header-prestige"; lvl.insertAdjacentElement("afterend", st); }
       if (st) { st.textContent = "★".repeat(Math.min(res.prestigeStars, 5)) + (res.prestigeStars > 5 ? " ×" + res.prestigeStars : ""); st.title = `Prestige du compte : ${res.prestigeStars} étoile${res.prestigeStars > 1 ? "s" : ""}`; }
     }
+    // Badges du musee (2026-10-18).
+    if (res.museumBadges && res.museumBadges.length && !document.getElementById("profile-museum-badges")) {
+      const zone = document.getElementById("profile-extras");
+      if (zone) zone.insertAdjacentHTML("afterbegin", `<div class="mu-badges" id="profile-museum-badges"><span class="muted">Badges du musée :</span> ${res.museumBadges.map((b) => `<span class="mu-badge earned">${b.icon} ${esc(b.label)}</span>`).join("")}</div>`);
+    }
     const line = document.getElementById("profile-title-line");
     if (line) { line.textContent = d.title || ""; line.hidden = !d.title; }
 
@@ -77,7 +82,8 @@
       ${x.modeAchievements && x.modeAchievements.length ? `<div class="profile-block"><h3>&#127918; Succès de mode (${x.modeAchievements.filter((a) => a.unlocked).length}/${x.modeAchievements.length})</h3><div class="profile-chips">${x.modeAchievements.map((a) => `<span class="profile-chip mode-ach ${a.unlocked ? "" : "locked"}" title="${esc(a.desc)}${a.unlocked ? "" : " (à débloquer en mode " + esc(a.mode) + ")"}">${a.icon} ${esc(a.label)}</span>`).join("")}</div></div>` : ""}
       ${x.hidden.length ? `<div class="profile-block"><h3>&#128274; Succès secrets (${x.hidden.length})</h3><div class="profile-chips">${x.hidden.map((h) => `<span class="profile-chip" title="${esc(h.desc)}">${h.icon} ${esc(h.label)}</span>`).join("")}</div></div>` : ""}`;
     loadWall();
-    if (typeof window.renderOwnProgress === "function" && Session.isLoggedIn() && Number(Session.userId) === Number(x.userId)) window.renderOwnProgress();
+    // Son propre profil : lien vers la page Progression (progression.html).
+    if (Session.isLoggedIn() && Number(Session.userId) === Number(x.userId)) { const op = document.getElementById("own-progress"); if (op) op.hidden = false; }
   };
 
   async function loadWall() {
@@ -121,7 +127,7 @@
       const btn = e.target.closest("[data-wall-del]");
       if (!btn) return;
       try { renderWall((await API.deleteProfileWall(Session.userId, Number(btn.dataset.wallDel))).messages); }
-      catch (err) { Toast.errorfriendlyError(err); }
+      catch (err) { Toast.error(friendlyError(err)); }
     });
   });
 })();

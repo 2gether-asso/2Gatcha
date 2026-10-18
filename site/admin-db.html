@@ -98,9 +98,12 @@
 
             <div class="adb-row adb-row-between ac-cards-head">
               <h3>Cartes existantes <span class="adb-help" id="ac-cards-count"></span></h3>
-              <input type="search" id="ac-card-search" placeholder="Rechercher une carte…" />
+              <div class="adb-row ac-cards-tools">
+                <input type="search" id="ac-card-search" placeholder="Rechercher une carte…" />
+                <button type="button" class="btn-ghost" id="ac-order-reset" title="Range les cartes par rareté (de commune à mythique) puis par nom">&#8635; Ordre par rareté</button>
+              </div>
             </div>
-            <p class="adb-help">Chaque modification est enregistrée dès que tu quittes le champ. Clique sur une image pour la remplacer.</p>
+            <p class="adb-help">Chaque modification est enregistrée dès que tu quittes le champ. Clique sur une image pour la remplacer. <strong>Ordre</strong> : fais glisser une carte (poignée &#10303;) ou utilise les flèches pour la placer où tu veux ; c'est l'ordre et la numérotation (#001, #002…) de l'extension dans la collection des joueurs. Les nouvelles cartes s'ajoutent à la fin.</p>
             <div class="ac-cards" id="ac-cards"></div>
           </section>
         </section>

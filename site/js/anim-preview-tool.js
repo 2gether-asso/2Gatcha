@@ -21,10 +21,11 @@
   const LEVEL_DEMOS = {
     account: { kind: "account", level: 8, from: 7, get perks() { return accountPerks(7, 8); } },
     "account-multi": { kind: "account", level: 6, from: 3, get perks() { return accountPerks(3, 6); } },
-    fish: { kind: "skill", icon: "&#127907;", name: "Pêche", level: 5, perks: ["+8 lancers par jour", "24 % de prises vides en moins", "+32 % de chances de prises rares"] },
+    fish: { kind: "skill", icon: "&#127907;", name: "Pêche", level: 5, perks: ["+4 énergie de pêche max", "recharge 20 % plus rapide", "24 % de prises vides en moins", "+32 % de chances de prises rares"] },
     dig: { kind: "skill", icon: "&#9935;&#65039;", name: "Fouille", level: 4, tool: "Pelle en fer", perks: ["+2 énergie max", "recharge 15 % plus rapide", "+30 % de poussières trouvées", "Milo 15 % plus rapide, plus de flair"] },
     garden: { kind: "skill", icon: "&#127793;", name: "Jardin", level: 3, perks: ["Pousse 10 % plus rapide", "+1 récolte rare sur 20"] },
     expe: { kind: "skill", icon: "&#129517;", name: "Expédition", level: 6, perks: ["+18 % de poussières rapportées", "Expéditions 12 % plus courtes"] },
+    star: { kind: "prestige", icon: "&#11088;", name: "Prestige du compte", level: "★★ Étoile 2", perks: ["🎁 +3 boosters", "✨ +500 poussières", "🌳 +1 point de talent de prestige", "🏷️ Prestige ★★"] },
     prestige: { kind: "prestige", icon: "&#11088;", name: "Pêche", level: "Prestige 1", perks: ["+3 % de prises rares (permanent)", "Retour au niveau 1 : tous les bonus de niveau sont à regagner"] }
   };
   // Regles actives par mode (Admin > Difficultes) pour le resume de la cinematique.

@@ -18,6 +18,7 @@ import { modeCardFor } from './modeperks.js';
 import { modePerks, publicRules } from './moderules.js';
 import { publicView as featuresOff } from './features.js';
 import { chaosRule, nextMode } from './modeextras.js';
+import { publicSurprise } from './surprise.js';
 import { publicSeason } from './seasonal.js';
 
 export const schema = {
@@ -77,7 +78,7 @@ function modeView(store) {
 }
 
 function handleStatus({ store }) {
-  return ok({ ...eventState(store), goldenHour: goldenState(store), gameMode: modeView(store), season: publicSeason(store) });
+  return ok({ ...eventState(store), goldenHour: goldenState(store), gameMode: modeView(store), season: publicSeason(store), surprise: publicSurprise(store) });
 }
 
 function handleAdmin({ store, body }) {

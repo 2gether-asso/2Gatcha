@@ -829,7 +829,7 @@
       btn.title = !wasIn ? "Retirer de ma wishlist" : "Ajouter à ma wishlist";
       btn.setAttribute("aria-label", btn.title);
     } catch (e) {
-      Toast.errorfriendlyError(e);
+      Toast.error(friendlyError(e));
     }
   }
 

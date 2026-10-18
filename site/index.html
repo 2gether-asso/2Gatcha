@@ -49,6 +49,9 @@
         </a>
       </div>
 
+      <section class="panel starter-panel" id="starter-panel" hidden aria-label="Parcours du débutant"></section>
+      <section class="panel story-panel" id="story-panel" hidden aria-label="Histoire"></section>
+
     </div>
 
     <div class="panel weekly-recap" id="weekly-recap" hidden></div>
@@ -73,6 +76,7 @@
         <span id="aujourdhui" class="anchor"></span>
         <h2>&#9728;&#65039; Aujourd'hui</h2>
         <div class="today-house" id="today-house"></div>
+        <a class="today-mode-link" href="mode.html"><span aria-hidden="true">&#127922;</span> <span><strong>Mode du moment</strong> <small>règles, bonus et quêtes du mode de difficulté actuel</small></span> <span class="today-mode-go" aria-hidden="true">&rarr;</span></a>
         <div class="today-lucky" id="today-lucky"></div>
         <div class="today-lucky today-golden" id="today-golden" hidden></div>
         <div class="today-actions">
@@ -130,6 +134,7 @@
         <ol class="season-tiers" id="season-tiers" aria-label="Paliers de la saison"></ol>
         <button type="button" class="btn" id="season-claim-btn" style="display:none;">Récupérer les récompenses</button>
         <div class="season-chest" id="season-chest" hidden></div>
+        <div class="season-quests" id="season-quests" hidden></div>
       </div>
 
       <div class="panel" id="weekly-quests-panel" style="display:none;">
@@ -160,7 +165,7 @@
           <div class="wheel-status">
             <div id="wheel-status-text" class="skeleton-line">Chargement...</div>
             <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
-            <button type="button" class="btn-secondary wheel-key-btn" id="wheel-key-btn" style="display:none;" title="Relancer la roue en dépensant 1 clé secrète">&#128274; Relancer contre 1 &#128273;</button>
+            <button type="button" class="btn-secondary wheel-key-btn" id="wheel-key-btn" style="display:none;" title="Relancer la roue en dépensant 1 clé secrète"><span>&#128274; Relancer contre 1 <img class="ico-token" src="assets/cl%C3%A9Speciale.png" alt="" /></span></button>
           </div>
         </div>
         <div class="wheel-prizes-preview">
@@ -224,57 +229,6 @@
       </div>
     </div>
 
-    <div id="wheel-modal-overlay" class="card-modal-overlay" hidden>
-      <div class="wheel-modal">
-        <div class="wheel-container">
-          <div id="wheel-pointer-glow" class="wheel-pointer-glow" aria-hidden="true"></div>
-          <div class="wheel-pointer" aria-hidden="true">&#9660;</div>
-          <svg id="wheel-svg" class="wheel-svg" viewBox="0 0 200 200" role="img" aria-label="Roue de la fortune">
-            <defs>
-              <linearGradient id="wheelJackpotGradient" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#ffe066" />
-                <stop offset="50%" stop-color="#fff7cc" />
-                <stop offset="100%" stop-color="#d4af37" />
-              </linearGradient>
-            </defs>
-            <g id="wheel-group">
-              <!-- 12 cases (2026-09-30, etait 8), 5 types de lots ; les tailles
-                   ne sont pas egales - chaque type garde au total exactement
-                   la meme probabilite que dans daily-wheel.json (voir
-                   docs/SCHEMA.md), juste repartie sur plusieurs cases pour
-                   l'effet visuel d'une vraie roue a 12 secteurs. -->
-              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 100,10 A 90,90 0 0,1 145,22.1 Z" />
-              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 145,22.1 A 90,90 0 0,1 177.9,55 Z" />
-              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 177.9,55 A 90,90 0 0,1 190,100 Z" />
-              <path class="wheel-seg wheel-seg-key" d="M 100,100 L 190,100 A 90,90 0 0,1 177.9,145 Z" />
-              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 177.9,145 A 90,90 0 0,1 145,177.9 Z" />
-              <path class="wheel-seg wheel-seg-jackpot" d="M 100,100 L 145,177.9 A 90,90 0 0,1 100,190 Z" />
-              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 100,190 A 90,90 0 0,1 55,177.9 Z" />
-              <path class="wheel-seg wheel-seg-booster" d="M 100,100 L 55,177.9 A 90,90 0 0,1 22.1,145 Z" />
-              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 22.1,145 A 90,90 0 0,1 10,100 Z" />
-              <path class="wheel-seg wheel-seg-key" d="M 100,100 L 10,100 A 90,90 0 0,1 22.1,55 Z" />
-              <path class="wheel-seg wheel-seg-big" d="M 100,100 L 22.1,55 A 90,90 0 0,1 55,22.1 Z" />
-              <path class="wheel-seg wheel-seg-small" d="M 100,100 L 55,22.1 A 90,90 0 0,1 100,10 Z" />
-              <text x="116" y="40.1" class="wheel-icon-label">&#10024;</text>
-              <text x="148.1" y="51.9" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
-              <text x="159.9" y="84" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
-              <text x="165.7" y="117.6" class="wheel-icon-label wheel-icon-label-tiny">&#128273;</text>
-              <text x="143.8" y="143.8" class="wheel-icon-label">&#10024;</text>
-              <text x="117.6" y="165.7" class="wheel-icon-label wheel-icon-label-jackpot">&#127775;</text>
-              <text x="84" y="159.9" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
-              <text x="51.9" y="148.1" class="wheel-icon-label wheel-icon-label-tiny">&#127183;</text>
-              <text x="40.1" y="116" class="wheel-icon-label">&#10024;</text>
-              <text x="34.3" y="82.4" class="wheel-icon-label wheel-icon-label-tiny">&#128273;</text>
-              <text x="56.2" y="56.2" class="wheel-icon-label wheel-icon-label-big">&#10024;</text>
-              <text x="84" y="40.1" class="wheel-icon-label">&#10024;</text>
-            </g>
-            <circle cx="100" cy="100" r="12" class="wheel-hub" />
-          </svg>
-        </div>
-        <div id="wheel-modal-result" class="wheel-modal-result"></div>
-        <button type="button" id="wheel-modal-close-btn" class="btn" style="display:none;">Fermer</button>
-      </div>
-    </div>
 
 
 
@@ -289,9 +243,12 @@
   <script src="js/core.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/wheel-fx.js"></script>
+  <script src="js/starter.js"></script>
   <script src="js/home-extras.js"></script>
   <script src="js/home-objectives.js"></script>
   <script src="js/home-recap.js"></script>
+  <script src="js/home-more.js"></script>
   <script src="js/home-daily.js"></script>
   <script src="js/home-season.js"></script>
   <script>
@@ -510,6 +467,10 @@
         trade: { icon: "&#128260;", label: "Proposer un échange" },
         openBooster: { icon: "&#127183;", label: "Ouvrir un booster" }
       };
+      // Quetes encore verrouillees par le niveau (FEATURE_UNLOCK_LEVEL) : grisees avec le niveau.
+      const QUEST_LOCK = { craft: "craft", trade: "trade" };
+      const questLockLevel = (key, lvl) => { const f = QUEST_LOCK[key]; const need = f && typeof FEATURE_UNLOCK_LEVEL !== "undefined" ? FEATURE_UNLOCK_LEVEL[f] || 1 : 1; return lvl < need ? need : 0; };
+      const questLockTag = (need) => (need ? ` <span class="quest-lock">&#128274; niveau ${need}</span>` : "");
       // Le gain n'est plus accorde automatiquement a la simple consultation :
       // un bouton "Réclamer" apparait sous les quêtes une fois le seuil
       // atteint (res.canClaim), et l'utilisateur doit cliquer pour toucher
@@ -517,7 +478,7 @@
       // separee de 'status'). Fonctions nommees pour pouvoir tout
       // re-afficher proprement apres une reclamation.
       function loadDailyQuests() {
-        API.getQuestStatus(Session.userId).then((res) => {
+        Promise.all([API.getQuestStatus(Session.userId), fetchMyLevel()]).then(([res, lvl]) => {
           const list = document.getElementById("quests-list");
           const quests = res.quests || {};
           const threshold = res.threshold || 2;
@@ -528,10 +489,11 @@
             `Complète ${threshold} des 4 quêtes aujourd'hui pour recevoir ${rewardBoosters} booster${rewardBoosters > 1 ? "s" : ""} gratuit${rewardBoosters > 1 ? "s" : ""}.`;
           list.innerHTML = Object.entries(QUEST_LABELS).map(([key, meta]) => {
             const done = !!quests[key];
+            const need = done ? 0 : questLockLevel(key, lvl);
             return `
-              <div class="quest-row ${done ? "done" : ""}">
+              <div class="quest-row ${done ? "done" : ""} ${need ? "locked" : ""}">
                 <span class="quest-icon">${done ? QUEST_CHECK_SVG : meta.icon}</span>
-                <span class="quest-label">${meta.label}</span>
+                <span class="quest-label">${meta.label}${questLockTag(need)}</span>
               </div>
             `;
           }).join("") + `
@@ -578,7 +540,7 @@
       const weeklyQuestsPanel = document.getElementById("weekly-quests-panel");
       weeklyQuestsPanel.style.display = "block";
       function loadWeeklyQuests() {
-        API.getWeeklyQuestStatus(Session.userId).then((res) => {
+        Promise.all([API.getWeeklyQuestStatus(Session.userId), fetchMyLevel()]).then(([res, lvl]) => {
         const list = document.getElementById("weekly-quests-list");
         const quests = res.quests || {};
         const target = res.target || 5;
@@ -592,10 +554,11 @@
           const count = Math.min(quests[key] || 0, target);
           const done = count >= target;
           const pct = Math.round((count / target) * 100);
+          const need = done ? 0 : questLockLevel(key, lvl);
           return `
-            <div class="quest-row weekly ${done ? "done" : ""}">
+            <div class="quest-row weekly ${done ? "done" : ""} ${need ? "locked" : ""}">
               <span class="quest-icon">${done ? QUEST_CHECK_SVG : meta.icon}</span>
-              <span class="quest-label">${meta.label}</span>
+              <span class="quest-label">${meta.label}${questLockTag(need)}</span>
               <span class="quest-count">${count} / ${target}</span>
               <span class="quest-mini-track"><span class="quest-mini-fill" style="width:${pct}%;"></span></span>
             </div>
@@ -675,7 +638,7 @@
         r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "",
         r.dust ? `${r.dust} poussières` : ""
       ].filter(Boolean).join(" + ");
-      const seasonRewardIcon = (r) => (r.chests ? "&#129520;" : r.keys ? "&#128273;" : r.boosters ? "&#127873;" : "&#10024;");
+      const seasonRewardIcon = (r) => (r.chests ? resIcon("coin") : r.keys ? resIcon("key") : r.boosters ? resIcon("token") : "&#10024;");
       function renderSeason(st) {
         if (!st || !st.enabled) { seasonPanel.style.display = "none"; return; }
         seasonPanel.style.display = "block";
@@ -713,17 +676,17 @@
         const label = (r) => seasonRewardLabel(r) || "vide pour l'instant";
         el.hidden = false;
         el.innerHTML = prev && prev.claimable
-          ? `<span class="season-chest-icon ready" aria-hidden="true">&#129520;</span>
+          ? `<span class="season-chest-icon ready" aria-hidden="true">${resIcon("chest")}</span>
              <div class="season-chest-body"><strong>Coffre de la saison ${prev.label} prêt !</strong><small>${label(prev.contents)} (${prev.xp} XP de saison)</small></div>
              <button type="button" class="btn" id="season-chest-btn">Ouvrir</button>`
-          : `<span class="season-chest-icon" aria-hidden="true">&#129520;</span>
+          : `<span class="season-chest-icon" aria-hidden="true">${resIcon("chest")}</span>
              <div class="season-chest-body"><strong>Coffre de saison</strong><small>Contient déjà : ${label(cur)} · s'ouvre à la fin de la saison</small></div>`;
         const btn = document.getElementById("season-chest-btn");
         if (btn) btn.addEventListener("click", async () => {
           btn.disabled = true;
           try {
             const res = await API.claimSeasonChest(Session.userId);
-            Toast.success(`&#129520; Coffre de saison : ${seasonRewardLabel(res.reward)} !`);
+            Toast.success(`${resIcon("chest")} Coffre de saison : ${seasonRewardLabel(res.reward)} !`);
             if (typeof confetti === "function") confetti({ particleCount: 140, spread: 100, origin: { y: 0.6 } });
             renderSeason(res);
             loadHeaderBoosterBadge();
@@ -731,6 +694,8 @@
         });
       }
       API.getSeason(Session.userId).then(renderSeason).catch(() => {});
+      // Defis de saison reclames (home-more.js) : barre de saison a jour.
+      window.reloadSeason = () => API.getSeason(Session.userId).then(renderSeason).catch(() => {});
       document.getElementById("season-claim-btn").addEventListener("click", async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
@@ -824,8 +789,8 @@
         wheelKeyBtn.style.display = "inline-flex";
         wheelKeyBtn.disabled = keys < 1;
         wheelKeyBtn.innerHTML = keys < 1
-          ? "&#128274; Relance (1 &#128273; requise)"
-          : "&#128274; Relancer (&minus;1 &#128273;)";
+          ? "<span>&#128274; Relance (1 " + resIcon("skey") + " requise)</span>"
+          : "<span>&#128274; Relancer (&minus;1 " + resIcon("skey") + ")</span>";
         wheelKeyBtn.title = keys < 1 ? "Il te faut une clé secrète (fouille, roue...)" : `Relancer la roue contre 1 clé secrète - tu en as ${keys}`;
       }
       wheelPanel.style.display = "block";
@@ -843,104 +808,38 @@
         wheelStatusText.textContent = "Impossible de charger la roue pour l'instant.";
       });
 
-      // 12 cases (depuis le haut, sens horaire), 5 types de lots dans l'ordre
-      // exact des <path> dessines dans le SVG (2026-09-30, etait 8 cases/3
-      // types). Le NOMBRE de cases par type est purement cosmetique : la
-      // vraie probabilite vient entierement de daily-wheel.json (voir
-      // docs/SCHEMA.md), le front tire juste une case au hasard PARMI
-      // celles du type deja decide par le serveur pour savoir ou s'arreter.
-      const WHEEL_SEGMENTS = [
-        { type: "small", start: 0, end: 30 },
-        { type: "booster", start: 30, end: 60 },
-        { type: "big", start: 60, end: 90 },
-        { type: "key", start: 90, end: 120 },
-        { type: "small", start: 120, end: 150 },
-        { type: "jackpot", start: 150, end: 180 },
-        { type: "big", start: 180, end: 210 },
-        { type: "booster", start: 210, end: 240 },
-        { type: "small", start: 240, end: 270 },
-        { type: "key", start: 270, end: 300 },
-        { type: "big", start: 300, end: 330 },
-        { type: "small", start: 330, end: 360 }
-      ];
-      const wheelOverlay = document.getElementById("wheel-modal-overlay");
-      const wheelGroup = document.getElementById("wheel-group");
-      const wheelResultEl = document.getElementById("wheel-modal-result");
-      const wheelCloseBtn = document.getElementById("wheel-modal-close-btn");
-      const wheelPointerGlow = document.getElementById("wheel-pointer-glow");
-
-      function spinWheelTo(tier) {
-        // Plusieurs cases partagent le meme type : on en tire une au hasard
-        // parmi celles-la pour ne pas toujours s'arreter sur la meme case.
-        const matches = WHEEL_SEGMENTS.filter((s) => s.type === tier);
-        const seg = matches[Math.floor(Math.random() * matches.length)] || WHEEL_SEGMENTS[0];
-        const mid = (seg.start + seg.end) / 2;
-        const halfWidth = (seg.end - seg.start) / 2;
-        const margin = Math.min(2, halfWidth * 0.3);
-        const jitter = (Math.random() - 0.5) * 2 * (halfWidth - margin);
-        const targetMid = mid + jitter;
-        // Pour amener ce point sous le pointeur (fixe, en haut), on tourne
-        // la roue de l'angle complementaire, plus plusieurs tours complets
-        // pour l'effet visuel.
-        const baseRotation = (360 - targetMid + 360) % 360;
-        const finalRotation = 5 * 360 + baseRotation;
-        // Repart de 0 a chaque ouverture (un seul spin par chargement de page).
-        wheelGroup.style.transform = "rotate(0deg)";
-        void wheelGroup.offsetWidth;
-        wheelGroup.style.transform = `rotate(${finalRotation}deg)`;
-      }
-
-      // Libelle + son + confettis par type de lot (5 paliers depuis le
-      // 2026-09-30 - voir docs/SCHEMA.md "Roue de la fortune quotidienne").
+      // Roue en cinematique (2026-10-18, js/wheel-fx.js) : le serveur decide le
+      // lot (daily-wheel.json), la roue s'arrete sur une case de ce type.
       const WHEEL_PRIZE_META = {
-        stardust: (p) => ({ label: `+${p.amount} poussières d'étoile !`, sfx: "rare", confetti: { particleCount: 80, spread: 80 } }),
-        booster: (p) => ({ label: `+${p.amount} booster${p.amount > 1 ? "s" : ""} !`, sfx: "legendaire", confetti: { particleCount: 110, spread: 90 } }),
-        key: (p) => ({ label: `+${p.amount} clé${p.amount > 1 ? "s" : ""} secrète${p.amount > 1 ? "s" : ""} ! &#128273;`, sfx: "epique", confetti: { particleCount: 100, spread: 90 } }),
-        jackpot: (p) => ({ label: `JACKPOT ! +${p.amount} boosters et +${p.dust} poussières !`, sfx: "mythique", confetti: { particleCount: 260, spread: 150 } })
+        stardust: (p) => ({ label: `+${p.amount} poussières d'étoile`, sfx: "rare", confetti: { particleCount: 80, spread: 80 } }),
+        booster: (p) => ({ label: `+${p.amount} jeton${p.amount > 1 ? "s" : ""} booster`, sfx: "legendaire", confetti: { particleCount: 120, spread: 90 } }),
+        key: (p) => ({ label: `+${p.amount} clé${p.amount > 1 ? "s" : ""} secrète${p.amount > 1 ? "s" : ""}`, sfx: "epique", confetti: { particleCount: 100, spread: 90 } }),
+        jackpot: (p) => ({ label: `+${p.amount} jetons booster et +${p.dust} poussières`, sfx: "mythique", confetti: { particleCount: 280, spread: 160 } })
       };
 
       async function startWheelSpin(useKey) {
         wheelSpinBtn.disabled = true;
         wheelKeyBtn.disabled = true;
-        wheelResultEl.textContent = "";
-        wheelCloseBtn.style.display = "none";
-        wheelOverlay.hidden = false;
-        syncScrollLock();
-        Sfx.click();
-        if (wheelPointerGlow) wheelPointerGlow.classList.add("spinning");
-
+        if (typeof Sfx !== "undefined") Sfx.click();
+        const fx = WheelFx.open();
         try {
           const res = await API.spinDailyWheel(Session.userId, useKey);
-          spinWheelTo(res.prize.tier);
-          wheelGroup.addEventListener("transitionend", function onSpun() {
-            wheelGroup.removeEventListener("transitionend", onSpun);
-            if (wheelPointerGlow) wheelPointerGlow.classList.remove("spinning");
-            const meta = (WHEEL_PRIZE_META[res.prize.type] || WHEEL_PRIZE_META.stardust)(res.prize);
-            wheelResultEl.innerHTML = `Gagné : ${meta.label}`;
-            wheelCloseBtn.style.display = "inline-flex";
-            Sfx.reveal(meta.sfx);
-            if (typeof confetti === "function") confetti({ ...meta.confetti, origin: { y: 0.5 } });
-            wheelStatusText.innerHTML = `Gagné aujourd'hui : ${meta.label} Reviens demain.`;
-            wheelSpinBtn.style.display = "none";
-            showWheelKeyBtn(res.newKeyCount || 0);
-            loadHeaderBoosterBadge();
-          }, { once: true });
+          const meta = (WHEEL_PRIZE_META[res.prize.type] || WHEEL_PRIZE_META.stardust)(res.prize);
+          // Statut de la page mis a jour sans attendre la fin de la cinematique.
+          wheelStatusText.innerHTML = `Gagné aujourd'hui : ${meta.label}. Reviens demain.`;
+          wheelSpinBtn.style.display = "none";
+          showWheelKeyBtn(res.newKeyCount || 0);
+          await fx.spinTo(res.prize.tier, meta);
+          loadHeaderBoosterBadge();
         } catch (e) {
-          wheelOverlay.hidden = true;
-          syncScrollLock();
+          fx.abort();
           wheelSpinBtn.disabled = false;
           wheelKeyBtn.disabled = false;
-          if (wheelPointerGlow) wheelPointerGlow.classList.remove("spinning");
-          Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : e.code === "no_key" ? "Il te faut une clé secrète pour relancer la roue." : "Erreur. (" + e.message + ")");
+          Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : e.code === "no_key" ? "Il te faut une clé secrète pour relancer la roue." : friendlyError(e));
         }
       }
       wheelSpinBtn.addEventListener("click", () => startWheelSpin(false));
       wheelKeyBtn.addEventListener("click", () => startWheelSpin(true));
-
-      wheelCloseBtn.addEventListener("click", () => {
-        wheelOverlay.hidden = true;
-        syncScrollLock();
-      });
     }
 
     try {

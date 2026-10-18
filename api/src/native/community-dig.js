@@ -76,7 +76,7 @@ function handleDig({ store, body }) {
     if (r.kind === 'dust') { const n = 40 + Math.floor(Math.random() * 81); fields.StardustCount = (Number(user.StardustCount) || 0) + n; found = { kind: 'dust', amount: n, label: `${n} poussières` }; }
     else if (r.kind === 'worms') { fields.Worms = (Number(user.Worms) || 0) + 4; found = { kind: 'worms', amount: 4, label: '4 vers de terre' }; }
     else if (r.kind === 'bait') { fields.GoldBait = (Number(user.GoldBait) || 0) + 1; found = { kind: 'bait', amount: 1, label: 'un appât doré' }; }
-    else if (r.kind === 'booster') { fields.BoosterCount = (Number(user.BoosterCount) || 0) + 1; found = { kind: 'booster', amount: 1, label: 'un booster' }; }
+    else if (r.kind === 'booster') { fields.BoosterCount = (Number(user.BoosterCount) || 0) + 1; found = { kind: 'booster', amount: 1, label: 'un jeton booster' }; }
     else if (r.kind === 'part') { fields.SpareParts = (Number(user.SpareParts) || 0) + 1; found = { kind: 'part', amount: 1, label: 'une pièce détachée' }; }
     else if (r.kind === 'grand') found = { kind: 'grand', amount: 0, label: 'le GRAND TRÉSOR' };
     board.log.push({ pseudo: user.Pseudo, label: found.label, at: now() });

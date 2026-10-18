@@ -17,11 +17,12 @@ import { modeIs, grantModeCard } from './modeperks.js';
 const maxPicks = (store) => (ruleOn(store, 'chill.fourthChallenge') ? 4 : 3);
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
+import { isTestUser } from './testuser.js';
 import { ruleOn } from './moderules.js';
 
 const TEMPLATES = [
   { key: 'fish10', label: 'Pêcher 10 fois', type: 'fish', target: 10, dust: 120, icon: '🎣' },
-  { key: 'fishChest', label: 'Pêcher 2 coffres', type: 'fishCatch:chest', target: 2, dust: 220, icon: '🧰' },
+  { key: 'fishChest', label: 'Pêcher 2 pièces de gatchapon', type: 'fishCatch:chest', target: 2, dust: 220, icon: '🪙' },
   { key: 'fishPart', label: 'Pêcher une pièce détachée', type: 'fishCatch:part', target: 1, dust: 200, icon: '🔩' },
   { key: 'board2', label: 'Terminer 2 grilles de fouille', type: 'board', target: 2, dust: 160, icon: '⛏️' },
   { key: 'treasure8', label: 'Dégager 8 trésors', type: 'treasure', target: 8, dust: 130, icon: '💎' },
@@ -188,7 +189,7 @@ export function onEvents(store, events) {
   const wasReached = (Number(g.Progress) || 0) >= (Number(g.Target) || 1);
   let progress = Number(g.Progress) || 0;
   for (const e of events) {
-    if (e.type === g.Type) { progress += e.n; contrib[e.userId] = (contrib[e.userId] || 0) + e.n; goalChanged = true; }
+    if (e.type === g.Type && !isTestUser(store, e.userId)) { progress += e.n; contrib[e.userId] = (contrib[e.userId] || 0) + e.n; goalChanged = true; }
     const row = store.getAll('WeeklyChallenges').find((r) => r.User === e.userId && r.Week === week);
     if (!row) continue;
     const picked = parse(row.Picked, []);

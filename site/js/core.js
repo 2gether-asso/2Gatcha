@@ -19,6 +19,7 @@
 // parentheses (utile pour un signalement). Les pages gardent leurs messages
 // propres en priorite : MESSAGES[e.code] || friendlyError(e).
 const COMMON_ERRORS = {
+  test_account_isolated: "Impossible avec le compte test : il est isolé des autres joueurs.",
   edition_kept: "Annulé : ton exemplaire en édition limitée est conservé.",
   ironman_pledged: "Serment Ironman : aucun décraft tant que dure le mode Hard (tu peux renoncer depuis la page du mode).",
   wrong_mode: "Pas disponible dans le mode de jeu actuel.",
@@ -53,6 +54,7 @@ const COMMON_ERRORS = {
   already_busy: "Une action est déjà en cours, patiente un instant.", slow_down: "Doucement ! Réessaie dans quelques secondes.",
   rate_limited: "Trop d'actions d'un coup : patiente une minute.",
   weekly_cap: "Limite de la semaine atteinte.", daily_limit: "Limite du jour atteinte : reviens demain !",
+  no_energy: "Plus assez d'énergie : elle se recharge avec le temps.", energy_full: "Ton énergie est déjà pleine.",
   forbidden: "Action réservée.", unauthorized: "Ta session a expiré : reconnecte-toi.", invalid_token: "Ta session a expiré : reconnecte-toi.",
   unknown_user: "Compte introuvable : reconnecte-toi.",
   copy_not_owned: "Tu ne possèdes plus cet exemplaire.", card_not_owned: "Tu ne possèdes pas cette carte.", pull_not_owned: "Tu ne possèdes plus cet exemplaire.",
@@ -62,13 +64,56 @@ const COMMON_ERRORS = {
 };
 function friendlyError(e) {
   const code = e && (e.code || (e.data && e.data.error));
-  if (e && e.data && e.data.error === "feature_disabled" && e.data.message) return e.data.message;
+  if (e && e.data && (e.data.error === "feature_disabled" || e.data.error === "level_locked") && e.data.message) return e.data.message;
   if (code && COMMON_ERRORS[code]) return COMMON_ERRORS[code];
   const msg = String((e && e.message) || "");
   // Panne : serveur injoignable ou erreur 5xx.
   if (/Failed to fetch|NetworkError|Load failed|Erreur API \([^)]*\): 5\d\d/.test(msg)) return "Le serveur ne répond pas : réessaie dans un instant.";
   return "Erreur. (" + (code || msg || "inconnue") + ")";
 }
+
+// Icones des ressources (2026-10-18) : les visuels du jeu (remplacables dans
+// Admin > Visuels) a la place des emoji.
+const RES_ART = { worm: "Pêche/Vers.png", part: "PieceDetachee.PNG", bone: "Os.PNG", key: "clés.PNG", skey: "cléSpeciale.png", bait: "ElixirDePeche.PNG", coin: "PièceKraken.PNG", chest: "Coffres/1.PNG", skull: "CraneDeDino.png", token: "JetonBooster.png", fish: "Pêche/Poisson_12.png", seaweed: "Pêche/Algues.png", shrimp: "Pêche/crevette.png" };
+function resIcon(kind, alt = "") {
+  const f = RES_ART[kind];
+  return f ? `<img class="ico-token" src="assets/${encodeURI(f)}" alt="${alt}" />` : "";
+}
+// Vibrations (2026-10-18) : legeres, sur mobile, desactivables (menu du joueur).
+const Haptics = {
+  KEY: "2gatcha_haptics",
+  get on() { try { return localStorage.getItem(this.KEY) !== "off"; } catch (e) { return true; } },
+  set(on) { try { if (on) localStorage.removeItem(this.KEY); else localStorage.setItem(this.KEY, "off"); } catch (e) { /* stockage indisponible */ } },
+  buzz(pattern) { if (!this.on) return; try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* non supporte */ } }
+};
+
+// A quoi sert chaque ressource et ou en trouver (infobulles, shell.js).
+const RES_INFO = {
+  worm: { name: "Vers de terre", use: "Un ou plusieurs par lancer de pêche (selon la zone).", where: "Terre restante d'une grille de fouille, jardin, expédition en forêt, boutique." },
+  part: { name: "Pièce détachée", use: "Remplace un exemplaire dans une fusion ou une restauration.", where: "Pêche, expéditions (côte, port), boutique, comptoir des minéraux." },
+  bone: { name: "Os", use: "Envoie Milo creuser pour toi pendant 2 h ; ramène un dino à la vie.", where: "Pêche, expédition en forêt, autel (sacrifice raté), boutique." },
+  key: { name: "Clé", use: "Ouvre les coffres du gatchapon, le grand coffre-fort, ou prend une carte au coffre de guilde.", where: "Fouille, pêche, expédition aux ruines, niveaux, boutique." },
+  skey: { name: "Clé secrète", use: "Relance la roue de la fortune.", where: "Fouille (2 % par case) et roue." },
+  bait: { name: "Appât doré", use: "Un lancer sans prise vide, et prises rares ×2,5.", where: "Jardin, pêche, expédition sur la côte, boutique." },
+  coin: { name: "Pièce de gatchapon", use: "Une boule au gatchapon, avec un coffre dedans (à ouvrir avec une clé).", where: "Niveaux, saison, pêche, expédition au port, boutique." },
+  chest: { name: "Coffre", use: "S'ouvre avec une clé : poussières, jetons booster, cartes.", where: "Gatchapon, coffre de saison." },
+  skull: { name: "Crâne de dinosaure", use: "Avec assez d'os, un dino revient à la vie.", where: "Milo en mode excité, expédition aux ruines." },
+  token: { name: "Jeton booster", use: "1 jeton = 1 booster de 5 cartes au distributeur.", where: "Niveaux, quêtes, fouille, parcours, saisons, codes événement." },
+  fish: { name: "Poisson", use: "Nourrit tes dinos et Moka le chat.", where: "Pêche, expédition sur la côte." },
+  seaweed: { name: "Algues", use: "Nourriture des dinos.", where: "Pêche." },
+  shrimp: { name: "Crevette", use: "Nourriture des dinos (rend leurs engrais plus précieux).", where: "Pêche." }
+};
+// Type de ressource d'une image (par son fichier).
+function resKindOf(img) {
+  let src = "";
+  try { src = decodeURIComponent(img.getAttribute("src") || ""); } catch (e) { src = img.getAttribute("src") || ""; }
+  return Object.keys(RES_ART).find((k) => src.endsWith("assets/" + RES_ART[k])) || null;
+}
+
+// Icone envoyee par le serveur (catalogue de la boutique, couts de la salle
+// des machines...) : l'image de la ressource si on la connait, sinon l'emoji.
+const EMOJI_RES = { "🪱": "worm", "🔩": "part", "🦴": "bone", "🔑": "key", "🪝": "bait", "🪙": "coin", "🃏": "token", "💀": "skull" };
+const iconOf = (emoji) => (EMOJI_RES[emoji] ? resIcon(EMOJI_RES[emoji]) : emoji || "");
 
 function escHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -356,3 +401,46 @@ const CinePref = {
   }
 };
 window.CinePref = CinePref;
+
+// ---------------------------------------------------------------------------
+// Visuels modifiables (Admin > Visuels, 2026-10-18) : une image "assets/..."
+// remplacee dans l'admin est substituee partout, y compris dans le HTML
+// genere plus tard (observateur du DOM). Les remplacements sont gardes en
+// cache local pour s'afficher des le chargement suivant.
+// ---------------------------------------------------------------------------
+const Visuals = {
+  o: {},
+  keyOf(src) {
+    const i = String(src || "").indexOf("assets/");
+    if (i < 0) return null;
+    try { return decodeURIComponent(String(src).slice(i + 7).split("?")[0]); } catch (e) { return null; }
+  },
+  apply(rootEl) {
+    if (!Object.keys(this.o).length) return;
+    const imgs = rootEl && rootEl.tagName === "IMG" ? [rootEl] : (rootEl || document).querySelectorAll ? (rootEl || document).querySelectorAll("img") : [];
+    imgs.forEach((img) => {
+      if (img.dataset.novis) return;
+      const key = img.dataset.vis || this.keyOf(img.getAttribute("src"));
+      if (!key) return;
+      const o = this.o[key];
+      if (!img.dataset.vis) img.dataset.vis = key;
+      const want = o && o.imageId && typeof API !== "undefined" ? API.imageUrl(o.imageId) : null;
+      if (want && img.getAttribute("src") !== want) img.setAttribute("src", want);
+    });
+  },
+  set(o) {
+    this.o = o || {};
+    try { localStorage.setItem("2gatcha_visuals", JSON.stringify(this.o)); } catch (e) { /* stockage indisponible */ }
+    this.apply(document);
+  },
+  init() {
+    try { this.o = JSON.parse(localStorage.getItem("2gatcha_visuals") || "{}") || {}; } catch (e) { this.o = {}; }
+    const watch = () => {
+      this.apply(document);
+      new MutationObserver((muts) => { if (!Object.keys(this.o).length) return; muts.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) this.apply(n); })); }).observe(document.body, { childList: true, subtree: true });
+    };
+    if (document.body) watch(); else document.addEventListener("DOMContentLoaded", watch);
+    if (typeof API !== "undefined" && API.visuals) API.visuals().then((r) => this.set(r.overrides)).catch(() => {});
+  }
+};
+Visuals.init();

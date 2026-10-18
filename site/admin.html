@@ -42,6 +42,8 @@
           <button type="button" role="tab" data-pane="codes"><span aria-hidden="true">&#127915;</span> Codes &amp; dons</button>
           <button type="button" role="tab" data-pane="economie"><span aria-hidden="true">&#128176;</span> Économie</button>
           <button type="button" role="tab" data-pane="modes"><span aria-hidden="true">&#127922;</span> Difficultés</button>
+          <button type="button" role="tab" data-pane="visuels"><span aria-hidden="true">&#127912;</span> Visuels</button>
+          <button type="button" role="tab" data-pane="test"><span aria-hidden="true">&#129514;</span> Compte test</button>
           <button type="button" role="tab" data-pane="evenements"><span aria-hidden="true">&#128197;</span> Événements</button>
           <button type="button" role="tab" data-pane="contenu"><span aria-hidden="true">&#127183;</span> Contenu</button>
           <button type="button" role="tab" data-pane="reglages"><span aria-hidden="true">&#9881;&#65039;</span> Réglages</button>
@@ -176,6 +178,10 @@
 
           <!-- ============================== Evenements ============================== -->
           <section class="adm-pane" id="pane-evenements" role="tabpanel" data-title="Événements" hidden>
+            <section class="adm-card" id="surprise-admin">
+              <header class="adm-card-head"><h2>&#9889; Événements surprises</h2><p>Quelques heures, sans prévenir : tirés au sort chaque jour (réglages « Événements » : nombre par semaine, durée, plage horaire), ou lancés ici tout de suite.</p></header>
+              <div id="surprise-admin-zone"><div class="skeleton-line">Chargement…</div></div>
+            </section>
             <section class="adm-card" id="events-dashboard">
               <header class="adm-card-head"><h2>&#128197; Planning des événements</h2><p>Un événement planifié démarre et s'arrête tout seul (bandeau, bonus). L'événement lancé à la main (plus bas) reste prioritaire.</p></header>
               <div class="evd-now" id="evd-now"><div class="loading-row"><div class="spinner"></div></div></div>
@@ -379,6 +385,22 @@
             </section>
           </section>
 
+          <!-- ============================== Visuels ============================== -->
+          <section class="adm-pane" id="pane-visuels" role="tabpanel" data-title="Visuels" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#127912; Visuels du jeu</h2><p>Chaque image du jeu (objets, coffres, minéraux, poissons, jardin…) peut être renommée et remplacée. Le nouveau nom s'affiche pour les minéraux, les coffres du gatchapon et les espèces de l'aquarium ; une image remplacée s'affiche partout sur le site, tout de suite.</p></header>
+              <div id="visuals-admin-zone" class="empty-state">Chargement des visuels…</div>
+            </section>
+          </section>
+
+          <!-- ============================== Compte test ============================== -->
+          <section class="adm-pane" id="pane-test" role="tabpanel" data-title="Compte test" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#129514; Compte test</h2><p>Joue avec le compte test sans Discord pour vérifier la progression d'un nouveau joueur, un niveau avancé ou une autre difficulté, sans rien changer pour les autres joueurs.</p></header>
+              <div id="test-account-zone" class="ta-panel"><div class="skeleton-line">Chargement…</div></div>
+            </section>
+          </section>
+
           <!-- ============================== Site ============================== -->
           <section class="adm-pane" id="pane-site" role="tabpanel" data-title="Site" hidden>
             <section class="adm-card">
@@ -427,11 +449,15 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/admin-nav.js"></script>
+  <script src="js/json-table.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
   <script src="js/admin-home.js"></script>
   <script src="js/admin-bingo.js"></script>
   <script src="js/admin-modes.js"></script>
+  <script src="js/visuals-manifest.js"></script>
+  <script src="js/admin-visuals.js"></script>
   <script src="js/admin-doc.js"></script>
+  <script src="js/testaccount.js"></script>
 </body>
 </html>

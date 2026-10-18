@@ -149,9 +149,12 @@ async function acImport() {
   const bar = acEl("ac-progress");
   let done = 0, failed = 0;
   try { await acEnsureColumn("Cards", "Image", "Attachments"); } catch (e) { /* tentee a nouveau carte par carte */ }
+  // Extension deja reorganisee : les nouvelles cartes se placent a la fin.
+  let nextOrder = AC.cards.filter((c) => acRef(c.Extension) === ext.id).reduce((m, c) => Math.max(m, Number(c.SortOrder) || 0), 0);
+  const ordered = nextOrder > 0;
   for (const p of [...AC.pending]) {
     try {
-      const { row } = await adbFetch("/admin/api/tables/Cards/rows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: { Name: p.name.trim(), Artist: p.artist || "", Rarity: Number(p.rarity), Extension: ext.id, Active: active, IsPromo: !!p.promo, IsSecret: false } }) });
+      const { row } = await adbFetch("/admin/api/tables/Cards/rows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: { Name: p.name.trim(), Artist: p.artist || "", Rarity: Number(p.rarity), Extension: ext.id, Active: active, IsPromo: !!p.promo, IsSecret: false, ...(ordered ? { SortOrder: ++nextOrder } : {}) } }) });
       await acUploadTo("Cards", row.id, "Image", p.file);
       AC.pending.splice(AC.pending.indexOf(p), 1);
       URL.revokeObjectURL(p.url);
@@ -170,18 +173,69 @@ async function acImport() {
 }
 
 // --- cartes de l'extension -----------------------------------------------------------
+// Ordre de l'extension (meme regle que la collection des joueurs, collection-core.js) :
+// SortOrder choisi d'abord, puis rarete (de commune a mythique) et ordre de creation.
+function acOrdered(list) {
+  const rIdx = (c) => { const r = AC.rarities.find((x) => x.id === acRef(c.Rarity)); return r ? Number(r.SortOrder) || 0 : 999; };
+  const so = (c) => (Number(c.SortOrder) > 0 ? Number(c.SortOrder) : 1e9);
+  return [...list].sort((a, b) => so(a) - so(b) || rIdx(a) - rIdx(b) || a.id - b.id);
+}
+const acExtCards = (extId) => acOrdered(AC.cards.filter((c) => acRef(c.Extension) === extId));
+// Enregistre l'ordre donne (SortOrder 1..n) ; seules les cartes changees sont envoyees.
+async function acSaveOrder(ordered) {
+  const changes = ordered.map((c, i) => ({ c, v: i + 1 })).filter(({ c, v }) => Number(c.SortOrder) !== v);
+  if (!changes.length) return;
+  AC.busy = true;
+  acEl("ac-cards").classList.add("saving");
+  try {
+    await acEnsureColumn("Cards", "SortOrder", "Numeric");
+    for (const { c, v } of changes) {
+      const { row } = await adbFetch(`/admin/api/tables/Cards/rows/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: { SortOrder: v } }) });
+      const i = AC.cards.findIndex((x) => x.id === c.id);
+      if (i >= 0) AC.cards[i] = row;
+    }
+    Toast.success(`Ordre enregistré (${changes.length} carte${changes.length > 1 ? "s" : ""} déplacée${changes.length > 1 ? "s" : ""}).`);
+  } catch (err) {
+    Toast.error("Ordre : " + err.message);
+  } finally {
+    AC.busy = false;
+    acEl("ac-cards").classList.remove("saving");
+    acRenderCards();
+  }
+}
+// Deplace une carte avant (ou apres) une autre, puis enregistre.
+function acMoveCard(id, targetId, after = false) {
+  const list = acExtCards(AC.ext);
+  const from = list.findIndex((c) => c.id === id);
+  if (from < 0 || id === targetId) return;
+  const [card] = list.splice(from, 1);
+  let to = list.findIndex((c) => c.id === targetId);
+  if (to < 0) return;
+  if (after) to++;
+  list.splice(to, 0, card);
+  acSaveOrder(list);
+}
 function acRenderCards() {
   const ext = AC.extensions.find((x) => x.id === AC.ext);
   acEl("ac-cards-section").hidden = !ext;
   if (!ext) return;
   acEl("ac-cards-title").textContent = ext.Name || "";
   const q = (acEl("ac-card-search").value || "").toLowerCase();
-  const list = AC.cards.filter((c) => acRef(c.Extension) === ext.id && (!q || String(c.Name || "").toLowerCase().includes(q)))
-    .sort((a, b) => (AC.rarities.findIndex((r) => r.id === acRef(a.Rarity)) - AC.rarities.findIndex((r) => r.id === acRef(b.Rarity))) || String(a.Name).localeCompare(String(b.Name), "fr"));
-  acEl("ac-cards").innerHTML = list.length ? list.map((c) => {
+  const all = acExtCards(ext.id);
+  // Numero vu par les joueurs : position parmi les cartes actives.
+  const num = new Map(all.filter((c) => c.Active).map((c, i) => [c.id, i + 1]));
+  const list = all.filter((c) => !q || String(c.Name || "").toLowerCase().includes(q));
+  const canMove = !q;
+  acEl("ac-cards").classList.toggle("ac-reorder", canMove);
+  acEl("ac-cards").innerHTML = list.length ? list.map((c, i) => {
     const img = acImg(c.Image);
     const rar = AC.rarities.find((r) => r.id === acRef(c.Rarity));
-    return `<div class="ac-card ${c.Active ? "" : "inactive"}" data-card="${c.id}" style="--r:${escapeHtml(rar?.ColorHex || "#888")}">
+    return `<div class="ac-card ${c.Active ? "" : "inactive"}" data-card="${c.id}" style="--r:${escapeHtml(rar?.ColorHex || "#888")}"${canMove ? ' draggable="true"' : ""}>
+      <div class="ac-card-order">
+        ${canMove ? `<span class="ac-handle" title="Glisser pour déplacer" aria-hidden="true">&#10303;</span>` : ""}
+        <span class="ac-num" title="Numéro dans l'extension (cartes actives)">${num.has(c.id) ? "#" + String(num.get(c.id)).padStart(3, "0") : "—"}</span>
+        ${canMove ? `<span class="ac-move"><button type="button" class="btn-ghost" data-move="up" ${i === 0 ? "disabled" : ""} aria-label="Monter ${escapeHtml(c.Name || "")}">&#8593;</button><button type="button" class="btn-ghost" data-move="down" ${i === list.length - 1 ? "disabled" : ""} aria-label="Descendre ${escapeHtml(c.Name || "")}">&#8595;</button></span>` : ""}
+      </div>
       <label class="ac-card-img" title="Changer l'image">${img ? `<img src="${adbImageUrl(img)}" alt="" loading="lazy" />` : '<span class="ac-noimg">image ?</span>'}<input type="file" accept="image/*" data-card-img="${c.id}" hidden /></label>
       <input type="text" value="${escapeHtml(c.Name || "")}" data-cf="Name" aria-label="Nom" />
       <select data-cf="Rarity" aria-label="Rareté">${acRarityOptions(acRef(c.Rarity))}</select>
@@ -193,7 +247,7 @@ function acRenderCards() {
       </div>
     </div>`;
   }).join("") : '<p class="adb-help">Aucune carte dans cette extension pour l\'instant : dépose leurs images ci-dessus.</p>';
-  acEl("ac-cards-count").textContent = `${list.length} carte${list.length > 1 ? "s" : ""}`;
+  acEl("ac-cards-count").textContent = `${list.length} carte${list.length > 1 ? "s" : ""}${canMove ? "" : " · efface la recherche pour réorganiser"}`;
 }
 
 async function acPatchCard(id, fields, el) {
@@ -256,6 +310,53 @@ document.addEventListener("DOMContentLoaded", () => {
   acEl("ac-import-btn").addEventListener("click", acImport);
   acEl("ac-card-search").addEventListener("input", acRenderCards);
   const cards = acEl("ac-cards");
+  cards.addEventListener("click", (e) => {
+    const mv = e.target.closest("[data-move]");
+    if (!mv || AC.busy) return;
+    const id = Number(mv.closest("[data-card]").dataset.card);
+    const list = acExtCards(AC.ext);
+    const i = list.findIndex((c) => c.id === id);
+    const j = mv.dataset.move === "up" ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    acSaveOrder(list);
+  });
+  let dragId = null;
+  cards.addEventListener("dragstart", (e) => {
+    const box = e.target.closest("[data-card]");
+    if (!box || !cards.classList.contains("ac-reorder") || AC.busy || e.target.closest("input, select")) { if (box) e.preventDefault(); return; }
+    dragId = Number(box.dataset.card);
+    box.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", String(dragId)); } catch (err) { /* navigateur sans dataTransfer */ }
+  });
+  cards.addEventListener("dragover", (e) => {
+    if (dragId == null) return;
+    const box = e.target.closest("[data-card]");
+    if (!box) return;
+    e.preventDefault();
+    const r = box.getBoundingClientRect();
+    const after = e.clientX > r.left + r.width / 2;
+    cards.querySelectorAll(".drop-before, .drop-after").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+    if (Number(box.dataset.card) !== dragId) box.classList.add(after ? "drop-after" : "drop-before");
+  });
+  cards.addEventListener("drop", (e) => {
+    if (dragId == null) return;
+    e.preventDefault();
+    const box = e.target.closest("[data-card]");
+    const id = dragId;
+    if (box && Number(box.dataset.card) !== id) acMoveCard(id, Number(box.dataset.card), box.classList.contains("drop-after"));
+  });
+  cards.addEventListener("dragend", () => {
+    dragId = null;
+    cards.querySelectorAll(".dragging, .drop-before, .drop-after").forEach((x) => x.classList.remove("dragging", "drop-before", "drop-after"));
+  });
+  acEl("ac-order-reset").addEventListener("click", async () => {
+    if (!AC.ext || AC.busy) return;
+    if (!(await Confirm.show("Ranger toutes les cartes de cette extension par rareté (de commune à mythique) puis par nom ? L'ordre actuel sera remplacé.", { title: "Ordre par rareté", confirmText: "Ranger" }))) return;
+    const rIdx = (c) => { const r = AC.rarities.find((x) => x.id === acRef(c.Rarity)); return r ? Number(r.SortOrder) || 0 : 999; };
+    acSaveOrder(AC.cards.filter((c) => acRef(c.Extension) === AC.ext).sort((a, b) => rIdx(a) - rIdx(b) || String(a.Name || "").localeCompare(String(b.Name || ""), "fr") || a.id - b.id));
+  });
   cards.addEventListener("change", async (e) => {
     const box = e.target.closest("[data-card]");
     if (!box) return;

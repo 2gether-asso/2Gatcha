@@ -572,6 +572,8 @@ const API = {
     return this.post("communityBoss", { userId, action: "status" });
   },
 
+  // Coffre de guilde v2 (2026-10-18) : credits, depots multiples, prise au choix.
+  guildChestV2(userId, action = "status", extra = {}) { return this.post("guildChest", { userId, action, ...extra }); },
   getGuildChestStatus(userId) {
     return this.post("guildChest", { userId, action: "status" });
   },
@@ -602,6 +604,21 @@ const API = {
   dig(userId, tileIndex) {
     return this.post("dig", { userId, action: "dig", tileIndex });
   },
+  digSetDepth(userId, depth) { return this.post("dig", { userId, action: "setDepth", depth }); },
+  // Ecritures en lot (2026-10-18) : un seul appel HTTP pour plusieurs
+  // decrafts / sacrifices / crafts. Renvoie les resultats dans l'ordre
+  // ({ status, json }), par paquets de 50 ; onChunk(fait, total) apres chaque paquet.
+  async batchWrite(path, bodies, { chunk = 50, onChunk, shouldStop } = {}) {
+    const out = [];
+    for (let i = 0; i < bodies.length; i += chunk) {
+      if (shouldStop && shouldStop()) break;
+      const res = await this.post("batchWrite", { path, calls: bodies.slice(i, i + chunk) });
+      out.push(...(res.results || []));
+      if (onChunk) onChunk(out.length, bodies.length);
+    }
+    return out;
+  },
+  minerals(userId, action = "status", extra = {}) { return this.post("minerals", { userId, action, ...extra }); },
   // Chenil (2026-10-02) : acheter un os contre des poussieres / lancer le chien.
   buyBone(userId) {
     return this.post("dig", { userId, action: "buyBone" });
@@ -686,6 +703,9 @@ const API = {
   garden(userId, action = "status", extra = {}) {
     return this.post("garden", { userId, action, ...extra });
   },
+  visuals() { return this.get("visuals"); },
+  adminVisuals(discordId, action = "list", extra = {}) { return this.post("adminVisuals", { discordId, action, ...extra }); },
+  guildWorks(userId, action = "status", extra = {}) { return this.post("guildWorks", { userId, action, ...extra }); },
   communityDig(userId, action = "status", tile) {
     return this.post("communityDig", { userId, action, tile });
   },
@@ -800,9 +820,12 @@ const API = {
   adminSetSeasonCard(discordId, season, cardId) {
     return this.post("adminSeason", { discordId, action: "setCard", season, cardId });
   },
-  fishing(userId, action, count, bait, zone) {
-    return this.post("fishing", { userId, action, count, bait: !!bait, zone: zone || "shore" });
+  fishing(userId, action, count, bait, zone, strike) {
+    return this.post("fishing", { userId, action, count, bait: !!bait, zone: zone || "shore", ...(strike ? { strike } : {}) });
   },
+  aquarium(userId, action = "status") { return this.post("aquarium", { userId, action }); },
+  fishingStatusWithCat(userId) { return this.post("fishing", { userId, action: "status", settleCat: true }); },
+  catFeed(userId, count = 1) { return this.post("cat", { userId, action: "feed", count }); },
   upgrades(userId, action = "status", key) { return this.post("upgrades", { userId, action, key }); },
   finishReroll(userId, pullId, action = "status") { return this.post("finishReroll", { userId, pullId, action }); },
   claimSeasonChest(userId) { return this.post("season", { userId, action: "claimChest" }); },
@@ -822,6 +845,7 @@ const API = {
   modeRules() { return this.get("modeRules"); },
   modeExtra(userId, action = "status", params = {}) { return this.post("modeExtra", { userId, action, ...params }); },
   draft(userId, action = "status", params = {}) { return this.post("draft", { userId, action, ...params }); },
+  skyTree(userId, action = "status", key) { return this.post("skyTree", { userId, action, key }); },
   chaosVote(userId, action = "status", rule) { return this.post("chaosVote", { userId, action, rule }); },
   dogGift(userId, action = "status") { return this.post("dogGift", { userId, action }); },
   sundayMarket(userId, action = "status", cardId) { return this.post("sundayMarket", { userId, action, cardId }); },
@@ -835,8 +859,8 @@ const API = {
   findTreasure(userId, clue, page) { return this.post("treasureHunt", { userId, clue, page }); },
   getAccountPrestige(userId) { return this.get("accountPrestige", { userId }); },
   adminEvents(discordId, action = "list", params = {}) { return this.post("adminEvents", { discordId, action, ...params }); },
-  chests(userId, action, count) {
-    return this.post("chests", count ? { userId, action, count } : { userId, action });
+  chests(userId, action, count, tier) {
+    return this.post("chests", { userId, action, ...(count ? { count } : {}), ...(tier ? { tier } : {}) });
   },
   pushAction(userId, action, subscription) {
     return this.post("push", { userId, action, subscription });

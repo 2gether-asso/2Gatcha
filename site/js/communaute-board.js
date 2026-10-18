@@ -40,7 +40,7 @@
         <div class="wanted-body">
           <div class="wanted-poster"><span>RECHERCHÉE</span><img src="${img(w.card)}" alt="" loading="lazy" /><strong>${esc(w.card.name)}</strong></div>
           <div class="wanted-info">
-            <p>Les <strong>${w.slots} premiers</strong> à en donner un doublon gagnent <strong>${fmt(w.reward)} &#10024;</strong> (le tout premier : une &#128273; en plus). La carte rejoint le coffre de guilde.</p>
+            <p>Les <strong>${w.slots} premiers</strong> à en donner un doublon gagnent <strong>${fmt(w.reward)} &#10024;</strong> (le tout premier : une ${resIcon("key")} en plus). La carte rejoint le coffre de guilde.</p>
             <ol class="wanted-slots">${Array.from({ length: w.slots }, (_, i) => `<li class="${w.donors[i] ? "taken" : ""}">${w.donors[i] ? esc(w.donors[i].pseudo) : "libre"}</li>`).join("")}</ol>
             ${w.donated ? '<p class="board-ok">&#10004; Merci pour ton don !</p>' : full ? '<p class="board-note">Toutes les places sont prises. Nouvel avis lundi.</p>'
               : `<button type="button" class="btn" data-wanted ${w.canDonate ? "" : "disabled"}>${w.canDonate ? "Donner un doublon" : w.myCopies ? "Il te faut un doublon" : "Tu ne l'as pas encore"}</button>`}
@@ -99,19 +99,19 @@
     let t;
     try { t = await API.teams(Session.userId); } catch (e) { box.innerHTML = '<p class="empty-state">Impossible de charger les équipes.</p>'; return; }
     if (!t.enabled) { box.innerHTML = '<p class="empty-state">La guerre des équipes est en pause.</p>'; return; }
-    const max = Math.max(1, ...t.teams.map((x) => x.points));
+    const max = Math.max(1, ...t.teams.map((x) => x.score ?? x.points));
     const mine = t.teams.find((x) => x.key === t.myTeam);
     box.innerHTML = `
       <div class="teams-head">
         <div><h2>Guerre des équipes : ${esc(t.monthLabel)}</h2>
-        <p class="lead">Toute activité (boosters, pêche, fouille, jardin, boss, échanges…) rapporte des points à ton équipe. Fin le ${esc(when(t.endsAt - 60))} : les membres de l'équipe gagnante reçoivent un titre de champion.</p></div>
-        ${mine ? `<div class="teams-mine" style="--team:${mine.color}"><span aria-hidden="true">${mine.icon}</span><div><small>Ton équipe</small><strong>${esc(mine.label)}</strong><small>${fmt(t.myPoints)} pts apportés</small></div></div>` : ""}
+        <p class="lead">Toute activité (boosters, pêche, fouille, jardin, boss, échanges…) rapporte des points à ton équipe, ${t.dailyCap ? `jusqu'à <strong>${fmt(t.dailyCap)} par jour et par joueur</strong>` : "sans plafond"}. Le classement se fait au <strong>score ajusté</strong> (corrigé de la taille des équipes). Fin le ${esc(when(t.endsAt - 60))} : titre de champion${t.winDust ? ` et ${fmt(t.winDust)} ✨` : ""} pour l'équipe gagnante${t.participationDust ? `, ${fmt(t.participationDust)} ✨ de participation pour les autres` : ""} (au moins ${fmt(t.minPoints)} pts apportés).</p></div>
+        ${mine ? `<div class="teams-mine" style="--team:${mine.color}"><span aria-hidden="true">${mine.icon}</span><div><small>Ton équipe</small><strong>${esc(mine.label)}</strong><small>${fmt(t.myPoints)} pts apportés${t.dailyCap ? ` · aujourd'hui ${fmt(t.myToday)} / ${fmt(t.dailyCap)}` : ""}</small>${t.myPoints < t.minPoints ? `<small class="teams-goal">Encore ${fmt(t.minPoints - t.myPoints)} pts pour la récompense</small>` : ""}</div></div>` : ""}
       </div>
       <div class="teams-grid">${t.teams.map((x, i) => `
         <article class="team-card ${x.key === t.myTeam ? "mine" : ""}" style="--team:${x.color}">
           <header><span class="team-rank">${i + 1}</span><span aria-hidden="true">${x.icon}</span><strong>${esc(x.label)}</strong><small>${x.members} membre${x.members > 1 ? "s" : ""}</small></header>
-          <div class="team-bar"><span style="width:${Math.round((x.points / max) * 100)}%"></span></div>
-          <p class="team-points">${fmt(x.points)} pts</p>
+          <div class="team-bar"><span style="width:${Math.round(((x.score ?? x.points) / max) * 100)}%"></span></div>
+          <p class="team-points">${fmt(x.score ?? x.points)} pts <small title="Points bruts, avant correction de la taille">(${fmt(x.points)} bruts · ${x.active ?? x.members} actif${(x.active ?? x.members) > 1 ? "s" : ""})</small></p>
           <ol class="team-top">${x.top.map((m) => `<li>${esc(m.pseudo)} <small>${fmt(m.points)}</small></li>`).join("") || "<li><small>Pas encore de points</small></li>"}</ol>
         </article>`).join("")}</div>
       ${t.last && t.last.winner ? `<p class="board-last">Mois dernier : victoire de l'équipe <strong>${esc((t.last.teams.find((x) => x.key === t.last.winner) || {}).label || t.last.winner)}</strong>.</p>` : ""}
@@ -135,7 +135,7 @@
         Toast.success(`&#127903;&#65039; ${r.bought} ticket${r.bought > 1 ? "s" : ""} acheté${r.bought > 1 ? "s" : ""} ! Cagnotte : ${fmt(r.pot)} ✨`);
       } else {
         const r = await API.wanted(Session.userId, "donate");
-        Toast.success(`&#128220; Merci ! +${fmt(r.reward.dust)} ✨${r.reward.key ? " et 1 🔑" : ""}`);
+        Toast.success(`&#128220; Merci ! +${fmt(r.reward.dust)} ✨${r.reward.key ? " et 1 " + resIcon("key") : ""}`);
       }
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       loadBoard();

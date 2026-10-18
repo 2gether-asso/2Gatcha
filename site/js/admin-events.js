@@ -129,8 +129,27 @@
       if (del) {
         const ev = events.find((x) => x.id === Number(del.dataset.evdDel));
         if (!(await Confirm.show(`Supprimer « ${esc(ev ? ev.label : "")} » ?`, { title: "Supprimer l'événement", confirmText: "Supprimer", dangerous: true }))) return;
-        try { await API.adminEvents(Session.discordId, "delete", { id: Number(del.dataset.evdDel) }); load(); } catch (err) { Toast.errorfriendlyError(err); }
+        try { await API.adminEvents(Session.discordId, "delete", { id: Number(del.dataset.evdDel) }); load(); } catch (err) { Toast.error(friendlyError(err)); }
       }
     });
   });
+})();
+
+// Evenements surprises (2026-10-18, api/src/native/surprise.js).
+(function () {
+  const box = document.getElementById("surprise-admin-zone");
+  if (!box) return;
+  const hm = (t) => new Date(t * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  function render(r) {
+    box.innerHTML = `<p>${r.active ? `<strong>En cours :</strong> ${r.active.icon} ${escHtml(r.active.label)} jusqu'à ${hm(r.active.until)} <button type="button" class="btn-ghost" data-surprise-stop>Arrêter</button>` : "Aucun événement surprise en cours."}</p>
+      <p class="muted">Tirage du jour : ${r.today ? `${r.today.icon} ${escHtml(r.today.label)} de ${hm(r.today.start)} à ${hm(r.today.until)}` : "aucun"}.</p>
+      <div class="surprise-types">${r.types.map((t) => `<button type="button" class="btn-secondary" data-surprise-start="${t.key}" title="${escHtml(t.desc)}">${t.icon} ${escHtml(t.label)}</button>`).join("")}</div>`;
+  }
+  const call = (body) => API.post("adminSurprise", { discordId: Session.discordId, ...body }).then(render).catch((e) => { box.innerHTML = '<p class="empty-state">' + escHtml(friendlyError(e)) + "</p>"; });
+  box.addEventListener("click", (e) => {
+    const s = e.target.closest("[data-surprise-start]");
+    if (s) { call({ action: "start", key: s.dataset.surpriseStart }).then(() => Toast.success("Événement surprise lancé.")); return; }
+    if (e.target.closest("[data-surprise-stop]")) call({ action: "stop" }).then(() => Toast.info("Événement surprise arrêté."));
+  });
+  if (typeof AdminNav !== "undefined" && AdminNav.onFirstShow) AdminNav.onFirstShow("evenements", () => call({ action: "status" })); else call({ action: "status" });
 })();

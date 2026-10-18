@@ -19,6 +19,10 @@ import { weekKey } from './levels.js';
 import { parisEpoch } from './daily.js';
 import { modeIs } from './modeperks.js';
 import { ruleOn } from './moderules.js';
+import { prestigeStars } from './account-prestige.js';
+import { aquariumOf } from './aquarium.js';
+import { progressOf } from './museum.js';
+import { levelForXp } from './common.js';
 
 export const schema = {
   Users: { DogGiftDay: { type: 'Text' }, DogGiftCount: { type: 'Numeric' }, SundayBought: { type: 'Text' }, GiftSentDay: { type: 'Text' } },
@@ -204,7 +208,10 @@ function handleRecap({ store, query }) {
     week: prevMonday, start, end, newCards: newIds.length, copies: week.length, boosters,
     collection: { before: ownedAt(start), after: ownedAt(end), total: catalog.length },
     rarities: Object.values(byRarity).sort((a, b) => b.sortOrder - a.sortOrder),
-    best, place, players: ranking.length
+    best, place, players: ranking.length,
+    // Recap enrichi (2026-10-18) : de quoi faire une carte a partager.
+    pseudo: user.Pseudo, level: levelForXp(Number(user.XP) || 0), prestigeStars: prestigeStars(store, user),
+    aquarium: Object.values(aquariumOf(user).fish).filter((f) => f && f.count).length, museum: progressOf(store, user)
   });
 }
 

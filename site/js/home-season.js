@@ -39,6 +39,7 @@
       <div class="season-text">
         <strong>${esc(s.label)}</strong>
         <small>Jusqu'au ${esc(until(s.endsAt - 60))} : édition limitée ${esc((EDITIONS[s.edition] || {}).label || "")} dans les boosters, ${esc(s.drop.name)} à trouver en jouant${s.boss ? `, et ${esc(s.boss)} à affronter` : ""}.</small>
+        ${s.skin !== false ? `<label class="season-skin-toggle"><input type="checkbox" data-season-skin-toggle ${(() => { try { return localStorage.getItem("2gatcha_season_skin") === "off" ? "" : "checked"; } catch (e) { return "checked"; } })()} /> Décor ${esc(s.label)} sur tout le site</label>` : ""}
       </div>
       <button type="button" class="btn season-claim" data-season-claim ${st.claimedToday ? "disabled" : ""}>${st.claimedToday ? "Reviens demain" : esc(s.treat)}</button>`;
   }
@@ -52,6 +53,10 @@
     const box = document.getElementById("seasonal-treat");
     if (!box) return;
     load();
+    box.addEventListener("change", (e) => {
+      const t = e.target.closest("[data-season-skin-toggle]");
+      if (t && typeof toggleSeasonSkin === "function") toggleSeasonSkin(t.checked);
+    });
     box.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-season-claim]");
       if (!b) return;

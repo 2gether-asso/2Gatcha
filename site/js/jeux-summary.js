@@ -20,7 +20,7 @@
       chip("dig", "&#9935;&#65039;", `Énergie ${dig.energy}/${dig.maxEnergy}`, dig.energy >= dig.maxEnergy);
       const left = dig.dogSecondsLeft || 0;
       if (left > 0) chip("dig", "&#128021;", `Milo : encore ${Math.ceil(left / 3600)} h`, false);
-      else if (dig.bones > 0 && dig.bonesLeftToday !== 0) chip("dig", "&#129460;", `${dig.bones} os à donner`, true);
+      else if (dig.bones > 0 && dig.bonesLeftToday !== 0) chip("dig", resIcon("bone"), `${dig.bones} os à donner`, true);
     }
     if (dogGift && dogGift.available) chips.push(`<button type="button" class="gs-chip hot" data-gs-dog="1"><span aria-hidden="true">&#128021;</span> Trouvaille de Milo</button>`);
     if (garden) {
@@ -28,7 +28,7 @@
       if (garden.readyCount) chip("garden", "&#127803;", `${garden.readyCount} parcelle${garden.readyCount > 1 ? "s" : ""} à récolter`, true);
       else if (empty) chip("garden", "&#127793;", `${empty} parcelle${empty > 1 ? "s" : ""} vide${empty > 1 ? "s" : ""}`, false);
     }
-    if (fish) chip("fish", "&#127907;", fish.castsLeft == null ? `${fish.worms} vers` : `${fish.castsLeft} lancer${fish.castsLeft > 1 ? "s" : ""} · ${fish.worms} vers`, fish.castsLeft > 0 && fish.worms >= fish.cost);
+    if (fish) chip("fish", "&#127907;", fish.energy == null ? `${fish.worms} vers` : `${fish.energy}/${fish.maxEnergy} &#9889; · ${fish.worms} vers`, fish.energy > 0 && fish.worms >= fish.cost);
     if (expe) {
       const ex = expe.expedition || {};
       if (ex.active && ex.ready) chip("expedition", "&#129517;", "Expédition rentrée", true);

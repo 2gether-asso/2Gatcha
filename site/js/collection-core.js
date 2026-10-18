@@ -80,9 +80,9 @@ const Coll = (() => {
     binder: { hash: "classeur", label: "Classeur" },
     disenchant: { hash: "decrafter", label: "Décrafter" },
     craft: { hash: "crafter", label: "Crafter", lock: "craft" },
-    altar: { hash: "autel", label: "Autel", lock: "altar" },
+    quality: { hash: "qualite", label: "Qualité", lock: "quality" },
     finish: { hash: "finitions", label: "Finitions", lock: "finish" },
-    quality: { hash: "qualite", label: "Qualité", lock: "quality" }
+    altar: { hash: "autel", label: "Autel", lock: "altar" }
   };
   // Modes qui travaillent sur une grille de cartes filtrable.
   const GRID_MODES = ["binder", "disenchant", "craft"];
@@ -279,7 +279,8 @@ const Coll = (() => {
       };
     });
     state.byId = new Map(state.cards.map((c) => [c.cardId, c]));
-    // Numero de catalogue stable PAR EXTENSION, de commune a mythique.
+    // Numero de catalogue stable PAR EXTENSION : ordre choisi dans l'admin
+    // (sortOrder) ; a defaut, de commune a mythique puis ordre de creation.
     state.cardNumber = new Map();
     const byExt = new Map();
     state.cards.forEach((c) => {
@@ -288,7 +289,7 @@ const Coll = (() => {
       byExt.get(k).push(c);
     });
     byExt.forEach((cards) => {
-      [...cards].sort((a, b) => (a.rarity?.sortOrder ?? 999) - (b.rarity?.sortOrder ?? 999) || a.cardId - b.cardId)
+      [...cards].sort((a, b) => ((a.sortOrder || 0) > 0 ? a.sortOrder : 1e9) - ((b.sortOrder || 0) > 0 ? b.sortOrder : 1e9) || (a.rarity?.sortOrder ?? 999) - (b.rarity?.sortOrder ?? 999) || a.cardId - b.cardId)
         .forEach((c, i) => state.cardNumber.set(c.cardId, i + 1));
     });
     state.ownedMap = new Map((collection.owned || []).map((o) => [o.cardId, o]));
@@ -372,7 +373,7 @@ const Coll = (() => {
     el.style.display = "";
     el.innerHTML = ready.map((x) => `
       <div class="set-reward-row">
-        <span>&#127942; <strong>Set complet : ${escapeHtml(x.name)}</strong> (${x.total} cartes) ! Récompense : ${x.reward.boosters} booster${x.reward.boosters > 1 ? "s" : ""} + ${x.reward.dust} poussières, et un badge sur ton profil.</span>
+        <span>&#127942; <strong>Set complet : ${escapeHtml(x.name)}</strong> (${x.total} cartes) ! Récompense : ${x.reward.boosters} jeton${x.reward.boosters > 1 ? "s" : ""} booster + ${x.reward.dust} poussières, et un badge sur ton profil.</span>
         <button type="button" class="btn" data-claim-set="${x.extensionId}">&#127873; Réclamer</button>
       </div>`).join("");
   }
@@ -381,7 +382,7 @@ const Coll = (() => {
     if (btn) btn.disabled = true;
     try {
       const res = await API.claimSetReward(Session.userId, extensionId);
-      Toast.success(`&#127942; Set ${res.name} complété : +${res.boosters} booster${res.boosters > 1 ? "s" : ""} et +${res.dust} poussières !`);
+      Toast.success(`&#127942; Set ${res.name} complété : +${res.boosters} jeton${res.boosters > 1 ? "s" : ""} booster et +${res.dust} poussières !`);
       if (typeof confetti === "function") confetti({ particleCount: 180, spread: 120, origin: { y: 0.5 } });
       await refresh();
       if (typeof loadNavBadges === "function") loadNavBadges();
@@ -729,7 +730,27 @@ const Coll = (() => {
 
   document.addEventListener("DOMContentLoaded", init);
 
+  // Meilleures copies d'une carte (2026-10-18) : la plus belle finition et le
+  // meilleur etat, a ne jamais recycler ni sacrifier par lots. all = toutes
+  // les copies, free = celles qu'on pourrait consommer ; renvoie les pullId a
+  // garder (rien si une copie deja protegee est au moins aussi belle).
+  function keepBestIds(all, free) {
+    const keep = new Set();
+    const fin = (c) => FINISH_ORDER.indexOf(finishOf(c)), qua = (c) => QUALITY_ORDER.indexOf(qualityOf(c));
+    const freeIds = new Set(free.map((c) => c.pullId));
+    const locked = all.filter((c) => !freeIds.has(c.pullId));
+    for (const [rank, other] of [[fin, qua], [qua, fin]]) {
+      if (!free.length) break;
+      const best = Math.max(...all.map(rank));
+      if (locked.some((c) => rank(c) === best)) continue;
+      const pick = free.filter((c) => rank(c) === best).sort((a, b) => other(b) - other(a) || (a.serialNumber || 1e9) - (b.serialNumber || 1e9))[0];
+      if (pick) keep.add(pick.pullId);
+    }
+    return keep;
+  }
+
   return {
+    keepBestIds,
     FINISH_ORDER, FINISH_LABELS, FINISH_LABELS_LONG, QUALITY_ORDER, QUALITY_LABELS,
     state, filters, prefs,
     get mode() { return mode; },

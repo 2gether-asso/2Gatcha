@@ -10,7 +10,7 @@
   const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
-  const rewardLabel = (r) => [r.boosters ? `${r.boosters} &#127183;` : "", r.chests ? `${r.chests} coffre${r.chests > 1 ? "s" : ""}` : "", r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "", r.dust ? `${r.dust} &#10024;` : "", r.worms ? `${r.worms} vers` : ""].filter(Boolean).join(" + ");
+  const rewardLabel = (r) => [r.boosters ? `${r.boosters} <img class="ico-token" src="assets/JetonBooster.png" alt="jeton booster" />` : "", r.chests ? `${r.chests} coffre${r.chests > 1 ? "s" : ""}` : "", r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "", r.dust ? `${r.dust} &#10024;` : "", r.worms ? `${r.worms} vers` : ""].filter(Boolean).join(" + ");
   const ERR = { weekly_cap: "Stock épuisé pour cette semaine.", not_enough_dust: "Pas assez de poussières.", nothing_growing: "Rien ne pousse au jardin en ce moment.", no_expedition: "Aucune expédition en cours.", copy_not_matching: "Un des exemplaires ne correspond pas au contrat.", wrong_count: "Mauvais nombre d'exemplaires.", already_claimed: "Contrat déjà rempli cette semaine." };
   let shop = null, contracts = null, boosterSt = null, eco = null;
 
@@ -81,7 +81,7 @@
     const out = it.left === 0;
     const poor = (shop.stardust || 0) < it.price;
     return `<article class="shop-thing ${out ? "out" : ""}" data-group="${esc(it.group)}">
-      <div class="thing-icon" aria-hidden="true">${it.icon}</div>
+      <div class="thing-icon" aria-hidden="true">${iconOf(it.icon)}</div>
       <div class="thing-body"><strong>${esc(it.label)}</strong><small>${esc(it.desc)}</small></div>
       <div class="thing-foot">
         ${it.weekly ? `<span class="thing-stock">${it.left}/${it.weekly} cette semaine</span>` : `<span class="thing-stock">Illimité</span>`}

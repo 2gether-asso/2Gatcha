@@ -26,7 +26,9 @@ export const schema = {
     Card: { type: 'Ref:Cards' }, Serial: { type: 'Numeric' }, At: { type: 'Numeric' }, Kind: { type: 'Text' },
     User: { type: 'Ref:Users' }, Other: { type: 'Ref:Users' }, Source: { type: 'Text' }, Detail: { type: 'Text' }
   },
-  Users: { MasteredCards: { type: 'Text' }, LastShareAt: { type: 'Numeric' } }
+  Users: { MasteredCards: { type: 'Text' }, LastShareAt: { type: 'Numeric' } },
+  // Ordre de la carte dans son extension (admin, 2026-10-17) ; 0 = ordre par defaut.
+  Cards: { SortOrder: { type: 'Numeric' } }
 };
 
 const FINISHES = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];

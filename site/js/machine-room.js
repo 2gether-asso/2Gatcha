@@ -22,7 +22,7 @@
         <strong>${s.optional ? "Bonus" : i + 1 + "."} ${esc(s.label)}</strong>
         <small>${esc(s.story)}</small>
         ${playable && !affordable ? `<p class="mr-missing">Il te manque encore ${missing.join(" et ")}.</p>` : ""}
-        <div class="mr-costs">${s.cost.map((c) => `<span class="mr-cost ${s.done ? "" : c.have >= c.need ? "ok" : "short"}">${c.icon} ${fmt(c.need)} ${esc(c.label)}${s.done ? "" : ` <em>(tu as ${fmt(c.have)})</em>`}</span>`).join("")}</div>
+        <div class="mr-costs">${s.cost.map((c) => `<span class="mr-cost ${s.done ? "" : c.have >= c.need ? "ok" : "short"}">${iconOf(c.icon)} ${fmt(c.need)} ${esc(c.label)}${s.done ? "" : ` <em>(tu as ${fmt(c.have)})</em>`}</span>`).join("")}</div>
       </div>
       ${playable ? `<button type="button" class="${affordable ? "btn" : "btn-ghost"} mr-go" data-mr-advance data-optional="${s.optional ? 1 : 0}" data-missing="${affordable ? "" : missing.join(" et ")}">${affordable ? (s.optional ? "Surchauffer" : "Sacrifier") : "Pas assez"}</button>` : ""}
     </li>`;

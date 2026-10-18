@@ -13,6 +13,7 @@ import { weekKey, digLevel } from './levels.js';
 import { growSeconds, seedMult } from './garden.js';
 import { price as indexed } from './inflation.js';
 import { happyFactor, happyHourNow } from './moderules.js';
+import { fishEnergy } from './fishing.js';
 // Happy hour (mode Chill) : -30 % sur toute la boutique.
 const shopPrice = (store, base) => Math.round(indexed(store, base) * happyFactor(store));
 
@@ -21,19 +22,26 @@ export const schema = {
 };
 
 // Colonnes qu'un objet peut crediter (liste blanche).
-const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges'];
-const EFFECTS = ['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow', 'umbrella'];
+const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges', 'CatFish'];
+const EFFECTS = ['xpBoost', 'digEnergy', 'fishEnergy', 'gardenRipe', 'expeditionNow', 'umbrella'];
 
 const dust = (u) => Number(u.StardustCount) || 0;
 
 // Objets ajoutes par le code, meme si le catalogue a ete personnalise dans l'admin.
 const BUILTIN = (store) => [
+  { key: 'sardines', group: 'resources', label: 'Boîte de sardines', icon: '🥫', desc: '3 poissons pour Moka le chat, qui pêche à ta place.', price: 150, weekly: 3, give: { CatFish: 3 } },
+  { key: 'thermos', group: 'boosts', label: 'Thermos du pêcheur', icon: '🫖', desc: 'Recharge complète de ton énergie de pêche.', price: 200, weekly: 3, effect: 'fishEnergy' },
   { key: 'umbrella', group: 'boosts', icon: '☂️', label: 'Parapluie', desc: `Protège tes cartes de l’usure du mode Hard pendant ${setting(store, 'UmbrellaDays')} jours.`, price: setting(store, 'UmbrellaPrice'), weekly: 1, effect: 'umbrella' }
 ];
 function catalog(store) {
   const list = setting(store, 'ShopCatalog').filter((it) => it && it.key && Number(it.price) > 0 && (it.give || EFFECTS.includes(it.effect)));
   return [...list, ...BUILTIN(store).filter((b) => !list.some((it) => it.key === b.key))];
 }
+
+// Pages ou l'objet s'affiche aussi (boutique eclatee, js/shop-strip.js) :
+// colonne « pages » du catalogue, sinon selon l'objet (catalogue deja personnalise).
+const DEFAULT_PAGES = { worms10: ['peche'], bait: ['peche'], thermos: ['peche'], bone: ['fouille'], coffee: ['fouille'], chest: ['ouverture'], key: ['ouverture'], luck5: ['ouverture'], part: ['collection'], fertilizer: ['jardin'], compass: ['expedition'], xp1h: ['fouille', 'peche', 'expedition', 'jardin'] };
+const pagesOf = (it) => (Array.isArray(it.pages) ? it.pages : DEFAULT_PAGES[it.key] || []);
 
 function boughtThisWeek(user) {
   return user.ShopItemsWeek === weekKey() ? parse(user.ShopItemsBought, {}) : {};
@@ -50,7 +58,9 @@ function stateOf(store, user) {
     items: catalog(store).map((it) => {
       const weekly = Number(it.weekly) || 0;
       const n = Number(bought[it.key]) || 0;
-      return { key: it.key, group: it.group || 'resources', label: it.label, icon: it.icon || '🎁', desc: it.desc || '', price: shopPrice(store, it.price), basePrice: indexed(store, it.price), happyHour: happyHourNow(store), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
+      // Catalogue personnalise avant la refonte du gatchapon : « Coffre » = une piece.
+      const legacyChest = it.key === 'chest' && /^coffre$/i.test(String(it.label || '').trim());
+      return { key: it.key, pages: pagesOf(it), group: it.group || 'resources', label: legacyChest ? 'Pièce de gatchapon' : it.label, icon: legacyChest ? '🪙' : it.icon || '🎁', desc: it.desc || '', price: shopPrice(store, it.price), basePrice: indexed(store, it.price), happyHour: happyHourNow(store), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null };
     })
   };
 }
@@ -66,6 +76,11 @@ function effectFields(store, user, it) {
     const cfg = configRow(store);
     const max = (Number(cfg.DigMaxEnergy) || 5) + Math.floor(digLevel(store, user).level / 2);
     return { DigEnergy: max, LastDigEnergyAt: t };
+  }
+  if (it.effect === 'fishEnergy') {
+    const en = fishEnergy(store, user);
+    if (en.energy >= en.max) return { error: 'energy_full' };
+    return { FishingEnergy: en.max, FishingEnergyAt: t };
   }
   if (it.effect === 'gardenRipe') {
     const plots = parse(user.GardenPlots, []);

@@ -12,7 +12,7 @@
 
   function renderMastery(st) {
     const panel = $("mastery-panel");
-    if (!st.extensions.length) return;
+    if (!panel || !st.extensions.length) return;
     panel.hidden = false;
     $("mastery-count").textContent = st.claimable ? `${st.claimable} à récupérer` : `${st.extensions.filter((e) => e.level === 10).length}/${st.extensions.length} au niveau 10`;
     $("mastery-count").classList.toggle("has-claim", !!st.claimable);
@@ -33,7 +33,7 @@
   }
 
   function renderSky(st) {
-    if (!st.total) return;
+    if (!$("sky-panel") || !st.total) return;
     $("sky-panel").hidden = false;
     $("sky-count").textContent = st.claimable ? `${st.claimable} à récupérer` : `${st.lit}/${st.total} étoiles`;
     $("sky-count").classList.toggle("has-claim", !!st.claimable);
@@ -45,7 +45,7 @@
       <article class="sky-star ${s.lit ? "lit" : ""} ${s.claimed ? "claimed" : ""}" title="${esc(s.name)} : ${s.owned}/${s.cards.length}">
         <header><span class="sky-icon" aria-hidden="true">${s.lit ? "&#11088;" : "&#9734;"}</span><strong>${esc(s.name)}</strong><small>${s.owned}/${s.cards.length}</small></header>
         <div class="sky-cards">${s.cards.map((c) => `<span class="sky-card ${c.owned ? "owned" : ""}" style="--r:${esc(c.rarity?.colorHex || "#888")}" title="${esc(c.name)}">${c.owned && c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" />` : "?"}</span>`).join("")}</div>
-        ${s.lit && !s.claimed ? `<button type="button" class="btn-secondary sky-claim" data-sky="${s.key}">Allumer (+${st.dustPerStar} &#10024;)</button>` : ""}
+        ${s.lit && !s.claimed ? `<button type="button" class="btn-secondary sky-claim" data-sky="${s.key}">Récupérer (+${st.dustPerStar} &#10024;)</button>` : ""}
       </article>`).join("");
   }
 
@@ -54,41 +54,42 @@
       const r = await API.getExchangeRates();
       if (!r.swing) return;
       const strip = $("rates-strip");
+      if (!strip) return;
       strip.hidden = false;
       strip.innerHTML = `<span class="rates-title">&#128200; Cours du décraft cette semaine</span>` + r.rates.map((x) => `<span class="rate ${x.factor > 1 ? "up" : x.factor < 1 ? "down" : ""}" style="--r:${esc(x.colorHex || "#888")}" title="Valeur de base ${x.base}, ×${x.factor.toFixed(2)} selon l'offre et la demande de la semaine passée">${esc(x.name)} <strong>${x.value}</strong> ${x.factor > 1 ? "&#9650;" : x.factor < 1 ? "&#9660;" : "="}</span>`).join("");
     } catch (e) { /* cours indisponible */ }
   }
 
   const load = () => {
-    API.mastery(Session.userId).then(renderMastery).catch(() => {});
-    API.constellations(Session.userId).then(renderSky).catch(() => {});
+    if ($("mastery-panel")) API.mastery(Session.userId).then(renderMastery).catch(() => {});
+    if ($("sky-panel")) API.constellations(Session.userId).then(renderSky).catch(() => {});
   };
 
   document.addEventListener("DOMContentLoaded", () => {
     load();
     renderRates();
-    $("mastery-grid").addEventListener("click", async (e) => {
+    if ($("mastery-grid")) $("mastery-grid").addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-ext]");
       if (!btn) return;
       btn.disabled = true;
       try {
         const res = await API.mastery(Session.userId, "claim", Number(btn.dataset.ext));
-        Toast.success(`&#127941; Maîtrise : +${res.claimed.dust} poussières${res.claimed.boosters ? ` et +${res.claimed.boosters} booster${res.claimed.boosters > 1 ? "s" : ""}` : ""} !`);
+        Toast.success(`&#127941; Maîtrise : +${res.claimed.dust} poussières${res.claimed.boosters ? ` et +${res.claimed.boosters} jeton${res.claimed.boosters > 1 ? "s" : ""} booster` : ""} !`);
         if (typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } });
         renderMastery(res);
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { btn.disabled = false; Toast.errorfriendlyError(err); }
+      } catch (err) { btn.disabled = false; Toast.error(friendlyError(err)); }
     });
-    $("sky-grid").addEventListener("click", async (e) => {
+    if ($("sky-grid")) $("sky-grid").addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-sky]");
       if (!btn) return;
       btn.disabled = true;
       try {
         const res = await API.constellations(Session.userId, "claim", btn.dataset.sky);
-        Toast.success(btn.dataset.sky === "sky" ? `&#127756; Le ciel est complet : +${res.claimed.boosters} boosters et le titre « Astronome » !` : `&#11088; Étoile allumée : +${res.claimed.dust} poussières !`);
+        Toast.success(btn.dataset.sky === "sky" ? `&#127756; Le ciel est complet : +${res.claimed.boosters} boosters et le titre « Astronome » !` : `&#11088; Constellation récupérée : +${res.claimed.dust} poussières !`);
         if (typeof confetti === "function") confetti({ particleCount: 60, spread: 70, colors: ["#ffd76e", "#ffffff", "#7dd3fc"], origin: { y: 0.4 } });
         renderSky(res);
-      } catch (err) { btn.disabled = false; Toast.errorfriendlyError(err); }
+      } catch (err) { btn.disabled = false; Toast.error(friendlyError(err)); }
     });
   });
 })();

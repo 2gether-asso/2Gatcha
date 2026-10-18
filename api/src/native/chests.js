@@ -7,13 +7,22 @@
 // MAX_BATCH ; a l'ouverture, borne par les coffres ET les clefs possedes).
 // Les coffres/clefs de niveau sont attribues a chaque appel (rattrapage des
 // niveaux deja atteints, une seule fois : Users.ChestLevelGranted).
+// Gatchapon (2026-10-18) : un coffre (Users.ChestCount) est une piece de
+// gatchapon. action 'spin' (count?) : chaque piece fait tomber une boule qui
+// contient un coffre de palier 1 a 8 (poids ChestTierWeights), gardee dans
+// Users.ChestBalls. action 'open' + tier : ouvre une boule de ce palier avec
+// une clef ; le butin est multiplie par ChestTierMults (divise par la moyenne
+// ponderee : a nombre de coffres egal, l'economie ne change pas), et les
+// raretes de cartes penchent vers le haut sur les gros paliers.
+// action 'open' sans tier : ancienne ouverture directe (garde pour compat).
 
 import { refId, now, ok, fail, userById, levelForXp, firstAttachment } from './common.js';
 import { setting } from './settings.js';
 import { price as indexed } from './inflation.js';
+import { visualLabel } from './visuals.js';
 
 export const schema = {
-  Users: { ChestCount: { type: 'Numeric' }, ChestLevelGranted: { type: 'Numeric' } }
+  Users: { ChestCount: { type: 'Numeric' }, ChestLevelGranted: { type: 'Numeric' }, ChestBalls: { type: 'Text' } }
 };
 
 // Tous les parametres sont reglables dans l'admin (groupe "Coffres").
@@ -38,9 +47,47 @@ function grantLevelRewards(store, user) {
   return { user: updated, granted: chests || keys ? { chests, keys, level } : null };
 }
 
+// --- gatchapon -----------------------------------------------------------
+export const CHEST_TIERS = [
+  { tier: 1, name: 'Coffre en bois', color: '#a16207' },
+  { tier: 2, name: 'Coffre du marin', color: '#ea580c' },
+  { tier: 3, name: 'Coffre renforcé', color: '#dc2626' },
+  { tier: 4, name: 'Coffre du voyageur', color: '#d97706' },
+  { tier: 5, name: 'Coffre ancien', color: '#a3a35c' },
+  { tier: 6, name: 'Coffre d’acier', color: '#94a3b8' },
+  { tier: 7, name: 'Coffre d’émeraude', color: '#10b981' },
+  { tier: 8, name: 'Coffre mystique', color: '#d946ef' }
+];
+const tierWeights = (store) => { const w = setting(store, 'ChestTierWeights'); return CHEST_TIERS.map((_, i) => Math.max(0, Number(w[i]) || 0)); };
+const tierMults = (store) => { const m = setting(store, 'ChestTierMults'); return CHEST_TIERS.map((_, i) => Math.max(0.1, Number(m[i]) || 1)); };
+const ballsOf = (user) => { try { const b = JSON.parse(user.ChestBalls || '[]'); return Array.isArray(b) ? b.filter((t) => t >= 1 && t <= 8) : []; } catch (e) { return []; } };
+const tierArt = (t) => `Coffres/${t === 4 ? '4.png' : t + '.PNG'}`;
+const tierView = (store, t) => ({ ...t, name: visualLabel(store, tierArt(t.tier), t.name) });
+function tiersInfo(store, balls) {
+  const w = tierWeights(store), m = tierMults(store);
+  const total = w.reduce((s, x) => s + x, 0) || 1;
+  return CHEST_TIERS.map((t, i) => ({ ...tierView(store, t), chance: Math.round((w[i] / total) * 1000) / 10, mult: m[i], balls: balls.filter((b) => b === t.tier).length }));
+}
+// Facteur de butin d'un palier : multiplicateur / moyenne ponderee des multiplicateurs.
+function tierFactor(store, tier) {
+  const w = tierWeights(store), m = tierMults(store);
+  const total = w.reduce((s, x) => s + x, 0) || 1;
+  const avg = w.reduce((s, x, i) => s + x * m[i], 0) / total || 1;
+  return { k: m[tier - 1] / avg, mult: m[tier - 1] };
+}
+function drawTier(store) {
+  const w = tierWeights(store);
+  let r = Math.random() * (w.reduce((s, x) => s + x, 0) || 1);
+  for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) return i + 1; }
+  return 1;
+}
+
 function statusOf(store, user, extra = {}) {
   const level = levelForXp(user.XP);
+  const balls = ballsOf(user);
   return {
+    balls: balls.length,
+    tiers: tiersInfo(store, balls),
     chests: Number(user.ChestCount) || 0,
     keys: Number(user.KeyCount) || 0,
     stardust: Number(user.StardustCount) || 0,
@@ -62,16 +109,17 @@ function weighted(rows, weightOf) {
 
 // Une carte : rarete selon Rarities.Weight (comme les boosters), finition 15 %
 // speciale, etat selon Qualities.DropWeight, plus petit numero de serie libre.
-function drawCard(store, userId, batchId) {
+function drawCard(store, userId, batchId, { tilt = 1, finishK = 1 } = {}) {
   const rarities = store.getAll('Rarities').filter((r) => (Number(r.Weight) || 0) > 0);
   const cards = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo);
-  const pool = rarities.filter((r) => cards.some((c) => refId(c.Rarity) === r.id));
-  const rarity = weighted(pool, (r) => Number(r.Weight) || 0);
+  const pool = rarities.filter((r) => cards.some((c) => refId(c.Rarity) === r.id)).sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0));
+  // Gros paliers du gatchapon : les raretes hautes pesent plus lourd.
+  const rarity = weighted(pool, (r) => (Number(r.Weight) || 0) * Math.pow(tilt, pool.indexOf(r) * 0.35));
   if (!rarity) return null;
   const candidates = cards.filter((c) => refId(c.Rarity) === rarity.id);
   const card = candidates[Math.floor(Math.random() * candidates.length)];
   const finishes = store.tables.has('Finishes') ? store.getAll('Finishes').filter((f) => f.Key !== 'normal' && (f.DropWeight || 0) > 0) : [];
-  const finish = finishes.length && Math.random() < setting(store, 'ChestSpecialFinishChance') ? weighted(finishes, (f) => f.DropWeight).Key : 'normal';
+  const finish = finishes.length && Math.random() < Math.min(0.9, setting(store, 'ChestSpecialFinishChance') * finishK) ? weighted(finishes, (f) => f.DropWeight).Key : 'normal';
   const qualities = store.tables.has('Qualities') ? store.getAll('Qualities').filter((q) => (q.DropWeight || 0) > 0) : [];
   const quality = qualities.length ? weighted(qualities, (q) => q.DropWeight).Key : 'good';
   const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === card.id).map((p) => p.SerialNumber));
@@ -102,6 +150,49 @@ function handleChests({ store, body }) {
     if ((Number(user.StardustCount) || 0) < cost * n) return fail('not_enough_dust', 400, statusOf(store, user, extra));
     user = store.update('Users', user.id, { StardustCount: (Number(user.StardustCount) || 0) - cost * n, ChestCount: (Number(user.ChestCount) || 0) + n });
     return ok(statusOf(store, user, { ...extra, bought: n, paid: cost * n }));
+  }
+
+  if (body.action === 'spin') {
+    const have = Number(user.ChestCount) || 0;
+    if (have < 1) return fail('no_chest', 400, statusOf(store, user, extra));
+    const n = Math.min(countOf(body), have);
+    const drawn = Array.from({ length: n }, () => drawTier(store));
+    user = store.update('Users', user.id, { ChestCount: have - n, ChestBalls: JSON.stringify([...ballsOf(user), ...drawn]) });
+    return ok(statusOf(store, user, { ...extra, spun: n, drawn: drawn.map((t) => tierView(store, CHEST_TIERS[t - 1])) }));
+  }
+
+  if (body.action === 'open' && body.tier != null) {
+    const tier = Math.floor(Number(body.tier));
+    const balls = ballsOf(user);
+    const mine = balls.filter((b) => b === tier).length;
+    if (!(tier >= 1 && tier <= 8) || !mine) return fail('no_ball', 400, statusOf(store, user, extra));
+    if ((Number(user.KeyCount) || 0) < 1) return fail('no_key', 400, statusOf(store, user, extra));
+    const n = Math.min(countOf(body), mine, Number(user.KeyCount) || 0);
+    const { k, mult } = tierFactor(store, tier);
+    const batchId = `lootchest-${user.id}-${Date.now()}`;
+    const dMin = setting(store, 'ChestDustMin'), dMax = Math.max(dMin, setting(store, 'ChestDustMax'));
+    const p = (key) => Math.min(1, setting(store, key) * k);
+    let dust = 0, boosters = 0;
+    const cards = [];
+    for (let i = 0; i < n; i++) {
+      dust += Math.round((dMin + Math.floor(Math.random() * (dMax - dMin + 1))) * k);
+      boosters += Math.random() < Math.min(0.9, p('ChestDoubleBoosterChance')) ? 2 : Math.random() < p('ChestBoosterChance') ? 1 : 0;
+      const opts = { tilt: mult, finishK: Math.max(1, k) };
+      if (Math.random() < p('ChestCardChance')) { const c = drawCard(store, user.id, batchId, opts); if (c) cards.push(c); }
+      if (Math.random() < p('ChestSecondCardChance')) { const c = drawCard(store, user.id, batchId, opts); if (c) cards.push(c); }
+    }
+    let left = n;
+    const rest = balls.filter((b) => (b === tier && left > 0 ? (left--, false) : true));
+    user = store.update('Users', user.id, {
+      ChestBalls: JSON.stringify(rest),
+      KeyCount: (Number(user.KeyCount) || 0) - n,
+      StardustCount: (Number(user.StardustCount) || 0) + dust,
+      BoosterCount: (Number(user.BoosterCount) || 0) + boosters
+    });
+    const items = [{ type: 'dust', amount: dust }];
+    if (boosters) items.push({ type: 'booster', count: boosters });
+    cards.sort((a, b) => a.rarity.sortOrder - b.rarity.sortOrder).forEach((card) => items.push({ type: 'card', card }));
+    return ok(statusOf(store, user, { ...extra, opened: n, tier: tierView(store, CHEST_TIERS[tier - 1]), batchId, items, dust, boosters, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
   }
 
   if (body.action === 'open') {

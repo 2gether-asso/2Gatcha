@@ -37,8 +37,10 @@ export const REGISTRY = {
   ChestDustMax: { ...int('Poussières maximum', 120, 'Coffres', ''), storage: 'app' },
   ChestCardChance: { ...pct('Chance d’une carte', 0.7, 'Coffres', ''), storage: 'app' },
   ChestSecondCardChance: { ...pct('Chance d’une 2e carte', 0.2, 'Coffres', ''), storage: 'app' },
-  ChestBoosterChance: { ...pct('Chance d’un booster', 0.6, 'Coffres', ''), storage: 'app' },
-  ChestDoubleBoosterChance: { ...pct('Chance de 2 boosters', 0.15, 'Coffres', ''), storage: 'app' },
+  ChestBoosterChance: { ...pct('Chance d’un jeton booster', 0.6, 'Coffres', ''), storage: 'app' },
+  ChestDoubleBoosterChance: { ...pct('Chance de 2 jetons booster', 0.15, 'Coffres', ''), storage: 'app' },
+  ChestTierWeights: { label: 'Gatchapon : poids des 8 coffres', type: 'json', group: 'Coffres', storage: 'app', help: 'Liste de 8 poids, du coffre en bois (1) au coffre mystique (8) : chance de tomber sur chaque boule.', def: [40, 25, 15, 9, 6, 3, 1.5, 0.5] },
+  ChestTierMults: { label: 'Gatchapon : multiplicateur de butin des 8 coffres', type: 'json', group: 'Coffres', storage: 'app', help: 'Liste de 8 multiplicateurs (poussières, chances de jetons et de cartes, finitions ; les gros paliers penchent aussi vers les raretés hautes). Divisés par la moyenne pondérée : l’économie moyenne ne change pas.', def: [0.7, 0.9, 1.1, 1.4, 1.8, 2.5, 3.5, 5] },
   ChestSpecialFinishChance: { ...pct('Chance de finition spéciale (cartes du coffre)', 0.15, 'Coffres', ''), storage: 'app' },
 
   // --- Peche
@@ -46,12 +48,24 @@ export const REGISTRY = {
   WormsPerBoard: { ...int('Vers par grille de fouille terminée', 2, 'Pêche', 'Gagnés quand tous les trésors d’une grille sont trouvés (joueur ou Milo).'), storage: 'app' },
   WormsPerLeftoverTile: { ...int('Vers par case de terre restante', 2, 'Pêche', 'En plus, pour chaque case jamais creusée à la fin de la grille.'), storage: 'app' },
   StarterWorms: { ...int('Vers offerts au lancement', 5, 'Pêche', 'Donnés une seule fois à chaque joueur existant, pour pouvoir pêcher tout de suite.'), storage: 'app' },
-  FishingDailyCasts: { ...int('Lancers par jour', 20, 'Pêche', '0 = illimité. +2 par niveau de pêche au-dessus du 1.'), storage: 'app' },
+  FishingMaxEnergy: { ...int('Pêche : énergie max', 12, 'Pêche', '1 énergie par lancer. +1 par niveau de pêche au-dessus du 1, plus le talent Pêcheur assidu et l’arbre céleste.', 1, 200), storage: 'app' },
+  CatMinutesPerFish: { ...int('Moka le chat : minutes de pêche par poisson donné', 30, 'Pêche', 'Moka pêche à ta place sans ver ni énergie.', 5, 600), storage: 'app' },
+  CatCastMinutes: { ...int('Moka le chat : minutes entre deux lancers', 10, 'Pêche', 'Table du rivage avec tes bonus, jamais de booster (remplacé par des poussières).', 1, 120), storage: 'app' },
+  CatMaxMinutes: { ...int('Moka le chat : minutes de pêche au maximum devant lui', 240, 'Pêche', '', 10, 1440), storage: 'app' },
+  CatDailyFish: { ...int('Moka le chat : poissons par jour au maximum', 8, 'Pêche', '0 = illimité.', 0, 100), storage: 'app' },
+  FishingRegenSeconds: { ...int('Pêche : secondes pour regagner 1 énergie', 600, 'Pêche', 'Réduit de 5 % par niveau de pêche.', 30, 86400), storage: 'app' },
   FishingTourneyPrizes: { label: 'Tournoi de pêche : poussières des premiers', type: 'json', group: 'Pêche', storage: 'app', help: 'Liste : poussières du 1er, du 2e, du 3e… Le 1er reçoit aussi le titre « Roi de la pêche ».', def: [500, 300, 150] },
   GardenGrowHours: { ...int('Jardin : heures de pousse', 4, 'Pêche', '', 1, 48), storage: 'app' },
   GardenPlantCost: { ...int('Jardin : prix d’une plantation (poussières)', 10, 'Pêche', ''), storage: 'app' },
   GardenBaitChance: { ...pct('Jardin : chance d’un appât doré par récolte', 0.5, 'Pêche', 'Un appât doré supprime les prises vides et multiplie les prises rares pour un lancer.'), storage: 'app' },
   FishingLevelXpStep: { ...int('XP pour le niveau 2 de pêche', 15, 'Pêche', 'Chaque niveau suivant demande ce palier en plus (15, 45, 90…). 1 XP par lancer, plus selon la prise.', 1), storage: 'app' },
+  FishingZones: { label: 'Pêche : les 5 lieux', type: 'json', group: 'Pêche', storage: 'app', help: 'Liste de lieux : key, label, icon, level (niveau requis), prestige (prestige requis, facultatif), cost (× vers par lancer), rare (× prises rares), empty (× prises vides), pool (shore = table FishingLoot et espèces du rivage, deep = DeepFishingLoot et espèces des profondeurs). Les eaux profondes (key deep) gardent DeepFishingLevel et DeepFishingCostMult.', def: [
+    { key: 'shore', label: 'Rivage', icon: '🏖️', level: 1, cost: 1, rare: 1, empty: 1, pool: 'shore' },
+    { key: 'pond', label: 'Étang', icon: '🪷', level: 3, cost: 1, rare: 1.25, empty: 0.9, pool: 'shore' },
+    { key: 'river', label: 'Rivière', icon: '🏞️', level: 6, cost: 2, rare: 1.5, empty: 0.8, pool: 'shore' },
+    { key: 'deep', label: 'Eaux profondes', icon: '🌊', level: 10, cost: 2, rare: 1, empty: 1, pool: 'deep' },
+    { key: 'abyss', label: 'Abysses', icon: '🦑', level: 1, prestige: 1, cost: 3, rare: 1.6, empty: 0.7, pool: 'deep' }
+  ] },
   DeepFishingLevel: { ...int('Eaux profondes : niveau de pêche requis', 10, 'Pêche', 'Un prestige de pêche les débloque aussi.', 1, 10), storage: 'app' },
   DeepFishingCostMult: { ...int('Eaux profondes : vers par lancer (× le coût normal)', 2, 'Pêche', '', 1, 10), storage: 'app' },
   DeepFishingLoot: {
@@ -70,7 +84,7 @@ export const REGISTRY = {
     ]
   },
   GardenPlotPrice: { ...int('Jardin : prix d’une parcelle en plus (poussières)', 400, 'Pêche', 'La n-ième parcelle achetée coûte n × ce prix (indexé sur la richesse moyenne).', 1), storage: 'app' },
-  GardenMaxPlots: { ...int('Jardin : parcelles au maximum', 8, 'Pêche', '4 offertes, les autres à acheter.', 4, 16), storage: 'app' },
+  GardenMaxPlots: { ...int('Jardin : parcelles au maximum', 28, 'Pêche', '4 offertes, les autres à acheter. Jusqu’à 4 lignes de 7.', 4, 28), storage: 'app' },
   FishingLoot: {
     label: 'Table des prises', type: 'json', group: 'Pêche', storage: 'app',
     help: 'Liste de prises : type (nothing, dust, bone, key, booster, chest, part = pièce détachée, remplace un exemplaire en Finitions / Qualité), poids (chance relative), min/max (quantité).',
@@ -101,7 +115,7 @@ export const REGISTRY = {
   SeasonBonusTierDust: { ...int('Poussières par palier bonus', 50, 'Saison', 'Après le dernier palier, chaque tranche d’XP supplémentaire rapporte ces poussières (à répétition).'), storage: 'app' },
 
   // --- Defis, objectif commun, succes, collections (2026-10-05)
-  ChallengeBonusBoosters: { ...int('Défis : boosters si les 3 défis sont accomplis', 1, 'Défis et objectifs', ''), storage: 'app' },
+  ChallengeBonusBoosters: { ...int('Défis : jetons booster si les 3 défis sont accomplis', 1, 'Défis et objectifs', ''), storage: 'app' },
   CommunityGoalScale: { ...num('Objectif commun : difficulté', 1, 'Défis et objectifs', '1 = normal, 2 = deux fois plus dur (l’objectif s’adapte aussi au nombre de joueurs).', 0.2, 10), storage: 'app' },
   CommunityGoalDust: { ...int('Objectif commun : poussières par participant', 250, 'Défis et objectifs', ''), storage: 'app' },
   CommunityGoalWorms: { ...int('Objectif commun : vers par participant', 5, 'Défis et objectifs', ''), storage: 'app' },
@@ -109,7 +123,7 @@ export const REGISTRY = {
   ThemeRewardDust: { ...int('Collection thématique : poussières', 300, 'Défis et objectifs', 'En plus du titre, à chaque collection thématique réclamée.'), storage: 'app' },
   CommunityDigPerDay: { ...int('Grande fouille : coups de pioche par jour', 5, 'Défis et objectifs', ''), storage: 'app' },
   GrandTreasureDust: { ...int('Grande fouille : poussières du grand trésor (par participant)', 150, 'Défis et objectifs', ''), storage: 'app' },
-  GrandTreasureBoosters: { ...int('Grande fouille : boosters du grand trésor (par participant)', 1, 'Défis et objectifs', 'Le découvreur en reçoit un de plus.'), storage: 'app' },
+  GrandTreasureBoosters: { ...int('Grande fouille : jetons booster du grand trésor (par participant)', 1, 'Défis et objectifs', 'Le découvreur en reçoit un de plus.'), storage: 'app' },
 
   // --- Boutique de cosmetiques
   CosmeticsCatalog: {
@@ -153,17 +167,18 @@ export const REGISTRY = {
   // --- Boutique d'objets (2026-10-07)
   ShopCatalog: {
     label: 'Boutique : objets et bonus', type: 'json', group: 'Boutique', storage: 'app',
-    help: 'Liste d’objets : key (unique), group (resources ou boosts), label, icon, desc, price (poussières), weekly (achats max par semaine, 0 = illimité) et soit give { Worms, GoldBait, BoneCount, ChestCount, KeyCount, SpareParts, LuckCharges: quantité }, soit effect (xpBoost avec hours, digEnergy, gardenRipe, expeditionNow).',
+    help: 'Liste d’objets : key (unique), group (resources ou boosts), pages (liste des pages où l’objet s’affiche aussi : fouille, peche, jardin, expedition, ouverture, collection ; vide = seulement la boutique), label, icon, desc, price (poussières), weekly (achats max par semaine, 0 = illimité) et soit give { Worms, GoldBait, BoneCount, ChestCount, KeyCount, SpareParts, LuckCharges, CatFish: quantité }, soit effect (xpBoost avec hours, digEnergy, fishEnergy, gardenRipe, expeditionNow).',
     def: [
       { key: 'worms10', group: 'resources', label: 'Sac de 10 vers', icon: '🪱', desc: 'De quoi lancer ta ligne 10 fois.', price: 60, weekly: 5, give: { Worms: 10 } },
       { key: 'bait', group: 'resources', label: 'Appât doré', icon: '🪝', desc: 'Aucune prise vide et prises rares ×2,5 pour un lancer.', price: 150, weekly: 5, give: { GoldBait: 1 } },
       { key: 'bone', group: 'resources', label: 'Os pour Milo', icon: '🦴', desc: 'Envoie Milo, le chien, creuser pour toi pendant 2 h.', price: 180, weekly: 3, give: { BoneCount: 1 } },
-      { key: 'chest', group: 'resources', label: 'Coffre', icon: '🧰', desc: 'Poussières à coup sûr, souvent une carte, parfois des boosters.', price: 130, weekly: 5, give: { ChestCount: 1 } },
+      { key: 'chest', group: 'resources', label: 'Pièce de gatchapon', icon: '🪙', desc: 'Une boule au gatchapon, avec un coffre dedans (à ouvrir avec une clé).', price: 130, weekly: 5, give: { ChestCount: 1 } },
       { key: 'key', group: 'resources', label: 'Clé de coffre', icon: '🔑', desc: 'Ouvre un coffre (ou pioche au choix dans le coffre de guilde).', price: 400, weekly: 2, give: { KeyCount: 1 } },
       { key: 'part', group: 'resources', label: 'Pièce détachée', icon: '🔩', desc: 'Remplace un exemplaire dans une fusion ou une restauration.', price: 350, weekly: 2, give: { SpareParts: 1 } },
       { key: 'luck5', group: 'boosts', label: 'Élixir de chance', icon: '🧪', desc: '+5 points de chance de finition spéciale sur tes 5 prochains boosters.', price: 500, weekly: 2, give: { LuckCharges: 5 } },
       { key: 'xp1h', group: 'boosts', label: 'Potion de savoir', icon: '📘', desc: 'XP ×2 pendant 1 heure : compte, pêche, fouille, expédition, jardin.', price: 400, weekly: 2, effect: 'xpBoost', hours: 1 },
       { key: 'coffee', group: 'boosts', label: 'Café du fouilleur', icon: '☕', desc: 'Recharge complète de ton énergie de fouille.', price: 200, weekly: 3, effect: 'digEnergy' },
+      { key: 'thermos', group: 'boosts', label: 'Thermos du pêcheur', icon: '🫖', desc: 'Recharge complète de ton énergie de pêche.', price: 200, weekly: 3, effect: 'fishEnergy' },
       { key: 'fertilizer', group: 'boosts', label: 'Engrais express', icon: '🌿', desc: 'Toutes tes plantations en cours sont prêtes tout de suite.', price: 180, weekly: 3, effect: 'gardenRipe' },
       { key: 'compass', group: 'boosts', label: 'Boussole dorée', icon: '🧭', desc: 'Ton expédition en cours rentre immédiatement.', price: 300, weekly: 2, effect: 'expeditionNow' }
     ]
@@ -179,6 +194,7 @@ export const REGISTRY = {
   ExpeditionRushCost: { ...int('Retour accéléré d’expédition (poussières)', 120, 'Économie', 'Divise le temps restant par 2, une fois par jour.'), storage: 'app' },
   RepairDustPerCopy: { ...int('Restauration : poussières par exemplaire manquant', 60, 'Économie', 'Dans l’atelier Qualité, des exemplaires manquants peuvent être payés en poussières (au moins une vraie carte).', 1), storage: 'config' },
   MarketAutoEnabled: { label: 'Marché noir automatique', type: 'bool', def: true, group: 'Économie', storage: 'app', help: 'Chaque lundi, des offres sont générées automatiquement (comme le bingo du mois).' },
+  MarketAutoRestock: { label: 'Marché noir : nouvel arrivage dès que tout est vendu', type: 'bool', def: true, group: 'Économie', storage: 'app', help: 'Quand toutes les offres automatiques de la semaine sont épuisées (ou expirées), un nouvel arrivage est généré aussitôt.' },
   MarketAutoOffers: { ...int('Marché noir : offres par semaine', 4, 'Économie', '', 1, 12), storage: 'app' },
   MarketPriceMultiplier: { ...num('Marché noir : prix (× coût de craft)', 1.5, 'Économie', '', 0.2, 10), storage: 'app' },
   MarketDealMultiplier: { ...num('Marché noir : prix du coup de cœur (× coût de craft)', 0.8, 'Économie', '', 0.1, 10), storage: 'app' },
@@ -211,18 +227,22 @@ export const REGISTRY = {
 
   // --- Fouille / coffre-fort perso (lus par les workflows)
   DogBoneCost: { ...int('Prix d’un os (poussières)', 250, 'Fouille', 'Envoie Milo creuser 2 h.', 1), storage: 'config' },
+  DigMaxEnergy: { ...int('Fouille : énergie max', 10, 'Fouille', '+1 tous les 2 niveaux de fouille. Une grille fait 32 cases (4 × 8).', 1, 200), storage: 'config' },
+  DigDepths: { label: 'Fouille : les 5 profondeurs', type: 'json', group: 'Fouille', storage: 'app', help: 'Liste de profondeurs : label, icon, level (niveau de fouille requis), cardShift (paliers de rareté en plus pour les cartes : 0 = commune et rare), mineralMax (palier de minéral le plus haut, 1 à 5), treasures (liste { reward : card, rareCard, booster, bigDust, smallDust ou mineral ; cells : cases par trésor ; n : nombre } ; 32 cases au total par grille).', def: [{"label":"Surface","icon":"🌱","level":1,"cardShift":0,"mineralMax":1,"treasures":[{"reward":"card","cells":4,"n":1},{"reward":"rareCard","cells":3,"n":1},{"reward":"booster","cells":2,"n":2},{"reward":"bigDust","cells":2,"n":2},{"reward":"smallDust","cells":1,"n":4},{"reward":"mineral","cells":1,"n":2}]},{"label":"Galeries","icon":"🕳️","level":3,"cardShift":0,"mineralMax":2,"treasures":[{"reward":"card","cells":4,"n":1},{"reward":"rareCard","cells":3,"n":1},{"reward":"booster","cells":2,"n":2},{"reward":"bigDust","cells":2,"n":2},{"reward":"smallDust","cells":1,"n":2},{"reward":"mineral","cells":1,"n":3}]},{"label":"Cavernes","icon":"🦇","level":5,"cardShift":1,"mineralMax":3,"treasures":[{"reward":"card","cells":4,"n":1},{"reward":"rareCard","cells":3,"n":1},{"reward":"booster","cells":2,"n":2},{"reward":"bigDust","cells":2,"n":2},{"reward":"mineral","cells":2,"n":3}]},{"label":"Gouffre","icon":"🌋","level":7,"cardShift":1,"mineralMax":4,"treasures":[{"reward":"card","cells":4,"n":1},{"reward":"rareCard","cells":4,"n":1},{"reward":"booster","cells":3,"n":2},{"reward":"bigDust","cells":3,"n":1},{"reward":"mineral","cells":2,"n":3}]},{"label":"Noyau","icon":"💎","level":9,"cardShift":2,"mineralMax":5,"treasures":[{"reward":"card","cells":4,"n":1},{"reward":"rareCard","cells":4,"n":1},{"reward":"booster","cells":3,"n":2},{"reward":"bigDust","cells":3,"n":1},{"reward":"mineral","cells":3,"n":3}]}] },
+  MineralValues: { label: 'Minéraux : poussières par minéral (paliers 1 à 5)', type: 'json', group: 'Fouille', storage: 'app', help: 'Prix de revente au comptoir du marché noir, du palier commun au légendaire.', def: [15, 40, 100, 250, 700] },
+  MineralTrades: { label: 'Minéraux : échanges du comptoir', type: 'json', group: 'Fouille', storage: 'app', help: 'Liste { tier : palier, n : minéraux de ce palier, give : { BoneCount, KeyCount, ChestCount, BoosterCount, Worms, GoldBait, SpareParts : quantité } }.', def: [{"tier":1,"n":6,"give":{"Worms":5}},{"tier":1,"n":10,"give":{"BoneCount":1}},{"tier":2,"n":5,"give":{"KeyCount":1}},{"tier":3,"n":3,"give":{"ChestCount":1}},{"tier":3,"n":4,"give":{"SpareParts":1}},{"tier":4,"n":2,"give":{"GoldBait":3}},{"tier":5,"n":1,"give":{"BoosterCount":2}}] },
   DigRegenSeconds: { ...int('Fouille : secondes pour regagner 1 énergie', 600, 'Fouille', 'Réduit de 5 % par niveau de fouille.', 30, 86400), storage: 'config' },
-  DigBoosterKeepChance: { ...pct('Fouille : chance de garder un booster trouvé', 1, 'Fouille', 'Sinon il devient 25 à 50 poussières. Au-delà du plein rendement du jour, jamais de booster.'), storage: 'app' },
+  DigBoosterKeepChance: { ...pct('Fouille : chance de garder un jeton booster trouvé', 1, 'Fouille', 'Sinon il devient 25 à 50 poussières. Au-delà du plein rendement du jour, jamais de booster.'), storage: 'app' },
   DogBonesPerDay: { ...int('Milo (chien) : os utilisables par jour', 6, 'Fouille', '0 = illimité. Le mode excité n’est pas compté.', 0, 24), storage: 'app' },
-  DogKeepBoosters: { label: 'Milo (chien) : il rapporte les boosters trouvés', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: 'Désactivé : chaque booster trouvé par Milo devient des poussières (réglage ci-dessous).' },
+  DogKeepBoosters: { label: 'Milo (chien) : il rapporte les jetons booster trouvés', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: 'Désactivé : chaque booster trouvé par Milo devient des poussières (réglage ci-dessous).' },
   DogFrenzyBones: { ...int('Milo excité : os donnés d’un coup', 50, 'Fouille', 'Milo creuse aussitôt plusieurs grilles entières (poussières ×2), puis il est fatigué. Hors limite d’os du jour.', 2, 1000), storage: 'app' },
   DogFrenzyBoards: { ...int('Milo excité : grilles creusées d’un coup', 15, 'Fouille', '', 1, 100), storage: 'app' },
   DogFrenzyRestHours: { ...int('Milo excité : heures de fatigue ensuite', 24, 'Fouille', 'Ni os ni mode excité pendant ce temps.', 0, 336), storage: 'app' },
-  DogBoosterDust: { ...int('Milo (chien) : poussières à la place d’un booster', 40, 'Fouille', 'Seulement si « Milo rapporte les boosters » est désactivé.'), storage: 'app' },
-  DailyQuestRewardBoosters: { ...int('Quêtes du jour : boosters', 5, 'Boosters', '', 1, 20), storage: 'config' },
-  WeeklyQuestRewardBoosters: { ...int('Quêtes de la semaine : boosters', 14, 'Boosters', '', 1, 50), storage: 'config' },
+  DogBoosterDust: { ...int('Milo (chien) : poussières à la place d’un jeton booster', 40, 'Fouille', 'Seulement si « Milo rapporte les boosters » est désactivé.'), storage: 'app' },
+  DailyQuestRewardBoosters: { ...int('Quêtes du jour : jetons booster', 5, 'Boosters', '', 1, 20), storage: 'config' },
+  WeeklyQuestRewardBoosters: { ...int('Quêtes de la semaine : jetons booster', 14, 'Boosters', '', 1, 50), storage: 'config' },
   DigLevelXpStep: { ...int('XP pour le niveau 2 de fouille', 20, 'Fouille', 'Chaque niveau suivant demande ce palier en plus (20, 60, 120…). 1 XP par case, +5 par trésor.', 1), storage: 'config' },
-  VaultBoostersPerRow: { ...int('Coffre-fort : boosters par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
+  VaultBoostersPerRow: { ...int('Coffre-fort : jetons booster par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
 
   // --- Progression longue (2026-10-07)
@@ -230,8 +250,9 @@ export const REGISTRY = {
   MasteryLevelDust: { ...int('Maîtrise : poussières par niveau atteint', 40, 'Progression', 'Récompense du niveau N = N × cette valeur.'), storage: 'app' },
   MasteryLayerRewards: { label: 'Maîtrise : récompenses des 3 couches complètes', type: 'json', group: 'Progression', storage: 'app', help: 'cards (toutes les cartes), qualities (tous les états de chaque carte), finishes (toutes les finitions de chaque carte) : dust, boosters.', def: { cards: { dust: 300, boosters: 1 }, qualities: { dust: 800, boosters: 2 }, finishes: { dust: 1500, boosters: 3 } } },
   TalentResetCost: { ...int('Talents : prix de la remise à zéro (poussières)', 500, 'Progression', ''), storage: 'app' },
+  SkyResetCost: { ...int('Arbre céleste : prix de la remise à zéro (poussières)', 300, 'Progression', 'Les points d’étoile sont rendus.'), storage: 'app' },
   ConstellationDust: { ...int('Constellations : poussières par étoile allumée', 150, 'Progression', ''), storage: 'app' },
-  ConstellationSkyBoosters: { ...int('Constellations : boosters du ciel complet', 10, 'Progression', 'Donnés une fois quand les 40 étoiles sont allumées (avec un titre).'), storage: 'app' },
+  ConstellationSkyBoosters: { ...int('Constellations : jetons booster du ciel complet', 10, 'Progression', 'Donnés une fois quand les 40 étoiles sont allumées (avec un titre).'), storage: 'app' },
   StarDecraftMultiplier: { ...num('Carte ★ : multiplicateur de décraft', 3, 'Progression', 'Une carte ★ (3 arc-en-ciel parfait état fusionnées) vaut ce multiple au décraft.', 1, 20), storage: 'app' },
   RankThresholds: { label: 'Rangs de compte (valeur de collection)', type: 'json', group: 'Progression', storage: 'app', help: 'Liste croissante : key, label, icon, min (valeur de collection = somme des valeurs de décraft de tous les exemplaires).', def: [
     { key: 'bronze', label: 'Bronze', icon: '🥉', min: 0 }, { key: 'argent', label: 'Argent', icon: '🥈', min: 3000 },
@@ -261,9 +282,9 @@ export const REGISTRY = {
   AuctionHours: { ...int('Enchères : durée (heures)', 24, 'Économie', '', 1, 168), storage: 'app' },
   ExchangeRateSwing: { ...num('Cours du décraft : variation max', 0.3, 'Économie', '0,30 = la valeur de décraft d’une rareté varie de −30 % à +30 % selon l’offre et la demande de la semaine passée (une rareté très décraftée perd de la valeur).', 0, 0.5), storage: 'app' },
   InsuranceCostPerTier: { ...int('Assurance : prix par rang de rareté', 40, 'Économie', 'Commune = 1 rang, rare = 2… Payé une fois.'), storage: 'app' },
-  BoosterShopPrice: { ...int('Boutique : prix d’un booster (poussières)', 300, 'Économie', '', 1), storage: 'app' },
-  BoosterShopIncrease: { ...num('Boutique : hausse par booster acheté dans la semaine', 0.35, 'Économie', '', 0, 5), storage: 'app' },
-  BoosterShopWeeklyCap: { ...int('Boutique : boosters max par semaine', 14, 'Économie', '0 = boutique fermée.'), storage: 'app' },
+  BoosterShopPrice: { ...int('Boutique : prix d’un jeton booster (poussières)', 300, 'Économie', '', 1), storage: 'app' },
+  BoosterShopIncrease: { ...num('Boutique : hausse par jeton booster acheté dans la semaine', 0.35, 'Économie', '', 0, 5), storage: 'app' },
+  BoosterShopWeeklyCap: { ...int('Boutique : jetons booster max par semaine', 14, 'Économie', '0 = boutique fermée.'), storage: 'app' },
   // --- Pity par rarete et booster mystere (pity.js)
   RarityPityMultiplier: { ...num('Pity par rareté : tirages garantis (× la moyenne)', 2.5, 'Boosters', 'Chaque rareté qui sort dans moins de 15 % des tirages est garantie après ce multiple du nombre moyen de tirages pour l’obtenir (2,5 × 17 = 43 pour une rareté à 6 %). 0 = désactivé.', 0, 20), storage: 'app' },
   MysteryFinishBonus: { ...pct('Booster mystère : bonus de finition spéciale', 0.03, 'Boosters', '0,03 = +3 points de chance de finition spéciale par carte.'), storage: 'app' },
@@ -274,10 +295,12 @@ export const REGISTRY = {
   TreasureHuntBonus: { label: 'Course aux trésors : bonus des 5 indices', type: 'json', group: 'Progression', storage: 'app', help: 'Objet : boosters, keys, dust.', def: { boosters: 1, keys: 1, dust: 0 } },
   SeasonChestDustPerXp: { ...num('Coffre de saison : poussières par XP de saison', 0.2, 'Saison', '', 0, 10), storage: 'app' },
   SeasonChestMaxDust: { ...int('Coffre de saison : poussières max', 400, 'Saison', ''), storage: 'app' },
-  SeasonChestXpPerBooster: { ...int('Coffre de saison : XP par booster', 600, 'Saison', 'Une clé tous les 2 × cette XP (2 max).', 1), storage: 'app' },
-  SeasonChestMaxBoosters: { ...int('Coffre de saison : boosters max', 3, 'Saison', '', 0, 20), storage: 'app' },
+  SeasonChestXpPerBooster: { ...int('Coffre de saison : XP par jeton booster', 600, 'Saison', 'Une clé tous les 2 × cette XP (2 max).', 1), storage: 'app' },
+  SeasonChestMaxBoosters: { ...int('Coffre de saison : jetons booster max', 3, 'Saison', '', 0, 20), storage: 'app' },
   AccountPrestigeLevel: { ...int('Prestige du compte : niveau de la 1re étoile', 31, 'Progression', 'Niveau où tous les talents sont débloqués.', 2, 500), storage: 'app' },
-  AccountPrestigeStep: { ...int('Prestige du compte : niveaux par étoile suivante', 5, 'Progression', 'Chaque étoile : +1 point de talent et un titre.', 1, 100), storage: 'app' },
+  AccountPrestigeStep: { ...int('Prestige du compte : niveaux par étoile suivante', 5, 'Progression', 'Chaque étoile : +1 point de talent de prestige, un titre et les récompenses ci-dessous.', 1, 100), storage: 'app' },
+  AccountPrestigeBoosters: { ...int('Prestige du compte : jetons booster par étoile', 3, 'Progression', 'Donnés une fois à chaque nouvelle étoile.', 0, 100), storage: 'app' },
+  AccountPrestigeDust: { ...int('Prestige du compte : poussières par étoile', 500, 'Progression', 'Données une fois à chaque nouvelle étoile.', 0, 100000), storage: 'app' },
 
   // --- Depenses durables (upgrades.js, 2026-10-11)
   UpgradeBasePrice: { ...int('Améliorations : prix du niveau 1 (poussières)', 500, 'Économie', 'Chaque niveau coûte le double du précédent (500, 1000, 2000, 4000, 8000), indexé sur la richesse moyenne.', 1), storage: 'app' },
@@ -287,13 +310,16 @@ export const REGISTRY = {
   RareOnServerDecraftBonus: { ...num('Décraft : bonus d’une carte rare sur le serveur', 1, 'Économie', '1 = ×2.', 0, 5), storage: 'app' },
 
   // --- Confort et rendez-vous (comfort.js, rendezvous.js, 2026-10-11)
-  RipenMaxPoints: { ...int('Booster mûri : points de finition au maximum', 3, 'Boosters', '+1 point de chance de finition spéciale par jour sans ouvrir de booster, appliqué au booster suivant. 0 = désactivé.', 0, 10), storage: 'app' },
-  ShardsPerBooster: { ...int('Fragments : nombre pour 1 booster', 5, 'Boosters', 'Gagnés en jouant (grilles de fouille, récoltes, prises vides, expéditions…). 0 = désactivé.', 0, 100), storage: 'app' },
+  RipenEnabled: { label: 'Mûrissoir à boosters', type: 'bool', def: true, group: 'Boosters', storage: 'app', help: 'Au distributeur, la sélection peut mûrir au lieu d’être ouverte : ses jetons sont mis de côté le temps choisi, puis le lot s’ouvre gratuitement avec un bonus de finition par booster (et une finition spéciale garantie au dernier stade).' },
+  RipenStages: { label: 'Mûrissoir : stades', type: 'json', group: 'Boosters', storage: 'app', help: 'Durées proposées au moment de laisser mûrir : liste ordonnée { hours : heures, label, icon, finish : points de chance de finition spéciale par booster, special : true = une finition spéciale garantie par booster }.', def: [{ hours: 6, label: 'Mûr', icon: '🍏', finish: 10 }, { hours: 24, label: 'Bien mûr', icon: '🍎', finish: 20 }, { hours: 72, label: 'Doré', icon: '🌟', finish: 35, special: true }] },
+  RipenSlotLevels: { label: 'Mûrissoir : niveau de compte de chaque lot', type: 'json', group: 'Boosters', storage: 'app', help: 'Liste de niveaux, un par lot en train de mûrir en même temps (plafonné par « Mûrissoir : lots au maximum », propre à chaque difficulté).', def: [1, 8, 15, 25, 40] },
+  RipenMaxPoints: { ...int('Mûrissoir : lots au maximum', 3, 'Boosters', 'Lots de boosters qui mûrissent en même temps au plus (selon la difficulté), débloqués par le niveau de compte.', 0, 10), storage: 'app' },
+  ShardsPerBooster: { ...int('Fragments : nombre pour 1 jeton booster', 5, 'Boosters', 'Gagnés en jouant (grilles de fouille, récoltes, prises vides, expéditions…). 0 = désactivé.', 0, 100), storage: 'app' },
   ShardsDailyCap: { ...int('Fragments : maximum par jour', 10, 'Boosters', '0 = illimité.', 0, 100), storage: 'app' },
   GoldenHourEnabled: { label: 'Heure dorée hebdomadaire', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Une heure par semaine (vendredi à dimanche, 18 h à 22 h), annoncée la veille.' },
   GoldenHourFinishMultiplier: { ...num('Heure dorée : finitions spéciales (×)', 2, 'Événements', '', 1, 5), storage: 'app' },
   BoosterRainEnabled: { label: 'Pluie de boosters (objectif commun)', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'Objectif commun atteint : chaque joueur qui passe dans les 24 h reçoit des boosters.' },
-  BoosterRainBoosters: { ...int('Pluie de boosters : boosters par joueur', 1, 'Événements', '', 1, 10), storage: 'app' },
+  BoosterRainBoosters: { ...int('Pluie de boosters : jetons booster par joueur', 1, 'Événements', '', 1, 10), storage: 'app' },
   DogGiftEnabled: { label: 'Visite de Milo (trouvaille du jour)', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: '' },
   GardenWiltHours: { ...int('Jardin : heures avant qu’une plante prête fane', 24, 'Pêche', 'Fanée : récolte divisée par deux, sans appât ni poussières. 0 = jamais.', 0, 168), storage: 'app' },
   GardenRareChancePerDay: { ...pct('Jardin : chance de récolte rare par jour de série (dès 3 jours)', 0.1, 'Pêche', '0,1 = 10 % à 3 jours, 20 % à 4 jours… (50 % au plus).'), storage: 'app' },
@@ -345,6 +371,46 @@ export const REGISTRY = {
   UmbrellaPrice: { ...int('Parapluie (boutique) : prix en poussières', 350, 'Modes de jeu', 'Protège de toute usure du mode Hard pendant UmbrellaDays jours.', 1, 100000), storage: 'app' },
   UmbrellaDays: { ...int('Parapluie : durée (jours)', 7, 'Modes de jeu', '', 1, 60), storage: 'app' },
   // --- Communauté (2026-10-15)
+  SeasonSkinEnabled: { label: 'Skins saisonniers du site', type: 'bool', def: true, group: 'Saison', storage: 'app', help: 'Pendant un événement du calendrier (Halloween, Noël, Nouvel an, Saint-Valentin, Pâques, Poisson d’avril, Fête de la musique), tout le site prend son habillage (couleurs, police, décor animé). Chaque joueur peut le désactiver pour lui.' },
+  PatchNotesExtra: { label: 'Notes de mise à jour : entrées ajoutées', type: 'json', group: 'Site', storage: 'app', help: 'Liste { date : AAAA-MM-JJ, title, items : [texte, …] } affichée en plus de l’historique, page Nouveautés (seulement ce qui est utile aux joueurs).', def: [] },
+  StoryEnabled: { label: 'Quêtes d’histoire', type: 'bool', def: true, group: 'Progression', storage: 'app', help: 'Une histoire en chapitres (Milo, Moka, Pepper…) sur l’accueil, après le parcours du débutant.' },
+  StoryChapters: { label: 'Quêtes d’histoire : chapitres', type: 'json', group: 'Progression', storage: 'app', help: 'Liste ordonnée { title, who, icon, text, steps : [{ label, type : événement, target }], reward : { BoosterCount, StardustCount, Worms, KeyCount, BoneCount, GoldBait, SpareParts, ChestCount, XP } }. Le dernier donne aussi la carte exclusive et le titre « Héros de 2Gatcha ».', def: [{"title":"Le flair de Milo","who":"Milo","icon":"🐕","text":"Wouf ! Milo gratte le sol en remuant la queue : il a senti quelque chose sous la surface. Aide-le à creuser !","steps":[{"label":"Creuser 15 cases","type":"dig","target":15}],"reward":{"BoneCount":2,"XP":30}},{"title":"Moka a faim","who":"Moka","icon":"🐈","text":"Moka te fixe avec ses grands yeux ronds. Une seule solution : aller pêcher… et partager.","steps":[{"label":"Lancer 5 fois ta ligne","type":"fish","target":5}],"reward":{"Worms":10,"XP":30}},{"title":"Les graines du vieux jardinier","who":"Le jardinier","icon":"👨‍🌾","text":"Un vieux jardinier te confie un sachet de graines : « Ce qui pousse ici nourrit tout le reste, tu verras. »","steps":[{"label":"Récolter 3 plantes","type":"harvest","target":3}],"reward":{"GoldBait":2,"XP":40}},{"title":"L’appel du large","who":"L’explorateur","icon":"🧭","text":"Une vieille carte au trésor, à moitié effacée… Envoie tes cartes explorer les environs pour en retrouver les morceaux.","steps":[{"label":"Revenir de 2 expéditions","type":"expedition","target":2}],"reward":{"KeyCount":1,"XP":40}},{"title":"La machine à boules","who":"Le marchand","icon":"🪙","text":"Un marchand installe une drôle de machine au coin de la rue : « Une pièce, une boule, un coffre. Qui sait ce qu’il y a dedans ? »","steps":[{"label":"Ouvrir 2 coffres du gatchapon","type":"chestOpened","target":2}],"reward":{"ChestCount":2,"XP":40}},{"title":"L’atelier","who":"L’artisane","icon":"🛠️","text":"L’artisane sourit : « Une carte, ça se travaille. Recycle tes doublons, crafte ce qui te manque, et ta collection brillera. »","steps":[{"label":"Recycler 5 doublons","type":"disenchant","target":5},{"label":"Crafter 1 carte","type":"craft","target":1}],"reward":{"SpareParts":1,"StardustCount":200,"XP":50}},{"title":"Les cadenas de Pepper","who":"Pepper","icon":"🔒","text":"Derrière six cadenas, Pepper attend. Chaque booster ouvert te rapproche des clés qui la libéreront.","steps":[{"label":"Ouvrir 10 boosters","type":"boosterOpened","target":10}],"reward":{"KeyCount":2,"XP":60}},{"title":"Le grand 2GETHER","who":"Toute la guilde","icon":"🤝","text":"Toute la guilde se retrouve : il est temps de montrer tout ce que tu as appris. Milo, Moka et Pepper comptent sur toi !","steps":[{"label":"Creuser 20 cases","type":"dig","target":20},{"label":"Lancer 5 fois ta ligne","type":"fish","target":5},{"label":"Revenir d’une expédition","type":"expedition","target":1}],"reward":{"BoosterCount":5,"StardustCount":300,"XP":80}}] },
+  StoryCardId: { ...int('Quêtes d’histoire : carte exclusive du dernier chapitre (id)', 0, 'Progression', 'Id d’une carte (promo conseillée, pour qu’elle ne sorte pas des boosters). 0 = seulement le titre.', 0, 1000000), storage: 'app' },
+  SeasonQuestXp: { ...int('Défis de saison : XP de saison par défi', 60, 'Saison', '3 défis par semaine (les mêmes pour tous) ; l’XP compte pour les paliers et le coffre du mois, pas pour le niveau du compte. 0 = pas de défis.', 0, 10000), storage: 'app' },
+  SeasonQuestAllXp: { ...int('Défis de saison : bonus si les 3 sont réussis', 60, 'Saison', '', 0, 10000), storage: 'app' },
+  SurpriseEnabled: { label: 'Événements surprises', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'De petits événements de quelques heures, jamais annoncés (double XP, frénésie de pêche, soldes du gatchapon…).' },
+  SurpriseEventsPerWeek: { ...num('Événements surprises : nombre moyen par semaine', 3, 'Événements', 'Tirage quotidien : chaque jour a cette chance divisée par 7 d’en avoir un.', 0, 7), storage: 'app' },
+  SurpriseHours: { ...num('Événements surprises : durée (heures)', 2, 'Événements', '', 0.5, 12), storage: 'app' },
+  SurpriseFromHour: { ...int('Événements surprises : début au plus tôt (heure)', 10, 'Événements', '', 0, 23), storage: 'app' },
+  SurpriseToHour: { ...int('Événements surprises : début au plus tard (heure)', 21, 'Événements', '', 0, 23), storage: 'app' },
+  AccountPrestigeXpPct: { ...num('Prestige du compte : bonus d’XP par étoile (%)', 2, 'Progression', 'Bonus permanent sur toute l’XP gagnée (compte et métiers), plafonné à 10 étoiles.', 0, 20), storage: 'app' },
+  StarterEnabled: { label: 'Parcours du débutant et déblocages par niveau', type: 'bool', def: true, group: 'Progression', storage: 'app', help: 'Nouveaux comptes : étapes guidées sur l’accueil (accueil simplifié tant qu’il n’est pas fini) et jeux / pages débloqués par niveau.' },
+  StarterSteps: { label: 'Parcours du débutant : étapes', type: 'json', group: 'Progression', storage: 'app', help: 'Liste ordonnée { key, label, icon, type : événement (ou liste), target : nombre (0 = immédiat), url, hint, feature : fonctionnalité qui doit être débloquée, level : niveau requis, reward : { BoosterCount, StardustCount, Worms, KeyCount, BoneCount, XP } }. Événements : boosterOpened, dig, guess, disenchant, craft, fish, expedition, wheel, login, harvest, chestOpened, board, fusion, repair, tradeDone…', def: [{"key":"welcome","label":"Récupère ton kit de départ","icon":"🎁","target":0,"hint":"De quoi ouvrir tes premiers boosters.","reward":{"BoosterCount":3,"StardustCount":100}},{"key":"open1","label":"Ouvre ton premier booster","icon":"🃏","type":"boosterOpened","target":1,"url":"ouverture.html","hint":"1 jeton = 1 booster de 5 cartes, au distributeur.","reward":{"BoosterCount":1,"XP":20}},{"key":"gift","label":"Récupère un cadeau du jour","icon":"🎡","type":["wheel","login"],"target":1,"url":"index.html#rewards-center","hint":"La roue ou le cadeau de connexion, dans « À récupérer ».","reward":{"StardustCount":100}},{"key":"dig","label":"Creuse 5 cases dans la Fouille","icon":"⛏️","type":"dig","target":5,"url":"jeux.html#fouille","feature":"dig","hint":"L’énergie se recharge toute seule.","reward":{"Worms":5,"XP":30}},{"key":"guess","label":"Joue à Devine la carte","icon":"❓","type":"guess","target":1,"url":"jeux.html#devine","feature":"guess","hint":"5 cartes à reconnaître chaque jour.","reward":{"StardustCount":60,"XP":20}},{"key":"open3","label":"Ouvre 3 boosters de plus","icon":"🎴","type":"boosterOpened","target":3,"url":"ouverture.html","reward":{"BoosterCount":2,"XP":30}},{"key":"recycle","label":"Recycle un doublon en poussières","icon":"♻️","type":"disenchant","target":1,"url":"collection.html#decrafter","hint":"Les poussières servent à crafter les cartes qui te manquent.","reward":{"StardustCount":80,"XP":20}},{"key":"craft","label":"Crafte une carte qui te manque","icon":"✨","type":"craft","target":1,"url":"collection.html#crafter","level":2,"reward":{"BoosterCount":1,"XP":40}},{"key":"fish","label":"Pêche une fois","icon":"🎣","type":"fish","target":1,"url":"jeux.html#peche","feature":"fishing","hint":"Les vers se trouvent en creusant.","reward":{"Worms":5,"XP":30}},{"key":"expedition","label":"Envoie une carte en expédition et récupère son butin","icon":"🧭","type":"expedition","target":1,"url":"jeux.html#expedition","feature":"expedition","hint":"La balade de 2 h suffit.","reward":{"BoosterCount":1,"XP":40}}] },
+  StarterFinalReward: { label: 'Parcours du débutant : bonus final', type: 'json', group: 'Progression', storage: 'app', help: 'Récompense une fois toutes les étapes faites : { BoosterCount, StardustCount, Worms, KeyCount, BoneCount, XP }.', def: { BoosterCount: 3, StardustCount: 200 } },
+  StarterUnlocks: { label: 'Déblocages par niveau (nouveaux comptes)', type: 'json', group: 'Progression', storage: 'app', help: 'Objet { fonctionnalité : niveau de compte } (clés de la liste Admin > Difficultés : shop, vault, trade, dig, guess, expedition, fishing, bingo, dinos, garden, boss, guildChest, blackMarket, auctions, machine, teams, lottery, wanted, duo, evening…). Absente = ouverte dès le niveau 1. Les comptes créés avant la mise en ligne ne sont jamais verrouillés.', def: {"shop":2,"expedition":2,"fishing":2,"garden":3,"bingo":3,"boss":3,"wanted":3,"evening":3,"trade":3,"vault":4,"dinos":4,"guildChest":4,"teams":4,"lottery":4,"duo":5,"blackMarket":5,"machine":5,"auctions":6} },
+  StarterSince: { ...int('Déblocages par niveau : comptes concernés à partir de (horodatage)', 0, 'Progression', 'Posé automatiquement au premier démarrage : seuls les comptes créés après sont verrouillés. 0 = reposé au prochain démarrage.', 0, 99999999999), storage: 'app' },
+  TestAccountId: { ...int('Compte test admin : id du joueur', 9, 'Administration', 'Compte sur lequel un admin bascule sans Discord (Admin > Compte test) : niveaux, ressources et difficulté propres, isolé des autres joueurs. 0 = désactivé.', 0, 1000000), storage: 'app' },
+  ExpeditionDestinations: { label: 'Expédition : destinations', type: 'json', group: 'Jeux', storage: 'app', help: 'Liste { key, name, icon, level : niveau d’expédition requis, desc, loot : { ressource : quantité pour 2 h } }. Ressources : Worms, BoneCount, GoldBait, SpareParts, CatFish, KeyCount, DinoSkulls, ChestCount, minerals. ×2,5 pour 8 h, ×5 pour 24 h ; la partie décimale est une chance.', def: [{"key":"foret","name":"Forêt enchantée","icon":"🌲","level":1,"desc":"Des vers pour la pêche et quelques os pour Milo.","loot":{"Worms":3,"BoneCount":0.4}},{"key":"cote","name":"Côte sauvage","icon":"🏖️","level":1,"desc":"Du poisson pour Moka, des appâts dorés et parfois une pièce détachée.","loot":{"CatFish":2,"GoldBait":0.4,"SpareParts":0.3}},{"key":"mine","name":"Mine abandonnée","icon":"⛏️","level":2,"desc":"Des minéraux pour le comptoir (plus rares si l’expédition est longue).","loot":{"minerals":2}},{"key":"ruines","name":"Ruines antiques","icon":"🏛️","level":3,"desc":"Des clés pour le coffre-fort et des crânes pour les dinos.","loot":{"KeyCount":0.3,"DinoSkulls":0.3}},{"key":"port","name":"Port des pirates","icon":"🏴‍☠️","level":5,"desc":"Des pièces de gatchapon et des pièces détachées.","loot":{"ChestCount":0.35,"SpareParts":0.2}}] },
+  ExpeditionAffinityPct: { ...int('Expédition : bonus d’affinité (%)', 50, 'Jeux', 'Chaque jour, chaque destination a une rareté et une extension favorites : un explorateur qui correspond rapporte ce % de ressources en plus (cumulable : rareté + extension).', 0, 500), storage: 'app' },
+  GuessRoundsPerDay: { ...int('Devine la carte : cartes par jour', 5, 'Jeux', 'Mêmes cartes pour tout le monde ; 3 essais par carte, le zoom recule à chaque erreur.', 1, 20), storage: 'app' },
+  GuessDust: { ...int('Devine la carte : poussières par carte trouvée', 20, 'Jeux', '100 % au 1er essai, 60 % au 2e, 30 % au 3e (15 % de consolation si ratée).', 0, 1000), storage: 'app' },
+  GuessPerfectDust: { ...int('Devine la carte : bonus de journée parfaite', 60, 'Jeux', 'Toutes les cartes trouvées du premier coup.', 0, 10000), storage: 'app' },
+  GuessStreakMin: { ...int('Devine la carte : bonnes réponses pour garder la série', 3, 'Jeux', 'Tous les 7 jours de série, un jeton booster.', 1, 20), storage: 'app' },
+  GuessCouponPct: { ...int('Devine la carte : réduction du bon de craft (%)', 40, 'Jeux', 'Trouver une carte qu’on ne possède pas donne un bon de craft sur cette carte (remboursé après le craft). 0 = pas de bon.', 0, 100), storage: 'app' },
+  GuessCouponDays: { ...int('Devine la carte : durée du bon de craft (jours)', 3, 'Jeux', '', 1, 60), storage: 'app' },
+  GuildChestDepositsPerDay: { ...int('Coffre de guilde : dépôts par jour', 10, 'Communauté', 'Doublons déposables par joueur et par jour (on garde toujours au moins 1 exemplaire).', 1, 100), storage: 'app' },
+  GuildChestTakesPerDay: { ...int('Coffre de guilde : cartes prises par jour', 5, 'Communauté', 'Contre des crédits ou une clé ; la pioche gratuite du jour est en plus.', 1, 100), storage: 'app' },
+  GuildChestValues: { label: 'Coffre de guilde : crédits par rareté', type: 'json', group: 'Communauté', storage: 'app', help: 'Crédits gagnés en déposant une carte, par rareté (multipliés par la finition : holo ×1,5, dorée ×2, ghost ×3, diamant ×4, arc-en-ciel ×6, et l’état : bon ×1,2, parfait ×1,5).', def: { commune: 2, rare: 5, epique: 12, legendaire: 30, mythique: 80 } },
+  GuildChestTakeMult: { ...num('Coffre de guilde : prix d’une carte (× sa valeur)', 1.2, 'Communauté', 'Prendre une carte coûte sa valeur en crédits × ce nombre.', 0.1, 10), storage: 'app' },
+  GuildWorksEnabled: { label: 'Grand Chantier (jeu commun de la semaine)', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Onglet Ensemble : tout le serveur construit un phare en 5 étapes avec des ressources des autres jeux ; NG+1 s’il est fini avant la fin de la semaine, remise à zéro le lundi.' },
+  GuildWorksStages: { label: 'Grand Chantier : les étapes', type: 'json', group: 'Communauté', storage: 'app', help: 'Liste d’étapes : label, icon, story, needs { ressource : quantité PAR joueur actif } (dust, worms, bone, part, bait, mineral1 à mineral5, card_commune, card_rare, card_epique, card_legendaire), reward { dust, boosters } pour chaque contributeur de l’étape.', def: [{"label":"Fondations","icon":"🧱","story":"Poser les fondations du phare sur la falaise.","needs":{"dust":400,"mineral1":4,"worms":6},"reward":{"dust":80}},{"label":"La tour","icon":"🏗️","story":"Monter la tour pierre après pierre.","needs":{"dust":500,"bone":1,"card_commune":3},"reward":{"dust":120}},{"label":"L’escalier","icon":"🪜","story":"Un escalier en colimaçon jusqu’au sommet.","needs":{"mineral2":3,"card_rare":2,"worms":8},"reward":{"dust":160}},{"label":"La lanterne","icon":"🏮","story":"Assembler la lanterne et ses lentilles.","needs":{"mineral3":2,"part":0.5,"dust":600},"reward":{"dust":220}},{"label":"La lumière","icon":"🗼","story":"Allumer le phare pour tout le serveur.","needs":{"card_epique":1,"bait":1,"dust":800},"reward":{"dust":300,"boosters":1}}] },
+  GuildWorksPlayerShare: { ...num('Grand Chantier : part max d’un joueur par ressource', 0.4, 'Communauté', 'Un joueur apporte au plus cette part de chaque ressource d’une étape (0,4 = 40 %).', 0.05, 1), storage: 'app' },
+  GuildWorksGrowth: { ...num('Grand Chantier : objectifs × par niveau NG+', 1.5, 'Communauté', 'Les récompenses augmentent de 25 % par niveau.', 1, 5), storage: 'app' },
+  TeamPointsTable: { label: 'Équipes : barème des points', type: 'json', group: 'Communauté', storage: 'app', help: 'Points par action : boosterOpened, fish, board, harvest, bossAttack, expedition, tradeDone, guess, craft, chestOpened, communityDig, wheel, vaultRow.', def: {"boosterOpened":1,"fish":1,"board":3,"harvest":1,"bossAttack":2,"expedition":3,"tradeDone":2,"guess":2,"craft":1,"chestOpened":1,"communityDig":1,"wheel":1,"vaultRow":2} },
+  TeamDailyCap: { ...int('Équipes : points max par joueur et par jour', 40, 'Communauté', 'Un seul gros joueur ne peut plus porter son équipe. 0 = sans plafond.', 0, 1000), storage: 'app' },
+  TeamMinPoints: { ...int('Équipes : points minimum pour une récompense', 20, 'Communauté', 'Points à apporter dans le mois pour toucher le prix (gagnants) ou la participation.', 1, 10000), storage: 'app' },
+  TeamWinDust: { ...int('Équipes : poussières des gagnants', 300, 'Communauté', 'En plus du titre de champion, pour chaque membre actif de l’équipe gagnante.', 0, 100000), storage: 'app' },
+  TeamParticipationDust: { ...int('Équipes : poussières de participation', 80, 'Communauté', 'Pour chaque membre actif des autres équipes.', 0, 100000), storage: 'app' },
   TeamWarEnabled: { label: 'Guerre des équipes mensuelle', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: '4 équipes tirées au hasard chaque mois ; toute activité rapporte des points ; l’équipe gagnante reçoit un titre.' },
   LotteryEnabled: { label: 'Loterie du dimanche', type: 'bool', def: true, group: 'Communauté', storage: 'app', help: 'Tickets en poussières, cagnotte tirée le dimanche à 21 h.' },
   LotteryTicketPrice: { ...int('Loterie : prix du ticket', 100, 'Communauté', '', 1, 100000), storage: 'app' },
@@ -392,14 +458,15 @@ function appRow(store, key) {
 
 // Surcouche temporaire des reglages (mode Chaos, modeextras.js) :
 // fn(store, key, raw) -> valeur, ou undefined pour garder la valeur reglee.
-let overlay = null, inOverlay = false;
-export function setOverlay(fn) { overlay = fn; }
+// Plusieurs surcouches possibles (Chaos, compte test) : la premiere qui repond gagne.
+const overlays = []; let inOverlay = false;
+export function setOverlay(fn) { overlays.push(fn); }
 
 // Valeur effective d'un reglage (defaut si jamais regle), surcouche comprise.
 export function setting(store, key) {
-  if (overlay && !inOverlay) {
+  if (overlays.length && !inOverlay) {
     inOverlay = true;
-    try { const o = overlay(store, key, () => rawSetting(store, key)); if (o !== undefined) return o; } finally { inOverlay = false; }
+    try { for (const fn of overlays) { const o = fn(store, key, () => rawSetting(store, key)); if (o !== undefined) return o; } } finally { inOverlay = false; }
   }
   return rawSetting(store, key);
 }
@@ -417,6 +484,12 @@ export function rawSetting(store, key) {
   try { return JSON.parse(row.Value); } catch (e) { return r.def; }
 }
 
+// Validation seule (valeurs par difficulte, presets.js).
+export function validateSetting(key, raw) {
+  if (!REGISTRY[key]) throw new Error(`Réglage inconnu : ${key}`);
+  return validate(key, raw);
+}
+
 function validate(key, raw) {
   const r = REGISTRY[key];
   if (r.type === 'bool') return !!raw;
@@ -430,8 +503,24 @@ function validate(key, raw) {
   if (r.type === 'json') {
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (Array.isArray(r.def) !== Array.isArray(v) || typeof v !== 'object' || v === null) throw new Error(`${r.label} : format attendu ${Array.isArray(r.def) ? 'liste [...]' : 'objet {...}'}`);
+    if (key === 'FishingZones' && (!v.length || v.some((z) => !z || !z.key || !['shore', 'deep'].includes(z.pool || 'shore')) || !v.some((z) => z.key === 'shore') || new Set(v.map((z) => z.key)).size !== v.length)) throw new Error(`${r.label} : chaque lieu a une key unique et un pool shore ou deep, et le rivage (shore) doit exister`);
+    if (key === 'DigDepths' && (!v.length || v.length > 8 || v.some((d) => !d || !Array.isArray(d.treasures) || !d.treasures.length || d.treasures.some((t) => !['card', 'rareCard', 'booster', 'bigDust', 'smallDust', 'mineral'].includes(t.reward) || !(Number(t.cells) >= 1) || !(Number(t.n) >= 1)) || d.treasures.reduce((s, t) => s + Number(t.cells) * Number(t.n), 0) > 32))) throw new Error(`${r.label} : chaque profondeur a des trésors connus (reward, cells, n) qui tiennent dans 32 cases`);
+    if (key === 'RipenStages' && (!v.length || v.some((s, i) => !s || !s.label || !(Number(s.hours) > 0) || !(Number(s.finish) >= 0) || (i > 0 && Number(s.hours) <= Number(v[i - 1].hours))))) throw new Error(`${r.label} : chaque stade a un label, des heures croissantes et des points de finition`);
+    if (key === 'RipenSlotLevels' && (!v.length || v.some((x) => !(Number(x) >= 1)))) throw new Error(`${r.label} : une liste de niveaux (au moins 1)`);
+    if (key === 'PatchNotesExtra' && v.some((n) => !n || !/^\d{4}-\d{2}-\d{2}$/.test(String(n.date || '')) || !n.title || !Array.isArray(n.items) || !n.items.length)) throw new Error(`${r.label} : chaque entrée a une date AAAA-MM-JJ, un titre et une liste de textes`);
+    if (key === 'StoryChapters' && v.some((c) => !c || !c.title || !Array.isArray(c.steps) || !c.steps.length || c.steps.some((s) => !s || !s.type || !(Number(s.target) >= 1)) || (c.reward && Object.keys(c.reward).some((k) => !['BoosterCount', 'StardustCount', 'Worms', 'KeyCount', 'BoneCount', 'GoldBait', 'SpareParts', 'ChestCount', 'XP'].includes(k))))) throw new Error(`${r.label} : chaque chapitre a un titre, des objectifs (type, target ≥ 1) et des récompenses connues`);
+    if (key === 'StarterSteps' && (v.some((s) => !s || !s.key || !s.label || !(Number(s.target || 0) >= 0) || (Number(s.target) > 0 && !s.type) || (s.reward && Object.keys(s.reward).some((k) => !['BoosterCount', 'StardustCount', 'Worms', 'KeyCount', 'BoneCount', 'XP'].includes(k)))) || new Set(v.map((s) => s.key)).size !== v.length || v.some((s) => s.key === 'final'))) throw new Error(`${r.label} : chaque étape a une key unique (pas « final »), un label, un événement si target > 0 et des récompenses connues`);
+    if (key === 'StarterFinalReward' && (Array.isArray(v) || Object.keys(v).some((k) => !['BoosterCount', 'StardustCount', 'Worms', 'KeyCount', 'BoneCount', 'XP'].includes(k)))) throw new Error(`${r.label} : un objet de récompenses connues`);
+    if (key === 'StarterUnlocks' && (Array.isArray(v) || Object.values(v).some((x) => !(Number(x) >= 1 && Number(x) <= 200)))) throw new Error(`${r.label} : un objet { fonctionnalité : niveau entre 1 et 200 }`);
+    if (key === 'ExpeditionDestinations' && (!v.length || v.some((d) => !d || !d.key || !d.name || !d.loot || !Object.keys(d.loot).length || Object.entries(d.loot).some(([k, n]) => !['Worms', 'BoneCount', 'GoldBait', 'SpareParts', 'CatFish', 'KeyCount', 'DinoSkulls', 'ChestCount', 'minerals'].includes(k) || !(Number(n) >= 0))) || new Set(v.map((d) => d.key)).size !== v.length)) throw new Error(`${r.label} : chaque destination a une key unique, un nom et un butin de ressources connues`);
+    if (key === 'MineralValues' && (v.length !== 5 || v.some((x) => !(Number(x) >= 0)))) throw new Error(`${r.label} : il faut 5 nombres positifs`);
+    if (key === 'MineralTrades' && v.some((t) => !t || !(Number(t.tier) >= 1 && Number(t.tier) <= 5) || !(Number(t.n) >= 1) || !t.give || !Object.keys(t.give).every((k) => ['BoneCount', 'KeyCount', 'ChestCount', 'BoosterCount', 'Worms', 'GoldBait', 'SpareParts'].includes(k)))) throw new Error(`${r.label} : chaque échange a un palier (1 à 5), un nombre et des ressources connues`);
+    if (key === 'TeamPointsTable' && (Array.isArray(v) || Object.values(v).some((x) => !(Number(x) >= 0)))) throw new Error(`${r.label} : un objet { action : points } avec des nombres positifs`);
+    if (key === 'GuildWorksStages' && (!v.length || v.some((st) => !st || !st.label || !st.needs || !Object.keys(st.needs).length || Object.entries(st.needs).some(([k, n]) => !/^(dust|worms|bone|part|bait|mineral[1-5]|card_(commune|rare|epique|legendaire))$/.test(k) || !(Number(n) > 0))))) throw new Error(`${r.label} : chaque étape a un label et des besoins connus (quantités positives)`);
+    if (key === 'GuildChestValues' && (Array.isArray(v) || Object.values(v).some((x) => !(Number(x) >= 0)))) throw new Error(`${r.label} : un objet { rareté : crédits } avec des nombres positifs`);
     if (key === 'LoginStreakRewards' && v.length !== 7) throw new Error(`${r.label} : il faut exactement 7 jours`);
-    if (key === 'ShopCatalog' && (v.some((x) => !x || !x.key || !(Number(x.price) > 0) || (!x.give && !['xpBoost', 'digEnergy', 'gardenRipe', 'expeditionNow'].includes(x.effect))) || new Set(v.map((x) => x.key)).size !== v.length)) throw new Error(`${r.label} : chaque objet a une key unique, un prix > 0 et un give ou un effect connu`);
+    if ((key === 'ChestTierWeights' || key === 'ChestTierMults') && (v.length !== 8 || v.some((x) => !(Number(x) >= 0)) || (key === 'ChestTierWeights' && !v.some((x) => Number(x) > 0)))) throw new Error(`${r.label} : il faut 8 nombres positifs (coffre 1 à 8)`);
+    if (key === 'ShopCatalog' && (v.some((x) => !x || !x.key || !(Number(x.price) > 0) || (!x.give && !['xpBoost', 'digEnergy', 'fishEnergy', 'gardenRipe', 'expeditionNow'].includes(x.effect))) || new Set(v.map((x) => x.key)).size !== v.length)) throw new Error(`${r.label} : chaque objet a une key unique, un prix > 0 et un give ou un effect connu`);
     if (key === 'DailyBoxLoot' && (!v.length || v.some((x) => !x || !['dust', 'worms', 'bait', 'key', 'part', 'booster', 'chest', 'cosmetic'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque objet a un type connu et un poids > 0`);
     if ((key === 'FishingLoot' || key === 'DeepFishingLoot') && (!v.length || v.some((x) => !x || !['nothing', 'dust', 'bone', 'key', 'booster', 'chest', 'part', 'pearl', 'bait'].includes(x.type) || !(Number(x.weight) > 0)))) throw new Error(`${r.label} : chaque prise a un type connu et un poids > 0`);
     return v;

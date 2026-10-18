@@ -8,7 +8,7 @@
   const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
   let state = null, picking = false, selected = null;
 
-  const rewardText = (r) => [r.dust ? `${fmt(r.dust)} ✨` : "", r.shards ? `${r.shards} 🧩` : "", r.boosters ? `${r.boosters} booster${r.boosters > 1 ? "s" : ""}` : ""].filter(Boolean).join(" + ");
+  const rewardText = (r) => [r.dust ? `${fmt(r.dust)} ✨` : "", r.shards ? `${r.shards} 🧩` : "", r.boosters ? `${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : ""].filter(Boolean).join(" + ");
   const left = (t) => { const s = Math.max(0, t - Date.now() / 1000); const d = Math.floor(s / 86400); return d ? `${d} j ${Math.floor((s % 86400) / 3600)} h` : `${Math.floor(s / 3600)} h ${Math.ceil((s % 3600) / 60)} min`; };
 
   function cellHtml(c, glow) {

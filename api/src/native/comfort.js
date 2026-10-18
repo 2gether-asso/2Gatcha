@@ -1,7 +1,5 @@
 // Confort malgre moins de boosters (2026-10-11).
-//  - Booster muri : chaque jour sans ouvrir de booster ajoute +1 point de
-//    chance de finition speciale au prochain (RipenMaxPoints au plus). Le
-//    bonus est consomme par l'ouverture suivante (boosts.js).
+//  - (Booster muri : remplace le 2026-10-18 par le murissoir, ripen.js.)
 //  - Fragments de booster : les activites du quotidien (grille de fouille,
 //    recolte, prise vide a la peche, expedition, devinette, coffre, echange)
 //    donnent des fragments ; ShardsPerBooster fragments = 1 booster.
@@ -29,20 +27,8 @@ export const schema = {
 const addDays = (day, n) => new Date(Date.parse(day + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const hash = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 
-// ------------------------------------------------------------------ booster muri
-export function ripeness(store, user) {
-  const since = Number(user && user.RipenSince) || 0;
-  if (!since) return 0;
-  return Math.min(setting(store, 'RipenMaxPoints'), Math.floor((now() - since) / 86400));
-}
-
-export function beforeWorkflow({ store, path, request }) {
-  const body = request.body || {};
-  if (path !== 'open-pack' || body.dryRun) return null;
-  const user = store.get('Users', Number(body.userId));
-  if (user) request._ripe = ripeness(store, user);
-  return null;
-}
+// Booster muri : voir ripen.js (murissoir).
+export function beforeWorkflow() { return null; }
 
 // ------------------------------------------------------------------ heure doree
 export function goldenWindow(at = Date.now()) {
@@ -133,7 +119,7 @@ export function onEvents(store, events) {
     total -= boosters * per;
     store.update('Users', uid, { BoosterShards: total, ShardDay: today, ShardToday: done + gain, ...(boosters ? { BoosterCount: (Number(user.BoosterCount) || 0) + boosters } : {}) });
     notices.push(boosters
-      ? { userId: uid, kind: 'shard', icon: '🧩', label: `${per} fragments réunis : +${boosters} booster !` }
+      ? { userId: uid, kind: 'shard', icon: '🧩', label: `${per} fragments réunis : +${boosters} jeton booster !` }
       : { userId: uid, kind: 'shard', icon: '🧩', label: `+${gain} fragment${gain > 1 ? 's' : ''} de booster (${total}/${per})` });
   }
   // Cosmetiques de progression.
@@ -154,19 +140,9 @@ export function onEvents(store, events) {
 export function afterWorkflow({ store, path, request, response }) {
   if (response.status !== 200 || !response.json || typeof response.json !== 'object') return;
   const json = response.json;
-  if (path === 'open-pack') {
-    const body = request.body || {};
-    if (body.dryRun || !Array.isArray(json.cards)) return;
-    if (request._ripe) json.ripened = request._ripe;
-    store.update('Users', Number(body.userId), { RipenSince: now() });
-    return;
-  }
   if (path !== 'booster-status') return;
   let user = store.get('Users', Number((request.query || {}).userId));
   if (!user) return;
-  if (!user.RipenSince) user = store.update('Users', user.id, { RipenSince: now() });
-  const pts = ripeness(store, user);
-  json.ripeness = { points: pts, max: setting(store, 'RipenMaxPoints'), nextAt: pts < setting(store, 'RipenMaxPoints') ? (Number(user.RipenSince) || now()) + (pts + 1) * 86400 : null };
   json.shards = { count: Number(user.BoosterShards) || 0, per: setting(store, 'ShardsPerBooster') };
   json.golden = goldenState(store);
   // Pluie de boosters : une fois par pluie et par joueur.

@@ -7,14 +7,21 @@
   const esc = escHtml;
   const ROMAN = ["I", "II", "III"];
 
-  // Prestige du compte (2026-10-09) : etoiles au-dela des talents complets.
+  // Prestige du compte (2026-10-09, revu 2026-10-17) : etoiles au-dela des
+  // talents complets, progression vers la prochaine, recompenses de chaque etoile.
   function prestigeBlock(p) {
     if (!p) return "";
     const toNext = Math.max(0, p.nextLevel - p.level);
+    const r = p.reward || {};
+    const gives = [`+1 point de talent de prestige`, r.boosters ? `${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : "", r.dust ? `${r.dust.toLocaleString("fr-FR")} ✨` : "", "un titre « Prestige »"].filter(Boolean).join(" · ");
     return `<div class="account-prestige ${p.stars ? "has-stars" : ""}">
       <span class="ap-stars" aria-hidden="true">${p.stars ? "★".repeat(Math.min(p.stars, 5)) + (p.stars > 5 ? " ×" + p.stars : "") : "☆"}</span>
-      <div class="ap-body"><strong>${p.stars ? `Prestige du compte : ${p.stars} étoile${p.stars > 1 ? "s" : ""}` : "Prestige du compte"}</strong>
-      <small>${p.stars ? `+${p.stars} point${p.stars > 1 ? "s" : ""} de talent, titres « Prestige » et cadre doré débloqués. ` : `Première étoile au niveau ${p.startLevel} : +1 point de talent, un titre et un cadre. `}Prochaine étoile au niveau ${p.nextLevel}${toNext ? ` (encore ${toNext} niveau${toNext > 1 ? "x" : ""})` : ""}, puis tous les ${p.step} niveaux.</small></div>
+      <div class="ap-body">
+        <strong>${p.stars ? `Prestige du compte : ${p.stars} étoile${p.stars > 1 ? "s" : ""}` : "Prestige du compte"}</strong>
+        <small>${p.stars ? `Étoile suivante au niveau ${p.nextLevel} (encore ${toNext} niveau${toNext > 1 ? "x" : ""}), puis tous les ${p.step} niveaux.` : `Première étoile au niveau ${p.startLevel}${toNext ? ` (encore ${toNext} niveau${toNext > 1 ? "x" : ""})` : ""}, puis une tous les ${p.step} niveaux, sans remise à zéro.`}</small>
+        <div class="ap-progress" title="${p.progress || 0} % vers l'étoile suivante"><span style="width:${Math.min(100, p.progress || 0)}%"></span></div>
+        <small class="ap-gives">Chaque étoile : ${gives}${p.stars ? "" : ", et le Cadre Prestige à la première"}.</small>
+      </div>
     </div>`;
   }
   let prestige = null;
@@ -27,15 +34,15 @@
         <span class="talents-points ${st.available ? "has-points" : ""}">${st.available} point${st.available > 1 ? "s" : ""} à dépenser · ${st.spent}/${st.points}</span>
         ${st.spent ? `<button type="button" class="btn-ghost" id="talents-reset">Tout réinitialiser (${st.resetCost} &#10024;)</button>` : ""}
       </div>
-      <p class="lead" style="font-size:0.85rem;">Un point par niveau de compte (et un par étoile de prestige). Chaque branche a un talent ultime qui demande 6 points dans la branche : à toi de choisir ta spécialité.</p>
+      <p class="lead" style="font-size:0.85rem;">Un point par niveau de compte. Chaque branche a un talent ultime (6 points dans la branche) et un <strong>talent de prestige</strong> (branche complète, 10 points) qui se nourrit des points des étoiles de prestige et renforce toute la branche.</p>
       <div class="talent-tree">${st.branches.map((b) => `
         <div class="talent-branch">
           <h3>${b.icon} ${esc(b.label)} <small>${b.spent} pt${b.spent > 1 ? "s" : ""}</small></h3>
           ${st.talents.filter((t) => t.branch === b.key).map((t) => `
-            <button type="button" class="talent ${t.rank ? "learned" : ""} ${t.rank >= t.max ? "maxed" : ""} ${t.locked ? "locked" : ""} ${t.req ? "ultimate" : ""}" data-talent="${t.key}" ${t.canLearn ? "" : "aria-disabled=\"true\""} title="${esc(t.desc)}">
+            <button type="button" class="talent ${t.rank ? "learned" : ""} ${t.rank >= t.max ? "maxed" : ""} ${t.locked ? "locked" : ""} ${t.prestige ? "prestige" : t.req ? "ultimate" : ""}" data-talent="${t.key}" ${t.canLearn ? "" : "aria-disabled=\"true\""} title="${esc(t.desc)}">
               <span class="talent-icon" aria-hidden="true">${t.icon}</span>
               <span class="talent-body"><strong>${esc(t.label)}</strong><small>${esc(t.desc)}</small></span>
-              <span class="talent-rank">${t.locked ? `&#128274; ${t.req} pts` : `${t.rank}/${t.max}`}</span>
+              <span class="talent-rank">${t.locked ? `&#128274; ${t.req} pts` : `${t.rank}/${t.max}`}${t.prestige ? '<em class="talent-tag">prestige</em>' : ""}</span>
             </button>`).join("")}
         </div>`).join("")}</div>`;
   }
@@ -44,10 +51,10 @@
     const box = $("tiers-panel");
     box.innerHTML = `
       <div class="talents-head">
-        <h2>&#127941; Maîtrises</h2>
+        <h2>&#127941; Maîtrises de succès</h2>
         ${st.claimable ? `<button type="button" class="btn" id="tiers-claim-all">Tout récupérer (${st.claimable})</button>` : ""}
       </div>
-      <p class="lead" style="font-size:0.85rem;">Trois paliers par grand compteur du jeu. Le palier III donne un titre à équiper dans la boutique.</p>
+      <p class="lead" style="font-size:0.85rem;">Trois paliers par grand compteur du jeu, pensés pour durer des mois. Le palier III donne un titre à équiper dans la boutique. (La maîtrise des extensions est dans ta collection.)</p>
       <div class="tiers-grid">${st.families.map((f) => {
         const next = f.tiers.find((t) => !t.reached);
         const goal = next ? next.target : f.tiers[f.tiers.length - 1].target;
@@ -81,7 +88,11 @@
         renderTalents(st);
         const def = st.talents.find((x) => x.key === st.learned);
         Toast.success(`&#127795; ${def ? esc(def.label) + " : rang " + def.rank : "Talent appris"} !`);
-      } catch (err) { t.disabled = false; Toast.error({ no_points: "Plus de point à dépenser : monte de niveau !", talent_locked: "Il faut d'abord 6 points dans cette branche." }[err.code] || friendlyError(err)); }
+      } catch (err) {
+        t.disabled = false;
+        const def = (t.dataset.talent || "").startsWith("p") ? "Talent de prestige : complète d'abord toute la branche (10 points)." : "Il faut d'abord 6 points dans cette branche.";
+        Toast.error({ no_points: "Plus de point à dépenser : monte de niveau (ou gagne une étoile de prestige) !", talent_locked: def }[err.code] || friendlyError(err));
+      }
       return;
     }
     if (e.target.closest("#talents-reset")) {
@@ -96,7 +107,7 @@
         Toast.success(`&#127941; Maîtrises : +${res.claimed.dust} poussières${res.claimed.titles.length ? ` et le titre « ${res.claimed.titles.map(esc).join(" », « ")} »` : ""} !`);
         if (typeof confetti === "function") confetti({ particleCount: 90, spread: 90, origin: { y: 0.4 } });
         renderTiers(res);
-      } catch (err) { Toast.errorfriendlyError(err); }
+      } catch (err) { Toast.error(friendlyError(err)); }
     }
   });
 })();

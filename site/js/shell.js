@@ -64,11 +64,13 @@ const NAV_ITEMS = [
   { href: "ouverture.html", label: "Ouvrir un booster", icon: "&#127873;", auth: false, badgeKey: "boosters", group: "jouer", groupLabel: "Jouer" },
   { href: "redeem.html", label: "Réclamer un code", icon: "&#127915;", auth: true, group: "jouer" },
   { href: "mode.html", label: "Mode du moment", icon: "&#127922;", auth: true, group: "jouer" },
+  { href: "nouveautes.html", label: "Nouveautés", icon: "&#128240;", auth: false, group: "jouer" },
   { href: "collection.html", label: "Ma collection", icon: "&#128218;", auth: false, group: "collection", groupLabel: "Collection" },
   // Craft / decraft : modes de la page collection depuis la fusion (2026-10-04).
   { href: "collection.html#decrafter", label: "Craft & décraft", icon: "&#10024;", auth: true, group: "collection" },
   { href: "coffre.html", label: "Coffre-fort perso", icon: "&#128274;", auth: true, group: "collection" },
   { href: "boutique.html", label: "Boutique", icon: "&#128717;&#65039;", auth: true, group: "collection" },
+  { href: "progression.html", label: "Progression", icon: "&#127775;", auth: true, group: "collection" },
   { href: "stats.html", label: "Mes statistiques", icon: "&#128202;", auth: true, group: "collection" },
   { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true, badgeKey: "communaute" },
   { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
@@ -131,7 +133,7 @@ function renderBottomNav() {
     if (sheet && !sheet.hidden && !e.target.closest(".bn-sheet")) { sheet.hidden = true; btn?.setAttribute("aria-expanded", "false"); }
   });
 }
-const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "mode.html": "Mode", "craft.html": "Atelier", "admin.html": "Admin", "stats.html": "Stats" };
+const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "mode.html": "Mode", "progression.html": "Progression", "craft.html": "Atelier", "admin.html": "Admin", "stats.html": "Stats" };
 
 // Pastille sur "Plus" quand un element du panneau en a une.
 function syncBottomMoreDot() {
@@ -198,7 +200,7 @@ const RewardsCenter = {
     if (goalSt?.active && goalSt.done && !goalSt.claimed) items.push({ key: "weekly-goal", icon: "&#128220;", label: `Contrat de la semaine rempli : ${goalSt.label}`, claim: () => API.weeklyGoal(uid, "claim"), describe: () => "&#127183; 1 booster + titre « Contractuel »" });
     if (dogGift?.available) items.push({ key: "dog-gift", icon: "&#128021;", label: "Milo t'a rapporté une trouvaille", claim: () => API.dogGift(uid, "claim"), describe: (r) => (r.gift ? `${r.gift.icon} ${r.gift.label}` : "") });
     if (gifts?.received?.length) items.push({ key: "player-gifts", icon: "&#127873;", label: `${gifts.received.length} cadeau${gifts.received.length > 1 ? "x" : ""} de ${[...new Set(gifts.received.map((g) => g.from))].slice(0, 3).join(", ")}`, claim: () => API.playerGift(uid, "claim"), describe: () => gifts.received.map((g) => `${g.icon} ${g.label} (${g.from})`).join(" · ") });
-    if (wheel?.canSpin) items.push({ key: "wheel", icon: "&#127905;", label: "Roue de la fortune à tourner", claim: () => API.spinDailyWheel(uid), describe: (r) => { const p = r.prize || {}; return p.type === "stardust" ? `&#10024; ${p.amount} poussières` : p.type === "booster" ? "&#127183; 1 booster" : p.type === "key" ? "&#128273; 1 clé" : p.type === "jackpot" ? `&#127881; Jackpot : ${p.amount} boosters + ${p.dust} poussières` : ""; } });
+    if (wheel?.canSpin) items.push({ key: "wheel", icon: "&#127905;", label: "Roue de la fortune à tourner", claim: () => API.spinDailyWheel(uid), describe: (r) => { const p = r.prize || {}; return p.type === "stardust" ? `&#10024; ${p.amount} poussières` : p.type === "booster" ? "&#127183; 1 booster" : p.type === "key" ? resIcon("key") + " 1 clé" : p.type === "jackpot" ? `&#127881; Jackpot : ${p.amount} boosters + ${p.dust} poussières` : ""; } });
     if (streak?.canClaim) items.push({ key: "streak", icon: "&#128293;", label: `Cadeau de connexion (jour ${streak.day || ""})`, claim: () => API.claimLoginStreak(uid) });
     if (quests?.canClaim) items.push({ key: "quests", icon: "&#9989;", label: "Quêtes du jour terminées", claim: () => API.claimQuestReward(uid) });
     if (weekly?.canClaim) items.push({ key: "weekly", icon: "&#128197;", label: "Quêtes de la semaine terminées", claim: () => API.claimWeeklyQuestReward(uid) });
@@ -207,7 +209,7 @@ const RewardsCenter = {
       const tierN = season.tierClaimable != null ? season.tierClaimable : season.claimable;
       items.push({ key: "season", icon: "&#127942;", label: tierN ? `Saison : ${tierN} palier${tierN > 1 ? "s" : ""} à récupérer` : `Saison terminée : bonus de ${season.claimable * (season.bonus?.dustPerTier || 0)} poussières`, claim: () => API.claimSeason(uid) });
     }
-    if (season?.chest?.previous?.claimable) items.push({ key: "season-chest", icon: "&#129520;", label: `Coffre de la saison ${season.chest.previous.label} à ouvrir`, claim: () => API.claimSeasonChest(uid) });
+    if (season?.chest?.previous?.claimable) items.push({ key: "season-chest", icon: resIcon("chest"), label: `Coffre de la saison ${season.chest.previous.label} à ouvrir`, claim: () => API.claimSeasonChest(uid) });
     (sets?.sets || []).filter((x) => x.complete && !x.claimed).forEach((x) => items.push({ key: "set-" + x.extensionId, icon: "&#128218;", label: `Set complet : ${x.name}`, claim: () => API.claimSetReward(uid, x.extensionId) }));
     if (challenges?.claimable > 0) items.push({ key: "challenges", icon: "&#127919;", label: `Défis de la semaine : ${challenges.claimable} récompense${challenges.claimable > 1 ? "s" : ""}`, claim: () => API.challenges(uid, "claim") });
     if (goal?.claimable) items.push({ key: "goal", icon: "&#129309;", label: `Objectif commun réussi : ${goal.reward.dust} ✨ + ${goal.reward.worms} vers`, claim: () => API.communityGoal(uid, "claim") });
@@ -443,8 +445,8 @@ function renderHeader() {
         <div class="user-box">
           <div class="inventory" id="inventory">
           <button type="button" class="header-stats" id="inventory-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="inventory-panel" title="Ouvrir l'inventaire">
-            <span id="header-booster-badge" class="stat-chip" title="Boosters disponibles">
-              <span class="icon">&#127183;</span><span class="count">...</span>
+            <span id="header-booster-badge" class="stat-chip" title="Jetons booster (1 jeton = 1 booster au choix)">
+              <span class="icon"><img class="ico-token" src="assets/JetonBooster.png" alt="" /></span><span class="count">...</span>
             </span>
             <span class="stat-divider" aria-hidden="true"></span>
             <span id="header-stardust-badge" class="stat-chip" title="Poussières d'étoile (craft/décraft)">
@@ -453,13 +455,13 @@ function renderHeader() {
             <span id="header-key-divider" class="stat-divider" aria-hidden="true" style="display:none;"></span>
             <span class="stats-extra" id="header-stats-extra">
             <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
-              <span class="icon">&#128273;</span><span class="count">0</span>
+              <span class="icon"><img class="ico-token" src="assets/clés.PNG" alt="" /></span><span class="count">0</span>
             </span>
             <span id="header-worm-badge" class="stat-chip stat-chip-worm" title="Vers de terre" style="display:none;">
-              <span class="icon">&#129713;</span><span class="count">0</span>
+              <span class="icon"><img class="ico-token" src="assets/P%C3%AAche/Vers.png" alt="" /></span><span class="count">0</span>
             </span>
             <span id="header-part-badge" class="stat-chip stat-chip-part" title="Pièces détachées" style="display:none;">
-              <span class="icon">&#128297;</span><span class="count">0</span>
+              <span class="icon"><img class="ico-token" src="assets/PieceDetachee.PNG" alt="" /></span><span class="count">0</span>
             </span>
             <span id="header-ticket-badge" class="stat-chip stat-chip-ticket" title="Tickets Unique" style="display:none;">
               <span class="icon">&#127915;</span><span class="count">0</span>
@@ -498,14 +500,17 @@ function renderHeader() {
             <div class="user-menu-dropdown" id="user-menu-dropdown">
               <div class="menu-head">${avatar}<span><strong>${Session.pseudo}</strong><small>Mon compte</small></span></div>
               <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}"><span class="mi">&#128100;</span> Mon profil</a>
-              <a href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}#talents"><span class="mi">&#127795;</span> Talents et maîtrises</a>
+              <a href="progression.html"><span class="mi">&#127795;</span> Talents et maîtrises</a>
               <a href="stats.html"><span class="mi">&#128202;</span> Mes statistiques</a>
               <a href="boutique.html#cosmetiques"><span class="mi">&#127912;</span> Titres, cadres, couleurs</a>
+              <a href="nouveautes.html" id="notes-link"><span class="mi">&#128240;</span> Nouveautés</a>
               <div class="menu-sep"></div>
               <button id="edit-pseudo-btn" type="button"><span class="mi">&#9998;</span> Modifier le pseudo</button>
               <button id="copy-profile-link-btn" type="button"><span class="mi">&#128279;</span> Copier le lien de mon profil</button>
               <button id="mute-toggle-btn" type="button">${Sfx.muted ? '<span class="mi">&#128264;</span> Son coupé' : '<span class="mi">&#128266;</span> Son actif'}</button>
               <button id="theme-cycle-btn" type="button"><span class="mi">&#127763;</span> Changer de thème</button>
+              <button id="haptics-toggle-btn" type="button" title="Vibrations légères sur mobile (ferrage, trésors, belles cartes)"><span class="mi">&#128243;</span> Vibrations : <span data-haptics-label>${Haptics.on ? "activées" : "désactivées"}</span></button>
+              <button id="compact-toggle-btn" type="button" title="Sur mobile : interface resserrée et actions principales en bas de l'accueil"><span class="mi">&#128241;</span> Mode compact : <span data-compact-label>${document.documentElement.dataset.compact === "1" ? "activé" : "désactivé"}</span></button>
               <button id="cine-pref-btn" type="button" title="Cinématiques d'ouverture, de découverte, de niveau et de changement de mode"><span class="mi">&#127916;</span> Cinématiques : <span data-cine-label>${CinePref.LABELS[CinePref.get()].toLowerCase()}</span></button>
               <button id="discoveries-reset-btn" type="button" title="Rejoue l'animation de chaque ressource que tu possèdes"><span class="mi">&#128270;</span> Revoir les découvertes</button>
               <div class="menu-sep"></div>
@@ -666,6 +671,27 @@ function renderHeader() {
       if (!Sfx.muted) Sfx.click();
     });
     document.getElementById("theme-cycle-btn").addEventListener("click", cycleTheme);
+    document.getElementById("haptics-toggle-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const on = !Haptics.on;
+      Haptics.set(on);
+      e.currentTarget.querySelector("[data-haptics-label]").textContent = on ? "activées" : "désactivées";
+      if (on) Haptics.buzz(30);
+      Toast.info(on ? "📳 Vibrations activées." : "📳 Vibrations désactivées.");
+    });
+    document.getElementById("compact-toggle-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const on = document.documentElement.dataset.compact !== "1";
+      setCompact(on);
+      e.currentTarget.querySelector("[data-compact-label]").textContent = on ? "activé" : "désactivé";
+      Toast.info(on ? "📱 Mode compact activé (sur mobile)." : "📱 Mode compact désactivé.");
+    });
+    // Notes de mise a jour pas encore lues : pastille.
+    API.get("patchNotes").then((r) => {
+      let seen = ""; try { seen = localStorage.getItem("2gatcha_notes_seen") || ""; } catch (err) { /* stockage indisponible */ }
+      const link = document.getElementById("notes-link");
+      if (link && r.latest && r.latest > seen && !link.querySelector("[data-notes-dot]")) link.insertAdjacentHTML("beforeend", ' <span class="notes-dot" data-notes-dot>nouveau</span>');
+    }).catch(() => {});
     document.getElementById("cine-pref-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const v = CinePref.next();
@@ -828,17 +854,142 @@ function applyModeFeatures(off, mode) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(run, 0)); else run();
 }
 try { const m = localStorage.getItem("2gatcha_game_mode"); if (m && GAME_MODE_TITLES[m]) document.documentElement.dataset.gameMode = m; } catch (e) { /* stockage indisponible */ }
+// Mode compact mobile (2026-10-18) : html[data-compact] (CSS sous 640 px), choix de l'appareil.
+function setCompact(on) {
+  if (on) document.documentElement.dataset.compact = "1"; else delete document.documentElement.dataset.compact;
+  try { if (on) localStorage.setItem("2gatcha_compact", "1"); else localStorage.removeItem("2gatcha_compact"); } catch (e) { /* stockage indisponible */ }
+  if (!on) document.getElementById("compact-bar")?.remove();
+  document.dispatchEvent(new CustomEvent("compact:change"));
+}
+try { if (localStorage.getItem("2gatcha_compact") === "1") document.documentElement.dataset.compact = "1"; } catch (e) { /* stockage indisponible */ }
+
+// Evenement surprise (2026-10-18, api/src/native/surprise.js) : bandeau tant
+// qu'il dure, et une courte cinematique la premiere fois qu'on le voit.
+function applySurprise(el, s) {
+  if (!s) return;
+  const end = new Date(s.until * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  el.insertAdjacentHTML("afterbegin", `<div class="beta-banner banner-surprise">${s.icon} <strong>Événement surprise : ${escHtml(s.label)}</strong> · ${escHtml(s.desc)} Jusqu'à ${end}.</div>`);
+  if (typeof syncHeaderOffset === "function") syncHeaderOffset();
+  const occ = s.key + ":" + s.start;
+  let seen = ""; try { seen = localStorage.getItem("2gatcha_surprise_seen") || ""; } catch (e) { /* stockage indisponible */ }
+  if (seen === occ) return;
+  try { localStorage.setItem("2gatcha_surprise_seen", occ); } catch (e) { /* stockage indisponible */ }
+  const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || (typeof CinePref !== "undefined" && !CinePref.allow("surprise", occ)) || !document.body) { if (typeof Toast !== "undefined") Toast.info(`${s.icon} Événement surprise : ${escHtml(s.label)} jusqu'à ${end} !`); return; }
+  const ov = document.createElement("div");
+  ov.className = "season-cine surprise-cine";
+  ov.setAttribute("role", "status");
+  const cs = getComputedStyle(document.documentElement);
+  ov.style.setProperty("--sc-bg", cs.getPropertyValue("--bg-void").trim() || "#07070f");
+  ov.style.setProperty("--sc-a", cs.getPropertyValue("--accent").trim() || "#7c3aed");
+  ov.innerHTML = `<div class="sc-burst" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => `<span style="--i:${i};--x:${Math.round(Math.cos((i / 14) * 6.283) * 36)}vmin;--y:${Math.round(Math.sin((i / 14) * 6.283) * 30)}vmin">${i % 2 ? s.icon : "✨"}</span>`).join("")}</div>
+    <div class="sc-center"><div class="sc-icon" aria-hidden="true">${s.icon}</div><h2 class="sc-title">Événement surprise !</h2><p class="sc-sub"><strong>${escHtml(s.label)}</strong> : ${escHtml(s.desc)} Jusqu'à ${end}.</p></div>`;
+  const run = () => {
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add("sc-in"));
+    let done = false;
+    const close = () => { if (done) return; done = true; ov.classList.add("sc-out"); setTimeout(() => ov.remove(), 750); };
+    const t = setTimeout(close, 2600);
+    ov.addEventListener("click", () => { clearTimeout(t); close(); });
+  };
+  if (document.body) run(); else document.addEventListener("DOMContentLoaded", run);
+}
 try { const off = JSON.parse(localStorage.getItem("2gatcha_features_off") || "[]"); if (Array.isArray(off) && off.length) applyModeFeatures(off, null); } catch (e) { /* stockage indisponible */ }
 
 // Evenement saisonnier (api/src/native/seasonal.js) : theme du site.
+// Skin saisonnier (2026-10-18) : habillage complet pendant l'evenement, sauf
+// si l'admin l'a coupe (season.skin) ou si le joueur l'a desactive. Apercu :
+// ?skin=halloween (?skin=off pour arreter), garde le temps de la session.
+const SEASON_SKINS = ["halloween", "christmas", "newyear", "valentine", "easter", "aprilfools", "summer"];
+function seasonSkinPreview() {
+  try {
+    const q = new URLSearchParams(location.search).get("skin");
+    if (q === "off") sessionStorage.removeItem("2gatcha_skin_preview");
+    else if (q && SEASON_SKINS.includes(q)) sessionStorage.setItem("2gatcha_skin_preview", q);
+    return sessionStorage.getItem("2gatcha_skin_preview");
+  } catch (e) { return null; }
+}
+const seasonSkinOff = () => { try { return localStorage.getItem("2gatcha_season_skin") === "off"; } catch (e) { return false; } };
+// Cinematique d'entree en saison (2026-10-18) : la premiere fois qu'un skin
+// saisonnier arrive (une fois par evenement, ou a chaque nouvel apercu), le
+// site se voile aux couleurs actuelles, l'icone et le titre de la saison
+// apparaissent avec une gerbe de son decor, le skin se pose dessous, puis le
+// voile s'ouvre en cercle. Clic pour passer ; reduit-mouvement ou preference
+// « cinematiques : jamais » -> skin pose directement, petit message.
+const SEASON_CINE = {
+  halloween: { icon: "🎃", label: "Halloween", deco: ["🦇", "🎃", "👻", "🕸️"] },
+  christmas: { icon: "🎄", label: "Noël", deco: ["❄️", "🎁", "⭐", "🎄"] },
+  newyear: { icon: "🎆", label: "Nouvel an", deco: ["🎆", "✨", "🥂", "🎇"] },
+  valentine: { icon: "💘", label: "Saint-Valentin", deco: ["💕", "💘", "🌹", "💌"] },
+  easter: { icon: "🐣", label: "Pâques", deco: ["🥚", "🐰", "🌷", "🐣"] },
+  aprilfools: { icon: "🐟", label: "Poisson d’avril", deco: ["🐟", "🐠", "🤡", "🎭"] },
+  summer: { icon: "🎶", label: "Fête de la musique", deco: ["🎶", "🎸", "🎵", "☀️"] }
+};
+function playSeasonCine(key, season, apply) {
+  const c = SEASON_CINE[key];
+  const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const allowed = typeof CinePref === "undefined" || CinePref.allow("season", key);
+  if (!c || reduced || !allowed || !document.body) {
+    apply();
+    if (c && typeof Toast !== "undefined") setTimeout(() => Toast.info(`${c.icon} ${c.label} commence : le site change de décor !`), 400);
+    return;
+  }
+  const cs = getComputedStyle(document.documentElement);
+  const old = { bg: cs.getPropertyValue("--bg-void").trim() || "#07070f", a: cs.getPropertyValue("--accent").trim() || "#7c3aed" };
+  const until = season && season.endsAt ? new Date((season.endsAt - 60) * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long" }) : "";
+  const ov = document.createElement("div");
+  ov.className = "season-cine";
+  ov.setAttribute("role", "status");
+  ov.style.setProperty("--sc-bg", old.bg);
+  ov.style.setProperty("--sc-a", old.a);
+  ov.innerHTML = `<div class="sc-burst" aria-hidden="true">${Array.from({ length: 18 }, (_, i) => `<span style="--i:${i};--x:${Math.round(Math.cos((i / 18) * 6.283) * (34 + (i % 3) * 9))}vmin;--y:${Math.round(Math.sin((i / 18) * 6.283) * (30 + (i % 4) * 7))}vmin">${c.deco[i % c.deco.length]}</span>`).join("")}</div>
+    <div class="sc-center"><div class="sc-icon" aria-hidden="true">${c.icon}</div><h2 class="sc-title">${escHtml(c.label)} commence !</h2><p class="sc-sub">${until ? `Le site se pare de ses couleurs jusqu'au ${escHtml(until)}.` : "Le site se pare de ses couleurs."}</p></div>`;
+  document.body.appendChild(ov);
+  let applied = false, done = false;
+  const doApply = () => { if (applied) return; applied = true; apply(); const n = getComputedStyle(document.documentElement); ov.style.setProperty("--sc-bg2", n.getPropertyValue("--bg-void").trim()); ov.style.setProperty("--sc-a2", n.getPropertyValue("--accent").trim()); ov.classList.add("sc-new"); };
+  const end = () => { if (done) return; done = true; doApply(); ov.classList.add("sc-out"); setTimeout(() => ov.remove(), 750); };
+  requestAnimationFrame(() => ov.classList.add("sc-in"));
+  const t1 = setTimeout(doApply, 1000);
+  const t2 = setTimeout(end, 2300);
+  ov.addEventListener("click", () => { clearTimeout(t1); clearTimeout(t2); end(); });
+}
+function applySeasonSkin(season) {
+  const preview = seasonSkinPreview();
+  const key = preview || (season && season.key && season.skin !== false && !seasonSkinOff() ? season.key : "");
+  // Nouveau skin jamais vu pour cet evenement (ou nouvel apercu) : cinematique.
+  const occ = key ? key + ":" + (preview ? "apercu" : (season && season.endsAt) || "") : "";
+  let seenOcc = "";
+  try { seenOcc = (preview ? sessionStorage : localStorage).getItem("2gatcha_season_cine") || ""; } catch (e) { /* stockage indisponible */ }
+  if (key && SEASON_SKINS.includes(key) && occ !== seenOcc) {
+    try { (preview ? sessionStorage : localStorage).setItem("2gatcha_season_cine", occ); } catch (e) { /* stockage indisponible */ }
+    const run = () => playSeasonCine(key, season, () => { document.documentElement.dataset.seasonSkin = key; });
+    if (document.body) run(); else document.addEventListener("DOMContentLoaded", run);
+    try { if (!preview) localStorage.setItem("2gatcha_season_skin_key", key); } catch (e) { /* stockage indisponible */ }
+    return;
+  }
+  if (key && SEASON_SKINS.includes(key)) document.documentElement.dataset.seasonSkin = key; else delete document.documentElement.dataset.seasonSkin;
+  try { if (key && !preview) localStorage.setItem("2gatcha_season_skin_key", key); else if (!preview) localStorage.removeItem("2gatcha_season_skin_key"); } catch (e) { /* stockage indisponible */ }
+}
+window.toggleSeasonSkin = (on) => {
+  try { if (on) localStorage.removeItem("2gatcha_season_skin"); else localStorage.setItem("2gatcha_season_skin", "off"); } catch (e) { /* stockage indisponible */ }
+  applySeasonSkin(window.currentSeason);
+};
 function applySeason(season) {
   const key = season && season.key ? season.key : "";
   if (key) document.documentElement.dataset.season = key; else delete document.documentElement.dataset.season;
   try { if (key) localStorage.setItem("2gatcha_season", key); else localStorage.removeItem("2gatcha_season"); } catch (e) { /* stockage indisponible */ }
+  applySeasonSkin(season);
   window.currentSeason = season || null;
   document.dispatchEvent(new CustomEvent("season:ready", { detail: season || null }));
 }
 try { const s = localStorage.getItem("2gatcha_season"); if (s) document.documentElement.dataset.season = s; } catch (e) { /* stockage indisponible */ }
+// Avant la reponse du serveur : le dernier skin connu (ou l'apercu), sans clignotement.
+// (Un apercu tout neuf attend sa cinematique : pas de pose anticipee.)
+try {
+  const pv = seasonSkinPreview();
+  const k = pv ? (sessionStorage.getItem("2gatcha_season_cine") === pv + ":apercu" ? pv : "") : (!seasonSkinOff() && localStorage.getItem("2gatcha_season_skin_key"));
+  if (k) document.documentElement.dataset.seasonSkin = k;
+} catch (e) { /* stockage indisponible */ }
 
 // Regle du jour (mode Chaos) et preavis de changement de mode (modeextras.js).
 function modeBanners(el, mode) {
@@ -905,6 +1056,7 @@ async function loadEventBanner() {
     const ev = await API.getEventStatus();
     if (ev && ev.gameMode) applyGameMode(ev.gameMode);
     if (ev) applySeason(ev.season);
+    if (ev) applySurprise(el, ev.surprise);
     if (ev && ev.gameMode) modeBanners(el, ev.gameMode);
     if (!ev || !ev.active) return;
     const perks = [];
@@ -984,7 +1136,7 @@ const PushNotifs = {
       prefs.addEventListener("change", async () => {
         const values = {};
         prefs.querySelectorAll("[data-kind]").forEach((i) => { values[i.dataset.kind] = i.checked; });
-        try { await API.setPushPrefs(Session.userId, values); Toast.info("Préférences de notifications enregistrées."); } catch (e) { Toast.errorfriendlyError(e); }
+        try { await API.setPushPrefs(Session.userId, values); Toast.info("Préférences de notifications enregistrées."); } catch (e) { Toast.error(friendlyError(e)); }
       });
     }
     container.querySelector(".push-toggle-btn").addEventListener("click", async (e) => {
@@ -1035,15 +1187,18 @@ const LEVEL_SEEN_KEY = "2gatcha_level_seen_" + Session.userId;
 // Deblocages et bonus d'un passage de niveau (de prev+1 a newLevel).
 function accountLevelPerks(prevLevel, newLevel) {
   const gained = Math.max(1, newLevel - (prevLevel || newLevel - 1));
-  const perks = [`🎁 +${gained} booster${gained > 1 ? "s" : ""} bonus`, `🌳 +${gained} point${gained > 1 ? "s" : ""} de talent`];
+  const perks = [`🎁 +${gained} jeton${gained > 1 ? "s" : ""} booster bonus`, `🌳 +${gained} point${gained > 1 ? "s" : ""} de talent`];
   for (let l = (prevLevel || newLevel - 1) + 1; l <= newLevel; l++) {
     Object.entries(typeof FEATURE_UNLOCK_LEVEL !== "undefined" ? FEATURE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && FEATURE_LABELS[k]) perks.push(`🔓 ${FEATURE_LABELS[k]}`); });
     Object.entries(typeof SLEEVE_UNLOCK_LEVEL !== "undefined" ? SLEEVE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && k !== "default") perks.push(`🎴 Pochette ${k.charAt(0).toUpperCase() + k.slice(1)}`); });
+    // Jeux et pages debloques (nouveaux comptes, starter.js).
+    (typeof StarterLocks !== "undefined" ? StarterLocks.unlocks : []).forEach((u) => { if (u.level === l) perks.push(`🔓 ${u.icon} ${u.label}`); });
   }
   return perks;
 }
 // Cinematique de montee de niveau (ui.js LevelFx) ; ancien bandeau en secours.
 function showLevelUpBanner(newLevel, prevLevel = null) {
+  if (typeof StarterLocks !== "undefined") StarterLocks.refresh().then(() => { if (window.StarterPath) StarterPath.load(); });
   if (typeof LevelFx !== "undefined") { LevelFx.show({ kind: "account", level: newLevel, from: prevLevel, perks: accountLevelPerks(prevLevel, newLevel) }); return; }
   let el = document.getElementById("level-up-banner");
   if (!el) {
@@ -1080,12 +1235,19 @@ async function loadHeaderBoosterBadge() {
       if (status.hug) Toast.success(`&#128526; Câlin du jour (mode Cool) : ${status.hug} !`);
       if (status.wear) Toast.info(`&#129533; Usure (mode Hard) : un doublon de <strong>${escHtml(status.wear.card)}</strong> s'est usé.`);
       if (status.modeUnlock) Toast.success(`&#127942; Débloqué : ${escHtml(status.modeUnlock)} !`);
+      // Nouvelle etoile de prestige du compte (account-prestige.js).
+      const pu = status.prestigeUnlocked;
+      if (pu && typeof LevelFx !== "undefined") {
+        LevelFx.show({ kind: "prestige", icon: "&#11088;", name: "Prestige du compte", level: `${"★".repeat(Math.min(pu.star || pu.stars, 5))} Étoile ${pu.star || pu.stars}`,
+          perks: [pu.boosters ? `🎁 +${pu.boosters} jetons booster` : "", pu.dust ? `✨ +${pu.dust.toLocaleString("fr-FR")} poussières` : "", `🌳 +${pu.gained || 1} point${(pu.gained || 1) > 1 ? "s" : ""} de talent de prestige`, ...(pu.titles || []).map((t) => `🏷️ ${escHtml(t)}`)].filter(Boolean) });
+        if (typeof loadHeaderBoosterBadge === "function" && pu.boosters) setTimeout(loadHeaderBoosterBadge, 500);
+      }
       // Malediction, mutation, larcin subi, serment tenu… (modefun.js).
       (status.modeNotes || []).forEach((n) => Toast.info(`${n.icon} ${escHtml(n.text)}`));
     }
     // Pluie de boosters (objectif commun atteint) : annonce une seule fois.
     if (status.rain && typeof Toast !== "undefined") {
-      Toast.success(`&#127783;&#65039; Pluie de boosters ! +${status.rain.boosters} booster${status.rain.boosters > 1 ? "s" : ""} grâce à l'objectif commun.`);
+      Toast.success(`&#127783;&#65039; Pluie de boosters ! +${status.rain.boosters} jeton${status.rain.boosters > 1 ? "s" : ""} booster grâce à l'objectif commun.`);
       if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.3 } });
       API.invalidate && API.invalidate(["boosterStatus"]);
     }
@@ -1441,7 +1603,7 @@ const PlayerCard = {
         ${data.avatar ? `<img class="pcp-avatar ${data.decor && data.decor.frame ? "decor-" + data.decor.frame : ""}" src="${data.avatar}" alt="" />` : ""}
         <div><strong class="${data.decor && data.decor.color ? "decor-" + data.decor.color : ""}">${esc(data.pseudo)}</strong>
           ${data.decor && data.decor.title ? `<small class="decor-title">${esc(data.decor.title)}</small>` : ""}
-          <small>Niv. ${data.level} · ${data.rank.icon} ${esc(data.rank.label)} · &#127907; ${data.skills.fishing} · &#9935;&#65039; ${data.skills.dig}</small></div>
+          <small>Niv. ${data.level}${data.prestigeStars > 0 ? ` <span class="header-prestige" title="Prestige du compte">★${data.prestigeStars > 1 ? data.prestigeStars : ""}</span>` : ""} · ${data.rank.icon} ${esc(data.rank.label)} · &#127907; ${data.skills.fishing} · &#9935;&#65039; ${data.skills.dig}</small></div>
       </div>
       ${data.starDino ? `<div class="pcp-dino" data-pcp-dino>${window.DinoArt ? DinoArt.svg(data.starDino, { scale: 1 }) : ""}<small>&#129430; ${esc(data.starDino.name)} · ${esc(data.starDino.speciesLabel)}</small></div>` : ""}
       ${data.showcase.length ? `<div class="pcp-showcase">${data.showcase.map((c) => `<img src="${API.imageUrl(c.imageId)}" alt="${esc(c.name)}" title="${esc(c.name)}" style="--r:${esc(c.rarity?.colorHex || "#888")}" loading="lazy" />`).join("")}</div>` : '<small class="muted">Vitrine vide</small>'}`;
@@ -1478,13 +1640,14 @@ const Inventory = {
   isOpen() { const p = document.getElementById("inventory-panel"); return !!p && !p.hidden; },
   async loadExtra() {
     const uid = Session.userId;
-    const [chests, garden, dig, shop] = await Promise.allSettled([API.chests(uid, "status"), API.garden(uid), API.getDigStatus(uid), API.shop ? API.shop(uid) : Promise.reject()]);
+    const [chests, garden, dig, shop, timers] = await Promise.allSettled([API.chests(uid, "status"), API.garden(uid), API.getDigStatus(uid), API.shop ? API.shop(uid) : Promise.reject(), API.get("timers", { userId: uid })]);
     const v = (r) => (r.status === "fulfilled" ? r.value : null);
     const d = v(dig);
     this.extra = {
       chests: v(chests)?.chests, goldBait: v(garden)?.goldBait,
       bones: d ? (d.bones ?? d.dog?.bones ?? d.kennel?.bones) : undefined,
-      luck: v(shop)?.luckCharges, xpUntil: v(shop)?.xpBoostUntil
+      luck: v(shop)?.luckCharges, xpUntil: v(shop)?.xpBoostUntil,
+      timers: v(timers), timersAt: Date.now()
     };
     if (this.isOpen()) this.render();
   },
@@ -1493,14 +1656,14 @@ const Inventory = {
     const x = this.extra || {};
     const n = (v) => (v == null ? null : Number(v) || 0);
     const items = [
-      { icon: "&#127183;", name: "Boosters", count: n(st.count), desc: "5 cartes de l'extension de ton choix.", url: "ouverture.html", cta: "Ouvrir" },
+      { icon: '<img class="ico-token" src="assets/JetonBooster.png" alt="" />', name: "Jetons booster", count: n(st.count), desc: "1 jeton = 1 booster (5 cartes) de l'extension de ton choix, au distributeur.", url: "ouverture.html", cta: "Ouvrir" },
       { icon: "&#10024;", name: "Poussières d'étoile", count: n(st.stardust), desc: "Crafter des cartes, la boutique, les enchères.", url: "boutique.html", cta: "Dépenser" },
-      { icon: "&#128273;", name: "Clés", count: n(st.keys), desc: "Ouvrent les coffres et le grand coffre-fort.", url: "ouverture.html", cta: "Utiliser" },
-      { icon: "&#129520;", name: "Coffres", count: n(x.chests), desc: "S'ouvrent avec une clé : poussières, cartes, boosters.", url: "ouverture.html", cta: "Ouvrir" },
-      { icon: "&#129713;", name: "Vers de terre", count: n(st.worms), desc: "Un par lancer de pêche.", url: "jeux.html#peche", cta: "Pêcher" },
-      { icon: "&#129693;", name: "Appâts dorés", count: n(x.goldBait), desc: "Aucune prise vide et prises rares ×2,5.", url: "jeux.html#peche", cta: "Pêcher" },
-      { icon: "&#129460;", name: "Os", count: n(x.bones), desc: "Envoient Milo, le chien, creuser pour toi.", url: "jeux.html#fouille", cta: "Chenil" },
-      { icon: "&#128297;", name: "Pièces détachées", count: n(st.spareParts), desc: "Remplacent un exemplaire dans une fusion ou une restauration.", url: "collection.html#finitions", cta: "Atelier" },
+      { icon: resIcon("key"), name: "Clés", count: n(st.keys), desc: "Ouvrent les coffres du gatchapon et le grand coffre-fort.", url: "ouverture.html", cta: "Utiliser" },
+      { icon: resIcon("coin"), name: "Pièces de gatchapon", count: n(x.chests), desc: "Une pièce = une boule au gatchapon, avec un coffre dedans (à ouvrir avec une clé).", url: "ouverture.html", cta: "Gatchapon" },
+      { icon: resIcon("worm"), name: "Vers de terre", count: n(st.worms), desc: "Un par lancer de pêche.", url: "jeux.html#peche", cta: "Pêcher" },
+      { icon: resIcon("bait"), name: "Appâts dorés", count: n(x.goldBait), desc: "Aucune prise vide et prises rares ×2,5.", url: "jeux.html#peche", cta: "Pêcher" },
+      { icon: resIcon("bone"), name: "Os", count: n(x.bones), desc: "Envoient Milo, le chien, creuser pour toi.", url: "jeux.html#fouille", cta: "Chenil" },
+      { icon: resIcon("part"), name: "Pièces détachées", count: n(st.spareParts), desc: "Remplacent un exemplaire dans une fusion ou une restauration.", url: "collection.html#finitions", cta: "Atelier" },
       { icon: "&#127915;", name: "Tickets Unique", count: n(st.uniqueTickets), desc: "Une carte Unique au choix au Comptoir.", url: "coffre.html#comptoir", cta: "Comptoir" },
       { icon: "&#129514;", name: "Élixir de chance", count: n(x.luck), desc: "Boosters restants avec +5 pts de finition spéciale.", url: "ouverture.html", cta: "Ouvrir" },
       { icon: "&#129513;", name: "Fragments de booster", count: st.shards ? n(st.shards.count) : null, desc: st.shards ? `${st.shards.per} fragments = 1 booster. Gagnés en jouant (fouille, jardin, pêche, expéditions…).` : "", url: "jeux.html", cta: "Jouer" }
@@ -1512,10 +1675,23 @@ const Inventory = {
     document.getElementById("inventory-panel").innerHTML = `
       <div class="inv-head"><strong>&#127890; Inventaire</strong><a href="boutique.html" class="inv-shop">&#128717;&#65039; Boutique</a></div>
       ${boost ? `<div class="inv-boost">&#128216; XP ×2 encore ${boost} min</div>` : ""}
+      ${this.timersHtml()}
       <ul class="inv-list">${shown.map((i) => `<li><a href="${i.url}"><span class="inv-icon" aria-hidden="true">${i.icon}</span><span class="inv-body"><strong>${i.name}</strong><small>${i.desc}</small></span><span class="inv-count">${fmt(i.count)}</span><span class="inv-cta">${i.cta} &#8250;</span></a></li>`).join("")}</ul>
       ${empty.length ? `<p class="inv-empty">Pas encore : ${empty.map((i) => `<span title="${i.desc}">${i.icon} ${i.name}</span>`).join(" · ")}</p>` : ""}
-      ${Treasure.state && Treasure.state.enabled ? `<p class="inv-treasure">&#129517; Course aux trésors : <strong>${Treasure.state.found}/${Treasure.state.total}</strong> indices cette semaine${Treasure.state.found < Treasure.state.total ? ` · cachés sur : ${Treasure.state.clues.filter((c) => !c.found).map((c) => c.label).join(", ")}` : " · bravo !"}</p>` : ""}
+      ${Treasure.state && Treasure.state.enabled ? `<p class="inv-treasure"><img class="ico-token" src="assets/Boussole.PNG" alt="" /> Course aux trésors : <strong>${Treasure.state.found}/${Treasure.state.total}</strong> indices cette semaine${Treasure.state.found < Treasure.state.total ? ` · cachés sur : ${Treasure.state.clues.filter((c) => !c.found).map((c) => c.label).join(", ")}` : " · bravo !"}</p>` : ""}
       ${this.extra ? "" : '<p class="inv-empty">Chargement des coffres, appâts et os…</p>'}`;
+    // Minuteurs : decompte en direct tant que le panneau est ouvert.
+    clearInterval(this.tick);
+    if (this.extra && this.extra.timers) this.tick = setInterval(() => { if (!this.isOpen()) { clearInterval(this.tick); return; } const box = document.getElementById("inv-timers"); if (box) box.outerHTML = this.timersHtml(); }, 1000);
+  },
+  // Minuteurs (2026-10-18, api/src/native/timers.js) : ce qui sera pret, et quand.
+  timersHtml() {
+    const tm = this.extra && this.extra.timers;
+    if (!tm || !tm.items || !tm.items.length) return "";
+    const nowS = tm.now + Math.floor((Date.now() - this.extra.timersAt) / 1000);
+    const left = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60; return h ? `${h} h ${String(m).padStart(2, "0")}` : m ? `${m} min ${String(sec).padStart(2, "0")}` : `${sec} s`; };
+    const icon = (k) => (k === "pick" ? '<img class="ico-token" src="assets/Fouille/Pioche_01.PNG" alt="" />' : RES_ART[k] ? resIcon(k) : k);
+    return `<div class="inv-timers" id="inv-timers"><strong>&#9201;&#65039; Minuteurs</strong><ul>${tm.items.map((i) => { const s = i.at - nowS; return `<li class="${s <= 0 ? "ready" : ""}"><a href="${i.url}"><span class="inv-timer-ico" aria-hidden="true">${icon(i.icon)}</span><span class="inv-timer-label">${escHtml(i.label)}</span><span class="inv-timer-left">${s <= 0 ? "prêt !" : "dans " + left(s)}</span></a></li>`; }).join("")}</ul></div>`;
   },
   toggle(force) {
     const panel = document.getElementById("inventory-panel");
@@ -1566,7 +1742,7 @@ const Treasure = {
     b.className = "treasure-clue";
     b.setAttribute("aria-label", "Indice de la course aux trésors");
     b.title = "Un indice ?";
-    b.innerHTML = "&#129517;";
+    b.innerHTML = '<img src="assets/CarteAuTresors.PNG" alt="" />';
     b.style.left = clue.x + "%";
     b.style.top = clue.y + "%";
     b.addEventListener("click", () => this.find(clue, b));
@@ -1592,3 +1768,146 @@ const Treasure = {
   }
 };
 document.addEventListener("DOMContentLoaded", () => Treasure.load());
+
+// Compte test admin (2026-10-18) : outils et bandeau charges seulement
+// pendant une partie avec le compte test (js/testaccount.js).
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    if (!localStorage.getItem("2gatcha_test_backup") || window.TestAccount) return;
+    const s = document.createElement("script");
+    s.src = "js/testaccount.js";
+    document.head.appendChild(s);
+  } catch (e) { /* stockage indisponible */ }
+});
+
+// Deblocages par niveau des nouveaux comptes (2026-10-18, api/src/native/
+// starter.js) : onglets et liens verrouilles gardes visibles avec un cadenas
+// (clic -> message), widgets masques, page verrouillee remplacee par un
+// message ; accueil simplifie tant que le parcours du debutant n'est pas fini.
+const StarterLocks = {
+  KEY: "2gatcha_starter_" + (Session.userId || ""),
+  locks: [],
+  unlocks: [],
+  // Onglets, liens et modes de collection : cadenas. Le reste (panneaux) : masque.
+  isTeaser: (sel) => /^(#tab-|a\[|\.coll-mode)/.test(sel),
+  apply(view) {
+    const locks = (view && view.locks) || [];
+    this.locks = locks;
+    if (view && view.unlocks) this.unlocks = view.unlocks;
+    document.documentElement.classList.toggle("starter-simple", !!(view && view.active));
+    let style = document.getElementById("starter-locks-style");
+    if (!style) { style = document.createElement("style"); style.id = "starter-locks-style"; document.head.appendChild(style); }
+    style.textContent = locks.map((l) => {
+      const teaser = (l.hide || []).filter(this.isTeaser), hidden = (l.hide || []).filter((s) => !this.isTeaser(s));
+      return (teaser.length ? `${teaser.join(",")} { opacity: 0.5; filter: grayscale(0.7); }\n${teaser.map((s) => s + "::after").join(",")} { content: " \\1F512 ${l.level}"; font-size: 0.72em; margin-left: 4px; white-space: nowrap; }\n` : "") +
+        (hidden.length ? `${hidden.join(",")} { display: none !important; }\n` : "");
+    }).join("");
+    const run = () => {
+      const page = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+      const lock = locks.find((l) => l.page && l.page === page);
+      const main = document.querySelector("main");
+      if (lock && main && !main.querySelector(".feature-closed")) {
+        [...main.children].forEach((el) => { el.hidden = true; });
+        main.insertAdjacentHTML("afterbegin", `<section class="feature-closed"><span class="feature-closed-icon" aria-hidden="true">${lock.icon}</span>
+          <h1>${escHtml(lock.label)}</h1>
+          <p>Se débloque au <strong>niveau ${lock.level}</strong>. Continue le parcours du débutant et joue un peu : chaque booster ouvert et chaque jeu rapportent de l'XP.</p>
+          <a class="btn" href="index.html">Retour à l'accueil</a></section>`);
+      }
+      // Onglet verrouille ouvert par un lien #ancre ou un script de page
+      // (meme plus tard) : on repart sur le premier onglet ouvert.
+      document.querySelectorAll('[role="tab"][aria-selected="true"]').forEach((t) => this.leave(t));
+      if (!this.observer) {
+        this.observer = new MutationObserver((list) => list.forEach((m) => { if (m.target.getAttribute("aria-selected") === "true") this.leave(m.target); }));
+        this.observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["aria-selected"] });
+      }
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(run, 0)); else run();
+  },
+  lockOf(el) {
+    return this.locks.find((l) => (l.hide || []).some((s) => this.isTeaser(s) && el.closest(s)));
+  },
+  leave(tab) {
+    if (tab.getAttribute("role") !== "tab" || !tab.parentElement || !this.lockOf(tab)) return;
+    const next = [...tab.parentElement.querySelectorAll('[role="tab"]')].find((x) => !this.lockOf(x) && x.offsetParent !== null);
+    if (next) setTimeout(() => next.click(), 0);
+  },
+  async refresh() {
+    if (typeof Session === "undefined" || !Session.isLoggedIn()) return null;
+    try {
+      const v = await API.post("starter", { userId: Session.userId, action: "status" });
+      try { localStorage.setItem(this.KEY, JSON.stringify({ locks: v.locks, active: v.active, unlocks: v.unlocks })); } catch (e) { /* stockage indisponible */ }
+      this.apply(v);
+      return v;
+    } catch (e) { return null; }
+  }
+};
+// Clic sur un element verrouille : message au lieu de l'action.
+document.addEventListener("click", (e) => {
+  if (!StarterLocks.locks.length || !(e.target instanceof Element)) return;
+  const l = StarterLocks.lockOf(e.target);
+  if (!l) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (typeof Toast !== "undefined") Toast.info(`${l.icon} ${escHtml(l.label)} se débloque au niveau ${l.level}.`);
+}, true);
+try { const c = JSON.parse(localStorage.getItem(StarterLocks.KEY) || "null"); if (c && Session.isLoggedIn()) StarterLocks.apply(c); } catch (e) { /* stockage indisponible */ }
+document.addEventListener("DOMContentLoaded", () => StarterLocks.refresh());
+
+// Infobulles des ressources (2026-10-18) : survol (ordinateur) ou appui
+// (mobile) sur une icone de ressource : a quoi elle sert, ou en trouver.
+// Dans un bouton ou un lien, seule l'infobulle du navigateur (title) s'affiche.
+document.addEventListener("mouseover", (e) => {
+  const img = e.target instanceof Element ? e.target.closest("img.ico-token") : null;
+  if (!img || img.title || typeof resKindOf !== "function") return;
+  const info = RES_INFO[resKindOf(img)];
+  if (info) img.title = info.name + " : " + info.use + " Où en trouver : " + info.where;
+});
+document.addEventListener("click", (e) => {
+  const img = e.target instanceof Element ? e.target.closest("img.ico-token") : null;
+  const old = document.querySelector(".res-pop");
+  if (old && !(e.target instanceof Element && e.target.closest(".res-pop"))) old.remove();
+  if (!img || img.closest("button, a, label, select, .inv-icon, [data-shop-buy]") || typeof resKindOf !== "function") return;
+  const info = RES_INFO[resKindOf(img)];
+  if (!info) return;
+  const pop = document.createElement("div");
+  pop.className = "res-pop";
+  pop.setAttribute("role", "tooltip");
+  pop.innerHTML = `<strong>${escHtml(info.name)}</strong><span>${escHtml(info.use)}</span><small>Où en trouver : ${escHtml(info.where)}</small>`;
+  document.body.appendChild(pop);
+  const r = img.getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px";
+  pop.style.top = (r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8) + "px";
+  setTimeout(() => pop.remove(), 6000);
+});
+
+// Tirer pour rafraichir (2026-10-18) : sur ecran tactile, en haut de la page,
+// tirer vers le bas recharge la page (le geste natif d'Android est coupe en CSS
+// pour avoir le meme partout). Jamais dans une fenetre ouverte ni un jeu en cours.
+(function () {
+  if (!("ontouchstart" in window)) return;
+  let startY = null, dy = 0, ind = null;
+  const blocked = (el) => !!(el && el.closest && el.closest(".card-modal-overlay, .ta-modal, .season-cine, .cine-overlay, .user-menu-dropdown.open, .inventory-panel, .fish-scene, .dig-board, input, textarea, select, [data-no-ptr]"));
+  document.addEventListener("touchstart", (e) => {
+    if (window.scrollY > 0 || e.touches.length !== 1 || blocked(e.target) || document.querySelector(".card-modal-overlay:not([hidden]), .ta-modal, .season-cine")) { startY = null; return; }
+    startY = e.touches[0].clientY; dy = 0;
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (startY == null) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy <= 0 || window.scrollY > 0) { if (ind) ind.style.opacity = "0"; return; }
+    if (!ind) { ind = document.createElement("div"); ind.className = "ptr-indicator"; ind.setAttribute("aria-hidden", "true"); document.body.appendChild(ind); }
+    const p = Math.min(1, dy / 110);
+    ind.style.opacity = String(p);
+    ind.style.transform = `translate(-50%, ${Math.min(70, dy / 2)}px) rotate(${Math.round(p * 270)}deg)`;
+    ind.classList.toggle("armed", dy > 110);
+    ind.textContent = "↻";
+  }, { passive: true });
+  document.addEventListener("touchend", () => {
+    if (startY == null) return;
+    const go = dy > 110 && window.scrollY <= 0;
+    startY = null;
+    if (go) { if (ind) ind.classList.add("loading"); if (typeof Haptics !== "undefined") Haptics.buzz(15); setTimeout(() => location.reload(), 150); }
+    else if (ind) { ind.style.opacity = "0"; }
+  });
+})();

@@ -38,7 +38,7 @@
       <div id="dig-pane" style="display:none;">
         <p class="lead" style="font-size:0.85rem;" id="dig-intro">Creuse les tuiles pour trouver des trésors cachés — certains sont étalés sur plusieurs tuiles, il faut toutes les creuser pour libérer l'objet. Chaque tuile coûte 1 point d'énergie.</p>
         <div class="dig-widget">
-          <span class="dig-icon" aria-hidden="true">&#9935;</span>
+          <span class="dig-icon" aria-hidden="true"><img id="dig-pick-img" src="assets/Fouille/Pioche_01.PNG" alt="" /></span>
           <div class="dig-status">
             <div id="dig-energy-bar" class="dig-energy-bar"></div>
             <div id="dig-status-text" class="skeleton-line">Chargement...</div>
@@ -53,9 +53,14 @@
           </div>
           <div class="dig-kennel-actions">
             <button type="button" class="btn-secondary" id="dig-buy-bone-btn"></button>
-            <button type="button" class="btn" id="dig-use-bone-btn">&#129460; Envoyer Milo</button>
+            <button type="button" class="btn" id="dig-use-bone-btn"><img class="ico-token" src="assets/Os.PNG" alt="" /> Envoyer Milo</button>
             <button type="button" class="btn-secondary dig-frenzy-btn" id="dig-frenzy-btn" hidden></button>
           </div>
+        </div>
+        <div class="dig-depths" id="dig-depths" role="radiogroup" aria-label="Profondeur de fouille"></div>
+        <div class="dig-tools">
+          <div class="dig-bag" id="dig-bag"></div>
+          <div class="dig-shop" id="dig-shop" data-shop-strip="fouille"></div>
         </div>
         <div class="dig-site">
           <div id="dig-board" class="dig-board"></div>
@@ -64,7 +69,7 @@
       </div>
 
       <div id="guess-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;">Chaque jour, une nouvelle carte à reconnaître à partir d'un zoom sur son illustration — la même pour tout le monde. Un seul essai par jour : une bonne réponse rapporte des poussières et allonge ta série.</p>
+        <p class="lead" style="font-size:0.85rem;">Chaque jour, 5 cartes à reconnaître à partir d'un zoom sur leur illustration — les mêmes pour tout le monde. 3 essais par carte : à chaque erreur, le zoom recule (et le gain baisse). Trouve une carte que tu n'as pas pour gagner un <strong>bon de craft</strong> sur elle !</p>
         <div class="guess-game">
           <div class="guess-frame" id="guess-frame">
             <img id="guess-img" class="guess-img" src="" alt="Illustration mystère" />
@@ -78,8 +83,9 @@
       </div>
 
       <div id="expedition-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;">Envoie une de tes cartes en expédition, puis reviens récupérer son butin. Plus l'expédition est longue, plus elle rapporte — et une carte plus rare ramène davantage de poussières. La carte reste dans ta collection pendant ce temps.</p>
+        <p class="lead" style="font-size:0.85rem;">Choisis une destination et envoie une de tes cartes l'explorer. Chaque lieu ramène des ressources pour les autres jeux (vers, os, minéraux, clés…), plus des poussières. Chaque jour, chaque lieu a une rareté et une extension favorites : un explorateur qui correspond ramène plus de ressources. La carte reste dans ta collection pendant ce temps.</p>
         <div class="skill-level" id="expe-level" hidden></div>
+        <div data-shop-strip="expedition"></div>
         <div id="expedition-zone"><div class="skeleton-line">Chargement...</div></div>
         <section class="duo-expedition panel" id="duo-expedition" hidden></section>
       </div>
@@ -97,29 +103,57 @@
       </div>
 
       <div id="fish-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;">Chaque lancer coûte un <strong>ver de terre</strong> &#129713; : tu en trouves dans la terre qui reste à la fin d'une grille de fouille. Avec de la chance, tu remontes un os pour Milo, une clé, un booster, un coffre ou une pièce détachée (remplace un exemplaire dans l'atelier Finitions / Qualité). Plus tu pêches, plus ton niveau monte.</p>
-        <div class="fish-scene" id="fish-scene" aria-live="polite">
-          <div class="fish-sky" aria-hidden="true"></div>
-          <div class="fish-weather-fx" aria-hidden="true"></div>
-          <div class="fish-water" aria-hidden="true"><span class="fish-wave w1"></span><span class="fish-wave w2"></span><span class="fish-wave w3"></span>
-            <span class="fish-swim s1">&#128031;</span><span class="fish-swim s2">&#128032;</span><span class="fish-swim s3">&#128031;</span><span class="fish-swim s4 gold">&#128032;</span>
+        <p class="lead" style="font-size:0.85rem;" id="fish-intro">Lance ta ligne et ferre au bon moment quand ça mord. Chaque lancer coûte un <strong>ver de terre</strong> <img class="ico-token" src="assets/P%C3%AAche/Vers.png" alt="" /> (trouvé dans la terre restante d'une grille de fouille) et 1 point d'énergie. Avec de la chance : os pour Milo, clé, booster, coffre, pièce détachée, et des poissons pour l'aquarium.</p>
+        <div class="dig-widget fish-widget">
+          <span class="dig-icon" aria-hidden="true">&#127907;</span>
+          <div class="dig-status">
+            <div id="fish-energy-bar" class="dig-energy-bar fish-energy-bar"></div>
+            <div id="fish-energy-text" class="skeleton-line">Chargement...</div>
           </div>
-          <div class="fish-rod" id="fish-rod" aria-hidden="true"></div>
-          <div class="fish-weather" id="fish-weather"></div>
-          <div class="fish-line" id="fish-line" aria-hidden="true"><span class="fish-bobber"></span></div>
-          <div class="fish-status" id="fish-status">Prêt à pêcher</div>
-          <div class="fish-catch" id="fish-catch" hidden></div>
         </div>
         <div class="skill-level" id="fish-level" hidden></div>
-        <div class="fish-zones" id="fish-zones" role="radiogroup" aria-label="Zone de pêche"></div>
-        <div class="fish-extras" id="fish-extras"></div>
-        <div class="fish-controls">
-          <button type="button" class="btn" id="fish-cast-btn">&#127907; Lancer</button>
-          <button type="button" class="btn-secondary" id="fish-cast5-btn">Lancer ×5</button>
-          <button type="button" class="btn-ghost" id="fish-castall-btn" hidden></button>
-          <span class="fish-meta" id="fish-meta"></span>
+        <div data-shop-strip="peche"></div>
+        <div id="fish-cat" class="dig-kennel fish-cat" hidden>
+          <span class="fish-cat-pic" id="fish-cat-pic" aria-hidden="true">&#128008;</span>
+          <div class="dig-kennel-body">
+            <div class="dig-kennel-title">Moka le chat &#127907; <span class="dig-kennel-bones fish-cat-count" id="fish-cat-count"></span></div>
+            <div class="dig-kennel-text" id="fish-cat-text"></div>
+          </div>
+          <div class="dig-kennel-actions">
+            <button type="button" class="btn" id="fish-cat-feed1">&#128031; Donner 1 poisson</button>
+            <button type="button" class="btn-secondary" id="fish-cat-feedmax" hidden></button>
+          </div>
         </div>
-        <div class="fish-log" id="fish-log"></div>
+        <div class="fish-site">
+          <div class="fish-zones" id="fish-zones" role="radiogroup" aria-label="Zone de pêche"></div>
+          <div class="fish-extras" id="fish-extras"></div>
+          <div class="fish-scene" id="fish-scene" aria-live="polite">
+            <div class="fish-sky" aria-hidden="true"></div>
+            <div class="fish-weather-fx" aria-hidden="true"></div>
+            <div class="fish-water" aria-hidden="true"><span class="fish-wave w1"></span><span class="fish-wave w2"></span><span class="fish-wave w3"></span>
+              <span class="fish-swim s1"><img src="assets/P%C3%AAche/Poisson_17.png" alt="" /></span><span class="fish-swim s2"><img src="assets/P%C3%AAche/Poisson_18.png" alt="" /></span><span class="fish-swim s3"><img src="assets/P%C3%AAche/Poisson_19.png" alt="" /></span><span class="fish-swim s4 gold"><img src="assets/P%C3%AAche/Poisson_1.png" alt="" /></span>
+            <span class="fish-beach" aria-hidden="true"><img src="assets/P%C3%AAche/Coquillage.PNG" alt="" /><img src="assets/P%C3%AAche/EtoileDeMer_1.png" alt="" /><img src="assets/P%C3%AAche/Shell.png" alt="" /><img src="assets/P%C3%AAche/PerlesNacres.png" alt="" /><img src="assets/P%C3%AAche/EtoileDeMer_2.png" alt="" /><img src="assets/P%C3%AAche/EtoileDeMer_3.png" alt="" /></span>
+            </div>
+            <div class="fish-rod" id="fish-rod" aria-hidden="true"></div>
+            <div class="fish-cat-sit" id="fish-cat-sit" aria-hidden="true" hidden><span class="fish-cat-rod"></span><span class="fish-cat-body">&#128008;</span></div>
+            <div class="fish-weather" id="fish-weather"></div>
+            <div class="fish-line" id="fish-line" aria-hidden="true"><span class="fish-bobber"></span></div>
+            <div class="fish-status" id="fish-status">Prêt à pêcher</div>
+            <div class="fish-catch" id="fish-catch" hidden></div>
+          </div>
+          <div class="fish-controls">
+            <button type="button" class="btn" id="fish-cast-btn">&#127907; Lancer</button>
+            <button type="button" class="btn-secondary" id="fish-cast5-btn">Lancer ×5</button>
+            <button type="button" class="btn-ghost" id="fish-castall-btn" hidden></button>
+            <span class="fish-meta" id="fish-meta"></span>
+          </div>
+          <div class="fish-log" id="fish-log"></div>
+        </div>
+        <details class="fish-table-wrap fish-aquarium-wrap" id="fish-aquarium-wrap">
+          <summary>&#128032; Aquarium <span class="themes-count" id="fish-aquarium-count"></span></summary>
+          <p class="lead" style="font-size:0.82rem;">En plus de ta prise, tu remontes parfois un poisson vivant : 24 espèces à collectionner, certaines seulement par une météo ou à une heure précise. Chaque poisson est revendu en poussières, et son record de taille est gardé. Ferre au bon moment pour attraper plus gros et plus rare (plus dur quand tu lances beaucoup de vers d'un coup) !</p>
+          <div class="fish-aquarium" id="fish-aquarium"></div>
+        </details>
         <details class="fish-table-wrap fish-book-wrap">
           <summary>&#128214; Carnet de pêche</summary>
           <div class="fish-book" id="fish-book"></div>
@@ -131,9 +165,10 @@
       </div>
 
       <div id="garden-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;">Plante, attends que ça pousse, récolte : des <strong>vers de terre</strong> pour la pêche et, avec un peu de chance, un <strong>appât doré</strong> &#10024;&#129713; (aucune prise vide et prises rares multipliées pour un lancer).</p>
+        <p class="lead" style="font-size:0.85rem;">Plante, attends que ça pousse, récolte : des <strong>vers de terre</strong> pour la pêche et, avec un peu de chance, un <strong>appât doré</strong> <img class="ico-token" src="assets/ElixirDePeche.PNG" alt="" /> (aucune prise vide et prises rares multipliées pour un lancer).</p>
         <div class="garden-meta" id="garden-meta"></div>
         <div class="skill-level" id="garden-level" hidden></div>
+        <div data-shop-strip="jardin"></div>
         <div class="garden-seeds" id="garden-seeds" role="radiogroup" aria-label="Graine à planter"></div>
         <div class="garden-plots" id="garden-plots"></div>
         <div class="garden-actions">
@@ -158,21 +193,20 @@
       </div>
 
       <div id="vault-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;">Une carte promo arc-en-ciel est enfermée dans le coffre-fort de l'association. Il faut <strong>6 clefs secrètes</strong> pour l'ouvrir — trouvables en fouillant ou à la roue quotidienne.</p>
+        <p class="lead" style="font-size:0.85rem;" id="vault-intro">Une carte promo arc-en-ciel est enfermée dans la cage du coffre-fort, fermée par <strong>6 cadenas</strong>. Chaque clef secrète (fouille, roue quotidienne…) fait sauter un cadenas : clique dessus !</p>
         <div id="vault-locked" class="vault-scene">
           <div class="vault-card-frame">
             <img id="vault-card-img" class="vault-card-img" src="" alt="" />
             <div class="vault-bars" aria-hidden="true"></div>
-            <div class="vault-lock-icon" aria-hidden="true">&#128274;</div>
+            <div class="vault-padlocks" id="vault-padlocks" role="group" aria-label="Cadenas de la cage"></div>
           </div>
           <div id="vault-card-name" class="vault-card-name skeleton-line">Chargement...</div>
-          <div class="vault-keys-track"><div id="vault-keys-fill" class="vault-keys-fill"></div></div>
           <div id="vault-keys-label" class="vault-keys-label"></div>
-          <button type="button" class="btn" id="vault-open-btn" style="display:none;">&#128273; Ouvrir le coffre (6 clefs)</button>
         </div>
-        <div id="vault-opened" class="vault-opened-banner" style="display:none;">
-          <img id="vault-opened-img" class="vault-opened-img" src="" alt="" />
-          <div class="vault-opened-text">&#127881; Tu as déjà ouvert le coffre-fort : <strong id="vault-opened-name"></strong> est à toi pour toujours.</div>
+        <div id="vault-opened" class="vault-empty" style="display:none;">
+          <div class="vault-empty-safe" aria-hidden="true"><span class="vault-empty-door"></span><span class="vault-empty-dust">&#10024;</span></div>
+          <p class="vault-empty-text">Le coffre-fort est vide : <strong id="vault-opened-name"></strong> est libre et t'attend dans ton coffre personnel.</p>
+          <a class="btn" href="coffre.html">&#128274; Aller à mon coffre personnel</a>
         </div>
       </div>
     </div>
@@ -184,6 +218,7 @@
   <script src="js/core.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/shop-strip.js"></script>
   <script src="js/jeux.js"></script>
   <script src="js/jeux-summary.js"></script>
   <script src="js/jeux-duo.js"></script>

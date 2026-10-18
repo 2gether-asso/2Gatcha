@@ -20,13 +20,17 @@ import { refId, now, ok, fail, userById, parisDay, parisHour, parseJson as parse
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { grantCosmetic } from './cosmetics.js';
+import { PATCH_NOTES } from './patchnotes.js';
 
 export const schema = {
   Users: {
     BoxDay: { type: 'Text' }, DiceDay: { type: 'Text' }, DiceFace: { type: 'Numeric' }, LuckyHitWeek: { type: 'Text' },
     LastSeenAt: { type: 'Numeric' }, ReturnPending: { type: 'Text' },
     EveningDay: { type: 'Text' }, EveningProgress: { type: 'Text' }, EveningClaimed: { type: 'Text' }
-  }
+  },
+  // Date de sortie d'une extension (2026-10-17) : posee automatiquement quand
+  // elle devient active, pour annoncer le nouveau booster aux joueurs qui reviennent.
+  Extensions: { ReleasedAt: { type: 'Numeric' } }
 };
 
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -94,8 +98,8 @@ function handleDice({ store, body }) {
 }
 
 // --- boite du jour ------------------------------------------------------------
-const BOX_LABEL = { dust: 'poussières', worms: 'vers de terre', bait: 'appât doré', key: 'clé', part: 'pièce détachée', booster: 'booster', chest: 'coffre', cosmetic: 'cosmétique' };
-const BOX_ICON = { dust: '✨', worms: '🪱', bait: '🪝', key: '🔑', part: '🔩', booster: '🎴', chest: '🧰', cosmetic: '🎨' };
+const BOX_LABEL = { dust: 'poussières', worms: 'vers de terre', bait: 'appât doré', key: 'clé', part: 'pièce détachée', booster: 'booster', chest: 'pièce de gatchapon', cosmetic: 'cosmétique' };
+const BOX_ICON = { dust: '✨', worms: '🪱', bait: '🪝', key: '🔑', part: '🔩', booster: '🎴', chest: '🪙', cosmetic: '🎨' };
 const BOX_FIELD = { dust: 'StardustCount', worms: 'Worms', bait: 'GoldBait', key: 'KeyCount', part: 'SpareParts', booster: 'BoosterCount', chest: 'ChestCount' };
 
 function handleBox({ store, body }) {
@@ -136,16 +140,26 @@ function handleBox({ store, body }) {
 
 // --- bonus de retour --------------------------------------------------------------
 // Nouveautes annoncees aux joueurs de retour (les plus recentes d'abord).
-const CHANGELOG = [
-  { date: '2026-10-07', text: 'Maîtrise des extensions, talents, constellations, cartes ★, rangs de compte' },
-  { date: '2026-10-07', text: 'Boîte du jour, dé du jour, heures de chance, missions du soir, enchères, contrats de collection' },
-  { date: '2026-10-05', text: 'Défis de la semaine, objectif commun, boutique de cosmétiques, jardin, grande fouille commune' },
-  { date: '2026-10-05', text: 'Pêche aux vers de terre, niveaux de pêche et de fouille, cartes Unique au Comptoir' },
-  { date: '2026-10-04', text: 'Saisons mensuelles, coffres, notifications push, collection et atelier réunis' }
-];
+// Nouvelles du colis de retour : les notes de mise a jour (patchnotes.js).
+const CHANGELOG = PATCH_NOTES.flatMap((n) => n.items.map((text) => ({ date: n.date, text })));
+
+// Extensions actives sans date de sortie : datees maintenant. La toute premiere
+// fois (aucune extension datee), les existantes sont marquees anciennes (1)
+// pour ne pas toutes les annoncer comme nouvelles.
+let extStampAt = 0;
+export function stampExtensions(store, force = false) {
+  const t = now();
+  if (!force && t - extStampAt < 60) return;
+  extStampAt = t;
+  if (!store.tables.has('Extensions')) return;
+  const exts = store.getAll('Extensions');
+  const first = !exts.some((e) => Number(e.ReleasedAt) > 0);
+  exts.forEach((e) => { if (!(Number(e.ReleasedAt) > 0) && (first || e.Active)) store.update('Extensions', e.id, { ReleasedAt: first ? 1 : t }); });
+}
 
 // Appele a chaque requete d'un joueur : retient la derniere visite.
 export function touch(store, userId) {
+  stampExtensions(store);
   const user = store.get('Users', userId);
   if (!user) return;
   const t = now();
@@ -167,7 +181,9 @@ function welcomeState(store, user) {
   const gift = { boosters: Math.min(6, 1 + Math.floor(days / 7)), dust: Math.min(600, 25 * days) };
   const news = CHANGELOG.filter((c) => c.date >= sinceDay).map((c) => c.text);
   const newCards = store.getAll('Cards').filter((c) => c.Active && Number(c.CreatedAt) > since).length;
-  return { pending: true, days, since, gift, news, newCards };
+  // Boosters sortis pendant l'absence (bandeau du "bon retour").
+  const newBoosters = store.tables.has('Extensions') ? store.getAll('Extensions').filter((e) => e.Active && Number(e.ReleasedAt) > since).sort((a, b) => b.ReleasedAt - a.ReleasedAt).map((e) => ({ id: e.id, name: e.Name })) : [];
+  return { pending: true, days, since, gift, news, newCards, newBoosters };
 }
 
 function handleWelcome({ store, body }) {
@@ -273,7 +289,7 @@ export function afterWorkflow({ store, path, request, response }) {
   if (!response.json.cards.some((c) => c.rarity && ['legendaire', 'mythique'].includes(c.rarity.key))) return;
   store.update('Users', user.id, { LuckyHitWeek: week, ChestCount: (Number(user.ChestCount) || 0) + 1, KeyCount: (Number(user.KeyCount) || 0) + 1 });
   response.json.luckyHit = { chests: 1, keys: 1 };
-  response.json.notices = [...(response.json.notices || []), { kind: 'lucky', icon: '🍀', label: 'Coup de chance de la semaine : ta 1re légendaire te rapporte un coffre et sa clé !' }];
+  response.json.notices = [...(response.json.notices || []), { kind: 'lucky', icon: '🍀', label: 'Coup de chance de la semaine : ta 1re légendaire te rapporte une pièce de gatchapon et une clé !' }];
 }
 
 // --- tout le quotidien en un appel (accueil) -------------------------------------

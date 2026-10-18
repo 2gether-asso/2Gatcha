@@ -40,7 +40,6 @@ let masteryByExt = new Map();
 // Pity par rarete (api/src/native/pity.js) et booster mystere (2026-10-09).
 let rarityPity = [];
 // Booster muri et heure doree (api/src/native/comfort.js), lus dans booster-status.
-let ripeInfo = null;
 let goldenInfo = null;
 const MYSTERY = { id: "mystery", name: "Booster mystère", mystery: true, packImageId: null, cardBackImageId: null };
 // Simulateur admin (2026-10-05, js/opening-sim.js) : quand il est actif, les
@@ -407,7 +406,7 @@ function onAllRevealed() {
     hint.textContent = "Toutes les cartes sont révélées !";
   }
   if (boosterCount > 0 && lastOpenMode !== "sim") {
-    Toast.info(`Il te reste ${boosterCount} booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}.`);
+    Toast.info(`Il te reste ${boosterCount} jeton${boosterCount > 1 ? "s" : ""} booster disponible${boosterCount > 1 ? "s" : ""}.`);
   }
 
 
@@ -430,11 +429,16 @@ function onAllRevealed() {
   if (openAnotherBtn && lastOpenMode === "chest") {
     const can = chestAvail() > 0;
     const again = Math.min(chestOpenCount, chestAvail());
-    openAnotherBtn.innerHTML = can ? (again > 1 ? `&#129520; Ouvrir encore ×${again} (${chestState.chests} restant${chestState.chests > 1 ? "s" : ""})` : `&#129520; Ouvrir un autre coffre (${chestState.chests} restant${chestState.chests > 1 ? "s" : ""})`) : "";
+    const left = chestTier ? (tierInfo(chestTier)?.balls || 0) : chestState.chests;
+    const label = chestTier ? escHtml(tierInfo(chestTier)?.name || "coffre") : "coffre";
+    openAnotherBtn.innerHTML = can ? (again > 1 ? `&#129520; Ouvrir encore ×${again} (${left} restant${left > 1 ? "s" : ""})` : `&#129520; Ouvrir un autre ${label} (${left} restant${left > 1 ? "s" : ""})`) : "";
     openAnotherBtn.style.display = can ? "inline-flex" : "none";
   } else if (openAnotherBtn) {
     if (lastOpenedExtension && lastOpenMode === "sim") {
       openAnotherBtn.textContent = `${String.fromCodePoint(129514)} Simuler un autre booster`;
+      openAnotherBtn.style.display = "inline-flex";
+    } else if (window.BoosterCart && BoosterCart.next() != null) {
+      openAnotherBtn.innerHTML = `&#9654; Suivant : ${escHtml(BoosterCart.nameOf(BoosterCart.next()))}`;
       openAnotherBtn.style.display = "inline-flex";
     } else if (lastOpenedExtension && boosterCount > 0) {
       const icon = String.fromCodePoint(128257);
@@ -668,9 +672,13 @@ function stopAmbientParticles() {
 
 function renderBoosterCountLabel() {
   const el = document.getElementById("booster-count-label");
+  // Distributeur (2026-10-17) : les boosters disponibles sont des jetons.
+  const tok = document.getElementById("vending-tokens");
+  if (tok) { tok.textContent = String(boosterCount); tok.nextElementSibling.textContent = `jeton${boosterCount > 1 ? "s" : ""}`; }
   if (!el) return;
-  el.innerHTML = `<span class="credit-value">${boosterCount}</span> booster${boosterCount > 1 ? "s" : ""} disponible${boosterCount > 1 ? "s" : ""}`
-    + (ripeInfo && ripeInfo.max && boosterCount && !simMode ? `<span class="ripe-chip ${ripeInfo.points ? "on" : ""}" title="Chaque jour sans ouvrir de booster ajoute +1 point de chance de finition spéciale au suivant (${ripeInfo.max} au plus).">&#127815; ${ripeInfo.points ? `Booster mûri : +${ripeInfo.points} pt${ripeInfo.points > 1 ? "s" : ""} de finition` : "Garde-le un jour : il mûrit"}</span>` : "");
+  // Le solde est affiche par le monnayeur du distributeur ; le booster mur se
+  // gere dans le murissoir (js/ripen.js : lots sous le monnayeur).
+  el.innerHTML = "";
 }
 
 function renderExtensionPicker() {
@@ -694,7 +702,7 @@ function renderExtensionPicker() {
   let lastId = null;
   try { lastId = localStorage.getItem("2gatcha_last_ext"); } catch (e) { /* stockage indisponible */ }
   const ordered = [...extensionsCache].sort((a, b) => (String(b.id) === lastId) - (String(a.id) === lastId));
-  el.innerHTML = mysteryTile + ordered.map((ext) => {
+  el.innerHTML = mysteryTile + ordered.map((ext, slot) => {
     const img = API.imageUrl(ext.packImageId);
     const backImg = API.imageUrl(ext.cardBackImageId);
     const pity = pityByExt.get(ext.id) || 0;
@@ -703,6 +711,7 @@ function renderExtensionPicker() {
     const progress = extProgressByExt.get(ext.id);
     return `
       <div class="extension-tile ${disabled ? "disabled" : ""} ${String(ext.id) === lastId ? "last-opened" : ""}" data-ext-id="${ext.id}">
+        <span class="vend-code" aria-hidden="true">${String.fromCharCode(65 + Math.floor(slot / 4))}${(slot % 4) + 1}</span>
         ${String(ext.id) === lastId ? '<span class="last-opened-badge">&#8634; Dernière ouverte</span>' : ""}
         <div class="ext-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster ' + ext.name.replace(/"/g, "&quot;") + '"'}>
           ${img ? `<img class="ext-art-front" src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
@@ -722,16 +731,19 @@ function renderExtensionPicker() {
 
   const tileExt = (tile) => (tile.dataset.extId === "mystery" ? "mystery" : Number(tile.dataset.extId));
   el.querySelectorAll(".extension-tile:not(.disabled)").forEach((tile) => {
+    // Distributeur (2026-10-18) : une case ajoute un booster au panier (opening-cart.js).
+    const pick = () => (window.BoosterCart ? BoosterCart.add(tileExt(tile)) : openModalFor(tileExt(tile)));
     tile.addEventListener("click", (e) => {
       if (e.target.closest(".set-summary-link")) return;
-      openModalFor(tileExt(tile));
+      pick();
     });
     tile.addEventListener("keydown", (e) => {
       if ((e.key !== "Enter" && e.key !== " ") || !e.target.closest(".ext-art")) return;
       e.preventDefault();
-      openModalFor(tileExt(tile));
+      pick();
     });
   });
+  if (window.BoosterCart) BoosterCart.render();
   el.querySelectorAll(".set-summary-link").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -801,7 +813,6 @@ async function refreshStatus() {
     extensionsCache = (extRes.extensions || []).filter((e) => e.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     boosterCount = statusRes.count || 0;
     pityThreshold = statusRes.pityThreshold || 0;
-    ripeInfo = statusRes.ripeness || null;
     goldenInfo = statusRes.golden || null;
     pityByExt = new Map((statusRes.extensions || []).map((e) => [e.extensionId, e.pullsSinceTop || 0]));
     // Sert a detecter les doublons a la volee pendant le reveal (voir
@@ -1116,7 +1127,7 @@ async function startOpening(ext) {
         if (real) { mysteryNames.push(real.name); backImageId = backImageId || real.cardBackImageId; }
       }
       if (res.rarityPity) pityHits.push(res.rarityPity.name);
-      if (res.ripened) ripened = Math.max(ripened, res.ripened);
+      if (res.ripened) ripened = res.ripened;
       if (res.bet) { betNet += res.bet.won ? res.bet.payout - res.bet.stake : -res.bet.stake; betWins += res.bet.won ? 1 : 0; bets++; }
       if (res.luckyOpen) luckyOpen = true;
       if (res.edge) edge++;
@@ -1134,7 +1145,7 @@ async function startOpening(ext) {
           pack.classList.remove("charging");
           skipHint.classList.remove("visible");
           await refreshStatus();
-          Toast.error("Plus de booster disponible pour l'instant.");
+          Toast.error("Plus de jeton booster pour l'instant.");
           isBusy = false;
           closeModal();
           return;
@@ -1222,7 +1233,10 @@ async function startOpening(ext) {
     if (forged) lastPackTags.push({ kind: "shiny", html: `&#128293; ${forged} arc-en-ciel forgée${forged > 1 ? "s" : ""} dans les flammes !`, short: "forgée" });
     if (finishLost) lastPackTags.push({ kind: "sim", html: `&#128293; Mode Hard : ${finishLost} finition${finishLost > 1 ? "s" : ""} brûlée${finishLost > 1 ? "s" : ""}`, short: "brûlée" });
     if (luckyDup) lastPackTags.push({ kind: "bonus", html: `&#127808; ${luckyDup} doublon${luckyDup > 1 ? "s" : ""} changé${luckyDup > 1 ? "s" : ""} en carte manquante`, short: "porte-bonheur" });
-    if (ripened) lastPackTags.push({ kind: "bonus", html: `&#127815; Booster mûri : +${ripened} pt${ripened > 1 ? "s" : ""} de finition`, short: "mûri" });
+    if (ripened) {
+      lastPackTags.push({ kind: "bonus", html: `${ripened.icon || "&#127815;"} Booster ${escHtml(String(ripened.label || "mûr").toLowerCase())} : +${ripened.finish} pts de finition${ripened.guaranteed ? " · finition spéciale garantie" : ""}`, short: "mûr" });
+      document.dispatchEvent(new CustomEvent("ripen:refresh"));
+    }
     if (pityHits.length) lastPackTags.push({ kind: "pity", html: `&#127919; ${[...new Set(pityHits)].join(", ")} garantie (pity)`, short: "pity" });
     renderPackTags(lastPackTags);
     pack.classList.add("tearing");
@@ -1266,6 +1280,7 @@ async function startOpening(ext) {
 
     lastRevealedCards = allCards;
     sessionBatchIds = batchIds;
+    if (window.BoosterCart && !sim) BoosterCart.consumed(ext.id, quantity);
     stackIndex = 0;
     stackCardEls = allCards.map((card, i) => {
       const el = buildCardEl(card, i, backImageId);
@@ -1307,35 +1322,84 @@ let lastOpenMode = "pack";
 // Nombre de coffres de la prochaine ouverture (plusieurs d'un coup, 2026-10-15).
 let chestOpenCount = 1;
 const CHEST_MAX_BATCH = 20;
-const chestAvail = () => (chestState ? Math.min(chestState.chests, chestState.keys, CHEST_MAX_BATCH) : 0);
-const CHEST_ERRORS = { not_enough_dust: "Pas assez de poussières.", no_chest: "Tu n'as pas de coffre.", no_key: "Il te faut une clé pour ouvrir un coffre." };
+// Gatchapon (2026-10-18) : palier du coffre en cours d'ouverture (boule du bac).
+let chestTier = null;
+const CHEST_ART = (t) => `assets/Coffres/${t === 4 ? "4.png" : t + ".PNG"}`;
+const tierInfo = (t) => (chestState && chestState.tiers ? chestState.tiers.find((x) => x.tier === t) : null);
+const chestAvail = () => (chestState ? Math.min(chestTier ? (tierInfo(chestTier)?.balls || 0) : chestState.chests, chestState.keys, CHEST_MAX_BATCH) : 0);
+const CHEST_ERRORS = { not_enough_dust: "Pas assez de poussières.", no_chest: "Plus de pièce de gatchapon : achètes-en ou gagne des coffres en jouant.", no_ball: "Plus de boule de ce coffre.", no_key: "Il te faut une clé pour ouvrir un coffre." };
 
 function renderChests() {
   const panel = document.getElementById("chest-panel");
   if (!panel || !chestState) return;
   const st = chestState;
   panel.style.display = "";
-  document.getElementById("chest-count").innerHTML = `&#129520; ${st.chests} coffre${st.chests > 1 ? "s" : ""}`;
-  document.getElementById("chest-keys").innerHTML = `&#128273; ${st.keys} clé${st.keys > 1 ? "s" : ""}`;
-  document.getElementById("chest-next").textContent = `Prochain coffre offert au niveau ${st.nextChestLevel}, prochaine clé au niveau ${st.nextKeyLevel} (tu es niveau ${st.level}).`;
-  const openBtn = document.getElementById("chest-open-btn");
-  const avail = chestAvail();
-  openBtn.disabled = avail < 1;
-  openBtn.title = st.chests < 1 ? "Aucun coffre" : st.keys < 1 ? "Il te faut une clé" : "";
-  // Plusieurs d'un coup : autant que de coffres ET de clés (20 au plus).
-  const open5 = document.getElementById("chest-open5-btn");
-  open5.hidden = avail < 5;
-  const openAll = document.getElementById("chest-openall-btn");
-  openAll.hidden = avail < 2 || avail === 5;
-  openAll.innerHTML = `Tout ouvrir (×${avail})`;
-  openAll.title = st.chests > st.keys ? `Limité par tes clés (${st.keys})` : st.chests > CHEST_MAX_BATCH ? `${CHEST_MAX_BATCH} coffres au plus d'un coup` : "";
+  const tiers = st.tiers || [];
+  document.getElementById("chest-count").innerHTML = `<img class="ico-token" src="assets/Pi%C3%A8ceKraken.PNG" alt="" /> ${st.chests} pièce${st.chests > 1 ? "s" : ""}`;
+  document.getElementById("chest-keys").innerHTML = `${resIcon("key")} ${st.keys} clé${st.keys > 1 ? "s" : ""}`;
+  document.getElementById("chest-next").textContent = `Prochaine pièce offerte au niveau ${st.nextChestLevel}, prochaine clé au niveau ${st.nextKeyLevel} (tu es niveau ${st.level}).`;
+  // Dome : une boule de chaque coffre (decor).
+  const dome = document.getElementById("gatcha-dome");
+  if (dome && !dome.childElementCount) dome.innerHTML = tiers.map((t, i) => `<span class="gatcha-ball" style="--c:${t.color};--i:${i}"><img src="${CHEST_ART(t.tier)}" alt="" /></span>`).join("");
+  const spin = document.getElementById("gatcha-spin-btn");
+  spin.disabled = st.chests < 1;
+  const spin5 = document.getElementById("gatcha-spin5-btn");
+  spin5.hidden = st.chests < 2;
+  spin5.textContent = `×${Math.min(5, st.chests)}`;
+  // Bac : boules gagnees, par palier.
+  const owned = tiers.filter((t) => t.balls > 0).sort((a, b) => b.tier - a.tier);
+  document.getElementById("gatcha-tray").innerHTML = owned.length
+    ? `<h3>Tes boules <small>${st.balls} coffre${st.balls > 1 ? "s" : ""} à ouvrir</small></h3><div class="gatcha-tray-grid">${owned.map((t) => {
+        const n = Math.min(t.balls, st.keys, CHEST_MAX_BATCH);
+        return `<div class="gatcha-tier" style="--c:${t.color}">
+          <img src="${CHEST_ART(t.tier)}" alt="" />
+          <strong>${escHtml(t.name)}</strong><small>×${t.balls} · butin ×${t.mult}</small>
+          <button type="button" class="btn" data-open-tier="${t.tier}" data-n="1" ${st.keys < 1 ? "disabled" : ""}><span>Ouvrir (1 ${resIcon("key")})</span></button>
+          ${n > 1 ? `<button type="button" class="btn-ghost" data-open-tier="${t.tier}" data-n="${n}">Tout ouvrir (×${n})</button>` : ""}
+        </div>`;
+      }).join("")}</div>${st.keys < 1 ? '<p class="gatcha-nokey">Il te faut des clés pour ouvrir tes coffres (niveaux, pêche, roue quotidienne…).</p>' : ""}`
+    : `<p class="gatcha-empty">Ton bac est vide : glisse une pièce pour faire tomber une boule.</p>`;
+  document.getElementById("gatcha-odds").innerHTML = `<table class="gatcha-odds"><thead><tr><th>Coffre</th><th>Chance</th><th>Butin</th></tr></thead><tbody>${tiers.map((t) => `<tr><td><img src="${CHEST_ART(t.tier)}" alt="" /> ${escHtml(t.name)}</td><td>${t.chance} %</td><td>×${t.mult}</td></tr>`).join("")}</tbody></table>`;
   const buyBtn = document.getElementById("chest-buy-btn");
-  buyBtn.innerHTML = `Acheter un coffre (${st.cost} &#10024;)`;
+  buyBtn.innerHTML = `Acheter une pièce (${st.cost} &#10024;)`;
   buyBtn.disabled = st.stardust < st.cost;
   buyBtn.title = st.stardust < st.cost ? `Il te faut ${st.cost} poussières (tu en as ${st.stardust})` : "";
   const buy5 = document.getElementById("chest-buy5-btn");
   buy5.innerHTML = `Acheter ×5 (${st.cost * 5} &#10024;)`;
   buy5.disabled = st.stardust < st.cost * 5;
+}
+
+// Manivelle : chaque piece fait tomber une boule (la plus rare montree).
+async function spinGatcha(n = 1) {
+  if (isBusy || !chestState || chestState.chests < 1) return;
+  isBusy = true;
+  const crank = document.getElementById("gatcha-crank");
+  const drop = document.getElementById("gatcha-drop");
+  const dome = document.getElementById("gatcha-dome");
+  crank.classList.add("turning");
+  dome.classList.add("shaking");
+  drop.hidden = true;
+  try {
+    const [res] = await Promise.all([API.chests(Session.userId, "spin", Math.min(n, chestState.chests)), wait(900)]);
+    chestState = res;
+    const best = [...res.drawn].sort((a, b) => b.tier - a.tier)[0];
+    drop.style.setProperty("--c", best.color);
+    drop.innerHTML = `<img src="${CHEST_ART(best.tier)}" alt="" />`;
+    drop.hidden = false;
+    drop.classList.remove("fall"); void drop.offsetWidth; drop.classList.add("fall");
+    if (typeof Sfx !== "undefined" && Sfx.reveal) Sfx.reveal(best.tier >= 7 ? "legendaire" : best.tier >= 5 ? "epique" : "rare");
+    const counts = new Map();
+    res.drawn.forEach((d) => counts.set(d.name, (counts.get(d.name) || 0) + 1));
+    Toast.success(`&#129689; ${[...counts].map(([name, c]) => `${c > 1 ? c + " × " : ""}${escHtml(name)}`).join(", ")} !`);
+    if (best.tier >= 7 && typeof confetti === "function") confetti({ particleCount: 140, spread: 100, colors: [best.color, "#ffffff", "#fde68a"], origin: { y: 0.6 } });
+    renderChests();
+  } catch (e) {
+    Toast.error(CHEST_ERRORS[e.code] || friendlyError(e));
+  } finally {
+    crank.classList.remove("turning");
+    dome.classList.remove("shaking");
+    isBusy = false;
+  }
 }
 
 function announceLevelGrant(g) {
@@ -1357,11 +1421,11 @@ async function loadChests() {
 
 async function buyChest(btn, n = 1) {
   const cost = chestState ? chestState.cost : 100;
-  if (!(await Confirm.show(n > 1 ? `Acheter <strong>${n} coffres</strong> pour <strong>${cost * n} poussières d'étoile</strong> ?` : `Acheter un coffre pour <strong>${cost} poussières d'étoile</strong> ?`, { title: n > 1 ? `Acheter ${n} coffres` : "Acheter un coffre", confirmText: "Acheter" }))) return;
+  if (!(await Confirm.show(n > 1 ? `Acheter <strong>${n} pièces de gatchapon</strong> pour <strong>${cost * n} poussières d'étoile</strong> ?` : `Acheter une pièce de gatchapon pour <strong>${cost} poussières d'étoile</strong> ?`, { title: n > 1 ? `Acheter ${n} coffres` : "Acheter un coffre", confirmText: "Acheter" }))) return;
   btn.disabled = true;
   try {
     chestState = await API.chests(Session.userId, "buy", n);
-    Toast.success(n > 1 ? `&#129520; ${n} coffres achetés !` : "&#129520; Coffre acheté !");
+    Toast.success(n > 1 ? `${resIcon("coin")} ${n} pièces de gatchapon achetées !` : resIcon("coin") + " Pièce de gatchapon achetée !");
     loadHeaderBoosterBadge();
   } catch (e) {
     Toast.error(CHEST_ERRORS[e.code] || friendlyError(e));
@@ -1370,7 +1434,8 @@ async function buyChest(btn, n = 1) {
 }
 
 // Meme modale que les boosters, avec un coffre a la place du pack.
-function openChestModal(count = 1) {
+function openChestModal(count = 1, tier = chestTier) {
+  chestTier = tier || null;
   if (isBusy || !chestState || chestAvail() < 1) return;
   chestOpenCount = Math.max(1, Math.min(count, chestAvail()));
   lastOpenMode = "chest";
@@ -1398,7 +1463,8 @@ function openChestModal(count = 1) {
   pack.style.visibility = "visible";
   pack.style.setProperty("--pity-ratio", "0");
   const many = chestOpenCount > 1;
-  pack.innerHTML = `<div class="booster-emoji chest-emoji">&#129520;${many ? `<span class="chest-multi">×${chestOpenCount}</span>` : ""}</div><div class="booster-title">${many ? `${chestOpenCount} coffres` : "Coffre"}</div><div class="booster-sub">&#128273; ${chestOpenCount} clé${many ? "s" : ""}</div>`;
+  const ti = chestTier ? tierInfo(chestTier) : null;
+  pack.innerHTML = `<div class="booster-emoji chest-emoji">${ti ? `<img class="chest-art" src="${CHEST_ART(ti.tier)}" alt="" />` : resIcon("chest")}${many ? `<span class="chest-multi">×${chestOpenCount}</span>` : ""}</div><div class="booster-title">${ti ? escHtml(ti.name) : many ? `${chestOpenCount} coffres` : "Coffre"}${ti && many ? ` ×${chestOpenCount}` : ""}</div><div class="booster-sub">${resIcon("key")} ${chestOpenCount} clé${many ? "s" : ""}</div>`;
   pack.classList.toggle("chest-many", many);
   document.getElementById("booster-hint").textContent = many ? `Tape pour ouvrir les ${chestOpenCount} coffres d'un coup` : "Tape sur le coffre pour l'ouvrir avec une clé";
   pack.onclick = () => { if (!isBusy) { Sfx.click(); startChestOpening(); } };
@@ -1422,7 +1488,7 @@ function openChestModal(count = 1) {
 function chestItemsToCards(items) {
   return items.map((it) => {
     if (it.type === "dust") return { lootType: "dust", cardId: 0, name: `+${it.amount} poussières`, rarity: { key: "commune", name: "Poussières", colorHex: "#f472b6" } };
-    if (it.type === "booster") return { lootType: "booster", cardId: 0, name: `+${it.count} booster${it.count > 1 ? "s" : ""}`, rarity: { key: "rare", name: "Booster", colorHex: "#22d3ee" } };
+    if (it.type === "booster") return { lootType: "booster", cardId: 0, name: `+${it.count} jeton${it.count > 1 ? "s" : ""} booster`, rarity: { key: "rare", name: "Booster", colorHex: "#22d3ee" } };
     return it.card;
   });
 }
@@ -1435,7 +1501,7 @@ async function startChestOpening() {
   const hint = document.getElementById("booster-hint");
   pack.classList.add("charging");
   try {
-    const res = await API.chests(Session.userId, "open", chestOpenCount);
+    const res = await API.chests(Session.userId, "open", chestOpenCount, chestTier);
     chestState = res;
     const cards = chestItemsToCards(res.items || []);
     const realCards = cards.filter((c) => !c.lootType);
@@ -1461,7 +1527,7 @@ async function startChestOpening() {
     hint.textContent = "Tape sur chaque objet pour le révéler";
     const n = Number(res.opened) || 1;
     // Recapitulatif du butin (regroupe quand plusieurs coffres).
-    lastPackTags = [{ kind: "chest", html: `&#129520; ${n > 1 ? `${n} coffres` : "Coffre"} : +${res.dust} &#10024;${res.boosters ? ` · +${res.boosters} booster${res.boosters > 1 ? "s" : ""}` : ""} · ${res.cardCount ?? realCards.length} carte${(res.cardCount ?? realCards.length) > 1 ? "s" : ""}`, short: n > 1 ? `${n} coffres ouverts` : "coffre ouvert" }];
+    lastPackTags = [{ kind: "chest", html: `&#129520; ${n > 1 ? `${n} coffres` : "Coffre"} : +${res.dust} &#10024;${res.boosters ? ` · +${res.boosters} jeton${res.boosters > 1 ? "s" : ""} booster` : ""} · ${res.cardCount ?? realCards.length} carte${(res.cardCount ?? realCards.length) > 1 ? "s" : ""}`, short: n > 1 ? `${n} coffres ouverts` : "coffre ouvert" }];
     renderPackTags(lastPackTags);
     realCards.forEach((card) => {
       const before = ownedCountMap.get(card.cardId) || 0;
@@ -1498,15 +1564,15 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("booster-zone").style.display = "block";
   loadChests();
   document.getElementById("chest-buy-btn").addEventListener("click", (e) => buyChest(e.currentTarget));
-  document.getElementById("chest-open-btn").addEventListener("click", () => openChestModal(1));
-  document.getElementById("chest-open5-btn").addEventListener("click", () => openChestModal(5));
-  document.getElementById("chest-openall-btn").addEventListener("click", () => openChestModal(chestAvail()));
+  document.getElementById("gatcha-spin-btn").addEventListener("click", () => spinGatcha(1));
+  document.getElementById("gatcha-spin5-btn").addEventListener("click", () => spinGatcha(5));
+  document.getElementById("gatcha-tray").addEventListener("click", (e) => { const b = e.target.closest("[data-open-tier]"); if (b) openChestModal(Number(b.dataset.n) || 1, Number(b.dataset.openTier)); });
   document.getElementById("chest-buy5-btn").addEventListener("click", (e) => buyChest(e.currentTarget, 5));
 
   const overlay = document.getElementById("pack-modal-overlay");
-  document.getElementById("pack-modal-close").addEventListener("click", closeModal);
+  document.getElementById("pack-modal-close").addEventListener("click", () => { closeModal(); if (window.BoosterCart) BoosterCart.close(); });
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay && !isBusy) closeModal();
+    if (e.target === overlay && !isBusy) { closeModal(); if (window.BoosterCart) BoosterCart.close(); }
   });
 
   const qtyPicker = document.getElementById("quantity-picker");
@@ -1533,6 +1599,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (isBusy || !lastOpenedExtension || usableBoosters() < 1) return;
       Sfx.click();
+      if (lastOpenMode === "pack" && window.BoosterCart && BoosterCart.next() != null) { BoosterCart.openNext(); return; }
       openModalFor(lastOpenedExtension.id);
       // Vrai booster : on repasse par le choix parmi 3 puis la dechirure
       // (lancer l'ouverture tout de suite sautait l'eventail). La simulation

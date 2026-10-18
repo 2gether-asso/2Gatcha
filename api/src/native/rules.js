@@ -4,7 +4,10 @@
 //  - prix de l'os : +BoneWeeklyIncrease (25 %) par os achete dans la semaine,
 //    remis a zero le lundi ;
 //  - marche noir automatique : chaque lundi, MarketAutoOffers offres generees
-//    (dont un "coup de coeur" moins cher), comme le bingo du mois ;
+//    (dont un "coup de coeur" moins cher), comme le bingo du mois ; des que
+//    tout l'arrivage est epuise (plafonds d'achats atteints ou offres
+//    expirees), un nouvel arrivage tombe aussitot (MarketAutoRestock,
+//    restockMarket, Week = "<semaine>#<n>") ;
 //  - relances payantes, une fois par jour : meteo de peche perso, retour
 //    accelere de l'expedition.
 //   POST /webhook/reroll { userId, kind: 'weather' | 'expedition' }
@@ -47,6 +50,7 @@ function bonePrice(store, user) {
 // Verifications avant un workflow : null = OK, sinon la reponse a renvoyer.
 export function beforeWorkflow({ store, path, request }) {
   const body = request.body || {};
+  if (path === 'black-market') restockMarket(store);
   const user = store.get('Users', Number(body.userId));
   if (!user) return null;
   if (path === 'trade' && (body.action === 'create' || body.action === 'counter')) {
@@ -101,10 +105,11 @@ let marketCheckedWeek = null;
 function weekEndsAt(week) { return Math.floor(new Date(week + 'T00:00:00+02:00').getTime() / 1000) + 7 * 86400 - 1; }
 const round10 = (n) => Math.max(10, Math.round(n / 10) * 10);
 
-export function generateMarket(store, week = weekKey()) {
+export function generateMarket(store, week = weekKey(), tag = week) {
   if (!setting(store, 'MarketAutoEnabled') || !store.tables.has('BlackMarketOffers')) return 0;
   const offers = store.getAll('BlackMarketOffers');
-  if (offers.some((o) => o.Auto && o.Week === week)) return 0;
+  if (offers.some((o) => o.Auto && o.Week === tag)) return 0;
+  const restock = tag !== week;
   offers.filter((o) => o.Auto && o.Active).forEach((o) => store.update('BlackMarketOffers', o.id, { Active: false }));
   const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
   const owners = new Map();
@@ -127,10 +132,27 @@ export function generateMarket(store, week = weekKey()) {
     store.create('BlackMarketOffers', {
       CardId: c.id, Cost: round10(craft * (deal ? setting(store, 'MarketDealMultiplier') : setting(store, 'MarketPriceMultiplier'))),
       ExpiresAt: expires, Active: true, MaxPurchases: hard ? (deal ? 1 : 2) : deal ? 2 : setting(store, 'MarketMaxPurchases'),
-      Label: deal ? 'Coup de cœur de la semaine' : null, Auto: true, Week: week
+      Label: deal ? (restock ? 'Nouvel arrivage' : 'Coup de cœur de la semaine') : null, Auto: true, Week: tag
     });
   });
   return picked.length;
+}
+
+// Nouvel arrivage immediat quand tout l'arrivage automatique de la semaine est
+// parti (plafond d'achats atteint, tous joueurs confondus) ou a expire.
+export function restockMarket(store, week = weekKey()) {
+  if (!setting(store, 'MarketAutoEnabled') || !setting(store, 'MarketAutoRestock') || !store.tables.has('BlackMarketOffers')) return 0;
+  const mine = store.getAll('BlackMarketOffers').filter((o) => o.Auto && String(o.Week || '').split('#')[0] === week);
+  if (!mine.length) return 0; // l'arrivage du lundi n'est pas encore la
+  const t = now();
+  const live = mine.filter((o) => o.Active !== false && !(o.ExpiresAt && t > o.ExpiresAt));
+  if (live.length) {
+    const counts = new Map(live.map((o) => [o.id, 0]));
+    store.getAll('Pulls').forEach((p) => { const m = /^market-(\d+)-/.exec(p.BatchId || ''); if (m && counts.has(Number(m[1]))) counts.set(Number(m[1]), counts.get(Number(m[1])) + 1); });
+    if (live.some((o) => !Number(o.MaxPurchases) || counts.get(o.id) < Number(o.MaxPurchases))) return 0;
+  }
+  const n = new Set(mine.map((o) => o.Week)).size + 1;
+  return generateMarket(store, week, `${week}#${n}`);
 }
 
 export function beforeRequest({ store }) {

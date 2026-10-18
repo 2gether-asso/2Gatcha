@@ -75,7 +75,7 @@ function renderPullTimeline() {
     const heightPct = count ? Math.max(6, Math.round((count / max) * 100)) : 0;
     const label = new Date(date + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
     return `
-      <div class="timeline-bar-col" title="${label} : ${count} booster${count > 1 ? "s" : ""}">
+      <div class="timeline-bar-col" title="${label} : ${count} booster${count > 1 ? "s" : ""} ouvert${count > 1 ? "s" : ""}">
         <div class="timeline-bar" style="height:${heightPct}%;"></div>
       </div>
     `;

@@ -80,8 +80,9 @@
     d.className = "welcome-dialog";
     d.innerHTML = `
       <h2>&#128075; Bon retour parmi nous !</h2>
+      ${(w.newBoosters || []).length ? `<a class="welcome-new-booster" href="ouverture.html"><span aria-hidden="true">&#127381;</span> <span>${w.newBoosters.length > 1 ? "Nouveaux boosters" : "Nouveau booster"} : <strong>${w.newBoosters.map((b) => esc(b.name)).join(", ")}</strong> ${w.newBoosters.length > 1 ? "viennent" : "vient"} de sortir !</span> <span class="welcome-new-go" aria-hidden="true">&rarr;</span></a>` : ""}
       <p>Tu étais absent depuis <strong>${w.days} jours</strong>. Voici un petit colis pour reprendre :</p>
-      <div class="welcome-gift"><span>&#127183; ${w.gift.boosters} booster${w.gift.boosters > 1 ? "s" : ""}</span><span>&#10024; ${w.gift.dust} poussières</span></div>
+      <div class="welcome-gift"><span>&#127183; ${w.gift.boosters} jeton${w.gift.boosters > 1 ? "s" : ""} booster</span><span>&#10024; ${w.gift.dust} poussières</span></div>
       ${w.news.length ? `<h3>Ce qui a changé</h3><ul class="welcome-news">${w.news.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
       ${w.newCards ? `<p class="welcome-cards">&#127381; ${w.newCards} nouvelle${w.newCards > 1 ? "s" : ""} carte${w.newCards > 1 ? "s" : ""} à découvrir.</p>` : ""}
       <div class="actions"><button type="button" class="btn" id="welcome-claim">Récupérer mon colis</button></div>`;
@@ -91,10 +92,10 @@
       e.currentTarget.disabled = true;
       try {
         await API.welcomeBack(Session.userId, "claim");
-        Toast.success(`&#127873; Colis récupéré : +${w.gift.boosters} booster${w.gift.boosters > 1 ? "s" : ""} et +${w.gift.dust} poussières !`);
+        Toast.success(`&#127873; Colis récupéré : +${w.gift.boosters} jeton${w.gift.boosters > 1 ? "s" : ""} booster et +${w.gift.dust} poussières !`);
         if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.4 } });
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { Toast.errorfriendlyError(err); }
+      } catch (err) { Toast.error(friendlyError(err)); }
       d.close();
       d.remove();
     });
@@ -114,7 +115,7 @@
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       setTimeout(() => { btn.hidden = true; }, 4000);
       loadWhatNow();
-    } catch (err) { btn.classList.remove("opening"); btn.disabled = false; Toast.errorfriendlyError(err); }
+    } catch (err) { btn.classList.remove("opening"); btn.disabled = false; Toast.error(friendlyError(err)); }
   }
 
   async function rollDice(btn) {
@@ -134,7 +135,7 @@
       eff.innerHTML = `${res.effect.icon} ${esc(res.effect.label)}`;
       Toast.success(`&#127922; ${res.face} : ${esc(res.effect.label)}`);
       loadWhatNow();
-    } catch (err) { clearInterval(spin); btn.classList.remove("rolling"); btn.disabled = false; Toast.errorfriendlyError(err); }
+    } catch (err) { clearInterval(spin); btn.classList.remove("rolling"); btn.disabled = false; Toast.error(friendlyError(err)); }
   }
 
   async function loadWhatNow() {
@@ -177,7 +178,7 @@
       if (!lb.topCollectors || !lb.topCollectors.length) return;
       $("live-feed-panel").hidden = false;
       $("top-collectors").hidden = false;
-      $("top-collectors-list").innerHTML = lb.topCollectors.slice(0, 5).map((c) => `<li><span class="tc-rank" title="${esc(c.rank.label)}">${c.rank.icon}</span><a href="profile.html?pseudo=${encodeURIComponent(c.pseudo)}" class="player-link">${esc(c.pseudo)}</a><span class="tc-value">${Number(c.value).toLocaleString("fr-FR")} &#10024;</span></li>`).join("");
+      $("top-collectors-list").innerHTML = lb.topCollectors.slice(0, 5).map((c) => `<li><span class="tc-rank" title="${esc(c.rank.label)}">${c.rank.icon}</span><a href="profile.html?pseudo=${encodeURIComponent(c.pseudo)}" class="player-link">${esc(c.pseudo)}</a>${c.prestigeStars > 0 ? `<span class="header-prestige" title="Prestige du compte">★${c.prestigeStars > 1 ? c.prestigeStars : ""}</span>` : ""}<span class="tc-value">${Number(c.value).toLocaleString("fr-FR")} &#10024;</span></li>`).join("");
     }).catch(() => {});
     setInterval(() => { if (!document.hidden) loadFeed(); }, 20000);
     $("today-box").addEventListener("click", (e) => openBox(e.currentTarget));
@@ -190,7 +191,7 @@
         Toast.success(`&#127769; Missions du soir : +${res.claimedDust} poussières !`);
         renderEvening(res);
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-      } catch (err) { Toast.errorfriendlyError(err); }
+      } catch (err) { Toast.error(friendlyError(err)); }
       btn.disabled = false;
     });
     window.addEventListener("api:claimed", () => setTimeout(loadWhatNow, 500));
