@@ -14,9 +14,10 @@
 //    tourne (jetons + poussieres ; titre « Maitre du temps » la 1re fois).
 //  - Codes secrets (« Reclamer un code », reglage SecretCodes) : cosmetiques
 //    et ressources, une fois par joueur, avec une cinematique.
-//  - Cartes secretes : chacune a un effet ou un contour unique (reglage
-//    SecretCardEffects : un mot du nom -> effet ; fourrure brune, noire,
-//    blanche, glitch...) et reste TOUJOURS en parfait etat (exemplaires remis
+//  - Cartes secretes : chacune a un effet ou un contour unique, choisi dans
+//    l'admin pour CETTE carte (colonne Cards.SecretEffect : fur-brown,
+//    fur-black, fur-white, glitch, aura-gold, aura-void) et reste TOUJOURS en
+//    parfait etat (exemplaires remis
 //    en parfait etat au demarrage et apres chaque obtention ; jamais uses,
 //    maudits ni mutes : keepsMint, modefun.js / modeperks.js).
 //   POST /webhook/secrets { userId, action: 'ghost404' | 'shadow' }
@@ -27,7 +28,12 @@ import { setting } from './settings.js';
 import { priceMultiplier } from './inflation.js';
 import { grantCosmetic } from './cosmetics.js';
 
-export const schema = { Users: { SecretsFound: { type: 'Text' }, SecretCodesUsed: { type: 'Text' }, SecretWheelDay: { type: 'Text' } } };
+export const schema = {
+  Users: { SecretsFound: { type: 'Text' }, SecretCodesUsed: { type: 'Text' }, SecretWheelDay: { type: 'Text' } },
+  Cards: { SecretEffect: { type: 'Text' } }
+};
+// Effets possibles d'une carte secrete (admin > Contenu).
+export const SECRET_EFFECTS = ['fur-brown', 'fur-black', 'fur-white', 'glitch', 'aura-gold', 'aura-void'];
 
 const CARD_NAME = 'Erreur 404';
 const EXT_KEY = 'pack-secretes';   // meme extension que les cartes secretes (get-collection)
@@ -63,6 +69,7 @@ function secretExtension(store) {
 // Remet en parfait etat les exemplaires des cartes secretes.
 export function init({ store }) {
   ensureCard(store);
+  migrateEffects(store);
   try { fixSecretQuality(store); } catch (e) { /* tables incompletes (tests) */ }
 }
 function ensureCard(store) {
@@ -93,7 +100,7 @@ function ensureCard(store) {
   }
   store.create('Cards', only({
     Name: CARD_NAME, Artist: '???', Description: 'Elle n’aurait jamais dû exister. Et pourtant, la voilà.',
-    Image: image, Rarity: rarity ? rarity.id : null, Extension: ext ? ext.id : null, Active: true, IsPromo: true
+    Image: image, Rarity: rarity ? rarity.id : null, Extension: ext ? ext.id : null, Active: true, IsPromo: true, SecretEffect: 'glitch'
   }));
 }
 
@@ -191,12 +198,26 @@ export function beforeWorkflow({ store, path, request }) {
 }
 
 // ------------------------------------------------- effets des cartes secretes
-// Effet d'une carte (ou null) : premier mot du reglage contenu dans son nom.
+// Effet d'une carte (ou null) : celui choisi pour elle dans l'admin.
 export function effectOf(store, card) {
-  if (!card || !card.Name) return null;
-  const name = String(card.Name).toLowerCase();
-  const rule = (setting(store, 'SecretCardEffects') || []).find((r) => r && r.match && name.includes(String(r.match).toLowerCase()));
-  return rule ? String(rule.effect || '') || null : null;
+  const e = card && card.SecretEffect ? String(card.SecretEffect) : '';
+  return SECRET_EFFECTS.includes(e) ? e : null;
+}
+// Une seule fois : les cartes secretes deja connues recoivent leur effet
+// (avant 2026-10-19 soir, l'effet dependait du nom de la carte).
+const MIGRATION_KEY = 'migration:secret-effects';
+const LEGACY = [['sterling', 'fur-brown'], ['pepper', 'fur-black'], ['ticat', 'fur-white'], ['erreur 404', 'glitch']];
+function migrateEffects(store) {
+  if (!store.tables.has('AppSettings') || !store.tables.has('Cards') || !store.table('Cards').columns.SecretEffect) return;
+  if (store.getAll('AppSettings').some((r) => r.Key === MIGRATION_KEY)) return;
+  let n = 0;
+  for (const c of store.getAll('Cards')) {
+    if (c.SecretEffect || !(c.IsSecret || c.IsPromo)) continue;
+    const name = String(c.Name || '').toLowerCase();
+    const hit = LEGACY.find(([k]) => name.includes(k));
+    if (hit) { store.update('Cards', c.id, { SecretEffect: hit[1] }); n++; }
+  }
+  store.create('AppSettings', { Key: MIGRATION_KEY, Value: JSON.stringify({ at: now(), cards: n }) });
 }
 const effectCards = (store) => (store.tables.has('Cards') ? store.getAll('Cards').filter((c) => effectOf(store, c)) : []);
 // Une carte a effet reste en parfait etat (jamais usee, maudite ni mutee).

@@ -2247,84 +2247,114 @@ const SiteSecrets = {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => SiteSecrets.init()); else SiteSecrets.init();
 
 // ---------------------------------------------------------------------------
-// La carte « Erreur 404 » glitche partout ou elle apparait (2026-10-19) : par
-// moments, des eclats d'autres illustrations (tirees au hasard a chaque
-// glitch) traversent la carte. Images fournies par GET /webhook/secret-card.
+// Cartes secretes : effet unique de chaque carte (2026-10-19, choisi dans
+// l'admin : Cards.SecretEffect ; GET /webhook/secret-card). Reperage par
+// identifiant de carte (data-card-id) : une seule requete ciblee, jamais un
+// balayage de toutes les images. Fourrure / contour : un anneau statique
+// pose sur le bord de la carte. Glitch : une seule horloge pour toutes les
+// cartes concernees, en pause quand l'onglet est cache.
 // ---------------------------------------------------------------------------
-const GlitchCard = {
+const SecretFx = {
   data: null,
-  KEY: "2gatcha_glitch404",
+  KEY: "2gatcha_secretfx",
+  selector: "",
+  byId: new Map(),
+  glitchHosts: new Set(),
   async load() {
     try { const c = JSON.parse(sessionStorage.getItem(this.KEY) || "null"); if (c && Date.now() - c.at < 10 * 60000) { this.data = c.data; return; } } catch (e) { /* stockage indisponible */ }
     try { this.data = await API.get("secretCard"); } catch (e) { this.data = null; return; }
     try { sessionStorage.setItem(this.KEY, JSON.stringify({ at: Date.now(), data: this.data })); } catch (e) { /* stockage indisponible */ }
   },
-  // Effet de l'image (cartes secretes, reglage SecretCardEffects) ou null.
-  effectOf(img) {
-    const effects = this.data.effects || [];
-    const holder = img.closest("[data-card-id]");
-    if (holder) { const e = effects.find((x) => String(x.cardId) === holder.dataset.cardId); return e ? e.effect : null; }
-    let id = null;
-    try { id = new URL(img.src, location.href).searchParams.get("id"); } catch (e) { return null; }
-    if (!id) return null;
-    // Sans identifiant de carte : l'image ne compte que si elle n'appartient qu'a cette carte.
-    const e = effects.find((x) => x.uniqueImage && String(x.imageId) === id);
-    return e ? e.effect : null;
-  },
-  scan() {
-    if (!this.data) return;
-    document.querySelectorAll('img[src*="id="]').forEach((img) => {
-      if (img.dataset.gl404) return;
-      const effect = this.effectOf(img);
+  // Element « carte » : celui qui porte data-card-id (collection, coffre,
+  // fenetre de carte, machine, cinematiques).
+  apply() {
+    if (!this.selector) return;
+    document.querySelectorAll(this.selector).forEach((card) => {
+      if (card.dataset.sfx) return;
+      const effect = this.byId.get(card.dataset.cardId);
       if (!effect) return;
-      img.dataset.gl404 = "1";
-      const host = img.parentElement;
-      if (!host) return;
-      if (getComputedStyle(host).position === "static") host.style.position = "relative";
-      if (effect !== "glitch") {
-        // Fourrure (fur-brown, fur-black, fur-white) ou contour unique.
-        host.classList.add("sfx-host", "sfx-" + effect.replace(/[^a-z0-9-]/g, ""));
-        const layer = document.createElement("div");
-        layer.className = "sfx-layer";
-        layer.setAttribute("aria-hidden", "true");
-        host.appendChild(layer);
+      card.dataset.sfx = effect;
+      if (effect === "glitch") {
+        // Le glitch reste dans l'illustration.
+        const img = card.querySelector("img");
+        const host = img ? img.parentElement : null;
+        if (!host) return;
+        if (getComputedStyle(host).position === "static") host.style.position = "relative";
+        host.classList.add("gl404-host");
+        const fx = document.createElement("div");
+        fx.className = "gl404";
+        fx.setAttribute("aria-hidden", "true");
+        fx.innerHTML = "<span></span><span></span><span></span>";
+        host.appendChild(fx);
+        this.glitchHosts.add(host);
         return;
       }
-      host.classList.add("gl404-host");
-      const fx = document.createElement("div");
-      fx.className = "gl404";
-      fx.setAttribute("aria-hidden", "true");
-      fx.innerHTML = "<span></span><span></span><span></span>";
-      host.appendChild(fx);
-      this.loop(host, fx);
+      if (getComputedStyle(card).position === "static") card.style.position = "relative";
+      const ring = document.createElement("i");
+      ring.className = "sfx-ring";
+      ring.setAttribute("aria-hidden", "true");
+      card.appendChild(ring);
     });
   },
-  loop(host, fx) {
+  // Une seule horloge : a chaque tic, une carte glitchee au hasard s'affole.
+  glitchLoop() {
     const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     const others = (this.data.others || []).map((id) => API.imageUrl(id)).filter(Boolean);
     const tick = () => {
-      if (!host.isConnected) return;
-      if (others.length) {
-        fx.querySelectorAll("span").forEach((s) => {
-          const top = Math.random() * 80, h = 6 + Math.random() * 22;
+      setTimeout(tick, (reduced ? 4000 : 1200) + Math.random() * 2400);
+      if (document.hidden) return;
+      for (const h of this.glitchHosts) if (!h.isConnected) this.glitchHosts.delete(h);
+      this.glitchHosts.forEach((host) => {
+        const r = host.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > innerHeight) return;  // hors ecran : rien
+        if (others.length) host.querySelectorAll(".gl404 span").forEach((s) => {
+          const top = Math.random() * 80;
           s.style.backgroundImage = `url("${others[Math.floor(Math.random() * others.length)]}")`;
           s.style.top = top + "%";
-          s.style.height = h + "%";
+          s.style.height = 6 + Math.random() * 22 + "%";
           s.style.backgroundPosition = `${Math.random() * 100}% ${top}%`;
           s.style.transform = `translateX(${(Math.random() - 0.5) * 18}%)`;
         });
-      }
-      host.classList.add("gl404-on");
-      setTimeout(() => host.classList.remove("gl404-on"), 140 + Math.random() * 260);
-      setTimeout(tick, (reduced ? 4000 : 1100) + Math.random() * 2600);
+        host.classList.add("gl404-on");
+        setTimeout(() => host.classList.remove("gl404-on"), 140 + Math.random() * 240);
+      });
     };
-    setTimeout(tick, 400 + Math.random() * 1200);
+    setTimeout(tick, 800);
   },
   async init() {
     await this.load();
-    if (!this.data || (!this.data.imageId && !(this.data.effects || []).length)) return;
-    this.scan();
-    setInterval(() => this.scan(), 1500);
+    const effects = (this.data && this.data.effects) || [];
+    if (!effects.length) return;
+    effects.forEach((e) => this.byId.set(String(e.cardId), e.effect));
+    this.selector = [...this.byId.keys()].map((id) => `[data-card-id="${id}"]`).join(",");
+    this.apply();
+    setInterval(() => this.apply(), 1200);
+    if ([...this.byId.values()].includes("glitch")) this.glitchLoop();
   }
 };
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => GlitchCard.init()); else GlitchCard.init();
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => SecretFx.init()); else SecretFx.init();
+
+// ---------------------------------------------------------------------------
+// Fluidite (2026-10-19) : les animations des cartes (brillances, holo, lueurs,
+// badges) s'arretent des qu'une carte sort de l'ecran. Une collection en
+// faisait tourner environ 200 en permanence, meme hors de la vue.
+// ---------------------------------------------------------------------------
+const CardAnimGate = {
+  SEL: ".collection-card, .craft-card, .card, .album-owned, .pv-mini, .fm-card, .ux-card",
+  seen: typeof WeakSet !== "undefined" ? new WeakSet() : null,
+  io: null,
+  scan() {
+    document.querySelectorAll(this.SEL).forEach((el) => {
+      if (this.seen.has(el)) return;
+      this.seen.add(el);
+      this.io.observe(el);
+    });
+  },
+  init() {
+    if (!("IntersectionObserver" in window) || !this.seen) return;
+    this.io = new IntersectionObserver((entries) => entries.forEach((e) => e.target.classList.toggle("anim-off", !e.isIntersecting)), { rootMargin: "150px 0px" });
+    this.scan();
+    setInterval(() => { if (!document.hidden) this.scan(); }, 1000);
+  }
+};
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => CardAnimGate.init()); else CardAnimGate.init();

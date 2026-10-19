@@ -262,7 +262,7 @@
   }
 
   function cardTile(c) {
-    return `<div class="fm-card" style="--rc:${esc(c.rarity && c.rarity.colorHex || "#888")}" title="${esc(c.name)} #${c.serialNumber}${c.finish && c.finish !== "normal" ? " · " + esc(c.finish) : ""}">
+    return `<div class="fm-card" data-card-id="${c.cardId}" style="--rc:${esc(c.rarity && c.rarity.colorHex || "#888")}" title="${esc(c.name)} #${c.serialNumber}${c.finish && c.finish !== "normal" ? " · " + esc(c.finish) : ""}">
       ${c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" />` : `<div class="fm-card-ph">?</div>`}
       <span class="fm-card-ed">&#9939;&#65039;</span>${c.finish && c.finish !== "normal" ? `<span class="fm-card-fin">&#10024;</span>` : ""}
       <small>${esc(c.name)}</small><em>${esc(c.rarity ? c.rarity.name : "")}</em></div>`;

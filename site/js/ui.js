@@ -1214,7 +1214,7 @@ const UnlockFx = {
       ov.setAttribute("aria-modal", "true");
       ov.setAttribute("aria-label", title);
       const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
-      const cardHtml = (c, i) => `<div class="ux-card" style="--d:${i};--rc:${esc((c.rarity && c.rarity.colorHex) || "#a78bfa")}">
+      const cardHtml = (c, i) => `<div class="ux-card"${c.cardId ? ` data-card-id="${c.cardId}"` : ""} style="--d:${i};--rc:${esc((c.rarity && c.rarity.colorHex) || "#a78bfa")}">
           ${c.imageId && typeof API !== "undefined" ? `<img src="${API.imageUrl(c.imageId)}" alt="" />` : `<span class="ux-card-ph">?</span>`}
           <strong>${esc(c.name)}</strong><small>${esc((c.rarity && c.rarity.name) || "")}${c.finish && c.finish !== "normal" ? " · " + esc(c.finish) : ""}</small></div>`;
       ov.innerHTML = `

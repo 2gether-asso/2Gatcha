@@ -11385,3 +11385,26 @@ html[data-shadow-hour] body::before { content: ""; position: fixed; inset: 0; z-
 .sfx-aura-void > .sfx-layer { box-shadow: inset 0 0 0 3px #1e1b4b, inset 0 0 30px 6px rgba(76, 29, 149, 0.8); animation: sfxAura 3s ease-in-out infinite; }
 @keyframes sfxAura { 50% { filter: brightness(1.4); } }
 @media (prefers-reduced-motion: reduce) { .sfx-host > .sfx-layer { animation: none; } }
+
+/* ==== Fluidite et effets des cartes secretes v2 (2026-10-19) ==== */
+/* Animations des cartes en pause hors de l'ecran (CardAnimGate, shell.js). */
+.anim-off, .anim-off *, .anim-off::before, .anim-off::after, .anim-off *::before, .anim-off *::after { animation-play-state: paused !important; }
+/* Ancienne couche (remplacee par l'anneau). */
+.sfx-layer { display: none !important; }
+/* Anneau statique pose sur le bord de la carte : rien ne deborde, rien ne bouge. */
+.sfx-ring { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit; padding: 7px; background: var(--sfx-tex, none) center / 90px 90px, var(--sfx-col, transparent);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+[data-sfx="fur-brown"] > .sfx-ring { --sfx-col: #5b3a1e; --sfx-tex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.04' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.72  0 0 0 0 0.48  0 0 0 0 0.27  0 0 0 1.7 -0.4'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23f)'/%3E%3C/svg%3E"); }
+[data-sfx="fur-black"] > .sfx-ring { --sfx-col: #0b0b0d; --sfx-tex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.04' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.42  0 0 0 0 0.48  0 0 0 1.7 -0.4'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23f)'/%3E%3C/svg%3E"); }
+[data-sfx="fur-white"] > .sfx-ring { --sfx-col: #e7e5e4; --sfx-tex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.04' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.7 -0.4'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23f)'/%3E%3C/svg%3E"); }
+[data-sfx="aura-gold"] > .sfx-ring { padding: 3px; --sfx-col: linear-gradient(135deg, #fef3c7, #f59e0b, #fef3c7); background: var(--sfx-col); }
+[data-sfx="aura-void"] > .sfx-ring { padding: 4px; background: linear-gradient(135deg, #1e1b4b, #6d28d9, #020617); }
+
+/* Fond etoile (2026-10-19) : la derive passe par une translation (geree par
+   la carte graphique) au lieu de la position de fond, qui forcait a
+   redessiner tout l'ecran a chaque image sur toutes les pages. Boucle exacte
+   sur une tuile (280 x 240), marge suffisante pour ne jamais voir le bord. */
+body::after { inset: -320px; animation: driftStarsT 90s linear infinite; will-change: transform; }
+body::before { will-change: transform; }
+@keyframes driftStarsT { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-280px, 240px, 0); } }
+@media (prefers-reduced-motion: reduce) { body::after { animation: none; } }

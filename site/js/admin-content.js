@@ -215,6 +215,8 @@ function acMoveCard(id, targetId, after = false) {
   list.splice(to, 0, card);
   acSaveOrder(list);
 }
+// Effets des cartes secretes (api/src/native/secrets.js, SECRET_EFFECTS).
+const AC_SECRET_EFFECTS = [["", "aucun"], ["fur-brown", "Fourrure brune"], ["fur-black", "Fourrure noire"], ["fur-white", "Fourrure blanche"], ["glitch", "Glitch"], ["aura-gold", "Contour doré"], ["aura-void", "Contour du néant"]];
 function acRenderCards() {
   const ext = AC.extensions.find((x) => x.id === AC.ext);
   acEl("ac-cards-section").hidden = !ext;
@@ -243,6 +245,7 @@ function acRenderCards() {
       <div class="ac-card-flags">
         <label class="ac-inline"><input type="checkbox" data-cf="Active" ${c.Active ? "checked" : ""} /> Active</label>
         <label class="ac-inline"><input type="checkbox" data-cf="IsPromo" ${c.IsPromo ? "checked" : ""} /> Promo</label>
+        ${c.IsPromo || c.IsSecret || c.SecretEffect ? `<label class="ac-inline" title="Effet unique de cette carte secrète (toujours en parfait état)">Effet <select data-cf="SecretEffect" aria-label="Effet de carte secrète">${AC_SECRET_EFFECTS.map(([k, l]) => `<option value="${k}" ${(c.SecretEffect || "") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
         <span class="adb-help">#${c.id}</span>
       </div>
     </div>`;

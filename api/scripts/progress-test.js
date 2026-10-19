@@ -2859,11 +2859,22 @@ await test('secrets : carte du 404, heure des ombres, roue de 22 h 22, codes sec
   store.update('Users', 1, { SecretsFound: '', SecretCodesUsed: '', SecretWheelDay: '' });
   // Cartes secretes : effet unique et toujours en parfait etat (retroactif).
   const anyRarity = store.getAll('Rarities')[0];
-  const sterling = store.create('Cards', { Name: 'Mr Sterling', Rarity: anyRarity.id, Active: true, IsPromo: true, IsSecret: true });
+  // Migration unique : les cartes secretes deja connues recoivent leur effet ;
+  // ensuite seul l'effet choisi sur la carte (admin) compte, jamais le nom.
+  let sterling = store.create('Cards', { Name: 'Mr Sterling', Rarity: anyRarity.id, Active: true, IsPromo: true, IsSecret: true });
   const ticat = store.create('Cards', { Name: 'Ticat', Rarity: anyRarity.id, Active: true, IsPromo: true, IsSecret: true });
+  store.getAll('AppSettings').filter((r) => r.Key === 'migration:secret-effects').forEach((r) => store.delete('AppSettings', r.id));
+  sec.init({ store });
+  sterling = store.get('Cards', sterling.id);
   assert.equal(sec.effectOf(store, sterling), 'fur-brown');
-  assert.equal(sec.effectOf(store, ticat), 'fur-white');
+  assert.equal(sec.effectOf(store, store.get('Cards', ticat.id)), 'fur-white');
   assert.equal(sec.effectOf(store, store.getAll('Cards').find((c) => c.Name === 'Erreur 404')), 'glitch');
+  const lookalike = store.create('Cards', { Name: 'Sterling le faux', Rarity: anyRarity.id, Active: true });
+  sec.init({ store });
+  assert.equal(sec.effectOf(store, store.get('Cards', lookalike.id)), null, 'un nom ressemblant ne suffit plus');
+  store.update('Cards', lookalike.id, { SecretEffect: 'aura-gold' });
+  assert.equal(sec.effectOf(store, store.get('Cards', lookalike.id)), 'aura-gold', 'effet choisi dans l admin');
+  store.delete('Cards', lookalike.id);
   assert.ok(sec.keepsMint(store, sterling.id));
   const worn = store.create('Pulls', { User: 1, Card: sterling.id, SerialNumber: 1, Finish: 'normal', Quality: 'damaged', ObtainedAt: now() });
   sec.init({ store });

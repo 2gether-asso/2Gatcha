@@ -406,16 +406,6 @@ export const REGISTRY = {
     ]
   },
   MokaHintChance: { ...pct('Moka : chance d’un indice dans son rapport', 0.35, 'Salle interdite', 'Un P.S. sur ses amis chats en fin de carte postale.'), storage: 'app' },
-  SecretCardEffects: {
-    label: 'Cartes secrètes : effet unique de chaque carte', type: 'json', group: 'Salle interdite', storage: 'app',
-    help: 'Liste { match, effect } : une carte dont le nom contient « match » (sans tenir compte des majuscules) reçoit l’effet, et reste toujours en parfait état. Effets : fur-brown, fur-black, fur-white (fourrure), glitch (bouts d’autres illustrations), aura-gold, aura-void (contours).',
-    def: [
-      { match: 'sterling', effect: 'fur-brown' },
-      { match: 'pepper', effect: 'fur-black' },
-      { match: 'ticat', effect: 'fur-white' },
-      { match: 'erreur 404', effect: 'glitch' }
-    ]
-  },
   SecretCodes: {
     label: 'Codes secrets (Réclamer un code)', type: 'json', group: 'Salle interdite', storage: 'app',
     help: 'Liste { code, label, title?: { key, label }, frame?: { key, label }, color?: { key, label }, give?: { BoosterCount, StardustCount (× indice des prix), KeyCount, ChestCount, BoneCount, CatFish, SpareParts, LuckCharges, Worms, GoldBait }, card?: clé de rareté }. Une fois par joueur, avec une cinématique. Cadres et couleurs : frame-retro, frame-shadow, frame-forbidden, color-pepper, color-ember (en plus de ceux de la boutique).',
