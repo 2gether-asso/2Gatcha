@@ -23,7 +23,7 @@ export const schema = { Users: { ExpeditionTrip: { type: 'Text' } } };
 export const RESOURCES = {
   Worms: { label: ['ver', 'vers'], img: 'Pêche/Vers.png' },
   BoneCount: { label: ['os', 'os'], img: 'Os.PNG' },
-  GoldBait: { label: ['appât doré', 'appâts dorés'], img: 'ElixirDePeche.PNG' },
+  GoldBait: { label: ['appât doré', 'appâts dorés'], img: 'Pêche/Vers.png', gold: true },
   SpareParts: { label: ['pièce détachée', 'pièces détachées'], img: 'PieceDetachee.PNG' },
   CatFish: { label: ['poisson pour Moka', 'poissons pour Moka'], img: 'Pêche/Poisson_12.png' },
   KeyCount: { label: ['clé', 'clés'], img: 'clés.PNG' },
@@ -68,7 +68,7 @@ function view(store, user) {
   const lvl = expeditionLevel(store, user).level;
   return destinationsOf(store).map((d) => ({
     key: d.key, name: d.name, icon: d.icon || '🧭', desc: d.desc || '', level: Number(d.level) || 1, unlocked: lvl >= (Number(d.level) || 1),
-    loot: Object.entries(d.loot || {}).map(([k, n]) => ({ key: k, perTrip: Number(n), label: RESOURCES[k]?.label[1] || k, img: RESOURCES[k]?.img || null })),
+    loot: Object.entries(d.loot || {}).map(([k, n]) => ({ key: k, perTrip: Number(n), label: RESOURCES[k]?.label[1] || k, img: RESOURCES[k]?.img || null, ...(RESOURCES[k]?.gold ? { gold: true } : {}) })),
     affinity: affinityOf(store, d)
   }));
 }
@@ -141,7 +141,7 @@ export function afterWorkflow({ store, path, request, response }) {
           fields.Minerals = JSON.stringify(owned);
         } else if (RESOURCES[k]) {
           fields[k] = (Number(user[k]) || 0) + n;
-          resources.push({ key: k, n, label: RESOURCES[k].label[n > 1 ? 1 : 0], img: RESOURCES[k].img });
+          resources.push({ key: k, n, label: RESOURCES[k].label[n > 1 ? 1 : 0], img: RESOURCES[k].img, ...(RESOURCES[k].gold ? { gold: true } : {}) });
         }
       }
       fields.ExpeditionTrip = '';

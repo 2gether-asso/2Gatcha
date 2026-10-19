@@ -12,7 +12,7 @@
 //    accelere de l'expedition.
 //   POST /webhook/reroll { userId, kind: 'weather' | 'expedition' }
 
-import { refId, now, ok, fail, userById, parisDay } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, weekEndsAt } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
@@ -102,7 +102,6 @@ export function afterWorkflow({ store, path, request, response }) {
 // --- marche noir automatique ------------------------------------------------
 let marketCheckedWeek = null;
 
-function weekEndsAt(week) { return Math.floor(new Date(week + 'T00:00:00+02:00').getTime() / 1000) + 7 * 86400 - 1; }
 const round10 = (n) => Math.max(10, Math.round(n / 10) * 10);
 
 export function generateMarket(store, week = weekKey(), tag = week) {

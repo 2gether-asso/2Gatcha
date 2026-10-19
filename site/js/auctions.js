@@ -8,7 +8,7 @@
   const esc = escHtml;
   const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
-  const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
+  const serial = fmtSerial; // core.js
   let data = null;
   let copies = [];
   let selectedPull = null;

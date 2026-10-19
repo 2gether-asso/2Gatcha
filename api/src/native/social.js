@@ -29,7 +29,7 @@ function sourcesOf(store, card) {
   const rarity = card.Rarity ? store.get('Rarities', refId(card.Rarity)) : null;
   const unique = uniqueRarity(store);
   if (unique && refId(card.Rarity) === unique.id) return ['Comptoir Unique : un Ticket Unique (ligne complète du coffre-fort)'];
-  if (card.IsSecret) return ['Page secrète (clés secrètes)'];
+  if (card.IsSecret) return ['Page secrète (clés)'];
   if (card.IsVault) return ['Grand coffre-fort de l’association (6 clés)'];
   if (card.IsPromo) return ['Codes d’événement et cadeaux de l’asso'];
   const out = [];

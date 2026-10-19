@@ -127,7 +127,7 @@
 
   function lockedTileHtml(card) {
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
-    const craftCost = card.rarity?.craftCost;
+    const craftCost = Coll.craftCostOf(card);
     const craftable = card.inCatalog && !card.isPromo && craftCost != null && state.stardust >= craftCost && !Coll.isLocked("craft");
     const inWishlist = state.wishlist.has(card.cardId);
     const wl = inWishlist ? "Retirer de ma wishlist" : "Ajouter à ma wishlist";
@@ -645,7 +645,7 @@
   // ---------------------------------------------------------------- actions
   async function craftQuick(cardId) {
     const card = cardOf(cardId);
-    const cost = card?.rarity?.craftCost || 0;
+    const cost = (card && Coll.craftCostOf(card)) || 0;
     const ok = await Confirm.show(
       `Crafter <strong>${escapeHtml(card?.name || "cette carte")}</strong> pour <strong>${cost} poussières d'étoile</strong> ? Solde : ${state.stardust} &rarr; <strong>${state.stardust - cost}</strong>.`,
       { title: "Crafter cette carte ?", confirmText: "Crafter" });
@@ -786,7 +786,7 @@
     const requestedSelect = overlay.querySelector("#qt-requested");
     // La carte demandee ne peut porter que sur ce que la cible possede.
     async function refreshRequested() {
-      requestedSelect.innerHTML = `<option value="">Chargement...</option>`;
+      requestedSelect.innerHTML = `<option value="">Chargement…</option>`;
       if (requestedSelect._fancyRefresh) requestedSelect._fancyRefresh();
       try {
         const profile = await API.getPublicProfile(targetSelect.value);
@@ -992,7 +992,7 @@
     });
     $("finish-filter").addEventListener("change", (e) => { finishFilter = e.target.value; render(); });
     $("quality-filter").addEventListener("change", (e) => { qualityFilter = e.target.value; render(); });
-    $("edition-filter").innerHTML = editionFilterOptions();
+    $("edition-filter").innerHTML = editionFilterOptions("Éditions");
     $("edition-filter").addEventListener("change", (e) => { editionFilter = e.target.value; render(); });
     $("first-serial-toggle").addEventListener("click", (e) => { firstOnly = !firstOnly; e.currentTarget.classList.toggle("active", firstOnly); render(); });
     $("album-toggle").addEventListener("click", () => setAlbumMode(!albumMode));

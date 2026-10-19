@@ -11,7 +11,7 @@ import { growSeconds, PLOTS, seedMult } from './garden.js';
 import { parisEpoch } from './daily.js';
 import { view as ripenView } from './ripen.js';
 
-function digTimer(store, user, t) {
+export function digTimer(store, user, t = now()) {
   const cfg = configRow(store);
   const lvl = levelInfo(user.DigXP, Number(cfg.DigLevelXpStep) || 20).level;
   const max = (Number(cfg.DigMaxEnergy) || 10) + Math.floor(lvl / 2);

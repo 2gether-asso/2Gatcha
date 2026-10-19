@@ -6,7 +6,7 @@
 
 (function () {
   const esc = escHtml;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   const date = (t) => new Date(t * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
   const when = (t) => new Date(t * 1000).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   const img = (c) => (c && c.imageId ? API.imageUrl(c.imageId) : "");

@@ -9,7 +9,7 @@
   const MODE_ICON = { cool: "😎", chill: "🌴", medium: "⚖️", hard: "🔥", chaos: "👾" };
   const MODE_NAME = { cool: "Cool", chill: "Chill", medium: "Medium", hard: "Hard", chaos: "Chaos" };
   const name = (k) => MODE_NAME[k] || k;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   const when = (t) => new Date(t * 1000).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 
   function stageHtml(st, s, i) {

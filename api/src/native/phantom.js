@@ -6,7 +6,7 @@
 // Ghost et edition Fantome (editions.js). Une fois par mois.
 //   GET /webhook/phantom ?userId=
 
-import { refId, now, ok, fail, userById, parseJson, cardSummary } from './common.js';
+import { refId, now, ok, fail, userById, parseJson, cardSummary, nextSerial } from './common.js';
 import { setting } from './settings.js';
 import { seasonId } from './seasons.js';
 import { addFeed } from './feed.js';
@@ -40,11 +40,6 @@ function progress(user, month = seasonId()) {
   return user.PhantomMonth === month ? { got: parseJson(user.PhantomFragments, []), done: user.PhantomDone === month } : { got: [], done: false };
 }
 
-function nextSerial(store, cardId) {
-  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
-  let n = 1; while (used.has(n)) n++;
-  return n;
-}
 
 // Donne un fragment (si pas deja obtenu ce mois) ; renvoie l'annonce ou null.
 export function grantFragment(store, userId, key) {

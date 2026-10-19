@@ -82,8 +82,19 @@ function currentPage() {
   return (window.location.pathname.split("/").pop() || "index.html");
 }
 
+// Salle interdite : ajoutee au menu « Jouer » une fois la porte ouverte ;
+// son adresse n'est connue que du navigateur qui l'a ouverte.
+function forbiddenNavItem() {
+  let href = "";
+  try { href = localStorage.getItem("2gatcha_forbidden") || ""; } catch (e) { href = ""; }
+  return /^[a-z0-9-]+\.html$/.test(href) ? { href, label: "Salle interdite", icon: "&#127920;", auth: true, group: "jouer" } : null;
+}
 function visibleNavItems() {
-  return NAV_ITEMS.filter((item) => {
+  const extra = Session.isLoggedIn() ? forbiddenNavItem() : null;
+  // Juste sous « Ouvrir un booster ».
+  const at = NAV_ITEMS.findIndex((i) => i.href === "ouverture.html") + 1;
+  const items = extra ? [...NAV_ITEMS.slice(0, at), extra, ...NAV_ITEMS.slice(at)] : NAV_ITEMS;
+  return items.filter((item) => {
     if (item.auth === "admin") return Session.isLoggedIn() && Session.isAdmin();
     if (item.auth === true) return Session.isLoggedIn();
     return true;
@@ -259,6 +270,31 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// Pastille d'un onglet du menu (nav du haut + nav du bas) : text vide ou 0 =
+// pas de pastille.
+function setNavDot(key, text, { cls = "", title = "" } = {}) {
+  document.querySelectorAll(`[data-badge-key="${key}"]`).forEach((a) => {
+    a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
+    if (!text) return;
+    const dot = document.createElement("span");
+    dot.className = "nav-dot" + (cls ? " " + cls : "");
+    dot.textContent = String(text);
+    if (title) dot.title = title;
+    (a.querySelector(".bn-icon") || a).appendChild(dot);
+  });
+}
+const navCount = (n) => (n > 9 ? "9+" : n > 0 ? String(n) : "");
+
+// Titre de l'onglet du navigateur (2026-10-18) : « (3) Collection - 2Gatcha »
+// tant qu'il y a des recompenses a recuperer ou des echanges en attente.
+const TabTitle = {
+  base: null,
+  set(n) {
+    if (this.base == null) this.base = document.title.replace(/^\(\d+\+?\)\s*/, "");
+    document.title = n > 0 ? `(${n > 99 ? "99+" : n}) ${this.base}` : this.base;
+  }
+};
+
 // Petite pastille rouge sur l'onglet Échanges (nav du bas + nav du haut)
 // quand au moins un échange entrant est en attente de reponse.
 async function loadNavBadges() {
@@ -288,15 +324,9 @@ async function loadNavBadges() {
   // Liste de souhaits : une carte souhaitee est disponible quelque part.
   let wishCount = 0;
   try { wishCount = (await API.wishlistAlerts(Session.userId)).count || 0; } catch (e) { wishCount = 0; }
-  document.querySelectorAll('[data-badge-key="trade"]').forEach((a) => {
-    a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
-    if (pendingCount > 0 || wishCount > 0) {
-      const dot = document.createElement("span");
-      dot.className = "nav-dot" + (pendingCount ? "" : " nav-dot-wish");
-      dot.textContent = pendingCount ? (pendingCount > 9 ? "9+" : String(pendingCount)) : "★";
-      dot.title = pendingCount ? "Échanges en attente" : `${wishCount} carte${wishCount > 1 ? "s" : ""} de ta liste de souhaits disponible${wishCount > 1 ? "s" : ""}`;
-      (a.querySelector(".bn-icon") || a).appendChild(dot);
-    }
+  setNavDot("trade", pendingCount ? navCount(pendingCount) : wishCount ? "★" : "", {
+    cls: pendingCount ? "" : "nav-dot-wish",
+    title: pendingCount ? "Échanges en attente" : `${wishCount} carte${wishCount > 1 ? "s" : ""} de ta liste de souhaits disponible${wishCount > 1 ? "s" : ""}`
   });
   syncBottomMoreDot();
 
@@ -305,16 +335,7 @@ async function loadNavBadges() {
   // mobile, ou le header se replie).
   try {
     const status = await API.getBoosterStatus(Session.userId);
-    const boosterCount = status.count || 0;
-    document.querySelectorAll('[data-badge-key="boosters"]').forEach((a) => {
-      a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
-      if (boosterCount > 0) {
-        const dot = document.createElement("span");
-        dot.className = "nav-dot";
-        dot.textContent = boosterCount > 9 ? "9+" : String(boosterCount);
-        (a.querySelector(".bn-icon") || a).appendChild(dot);
-      }
-    });
+    setNavDot("boosters", navCount(status.count || 0));
   } catch (e) { /* pas grave, juste un rappel visuel */ }
 
   // Pastilles "quelque chose a reclamer" (2026-09-30) : jusqu'ici seuls les
@@ -325,15 +346,8 @@ async function loadNavBadges() {
   // plan a chaque changement de page.
   try {
     const rewardsCount = (await RewardsCenter.collect()).items.length;
-    document.querySelectorAll('[data-badge-key="rewards"]').forEach((a) => {
-      a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
-      if (rewardsCount > 0) {
-        const dot = document.createElement("span");
-        dot.className = "nav-dot";
-        dot.textContent = String(rewardsCount);
-        (a.querySelector(".bn-icon") || a).appendChild(dot);
-      }
-    });
+    setNavDot("rewards", rewardsCount || "");
+    TabTitle.set(rewardsCount + pendingCount);
   } catch (e) { /* pas grave, juste un rappel visuel */ }
 
   try {
@@ -353,28 +367,11 @@ async function loadNavBadges() {
       const bingoReady = !!(bingo && bingo.hasGrid && bingo.allOwned && !bingo.claimed);
       jeuxCount = [vaultReady, bingoReady, guessReady, expeditionReady].filter(Boolean).length;
     }
-    document.querySelectorAll('[data-badge-key="jeux"]').forEach((a) => {
-      a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
-      if (jeuxCount > 0) {
-        const dot = document.createElement("span");
-        dot.className = "nav-dot";
-        dot.textContent = String(jeuxCount);
-        (a.querySelector(".bn-icon") || a).appendChild(dot);
-      }
-    });
+    setNavDot("jeux", jeuxCount || "");
 
     try {
       const signals = await CommunauteSignals.fetch();
-      const unseen = CommunauteSignals.unseenCount(signals);
-      document.querySelectorAll('[data-badge-key="communaute"]').forEach((a) => {
-        a.querySelectorAll(".nav-dot").forEach((d) => d.remove());
-        if (unseen > 0) {
-          const dot = document.createElement("span");
-          dot.className = "nav-dot";
-          dot.textContent = String(unseen);
-          (a.querySelector(".bn-icon") || a).appendChild(dot);
-        }
-      });
+      setNavDot("communaute", CommunauteSignals.unseenCount(signals) || "");
     } catch (e) { /* rappel visuel facultatif */ }
 
     // "Ouvrir un booster" (badgeKey boosters) vit desormais sous le sous-menu
@@ -454,7 +451,7 @@ function renderHeader() {
             </span>
             <span id="header-key-divider" class="stat-divider" aria-hidden="true" style="display:none;"></span>
             <span class="stats-extra" id="header-stats-extra">
-            <span id="header-key-badge" class="stat-chip" title="Clefs secrètes (fouilles)" style="display:none;">
+            <span id="header-key-badge" class="stat-chip" title="Clés" style="display:none;">
               <span class="icon"><img class="ico-token" src="assets/clés.PNG" alt="" /></span><span class="count">0</span>
             </span>
             <span id="header-worm-badge" class="stat-chip stat-chip-worm" title="Vers de terre" style="display:none;">
@@ -474,7 +471,7 @@ function renderHeader() {
           <div class="global-search" id="global-search">
             <button type="button" class="global-search-trigger" id="global-search-trigger" aria-label="Recherche" title="Rechercher un joueur, une carte...">&#128269;</button>
             <div class="global-search-panel" id="global-search-panel">
-              <input type="text" id="global-search-input" placeholder="Joueur, carte, page..." autocomplete="off" />
+              <input type="text" id="global-search-input" placeholder="Joueur, carte, page…" autocomplete="off" />
               <div class="gs-filters" id="gs-filters">
                 <select id="gs-rarity" aria-label="Rareté"><option value="">Toutes raretés</option></select>
                 <select id="gs-finish" aria-label="Finition"><option value="">Toutes finitions</option><option value="normal">Normale</option><option value="holo">Holo</option><option value="gold">Doré</option><option value="ghost">Ghost</option><option value="diamond">Diamant</option><option value="rainbow">Arc-en-ciel</option></select>
@@ -494,11 +491,11 @@ function renderHeader() {
             <button type="button" class="user-menu-trigger" id="user-menu-trigger">
               ${avatar}
               <span id="header-level-badge" class="level-badge" style="display:none;" title="Niveau de profil"></span>
-              <span id="header-pseudo">${Session.pseudo}</span>
+              <span id="header-pseudo">${escHtml(Session.pseudo || "")}</span>
               <span class="caret">&#9660;</span>
             </button>
             <div class="user-menu-dropdown" id="user-menu-dropdown">
-              <div class="menu-head">${avatar}<span><strong>${Session.pseudo}</strong><small>Mon compte</small></span></div>
+              <div class="menu-head">${avatar}<span><strong id="menu-pseudo">${escHtml(Session.pseudo || "")}</strong><small>Mon compte</small></span></div>
               <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}"><span class="mi">&#128100;</span> Mon profil</a>
               <a href="progression.html"><span class="mi">&#127795;</span> Talents et maîtrises</a>
               <a href="stats.html"><span class="mi">&#128202;</span> Mes statistiques</a>
@@ -511,7 +508,9 @@ function renderHeader() {
               <button id="theme-cycle-btn" type="button"><span class="mi">&#127763;</span> Changer de thème</button>
               <button id="haptics-toggle-btn" type="button" title="Vibrations légères sur mobile (ferrage, trésors, belles cartes)"><span class="mi">&#128243;</span> Vibrations : <span data-haptics-label>${Haptics.on ? "activées" : "désactivées"}</span></button>
               <button id="compact-toggle-btn" type="button" title="Sur mobile : interface resserrée et actions principales en bas de l'accueil"><span class="mi">&#128241;</span> Mode compact : <span data-compact-label>${document.documentElement.dataset.compact === "1" ? "activé" : "désactivé"}</span></button>
+              <button id="text-size-btn" type="button" title="Agrandit tout le texte du site sur cet appareil"><span class="mi">&#128269;</span> Taille du texte : <span data-text-size-label>${TextSize.LABELS[TextSize.get()]}</span></button>
               <button id="cine-pref-btn" type="button" title="Cinématiques d'ouverture, de découverte, de niveau et de changement de mode"><span class="mi">&#127916;</span> Cinématiques : <span data-cine-label>${CinePref.LABELS[CinePref.get()].toLowerCase()}</span></button>
+              <button id="kbd-help-btn" type="button" class="only-fine-pointer" title="Raccourcis clavier (touche ?)"><span class="mi">&#9000;</span> Raccourcis clavier</button>
               <button id="discoveries-reset-btn" type="button" title="Rejoue l'animation de chaque ressource que tu possèdes"><span class="mi">&#128270;</span> Revoir les découvertes</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button" class="menu-danger"><span class="mi">&#10162;</span> Déconnexion</button>
@@ -692,6 +691,12 @@ function renderHeader() {
       const link = document.getElementById("notes-link");
       if (link && r.latest && r.latest > seen && !link.querySelector("[data-notes-dot]")) link.insertAdjacentHTML("beforeend", ' <span class="notes-dot" data-notes-dot>nouveau</span>');
     }).catch(() => {});
+    document.getElementById("kbd-help-btn").addEventListener("click", (e) => { e.stopPropagation(); Shortcuts.help(); });
+    document.getElementById("text-size-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const v = TextSize.next();
+      e.currentTarget.querySelector("[data-text-size-label]").textContent = TextSize.LABELS[v];
+    });
     document.getElementById("cine-pref-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const v = CinePref.next();
@@ -723,17 +728,24 @@ function renderHeader() {
     });
     document.getElementById("edit-pseudo-btn").addEventListener("click", async () => {
       userMenu.classList.remove("open");
-      const next = window.prompt("Nouveau pseudo :", Session.pseudo || "");
+      const next = await Prompt.show("Ton pseudo est affiché dans les classements, les échanges et sur ton profil.", { title: "Changer de pseudo", value: Session.pseudo || "", maxLength: 24, confirmText: "Enregistrer" });
       if (!next || !next.trim() || next.trim() === Session.pseudo) return;
       try {
         const res = await API.updatePseudo(Session.userId, next.trim());
         Session.setPseudo(res.pseudo);
-        document.getElementById("header-pseudo").textContent = res.pseudo;
         Toast.success("Pseudo mis à jour !");
       } catch (e) {
-        Toast.error("Impossible de changer le pseudo (" + e.message + ")");
+        Toast.error(typeof friendlyError === "function" ? friendlyError(e) : "Impossible de changer le pseudo.");
       }
     });
+    // Pseudo a jour partout (en-tete, menu, lien de profil, accueil).
+    document.addEventListener("session:pseudo", (e) => {
+      const p = e.detail || "";
+      ["header-pseudo", "menu-pseudo", "pseudo-display"].forEach((id) => { const n = document.getElementById(id); if (n) n.textContent = p; });
+      const link = document.getElementById("view-profile-link");
+      if (link) link.href = "profile.html?pseudo=" + encodeURIComponent(p);
+    });
+    Session.ensurePseudo();
     loadHeaderBoosterBadge();
     loadNavBadges();
   } else {
@@ -862,6 +874,22 @@ function setCompact(on) {
   document.dispatchEvent(new CustomEvent("compact:change"));
 }
 try { if (localStorage.getItem("2gatcha_compact") === "1") document.documentElement.dataset.compact = "1"; } catch (e) { /* stockage indisponible */ }
+// Taille du texte (2026-10-18) : html[data-text-size] agrandit la taille de
+// base (le CSS est en rem), choix de l'appareil.
+const TextSize = {
+  KEY: "2gatcha_text_size",
+  ORDER: ["normal", "large", "xlarge"],
+  LABELS: { normal: "normale", large: "grande", xlarge: "très grande" },
+  get() { try { const v = localStorage.getItem(this.KEY); return this.ORDER.includes(v) ? v : "normal"; } catch (e) { return "normal"; } },
+  apply(v) { if (v === "normal") delete document.documentElement.dataset.textSize; else document.documentElement.dataset.textSize = v; },
+  next() {
+    const v = this.ORDER[(this.ORDER.indexOf(this.get()) + 1) % this.ORDER.length];
+    try { if (v === "normal") localStorage.removeItem(this.KEY); else localStorage.setItem(this.KEY, v); } catch (e) { /* stockage indisponible */ }
+    this.apply(v);
+    return v;
+  }
+};
+TextSize.apply(TextSize.get());
 
 // Evenement surprise (2026-10-18, api/src/native/surprise.js) : bandeau tant
 // qu'il dure, et une courte cinematique la premiere fois qu'on le voit.
@@ -1289,10 +1317,10 @@ async function loadHeaderBoosterBadge() {
         const vault = await API.getVaultStatus(Session.userId).catch(() => null);
         const keyEl = keyBadge.querySelector(".count");
         if (vault && !vault.alreadyOpened && vault.keysRequired) {
-          keyBadge.title = `${keys} / ${vault.keysRequired} clefs vers le coffre-fort`;
+          keyBadge.title = `${keys} / ${vault.keysRequired} clés vers le coffre-fort`;
           keyEl.textContent = `${keys}/${vault.keysRequired}`;
         } else {
-          keyBadge.title = "Clefs secrètes (fouilles)";
+          keyBadge.title = "Clés";
           bumpNumber(keyEl, keys);
         }
       } else {
@@ -1411,6 +1439,13 @@ function initBackToTop() {
   btn.innerHTML = "&#8593;";
   btn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
   document.body.appendChild(btn);
+  // Toucher l'onglet de la page en cours (nav du bas) : retour en haut (2026-10-19).
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest(".bottom-nav a.active");
+    if (!a || window.scrollY < 80) return;
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 
   let ticking = false;
   window.addEventListener("scroll", () => {
@@ -1476,9 +1511,32 @@ function prefetchShellData() {
       read("vault"), read("bingo"), read("guessCard"), read("expedition"),
       { name: "eventCalendar" }, read("communityBoss"), read("guildChest"), read("blackMarket", "list"),
       read("loginStreak"), read("setRewards"), read("season"),
-      read("challenges"), read("communityGoal"), read("themes"), read("wishlistAlerts")
+      read("challenges"), read("communityGoal"), read("themes"), read("wishlistAlerts"),
+      // 2026-10-18 : lectures que chaque page refaisait encore une par une
+      // (centre des recompenses, parcours du debutant, chasse au tresor,
+      // heure de chance, notes de mise a jour, visuels) : 12 requetes de moins.
+      read("dailyBox"), read("dailyDice"), read("dailyWheel"), read("dogGift"), read("playerGift"), read("weeklyGoal"),
+      read("starter"), read("forbidden"), { name: "today", query: { userId } }, { name: "treasureHunt", query: { userId } }
     );
+    // Lectures propres a la page, servies par le meme lot (memes corps que
+    // les appels de la page, sinon elles repartent simplement en individuel).
+    const page = (location.pathname.split("/").pop() || "index.html").replace(/\.html$/, "") || "index";
+    const coll = { name: "collection", query: { userId } };
+    const PAGE_READS = {
+      index: [read("story"), read("seasonQuests"), read("seasonal"), { name: "weeklyRecap", query: { userId } }, { name: "whatNow", query: { userId } }],
+      jeux: [read("shop"), read("dig"), read("dino"), read("garden"), read("duoExpedition"), coll],
+      ouverture: [read("shop"), read("ripen"), read("chests"), read("mastery"), coll, { name: "rarityPity", query: { userId } }],
+      boutique: [read("cosmetics"), read("shop"), read("boosterShop"), read("upgrades"), read("sundayMarket"), read("contracts"), { name: "economyState" }],
+      communaute: [read("machineRoom"), read("lottery"), read("teams")],
+      progression: [read("mastery"), read("constellations"), read("skyTree"), read("talents"), read("achievementTiers"), { name: "exchangeRates" }, { name: "accountPrestige", query: { userId } }],
+      mode: [read("modeExtra"), read("draft")],
+      coffre: [read("personalVault"), read("uniqueCounter")],
+      collection: [read("shop"), coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("showcase", "list"), { name: "exchangeRates" }, read("decraftUndo", "list")],
+      trade: [coll, { name: "economyRules", query: { userId } }]
+    };
+    calls.push(...(PAGE_READS[page] || []));
   }
+  calls.push({ name: "patchNotes" }, { name: "visuals" });
   return API.batch(calls);
 }
 
@@ -1911,3 +1969,362 @@ document.addEventListener("click", (e) => {
     else if (ind) { ind.style.opacity = "0"; }
   });
 })();
+
+// ---------------------------------------------------------------------------
+// Raccourcis clavier (2026-10-18, ordinateur) : « / » ouvre la recherche,
+// « g » puis une lettre change de page, « ? » affiche l'aide. Ignores pendant
+// la saisie, avec Ctrl/Alt/Cmd, ou quand une fenetre est ouverte.
+// ---------------------------------------------------------------------------
+const Shortcuts = {
+  GO: { a: ["index.html", "Accueil"], o: ["ouverture.html", "Ouvrir des boosters"], c: ["collection.html", "Collection"], j: ["jeux.html", "Jeux"], m: ["communaute.html", "Communauté"], b: ["boutique.html", "Boutique"], e: ["trade.html", "Échanges"], p: ["progression.html", "Progression"], f: ["coffre.html", "Coffre-fort"] },
+  pending: 0,
+  busy(e) {
+    const t = e.target;
+    if (e.ctrlKey || e.metaKey || e.altKey) return true;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return true;
+    return !!document.querySelector(".card-modal-overlay, .wf-overlay, .fish-pick, [role='dialog']:not([hidden])");
+  },
+  help() {
+    const rows = [["/", "Rechercher un joueur, une carte…"], ["?", "Cette aide"], ...Object.entries(this.GO).map(([k, [, label]]) => [`g puis ${k}`, label])];
+    Confirm.show(`<table class="kbd-help">${rows.map(([k, v]) => `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>`).join("")}</table>`, { title: "Raccourcis clavier", confirmText: "OK", cancelText: "Fermer" });
+  },
+  init() {
+    document.addEventListener("keydown", (e) => {
+      if (this.busy(e)) { this.pending = 0; return; }
+      const k = e.key;
+      if (this.pending && Date.now() - this.pending < 1200) {
+        this.pending = 0;
+        const go = this.GO[k.toLowerCase()];
+        if (go) { e.preventDefault(); location.href = go[0]; }
+        return;
+      }
+      this.pending = 0;
+      if (k === "g") this.pending = Date.now();
+      else if (k === "/") { const b = document.getElementById("global-search-trigger"); if (b) { e.preventDefault(); b.click(); } }
+      else if (k === "?") { e.preventDefault(); this.help(); }
+    });
+  }
+};
+if (!window.matchMedia || !matchMedia("(pointer: coarse)").matches) Shortcuts.init();
+// Tout bouton [data-open-search] ouvre la recherche de l'en-tete.
+document.addEventListener("click", (e) => {
+  if (!e.target.closest || !e.target.closest("[data-open-search]")) return;
+  document.getElementById("global-search-trigger")?.click();
+});
+
+// ---------------------------------------------------------------------------
+// Une seule cle dans le jeu (2026-10-19) : les emojis de cle encore presents
+// dans des textes venus de l'API (« 🔑 1 clé », couts, recompenses) sont
+// remplaces a l'affichage par l'image de la cle (clés.PNG), partout.
+// ---------------------------------------------------------------------------
+const KeyArt = {
+  RE: /\u{1F511}|\u{1F5DD}\u{FE0F}?/u,
+  SPLIT: /(\u{1F511}|\u{1F5DD}\u{FE0F}?)/u,
+  SKIP: new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "OPTION", "SELECT", "TITLE", "svg", "text"]),
+  // Garde-fou : un element qui remet sans cesse son emoji (rendu en boucle)
+  // n'est plus touche apres quelques remplacements.
+  hits: new WeakMap(),
+  swaps: 0,
+  queue: new Set(),
+  scheduled: false,
+  swapText(node) {
+    const parent = node.parentNode;
+    if (!parent || parent.nodeType !== 1 || this.SKIP.has(parent.nodeName) || parent.closest("svg, select, [contenteditable='true']")) return;
+    const n = (this.hits.get(parent) || 0) + 1;
+    if (n > 3) return;
+    this.hits.set(parent, n);
+    const parts = node.nodeValue.split(this.SPLIT);
+    if (parts.length < 2) return;
+    const frag = document.createDocumentFragment();
+    parts.forEach((p, i) => {
+      if (i % 2) { const img = document.createElement("img"); img.className = "ico-token"; img.src = "assets/" + encodeURI(RES_ART.key); img.alt = "clé"; frag.appendChild(img); }
+      else if (p) frag.appendChild(document.createTextNode(p));
+    });
+    this.swaps++;
+    parent.replaceChild(frag, node);
+  },
+  scan(root) {
+    if (!root || !root.isConnected) return;
+    if (root.nodeType === 3) { if (this.RE.test(root.nodeValue)) this.swapText(root); return; }
+    if (root.nodeType !== 1 || this.SKIP.has(root.nodeName) || !this.RE.test(root.textContent || "")) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const found = [];
+    while (walker.nextNode()) if (this.RE.test(walker.currentNode.nodeValue)) found.push(walker.currentNode);
+    found.forEach((t) => this.swapText(t));
+  },
+  // Traitement groupe a chaque image (pas dans le rappel de l'observateur).
+  enqueue(node) {
+    this.queue.add(node);
+    if (this.scheduled) return;
+    this.scheduled = true;
+    requestAnimationFrame(() => {
+      this.scheduled = false;
+      const list = [...this.queue];
+      this.queue.clear();
+      list.forEach((n) => this.scan(n));
+    });
+  },
+  init() {
+    this.scan(document.body);
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.type === "characterData") { if (this.RE.test(m.target.nodeValue || "")) this.enqueue(m.target); }
+        else m.addedNodes.forEach((n) => { if ((n.nodeType === 3 || n.nodeType === 1) && this.RE.test(n.textContent || "")) this.enqueue(n); });
+      }
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+};
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => KeyArt.init()); else KeyArt.init();
+
+// Salle interdite dans « Jouer » : le serveur dit si le joueur y a acces (et
+// son adresse) ; le lien est ajoute au menu deja affiche et garde en cache.
+async function syncForbiddenNav() {
+  if (!Session.isLoggedIn()) return;
+  let st;
+  try { st = await API.post("forbidden", { userId: Session.userId, action: "status" }); } catch (e) { return; }
+  try { if (st.access && st.page) localStorage.setItem("2gatcha_forbidden", st.page); else localStorage.removeItem("2gatcha_forbidden"); } catch (e) { /* stockage indisponible */ }
+  const item = forbiddenNavItem();
+  const drop = document.querySelector("#nav-group-jouer .nav-group-dropdown");
+  if (item && drop && !drop.querySelector(`a[href="${item.href}"]`)) { const ouv = drop.querySelector('a[href="ouverture.html"]'); const html = `<a href="${item.href}" class="${item.href === currentPage() ? "active" : ""}" data-badge-key="">${item.label}</a>`; if (ouv) ouv.insertAdjacentHTML("afterend", html); else drop.insertAdjacentHTML("beforeend", html); }
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(syncForbiddenNav, 400)); else setTimeout(syncForbiddenNav, 400);
+
+// ---------------------------------------------------------------------------
+// Rouages (2026-10-19) : dix petits rouages graves sont caches sur le
+// site. Chacun porte une lettre (donnee par le serveur au clic). Rien ne dit
+// ou ils menent… sauf peut-etre les pages perdues.
+// ---------------------------------------------------------------------------
+const Gears = {
+  SPOTS: [
+    { n: 1, page: "nouveautes.html", sel: "#patch-notes > :last-child" },
+    { n: 2, page: "coffre.html", sel: "#museum-zone" },
+    { n: 3, page: "jeux.html", sel: ".dig-site[data-depth='5']" },
+    { n: 4, page: "jeux.html", sel: "#fish-scene[data-spot='deep']" },
+    { n: 5, page: "404.html", sel: "#arg-board-host" },
+    { n: 6, page: "mode.html", sel: "#main-content > .panel" },
+    { n: 7, page: "jeux.html", sel: "#fish-aquarium-wrap[open]" },
+    { n: 9, page: "communaute.html", sel: "#machine-room" },
+    { n: 10, page: "jeux.html", sel: "#dino-dex-box[open]" }
+  ],
+  ROMAN: ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"],
+  page() { return currentPage() === "" ? "index.html" : (document.getElementById("arg-board-host") ? "404.html" : currentPage()); },
+  make(n) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "arg-gear";
+    b.dataset.gear = String(n);
+    b.setAttribute("aria-label", "Un rouage gravé");
+    b.innerHTML = `<span class="arg-gear-ico" aria-hidden="true">&#9881;&#65039;</span><span class="arg-gear-n">${this.ROMAN[n - 1]}</span>`;
+    b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this.take(n, b); });
+    return b;
+  },
+  async take(n, el) {
+    if (!Session.isLoggedIn()) { Toast.info("Un rouage gravé… mais il faut être connecté pour le garder."); return; }
+    try {
+      const r = await API.post("forbidden", { userId: Session.userId, action: "gear", n });
+      el.classList.add("taken");
+      if (typeof Sfx !== "undefined" && Sfx._tone) { Sfx._tone(520, 0, 0.08, "square", 0.04); Sfx._tone(780, 0.08, 0.12, "square", 0.04); }
+      if (typeof Haptics !== "undefined") Haptics.buzz([15, 30, 15]);
+      Toast.success(`&#9881;&#65039; Rouage gravé <strong>${r.roman}</strong> : la lettre <strong>« ${r.letter} »</strong>. (${r.found} / ${r.total})`);
+      if (r.fresh && r.found === 1) setTimeout(() => Toast.info("Dix rouages, dix lettres. Les pages perdues savent les assembler…"), 1600);
+      if (r.found === r.total && r.fresh) setTimeout(() => Toast.info("Les dix rouages tournent ensemble. Le mot qu’ils forment se réclame."), 1600);
+    } catch (e) { /* rouage muet */ }
+  },
+  place() {
+    const page = this.page();
+    for (const s of this.SPOTS) {
+      if (s.page !== page) continue;
+      const host = document.querySelector(s.sel);
+      if (!host || host.querySelector(".arg-gear")) continue;
+      if (getComputedStyle(host).position === "static") host.style.position = "relative";
+      host.appendChild(this.make(s.n));
+    }
+  },
+  // Code Konami sur l'accueil : un rouage tombe du ciel. Au clavier, ou au
+  // doigt sur mobile (glisses haut, haut, bas, bas, gauche, droite, gauche,
+  // droite, puis deux touchers).
+  konami() {
+    const SEQ = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+    let i = 0;
+    const drop = () => {
+      if (document.querySelector(".arg-gear-fall")) return;
+      const g = this.make(8);
+      g.classList.add("arg-gear-fall");
+      document.body.appendChild(g);
+    };
+    document.addEventListener("keydown", (e) => {
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      i = k === SEQ[i] ? i + 1 : (k === SEQ[0] ? 1 : 0);
+      if (i < SEQ.length) return;
+      i = 0;
+      drop();
+    });
+    const SWIPES = ["up", "up", "down", "down", "left", "right", "left", "right", "tap", "tap"];
+    let j = 0, sx = 0, sy = 0, st = 0;
+    document.addEventListener("touchstart", (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); }, { passive: true });
+    document.addEventListener("touchend", (e) => {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - sx, dy = t.clientY - sy, ad = Math.max(Math.abs(dx), Math.abs(dy));
+      if (Date.now() - st > 900) { j = 0; return; }
+      const g = ad < 12 ? "tap" : ad < 40 ? null : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+      if (!g) return;
+      j = g === SWIPES[j] ? j + 1 : (g === SWIPES[0] ? 1 : 0);
+      if (j < SWIPES.length) return;
+      j = 0;
+      drop();
+    }, { passive: true });
+  },
+  // Page 404 : le tableau ou les lettres trouvees prennent leur place.
+  async board() {
+    const host = document.getElementById("arg-board-host");
+    if (!host || !Session.isLoggedIn()) return;
+    let st;
+    try { st = await API.post("forbidden", { userId: Session.userId, action: "status" }); } catch (e) { return; }
+    if (!st.gears || !st.gears.length) return;
+    const by = new Map(st.gears.map((g) => [g.n, g.letter]));
+    host.insertAdjacentHTML("afterbegin", `<div class="arg-board"><p>Dix rouages, dix lettres. Le mot qu'ils forment est le nom d'une page qu'aucun menu ne montre.</p>
+      <div class="arg-slots">${this.ROMAN.map((r, i) => `<span class="arg-slot ${by.has(i + 1) ? "on" : ""}"><b>${by.get(i + 1) || "?"}</b><small>${r}</small></span>`).join("")}</div></div>`);
+  },
+  init() {
+    if (this.page() === "index.html") this.konami();
+    this.board();
+    if (!this.SPOTS.some((s) => s.page === this.page())) return;
+    this.place();
+    // Contenus charges plus tard (onglets, details ouverts, profondeur…).
+    setInterval(() => this.place(), 1500);
+  }
+};
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => Gears.init()); else Gears.init();
+
+// ---------------------------------------------------------------------------
+// Petits secrets du site (2026-10-19, api/src/native/secrets.js).
+// ---------------------------------------------------------------------------
+const SiteSecrets = {
+  parisHour() { return Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", hour: "2-digit", hour12: false }).format(new Date())) % 24; },
+  // Page 404 : une carte qui n'existe pas…
+  ghost404() {
+    const host = document.getElementById("arg-board-host");
+    const hi = host && host.closest(".panel") ? host.closest(".panel").querySelector(".hero-highlight") : null;
+    if (!hi) return;
+    let n = 0, last = 0;
+    hi.addEventListener("click", async () => {
+      const t = Date.now();
+      n = t - last < 1500 ? n + 1 : 1;
+      last = t;
+      hi.classList.remove("sx-blip"); void hi.offsetWidth; hi.classList.add("sx-blip");
+      if (n < 7) return;
+      n = 0;
+      if (!Session.isLoggedIn()) return;
+      try {
+        const r = await API.post("secrets", { userId: Session.userId, action: "ghost404" });
+        UnlockFx.show({ title: r.title, subtitle: "Elle n'aurait jamais dû exister.", cards: r.cards, tone: "ghost" });
+      } catch (e) { if (e.code === "already_found") Toast.info("La page se souvient de toi."); }
+    });
+  },
+  // De 3 h a 4 h : le site se deforme, une ombre traverse l'accueil.
+  shadow() {
+    if (this.parisHour() !== 3) return;
+    document.documentElement.dataset.shadowHour = "1";
+    if (currentPage() !== "index.html" || !Session.isLoggedIn()) return;
+    const sh = document.createElement("button");
+    sh.type = "button";
+    sh.className = "sx-shadow";
+    sh.setAttribute("aria-label", "Une ombre");
+    sh.innerHTML = '<span class="sx-eye"></span><span class="sx-eye"></span>';
+    document.body.appendChild(sh);
+    sh.addEventListener("click", async () => {
+      sh.disabled = true;
+      try {
+        const r = await API.post("secrets", { userId: Session.userId, action: "shadow" });
+        sh.classList.add("caught");
+        setTimeout(() => sh.remove(), 900);
+        UnlockFx.show({ title: r.title, subtitle: "Il est tard. Tu aurais dû dormir.", rewards: r.rewards, tone: "shadow" });
+      } catch (e) { sh.classList.add("caught"); setTimeout(() => sh.remove(), 900); }
+    });
+  },
+  init() { this.ghost404(); this.shadow(); }
+};
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => SiteSecrets.init()); else SiteSecrets.init();
+
+// ---------------------------------------------------------------------------
+// La carte « Erreur 404 » glitche partout ou elle apparait (2026-10-19) : par
+// moments, des eclats d'autres illustrations (tirees au hasard a chaque
+// glitch) traversent la carte. Images fournies par GET /webhook/secret-card.
+// ---------------------------------------------------------------------------
+const GlitchCard = {
+  data: null,
+  KEY: "2gatcha_glitch404",
+  async load() {
+    try { const c = JSON.parse(sessionStorage.getItem(this.KEY) || "null"); if (c && Date.now() - c.at < 10 * 60000) { this.data = c.data; return; } } catch (e) { /* stockage indisponible */ }
+    try { this.data = await API.get("secretCard"); } catch (e) { this.data = null; return; }
+    try { sessionStorage.setItem(this.KEY, JSON.stringify({ at: Date.now(), data: this.data })); } catch (e) { /* stockage indisponible */ }
+  },
+  // Effet de l'image (cartes secretes, reglage SecretCardEffects) ou null.
+  effectOf(img) {
+    const effects = this.data.effects || [];
+    const holder = img.closest("[data-card-id]");
+    if (holder) { const e = effects.find((x) => String(x.cardId) === holder.dataset.cardId); return e ? e.effect : null; }
+    let id = null;
+    try { id = new URL(img.src, location.href).searchParams.get("id"); } catch (e) { return null; }
+    if (!id) return null;
+    // Sans identifiant de carte : l'image ne compte que si elle n'appartient qu'a cette carte.
+    const e = effects.find((x) => x.uniqueImage && String(x.imageId) === id);
+    return e ? e.effect : null;
+  },
+  scan() {
+    if (!this.data) return;
+    document.querySelectorAll('img[src*="id="]').forEach((img) => {
+      if (img.dataset.gl404) return;
+      const effect = this.effectOf(img);
+      if (!effect) return;
+      img.dataset.gl404 = "1";
+      const host = img.parentElement;
+      if (!host) return;
+      if (getComputedStyle(host).position === "static") host.style.position = "relative";
+      if (effect !== "glitch") {
+        // Fourrure (fur-brown, fur-black, fur-white) ou contour unique.
+        host.classList.add("sfx-host", "sfx-" + effect.replace(/[^a-z0-9-]/g, ""));
+        const layer = document.createElement("div");
+        layer.className = "sfx-layer";
+        layer.setAttribute("aria-hidden", "true");
+        host.appendChild(layer);
+        return;
+      }
+      host.classList.add("gl404-host");
+      const fx = document.createElement("div");
+      fx.className = "gl404";
+      fx.setAttribute("aria-hidden", "true");
+      fx.innerHTML = "<span></span><span></span><span></span>";
+      host.appendChild(fx);
+      this.loop(host, fx);
+    });
+  },
+  loop(host, fx) {
+    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const others = (this.data.others || []).map((id) => API.imageUrl(id)).filter(Boolean);
+    const tick = () => {
+      if (!host.isConnected) return;
+      if (others.length) {
+        fx.querySelectorAll("span").forEach((s) => {
+          const top = Math.random() * 80, h = 6 + Math.random() * 22;
+          s.style.backgroundImage = `url("${others[Math.floor(Math.random() * others.length)]}")`;
+          s.style.top = top + "%";
+          s.style.height = h + "%";
+          s.style.backgroundPosition = `${Math.random() * 100}% ${top}%`;
+          s.style.transform = `translateX(${(Math.random() - 0.5) * 18}%)`;
+        });
+      }
+      host.classList.add("gl404-on");
+      setTimeout(() => host.classList.remove("gl404-on"), 140 + Math.random() * 260);
+      setTimeout(tick, (reduced ? 4000 : 1100) + Math.random() * 2600);
+    };
+    setTimeout(tick, 400 + Math.random() * 1200);
+  },
+  async init() {
+    await this.load();
+    if (!this.data || (!this.data.imageId && !(this.data.effects || []).length)) return;
+    this.scan();
+    setInterval(() => this.scan(), 1500);
+  }
+};
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => GlitchCard.init()); else GlitchCard.init();

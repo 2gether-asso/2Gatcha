@@ -5,7 +5,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   const FINISH = { holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   // Sources du grand livre (chemins de l'API) -> libelles.

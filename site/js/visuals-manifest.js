@@ -12,7 +12,7 @@ window.VISUALS_MANIFEST = [{"path":"Boussole.PNG","group":"Objets","use":"Bousso
   {"path":"Coffres/7.PNG","group":"Coffres du gatchapon","use":""},
   {"path":"Coffres/8.PNG","group":"Coffres du gatchapon","use":""},
   {"path":"CraneDeDino.png","group":"Objets","use":"Crâne de dinosaure"},
-  {"path":"ElixirDePeche.PNG","group":"Objets","use":"Appât doré"},
+  {"path":"ElixirDePeche.PNG","group":"Objets","use":"Potion de savoir (l'appât doré reprend l'image des vers, en doré)"},
   {"path":"Fouille/Agathe.PNG","group":"Fouille et minéraux","use":""},
   {"path":"Fouille/Amazonite.png","group":"Fouille et minéraux","use":""},
   {"path":"Fouille/Ambre.PNG","group":"Fouille et minéraux","use":""},
@@ -82,5 +82,5 @@ window.VISUALS_MANIFEST = [{"path":"Boussole.PNG","group":"Objets","use":"Bousso
   {"path":"Pêche/Vers.png","group":"Pêche et aquarium","use":"Ver de terre"},
   {"path":"Pêche/crabe.png","group":"Pêche et aquarium","use":"Écrevisse (aquarium)"},
   {"path":"Pêche/crevette.png","group":"Pêche et aquarium","use":"Crevette (aquarium, dinos)"},
-  {"path":"cléSpeciale.png","group":"Objets","use":"Clé secrète (coffre-fort)"},
+  {"path":"cléSpeciale.png","group":"Objets","use":"Ancienne clé secrète (plus affichée : une seule clé, clés.PNG)"},
   {"path":"clés.PNG","group":"Objets","use":"Clé (pêche, en-tête)"}];

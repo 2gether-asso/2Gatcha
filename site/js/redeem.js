@@ -17,7 +17,7 @@ const ERROR_MESSAGES = {
 };
 
 const UNLOCK_ERROR_MESSAGES = {
-  no_key: "Il te faut une clef secrète pour ouvrir cette serrure (trouvable en fouillant).",
+  no_key: "Il te faut une clé pour ouvrir cette serrure (fouille, pêche, roue…).",
   no_secret_available: "Aucune carte secrète n'est disponible pour le moment.",
   unknown_user: "Utilisateur introuvable, reconnecte-toi."
 };
@@ -126,14 +126,26 @@ async function redeem() {
   try {
     const res = await API.redeemCode(Session.userId, code);
 
+    // Cinematique de deblocage commune a tous les codes (ui.js, UnlockFx).
     if (res.type === "booster") {
       document.getElementById("reward-zone").innerHTML =
         `<div class="reward-banner">+${res.quantity} jeton${res.quantity > 1 ? "s" : ""} booster ! Tu en as maintenant ${res.newBoosterCount}.</div>`;
-      if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
-      Toast.success(`+${res.quantity} jeton${res.quantity > 1 ? "s" : ""} booster !`);
+      await UnlockFx.show({ title: "Code réclamé", rewards: [{ icon: "🃏", label: `+${res.quantity} jeton${res.quantity > 1 ? "s" : ""} booster` }] });
       refreshBoosterStat();
+    } else if (res.type === "reward") {
+      // Code secret : cosmetiques, ressources, parfois une carte.
+      document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">${escHtml(res.title)} : ${res.rewards.map((r) => escHtml(r.label)).join(" · ")}${res.cards && res.cards.length ? ` · ${res.cards.length} carte${res.cards.length > 1 ? "s" : ""}` : ""}</div>`;
+      await UnlockFx.show({ title: res.title, subtitle: "Un code secret !", rewards: res.rewards, cards: res.cards || [], tone: "violet" });
+      refreshBoosterStat();
+    } else if (res.type === "secret") {
+      // Le mot des rouages : cinematique, puis la porte.
+      try { localStorage.setItem("2gatcha_forbidden", res.page); } catch (e) { /* stockage indisponible */ }
+      input.value = "";
+      secretCinematic(res);
+      return;
     } else if (res.type === "card") {
       document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">Carte reçue !</div>`;
+      await UnlockFx.show({ title: res.cards.length > 1 ? "Cartes débloquées" : "Carte débloquée", cards: res.cards });
       const grid = document.getElementById("reveal-grid");
       res.cards.forEach((card, i) => {
         const el = buildCardEl(card, i);
@@ -228,3 +240,54 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("code-input").value = prefill.toUpperCase();
   }
 });
+
+// Le mot des rouages (2026-10-19) : ecran noir, grondement, dix rouages qui
+// s'eveillent, quelques mots, une faille de lumiere… puis la porte. Aucune
+// explication : le joueur arrive devant la porte sans mode d'emploi.
+function secretCinematic(res) {
+  const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const lines = res.first
+    ? ["…", "Le mot a été entendu.", "Sous les cartes, sous les pages, quelque chose s'éveille.", "Suis le grincement."]
+    : ["…", "La porte se souvient de toi."];
+  const ov = document.createElement("div");
+  ov.className = "sc-overlay";
+  ov.setAttribute("role", "dialog");
+  ov.setAttribute("aria-label", "…");
+  ov.innerHTML = `<div class="sc-gears" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<span style="--i:${i}">&#9881;&#65039;</span>`).join("")}</div>
+    <p class="sc-line" aria-live="polite"></p><div class="sc-crack" aria-hidden="true"></div>`;
+  document.body.appendChild(ov);
+  if (typeof syncScrollLock === "function") syncScrollLock();
+  const tone = (f, t, d, type = "sine", v = 0.05) => { if (typeof Sfx !== "undefined" && Sfx._tone) Sfx._tone(f, t, d, type, v); };
+  // Grondement sourd + cliquetis.
+  tone(55, 0, 2.5, "sawtooth", 0.04); tone(41, 0.8, 3, "sine", 0.06);
+  for (let i = 0; i < 10; i++) tone(700 + (i % 3) * 90, 1 + i * 0.32, 0.03, "square", 0.02);
+  if (typeof Haptics !== "undefined") Haptics.buzz([40, 120, 40, 120, 200]);
+  requestAnimationFrame(() => ov.classList.add("sc-in"));
+  const line = ov.querySelector(".sc-line");
+  const step = reduced ? 700 : 1700;
+  const typeLine = (txt) => {
+    line.classList.remove("sc-show"); void line.offsetWidth;
+    line.textContent = "";
+    line.classList.add("sc-show");
+    if (reduced) { line.textContent = txt; return; }
+    let i = 0;
+    const t = setInterval(() => { line.textContent = txt.slice(0, ++i); if (i >= txt.length) clearInterval(t); }, Math.max(18, 900 / Math.max(10, txt.length)));
+  };
+  let k = 0;
+  const go = () => {
+    try { sessionStorage.setItem("2gatcha_fd_arrival", "1"); } catch (e) { /* stockage indisponible */ }
+    location.href = res.page;
+  };
+  const next = () => {
+    if (k < lines.length) { typeLine(lines[k++]); timer = setTimeout(next, step); return; }
+    ov.classList.add("sc-open");
+    tone(220, 0, 1.2, "triangle", 0.05); tone(330, 0.2, 1.4, "sine", 0.04);
+    if (typeof Haptics !== "undefined") Haptics.buzz(300);
+    timer = setTimeout(go, reduced ? 400 : 2200);
+  };
+  let timer = setTimeout(next, reduced ? 200 : 1200);
+  // Un clic accelere (apres un court instant), jamais d'explication.
+  let skippable = false;
+  setTimeout(() => { skippable = true; }, 1500);
+  ov.addEventListener("click", () => { if (!skippable) return; clearTimeout(timer); go(); });
+}

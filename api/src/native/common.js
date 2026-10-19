@@ -73,6 +73,21 @@ export function ensureSchema(store, spec) {
 }
 
 // Carte simplifiee pour les reponses (meme forme que les workflows).
+// Plus petit numero de serie libre d'une carte (2026-10-18 : avant, recopie
+// dans 7 modules qui creent des exemplaires).
+export function nextSerial(store, cardId) {
+  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
+  let n = 1;
+  while (used.has(n)) n++;
+  return n;
+}
+
+// Hash FNV-1a 32 bits d'une chaine (tirages deterministes par jour/joueur).
+export function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+// Fin (dimanche 23:59:59, Paris) de la semaine qui commence le lundi `week` (AAAA-MM-JJ).
+export const weekEndsAt = (week) => Math.floor(new Date(week + 'T00:00:00+02:00').getTime() / 1000) + 7 * 86400 - 1;
+
 export function cardSummary(store, card) {
   const rarity = card.Rarity ? store.get('Rarities', refId(card.Rarity)) : null;
   return {

@@ -177,8 +177,8 @@ export const REGISTRY = {
       { key: 'part', group: 'resources', label: 'Pièce détachée', icon: '🔩', desc: 'Remplace un exemplaire dans une fusion ou une restauration.', price: 350, weekly: 2, give: { SpareParts: 1 } },
       { key: 'luck5', group: 'boosts', label: 'Élixir de chance', icon: '🧪', desc: '+5 points de chance de finition spéciale sur tes 5 prochains boosters.', price: 500, weekly: 2, give: { LuckCharges: 5 } },
       { key: 'xp1h', group: 'boosts', label: 'Potion de savoir', icon: '📘', desc: 'XP ×2 pendant 1 heure : compte, pêche, fouille, expédition, jardin.', price: 400, weekly: 2, effect: 'xpBoost', hours: 1 },
-      { key: 'coffee', group: 'boosts', label: 'Café du fouilleur', icon: '☕', desc: 'Recharge complète de ton énergie de fouille.', price: 200, weekly: 3, effect: 'digEnergy' },
-      { key: 'thermos', group: 'boosts', label: 'Thermos du pêcheur', icon: '🫖', desc: 'Recharge complète de ton énergie de pêche.', price: 200, weekly: 3, effect: 'fishEnergy' },
+      { key: 'coffee', group: 'boosts', label: 'Café du fouilleur', icon: '☕', desc: 'Recharge complète de ton énergie de fouille. Sans limite, mais plus cher à chaque achat du jour.', price: 200, escalate: true, effect: 'digEnergy' },
+      { key: 'thermos', group: 'boosts', label: 'Thermos du pêcheur', icon: '🫖', desc: 'Recharge complète de ton énergie de pêche. Sans limite, mais plus cher à chaque achat du jour.', price: 200, escalate: true, effect: 'fishEnergy' },
       { key: 'fertilizer', group: 'boosts', label: 'Engrais express', icon: '🌿', desc: 'Toutes tes plantations en cours sont prêtes tout de suite.', price: 180, weekly: 3, effect: 'gardenRipe' },
       { key: 'compass', group: 'boosts', label: 'Boussole dorée', icon: '🧭', desc: 'Ton expédition en cours rentre immédiatement.', price: 300, weekly: 2, effect: 'expeditionNow' }
     ]
@@ -186,6 +186,7 @@ export const REGISTRY = {
 
   // --- Economie
   TradeTaxPerCard: { ...int('Taxe d’échange (poussières par carte)', 15, 'Économie', 'Payée par celui qui propose l’échange. 0 = pas de taxe.'), storage: 'app' },
+  EnergyRefillGrowth: { ...num('Recharges d’énergie : multiplicateur du prix par achat du jour', 1.6, 'Boutique', 'Café du fouilleur et thermos du pêcheur sont illimités : chaque achat du jour coûte ce multiple du précédent (1,6 = 200, 320, 510, 820…), remis à zéro chaque jour.', 1, 5), storage: 'app' },
   BoneWeeklyIncrease: { ...num('Hausse du prix de l’os par achat dans la semaine', 0.25, 'Économie', '0,25 = +25 % par os acheté, remis à zéro le lundi.', 0, 5), storage: 'app' },
   DuplicateDustCapCopies: { ...int('Doublons : exemplaires avant plafond', 5, 'Économie', 'À partir de ce nombre d’exemplaires, un doublon ne rapporte plus que 1 poussière. 0 = pas de plafond.'), storage: 'app' },
   FishingFullRewardsPerDay: { ...int('Pêche : lancers à plein rendement par jour', 15, 'Économie', 'Au-delà, poussières divisées par 2 et objets moins fréquents. 0 = désactivé.'), storage: 'app' },
@@ -392,9 +393,56 @@ export const REGISTRY = {
   TestAccountId: { ...int('Compte test admin : id du joueur', 9, 'Administration', 'Compte sur lequel un admin bascule sans Discord (Admin > Compte test) : niveaux, ressources et difficulté propres, isolé des autres joueurs. 0 = désactivé.', 0, 1000000), storage: 'app' },
   ExpeditionDestinations: { label: 'Expédition : destinations', type: 'json', group: 'Jeux', storage: 'app', help: 'Liste { key, name, icon, level : niveau d’expédition requis, desc, loot : { ressource : quantité pour 2 h } }. Ressources : Worms, BoneCount, GoldBait, SpareParts, CatFish, KeyCount, DinoSkulls, ChestCount, minerals. ×2,5 pour 8 h, ×5 pour 24 h ; la partie décimale est une chance.', def: [{"key":"foret","name":"Forêt enchantée","icon":"🌲","level":1,"desc":"Des vers pour la pêche et quelques os pour Milo.","loot":{"Worms":3,"BoneCount":0.4}},{"key":"cote","name":"Côte sauvage","icon":"🏖️","level":1,"desc":"Du poisson pour Moka, des appâts dorés et parfois une pièce détachée.","loot":{"CatFish":2,"GoldBait":0.4,"SpareParts":0.3}},{"key":"mine","name":"Mine abandonnée","icon":"⛏️","level":2,"desc":"Des minéraux pour le comptoir (plus rares si l’expédition est longue).","loot":{"minerals":2}},{"key":"ruines","name":"Ruines antiques","icon":"🏛️","level":3,"desc":"Des clés pour le coffre-fort et des crânes pour les dinos.","loot":{"KeyCount":0.3,"DinoSkulls":0.3}},{"key":"port","name":"Port des pirates","icon":"🏴‍☠️","level":5,"desc":"Des pièces de gatchapon et des pièces détachées.","loot":{"ChestCount":0.35,"SpareParts":0.2}}] },
   ExpeditionAffinityPct: { ...int('Expédition : bonus d’affinité (%)', 50, 'Jeux', 'Chaque jour, chaque destination a une rareté et une extension favorites : un explorateur qui correspond rapporte ce % de ressources en plus (cumulable : rareté + extension).', 0, 500), storage: 'app' },
+  MokaHints: {
+    label: 'Moka : indices sur ses amis chats (cartes secrètes)', type: 'json', group: 'Salle interdite', storage: 'app',
+    help: 'Liste de phrases : Moka en glisse une, au hasard, en P.S. de son rapport de pêche (chance : MokaHintChance).',
+    def: [
+      'P.S. Pepper ? La dernière fois que je l’ai vu, il était en cage. Six cadenas… et autant de clés à trouver.',
+      'P.S. Il paraît qu’une serrure attend là où l’on réclame les codes. Derrière, des amis à moi font la sieste.',
+      'P.S. Mr Sterling a le poil brun et adore l’eau. Pour le revoir, il faut d’abord trouver la bonne serrure.',
+      'P.S. Ticat est tout blanc : impossible de le voir dans la neige. Il ne se montre qu’aux joueurs qui ont fait du chemin… on dit qu’il arrive tout seul au niveau 10.',
+      'P.S. Mes amis ne s’abîment jamais : un chat retombe toujours sur ses pattes.',
+      'P.S. Si tu croises un chat que personne n’a jamais vu, ne fais pas de bruit. Il est peut-être secret.'
+    ]
+  },
+  MokaHintChance: { ...pct('Moka : chance d’un indice dans son rapport', 0.35, 'Salle interdite', 'Un P.S. sur ses amis chats en fin de carte postale.'), storage: 'app' },
+  SecretCardEffects: {
+    label: 'Cartes secrètes : effet unique de chaque carte', type: 'json', group: 'Salle interdite', storage: 'app',
+    help: 'Liste { match, effect } : une carte dont le nom contient « match » (sans tenir compte des majuscules) reçoit l’effet, et reste toujours en parfait état. Effets : fur-brown, fur-black, fur-white (fourrure), glitch (bouts d’autres illustrations), aura-gold, aura-void (contours).',
+    def: [
+      { match: 'sterling', effect: 'fur-brown' },
+      { match: 'pepper', effect: 'fur-black' },
+      { match: 'ticat', effect: 'fur-white' },
+      { match: 'erreur 404', effect: 'glitch' }
+    ]
+  },
+  SecretCodes: {
+    label: 'Codes secrets (Réclamer un code)', type: 'json', group: 'Salle interdite', storage: 'app',
+    help: 'Liste { code, label, title?: { key, label }, frame?: { key, label }, color?: { key, label }, give?: { BoosterCount, StardustCount (× indice des prix), KeyCount, ChestCount, BoneCount, CatFish, SpareParts, LuckCharges, Worms, GoldBait }, card?: clé de rareté }. Une fois par joueur, avec une cinématique. Cadres et couleurs : frame-retro, frame-shadow, frame-forbidden, color-pepper, color-ember (en plus de ceux de la boutique).',
+    def: [
+      { code: '2GETHER', label: 'Le clan', title: { key: 'title-clan', label: 'Membre du clan' }, give: { BoosterCount: 2 } },
+      { code: 'KONAMI', label: 'Les anciens', frame: { key: 'frame-retro', label: 'Rétro' }, give: { ChestCount: 3 } },
+      { code: 'MILO', label: 'Le chenil', title: { key: 'title-milo', label: 'Ami des chiens' }, give: { BoneCount: 5 } },
+      { code: 'MOKA', label: 'Le panier', title: { key: 'title-moka', label: 'Ami des chats' }, give: { CatFish: 5 } },
+      { code: 'PEPPER', label: 'La cage', color: { key: 'color-pepper', label: 'Pepper' }, give: { StardustCount: 300 } },
+      { code: 'GATCHA', label: 'Le distributeur', give: { BoosterCount: 3 } },
+      { code: 'LEGENDE', label: 'La légende', card: 'legendaire' },
+      { code: 'MINUIT', label: 'Minuit', title: { key: 'title-noctambule', label: 'Noctambule' }, give: { KeyCount: 2 } },
+      { code: 'CHANCE', label: 'Le trèfle', give: { LuckCharges: 5 } },
+      { code: 'FORGE', label: 'La forge', color: { key: 'color-ember', label: 'Braise' }, give: { SpareParts: 3 } }
+    ]
+  },
+  ArgScrollChance: { ...pct('Pêche : chance de remonter le parchemin (par lancer)', 0.02, 'Salle interdite', 'Une seule fois par joueur. Le parchemin donne en énigmes l’emplacement des 10 rouages.'), storage: 'app' },
+  ForbiddenKeysNeeded: { ...int('Porte interdite : clés spéciales à insérer', 10, 'Salle interdite', 'Une clé spéciale se forge avec 1 clé + 1 de chaque minéral.', 1, 50), storage: 'app' },
+  ForbiddenSpinCost: { ...int('Machine interdite : prix d’un tour (poussières)', 40, 'Salle interdite', 'Multiplié par l’indice des prix. Un tour gratuit par jour.', 1, 100000), storage: 'app' },
+  ForbiddenNudgeCost: { ...int('Machine interdite : relancer le rouleau intrus (poussières)', 30, 'Salle interdite', 'Proposé sur une paire ; s’il complète le triple, le gain du triple s’ajoute. Multiplié par l’indice des prix.', 1, 100000), storage: 'app' },
+  ForbiddenJackpotSeed: { ...int('Machine interdite : jackpot de départ (poussières)', 2000, 'Salle interdite', 'Montant après chaque jackpot gagné. Multiplié par l’indice des prix.', 0, 1000000), storage: 'app' },
+  ForbiddenJackpotShare: { ...num('Machine interdite : part de chaque tour versée au jackpot', 0.25, 'Salle interdite', '0,25 = 25 % du prix de chaque tour payant grossit le jackpot commun à tout le serveur.', 0, 1), storage: 'app' },
+  ForbiddenHeatMax: { ...int('Machine interdite : surchauffe (tours sans triple)', 12, 'Salle interdite', 'Après ce nombre de tours sans triple, le suivant est un triple garanti (hors jackpot). 0 = jamais.', 0, 200), storage: 'app' },
   GuessRoundsPerDay: { ...int('Devine la carte : cartes par jour', 5, 'Jeux', 'Mêmes cartes pour tout le monde ; 3 essais par carte, le zoom recule à chaque erreur.', 1, 20), storage: 'app' },
-  GuessDust: { ...int('Devine la carte : poussières par carte trouvée', 20, 'Jeux', '100 % au 1er essai, 60 % au 2e, 30 % au 3e (15 % de consolation si ratée).', 0, 1000), storage: 'app' },
-  GuessPerfectDust: { ...int('Devine la carte : bonus de journée parfaite', 60, 'Jeux', 'Toutes les cartes trouvées du premier coup.', 0, 10000), storage: 'app' },
+  GuessDust: { ...int('Devine la carte : poussières par carte trouvée', 60, 'Jeux', '100 % au 1er essai, 60 % au 2e, 30 % au 3e (15 % de consolation si ratée). Multiplié par l’indice des prix (inflation), comme la boutique.', 0, 1000), storage: 'app' },
+  GuessPerfectDust: { ...int('Devine la carte : bonus de journée parfaite', 200, 'Jeux', 'Toutes les cartes trouvées du premier coup.', 0, 10000), storage: 'app' },
+  GuessFinishCoins: { ...int('Devine la carte : pièces de gatchapon en fin de journée', 1, 'Jeux', 'Données quand toutes les cartes du jour sont jouées en gardant la série (assez de bonnes réponses). 0 = aucune.', 0, 20), storage: 'app' },
   GuessStreakMin: { ...int('Devine la carte : bonnes réponses pour garder la série', 3, 'Jeux', 'Tous les 7 jours de série, un jeton booster.', 1, 20), storage: 'app' },
   GuessCouponPct: { ...int('Devine la carte : réduction du bon de craft (%)', 40, 'Jeux', 'Trouver une carte qu’on ne possède pas donne un bon de craft sur cette carte (remboursé après le craft). 0 = pas de bon.', 0, 100), storage: 'app' },
   GuessCouponDays: { ...int('Devine la carte : durée du bon de craft (jours)', 3, 'Jeux', '', 1, 60), storage: 'app' },

@@ -7,7 +7,7 @@
   const FIN = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUA = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const KIND = { bonus: "Bonus", malus: "Malus", extra: "Exclusivité" };
-  const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
+  const serial = fmtSerial; // core.js
   const fmtH = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h} h ${String(m).padStart(2, "0")}` : `${m} min`; };
   const nowS = () => Math.floor(Date.now() / 1000);
   let rules = null, extra = null, draftSt = null, voteSt = null, collection = null, users = null;
@@ -114,7 +114,7 @@
     if (x.theft) {
       const t = x.theft;
       out.push(block("theft", "🦹", "Larcin", `<p>Une clé pour tenter de voler un doublon à un joueur (${Math.round(t.chance * 100)} % de réussite). Les cartes assurées, au coffre, ★ ou en édition sont intouchables. Tentatives aujourd'hui : ${t.tries} / ${t.max} · clés : ${t.keys}.</p>
-        <div class="md-form"><input type="text" id="md-theft-target" list="md-theft-users" placeholder="Pseudo de la cible" autocomplete="off" /><datalist id="md-theft-users"></datalist><button type="button" class="btn-danger" id="md-theft-btn" ${t.tries >= t.max || t.keys < 1 ? "disabled" : ""}>🗝️ Tenter</button></div>`));
+        <div class="md-form"><input type="text" id="md-theft-target" list="md-theft-users" placeholder="Pseudo de la cible" autocomplete="off" /><datalist id="md-theft-users"></datalist><button type="button" class="btn-danger" id="md-theft-btn" ${t.tries >= t.max || t.keys < 1 ? "disabled" : ""}>${resIcon("key")} Tenter</button></div>`));
     }
     if (x.unstable) {
       const u = x.unstable;

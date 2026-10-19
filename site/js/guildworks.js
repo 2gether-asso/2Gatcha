@@ -5,7 +5,7 @@
 
 (function () {
   const esc = escHtml;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   let busy = false;
 
   function timeLeft(endsAt) {

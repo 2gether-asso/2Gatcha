@@ -158,7 +158,7 @@
     const finds = st.dinos.reduce((s, d) => s + (d.finds || 0), 0);
     $("dino-meta").innerHTML = `<span title="Crânes de dinosaure"><img class="ico-art" src="assets/CraneDeDino.png" alt="" /> <strong>${st.skulls}</strong> crâne${st.skulls > 1 ? "s" : ""}</span>
       <span title="Os (pêche, Milo le chien de fouille)">${resIcon("bone")} <strong>${st.bones}</strong> os</span>
-      <span title="Cacas ramassés : engrais pour le jardin">💩 <strong>${st.poop}</strong> engrais${st.goldPoop ? ` · <strong class="gold">${st.goldPoop}</strong> doré${st.goldPoop > 1 ? "s" : ""}` : ""}</span>
+      <span title="Cacas ramassés : engrais pour le jardin">${POOP} <strong>${st.poop}</strong> engrais${st.goldPoop ? ` · ${GOLD_POOP} <strong class="gold">${st.goldPoop}</strong> doré${st.goldPoop > 1 ? "s" : ""}` : ""}</span>
       <span title="Nourriture pêchée">${resIcon("fish")} ${st.food.fish} · ${resIcon("seaweed")} ${st.food.seaweed} · ${resIcon("shrimp")} ${st.food.shrimp} · ${resIcon("worm")} ${st.food.worm}</span>
       <span>🦖 ${used} / ${st.max}</span>
       ${st.holiday ? '<span class="dino-holiday-note">🏖️ Vacances des dinos (mode Cool) : ni faim ni tristesse, et ils pondent deux fois plus vite.</span>' : ""}
@@ -232,7 +232,7 @@
         Toast.success(`🦕 Retour de balade : +${w.dust} ✨, +${w.worms} ver${w.worms > 1 ? "s" : ""}, +${w.food.n} ${w.food.icon} ${esc(w.food.label.toLowerCase())}${w.bone ? " et un os !" : ""}`);
       }
       if (res.petted) pop(res.petted, res.quiet ? "💗" : "💗 +bonheur");
-      if (res.collected || res.collectedGold) Toast.success(`🧹 +${res.collected} engrais${res.collectedGold ? ` et +${res.collectedGold} engrais DORÉ${res.collectedGold > 1 ? "S" : ""} ✨` : ""} ! Utilise-les au <a href="jeux.html#jardin">jardin</a>.`);
+      if (res.collected || res.collectedGold) Toast.success(`🧹 +${res.collected} engrais${res.collectedGold ? ` et +${res.collectedGold} engrais DORÉ${res.collectedGold > 1 ? "S" : ""} ${GOLD_POOP}` : ""} ! Utilise-les au <a href="jeux.html#jardin">jardin</a>.`);
       if (res.loot) {
         const l = res.loot;
         Toast.success(`⛏️ Trouvailles de tes dinos : +${l.dust} ✨${l.worms ? `, +${l.worms} vers` : ""}${l.bones ? `, +${l.bones} os` : ""}${l.fish ? `, +${l.fish} poisson${l.fish > 1 ? "s" : ""}` : ""}${l.skulls ? " et un CRÂNE DE DINOSAURE !" : ""}`);

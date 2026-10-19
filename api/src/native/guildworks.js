@@ -13,7 +13,7 @@
 //    repart de zero (niveau 0).
 //   POST /webhook/guild-works { userId, action: 'status' | 'give', resource?, amount? }
 
-import { ok, fail, userById, now, refId, parseJson } from './common.js';
+import { ok, fail, userById, now, refId, parseJson, weekEndsAt } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { mineralsOf, MINERALS } from './digdepth.js';
@@ -21,7 +21,6 @@ import { addFeed } from './feed.js';
 
 export const schema = { GuildWorks: { Week: { type: 'Text' }, State: { type: 'Text' } } };
 
-const weekEndsAt = (week) => Math.floor(new Date(week + 'T00:00:00+02:00').getTime() / 1000) + 7 * 86400 - 1;
 
 // Ressources : libelle, icone, points de contribution par unite, et comment
 // les prendre au joueur.

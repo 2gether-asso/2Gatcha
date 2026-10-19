@@ -6,12 +6,12 @@
   if (!Session.isLoggedIn()) return;
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
-  const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
+  const serial = fmtSerial; // core.js
   const rewardLabel = (r) => [r.boosters ? `${r.boosters} <img class="ico-token" src="assets/JetonBooster.png" alt="jeton booster" />` : "", r.chests ? `${r.chests} coffre${r.chests > 1 ? "s" : ""}` : "", r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "", r.dust ? `${r.dust} &#10024;` : "", r.worms ? `${r.worms} vers` : ""].filter(Boolean).join(" + ");
-  const ERR = { weekly_cap: "Stock épuisé pour cette semaine.", not_enough_dust: "Pas assez de poussières.", nothing_growing: "Rien ne pousse au jardin en ce moment.", no_expedition: "Aucune expédition en cours.", copy_not_matching: "Un des exemplaires ne correspond pas au contrat.", wrong_count: "Mauvais nombre d'exemplaires.", already_claimed: "Contrat déjà rempli cette semaine." };
+  const ERR = { energy_full: "Ton énergie est déjà pleine.", weekly_cap: "Stock épuisé pour cette semaine.", not_enough_dust: "Pas assez de poussières.", nothing_growing: "Rien ne pousse au jardin en ce moment.", no_expedition: "Aucune expédition en cours.", copy_not_matching: "Un des exemplaires ne correspond pas au contrat.", wrong_count: "Mauvais nombre d'exemplaires.", already_claimed: "Contrat déjà rempli cette semaine." };
   let shop = null, contracts = null, boosterSt = null, eco = null;
 
   // --- porte-monnaie ------------------------------------------------------------
@@ -21,7 +21,7 @@
     $("shop-wallet").innerHTML = `
       <span class="wallet-dust"><span aria-hidden="true">&#10024;</span><strong>${fmt(st.stardust ?? boosterSt?.stardust ?? 0)}</strong><small>poussières</small></span>
       ${st.luckCharges ? `<span class="wallet-boost" title="Élixir de chance actif">&#129514; ${st.luckCharges} booster${st.luckCharges > 1 ? "s" : ""} chanceux</span>` : ""}
-      ${left ? `<span class="wallet-boost" title="Potion de savoir active">&#128216; XP ×2 encore ${left} min</span>` : ""}
+      ${left ? `<span class="wallet-boost" title="Potion de savoir active">${resIcon("potion")} XP ×2 encore ${left} min</span>` : ""}
       ${eco && (eco.tight || eco.priceFactor > 1) ? `<span class="wallet-eco ${eco.tight ? "tight" : ""}" title="${eco.tight ? "Mode anti-inflation : prix +25 %, taxes ×1,5, doublons moins rentables, le temps que l'économie se calme." : "Les prix suivent la richesse moyenne des joueurs actifs."}">&#127974; ${eco.tight ? "Anti-inflation · " : ""}prix ×${String(eco.priceFactor).replace(".", ",")}</span>` : ""}`;
   }
   window.refreshShopWallet = () => API.shop(Session.userId).then((s) => { shop = s; renderWallet(); renderItems(); }).catch(() => {});
@@ -84,7 +84,7 @@
       <div class="thing-icon" aria-hidden="true">${iconOf(it.icon)}</div>
       <div class="thing-body"><strong>${esc(it.label)}</strong><small>${esc(it.desc)}</small></div>
       <div class="thing-foot">
-        ${it.weekly ? `<span class="thing-stock">${it.left}/${it.weekly} cette semaine</span>` : `<span class="thing-stock">Illimité</span>`}
+        ${it.escalate ? `<span class="thing-stock" title="Le prix est multiplié par ${String(it.escalate.growth).replace(".", ",")} à chaque achat du jour, puis revient au prix de base le lendemain.">Illimité · ${it.escalate.today ? `${it.escalate.today} acheté${it.escalate.today > 1 ? "s" : ""} aujourd'hui` : "prix de base"}</span>` : it.weekly ? `<span class="thing-stock">${it.left}/${it.weekly} cette semaine</span>` : `<span class="thing-stock">Illimité</span>`}
         <button type="button" class="btn${poor || out ? "-secondary" : ""} thing-buy" data-item="${esc(it.key)}" ${out || poor ? "disabled" : ""}>${out ? "Épuisé" : `${fmt(it.price)} &#10024;`}</button>
       </div>
     </article>`;

@@ -20,7 +20,7 @@
 //  - Restaurations repetees : la n-ieme restauration d'une meme carte dans la
 //    semaine coute (n-1) x RepairEscalationDust poussieres en plus.
 
-import { refId, now, ok, fail, userById, cardSummary, parseJson as parse } from './common.js';
+import { refId, now, ok, fail, userById, cardSummary, parseJson as parse, hash } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
@@ -42,7 +42,6 @@ export const schema = {
   }
 };
 
-function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 const dust = (u) => Number(u.StardustCount) || 0;
 const QUALITY_ORDER = ['damaged', 'worn', 'good', 'mint'];
 const FINISH_LABEL = { normal: 'normale', holo: 'holo', gold: 'dorée', ghost: 'ghost', diamond: 'diamant', rainbow: 'arc-en-ciel' };

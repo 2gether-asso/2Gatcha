@@ -56,7 +56,7 @@ let pvLastData = null;
 // marche comme le Classique : une ligne par carte, 6 finitions, recompense.
 const PV_TAB_KEY = "2gatcha_pv_tab";
 let pvTab = (() => { try { return localStorage.getItem(PV_TAB_KEY) || "classic"; } catch (e) { return "classic"; } })();
-const pvEditionTab = () => (pvTab !== "classic" && pvLastData ? (pvLastData.editions || []).find((t) => t.key === pvTab) : null);
+const pvEditionTab = () => (pvTab !== "classic" && pvLastData ? pvVisibleTabs(pvLastData).find((t) => t.key === pvTab) : null);
 // Lignes de l'onglet affiche.
 function pvCurrentRows() {
   if (!pvLastData) return [];
@@ -64,8 +64,11 @@ function pvCurrentRows() {
   return tab ? tab.rows || [] : pvLastData.rows || [];
 }
 
+// Onglet d'edition affiche seulement s'il a au moins une carte rangee ou a
+// ranger (2026-10-19 : avant, toute edition deja obtenue avait son onglet vide).
+const pvVisibleTabs = (data) => (data.editions || []).filter((t) => (t.stored || 0) > 0 || (t.ready || 0) > 0);
 function pvRenderTabs(data) {
-  const tabs = data.editions || [];
+  const tabs = pvVisibleTabs(data);
   const bar = document.getElementById("pv-tabs");
   if (pvTab !== "classic" && !tabs.some((t) => t.key === pvTab)) pvTab = "classic";
   bar.hidden = !tabs.length;

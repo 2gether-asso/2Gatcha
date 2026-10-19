@@ -5,7 +5,7 @@
 
 (function () {
   const esc = escHtml;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   let state = null, picking = false, selected = null;
 
   const rewardText = (r) => [r.dust ? `${fmt(r.dust)} ✨` : "", r.shards ? `${r.shards} 🧩` : "", r.boosters ? `${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : ""].filter(Boolean).join(" + ");

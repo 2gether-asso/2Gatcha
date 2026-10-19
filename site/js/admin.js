@@ -883,7 +883,7 @@ async function loadEconomy() {
   try {
     const e = await API.adminGetEconomy(Session.discordId);
     const t = e.totals;
-    const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+    const fmt = fmtNum; // core.js
     const list = (rows, fn) => rows.length ? `<ol class="econ-list">${rows.map(fn).join("")}</ol>` : '<p class="lead" style="font-size:0.8rem;">—</p>';
     el.innerHTML = `<div id="preset-zone" class="preset-zone"></div>
       <div id="mode-features-zone" class="mf-zone"></div>

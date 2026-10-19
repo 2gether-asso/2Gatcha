@@ -359,6 +359,26 @@ await test('boutique d objets : achat, plafond hebdo, effets, potion de savoir, 
   assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } }).json.error, 'weekly_cap');
   assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'fertilizer' } }).json.error, 'nothing_growing');
   assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'compass' } }).json.error, 'no_expedition');
+  // Recharges d'energie (2026-10-19) : illimitees, prix x1,6 par achat du jour, refusees si pleine.
+  store.update('Users', 1, { DigEnergy: 0, LastDigEnergyAt: now(), EnergyBuys: '', StardustCount: 50000 });
+  const coffee0 = call('POST', 'shop', { body: { userId: 1 } }).json.items.find((x) => x.key === 'coffee');
+  assert.equal(coffee0.left, null);
+  assert.equal(coffee0.escalate.today, 0);
+  const paid = [];
+  for (let i = 0; i < 5; i++) {
+    store.update('Users', 1, { DigEnergy: 0, LastDigEnergyAt: now() });
+    const b = call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'coffee' } }).json;
+    assert.ok(!b.error, b.error);
+    paid.push(b.paid);
+  }
+  assert.ok(paid.every((p, i) => !i || p > paid[i - 1]), 'prix croissant : ' + paid.join(','));
+  assert.ok(Math.abs(paid[1] / paid[0] - 1.6) < 0.05);
+  assert.ok(Number(user(1).DigEnergy) >= 10, 'energie remplie au maximum reel');
+  assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'coffee' } }).json.error, 'energy_full');
+  // Le lendemain : retour au prix de base.
+  store.update('Users', 1, { DigEnergy: 0, EnergyBuys: JSON.stringify({ day: '2000-01-01', counts: { coffee: 9 } }) });
+  assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'coffee' } }).json.paid, paid[0]);
+  store.update('Users', 1, { StardustCount: 5000 });
   // Potion de savoir : XP x2 pendant 1 h.
   store.update('Users', 1, { XP: 100 });
   call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'xp1h' } });
@@ -2637,6 +2657,11 @@ await test('devine la carte v2 : 5 manches, 3 essais avec zoom qui recule, gains
   let st = guess({});
   assert.equal(st.rounds.length, 5);
   assert.ok(st.rounds.every((r) => r.choices.length === 4 && r.triesLeft === 3 && !r.answerCardId));
+  // Gain possible affiche des le debut (base indexee sur l'inflation), qui baisse a chaque erreur.
+  const base = st.gains.base;
+  assert.ok(base >= 60);
+  assert.ok(st.rounds.every((x) => x.potential === base));
+  assert.equal(st.gains.dayMax, base * 5 + st.gains.perfect);
   const answers = gg._answers(store);
   // Manche 0 : une erreur puis la bonne reponse (60 %).
   const wrong = st.rounds[0].choices.find((c) => c.cardId !== answers[0]).cardId;
@@ -2645,15 +2670,18 @@ await test('devine la carte v2 : 5 manches, 3 essais avec zoom qui recule, gains
   assert.equal(r.rounds[0].triesLeft, 2);
   assert.ok(r.rounds[0].zoom.scale < st.rounds[0].zoom.scale, 'le zoom recule');
   assert.ok(r.rounds[0].choices.find((c) => c.cardId === wrong).wrong);
+  assert.equal(r.rounds[0].potential, Math.round(base * 0.6));
   r = guess({ action: 'guess', round: 0, cardId: answers[0] });
   assert.equal(r.correct, true);
-  assert.equal(r.reward.dust, 12);
+  assert.equal(r.reward.dust, Math.round(base * 0.6));
+  assert.equal(r.rounds[0].potential, Math.round(base * 0.6), 'gain obtenu garde apres la manche');
   assert.equal(guess({ action: 'guess', round: 0, cardId: answers[0] }).error, 'already_played');
   // Les 4 autres du premier coup : journee finie, serie lancee.
   for (let i = 1; i < 5; i++) r = guess({ action: 'guess', round: i, cardId: answers[i] });
   assert.equal(r.finished, true);
   assert.equal(user(1).GuessStreak, 1);
   assert.equal(r.reward.perfect, false, 'manche 0 trouvee au 2e essai');
+  assert.equal(r.reward.coins, 1, 'piece de gatchapon en fin de journee');
   // Bon de craft : carte du jour non possedee.
   const owned = new Set(store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1).map((p) => refIdOf(p.Card)));
   if (!owned.has(answers[1])) assert.ok(r.coupons.some((c) => c.cardId === answers[1]));
@@ -2665,6 +2693,199 @@ await test('devine la carte v2 : 5 manches, 3 essais avec zoom qui recule, gains
   assert.equal(user(1).StardustCount, 80);
   assert.deepEqual(JSON.parse(user(1).CraftCoupons), {});
   store.update('Users', 1, { GuessState: '', GuessDate: '', GuessStreak: 0 });
+});
+
+await test('salle des machines interdites : engrenages, forge, porte, machine a sous, surchauffe, relance, edition Interdite', async () => {
+  const { MINERALS } = await import('../src/native/digdepth.js');
+  const fb = (body) => call('POST', 'forbidden', { body: { userId: 1, ...body } }).json;
+  store.update('Users', 1, { ArgGears: '', SpecialKeys: 0, DoorKeys: 0, ForbiddenUnlocked: 0, ForbiddenAccess: 0, ForbiddenSpin: '', ForbiddenHeat: 0, ForbiddenFreeDay: '', ForbiddenStats: '', KeyCount: 0, Minerals: '{}', StardustCount: 100000 });
+  // Sans acces : la page ne recoit rien (que les rouages), tout est refuse.
+  let st = fb({});
+  assert.equal(st.access, false);
+  assert.ok(!st.forge && !st.page && !st.machine);
+  assert.equal(fb({ action: 'craftKey' }).error, 'no_access');
+  // Le mot reclame dans « Reclamer un code » (accents, espaces et casse ignores).
+  assert.equal(native.beforeWorkflow('redeem-code', { body: { userId: 1, code: 'pas-le-mot' } }), null);
+  const sec = native.beforeWorkflow('redeem-code', { body: { userId: 1, code: ' Salamandré ' } });
+  assert.equal(sec.json.type, 'secret');
+  assert.equal(sec.json.first, true);
+  assert.equal(native.beforeWorkflow('redeem-code', { body: { userId: 1, code: 'SALAMANDRE' } }).json.first, false);
+  st = fb({});
+  assert.equal(st.access, true);
+  assert.equal(st.unlocked, false);
+  assert.ok(!st.machine, 'pas de machine avant la porte');
+  // Forge : rien n'est nomme tant qu'on ne possede pas l'ingredient.
+  assert.equal(st.forge.slots.length, 24);
+  assert.ok(st.forge.slots.every((x) => !x.known && !x.name && !x.img));
+  // Parchemin : rien sans l'avoir peche ; puis 10 enigmes, jamais le mot.
+  assert.equal(fb({ action: 'scroll' }).error, 'no_scroll');
+  const fishing = await import('../src/native/forbidden.js');
+  store.update('Users', 1, { ArgScroll: 0 });
+  const rnd0 = Math.random; Math.random = () => 0;
+  try { assert.equal(fishing.rollScroll(store, user(1), 1), true); assert.equal(fishing.rollScroll(store, user(1), 1), false, 'une seule fois'); } finally { Math.random = rnd0; }
+  const sc = fb({ action: 'scroll' });
+  assert.equal(sc.riddles.length, 10);
+  assert.ok(!JSON.stringify(sc).toUpperCase().includes('SALAMANDRE'));
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'status' } }).json.hasScroll, true);
+  store.update('Users', 1, { ArgScroll: 0 });
+  // Rouages : une lettre chacun, comptes une seule fois.
+  const g = fb({ action: 'gear', n: 3 });
+  assert.deepEqual([g.roman, g.letter, g.fresh, g.found], ['III', 'L', true, 1]);
+  assert.equal(fb({ action: 'gear', n: 3 }).fresh, false);
+  assert.equal(fb({ action: 'gear', n: 11 }).error, 'invalid_gear');
+  // Forge : 1 cle + 1 de chaque mineral.
+  assert.equal(fb({ action: 'craftKey' }).error, 'missing_ingredients');
+  store.update('Users', 1, { KeyCount: 12, Minerals: JSON.stringify(Object.fromEntries(MINERALS.map((m) => [m.key, 10]))) });
+  for (let i = 0; i < 10; i++) assert.ok(fb({ action: 'craftKey' }).crafted);
+  assert.equal(user(1).SpecialKeys, 10);
+  assert.equal(user(1).KeyCount, 2);
+  assert.equal(JSON.parse(user(1).Minerals).diamant, 0);
+  assert.equal(fb({ action: 'spin' }).error, 'locked');
+  // Porte : 10 cles inserees -> ouverte pour toujours.
+  let r;
+  for (let i = 0; i < 10; i++) r = fb({ action: 'insertKey' });
+  assert.equal(r.opened, true);
+  assert.equal(r.unlocked, true);
+  assert.equal(fb({ action: 'insertKey' }).error, 'already_open');
+  // Machine (slots.js) : tour gratuit du jour, mise, fenetre 3 lignes, edition Interdite.
+  store.update('Users', 1, { ForbiddenXP: 0, ForbiddenBonus: 0, ForbiddenFreeSpins: 0, ForbiddenDaily: '', ForbiddenCombos: '', ForbiddenRisk: 0, ForbiddenSpin: '', ForbiddenHeat: 0, ForbiddenFreeDay: '' });
+  st = fb({});
+  assert.ok(st.machine.freeSpin && st.machine.spinCost > 0);
+  assert.deepEqual(st.machine.bets, [1, 3, 5]);
+  assert.equal(st.machine.reels, 3);
+  const jp0 = st.machine.jackpot;
+  r = fb({ action: 'spin', bet: 5 });
+  assert.equal(r.kind, 'daily', 'le tour gratuit du jour passe en premier (mise x1)');
+  assert.equal(r.paid, 0);
+  assert.equal(r.results[0].window.length, 3);
+  assert.ok(r.results[0].window.every((col) => col.length === 3));
+  r = fb({ action: 'spin', count: 10, bet: 3 });
+  assert.equal(r.results.length, 10);
+  assert.equal(r.paid, st.machine.spinCost * 3 * 10);
+  assert.ok(r.machine.jackpot > jp0, 'le jackpot grossit');
+  assert.ok(r.machine.level.level >= 2, 'XP de la machine (1 par mise)');
+  const won = store.getAll('Pulls').filter((p) => String(p.BatchId || '').startsWith('forbidden-1-'));
+  assert.ok(won.every((p) => p.Edition === 'forbidden'));
+  const rnd = Math.random;
+  // Surchauffe : triple garanti.
+  store.update('Users', 1, { ForbiddenHeat: 999, ForbiddenFreeSpins: 0, ForbiddenBonus: 0 });
+  r = fb({ action: 'spin' });
+  assert.ok(r.results[0].forced && ['triple', 'quad'].includes(r.results[0].tier));
+  // Tours bonus : 3 jackpots visibles (tout jackpot ici) -> 5 tours a gains doubles ; jackpot partiel a la mise x1.
+  store.update('Users', 1, { ForbiddenHeat: 0, ForbiddenBonus: 0, ForbiddenFreeSpins: 0 });
+  const poolBefore = fb({}).machine.jackpot;
+  Math.random = () => 0.9;
+  try { r = fb({ action: 'spin', bet: 1 }); } finally { Math.random = rnd; }
+  assert.equal(r.results[0].key, 'jackpot');
+  assert.equal(r.results[0].bonusAwarded, 5);
+  assert.ok(r.results[0].jackpot > 0 && r.results[0].jackpot < poolBefore + 1000, 'part du jackpot a la mise x1');
+  assert.equal(user(1).ForbiddenBonus, 5);
+  r = fb({ action: 'spin' });
+  assert.equal(r.kind, 'bonus');
+  assert.equal(r.results[0].mult, 2);
+  // Quitte ou double : 2 jetons remis en jeu, doubles par un tour gagnant.
+  store.update('Users', 1, { ForbiddenBonus: 0, BoosterCount: 10, ForbiddenSpin: JSON.stringify({ line: ['jeton', 'jeton', 'rare'], boosters: 2, risked: false }) });
+  r = fb({ action: 'risk' });
+  assert.equal(r.staked, 2);
+  assert.equal(user(1).BoosterCount, 8);
+  assert.equal(fb({ action: 'risk' }).error, 'cannot_risk');
+  Math.random = () => 0.01;
+  try { r = fb({ action: 'spin' }); } finally { Math.random = rnd; }
+  assert.deepEqual([r.riskResult.won, r.riskResult.amount], [true, 4]);
+  assert.ok(r.results[0].cascades.length > 0, 'cascade apres un triple');
+  // Relance du rouleau intrus sur une paire.
+  store.update('Users', 1, { ForbiddenSpin: JSON.stringify({ line: ['commune', 'commune', 'rare'], nudgeable: true, nudged: false, bet: 1, mult: 1 }) });
+  Math.random = () => 0.01;
+  try { r = fb({ action: 'nudge' }); } finally { Math.random = rnd; }
+  assert.equal(r.nudge.tier, 'triple');
+  assert.deepEqual(r.nudge.changed, [2]);
+  assert.equal(fb({ action: 'nudge' }).error, 'cannot_nudge');
+  // Carnet : le dernier triple de base manquant donne le cadre « Joueur interdit ».
+  store.update('Users', 1, { ForbiddenCombos: JSON.stringify(['commune', 'rare', 'epique', 'legendaire', 'finition', 'jeton']), ForbiddenFreeSpins: 1 });
+  Math.random = () => 0.95;
+  try { r = fb({ action: 'spin' }); } finally { Math.random = rnd; }
+  assert.equal(r.results[0].key, 'crane');
+  assert.ok(r.machine.combosReward.done);
+  assert.ok(store.getAll('UserCosmetics').some((c) => refIdOf(c.User) === 1 && c.Key === 'frame-forbidden'));
+  // Defis du jour : le triple a ete compte, des tours gratuits en reserve.
+  assert.ok(r.machine.daily.find((d) => d.key === 'triples').done);
+  store.update('Users', 1, { ForbiddenUnlocked: 0, ForbiddenAccess: 0, DoorKeys: 0, SpecialKeys: 0, ArgGears: '', StardustCount: 5000 });
+});
+
+await test('secrets : carte du 404, heure des ombres, roue de 22 h 22, codes secrets', async () => {
+  const sec = await import('../src/native/secrets.js');
+  const s = (body) => call('POST', 'secrets', { body: { userId: 1, ...body } }).json;
+  store.update('Users', 1, { SecretsFound: '', SecretCodesUsed: '', SecretWheelDay: '', BoosterCount: 0, StardustCount: 0 });
+  sec.init({ store });
+  sec.init({ store });
+  const cards404 = store.getAll('Cards').filter((c) => c.Name === 'Erreur 404');
+  assert.equal(cards404.length, 1, 'carte creee une seule fois');
+  assert.ok(cards404[0].IsPromo, 'jamais tiree');
+  assert.ok(!cards404[0].IsSecret, 'pas dans la serrure des cartes secretes');
+  assert.equal(store.get('Extensions', refIdOf(cards404[0].Extension)).Key, 'pack-secretes', 'rangee avec les cartes secretes');
+  const gl = call('GET', 'secret-card', {}).json;
+  assert.equal(gl.imageId, refIdOf(cards404[0].Image) || gl.imageId);
+  assert.ok(Array.isArray(gl.others) && !gl.others.includes(gl.imageId));
+  // Carte du 404 : une fois.
+  const g = s({ action: 'ghost404' });
+  assert.equal(g.cards[0].name, 'Erreur 404');
+  assert.equal(g.cards[0].finish, 'ghost');
+  assert.equal(s({ action: 'ghost404' }).error, 'already_found');
+  // Heure des ombres : seulement de 3 h a 4 h (Paris).
+  const realNow = Date.now;
+  try {
+    Date.now = () => Date.UTC(2026, 9, 19, 12, 0, 0);
+    assert.equal(s({ action: 'shadow' }).error, 'not_now');
+    Date.now = () => Date.UTC(2026, 9, 19, 1, 30, 0); // 3 h 30 a Paris
+    const sh = s({ action: 'shadow' });
+    assert.equal(sh.rewards.length, 2);
+    assert.ok(store.getAll('UserCosmetics').some((c) => refIdOf(c.User) === 1 && c.Key === 'title-insomniaque'));
+    // Roue truquee : 22 h 22 (Paris), un tour secret par jour.
+    const wheel = (when) => { Date.now = () => when; return native.beforeWorkflow('daily-wheel', { body: { userId: 1, action: 'spin', secret: true } }); };
+    assert.equal(wheel(Date.UTC(2026, 9, 19, 20, 0, 0)).json.error, 'secret_closed');
+    const w = wheel(Date.UTC(2026, 9, 19, 20, 22, 10));
+    assert.equal(w.json.prize.tier, 'secret');
+    assert.equal(w.json.prize.title, 'Maître du temps');
+    assert.equal(user(1).BoosterCount, 2);
+    assert.equal(wheel(Date.UTC(2026, 9, 19, 20, 22, 30)).json.error, 'already_secret');
+    assert.equal(native.beforeWorkflow('daily-wheel', { body: { userId: 1, action: 'spin' } }), null, 'tour normal : workflow habituel');
+  } finally { Date.now = realNow; }
+  // Codes secrets : cosmetique + ressources, une fois.
+  const r = native.beforeWorkflow('redeem-code', { body: { userId: 1, code: ' milo ' } });
+  assert.equal(r.json.type, 'reward');
+  assert.ok(r.json.rewards.some((x) => /Ami des chiens/.test(x.label)));
+  assert.equal(native.beforeWorkflow('redeem-code', { body: { userId: 1, code: 'MILO' } }).json.error, 'already_redeemed');
+  assert.equal(native.beforeWorkflow('redeem-code', { body: { userId: 1, code: 'PAS-UN-SECRET' } }), null);
+  store.update('Users', 1, { SecretsFound: '', SecretCodesUsed: '', SecretWheelDay: '' });
+  // Cartes secretes : effet unique et toujours en parfait etat (retroactif).
+  const anyRarity = store.getAll('Rarities')[0];
+  const sterling = store.create('Cards', { Name: 'Mr Sterling', Rarity: anyRarity.id, Active: true, IsPromo: true, IsSecret: true });
+  const ticat = store.create('Cards', { Name: 'Ticat', Rarity: anyRarity.id, Active: true, IsPromo: true, IsSecret: true });
+  assert.equal(sec.effectOf(store, sterling), 'fur-brown');
+  assert.equal(sec.effectOf(store, ticat), 'fur-white');
+  assert.equal(sec.effectOf(store, store.getAll('Cards').find((c) => c.Name === 'Erreur 404')), 'glitch');
+  assert.ok(sec.keepsMint(store, sterling.id));
+  const worn = store.create('Pulls', { User: 1, Card: sterling.id, SerialNumber: 1, Finish: 'normal', Quality: 'damaged', ObtainedAt: now() });
+  sec.init({ store });
+  assert.equal(store.get('Pulls', worn.id).Quality, 'mint', 'exemplaires existants remis en parfait etat');
+  store.update('Pulls', worn.id, { Quality: 'worn' });
+  native.afterWorkflow('unlock-secret', { body: { userId: 1 } }, { status: 200, json: {} });
+  assert.equal(store.get('Pulls', worn.id).Quality, 'mint', 'parfait etat apres une obtention');
+  const fx = call('GET', 'secret-card', {}).json;
+  assert.ok(Array.isArray(fx.effects));
+  store.delete('Pulls', worn.id); store.delete('Cards', sterling.id); store.delete('Cards', ticat.id);
+});
+
+await test('Moka : indice sur ses amis chats en P.S. du rapport', async () => {
+  const cat = await import('../src/native/cat.js');
+  const realRandom = Math.random;
+  store.update('Users', 1, { CatState: JSON.stringify({ start: now() - 7200, until: now() - 10, done: 0 }) });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MokaHintChance: 1 } } });
+  let rep;
+  try { Math.random = () => 0.01; rep = cat.settleCat(store, user(1)); } finally { Math.random = realRandom; }
+  assert.ok(rep && rep.report && /^P\.S\./.test(rep.report.hint || ''), JSON.stringify(rep && rep.report && rep.report.hint));
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MokaHintChance: 0.35 } } });
+  store.update('Users', 1, { CatState: '' });
 });
 
 await test('gatchapon : une piece fait tomber une boule, ouverture par palier avec une clef, butin croissant, compat ancienne ouverture', () => {
@@ -2739,12 +2960,22 @@ await test('Moka le chat : poisson donne, peche passive creditee une fois, jamai
 
 await test('aquarium : especes pechees, ferrage, records, paliers reclames une fois, thermos', () => {
   store.update('Users', 1, { Aquarium: '', Worms: 500, StardustCount: 0, BoosterCount: 0, FishingEnergy: null, FishingEnergyAt: null });
-  // Le lancer renvoie le ferrage (aussi pour un lot) et la liste des especes.
-  const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', strike: 'perfect' } }).json;
-  assert.equal(r.strike, 'perfect');
+  // Ferrage par choix entre 3 remous : le serveur tire le remous parfait,
+  // le site ne peut plus imposer un ferrage (body.strike ignore).
+  const r = call('POST', 'fishing', { body: { userId: 1, action: 'cast', pick: 1 } }).json;
+  assert.equal(r.spots.length, 3);
+  assert.equal(r.spots.filter((s) => s === 'perfect').length, 1);
+  assert.equal(r.strike, r.spots[1]);
+  assert.equal(r.pick, 1);
   assert.ok(Array.isArray(r.species));
-  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 2, strike: 'good' } }).json.strike, 'good');
-  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', strike: 'triche' } }).json.strike, null);
+  const rndPick = Math.random;
+  Math.random = () => 0;
+  try {
+    assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', count: 2, pick: 0 } }).json.strike, 'perfect');
+    assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', pick: 2 } }).json.strike, 'good');
+  } finally { Math.random = rndPick; }
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', strike: 'perfect' } }).json.strike, null);
+  assert.equal(call('POST', 'fishing', { body: { userId: 1, action: 'cast', pick: 5 } }).json.strike, null);
   // Tirage force (Math.random() = 0) : toujours une espece, la premiere de la zone.
   store.update('Users', 1, { Aquarium: '' });
   const rnd = Math.random;

@@ -74,10 +74,16 @@ function friendlyError(e) {
 
 // Icones des ressources (2026-10-18) : les visuels du jeu (remplacables dans
 // Admin > Visuels) a la place des emoji.
-const RES_ART = { worm: "Pêche/Vers.png", part: "PieceDetachee.PNG", bone: "Os.PNG", key: "clés.PNG", skey: "cléSpeciale.png", bait: "ElixirDePeche.PNG", coin: "PièceKraken.PNG", chest: "Coffres/1.PNG", skull: "CraneDeDino.png", token: "JetonBooster.png", fish: "Pêche/Poisson_12.png", seaweed: "Pêche/Algues.png", shrimp: "Pêche/crevette.png" };
+const RES_ART = { worm: "Pêche/Vers.png", part: "PieceDetachee.PNG", bone: "Os.PNG", key: "clés.PNG", skey: "cléSpeciale.png", bait: "Pêche/Vers.png", potion: "ElixirDePeche.PNG", coin: "PièceKraken.PNG", chest: "Coffres/1.PNG", skull: "CraneDeDino.png", token: "JetonBooster.png", fish: "Pêche/Poisson_12.png", seaweed: "Pêche/Algues.png", shrimp: "Pêche/crevette.png" };
+// Ressources dorees (2026-10-19) : meme image qu'une autre, avec un filtre
+// dore (l'appat dore = des vers dores).
+const RES_GOLD = new Set(["bait"]);
+// Engrais de dino et engrais dore (meme emoji, filtre dore pour le second).
+const POOP = '<span class="emo-poop" aria-hidden="true">&#128169;</span>';
+const GOLD_POOP = '<span class="emo-poop ico-gold" aria-hidden="true">&#128169;</span>';
 function resIcon(kind, alt = "") {
   const f = RES_ART[kind];
-  return f ? `<img class="ico-token" src="assets/${encodeURI(f)}" alt="${alt}" />` : "";
+  return f ? `<img class="ico-token${RES_GOLD.has(kind) ? " ico-gold" : ""}" src="assets/${encodeURI(f)}" alt="${alt}" />` : "";
 }
 // Vibrations (2026-10-18) : legeres, sur mobile, desactivables (menu du joueur).
 const Haptics = {
@@ -92,8 +98,8 @@ const RES_INFO = {
   worm: { name: "Vers de terre", use: "Un ou plusieurs par lancer de pêche (selon la zone).", where: "Terre restante d'une grille de fouille, jardin, expédition en forêt, boutique." },
   part: { name: "Pièce détachée", use: "Remplace un exemplaire dans une fusion ou une restauration.", where: "Pêche, expéditions (côte, port), boutique, comptoir des minéraux." },
   bone: { name: "Os", use: "Envoie Milo creuser pour toi pendant 2 h ; ramène un dino à la vie.", where: "Pêche, expédition en forêt, autel (sacrifice raté), boutique." },
-  key: { name: "Clé", use: "Ouvre les coffres du gatchapon, le grand coffre-fort, ou prend une carte au coffre de guilde.", where: "Fouille, pêche, expédition aux ruines, niveaux, boutique." },
-  skey: { name: "Clé secrète", use: "Relance la roue de la fortune.", where: "Fouille (2 % par case) et roue." },
+  key: { name: "Clé", use: "Ouvre les coffres du gatchapon et les cadenas du grand coffre-fort, prend une carte au coffre de guilde, relance la roue de la fortune.", where: "Fouille, pêche, expédition aux ruines, roue, niveaux, boutique." },
+  potion: { name: "Potion de savoir", use: "XP ×2 pendant 1 heure (compte, pêche, fouille, expédition, jardin).", where: "Boutique (rayon bonus)." },
   bait: { name: "Appât doré", use: "Un lancer sans prise vide, et prises rares ×2,5.", where: "Jardin, pêche, expédition sur la côte, boutique." },
   coin: { name: "Pièce de gatchapon", use: "Une boule au gatchapon, avec un coffre dedans (à ouvrir avec une clé).", where: "Niveaux, saison, pêche, expédition au port, boutique." },
   chest: { name: "Coffre", use: "S'ouvre avec une clé : poussières, jetons booster, cartes.", where: "Gatchapon, coffre de saison." },
@@ -107,13 +113,21 @@ const RES_INFO = {
 function resKindOf(img) {
   let src = "";
   try { src = decodeURIComponent(img.getAttribute("src") || ""); } catch (e) { src = img.getAttribute("src") || ""; }
-  return Object.keys(RES_ART).find((k) => src.endsWith("assets/" + RES_ART[k])) || null;
+  if (img.classList.contains("ico-gold")) return Object.keys(RES_ART).find((k) => RES_GOLD.has(k) && src.endsWith("assets/" + RES_ART[k])) || null;
+  return Object.keys(RES_ART).find((k) => !RES_GOLD.has(k) && src.endsWith("assets/" + RES_ART[k])) || null;
 }
 
 // Icone envoyee par le serveur (catalogue de la boutique, couts de la salle
 // des machines...) : l'image de la ressource si on la connait, sinon l'emoji.
-const EMOJI_RES = { "🪱": "worm", "🔩": "part", "🦴": "bone", "🔑": "key", "🪝": "bait", "🪙": "coin", "🃏": "token", "💀": "skull" };
+const EMOJI_RES = { "🪱": "worm", "🔩": "part", "🦴": "bone", "🔑": "key", "🗝️": "key", "🗝": "key", "🪝": "bait", "🪙": "coin", "🃏": "token", "💀": "skull", "📘": "potion" };
 const iconOf = (emoji) => (EMOJI_RES[emoji] ? resIcon(EMOJI_RES[emoji]) : emoji || "");
+
+// Petits formats partages (2026-10-18) : avant, recopies a l'identique dans
+// une dizaine de fichiers.
+const fmtNum = (n) => Number(n || 0).toLocaleString("fr-FR");
+const fmtSerial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
+// Texte en minuscules sans accents (recherches).
+const normText = (str) => String(str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 function escHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -126,7 +140,7 @@ const EDITIONS = {
   ember: { label: "Braise", icon: "🔥" }, glitch: { label: "Glitch", icon: "👾" },
   firework: { label: "Feu d'artifice", icon: "🎆" }, heart: { label: "Coup de cœur", icon: "💘" }, pastel: { label: "Pastel", icon: "🐣" },
   prank: { label: "Farceuse", icon: "🐟" }, solar: { label: "Solaire", icon: "☀️" }, cursed: { label: "Maudite", icon: "🎃" },
-  snow: { label: "Enneigée", icon: "🎄" }, phantom: { label: "Fantôme", icon: "👻" }
+  snow: { label: "Enneigée", icon: "🎄" }, phantom: { label: "Fantôme", icon: "👻" }, forbidden: { label: "Interdite", icon: "⛓️" }
 };
 // Calendrier des evenements saisonniers (memes dates que api/src/native/seasonal.js) :
 // calcule cote site, pour le calendrier et l'annonce du prochain evenement.
@@ -344,6 +358,19 @@ const Session = {
   },
   setPseudo(pseudo) {
     localStorage.setItem(this.KEY_PSEUDO, pseudo);
+    document.dispatchEvent(new CustomEvent("session:pseudo", { detail: pseudo }));
+  },
+  // Pseudo absent du stockage local (stockage partiellement vide, ancienne
+  // session) : on le reprend dans la liste des joueurs au lieu d'afficher
+  // « null » (2026-10-19).
+  async ensurePseudo() {
+    if (this.pseudo || !this.userId || typeof API === "undefined") return this.pseudo;
+    try {
+      const res = await API.listUsers();
+      const me = (res.users || []).find((u) => String(u.userId) === String(this.userId));
+      if (me && me.pseudo) this.setPseudo(me.pseudo);
+    } catch (e) { /* on reessaiera a la prochaine page */ }
+    return this.pseudo;
   },
   clear() {
     localStorage.removeItem(this.KEY_USER_ID);

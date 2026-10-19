@@ -15,7 +15,7 @@ let pullLogRarityFilter = "all";
 let pullLogSourceFilter = "";
 
 function normalize(str) {
-  return (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return normText(str); // core.js
 }
 
 function renderPullLogFilters() {

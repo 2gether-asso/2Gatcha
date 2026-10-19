@@ -20,7 +20,7 @@ export const BADGES = { fish: { label: 'Ichtyologue', icon: '🐟' }, minerals: 
 export const schema = { Users: { MuseumSeen: { type: 'Text' } } };
 
 // Images des objets (memes fichiers que le site).
-const ITEM_IMG = { key: 'clés.PNG', bone: 'Os.PNG', worm: 'Pêche/Vers.png', bait: 'ElixirDePeche.PNG', part: 'PieceDetachee.PNG', chest: 'PièceKraken.PNG', skull: 'CraneDeDino.png', fish: 'Pêche/Poisson_12.png', seaweed: 'Pêche/Algues.png', shrimp: 'Pêche/crevette.png', shard: 'JetonBooster.png' };
+const ITEM_IMG = { key: 'clés.PNG', bone: 'Os.PNG', worm: 'Pêche/Vers.png', bait: 'Pêche/Vers.png', part: 'PieceDetachee.PNG', chest: 'PièceKraken.PNG', skull: 'CraneDeDino.png', fish: 'Pêche/Poisson_12.png', seaweed: 'Pêche/Algues.png', shrimp: 'Pêche/crevette.png', shard: 'JetonBooster.png' };
 
 const seenOf = (user) => { const s = parseJson(user && user.MuseumSeen, {}) || {}; return { minerals: s.minerals || [], items: s.items || [] }; };
 
@@ -55,7 +55,7 @@ function view(store, user) {
     },
     {
       key: 'items', icon: '🧺', title: 'Objets', hint: 'Toutes les ressources du jeu, au moins une fois en poche.',
-      items: RESOURCES.map((r) => ({ key: r.key, name: r.name, icon: r.icon, img: ITEM_IMG[r.key] || null, seen: s.items.includes(r.key), detail: s.items.includes(r.key) ? r.riddle : '' }))
+      items: RESOURCES.map((r) => ({ key: r.key, name: r.name, icon: r.icon, img: ITEM_IMG[r.key] || null, ...(r.key === 'bait' ? { gold: true } : {}), seen: s.items.includes(r.key), detail: s.items.includes(r.key) ? r.riddle : '' }))
     },
     {
       key: 'dinos', icon: '🦖', title: 'Dinos', hint: 'Espèces déjà élevées (dinodex).',

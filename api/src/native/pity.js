@@ -13,7 +13,7 @@
 //    priorite une carte que le joueur n'a pas encore dans cette extension.
 //   GET /webhook/rarity-pity ?userId=&extensionId= -> { rarities: [{ key, name, colorHex, threshold, left }] }
 
-import { refId, ok, fail, userById, configRow, firstAttachment, parseJson as parse } from './common.js';
+import { refId, ok, fail, userById, configRow, firstAttachment, parseJson as parse, nextSerial } from './common.js';
 import { setting } from './settings.js';
 import { modeIs } from './modeperks.js';
 import { ruleOn } from './moderules.js';
@@ -37,12 +37,6 @@ function pityRarities(store) {
     .map((r) => ({ r, threshold: Math.ceil((mult * total) / (Number(r.Weight) || 1)) }));
 }
 
-function nextSerial(store, cardId) {
-  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
-  let n = 1;
-  while (used.has(n)) n++;
-  return n;
-}
 
 // Cartes possedees par le joueur hors de ce booster.
 function ownedBefore(store, userId, batchId) {

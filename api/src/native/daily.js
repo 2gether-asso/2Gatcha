@@ -16,7 +16,7 @@
 //      POST /webhook/evening { userId, action: 'status' | 'claim' }
 //   GET /webhook/today ?userId= : tout ce qui precede en un appel (accueil).
 
-import { refId, now, ok, fail, userById, parisDay, parisHour, parseJson as parse } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, parisHour, parseJson as parse, hash } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { grantCosmetic } from './cosmetics.js';
@@ -33,7 +33,6 @@ export const schema = {
   Extensions: { ReleasedAt: { type: 'Numeric' } }
 };
 
-function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
 // --- action du jour ----------------------------------------------------------
 const HOUSE = [

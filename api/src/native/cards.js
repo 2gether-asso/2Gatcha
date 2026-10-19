@@ -16,7 +16,7 @@
 //   GET  /webhook/card-price ?cardId=
 //   POST /webhook/share-card { userId, cardId, finish?, quality?, edition?, serial?, image }
 
-import { refId, now, ok, fail, userById, parseJson, cardSummary } from './common.js';
+import { refId, now, ok, fail, userById, parseJson, cardSummary, nextSerial } from './common.js';
 import { setting } from './settings.js';
 import { currentContext } from './context.js';
 import { addFeed } from './feed.js';
@@ -150,11 +150,6 @@ export function onEvents(store, events) {
 function cardJson(store, card, pull) {
   const s = cardSummary(store, card);
   return { cardId: card.id, name: card.Name, artist: card.Artist || null, description: card.Description || null, imageId: s.imageId, rarity: s.rarity, serialNumber: pull.SerialNumber };
-}
-function nextSerial(store, cardId) {
-  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
-  let n = 1; while (used.has(n)) n++;
-  return n;
 }
 export function afterWorkflow({ store, path, request, response }) {
   if (response.status !== 200 || !response.json || typeof response.json !== 'object') return;

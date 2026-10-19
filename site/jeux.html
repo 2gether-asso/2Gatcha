@@ -20,7 +20,7 @@
       <p class="lead">Petits à-côtés pour grappiller poussières, boosters et cartes.</p>
 
       <div class="games-summary" id="games-summary" aria-label="Où en sont tes jeux"></div>
-      <div class="tabs" role="tablist">
+      <div class="tabs tabs-scroll" role="tablist">
         <button type="button" class="tab active" id="tab-dig-btn" role="tab" aria-selected="true">&#9935; Fouille</button>
         <button type="button" class="tab" id="tab-guess-btn" role="tab" aria-selected="false">&#10067; Devine la carte</button>
         <button type="button" class="tab" id="tab-expedition-btn" role="tab" aria-selected="false">&#129517; Expédition</button>
@@ -41,12 +41,12 @@
           <span class="dig-icon" aria-hidden="true"><img id="dig-pick-img" src="assets/Fouille/Pioche_01.PNG" alt="" /></span>
           <div class="dig-status">
             <div id="dig-energy-bar" class="dig-energy-bar"></div>
-            <div id="dig-status-text" class="skeleton-line">Chargement...</div>
+            <div id="dig-status-text" class="skeleton-line">Chargement…</div>
           </div>
         </div>
         <div class="skill-level" id="dig-level" hidden></div>
         <div id="dig-kennel" class="dig-kennel" style="display:none;">
-          <span class="dig-kennel-dog-wrap" id="dig-kennel-dog-wrap" aria-hidden="true"><span class="dig-dog-cape"></span><span class="dig-kennel-dog" id="dig-kennel-dog">&#128021;</span><span class="dig-dog-collar"></span></span>
+          <span class="dig-kennel-dog-wrap" id="dig-kennel-dog-wrap" aria-hidden="true"><span class="dig-kennel-dog" id="dig-kennel-dog">&#128021;</span><span class="dig-dog-badge"></span></span>
           <div class="dig-kennel-body">
             <div class="dig-kennel-title">Chenil de Milo &#128021; <span class="dig-kennel-bones" id="dig-kennel-bones"></span></div>
             <div class="dig-kennel-text" id="dig-kennel-text"></div>
@@ -71,13 +71,18 @@
       <div id="guess-pane" style="display:none;">
         <p class="lead" style="font-size:0.85rem;">Chaque jour, 5 cartes à reconnaître à partir d'un zoom sur leur illustration — les mêmes pour tout le monde. 3 essais par carte : à chaque erreur, le zoom recule (et le gain baisse). Trouve une carte que tu n'as pas pour gagner un <strong>bon de craft</strong> sur elle !</p>
         <div class="guess-game">
-          <div class="guess-frame" id="guess-frame">
-            <img id="guess-img" class="guess-img" src="" alt="Illustration mystère" />
+          <div class="guess-visual">
+            <div class="guess-frame" id="guess-frame">
+              <img id="guess-img" class="guess-img" src="" alt="Illustration mystère" />
+              <span class="guess-zoom" id="guess-zoom" hidden></span>
+            </div>
+            <div class="guess-rounds-host" id="guess-rounds"></div>
           </div>
           <div class="guess-side">
-            <div class="guess-streak" id="guess-streak"></div>
-            <div class="guess-choices" id="guess-choices"><div class="skeleton-line">Chargement...</div></div>
+            <div class="guess-gain" id="guess-gain"></div>
+            <div class="guess-choices" id="guess-choices"><div class="skeleton-line">Chargement…</div></div>
             <div class="guess-result" id="guess-result" style="display:none;"></div>
+            <div class="guess-streak" id="guess-streak"></div>
           </div>
         </div>
       </div>
@@ -86,7 +91,7 @@
         <p class="lead" style="font-size:0.85rem;">Choisis une destination et envoie une de tes cartes l'explorer. Chaque lieu ramène des ressources pour les autres jeux (vers, os, minéraux, clés…), plus des poussières. Chaque jour, chaque lieu a une rareté et une extension favorites : un explorateur qui correspond ramène plus de ressources. La carte reste dans ta collection pendant ce temps.</p>
         <div class="skill-level" id="expe-level" hidden></div>
         <div data-shop-strip="expedition"></div>
-        <div id="expedition-zone"><div class="skeleton-line">Chargement...</div></div>
+        <div id="expedition-zone"><div class="skeleton-line">Chargement…</div></div>
         <section class="duo-expedition panel" id="duo-expedition" hidden></section>
       </div>
 
@@ -103,18 +108,18 @@
       </div>
 
       <div id="fish-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;" id="fish-intro">Lance ta ligne et ferre au bon moment quand ça mord. Chaque lancer coûte un <strong>ver de terre</strong> <img class="ico-token" src="assets/P%C3%AAche/Vers.png" alt="" /> (trouvé dans la terre restante d'une grille de fouille) et 1 point d'énergie. Avec de la chance : os pour Milo, clé, booster, coffre, pièce détachée, et des poissons pour l'aquarium.</p>
+        <p class="lead" style="font-size:0.85rem;" id="fish-intro">Lance ta ligne et, quand ça mord, choisis l'un des trois remous : l'un d'eux cache une prise parfaite. Chaque lancer coûte un <strong>ver de terre</strong> <img class="ico-token" src="assets/P%C3%AAche/Vers.png" alt="" /> (trouvé dans la terre restante d'une grille de fouille) et 1 point d'énergie. Avec de la chance : os pour Milo, clé, booster, coffre, pièce détachée, et des poissons pour l'aquarium.</p>
         <div class="dig-widget fish-widget">
           <span class="dig-icon" aria-hidden="true">&#127907;</span>
           <div class="dig-status">
             <div id="fish-energy-bar" class="dig-energy-bar fish-energy-bar"></div>
-            <div id="fish-energy-text" class="skeleton-line">Chargement...</div>
+            <div id="fish-energy-text" class="skeleton-line">Chargement…</div>
           </div>
         </div>
         <div class="skill-level" id="fish-level" hidden></div>
         <div data-shop-strip="peche"></div>
         <div id="fish-cat" class="dig-kennel fish-cat" hidden>
-          <span class="fish-cat-pic" id="fish-cat-pic" aria-hidden="true">&#128008;</span>
+          <span class="dig-kennel-dog-wrap pet-medal" id="fish-cat-wrap" aria-hidden="true"><span class="fish-cat-pic" id="fish-cat-pic">&#128008;</span><span class="dig-dog-badge"></span></span>
           <div class="dig-kennel-body">
             <div class="dig-kennel-title">Moka le chat &#127907; <span class="dig-kennel-bones fish-cat-count" id="fish-cat-count"></span></div>
             <div class="dig-kennel-text" id="fish-cat-text"></div>
@@ -165,7 +170,7 @@
       </div>
 
       <div id="garden-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;">Plante, attends que ça pousse, récolte : des <strong>vers de terre</strong> pour la pêche et, avec un peu de chance, un <strong>appât doré</strong> <img class="ico-token" src="assets/ElixirDePeche.PNG" alt="" /> (aucune prise vide et prises rares multipliées pour un lancer).</p>
+        <p class="lead" style="font-size:0.85rem;">Plante, attends que ça pousse, récolte : des <strong>vers de terre</strong> pour la pêche et, avec un peu de chance, un <strong>appât doré</strong> <img class="ico-token ico-gold" src="assets/P%C3%AAche/Vers.png" alt="" /> (aucune prise vide et prises rares multipliées pour un lancer).</p>
         <div class="garden-meta" id="garden-meta"></div>
         <div class="skill-level" id="garden-level" hidden></div>
         <div data-shop-strip="jardin"></div>
@@ -193,14 +198,14 @@
       </div>
 
       <div id="vault-pane" style="display:none;">
-        <p class="lead" style="font-size:0.85rem;" id="vault-intro">Une carte promo arc-en-ciel est enfermée dans la cage du coffre-fort, fermée par <strong>6 cadenas</strong>. Chaque clef secrète (fouille, roue quotidienne…) fait sauter un cadenas : clique dessus !</p>
+        <p class="lead" style="font-size:0.85rem;" id="vault-intro">Une carte promo arc-en-ciel est enfermée dans la cage du coffre-fort, fermée par <strong>6 cadenas</strong>. Chaque clé secrète (fouille, roue quotidienne…) fait sauter un cadenas : clique dessus !</p>
         <div id="vault-locked" class="vault-scene">
           <div class="vault-card-frame">
             <img id="vault-card-img" class="vault-card-img" src="" alt="" />
             <div class="vault-bars" aria-hidden="true"></div>
             <div class="vault-padlocks" id="vault-padlocks" role="group" aria-label="Cadenas de la cage"></div>
           </div>
-          <div id="vault-card-name" class="vault-card-name skeleton-line">Chargement...</div>
+          <div id="vault-card-name" class="vault-card-name skeleton-line">Chargement…</div>
           <div id="vault-keys-label" class="vault-keys-label"></div>
         </div>
         <div id="vault-opened" class="vault-empty" style="display:none;">

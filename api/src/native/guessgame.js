@@ -9,17 +9,26 @@
 //  - Utile : trouver une carte qu'on ne possede pas donne un BON DE CRAFT
 //    (-GuessCouponPct % sur cette carte pendant GuessCouponDays jours),
 //    rembourse apres le craft (afterWorkflow craft).
+//  - Gains (2026-10-19) : base relevee et indexee sur l'inflation des prix
+//    (priceMultiplier, comme la boutique) ; journee terminee avec la serie
+//    gardee = GuessFinishCoins pieces de gatchapon. Le site affiche le gain
+//    possible de chaque carte (potential) des le debut, qui baisse a chaque
+//    erreur.
 //   POST /webhook/guess-card { userId, action: 'status' | 'guess', round?, cardId? }
 
 import { ok, fail, userById, now, refId, parisDay, firstAttachment, parseJson, levelForXp } from './common.js';
 import { setting } from './settings.js';
+import { priceMultiplier } from './inflation.js';
 
 export const schema = { Users: { GuessState: { type: 'Text' }, CraftCoupons: { type: 'Text' } } };
 
 const MULT = [1, 0.6, 0.3];
 const TRIES = 3;
 const STREAK_BOOSTER_EVERY = 7;
-const XP_PER_ROUND = 2;
+const XP_PER_ROUND = 5;
+const CONSOLATION = 0.15;
+// Gain d'une carte trouvee au 1er essai, indexe sur l'inflation des prix.
+const baseDust = (store) => Math.round(setting(store, 'GuessDust') * Math.max(1, priceMultiplier(store)));
 
 function seeded(str) { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } let a = h >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
@@ -56,7 +65,10 @@ function view(store, user) {
   const st = stateOf(user, day);
   const cards = new Map(store.getAll('Cards').map((c) => [c.id, c]));
   const coupons = couponsOf(user);
+  const base = baseDust(store);
+  const perfect = setting(store, 'GuessPerfectDust');
   return {
+    gains: { base, mult: MULT, consolation: CONSOLATION, perfect, finishCoins: setting(store, 'GuessFinishCoins'), dayMax: base * rounds.length + perfect },
     day, streak: Number(user.GuessStreak) || 0, boosterEvery: STREAK_BOOSTER_EVERY, streakMin: setting(store, 'GuessStreakMin'),
     couponPct: setting(store, 'GuessCouponPct'), couponDays: setting(store, 'GuessCouponDays'),
     rounds: rounds.map((r, i) => {
@@ -67,6 +79,8 @@ function view(store, user) {
         index: i, imageId: firstAttachment(r.answer.Image), zoom: { ...r.zoom, scale },
         choices: r.picks.map((c) => ({ cardId: c.id, name: c.Name, wrong: s.tries.includes(c.id) && c.id !== r.answer.id })),
         triesLeft: s.done ? 0 : TRIES - s.tries.length, done: s.done, correct: s.correct,
+        // Gain possible tant que la carte n'est pas jouee, puis gain obtenu.
+        potential: s.done ? Number(s.dust) || 0 : Math.round(base * MULT[Math.min(MULT.length - 1, fails)]),
         ...(s.done ? { answerCardId: r.answer.id, answerName: r.answer.Name } : {})
       };
     }),
@@ -99,8 +113,9 @@ function handle({ store, body }) {
   if (correct || s.tries.length >= TRIES) {
     s.done = true;
     s.correct = correct;
-    const base = setting(store, 'GuessDust');
-    reward.dust = correct ? Math.round(base * MULT[s.tries.length - 1]) : Math.round(base * 0.15);
+    const base = baseDust(store);
+    reward.dust = correct ? Math.round(base * MULT[s.tries.length - 1]) : Math.round(base * CONSOLATION);
+    s.dust = reward.dust;
     // Bon de craft : carte trouvee qu'on ne possede pas.
     const owns = store.getAll('Pulls').some((p) => refId(p.User) === user.id && refId(p.Card) === r.answer.id);
     if (correct && !owns && setting(store, 'GuessCouponPct') > 0) {
@@ -121,6 +136,9 @@ function handle({ store, body }) {
     fields.GuessStreak = newStreak;
     reward.streakUp = newStreak > 0;
     if (newStreak > 0 && newStreak % STREAK_BOOSTER_EVERY === 0) reward.boosters += 1;
+    // Journee terminee en gardant la serie : pieces de gatchapon.
+    const coins = setting(store, 'GuessFinishCoins');
+    if (newStreak > 0 && coins > 0) { reward.coins = coins; fields.ChestCount = (Number(user.ChestCount) || 0) + coins; }
     if (st.rounds.every((x) => x && x.correct && x.tries.length === 1)) { reward.perfect = true; reward.dust += setting(store, 'GuessPerfectDust'); }
   }
   const newXp = (Number(user.XP) || 0) + (s.done ? XP_PER_ROUND : 0);

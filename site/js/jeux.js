@@ -179,7 +179,7 @@ function renderGarden(st) {
   renderGardenSeeds(st);
   const seedCost = (st.seeds || []).find((s) => s.key === gardenSeed)?.cost ?? st.plantCost;
   document.getElementById("garden-meta").innerHTML = `${resIcon("worm")} <strong>${st.worms}</strong> vers · ${resIcon("bait")} <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte${st.wiltHours ? ` · une plante prête fane au bout de ${st.wiltHours} h` : ""}`
-    + (st.fertilizer || st.goldFertilizer ? `<span class="garden-fert">&#128169; <strong>${st.fertilizer}</strong> engrais de dino${st.goldFertilizer ? ` · <strong class="gold">${st.goldFertilizer}</strong> doré${st.goldFertilizer > 1 ? "s" : ""} (parcelle prête tout de suite, appât garanti)` : ""}</span>` : "")
+    + (st.fertilizer || st.goldFertilizer ? `<span class="garden-fert">${POOP} <strong>${st.fertilizer}</strong> engrais de dino${st.goldFertilizer ? ` · ${GOLD_POOP} <strong class="gold">${st.goldFertilizer}</strong> doré${st.goldFertilizer > 1 ? "s" : ""} (parcelle prête tout de suite, appât garanti)` : ""}</span>` : "")
     + (st.streak ? `<span class="garden-streak">&#128293; ${st.streak} jour${st.streak > 1 ? "s" : ""} de récolte d'affilée${st.rareChance ? ` · ${Math.round(st.rareChance * 100)} % de récolte rare demain` : " · récolte rare dès 3 jours"}</span>` : "");
   const t = Date.now() / 1000;
   document.getElementById("garden-plots").innerHTML = st.plots.map((p, i) => {
@@ -190,9 +190,9 @@ function renderGarden(st) {
     const wiltLeft = p.wiltAt ? Math.max(0, Math.round(p.wiltAt - t)) : null;
     return `<div class="garden-plot ${pct >= 100 ? "ready" : ""} ${p.wilted ? "wilted" : ""}">${p.seed && p.seed !== "mix" ? `<span class="garden-seed-tag" title="${(st.seeds || []).find((s) => s.key === p.seed)?.label || ""}">${SEED_ICONS[p.seed] || ""}</span>` : ""}<span class="garden-plant" aria-hidden="true">${stage}</span>
       <div class="challenge-bar"><div style="width:${pct}%"></div></div>
-      ${p.goldFertilized ? '<span class="garden-fert-tag" title="Engrais doré : appât doré garanti">&#10024;</span>' : p.fertilized ? '<span class="garden-fert-tag" title="Engrais de dino : pousse accélérée, vers doublés">&#128169;</span>' : ""}
+      ${p.goldFertilized ? `<span class="garden-fert-tag" title="Engrais doré : appât doré garanti">${GOLD_POOP}</span>` : p.fertilized ? '<span class="garden-fert-tag" title="Engrais de dino : pousse accélérée, vers doublés">&#128169;</span>' : ""}
       ${pct < 100 && st.fertilizer && !p.fertilized ? `<button type="button" class="btn-ghost garden-fert-btn" data-fertilize="${p.plot}" title="Engrais de dino : saute une partie de la pousse et double les vers">&#128169; Engrais</button>` : ""}
-      ${pct < 100 && st.goldFertilizer && !p.goldFertilized ? `<button type="button" class="btn-ghost garden-fert-btn gold" data-fertilize="${p.plot}" data-gold="1" title="Engrais doré : prête tout de suite, appât doré garanti">&#10024; Doré</button>` : ""}
+      ${pct < 100 && st.goldFertilizer && !p.goldFertilized ? `<button type="button" class="btn-ghost garden-fert-btn gold" data-fertilize="${p.plot}" data-gold="1" title="Engrais doré : prête tout de suite, appât doré garanti">${GOLD_POOP} Doré</button>` : ""}
       <span class="garden-label">${p.wilted ? "Fanée : récolte réduite" : pct >= 100 ? (wiltLeft != null && wiltLeft < 6 * 3600 ? `Prête ! Fane dans ${Math.max(1, Math.round(wiltLeft / 3600))} h` : "Prête à récolter !") : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
   }).join("");
   document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < seedCost;
@@ -220,7 +220,7 @@ async function gardenAction(action, extra = {}) {
     const res = await API.garden(Session.userId, action, action === "plant" ? { seed: gardenSeed } : extra);
     renderGarden(res);
     if (action === "buyPlot") Toast.success("&#10133; Nouvelle parcelle !");
-    else if (action === "fertilize") Toast.success(res.gold ? "&#10024; Engrais doré : la plante est prête, et un appât doré t'attend !" : "&#128169; Engrais posé : ça pousse plus vite, et la récolte de vers sera doublée !");
+    else if (action === "fertilize") Toast.success(res.gold ? `${GOLD_POOP} Engrais doré : la plante est prête, et un appât doré t'attend !` : "&#128169; Engrais posé : ça pousse plus vite, et la récolte de vers sera doublée !");
     else if (action === "plant") Toast.success(`&#127793; ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
     else {
       const g = res.gained;
@@ -253,7 +253,7 @@ function renderDigLevel(info) {
   if (pick) { const key = `Fouille/${info.level >= 5 ? "Pioche_02" : "Pioche_01"}.PNG`; if (pick.dataset.pick !== key) { pick.dataset.pick = key; pick.dataset.vis = key; pick.setAttribute("src", "assets/" + key); if (typeof Visuals !== "undefined") Visuals.apply(pick); } }
   renderSkillLevel("dig-level", tool.icon, "Fouille", info, digPerkTexts(info.perks), tool);
   document.getElementById("dig-pane").dataset.shovel = tool.key;
-  // Collier du chien : couleur selon le niveau, cape au niveau max.
+  // Medaillon de Milo : anneau cuivre, bleu, or puis irise (niveau max).
   const dog = document.getElementById("dig-kennel-dog-wrap");
   if (dog) dog.dataset.tier = info.level >= 10 ? "cape" : info.level >= 7 ? "or" : info.level >= 4 ? "bleu" : "rouge";
 }
@@ -262,6 +262,9 @@ function renderFishLevel(info) {
   if (!info) return;
   const rod = toolFor(FISH_RODS, info.level);
   renderSkillLevel("fish-level", "&#127907;", "Pêche", info, fishPerkTexts(info.perks), rod);
+  // Medaillon de Moka : memes paliers que Milo, selon le niveau de peche.
+  const cat = document.getElementById("fish-cat-wrap");
+  if (cat) cat.dataset.tier = info.level >= 10 ? "cape" : info.level >= 7 ? "or" : info.level >= 4 ? "bleu" : "rouge";
   document.getElementById("fish-rod").dataset.rod = rod.key;
 }
 
@@ -274,6 +277,17 @@ function renderDigDepths(dd) {
   digDepthState = dd;
   const el = document.getElementById("dig-depths");
   el.innerHTML = dd.depths.map((d) => `<button type="button" role="radio" aria-checked="${d.depth === dd.depth}" class="dig-depth ${d.depth === dd.depth ? "active" : ""}" data-depth="${d.depth}" ${d.unlocked ? "" : "disabled"} title="${d.unlocked ? `Profondeur ${d.depth} : ${d.label}` : `Niveau ${d.level} de fouille requis`}"><span class="dig-depth-n">${d.depth}</span> ${d.icon} ${escHtml(d.label)}${d.unlocked ? "" : ` <small>&#128274; niv. ${d.level}</small>`}</button>`).join("");
+  const site = document.querySelector(".dig-site");
+  const cur = dd.depths.find((d) => d.depth === dd.depth);
+  if (site && cur) {
+    const changed = site.dataset.depth && site.dataset.depth !== String(cur.depth);
+    site.dataset.depth = String(Math.min(5, Math.max(1, cur.depth)));
+    let banner = site.querySelector(".dig-depth-banner");
+    if (!banner) { banner = document.createElement("div"); banner.className = "dig-depth-banner"; site.prepend(banner); }
+    banner.innerHTML = `<span class="ddb-icon" aria-hidden="true">${cur.icon}</span><span><small>Profondeur ${cur.depth}</small><strong>${escHtml(cur.label)}</strong></span>`;
+    // Descente : petit fondu du decor.
+    if (changed) { site.classList.remove("dig-site-enter"); void site.offsetWidth; site.classList.add("dig-site-enter"); }
+  }
   document.getElementById("dig-bag").innerHTML = `<img class="ico-art" src="assets/Fouille/Pioche_01.PNG" alt="" /> Sac : <strong>${dd.minerals}</strong> minér${dd.minerals > 1 ? "aux" : "al"} · <a href="communaute.html#marche">Comptoir des minéraux &rarr;</a>`;
 }
 async function setDigDepth(depth) {
@@ -610,7 +624,7 @@ async function doDig(tileIndex, tileEl) {
     }
     if (res.foundKey) {
       if (typeof Haptics !== "undefined") Haptics.buzz(30);
-      Toast.success(resIcon("key") + " Tu as trouvé une clef secrète !");
+      Toast.success(resIcon("key") + " Tu as trouvé une clé !");
       if (typeof confetti === "function") confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } });
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     }
@@ -640,7 +654,7 @@ async function doDig(tileIndex, tileEl) {
 // Visuels peints (site/assets, 2026-10-17). Les noms de fichiers sont sensibles
 // a la casse sur le serveur : garder l'extension exacte (.PNG / .png).
 const artImg = (file, alt = "") => `<img class="ico-art" src="assets/${encodeURI(file)}" alt="${alt}" loading="lazy" decoding="async">`;
-const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: artImg("Os.PNG"), key: artImg("clés.PNG"), booster: artImg("JetonBooster.png"), chest: artImg("Coffres/1.PNG"), part: artImg("PieceDetachee.PNG"), pearl: artImg("Pêche/PerleNoire.png"), bait: artImg("ElixirDePeche.PNG") };
+const FISH_ICONS = { nothing: "&#129406;", dust: "&#10024;", bone: artImg("Os.PNG"), key: artImg("clés.PNG"), booster: artImg("JetonBooster.png"), chest: artImg("Coffres/1.PNG"), part: artImg("PieceDetachee.PNG"), pearl: artImg("Pêche/PerleNoire.png"), bait: artImg("Pêche/Vers.png").replace('class="ico-art"', 'class="ico-art ico-gold"') };
 // Nourriture des dinos pechee en plus.
 const FOOD_ART = { fish: "Pêche/Poisson_12.png", seaweed: "Pêche/Algues.png", shrimp: "Pêche/crevette.png" };
 const foodIcon = (b) => (FOOD_ART[b.type] ? artImg(FOOD_ART[b.type]) : b.icon);
@@ -715,6 +729,7 @@ function renderFishing(st) {
   renderFishBook(st.records);
   if (st.aquarium) renderAquarium(st.aquarium);
   if (st.cat) renderCat(st.cat);
+  renderScrollBtn(st);
   if (st.catReport) { showCatPostcard(st.catReport); st.catReport = null; fishState.catReport = null; }
   renderFishEnergy(st);
   const worms = st.worms ?? 0, energy = st.energy ?? 0;
@@ -839,6 +854,7 @@ function showCatPostcard(r) {
         <p>Pendant ton absence, j'ai lancé ma ligne <strong>${r.casts} fois</strong>${r.done ? " et j'ai fini mon poisson" : ""}.</p>
         ${parts.length ? `<ul>${parts.map((p) => `<li>${p}</li>`).join("")}</ul>` : "<p>Rien n'a mordu… mais j'ai fait une belle sieste au soleil.</p>"}
         <div class="dog-postcard-sign">Ton chat, Moka &#128062;</div>
+        ${r.hint ? `<p class="cat-postcard-ps">${escHtml(r.hint)}</p>` : ""}
       </div>
       <button type="button" class="btn dog-postcard-close">Merci Moka !</button>
     </div>`;
@@ -883,52 +899,44 @@ function renderAquarium(aq) {
       </div>`).join("")}</div>`;
 }
 
-// Ferrage : une aiguille va et vient, il faut cliquer (ou Espace) quand elle
-// passe dans la zone centrale. Renvoie perfect / good / miss. Plus le lancer
-// utilise de vers (x5, Tout pecher, eaux profondes), plus c'est dur : zones
-// plus etroites, aiguille plus rapide, moins de temps.
-function fishStrikeDifficulty(worms) {
-  const k = Math.min(1, Math.log2(Math.max(1, worms)) / Math.log2(100));
-  return {
-    k, good: 0.2 * (1 - 0.65 * k), perfect: 0.07 * (1 - 0.6 * k), period: 1150 * (1 - 0.5 * k), timeout: 2600 * (1 - 0.25 * k),
-    label: k < 0.2 ? "" : k < 0.5 ? "difficile" : k < 0.8 ? "très difficile" : "extrême"
-  };
-}
-function fishStrike(scene, worms = 1) {
+// Ferrage (2026-10-18, remplace la jauge de timing, trop exigeante et
+// sensible au decalage) : trois remous a la surface, on en choisit un (clic
+// ou touches 1, 2, 3). Le serveur tire celui qui cachait la prise parfaite ;
+// on le devoile ensuite.
+function fishPick(scene) {
   return new Promise((resolve) => {
-    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const diff = fishStrikeDifficulty(worms);
-    // La jauge s'affiche dans la scene si elle est bien visible, sinon sur les
-    // boutons (la ou le joueur vient de cliquer) : jamais hors de l'ecran.
     const r = scene.getBoundingClientRect();
     const host = r.top >= 0 && r.bottom <= window.innerHeight ? scene : document.querySelector(".fish-controls");
     const g = document.createElement("div");
-    g.className = "fish-strike" + (host === scene ? "" : " in-controls");
-    const pct = (v) => (v * 100).toFixed(1) + "%";
-    g.innerHTML = `<div class="fs-label">Ferre !${diff.label ? ` <small>${worms} vers : ${diff.label}</small>` : ""}</div><div class="fs-bar"><span class="fs-good" style="left:${pct(0.5 - diff.good)};width:${pct(diff.good * 2)}"></span><span class="fs-perfect" style="left:${pct(0.5 - diff.perfect)};width:${pct(diff.perfect * 2)}"></span><span class="fs-needle"></span></div><button type="button" class="btn fs-btn">🎣 Ferrer</button>`;
+    g.className = "fish-pick" + (host === scene ? "" : " in-controls");
+    g.innerHTML = `<div class="fp-label">Ça mord ! Trois remous : où ferres-tu ?</div><div class="fp-spots">${[0, 1, 2].map((i) => `<button type="button" class="fp-spot" data-fp="${i}" aria-label="Remous ${i + 1}"><span class="fp-ring"></span><span class="fp-ring fp-ring2"></span><span class="fp-n">${i + 1}</span></button>`).join("")}</div>`;
     host.appendChild(g);
-    const needle = g.querySelector(".fs-needle");
-    const period = diff.period * (reduce ? 2 : 1), t0 = performance.now();
-    let pos = 0, done = false, raf = 0;
-    const tick = (t) => { const k = ((t - t0) % period) / period; pos = k < 0.5 ? k * 2 : 2 - k * 2; needle.style.left = (pos * 100) + "%"; raf = requestAnimationFrame(tick); };
-    raf = requestAnimationFrame(tick);
-    const finish = (result) => {
+    let done = false;
+    const choose = (i) => {
       if (done) return;
       done = true;
-      cancelAnimationFrame(raf);
       document.removeEventListener("keydown", onKey);
-      g.classList.add("fs-" + result);
-      g.querySelector(".fs-label").textContent = result === "perfect" ? "Ferrage parfait !" : result === "good" ? "Bien ferré" : "Raté…";
-      if (typeof Haptics !== "undefined") Haptics.buzz(result === "perfect" ? [20, 40, 20] : result === "good" ? 25 : [8, 30, 8]);
-      // On rend le focus avant de retirer la jauge (pas de focus "perdu").
-      setTimeout(() => { if (g.contains(document.activeElement)) document.activeElement.blur(); g.remove(); resolve(result); }, 650);
+      g.classList.add("fp-chosen");
+      g.querySelector(`[data-fp="${i}"]`).classList.add("picked");
+      if (typeof Haptics !== "undefined") Haptics.buzz(20);
+      if (typeof Sfx !== "undefined" && Sfx.click) Sfx.click();
+      resolve({ pick: i, el: g });
     };
-    const hit = () => { const d = Math.abs(pos - 0.5); finish(d <= diff.perfect ? "perfect" : d <= diff.good ? "good" : "miss"); };
-    const onKey = (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); hit(); } };
+    const onKey = (e) => { if (["1", "2", "3"].includes(e.key)) { e.preventDefault(); choose(Number(e.key) - 1); } };
     document.addEventListener("keydown", onKey);
-    g.addEventListener("click", hit);
-    g.querySelector(".fs-btn").focus({ preventScroll: true });
-    setTimeout(() => finish("miss"), diff.timeout * (reduce ? 1.6 : 1));
+    g.addEventListener("click", (e) => { const b = e.target.closest("[data-fp]"); if (b) choose(Number(b.dataset.fp)); });
+    g.querySelector(".fp-spot").focus({ preventScroll: true });
+  });
+}
+// Devoile le remous parfait apres la reponse du serveur, puis retire le choix.
+function fishPickReveal(g, spots, pick) {
+  return new Promise((resolve) => {
+    if (!g) { resolve(); return; }
+    if (Array.isArray(spots)) spots.forEach((s, i) => { const b = g.querySelector(`[data-fp="${i}"]`); if (b) b.classList.add(s === "perfect" ? "golden" : "plain"); });
+    const perfect = Array.isArray(spots) && spots[pick] === "perfect";
+    g.querySelector(".fp-label").textContent = perfect ? "Ferrage parfait !" : "Bien ferré";
+    if (typeof Haptics !== "undefined") Haptics.buzz(perfect ? [20, 40, 20] : 25);
+    setTimeout(() => { if (g.contains(document.activeElement)) document.activeElement.blur(); g.remove(); resolve(); }, perfect ? 900 : 700);
   });
 }
 
@@ -964,11 +972,12 @@ async function castFishing(count) {
     status.textContent = "On attend que ça morde…";
     await fishWait(900 + Math.random() * 1400);
     scene.classList.replace("waiting", "bite");
-    status.textContent = "Ça mord ! Ferre au bon moment…";
+    status.textContent = "Ça mord ! Choisis un remous…";
     if (typeof Sfx !== "undefined" && Sfx.click) Sfx.click();
-    const worms = count * Math.max(1, curZone(fishState).cost);
-    const strike = await fishStrike(scene, worms);
-    const res = await API.fishing(Session.userId, "cast", count, useBait, zone, strike);
+    const { pick, el: pickEl } = await fishPick(scene);
+    const res = await API.fishing(Session.userId, "cast", count, useBait, zone, pick);
+    await fishPickReveal(pickEl, res.spots, pick);
+    if (res.scroll) setTimeout(() => ScrollFx.open(true), 900);
     scene.classList.replace("bite", "caught");
     const best = res.catches.reduce((a, c) => (["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(c.tier) > ["nothing", "commune", "rare", "epique", "legendaire", "mythique"].indexOf(a.tier) ? c : a), res.catches[0]);
     catchEl.hidden = false;
@@ -1137,10 +1146,10 @@ function renderPadlocks() {
   box.innerHTML = Array.from({ length: need }, (_, i) => {
     const open = i < popped;
     const can = !open && i < res.userKeys;
-    return `<button type="button" class="vault-padlock ${open ? "popped" : can ? "can" : "locked"}" data-i="${i}" ${can ? "" : "disabled"} aria-label="${open ? "Cadenas ouvert" : can ? "Faire sauter ce cadenas avec une clef" : "Il manque une clef"}">${open ? "&#128275;" : "&#128274;"}</button>`;
+    return `<button type="button" class="vault-padlock ${open ? "popped" : can ? "can" : "locked"}" data-i="${i}" ${can ? "" : "disabled"} aria-label="${open ? "Cadenas ouvert" : can ? "Faire sauter ce cadenas avec une clé" : "Il manque une clé"}">${open ? "&#128275;" : "&#128274;"}</button>`;
   }).join("");
   const left = Math.max(0, need - res.userKeys);
-  document.getElementById("vault-keys-label").innerHTML = `<img class="ico-art" src="assets/${encodeURI("cléSpeciale.png")}" alt="" /> ${res.userKeys} / ${need} clefs · ${popped} cadenas ouvert${popped > 1 ? "s" : ""}${left ? ` · encore ${left} clef${left > 1 ? "s" : ""} à trouver` : popped < need ? " · fais sauter les cadenas !" : ""}`;
+  document.getElementById("vault-keys-label").innerHTML = `<img class="ico-art" src="assets/${encodeURI(RES_ART.key)}" alt="" /> ${res.userKeys} / ${need} clés · ${popped} cadenas ouvert${popped > 1 ? "s" : ""}${left ? ` · encore ${left} clé${left > 1 ? "s" : ""} à trouver` : popped < need ? " · fais sauter les cadenas !" : ""}`;
 }
 
 async function popPadlock(btn) {
@@ -1169,7 +1178,7 @@ async function openVault() {
   } catch (e) {
     if (frame) frame.classList.remove("vault-unlocking");
     setVaultPopped(0);
-    Toast.error(e.code === "not_enough_keys" ? "Pas assez de clefs." : e.code === "already_opened" ? "Déjà ouvert." : friendlyError(e));
+    Toast.error(e.code === "not_enough_keys" ? "Pas assez de clés." : e.code === "already_opened" ? "Déjà ouvert." : friendlyError(e));
     loadVault();
   }
 }
@@ -1196,18 +1205,22 @@ function renderGuess(data) {
   img.style.transformOrigin = `${z.x}% ${z.y}%`;
   img.style.transform = r.done ? "scale(1)" : `scale(${z.scale})`;
   frame.classList.toggle("revealed", !!r.done);
+  // Loupe : le zoom recule a chaque erreur.
+  const zb = document.getElementById("guess-zoom");
+  if (zb) { zb.hidden = !!r.done; zb.innerHTML = `&#128269; ×${String(Math.round((z.scale || 1) * 10) / 10).replace(".", ",")}`; }
 
   const next = data.boosterEvery - ((data.streak || 0) % data.boosterEvery);
+  document.getElementById("guess-rounds").innerHTML = `<div class="guess-rounds">${data.rounds.map((x) => `<button type="button" class="guess-round ${x.index === guessRound ? "active" : ""} ${x.done ? (x.correct ? "win" : "lose") : ""}" data-guess-round="${x.index}" aria-label="Carte ${x.index + 1}">${x.done ? (x.correct ? "&#10004;" : "&#10008;") : x.index + 1}</button>`).join("")}</div>`;
   document.getElementById("guess-streak").innerHTML = `
-    <div class="guess-rounds">${data.rounds.map((x) => `<button type="button" class="guess-round ${x.index === guessRound ? "active" : ""} ${x.done ? (x.correct ? "win" : "lose") : ""}" data-guess-round="${x.index}" aria-label="Carte ${x.index + 1}">${x.done ? (x.correct ? "&#10004;" : "&#10008;") : x.index + 1}</button>`).join("")}</div>
     <span>&#128293; Série : <strong>${data.streak || 0}</strong> jour${(data.streak || 0) > 1 ? "s" : ""} · ${data.found} / ${data.rounds.length} trouvée${data.found > 1 ? "s" : ""} aujourd'hui</span>
     <span class="guess-streak-next">${data.streakMin} bonnes réponses par jour gardent la série · jeton booster dans ${next} jour${next > 1 ? "s" : ""} de série</span>`;
 
   const box = document.getElementById("guess-choices");
   box.innerHTML = r.choices.map((c) => {
     const cls = r.done ? (c.cardId === r.answerCardId ? "right" : c.wrong ? "wrong" : "") : c.wrong ? "wrong" : "";
-    return `<button type="button" class="guess-choice ${cls}" data-card-id="${c.cardId}" ${r.done || c.wrong ? "disabled" : ""}>${escHtml(c.name)}</button>`;
-  }).join("") + (r.done ? "" : `<div class="guess-tries">${"&#10084;&#65039;".repeat(r.triesLeft)}${"&#129293;".repeat(3 - r.triesLeft)} <small>${r.triesLeft} essai${r.triesLeft > 1 ? "s" : ""} · gain ${[100, 60, 30][3 - r.triesLeft]} %</small></div>`);
+    return `<button type="button" class="guess-choice ${cls}" data-card-id="${c.cardId}" ${r.done || c.wrong ? "disabled" : ""}><span class="gc-letter" aria-hidden="true">${"ABCD"[r.choices.indexOf(c)] || ""}</span><span class="gc-name">${escHtml(c.name)}</span></button>`;
+  }).join("") + (r.done ? "" : `<div class="guess-tries">${"&#10084;&#65039;".repeat(r.triesLeft)}${"&#129293;".repeat(3 - r.triesLeft)} <small>${r.triesLeft} essai${r.triesLeft > 1 ? "s" : ""}</small></div>`);
+  renderGuessGain(data, r);
 
   const res = document.getElementById("guess-result");
   const parts = [];
@@ -1218,6 +1231,35 @@ function renderGuess(data) {
   res.style.display = parts.length ? "block" : "none";
   res.className = `guess-result ${r.done ? (r.correct ? "win" : "lose") : ""}`;
   res.innerHTML = parts.join("");
+}
+
+// Gain possible de la carte (2026-10-19) : affiche des le debut, il descend
+// en direct (compteur anime) a chaque erreur.
+let guessGainShown = null;
+function renderGuessGain(data, r) {
+  const frame = document.getElementById("guess-frame");
+  if (!frame || !data.gains) return;
+  let el = document.getElementById("guess-gain");
+  if (!el) { el = document.createElement("div"); el.id = "guess-gain"; el.className = "guess-gain"; frame.after(el); }
+  const g = data.gains;
+  const target = r.potential != null ? r.potential : g.base;
+  const label = r.done ? (r.correct ? "Gagné" : "Consolation") : "Gain possible";
+  const steps = g.mult.map((m, i) => `<span class="gg-step ${!r.done && i === 3 - r.triesLeft ? "on" : ""} ${!r.done && i < 3 - r.triesLeft ? "lost" : ""}">${Math.round(g.base * m)}</span>`).join("");
+  const dayLeft = data.rounds.filter((x) => !x.done).reduce((t, x) => t + (x.potential || 0), 0) + data.rounds.filter((x) => x.done).reduce((t, x) => t + (x.potential || 0), 0);
+  el.className = `guess-gain ${r.done ? (r.correct ? "won" : "lost") : ""}`;
+  el.innerHTML = `<div class="gg-main"><small>${label}</small><strong><span class="gg-num">${guessGainShown != null && guessGainShown.round === r.index ? guessGainShown.value : target}</span> &#10024;</strong></div>
+    ${r.done ? "" : `<div class="gg-steps" title="1er essai, 2e essai, 3e essai">${steps}</div>`}
+    <div class="gg-day">Aujourd'hui : jusqu'à ${fmtNum(dayLeft + (data.finished ? 0 : g.perfect))} &#10024;${g.finishCoins ? ` + ${g.finishCoins} ${resIcon("coin")}` : ""}${g.perfect ? ` <span title="Toutes les cartes trouvées du premier coup">(dont ${fmtNum(g.perfect)} si journée parfaite)</span>` : ""}</div>`;
+  const num = el.querySelector(".gg-num");
+  const from = guessGainShown && guessGainShown.round === r.index ? guessGainShown.value : target;
+  guessGainShown = { round: r.index, value: target };
+  if (from !== target) {
+    // Le gain fond sous les yeux du joueur.
+    el.classList.add("gg-drop");
+    const t0 = performance.now(), dur = 700;
+    const step = (now) => { const p = Math.min(1, (now - t0) / dur); num.textContent = Math.round(from + (target - from) * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); else el.classList.remove("gg-drop"); };
+    requestAnimationFrame(step);
+  }
 }
 
 async function loadGuess() {
@@ -1236,7 +1278,8 @@ async function submitGuess(cardId) {
     renderGuess(res);
     if (typeof loadNavBadges === "function") loadNavBadges();
     const rw = res.reward || {};
-    if (res.correct) Toast.success(`Bonne réponse ! +${rw.dust} poussières${rw.boosters ? " et +1 jeton booster" : ""}${rw.perfect ? " (journée parfaite !)" : ""}.`);
+    if (res.correct) Toast.success(`Bonne réponse ! +${rw.dust} poussières${rw.boosters ? " et +1 jeton booster" : ""}${rw.coins ? ` et +${rw.coins} ${resIcon("coin")}` : ""}${rw.perfect ? " (journée parfaite !)" : ""}.`);
+    else if (res.done && rw.coins) Toast.info(`Journée terminée : +${rw.coins} ${resIcon("coin")} pour ta série.`);
     else if (res.done) Toast.info("Raté pour cette carte.");
     else Toast.info("Ce n'est pas ça : le zoom recule, essaie encore !");
     if (rw.coupon) setTimeout(() => Toast.success(`&#127915; Bon de craft : −${rw.coupon.pct} % sur <strong>${escHtml(rw.coupon.name)}</strong> pendant ${res.couponDays} jours !`), 400);
@@ -1298,7 +1341,7 @@ async function loadExpeditionLevel() {
 // extension) qui augmente ce butin.
 let expeditionDest = (() => { try { return localStorage.getItem("2gatcha_expe_dest") || ""; } catch (e) { return ""; } })();
 const EXPE_MULT = { 2: "×1", 8: "×2,5", 24: "×5" };
-const expeRes = (r) => (r.img ? artImg(r.img, "") : "&#127873;");
+const expeRes = (r) => (r.img ? artImg(r.img, "").replace('class="ico-art"', `class="ico-art${r.gold ? " ico-gold" : ""}"`) : "&#127873;");
 const expePerTrip = (n) => (n >= 1 ? `${Math.round(n * 10) / 10}` : `${Math.round(n * 100)} %`);
 function expeMatch(card, dest) {
   const a = dest?.affinity || {};
@@ -1555,3 +1598,65 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }).catch(() => {});
 });
+
+// ---------------------------------------------------------------------------
+// Le parchemin (2026-10-19, api/src/native/forbidden.js) : une prise de peche
+// rare. Il se deroule dans une cinematique ; ses enigmes ne viennent que du
+// serveur (et seulement pour qui l'a peche). On peut le relire depuis la peche.
+// ---------------------------------------------------------------------------
+function renderScrollBtn(st) {
+  const host = document.querySelector(".fish-controls");
+  if (!host) return;
+  let b = document.getElementById("fish-scroll-btn");
+  if (!st.hasScroll) { if (b) b.remove(); return; }
+  if (b) return;
+  b = document.createElement("button");
+  b.type = "button";
+  b.id = "fish-scroll-btn";
+  b.className = "btn-ghost fish-scroll-btn";
+  b.innerHTML = "&#128220; Le parchemin";
+  b.title = "Relire le parchemin repêché";
+  b.addEventListener("click", () => ScrollFx.open(false));
+  host.appendChild(b);
+}
+const ScrollFx = {
+  async open(fresh) {
+    let data;
+    try { data = await API.post("forbidden", { userId: Session.userId, action: "scroll" }); } catch (e) { return; }
+    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ov = document.createElement("div");
+    ov.className = "scroll-overlay";
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.setAttribute("aria-label", "Le parchemin");
+    ov.innerHTML = `
+      ${fresh ? '<p class="scroll-catch">Ta ligne remonte… un parchemin détrempé, scellé de cire.</p>' : ""}
+      <div class="scroll-paper">
+        <div class="scroll-rod top" aria-hidden="true"></div>
+        <div class="scroll-body">
+          <span class="scroll-seal" aria-hidden="true">&#9881;&#65039;</span>
+          <h2 class="scroll-title">${escHtml(data.title)}</h2>
+          <ol class="scroll-riddles">${data.riddles.map((r, i) => `<li style="--d:${i}" class="${r.found ? "found" : ""}"><b>${r.roman}</b><span>${escHtml(r.text)}</span></li>`).join("")}</ol>
+          <p class="scroll-outro">${escHtml(data.outro)}</p>
+          <button type="button" class="btn scroll-close">Rouler le parchemin</button>
+        </div>
+        <div class="scroll-rod bottom" aria-hidden="true"></div>
+      </div>`;
+    document.body.appendChild(ov);
+    if (typeof syncScrollLock === "function") syncScrollLock();
+    if (typeof Sfx !== "undefined" && Sfx._tone) for (let i = 0; i < 6; i++) Sfx._tone(1800 + Math.random() * 900, i * 0.07, 0.04, "triangle", 0.012);
+    if (typeof Haptics !== "undefined") Haptics.buzz([20, 40, 20]);
+    requestAnimationFrame(() => ov.classList.add(reduced ? "open no-anim" : "open"));
+    const close = () => {
+      document.removeEventListener("keydown", onKey);
+      ov.classList.add("closing");
+      setTimeout(() => { ov.remove(); if (typeof syncScrollLock === "function") syncScrollLock(); }, reduced ? 50 : 450);
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    ov.querySelector(".scroll-close").addEventListener("click", close);
+    ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+    setTimeout(() => ov.querySelector(".scroll-close").focus({ preventScroll: true }), reduced ? 0 : 1800);
+    if (fresh) setTimeout(() => { const b = document.getElementById("fish-scroll-btn"); if (!b && fishState) renderScrollBtn({ hasScroll: true }); }, 500);
+  }
+};

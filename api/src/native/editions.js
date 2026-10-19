@@ -38,7 +38,9 @@ export const EDITIONS = {
   cursed: { label: 'Maudite', icon: '🎃', season: 'halloween' },
   snow: { label: 'Enneigée', icon: '🎄', season: 'christmas' },
   // Carte fantome du mois
-  phantom: { label: 'Fantôme', icon: '👻' }
+  phantom: { label: 'Fantôme', icon: '👻' },
+  // Cartes gagnees aux machines interdites (forbidden.js)
+  forbidden: { label: 'Interdite', icon: '⛓️' }
 };
 // Fiche d'un exemplaire en edition (messages de confirmation).
 export function editionCopyView(store, p) {

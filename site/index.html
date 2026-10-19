@@ -118,7 +118,7 @@
           <h2 style="flex:1;margin:0;">&#127919; Quêtes du jour</h2>
           <span id="quest-streak-badge" class="streak-badge" style="display:none;"></span>
         </div>
-        <p class="lead skeleton-line" style="font-size:0.85rem;" id="quests-intro">Chargement...</p>
+        <p class="lead skeleton-line" style="font-size:0.85rem;" id="quests-intro">Chargement…</p>
         <div id="quests-list" class="quests-list"></div>
       </div>
 
@@ -139,7 +139,7 @@
 
       <div class="panel" id="weekly-quests-panel" style="display:none;">
         <h2>&#128197; Quêtes de la semaine</h2>
-        <p class="lead skeleton-line" style="font-size:0.85rem;" id="weekly-quests-intro">Chargement...</p>
+        <p class="lead skeleton-line" style="font-size:0.85rem;" id="weekly-quests-intro">Chargement…</p>
         <div id="weekly-quests-list" class="quests-list"></div>
       </div>
       </div>
@@ -163,9 +163,9 @@
         <div class="wheel-widget">
           <span class="wheel-icon" aria-hidden="true">&#127920;</span>
           <div class="wheel-status">
-            <div id="wheel-status-text" class="skeleton-line">Chargement...</div>
+            <div id="wheel-status-text" class="skeleton-line">Chargement…</div>
             <button type="button" class="btn" id="wheel-spin-btn" style="display:none;">Tourner la roue</button>
-            <button type="button" class="btn-secondary wheel-key-btn" id="wheel-key-btn" style="display:none;" title="Relancer la roue en dépensant 1 clé secrète"><span>&#128274; Relancer contre 1 <img class="ico-token" src="assets/cl%C3%A9Speciale.png" alt="" /></span></button>
+            <button type="button" class="btn-secondary wheel-key-btn" id="wheel-key-btn" style="display:none;" title="Relancer la roue en dépensant 1 clé"><span>&#128274; Relancer contre 1 <img class="ico-token" src="assets/cl%C3%A9s.PNG" alt="clé" /></span></button>
           </div>
         </div>
         <div class="wheel-prizes-preview">
@@ -258,7 +258,7 @@
       if (Session.isLoggedIn()) {
         loginZone.style.display = "none";
         loggedZone.style.display = "block";
-        document.getElementById("pseudo-display").textContent = Session.pseudo;
+        document.getElementById("pseudo-display").textContent = Session.pseudo || "";
       } else {
         loginZone.style.display = "block";
         loggedZone.style.display = "none";
@@ -789,9 +789,9 @@
         wheelKeyBtn.style.display = "inline-flex";
         wheelKeyBtn.disabled = keys < 1;
         wheelKeyBtn.innerHTML = keys < 1
-          ? "<span>&#128274; Relance (1 " + resIcon("skey") + " requise)</span>"
-          : "<span>&#128274; Relancer (&minus;1 " + resIcon("skey") + ")</span>";
-        wheelKeyBtn.title = keys < 1 ? "Il te faut une clé secrète (fouille, roue...)" : `Relancer la roue contre 1 clé secrète - tu en as ${keys}`;
+          ? "<span>&#128274; Relance (1 " + resIcon("key") + " requise)</span>"
+          : "<span>&#128274; Relancer (&minus;1 " + resIcon("key") + ")</span>";
+        wheelKeyBtn.title = keys < 1 ? "Il te faut une clé (fouille, pêche, roue…)" : `Relancer la roue contre 1 clé - tu en as ${keys}`;
       }
       wheelPanel.style.display = "block";
       API.getDailyWheelStatus(Session.userId).then((res) => {
@@ -813,7 +813,7 @@
       const WHEEL_PRIZE_META = {
         stardust: (p) => ({ label: `+${p.amount} poussières d'étoile`, sfx: "rare", confetti: { particleCount: 80, spread: 80 } }),
         booster: (p) => ({ label: `+${p.amount} jeton${p.amount > 1 ? "s" : ""} booster`, sfx: "legendaire", confetti: { particleCount: 120, spread: 90 } }),
-        key: (p) => ({ label: `+${p.amount} clé${p.amount > 1 ? "s" : ""} secrète${p.amount > 1 ? "s" : ""}`, sfx: "epique", confetti: { particleCount: 100, spread: 90 } }),
+        key: (p) => ({ label: `+${p.amount} clé${p.amount > 1 ? "s" : ""}`, sfx: "epique", confetti: { particleCount: 100, spread: 90 } }),
         jackpot: (p) => ({ label: `+${p.amount} jetons booster et +${p.dust} poussières`, sfx: "mythique", confetti: { particleCount: 280, spread: 160 } })
       };
 
@@ -835,9 +835,41 @@
           fx.abort();
           wheelSpinBtn.disabled = false;
           wheelKeyBtn.disabled = false;
-          Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : e.code === "no_key" ? "Il te faut une clé secrète pour relancer la roue." : friendlyError(e));
+          Toast.error(e.code === "already_spun" ? "Tu as déjà tourné la roue aujourd'hui." : e.code === "no_key" ? "Il te faut une clé pour relancer la roue." : friendlyError(e));
         }
       }
+      // Roue truquee (secrets.js) : a 22 h 22 (Paris), une case « ??? ».
+      const parisHM = () => new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+      let secretBtn = null;
+      function checkSecretWheel() {
+        const open = parisHM() === "22:22";
+        if (open && !secretBtn) {
+          secretBtn = document.createElement("button");
+          secretBtn.type = "button";
+          secretBtn.className = "btn wheel-secret-btn";
+          secretBtn.innerHTML = "<span>???</span>";
+          secretBtn.addEventListener("click", secretWheelSpin);
+          wheelSpinBtn.parentElement.appendChild(secretBtn);
+        } else if (!open && secretBtn) { secretBtn.remove(); secretBtn = null; }
+      }
+      async function secretWheelSpin() {
+        if (!secretBtn) return;
+        secretBtn.disabled = true;
+        const fx = WheelFx.open({ secret: true });
+        try {
+          const res = await API.post("dailyWheel", { userId: Session.userId, action: "spin", secret: true });
+          const p = res.prize;
+          await fx.spinTo("secret", { label: `+${p.amount} jetons booster et +${p.dust} poussières${p.title ? ` · titre « ${p.title} »` : ""}`, sfx: "mythique", confetti: { particleCount: 220, spread: 140, colors: ["#7f1d1d", "#fca5a5", "#0a0a0a"] }, icon: "<span>&#10068;</span>" });
+          loadHeaderBoosterBadge();
+          if (secretBtn) { secretBtn.remove(); secretBtn = null; }
+        } catch (e) {
+          fx.abort();
+          if (secretBtn) secretBtn.disabled = false;
+          Toast.info(e.code === "secret_closed" ? "La case s'est effacée…" : e.code === "already_secret" ? "La roue ne triche qu'une fois par nuit." : friendlyError(e));
+        }
+      }
+      checkSecretWheel();
+      setInterval(checkSecretWheel, 10000);
       wheelSpinBtn.addEventListener("click", () => startWheelSpin(false));
       wheelKeyBtn.addEventListener("click", () => startWheelSpin(true));
     }

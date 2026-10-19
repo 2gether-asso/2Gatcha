@@ -5,7 +5,7 @@
 
 (function () {
   const esc = escHtml;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   const FIN = { normal: "", holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
   const QUA = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   let st = null;
@@ -14,7 +14,7 @@
   const picked = new Set();
   let busy = false;
 
-  const serial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
+  const serial = fmtSerial; // core.js
   const tags = (c) => [FIN[c.finish], QUA[c.quality]].filter(Boolean).map((t) => `<span class="gc-tag">${esc(t)}</span>`).join("");
   const img = (c) => `<img src="${API.imageUrl(c.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />`;
 

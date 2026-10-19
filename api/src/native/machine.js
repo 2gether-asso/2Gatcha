@@ -18,7 +18,7 @@
 //  - porte ouverte = fragment de la carte fantome (phantom.js).
 //   POST /webhook/machine-room { userId, action: 'status' | 'advance' | 'vote' | 'voteEvent', mode?, event? }
 
-import { refId, now, ok, fail, userById, parseJson, parisDay } from './common.js';
+import { refId, now, ok, fail, userById, parseJson, parisDay, nextSerial } from './common.js';
 import { setting } from './settings.js';
 import { seasonId, seasonEnd } from './seasons.js';
 import { parisEpoch } from './daily.js';
@@ -185,11 +185,6 @@ function stateOf(store, user) {
   };
 }
 
-function nextSerial(store, cardId) {
-  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
-  let n = 1; while (used.has(n)) n++;
-  return n;
-}
 // Assiduite : 3 mois d'affilee a terminer la salle -> carte promo (ou 3 boosters).
 function loyalty(store, user) {
   const m = month(), p1 = prevMonth(m), p2 = prevMonth(p1);

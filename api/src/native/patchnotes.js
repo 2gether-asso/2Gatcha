@@ -8,6 +8,35 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-19', title: 'Codes, chats et mystères', items: [
+    'Réclamer un code devient une petite cérémonie : chaque déblocage a sa cinématique',
+    'Certains mots, bien choisis, débloquent des titres, des cadres et des couleurs…',
+    'Les cartes secrètes ont chacune un effet unique et restent toujours en parfait état',
+    'Moka a des choses à raconter sur ses amis chats : lis bien ses cartes postales'
+  ] },
+  { date: '2026-10-19', title: 'Énergie, devinettes et finitions', items: [
+    'Café du fouilleur et thermos du pêcheur sans limite : un peu plus chers à chaque achat de la journée, prix de base le lendemain',
+    'Devine la carte rapporte bien plus, avec une pièce de gatchapon pour chaque journée terminée ; le gain possible s’affiche et fond à chaque erreur',
+    'Chaque profondeur de fouille a son décor : herbe, galeries, cavernes de cristal, gouffre de lave, noyau irisé',
+    'Une seule clé, une seule image ; l’appât doré devient un ver doré et la potion de savoir reprend la fiole',
+    'Milo et Moka portent un médaillon qui change avec ton niveau de fouille et de pêche, et Moka pêche enfin dans le bon sens',
+    'Sur mobile : onglets qui défilent, en-tête plus net, boutons plus faciles à toucher',
+    'Devine la carte fait peau neuve : cadre doré, loupe, réponses A, B, C, D',
+    'L’engrais doré brille enfin comme un appât doré',
+    'Coffre-fort : seules les éditions où tu as quelque chose à ranger ont leur onglet',
+    'Quelque chose grince sous le site, comme un rouage mal huilé… et des pêcheurs jurent avoir remonté un drôle de papier. ⚙️'
+  ] },
+  { date: '2026-10-18', title: 'Plus rapide et plus pratique', items: [
+    'Les pages se chargent plus vite : beaucoup moins de requêtes et des images plus légères',
+    'Le titre de l’onglet affiche le nombre de récompenses à récupérer',
+    'Taille du texte réglable dans ton menu (normale, grande, très grande)',
+    'Sur ordinateur : raccourcis clavier (« ? » pour la liste, « / » pour chercher, « g » puis une lettre pour changer de page)'
+  ] },
+  { date: '2026-10-18', title: 'Pêche plus simple et corrections', items: [
+    'Pêche : plus de jauge à viser, choisis l’un des trois remous, l’un d’eux cache une prise parfaite',
+    'Craft : le prix affiché tient compte de la Bourse en mode Medium (les mythiques étaient refusées alors qu’on pensait avoir assez)',
+    'Ouverture de coffre : la clé s’affiche avec sa vraie image'
+  ] },
   { date: '2026-10-18', title: 'Une roue de la fortune de cinéma', items: [
     'La roue de la fortune devient une vraie scène : roue dorée, ampoules qui défilent, pointeur qui claque sur chaque picot',
     'Le lot gagné apparaît en grand, avec flash et pluie de pièces au jackpot'

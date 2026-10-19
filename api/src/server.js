@@ -165,8 +165,53 @@ function serveStatic(req, res, pathname) {
   }
   if (!fs.existsSync(file)) return send404(req, res, root);
   const ext = path.extname(file).toLowerCase();
-  send(res, req, 200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300' }, fs.readFileSync(file));
+  const entry = staticEntry(file);
+  // Images : 1 h (elles changent rarement), puis revalidation par ETag.
+  const maxAge = ext === '.html' ? null : /^image\//.test(MIME[ext] || '') && ext !== '.svg' ? 3600 : 300;
+  const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': maxAge == null ? 'no-cache' : `public, max-age=${maxAge}`, ETag: entry.etag };
+  // Deja en cache chez le navigateur et inchange : 304 sans corps.
+  if (String(req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(entry.etag)) {
+    res.writeHead(304, { ...corsHeaders(req), ETag: entry.etag, 'Cache-Control': headers['Cache-Control'] });
+    res.end();
+    return true;
+  }
+  if (entry.gz && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+    send(res, req, 200, { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }, entry.gz);
+  } else {
+    send(res, req, 200, headers, entry.raw);
+  }
   return true;
+}
+
+// Cache memoire des fichiers du site (2026-10-18) : lus et compresses une
+// seule fois tant qu'ils ne changent pas sur le disque (avant : relecture et
+// gzip synchrone a chaque requete, ~20 ms de blocage pour style.css), avec
+// un ETag pour repondre 304 aux navigateurs qui ont deja le fichier.
+const STATIC_CACHE = new Map();
+const STATIC_CACHE_MAX_BYTES = 64 * 1024 * 1024;
+let staticCacheBytes = 0;
+function staticEntry(file) {
+  const st = fs.statSync(file);
+  const hit = STATIC_CACHE.get(file);
+  if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return hit;
+  let raw = fs.readFileSync(file);
+  const type = MIME[path.extname(file).toLowerCase()] || '';
+  // CSS : commentaires et indentation retires a l'envoi (-24 % compresse
+  // pour style.css) ; le fichier du depot reste commente.
+  if (type.startsWith('text/css')) {
+    raw = Buffer.from(raw.toString('utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n\s+/g, '\n').replace(/\n{2,}/g, '\n'));
+  }
+  let gz = null;
+  if (raw.length > 1024 && COMPRESSIBLE.test(type)) {
+    try { gz = zlib.gzipSync(raw, { level: 9 }); } catch (e) { gz = null; }
+  }
+  const entry = { mtimeMs: st.mtimeMs, size: st.size, raw, gz, etag: `W/"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"` };
+  if (hit) staticCacheBytes -= hit.raw.length + (hit.gz ? hit.gz.length : 0);
+  const cost = raw.length + (gz ? gz.length : 0);
+  if (staticCacheBytes + cost > STATIC_CACHE_MAX_BYTES) { STATIC_CACHE.clear(); staticCacheBytes = 0; }
+  STATIC_CACHE.set(file, entry);
+  staticCacheBytes += cost;
+  return entry;
 }
 
 // Images des cartes : servies directement depuis la base (remplace le

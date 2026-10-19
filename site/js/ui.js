@@ -195,6 +195,46 @@ const Confirm = {
   }
 };
 
+// Saisie d'un texte dans une fenetre du site (2026-10-19, remplace
+// window.prompt, sans style et bloque dans certaines applis). Resout le texte,
+// ou null si annule.
+const Prompt = {
+  show(message, { title = "Saisir", value = "", placeholder = "", maxLength = 80, confirmText = "Valider", cancelText = "Annuler" } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "card-modal-overlay confirm-overlay";
+      overlay.innerHTML = `
+        <form class="confirm-box prompt-box">
+          <div class="confirm-title">${title}</div>
+          <div class="confirm-message">${message}</div>
+          <input type="text" class="prompt-input" maxlength="${maxLength}" autocomplete="off" />
+          <div class="confirm-actions">
+            <button type="button" class="btn-ghost confirm-cancel">${cancelText}</button>
+            <button type="submit" class="confirm-ok">${confirmText}</button>
+          </div>
+        </form>`;
+      const input = overlay.querySelector(".prompt-input");
+      input.value = value;
+      input.placeholder = placeholder;
+      const onKey = (e) => { if (e.key === "Escape") finish(null); };
+      const finish = (result) => {
+        document.removeEventListener("keydown", onKey);
+        overlay.remove();
+        syncScrollLock();
+        resolve(result);
+      };
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
+      overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
+      overlay.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(input.value); });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(overlay);
+      syncScrollLock();
+      input.focus();
+      input.select();
+    });
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Choix des exemplaires d'une fusion (finition / restauration d'etat,
 // 2026-10-02) : le joueur coche EXACTEMENT les exemplaires sacrifies et
@@ -421,7 +461,7 @@ function enhanceSelect(selectEl) {
   }
 
   function normalize(str) {
-    return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    return normText(str); // core.js
   }
 
   function renderOptions() {
@@ -1157,3 +1197,64 @@ const ModeFx = (() => {
   return { play, META };
 })();
 window.ModeFx = ModeFx;
+
+// ---------------------------------------------------------------------------
+// Cinematique de deblocage (2026-10-19) : tout ce qui se debloque par un code
+// (et les secrets). Un sceau lumineux pulse, eclate, puis les gains arrivent
+// un a un. UnlockFx.show({ title, subtitle?, rewards: [{ icon, label }],
+// cards: [{ name, imageId, rarity, finish }] }) -> Promise (a la fermeture).
+// ---------------------------------------------------------------------------
+const UnlockFx = {
+  show({ title = "Débloqué !", subtitle = "", rewards = [], cards = [], tone = "gold" } = {}) {
+    return new Promise((resolve) => {
+      const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const ov = document.createElement("div");
+      ov.className = `ux-overlay ux-${tone}`;
+      ov.setAttribute("role", "dialog");
+      ov.setAttribute("aria-modal", "true");
+      ov.setAttribute("aria-label", title);
+      const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+      const cardHtml = (c, i) => `<div class="ux-card" style="--d:${i};--rc:${esc((c.rarity && c.rarity.colorHex) || "#a78bfa")}">
+          ${c.imageId && typeof API !== "undefined" ? `<img src="${API.imageUrl(c.imageId)}" alt="" />` : `<span class="ux-card-ph">?</span>`}
+          <strong>${esc(c.name)}</strong><small>${esc((c.rarity && c.rarity.name) || "")}${c.finish && c.finish !== "normal" ? " · " + esc(c.finish) : ""}</small></div>`;
+      ov.innerHTML = `
+        <div class="ux-rays" aria-hidden="true"></div>
+        <div class="ux-seal" aria-hidden="true"><span class="ux-ring"></span><span class="ux-ring ux-ring2"></span><span class="ux-core">&#10022;</span></div>
+        <div class="ux-content">
+          <h2 class="ux-title">${esc(title)}</h2>
+          ${subtitle ? `<p class="ux-sub">${esc(subtitle)}</p>` : ""}
+          ${cards.length ? `<div class="ux-cards">${cards.map(cardHtml).join("")}</div>` : ""}
+          ${rewards.length ? `<ul class="ux-rewards">${rewards.map((r, i) => `<li style="--d:${i + cards.length}"><span class="ux-ico">${iconOfSafe(r.icon)}</span><span>${esc(r.label)}</span></li>`).join("")}</ul>` : ""}
+          <button type="button" class="btn ux-close">Récupérer</button>
+        </div>`;
+      function iconOfSafe(ic) { return typeof iconOf === "function" ? iconOf(ic) : esc(ic || "✨"); }
+      document.body.appendChild(ov);
+      if (typeof syncScrollLock === "function") syncScrollLock();
+      const t = (f, d, dur, type = "sine", v = 0.05) => { if (typeof Sfx !== "undefined" && Sfx._tone) Sfx._tone(f, d, dur, type, v); };
+      t(196, 0, 0.6, "sine", 0.05); t(294, 0.25, 0.6, "sine", 0.04);
+      if (typeof Haptics !== "undefined") Haptics.buzz([30, 60, 30]);
+      requestAnimationFrame(() => ov.classList.add("ux-in"));
+      let opened = false;
+      const burst = () => {
+        if (opened) return;
+        opened = true;
+        ov.classList.add("ux-burst");
+        t(523, 0, 0.3, "triangle", 0.06); t(659, 0.08, 0.3, "triangle", 0.06); t(784, 0.16, 0.5, "triangle", 0.06);
+        if (typeof Haptics !== "undefined") Haptics.buzz([60, 40, 120]);
+        if (typeof confetti === "function") setTimeout(() => confetti({ particleCount: 120, spread: 100, origin: { y: 0.45 }, zIndex: 6000 }), reduced ? 0 : 350);
+        setTimeout(() => ov.querySelector(".ux-close").focus({ preventScroll: true }), reduced ? 0 : 900);
+      };
+      const timer = setTimeout(burst, reduced ? 50 : 1500);
+      const close = () => {
+        clearTimeout(timer);
+        document.removeEventListener("keydown", onKey);
+        ov.classList.add("ux-out");
+        setTimeout(() => { ov.remove(); if (typeof syncScrollLock === "function") syncScrollLock(); resolve(); }, reduced ? 30 : 400);
+      };
+      const onKey = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKey);
+      ov.querySelector(".ux-seal").addEventListener("click", burst);
+      ov.querySelector(".ux-close").addEventListener("click", close);
+    });
+  }
+};

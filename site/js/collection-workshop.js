@@ -260,7 +260,8 @@
   const cQty = new Map();
   let hideOwned = false;
 
-  const craftCost = (card) => card.rarity?.craftCost || 0;
+  // Prix reel (Bourse comprise en mode Medium).
+  const craftCost = (card) => Coll.craftCostOf(card) || 0;
   const maxAffordable = (card) => (craftCost(card) > 0 ? Math.floor(state.stardust / craftCost(card)) : 1);
   function craftableCards() {
     return state.cards.filter((c) => c.inCatalog && !c.isPromo && c.rarity?.craftCost != null);
@@ -489,7 +490,7 @@
         </div>
       </div>
       <div class="craft-toolbar">
-        <input type="text" id="altar-search" placeholder="Rechercher un exemplaire..." autocomplete="off" aria-label="Rechercher un exemplaire" value="${escapeHtml(altarSearch)}" />
+        <input type="text" id="altar-search" placeholder="Rechercher un exemplaire…" autocomplete="off" aria-label="Rechercher un exemplaire" value="${escapeHtml(altarSearch)}" />
       </div>
       <div class="altar-copy-grid">${gridHtml}</div>`;
   }

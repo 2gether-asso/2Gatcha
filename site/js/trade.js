@@ -180,7 +180,7 @@ async function updateRequestedCardOptionsForTarget(pseudo) {
     updateCardPreview("requested-card-select", "requested-card-preview");
     return;
   }
-  select.innerHTML = `<option value="">Chargement...</option>`;
+  select.innerHTML = `<option value="">Chargement…</option>`;
   if (select._fancyRefresh) select._fancyRefresh();
   try {
     const profile = await API.getPublicProfile(pseudo);
@@ -554,7 +554,7 @@ async function openCounterModal(trade) {
         </label>
         <label style="display:block;">
           Carte demandee a ${trade.fromPseudo} (laisse sur "Aucune" pour un don)
-          <select id="counter-requested-card-select" style="width:100%;"><option value="">Chargement...</option></select>
+          <select id="counter-requested-card-select" style="width:100%;"><option value="">Chargement…</option></select>
         </label>
       </div>
       <div class="confirm-actions">

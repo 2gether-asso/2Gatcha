@@ -26,7 +26,7 @@ export const RESOURCES = [
   { key: 'chest', icon: '🪙', name: 'Pièce de gatchapon', has: num('ChestCount'), riddle: 'Une drôle de pièce frappée d’un kraken. Quelque part, une machine à boules n’attend qu’elle.' },
   { key: 'shard', icon: '💠', name: 'Éclat de booster', has: num('BoosterShards'), riddle: 'Un fragment scintillant. Seul, il ne vaut pas grand-chose. Mais rassemblés…' },
   { key: 'ticket', icon: '🎟️', name: 'Ticket de loterie', has: num('LotteryTickets'), riddle: 'Un bout de papier plein de promesses. Le dimanche dira s’il valait quelque chose.' },
-  { key: 'uticket', icon: '🎫', name: 'Ticket de rattrapage', has: num('UniqueTickets'), riddle: 'Un ticket marqué d’un sceau rare. On dit qu’il ouvre la porte à ce qui n’existe qu’en un seul exemplaire.' },
+  { key: 'uticket', icon: '🎫', name: 'Ticket Unique', has: num('UniqueTickets'), riddle: 'Un ticket marqué d’un sceau rare. On dit qu’il ouvre la porte à ce qui n’existe qu’en un seul exemplaire.' },
   { key: 'skull', icon: '💀', name: 'Crâne de dinosaure', has: num('DinoSkulls'), riddle: 'Un crâne immense, vieux de millions d’années. Avec assez d’os… non, ce serait fou. Et pourtant.' },
   { key: 'fish', icon: '🐟', name: 'Poisson', has: food('fish'), riddle: 'Frais pêché. Pas vraiment pour toi… mais quelqu’un de très, très grand pourrait l’apprécier.' },
   { key: 'seaweed', icon: '🌿', name: 'Algues', has: food('seaweed'), riddle: 'Gluantes et salées. Le régime idéal pour un appétit… préhistorique ?' },

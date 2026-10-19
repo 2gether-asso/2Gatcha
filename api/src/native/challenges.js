@@ -11,7 +11,7 @@
 // recompense (CommunityGoalDust + CommunityGoalWorms).
 //   POST /webhook/community-goal { userId, action: 'status' | 'claim' }
 
-import { ok, fail, userById, parseJson as parse } from './common.js';
+import { ok, fail, userById, parseJson as parse, hash, weekEndsAt } from './common.js';
 import { startRain, addShards } from './comfort.js';
 import { modeIs, grantModeCard } from './modeperks.js';
 const maxPicks = (store) => (ruleOn(store, 'chill.fourthChallenge') ? 4 : 3);
@@ -60,10 +60,8 @@ export const schema = {
   }
 };
 
-function hash(str) { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
 
 // Fin de la semaine (dimanche 23:59:59, heure de Paris approximee par UTC+2).
-function weekEndsAt(week) { return Math.floor(new Date(week + 'T00:00:00+02:00').getTime() / 1000) + 7 * 86400 - 1; }
 
 function rowFor(store, userId, week = weekKey()) {
   let row = store.getAll('WeeklyChallenges').find((r) => r.User === userId && r.Week === week);

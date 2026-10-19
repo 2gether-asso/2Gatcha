@@ -71,7 +71,17 @@ const Coll = (() => {
       no_higher_tier: "Cette rareté est déjà la plus haute."
     }
   };
+  // Vrai prix de craft d'une carte : celui de sa rarete x la Bourse (bug
+  // 2026-10-18 : le site affichait le prix de base, le serveur demandait
+  // jusqu'a +60 % pour les cartes rares sur le serveur, comme les mythiques).
+  function craftCostOf(card) {
+    const base = card && card.rarity ? Number(card.rarity.craftCost) : NaN;
+    if (!Number.isFinite(base)) return null;
+    const f = Number(state.stock && state.stock[card.cardId]) || 1;
+    return base + Math.max(0, Math.round(base * (f - 1)));
+  }
   function errorText(kind, e) {
+    if (e && e.code === "insufficient_dust" && e.data && e.data.stockSurcharge) return `Pas assez de poussières : la Bourse ajoute ${e.data.stockSurcharge} poussières au prix de cette carte en ce moment.`;
     return (ERRORS[kind] && ERRORS[kind][e && e.code]) || (typeof friendlyError === "function" ? friendlyError(e) : "Erreur. (" + (e && e.message) + ")");
   }
 
@@ -104,7 +114,7 @@ const Coll = (() => {
   }
 
   function normalize(str) {
-    return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    return normText(str); // core.js
   }
   const escapeHtml = escHtml; // core.js
   function serial(n) {
@@ -303,6 +313,8 @@ const Coll = (() => {
     state.ownedMap.forEach((o) => (o.copies || []).forEach((c) => { c.edition = state.editions.get(c.pullId) || ""; }));
     state.insured = new Set(collection.insuredPullIds || []);
     state.firstMine = new Map((collection.firstObtained || []).map((x) => [x.cardId, x.at]));
+    // Bourse (mode Medium, modefun.js) : coefficient du prix de craft par carte.
+    state.stock = collection.stock || {};
     state.stardust = status.stardust || 0;
     state.spareParts = status.spareParts || 0;
     state.level = status.xp?.level || state.level || 1;
@@ -503,9 +515,9 @@ const Coll = (() => {
   function renderDustReminder() {
     const el = document.getElementById("unused-dust-reminder");
     const missing = state.cards.filter((c) => c.inCatalog && !c.isPromo && !isDiscovered(c.cardId) && c.rarity?.craftCost != null);
-    const affordable = missing.filter((c) => state.stardust >= c.rarity.craftCost);
+    const affordable = missing.filter((c) => state.stardust >= craftCostOf(c));
     if (!affordable.length || mode === "craft" || isLocked("craft")) { el.style.display = "none"; return; }
-    const cheapest = Math.min(...affordable.map((c) => c.rarity.craftCost));
+    const cheapest = Math.min(...affordable.map((c) => craftCostOf(c)));
     el.style.display = "flex";
     el.innerHTML = `<span>&#10024; Tes poussières suffisent pour crafter <strong>${affordable.length} carte${affordable.length > 1 ? "s" : ""} manquante${affordable.length > 1 ? "s" : ""}</strong> (dès ${cheapest}).</span>
       <button type="button" class="btn-secondary coll-reminder-btn" data-goto-mode="craft" data-missing-only="1">Voir les cartes à crafter</button>`;
@@ -518,14 +530,14 @@ const Coll = (() => {
       `<button type="button" data-filter="${key}" class="btn-secondary ${key === filters.rarity ? "active" : ""}">${escapeHtml(name)}</button>`).join("");
 
     const ext = document.getElementById("extension-filter");
-    ext.innerHTML = `<option value="">Toutes les extensions</option>` + state.extensions.map((x) => `<option value="${x.id}">${escapeHtml(x.name)}</option>`).join("");
+    ext.innerHTML = `<option value="">Extensions</option>` + state.extensions.map((x) => `<option value="${x.id}">${escapeHtml(x.name)}</option>`).join("");
     if (!state.extensions.some((x) => String(x.id) === filters.extension)) filters.extension = "";
     ext.value = filters.extension;
     ext.style.display = state.extensions.length > 1 ? "" : "none";
 
     const artist = document.getElementById("artist-filter");
     const artists = [...new Set(state.cards.map((c) => c.artist).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    artist.innerHTML = `<option value="">Tous les artistes</option>` + artists.map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
+    artist.innerHTML = `<option value="">Artistes</option>` + artists.map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
     if (!artists.includes(filters.artist)) filters.artist = "";
     artist.value = filters.artist;
   }
@@ -754,7 +766,7 @@ const Coll = (() => {
     FINISH_ORDER, FINISH_LABELS, FINISH_LABELS_LONG, QUALITY_ORDER, QUALITY_LABELS,
     state, filters, prefs,
     get mode() { return mode; },
-    registerPane, setMode, isLocked, isDiscovered, claimSet, refresh, renderActive, updateCounts, renderSummary,
+    craftCostOf, registerPane, setMode, isLocked, isDiscovered, claimSet, refresh, renderActive, updateCounts, renderSummary,
     filterCards, errorText, estimateDust, buildVariants, copiesToSpend, attachTilt,
     normalize, escapeHtml, serial, finishOf, qualityOf, isPrecious, isEdition, rarityBadge,
     loadPrefs, savePrefs, loadSet, saveSet

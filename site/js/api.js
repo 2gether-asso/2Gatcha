@@ -91,7 +91,13 @@ const API = {
   // page repondent instantanement. Ancienne API sans /batch : appels
   // individuels, en parallele.
   _batchSupported: true,
+  BATCH_MAX: 24, // = BATCH_MAX de api/src/server.js : au-dela, plusieurs lots en parallele.
   async batch(calls) {
+    if (calls.length > this.BATCH_MAX) {
+      const parts = [];
+      for (let i = 0; i < calls.length; i += this.BATCH_MAX) parts.push(this.batch(calls.slice(i, i + this.BATCH_MAX)));
+      return (await Promise.all(parts)).flat();
+    }
     const list = calls.map((c) => {
       const method = c.body ? "POST" : "GET";
       return { ...c, method, key: this._readKey(method, c.name, method === "GET" ? c.query : c.body) };
@@ -820,8 +826,8 @@ const API = {
   adminSetSeasonCard(discordId, season, cardId) {
     return this.post("adminSeason", { discordId, action: "setCard", season, cardId });
   },
-  fishing(userId, action, count, bait, zone, strike) {
-    return this.post("fishing", { userId, action, count, bait: !!bait, zone: zone || "shore", ...(strike ? { strike } : {}) });
+  fishing(userId, action, count, bait, zone, pick) {
+    return this.post("fishing", { userId, action, count, bait: !!bait, zone: zone || "shore", ...(pick != null ? { pick } : {}) });
   },
   aquarium(userId, action = "status") { return this.post("aquarium", { userId, action }); },
   fishingStatusWithCat(userId) { return this.post("fishing", { userId, action: "status", settleCat: true }); },

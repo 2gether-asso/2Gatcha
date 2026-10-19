@@ -9,19 +9,20 @@
 
 const WheelFx = (() => {
   // 12 cases depuis le haut, sens horaire (memes types que daily-wheel.json).
-  const SEGMENTS = ["small", "booster", "big", "key", "small", "jackpot", "big", "booster", "small", "key", "big", "small"];
+  const BASE_SEGMENTS = ["small", "booster", "big", "key", "small", "jackpot", "big", "booster", "small", "key", "big", "small"];
   const TYPES = {
     small: { label: "Poussières", icon: { emoji: "✨" }, a: "#4c1d95", b: "#7c3aed" },
+    secret: { label: "???", icon: { emoji: "❔" }, a: "#0a0a0a", b: "#7f1d1d" },
     big: { label: "Trésor", icon: { emoji: "💎" }, a: "#0e7490", b: "#22d3ee" },
     booster: { label: "Booster", icon: { img: "JetonBooster.png" }, a: "#9d174d", b: "#f472b6" },
-    key: { label: "Clé", icon: { img: "cléSpeciale.png" }, a: "#92400e", b: "#f59e0b" },
+    key: { label: "Clé", icon: { img: "clés.PNG" }, a: "#92400e", b: "#f59e0b" },
     jackpot: { label: "JACKPOT", icon: { emoji: "🌟" }, a: "#a16207", b: "#fde047" }
   };
   const C = 200, R = 168;
   const pt = (deg, r) => { const a = (deg * Math.PI) / 180; return [C + r * Math.sin(a), C - r * Math.cos(a)]; };
   const reduced = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function wheelSvg() {
+  function wheelSvg(SEGMENTS) {
     const seg = 360 / SEGMENTS.length;
     const defs = Object.entries(TYPES).map(([k, t]) => `<radialGradient id="wf-${k}" cx="200" cy="200" r="180" gradientUnits="userSpaceOnUse"><stop offset="0.15" stop-color="${t.a}"/><stop offset="1" stop-color="${t.b}"/></radialGradient>`).join("");
     const slices = SEGMENTS.map((k, i) => {
@@ -58,16 +59,18 @@ const WheelFx = (() => {
     </svg>`;
   }
 
-  function open() {
+  // opts.secret : une case « ??? » remplace la derniere case (secrets.js, 22 h 22).
+  function open(opts = {}) {
+    const SEGMENTS = opts.secret ? [...BASE_SEGMENTS.slice(0, -1), "secret"] : BASE_SEGMENTS;
     const ov = document.createElement("div");
-    ov.className = "wf-overlay";
+    ov.className = "wf-overlay" + (opts.secret ? " wf-secret" : "");
     ov.setAttribute("role", "dialog");
     ov.setAttribute("aria-label", "Roue de la fortune");
     ov.innerHTML = `
       <div class="wf-rays" aria-hidden="true"></div>
       <div class="wf-stage">
         <div class="wf-pointer" aria-hidden="true"><svg viewBox="0 0 40 56"><defs><linearGradient id="wf-pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3b0"/><stop offset="0.5" stop-color="#e2b33c"/><stop offset="1" stop-color="#9a6a12"/></linearGradient></defs><path d="M20 54 L4 14 A16 16 0 1 1 36 14 Z" fill="url(#wf-pg)" stroke="#5b3a06" stroke-width="2"/><circle cx="20" cy="16" r="6" fill="#fff8dc"/></svg></div>
-        <div class="wf-wheel">${wheelSvg()}</div>
+        <div class="wf-wheel">${wheelSvg(SEGMENTS)}</div>
       </div>
       <p class="wf-hint">La roue tourne…</p>
       <div class="wf-prize" hidden></div>`;
@@ -151,5 +154,5 @@ const WheelFx = (() => {
     return { spinTo, abort: close };
   }
 
-  return { open, SEGMENTS };
+  return { open, SEGMENTS: BASE_SEGMENTS };
 })();

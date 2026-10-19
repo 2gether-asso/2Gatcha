@@ -51,7 +51,10 @@ export function settleCat(store, user) {
   const species = catchSpecies({ ...user, ...fields }, { store, count: n, weatherKey: weather.key });
   if (species) { Object.assign(fields, species.fields); add('StardustCount', species.dust); }
   fields.CatState = finished && total >= Math.floor((s.until - s.start) / castSec) ? '' : JSON.stringify({ ...s, done: total });
-  return { fields, report: { casts: n, items: [...items.values()], species: species ? species.items : [], speciesDust: species ? species.dust : 0, done: !fields.CatState } };
+  // P.S. (2026-10-19) : un indice sur ses amis chats (reglages MokaHints, MokaHintChance).
+  const hints = (setting(store, 'MokaHints') || []).filter((h) => typeof h === 'string' && h.trim());
+  const hint = hints.length && Math.random() < setting(store, 'MokaHintChance') ? hints[Math.floor(Math.random() * hints.length)] : null;
+  return { fields, report: { casts: n, items: [...items.values()], species: species ? species.items : [], speciesDust: species ? species.dust : 0, done: !fields.CatState, ...(hint ? { hint } : {}) } };
 }
 
 function rollLoot(table) {

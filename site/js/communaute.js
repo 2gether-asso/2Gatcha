@@ -45,7 +45,7 @@ let chestSearchQuery = "";
 let chestAlreadyDepositedToday = false;
 
 function normalize(str) {
-  return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return normText(str); // core.js
 }
 
 // Memorise le dernier onglet visite (QoL 2026-09-30).
@@ -666,7 +666,7 @@ async function pickChestWithKey(depositId, btn) {
     await loadChest();
   } catch (err) {
     btn.disabled = false;
-    Toast.error(CHEST_ERRORS[err.code] || ({ no_key: "Il te faut une clé secrète.", deposit_unavailable: "Cette carte vient d'être prise par quelqu'un d'autre." }[err.code]) || friendlyError(err));
+    Toast.error(CHEST_ERRORS[err.code] || ({ no_key: "Il te faut une clé.", deposit_unavailable: "Cette carte vient d'être prise par quelqu'un d'autre." }[err.code]) || friendlyError(err));
     if (err.code === "deposit_unavailable") { allCards = []; await loadChest(); }
   }
 }

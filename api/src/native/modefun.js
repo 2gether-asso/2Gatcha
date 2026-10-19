@@ -13,12 +13,13 @@
 //     bounty-deliver {pullId, confirmEdition?} | purify {pullId} | steal {toPseudo}
 //     unstable-claim | bug-found {id}
 
-import { refId, now, ok, fail, userById, parisDay, parseJson, cardSummary, firstAttachment } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, parseJson, cardSummary, firstAttachment, nextSerial } from './common.js';
 import { ruleOn, modeKeyOf } from './moderules.js';
 import { lastPreset } from './presets.js';
 import { weekKey } from './levels.js';
 import { grantCosmetic } from './cosmetics.js';
 import { addFeed } from './feed.js';
+import { keepsMint } from './secrets.js';
 import { editionLoss } from './editions.js';
 import { holidayTransition, setDinoHoliday } from './dino.js';
 
@@ -42,11 +43,6 @@ function appGet(store, key, def) { const r = store.tables.has('AppSettings') ? s
 function appSet(store, key, value) {
   const r = store.getAll('AppSettings').find((x) => x.Key === key);
   if (r) store.update('AppSettings', r.id, { Value: JSON.stringify(value) }); else store.create('AppSettings', { Key: key, Value: JSON.stringify(value) });
-}
-function nextSerial(store, cardId) {
-  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
-  let s = 1; while (used.has(s)) s++;
-  return s;
 }
 const rarityOf = (store, card) => (card ? store.get('Rarities', refId(card.Rarity)) : null);
 const rarityByKey = (store, key) => store.getAll('Rarities').find((r) => r.Key === key);
@@ -413,13 +409,13 @@ export function sweepUser(store, userId) {
     if (n(p.CursedUntil) > 0 && n(p.CursedUntil) <= t) {
       const q = QUALITY.indexOf(p.Quality || 'damaged');
       const fields = { CursedUntil: 0 };
-      if (cursing && q > 0) { fields.Quality = QUALITY[q - 1]; notes.push({ icon: '🕯️', text: `La malédiction a frappé : ${name} perd un cran d’état.` }); }
+      if (cursing && q > 0 && !keepsMint(store, refId(p.Card))) { fields.Quality = QUALITY[q - 1]; notes.push({ icon: '🕯️', text: `La malédiction a frappé : ${name} perd un cran d’état.` }); }
       store.update('Pulls', p.id, fields);
     }
     if (n(p.MutateAt) > 0 && n(p.MutateAt) <= t) {
       const fields = { MutateAt: 0 };
       const up = Math.random() < 0.55 ? 1 : -1;
-      if (Math.random() < 0.5) {
+      if (Math.random() < 0.5 || keepsMint(store, refId(p.Card))) {
         const i = Math.max(0, Math.min(FINISHES.length - 1, FINISHES.indexOf(p.Finish || 'normal') + up));
         fields.Finish = FINISHES[i];
       } else {

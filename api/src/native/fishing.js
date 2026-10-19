@@ -29,9 +29,11 @@
 // les vers, l'energie et les appats).
 // Aquarium (2026-10-17, aquarium.js) : en plus de la prise, une chance de
 // remonter une espece de poisson (collection, tailles, revente en poussieres) ;
-// body.strike ('perfect' | 'good' | 'miss', mini-jeu de ferrage du site) vaut
-// pour tout le lot ; cote site, le ferrage est plus dur quand le lancer
-// utilise plus de vers (x5, Tout pecher, eaux profondes).
+// Ferrage (2026-10-18, remplace la jauge de timing) : trois remous a la
+// surface, le joueur en choisit un (body.pick 0, 1 ou 2) ; le serveur tire
+// celui qui cachait la prise parfaite, les deux autres donnent une bonne
+// prise. Le resultat vaut pour tout le lot (aquarium.js, STRIKE). Le site ne
+// peut plus annoncer lui-meme un ferrage parfait.
 // Moka le chat (cat.js) : chaque espece pechee donne aussi 1 poisson pour
 // Moka (Users.CatFish) ; ses prises passives sont creditees ici (catReport) a
 // chaque lancer, ou au statut si body.settleCat (onglet Peche) : le resume de
@@ -50,6 +52,7 @@ import { ruleOn } from './moderules.js';
 import { catchSpecies, aquariumView } from './aquarium.js';
 import { addFeed } from './feed.js';
 import { settleCat, catView } from './cat.js';
+import { rollScroll } from './forbidden.js';
 
 export const schema = {
   Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, FishingEnergy: { type: 'Numeric' }, FishingEnergyAt: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' }, Worms: { type: 'Numeric' },
@@ -268,7 +271,8 @@ function statusOf(store, user) {
     deep: deepOf(store, user, level, weather, eventRare),
     zones: zonesOf(store, user, level, weather, eventRare),
     aquarium: aquariumView(user, weather.key, store),
-    cat: catView(store, user)
+    cat: catView(store, user),
+    hasScroll: Number(user.ArgScroll) > 0
   };
 }
 
@@ -346,7 +350,13 @@ function handleFishing({ store, body }) {
   const bycatch = fishingBycatch(store, user, count);
   if (bycatch) Object.assign(fields, bycatch.fields);
   // Especes de poissons (aquarium.js) : revendues aussitot en poussieres.
-  const strike = ['perfect', 'good', 'miss'].includes(body.strike) ? body.strike : null;
+  let strike = null, spots = null;
+  const pick = Number(body.pick);
+  if (body.pick != null && [0, 1, 2].includes(pick)) {
+    const golden = Math.floor(Math.random() * 3);
+    spots = [0, 1, 2].map((i) => (i === golden ? 'perfect' : 'good'));
+    strike = spots[pick];
+  }
   const species = catchSpecies(user, { store, count, deep, weatherKey: weather.key, strike, rareBoost: (st.level.perks.rareBoost || 0) * 0.5 + Math.max(0, zone.rare - 1), reducedFrom: fullDaily > 0 ? Math.max(0, fullDaily - st.castsToday) : Infinity });
   if (species) {
     Object.assign(fields, species.fields);
@@ -355,8 +365,11 @@ function handleFishing({ store, body }) {
     species.items.filter((f) => f.rarity === 'legendaire' || f.rarity === 'mythique').forEach((f) => addFeed(store, { userId: user.id, kind: 'fish', icon: f.icon, text: `a pêché ${f.rarity === 'mythique' ? 'le' : 'un(e)'} ${f.name} de ${f.size} cm !` }));
   }
   user = store.update('Users', user.id, fields);
+  // Le parchemin (forbidden.js) : rare, une seule fois.
+  const scroll = rollScroll(store, user, count);
+  if (scroll) user = store.get('Users', user.id);
   const after = statusOf(store, user);
-  return ok({ catReport, catches, bycatch: bycatch ? bycatch.items : [], species: species ? species.items : [], strike, zone: zone.key, zoneLabel: zone.label, xpGained: xp, reducedRewards: reducedAny, baitUsed: useBait ? count : 0, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, newWorms: user.Worms, newGoldBait: user.GoldBait, ...after });
+  return ok({ scroll, catReport, catches, bycatch: bycatch ? bycatch.items : [], species: species ? species.items : [], strike, spots, pick: spots ? pick : null, zone: zone.key, zoneLabel: zone.label, xpGained: xp, reducedRewards: reducedAny, baitUsed: useBait ? count : 0, levelUp: after.level.level > st.level.level ? after.level.level : null, newStardust: user.StardustCount, newBoosterCount: user.BoosterCount, newKeyCount: user.KeyCount, newBoneCount: user.BoneCount, newChestCount: user.ChestCount, newSpareParts: user.SpareParts, newWorms: user.Worms, newGoldBait: user.GoldBait, ...after });
 }
 
 export const routes = { 'POST fishing': handleFishing, 'GET fishing-tournament': handleTourney };

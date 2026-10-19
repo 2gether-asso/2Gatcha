@@ -6,7 +6,7 @@
   const esc = escHtml;
   let loaded = false;
   const RARITY = { commune: "Commune", rare: "Rare", epique: "Épique", legendaire: "Légendaire", mythique: "Mythique" };
-  const art = (it) => (it.img ? `<img src="assets/${encodeURI(it.img)}" alt="" loading="lazy" decoding="async" />` : `<span class="mu-emoji" aria-hidden="true">${it.icon || "?"}</span>`);
+  const art = (it) => (it.img ? `<img src="assets/${encodeURI(it.img)}"${it.gold ? ' class="ico-gold"' : ""} alt="" loading="lazy" decoding="async" />` : `<span class="mu-emoji" aria-hidden="true">${it.icon || "?"}</span>`);
 
   function render(v) {
     const box = document.getElementById("museum-zone");

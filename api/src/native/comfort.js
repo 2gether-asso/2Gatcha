@@ -12,7 +12,7 @@
 //  - Pluie de boosters : objectif commun de la semaine atteint -> chaque
 //    joueur qui passe dans les 24 h recoit BoosterRainBoosters booster(s).
 
-import { now, parisDay } from './common.js';
+import { now, parisDay, hash } from './common.js';
 import { setting } from './settings.js';
 import { counts } from './progression.js';
 import { grantCosmetic } from './cosmetics.js';
@@ -25,7 +25,6 @@ export const schema = {
 };
 
 const addDays = (day, n) => new Date(Date.parse(day + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
-const hash = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 
 // Booster muri : voir ripen.js (murissoir).
 export function beforeWorkflow() { return null; }

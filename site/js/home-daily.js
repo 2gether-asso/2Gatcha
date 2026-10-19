@@ -141,9 +141,12 @@
   async function loadWhatNow() {
     try {
       const res = await API.getWhatNow(Session.userId);
+      // Deja dans « À récupérer » juste au-dessus (centre des recompenses).
+      const SHOWN_ABOVE = new Set(["streak", "box", "dice", "wheel"]);
+      const items = res.items.filter((it) => !SHOWN_ABOVE.has(it.key));
       $("whatnow-panel").hidden = false;
-      $("whatnow-list").innerHTML = res.items.length
-        ? res.items.slice(0, 9).map((it) => `<li class="whatnow-item ${it.priority >= 80 ? "hot" : ""}"><a href="${it.url}"><span class="whatnow-icon" aria-hidden="true">${it.icon}</span><span>${esc(it.label)}</span><span class="whatnow-go" aria-hidden="true">&#8250;</span></a></li>`).join("")
+      $("whatnow-list").innerHTML = items.length
+        ? items.slice(0, 9).map((it) => `<li class="whatnow-item ${it.priority >= 80 ? "hot" : ""}"><a href="${it.url}"><span class="whatnow-icon" aria-hidden="true">${it.icon}</span><span>${esc(it.label)}</span><span class="whatnow-go" aria-hidden="true">&#8250;</span></a></li>`).join("")
         : `<li class="whatnow-empty">Tout est fait pour l’instant. Reviens plus tard !</li>`;
     } catch (e) { $("whatnow-panel").hidden = true; }
   }

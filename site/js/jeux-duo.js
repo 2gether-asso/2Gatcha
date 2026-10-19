@@ -4,7 +4,7 @@
 
 (function () {
   const esc = escHtml;
-  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const fmt = fmtNum; // core.js
   const left = (t) => { const s = Math.max(0, t - Date.now() / 1000); const h = Math.floor(s / 3600), m = Math.ceil((s % 3600) / 60); return h ? `${h} h ${m} min` : `${m} min`; };
   let cards = null, users = null;
 

@@ -5,7 +5,7 @@
 // automatiquement la plus rare. Un draft commence continue meme si le mode change.
 //   POST /webhook/draft { userId, action: 'status' | 'create' | 'join' | 'leave' | 'start' | 'pick', id?, index? }
 
-import { refId, now, ok, fail, userById, parseJson, cardSummary } from './common.js';
+import { refId, now, ok, fail, userById, parseJson, cardSummary, nextSerial } from './common.js';
 import { ruleOn } from './moderules.js';
 import { setting } from './settings.js';
 import { addFeed } from './feed.js';
@@ -49,11 +49,6 @@ function snake(order, total) {
     for (const uid of round) if (seq.length < total) seq.push(uid);
   }
   return seq;
-}
-function nextSerial(store, cardId) {
-  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
-  let s = 1; while (used.has(s)) s++;
-  return s;
 }
 
 function view(store, d, userId) {

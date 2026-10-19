@@ -125,7 +125,7 @@ export function init({ store }) {
   const { promoted, released } = syncUniqueCards(store);
   const migrated = migrateTickets(store);
   if (rarityCreated || extCreated || promoted || released || migrated) {
-    console.log(`Rarete Unique : ${rarityCreated ? 'rarete creee, ' : ''}${extCreated ? 'extension creee, ' : ''}${promoted} carte(s) corrigee(s), ${released} carte(s) promo sortie(s) du coffre-fort, ${migrated} ticket(s) de rattrapage`);
+    console.log(`Rarete Unique : ${rarityCreated ? 'rarete creee, ' : ''}${extCreated ? 'extension creee, ' : ''}${promoted} carte(s) corrigee(s), ${released} carte(s) promo sortie(s) du coffre-fort, ${migrated} Ticket(s) Unique`);
   }
 }
 

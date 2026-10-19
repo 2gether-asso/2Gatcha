@@ -87,6 +87,9 @@ window.APP_CONFIG = {
     garden: "/garden",                  // POST { userId, action: 'status'|'plant'|'harvest' }
     visuals: "/visuals",                // GET -> { overrides } (visuels modifies dans l'admin)
     ripen: "/ripen",                   // POST { userId, action: 'status'|'store'|'claim'|'cancel', items?, stage?, lotId? } (murissoir du distributeur, 2026-10-18)
+    forbidden: "/forbidden",           // POST { userId, action: status|gear|scroll|craftKey|insertKey|spin|nudge|risk } (salle interdite, 2026-10-19)
+    secrets: "/secrets",               // POST { userId, action } (petits secrets du site, 2026-10-19)
+    secretCard: "/secret-card",        // GET -> { imageId, others } (glitch de la carte 404)
     timers: "/timers",                 // GET ?userId -> { now, items } (minuteurs de l'inventaire, 2026-10-18)
     seasonQuests: "/season-quests",   // POST { userId, action: 'status'|'claim', key? } (defis de saison, 2026-10-18)
     story: "/story",                   // POST/GET { userId, action: 'status'|'claim' } (quetes d'histoire)

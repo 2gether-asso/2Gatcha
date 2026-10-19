@@ -15,8 +15,9 @@
 //   POST /webhook/decraft-undo  { userId, action: 'list' | 'undo', id? }
 //   POST /webhook/weekly-goal   { userId, action: 'status' | 'claim' }
 
-import { refId, now, ok, fail, userById, parisDay, parseJson, cardSummary, firstAttachment } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, parseJson, cardSummary, firstAttachment, nextSerial } from './common.js';
 import { setting } from './settings.js';
+import { keepsMint } from './secrets.js';
 import { currentMode } from './presets.js';
 import { weekKey } from './levels.js';
 import { grantCosmetic } from './cosmetics.js';
@@ -50,11 +51,6 @@ export const MODE_PERKS = {
 const QUALITY = ['damaged', 'worn', 'good', 'mint'];
 const rarityRank = (store, key) => { const r = store.getAll('Rarities').find((x) => x.Key === key); return r ? r.SortOrder || 0 : 99; };
 const sortOf = (store, card) => (card.rarity && card.rarity.sortOrder != null ? Number(card.rarity.sortOrder) : (store.get('Rarities', Number(card.rarity && card.rarity.id)) || {}).SortOrder || 0);
-function nextSerial(store, cardId) {
-  const used = new Set(store.getAll('Pulls').filter((p) => refId(p.Card) === cardId).map((p) => p.SerialNumber));
-  let n = 1; while (used.has(n)) n++;
-  return n;
-}
 function giveCard(store, userId, cardId, batch, extra = {}) {
   const serial = nextSerial(store, cardId);
   store.create('Pulls', { User: userId, Card: cardId, SerialNumber: serial, Finish: 'normal', Quality: 'good', ObtainedAt: now(), BatchId: batch, ...extra });
@@ -199,7 +195,7 @@ function dailyVisit(store, user, json) {
       const mine = store.getAll('Pulls').filter((p) => refId(p.User) === user.id);
       const byCard = new Map();
       mine.forEach((p) => byCard.set(refId(p.Card), (byCard.get(refId(p.Card)) || 0) + 1));
-      const pool = mine.filter((p) => byCard.get(refId(p.Card)) > 1 && p.SerialNumber !== 1 && !p.Insured && !p.Starred && !p.InVault && !p.Edition && QUALITY.indexOf(p.Quality || 'damaged') > 0);
+      const pool = mine.filter((p) => byCard.get(refId(p.Card)) > 1 && p.SerialNumber !== 1 && !p.Insured && !p.Starred && !p.InVault && !p.Edition && !keepsMint(store, refId(p.Card)) && QUALITY.indexOf(p.Quality || 'damaged') > 0);
       if (pool.length) {
         const p = pool[Math.floor(Math.random() * pool.length)];
         const from = p.Quality || 'damaged', to = QUALITY[QUALITY.indexOf(from) - 1];

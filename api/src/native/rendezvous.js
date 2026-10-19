@@ -13,7 +13,7 @@
 //   POST /webhook/player-gift    { userId, action: 'status' | 'send' | 'claim', toUserId?, kind? }
 //   GET  /webhook/weekly-recap   ?userId=
 
-import { refId, now, ok, fail, userById, parisDay, cardSummary, parseJson } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, cardSummary, parseJson, hash } from './common.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { parisEpoch } from './daily.js';
@@ -29,7 +29,6 @@ export const schema = {
   PlayerGifts: { From: { type: 'Ref:Users' }, To: { type: 'Ref:Users' }, Kind: { type: 'Text' }, Amount: { type: 'Numeric' }, At: { type: 'Numeric' }, Claimed: { type: 'Bool' } }
 };
 
-const hash = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const rng = (seed) => { let h = hash(seed); return () => { h = (Math.imul(h ^ (h >>> 15), 2246822507) + 0x9e3779b9) >>> 0; return h / 4294967296; }; };
 const addNum = (user, field, n) => (Number(user[field]) || 0) + n;
 
