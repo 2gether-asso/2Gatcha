@@ -192,7 +192,7 @@ function renderImageGrid() {
   }
   grid.innerHTML = list.slice(0, 400).map((img) => `
     <div class="adb-img ${img.missing ? "missing" : ""}">
-      <div class="adb-img-thumb">${img.missing ? `<span>Manquante</span>` : `<img src="${adbImageUrl(img.id)}" alt="" loading="lazy" />`}</div>
+      <div class="adb-img-thumb">${img.missing ? `<span>Manquante</span>` : `<img src="${adbImageUrl(img.id)}" alt="" loading="lazy" decoding="async" />`}</div>
       <div class="adb-img-meta">
         <div class="adb-img-name">#${img.id} ${escapeHtml(img.fileName || "")}</div>
         <div class="adb-img-size">${img.missing ? "" : `${formatBytes(img.size)} · ${escapeHtml((img.mime || "").replace("image/", ""))}`}</div>
@@ -348,7 +348,7 @@ function cellHtml(row, col) {
   const type = colType(col);
   if (type === "Attachments") {
     const ids = Array.isArray(v) ? v.slice(v[0] === "L" ? 1 : 0) : [];
-    return `${ids.map((id) => `<img class="adb-cell-img" src="${adbImageUrl(id)}" alt="#${id}" title="#${id}" loading="lazy" />`).join("")}<label class="adb-cell-upload" title="Changer l'image">&#128247;<input type="file" accept="image/*" data-upload-row="${row.id}" data-upload-col="${escapeHtml(col)}" hidden /></label>`;
+    return `${ids.map((id) => `<img class="adb-cell-img" src="${adbImageUrl(id)}" alt="#${id}" title="#${id}" loading="lazy" decoding="async" />`).join("")}<label class="adb-cell-upload" title="Changer l'image">&#128247;<input type="file" accept="image/*" data-upload-row="${row.id}" data-upload-col="${escapeHtml(col)}" hidden /></label>`;
   }
   if (type === "Bool") return v ? "✅" : "—";
   if (type === "Ref" && refTarget(col)) {

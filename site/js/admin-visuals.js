@@ -26,7 +26,7 @@
           const o = overrides[v.path] || {};
           const src = o.imageId ? API.imageUrl(o.imageId) : "assets/" + encodeURI(v.path);
           return `<div class="avis-card ${o.label || o.imageId ? "changed" : ""}">
-            <img src="${src}" alt="" loading="lazy" data-novis="1" />
+            <img src="${src}" alt="" loading="lazy" decoding="async" data-novis="1" />
             <code>${esc(v.path)}</code>
             ${v.use ? `<small>${esc(v.use)}</small>` : ""}
             <input type="text" maxlength="60" data-vis-label="${esc(v.path)}" value="${esc(o.label || "")}" placeholder="${esc(defaultLabel(v.path))}" aria-label="Nom affiché" />

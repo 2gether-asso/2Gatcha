@@ -14,7 +14,7 @@
   function cellHtml(c, glow) {
     const pct = c.type === "objective" ? Math.round((c.progress / Math.max(1, c.target)) * 100) : 0;
     const inner = c.type === "free" ? `<span class="b2-free" aria-hidden="true">⭐</span><span class="b2-label">Offerte</span>`
-      : c.type === "card" ? `<img src="${c.card ? API.imageUrl(c.card.imageId) || PLACEHOLDER_IMG : PLACEHOLDER_IMG}" alt="" loading="lazy" /><span class="b2-label">${esc(c.label)}</span>`
+      : c.type === "card" ? `<img src="${c.card ? API.imageUrl(c.card.imageId) || PLACEHOLDER_IMG : PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" /><span class="b2-label">${esc(c.label)}</span>`
       : `<span class="b2-icon" aria-hidden="true">${c.icon}</span><span class="b2-label">${esc(c.label)}</span>${c.done ? "" : `<span class="b2-progress"><span style="width:${pct}%"></span></span><span class="b2-count">${c.progress}/${c.target}</span>`}`;
     const color = c.type === "card" && c.card && c.card.rarity ? c.card.rarity.colorHex : "";
     return `<button type="button" class="b2-cell type-${c.type} ${c.done ? "done" : ""} ${glow ? "glow" : ""} ${c.joker ? "joker" : ""} ${selected === c.index ? "selected" : ""}" data-b2-cell="${c.index}" ${color ? `style="--r:${color}"` : ""} aria-label="${esc(c.label)}${c.done ? " (validée)" : ""}">

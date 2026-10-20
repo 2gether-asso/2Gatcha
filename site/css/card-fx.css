@@ -1,0 +1,390 @@
+/* card-fx.css - Effets de carte v3 (2026-10-15) : etat x finition x edition. Bloc genere : modifier le generateur plutot que ce fichier.
+   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
+   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
+   specificite egale. */
+/* =====================================================================
+   EFFETS DE CARTE v3 (2026-10-15) : un seul systeme, des couches qui
+   s'empilent au lieu de s'ecraser.
+   - Cadre et halo : la RARETE (regles existantes, inchangees).
+   - Image : filtres cumules etat x finition x edition (--fx-q, --fx-f, --fx-e).
+   - ::after : reflet / texture de FINITION + mini-motif et ambiance d'EDITION.
+   - ::before : USURE par-dessus (rayures, poussiere, dechirures) ou reflet et
+     protection du parfait etat.
+   - Badges a emplacements fixes : #001 en haut au centre ; finition en bas a
+     gauche (edition juste au-dessus) ; etat en bas a droite (marques ★ 🔥
+     juste au-dessus).
+   Libelles d'etat : damaged = Use (le pire), worn = Abime, good, mint.
+   Le prefixe :root:not(#fx) donne a ces regles la priorite sur les anciennes.
+   Genere par un script : modifier le generateur plutot que ce bloc.
+   ===================================================================== */
+:root:not(#fx) .collection-card,
+:root:not(#fx) .craft-card,
+:root:not(#fx) .card-modal,
+:root:not(#fx) .card {
+  --fx-q: saturate(1); --fx-f: saturate(1); --fx-e: saturate(1); --fx-img-opacity: 1; --fx-img-anim: none; --fx-art-bg: transparent;
+  --fx-f-shine: none; --fx-e-shine: none; --fx-f-size: 100% 100%; --fx-e-size: 100% 100%;
+  --fx-f-ring: 0 0 #0000; --fx-e-ring: 0 0 #0000; --fx-e-glow: 0 0 #0000;
+  --fx-wear: none; --fx-wear-size: 100% 100%; --fx-wear-ring: 0 0 #0000; --fx-f-anim: none; --fx-wear-anim: none;
+}
+:root:not(#fx) .collection-card[data-quality],
+:root:not(#fx) .craft-card[data-quality],
+:root:not(#fx) .card-modal[data-quality],
+:root:not(#fx) .card[data-quality] .card-front {
+  outline: none;
+}
+:root:not(#fx) .collection-card .card-art,
+:root:not(#fx) .craft-card .card-art,
+:root:not(#fx) .card-modal .card-art,
+:root:not(#fx) .card .card-front .card-art {
+  position: relative; overflow: hidden; isolation: isolate; outline: none; box-shadow: var(--fx-e-glow); background-color: var(--fx-art-bg); animation: none;
+}
+:root:not(#fx) .collection-card .card-art img,
+:root:not(#fx) .craft-card .card-art img,
+:root:not(#fx) .card-modal .card-art img,
+:root:not(#fx) .card .card-front .card-art img {
+  filter: var(--fx-q) var(--fx-f) var(--fx-e); opacity: var(--fx-img-opacity); animation: var(--fx-img-anim); transition: filter 0.3s ease;
+}
+:root:not(#fx) .collection-card .card-art::after,
+:root:not(#fx) .craft-card .card-art::after,
+:root:not(#fx) .card-modal .card-art::after,
+:root:not(#fx) .card .card-front .card-art::after {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; display: block;
+  border-radius: inherit; opacity: 1; transform: none; filter: none; mix-blend-mode: normal;
+  background: var(--fx-f-shine), var(--fx-e-shine);
+  background-size: var(--fx-f-size), var(--fx-e-size); background-repeat: repeat; background-position: 0 0;
+  box-shadow: var(--fx-f-ring), var(--fx-e-ring);
+  animation: var(--fx-f-anim);
+}
+:root:not(#fx) .collection-card .card-art::before,
+:root:not(#fx) .craft-card .card-art::before,
+:root:not(#fx) .card-modal .card-art::before,
+:root:not(#fx) .card .card-front .card-art::before {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; display: block;
+  border-radius: inherit; opacity: 1; transform: none; filter: none; mix-blend-mode: normal;
+  background: var(--fx-wear), radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), rgba(255,255,255,var(--glare-a, 0)), transparent 48%);
+  background-size: var(--fx-wear-size), 100% 100%; background-repeat: repeat, no-repeat; background-position: 0 0;
+  box-shadow: var(--fx-wear-ring); animation: var(--fx-wear-anim);
+}
+:root:not(#fx) .collection-card[data-quality="damaged"],
+:root:not(#fx) .craft-card[data-quality="damaged"],
+:root:not(#fx) .card-modal[data-quality="damaged"],
+:root:not(#fx) .card[data-quality="damaged"] {
+  --fx-q: saturate(0.22) sepia(0.32) contrast(1.06) brightness(0.8);
+  --fx-wear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 400' preserveAspectRatio='none'%3E%3Cpath d='M300 0 L232 0 L240 9 L229 17 L244 26 L236 37 L252 44 L249 58 L264 61 L270 76 L284 74 L300 88 Z' fill='%23efe4cc'/%3E%3Cpath d='M232 0 L240 9 L229 17 L244 26 L236 37 L252 44 L249 58 L264 61 L270 76 L284 74 L300 88' fill='none' stroke='%237a5a32' stroke-opacity='0.55' stroke-width='2'/%3E%3Cpath d='M0 300 L7 306 L2 316 L10 324 L4 334 L12 343 L5 352 L0 356 Z' fill='%23efe4cc'/%3E%3Cpath d='M0 300 L7 306 L2 316 L10 324 L4 334 L12 343 L5 352 L0 356' fill='none' stroke='%237a5a32' stroke-opacity='0.5' stroke-width='1.6'/%3E%3Cpath d='M0 395 L22 382 L41 400 Z' fill='%23efe4cc'/%3E%3Cpath d='M18 0 C70 120 150 210 300 262' fill='none' stroke='%23fff8e6' stroke-opacity='0.32' stroke-width='2.2'/%3E%3Cpath d='M18 0 C70 120 150 210 300 262' fill='none' stroke='%233b2a14' stroke-opacity='0.28' stroke-width='1' transform='translate(1.5 1.5)'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 400' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23fff' stroke-linecap='round' opacity='0.85'%3E%3Cpath d='M147.1 224.3Q153.7 227.0 160.2 236.4' stroke-opacity='0.93' stroke-width='1.31'/%3E%3Cpath d='M123.2 113.8Q133.0 135.2 142.8 160.9' stroke-opacity='0.80' stroke-width='0.79'/%3E%3Cpath d='M168.1 194.9Q177.2 182.9 178.8 177.1' stroke-opacity='0.67' stroke-width='1.75'/%3E%3Cpath d='M56.7 167.7Q61.4 189.9 71.3 204.4' stroke-opacity='0.67' stroke-width='0.88'/%3E%3Cpath d='M164.1 132.2Q165.6 138.3 169.4 151.1' stroke-opacity='0.96' stroke-width='0.89'/%3E%3Cpath d='M265.2 188.3Q272.5 200.2 275.6 209.7' stroke-opacity='0.48' stroke-width='0.87'/%3E%3Cpath d='M135.1 36.1Q142.0 35.4 146.6 27.4' stroke-opacity='0.59' stroke-width='1.13'/%3E%3Cpath d='M148.7 175.5Q162.3 195.5 179.6 219.7' stroke-opacity='0.85' stroke-width='0.76'/%3E%3Cpath d='M81.1 306.7Q111.4 306.8 135.9 302.9' stroke-opacity='0.78' stroke-width='1.27'/%3E%3Cpath d='M7.2 129.5Q20.0 141.1 29.8 149.0' stroke-opacity='0.56' stroke-width='1.75'/%3E%3Cpath d='M2.1 143.9Q18.0 160.4 26.1 177.5' stroke-opacity='0.92' stroke-width='1.30'/%3E%3Cpath d='M140.7 50.0Q140.6 72.8 148.1 101.2' stroke-opacity='0.82' stroke-width='1.44'/%3E%3Cpath d='M198.1 347.8Q196.9 356.0 203.0 370.8' stroke-opacity='0.41' stroke-width='1.24'/%3E%3Cpath d='M249.2 337.3Q252.6 345.3 259.5 353.6' stroke-opacity='0.44' stroke-width='1.03'/%3E%3Cpath d='M69.1 118.4Q85.9 134.6 110.7 148.9' stroke-opacity='0.45' stroke-width='1.08'/%3E%3Cpath d='M32.7 191.2Q40.1 178.7 48.3 162.4' stroke-opacity='0.60' stroke-width='1.72'/%3E%3Cpath d='M215.1 255.7Q226.4 262.0 231.6 275.0' stroke-opacity='0.44' stroke-width='0.82'/%3E%3Cpath d='M91.2 11.8Q103.8 32.1 115.7 46.0' stroke-opacity='0.72' stroke-width='1.11'/%3E%3Cpath d='M36.1 359.6Q56.6 347.3 74.3 335.6' stroke-opacity='0.98' stroke-width='1.66'/%3E%3Cpath d='M124.7 199.1Q147.9 197.0 170.3 187.0' stroke-opacity='0.78' stroke-width='1.60'/%3E%3Cpath d='M132.1 30.2Q157.8 17.6 185.3 1.1' stroke-opacity='0.87' stroke-width='1.20'/%3E%3Cpath d='M133.2 353.0Q153.5 369.3 174.4 377.8' stroke-opacity='0.80' stroke-width='0.78'/%3E%3Cpath d='M203.1 67.4Q204.8 80.6 214.2 86.4' stroke-opacity='0.71' stroke-width='0.64'/%3E%3Cpath d='M116.7 73.6Q130.1 60.1 146.7 40.2' stroke-opacity='0.76' stroke-width='1.07'/%3E%3Cpath d='M249.1 71.4Q261.3 59.2 272.4 53.8' stroke-opacity='0.50' stroke-width='1.18'/%3E%3Cpath d='M75.2 160.8Q84.3 176.6 100.4 188.6' stroke-opacity='0.67' stroke-width='1.26'/%3E%3Cpath d='M270.1 41.9Q278.4 49.6 294.3 63.3' stroke-opacity='0.84' stroke-width='1.62'/%3E%3Cpath d='M8.7 214.7Q19.1 224.4 25.8 234.2' stroke-opacity='0.54' stroke-width='1.35'/%3E%3Cpath d='M266.1 379.2Q280.8 374.5 297.0 376.4' stroke-opacity='0.53' stroke-width='0.76'/%3E%3Cpath d='M217.2 235.3Q237.2 253.7 260.1 277.6' stroke-opacity='0.95' stroke-width='1.34'/%3E%3Cpath d='M237.1 283.1Q244.6 298.3 248.7 306.1' stroke-opacity='0.77' stroke-width='1.00'/%3E%3Cpath d='M100.7 222.6Q119.7 236.2 133.6 246.0' stroke-opacity='0.72' stroke-width='1.23'/%3E%3Cpath d='M183.1 153.7Q193.0 160.6 196.2 163.4' stroke-opacity='0.95' stroke-width='1.14'/%3E%3Cpath d='M259.2 176.5Q258.4 182.5 261.6 192.6' stroke-opacity='0.43' stroke-width='1.02'/%3E%3Cpath d='M104.0 391.0Q124.3 379.5 151.8 368.5' stroke-opacity='0.49' stroke-width='1.18'/%3E%3Cpath d='M92.7 97.1Q102.3 115.2 110.5 130.8' stroke-opacity='0.69' stroke-width='0.71'/%3E%3Cpath d='M0.0 194.9Q5.1 176.2 16.6 164.1' stroke-opacity='0.58' stroke-width='1.12'/%3E%3Cpath d='M201.2 384.3Q225.8 405.5 245.1 418.7' stroke-opacity='0.91' stroke-width='1.50'/%3E%3Cpath d='M171.0 365.5Q172.2 362.0 180.5 356.5' stroke-opacity='0.62' stroke-width='0.96'/%3E%3Cpath d='M284.7 238.3Q289.7 232.8 302.5 231.3' stroke-opacity='0.47' stroke-width='0.99'/%3E%3Cpath d='M17.0 102.7Q36.5 90.2 48.9 84.3' stroke-opacity='0.61' stroke-width='0.70'/%3E%3Cpath d='M43.2 58.8Q51.7 66.2 66.5 75.1' stroke-opacity='0.59' stroke-width='1.58'/%3E%3Cpath d='M138.0 206.6Q150.4 232.6 158.9 259.2' stroke-opacity='0.55' stroke-width='1.54'/%3E%3Cpath d='M76.6 246.1Q87.4 236.6 104.4 227.1' stroke-opacity='0.65' stroke-width='0.87'/%3E%3Cpath d='M234.0 277.2Q237.1 289.8 241.0 298.2' stroke-opacity='0.44' stroke-width='1.08'/%3E%3Cpath d='M85.1 0.0Q86.9 16.4 96.1 32.8' stroke-opacity='0.67' stroke-width='1.26'/%3E%3Cpath d='M5.0 314.5Q17.4 312.5 36.5 303.1' stroke-opacity='0.88' stroke-width='1.72'/%3E%3Cpath d='M68.6 120.6Q87.1 117.8 99.7 116.4' stroke-opacity='0.63' stroke-width='1.55'/%3E%3Cpath d='M51.0 318.4Q61.2 333.3 69.2 354.7' stroke-opacity='0.67' stroke-width='1.06'/%3E%3Cpath d='M27.1 207.8Q33.8 195.3 38.5 186.8' stroke-opacity='0.54' stroke-width='1.74'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 400' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='b'%3E%3CfeGaussianBlur stdDeviation='5'/%3E%3C/filter%3E%3C/defs%3E%3Cg fill='%235b3d1e' filter='url(%23b)' opacity='1'%3E%3Cellipse cx='195' cy='362' rx='18' ry='8' fill-opacity='0.17'/%3E%3Cellipse cx='228' cy='78' rx='19' ry='24' fill-opacity='0.19'/%3E%3Cellipse cx='186' cy='337' rx='40' ry='17' fill-opacity='0.19'/%3E%3Cellipse cx='136' cy='178' rx='28' ry='12' fill-opacity='0.30'/%3E%3Cellipse cx='35' cy='312' rx='9' ry='13' fill-opacity='0.22'/%3E%3Cellipse cx='162' cy='238' rx='30' ry='22' fill-opacity='0.20'/%3E%3Cellipse cx='251' cy='15' rx='10' ry='15' fill-opacity='0.31'/%3E%3Cellipse cx='25' cy='312' rx='30' ry='25' fill-opacity='0.20'/%3E%3Cellipse cx='230' cy='315' rx='29' ry='21' fill-opacity='0.19'/%3E%3Cellipse cx='266' cy='307' rx='36' ry='20' fill-opacity='0.22'/%3E%3Cellipse cx='223' cy='111' rx='15' ry='17' fill-opacity='0.17'/%3E%3Cellipse cx='113' cy='203' rx='38' ry='15' fill-opacity='0.16'/%3E%3Cellipse cx='205' cy='287' rx='40' ry='7' fill-opacity='0.28'/%3E%3Cellipse cx='53' cy='143' rx='36' ry='14' fill-opacity='0.13'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg opacity='1'%3E%3Ccircle cx='73' cy='58' r='1.8' fill='%23e8dcc0' fill-opacity='0.41'/%3E%3Ccircle cx='89' cy='25' r='0.7' fill='%23e8dcc0' fill-opacity='0.50'/%3E%3Ccircle cx='79' cy='87' r='0.7' fill='%233b2a14' fill-opacity='0.70'/%3E%3Ccircle cx='6' cy='33' r='1.0' fill='%233b2a14' fill-opacity='0.84'/%3E%3Ccircle cx='9' cy='15' r='0.7' fill='%23e8dcc0' fill-opacity='0.40'/%3E%3Ccircle cx='9' cy='91' r='1.8' fill='%23e8dcc0' fill-opacity='0.74'/%3E%3Ccircle cx='92' cy='42' r='1.3' fill='%233b2a14' fill-opacity='0.64'/%3E%3Ccircle cx='51' cy='40' r='1.0' fill='%23e8dcc0' fill-opacity='0.69'/%3E%3Ccircle cx='97' cy='1' r='1.8' fill='%23e8dcc0' fill-opacity='0.52'/%3E%3Ccircle cx='39' cy='92' r='1.4' fill='%233b2a14' fill-opacity='0.35'/%3E%3Ccircle cx='24' cy='9' r='1.6' fill='%233b2a14' fill-opacity='0.40'/%3E%3Ccircle cx='52' cy='24' r='0.8' fill='%233b2a14' fill-opacity='0.57'/%3E%3Ccircle cx='55' cy='91' r='1.5' fill='%233b2a14' fill-opacity='0.53'/%3E%3Ccircle cx='35' cy='31' r='1.3' fill='%233b2a14' fill-opacity='0.59'/%3E%3Ccircle cx='82' cy='69' r='1.6' fill='%233b2a14' fill-opacity='0.44'/%3E%3Ccircle cx='48' cy='49' r='1.7' fill='%23e8dcc0' fill-opacity='0.70'/%3E%3Ccircle cx='93' cy='14' r='1.6' fill='%23e8dcc0' fill-opacity='0.79'/%3E%3Ccircle cx='95' cy='44' r='1.7' fill='%233b2a14' fill-opacity='0.68'/%3E%3Ccircle cx='27' cy='74' r='0.7' fill='%233b2a14' fill-opacity='0.41'/%3E%3Ccircle cx='6' cy='66' r='1.2' fill='%23e8dcc0' fill-opacity='0.54'/%3E%3Ccircle cx='99' cy='58' r='1.1' fill='%23e8dcc0' fill-opacity='0.81'/%3E%3Ccircle cx='1' cy='73' r='1.3' fill='%233b2a14' fill-opacity='0.71'/%3E%3C/g%3E%3C/svg%3E"), radial-gradient(120% 95% at 50% 45%, transparent 50%, rgba(70,48,24,0.6) 100%), linear-gradient(180deg, rgba(150,120,80,0.22), rgba(110,82,48,0.32));
+  --fx-wear-size: 100% 100%, 100% 100%, 100% 100%, 90px 90px, 100% 100%, 100% 100%;
+  --fx-wear-ring: inset 0 0 0 2px rgba(239,228,204,0.25), inset 0 0 24px rgba(40,25,10,0.55);
+}
+:root:not(#fx) .collection-card[data-quality="worn"],
+:root:not(#fx) .craft-card[data-quality="worn"],
+:root:not(#fx) .card-modal[data-quality="worn"],
+:root:not(#fx) .card[data-quality="worn"] {
+  --fx-q: saturate(0.62) contrast(1.03) brightness(0.93);
+  --fx-wear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 400' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23fff' stroke-linecap='round' opacity='0.7'%3E%3Cpath d='M38.5 374.1Q64.0 364.8 89.1 354.8' stroke-opacity='0.80' stroke-width='1.13'/%3E%3Cpath d='M36.8 248.8Q45.0 244.3 50.0 246.1' stroke-opacity='0.86' stroke-width='1.63'/%3E%3Cpath d='M103.9 315.1Q104.7 343.8 107.7 374.1' stroke-opacity='0.90' stroke-width='1.21'/%3E%3Cpath d='M14.8 273.1Q34.6 294.4 50.7 313.0' stroke-opacity='0.48' stroke-width='1.37'/%3E%3Cpath d='M144.4 222.7Q164.6 238.8 191.1 260.0' stroke-opacity='0.94' stroke-width='1.20'/%3E%3Cpath d='M267.7 264.0Q288.3 255.4 305.8 252.3' stroke-opacity='0.65' stroke-width='1.00'/%3E%3Cpath d='M159.8 97.0Q182.2 80.3 200.2 57.7' stroke-opacity='0.94' stroke-width='1.08'/%3E%3Cpath d='M195.7 221.7Q202.1 212.9 207.4 203.3' stroke-opacity='0.77' stroke-width='1.74'/%3E%3Cpath d='M150.3 338.0Q165.4 355.9 182.8 374.2' stroke-opacity='0.88' stroke-width='0.87'/%3E%3Cpath d='M98.6 145.9Q114.3 167.1 132.2 182.4' stroke-opacity='0.84' stroke-width='1.17'/%3E%3Cpath d='M115.7 145.6Q131.7 136.6 142.0 119.6' stroke-opacity='0.78' stroke-width='1.75'/%3E%3Cpath d='M276.5 36.9Q279.5 43.5 289.2 56.4' stroke-opacity='0.86' stroke-width='1.70'/%3E%3Cpath d='M56.1 319.9Q60.7 311.0 69.0 303.2' stroke-opacity='0.62' stroke-width='1.33'/%3E%3Cpath d='M129.5 294.5Q141.2 311.4 149.7 332.2' stroke-opacity='0.83' stroke-width='0.94'/%3E%3Cpath d='M271.6 60.8Q274.7 88.5 276.2 111.5' stroke-opacity='0.42' stroke-width='0.82'/%3E%3Cpath d='M257.4 118.8Q269.2 142.9 285.0 169.9' stroke-opacity='0.75' stroke-width='1.27'/%3E%3Cpath d='M162.0 168.5Q170.1 177.3 172.4 193.0' stroke-opacity='0.76' stroke-width='1.40'/%3E%3Cpath d='M60.4 309.8Q67.3 316.1 71.0 325.7' stroke-opacity='0.62' stroke-width='1.51'/%3E%3Cpath d='M27.5 242.7Q40.9 257.6 61.9 276.4' stroke-opacity='0.46' stroke-width='0.69'/%3E%3Cpath d='M138.3 67.4Q144.0 74.4 156.4 86.2' stroke-opacity='0.44' stroke-width='1.64'/%3E%3Cpath d='M167.9 283.7Q166.6 290.2 171.5 298.9' stroke-opacity='0.70' stroke-width='1.07'/%3E%3Cpath d='M191.2 191.7Q197.6 175.3 206.1 166.8' stroke-opacity='0.81' stroke-width='1.67'/%3E%3Cpath d='M283.3 291.3Q290.6 300.4 304.1 311.3' stroke-opacity='0.90' stroke-width='1.35'/%3E%3Cpath d='M219.2 282.6Q224.4 297.6 228.3 308.7' stroke-opacity='0.52' stroke-width='1.61'/%3E%3Cpath d='M73.8 265.6Q77.6 281.5 89.1 300.2' stroke-opacity='0.44' stroke-width='1.54'/%3E%3Cpath d='M222.1 340.3Q231.6 331.6 237.8 324.8' stroke-opacity='0.79' stroke-width='1.44'/%3E%3Cpath d='M139.2 206.6Q163.3 201.6 181.7 201.6' stroke-opacity='0.54' stroke-width='1.62'/%3E%3Cpath d='M200.1 364.6Q203.6 374.2 203.2 376.5' stroke-opacity='0.41' stroke-width='1.18'/%3E%3Cpath d='M179.7 114.2Q193.2 100.2 205.0 78.9' stroke-opacity='0.58' stroke-width='1.61'/%3E%3Cpath d='M153.0 355.5Q170.2 336.4 184.1 318.3' stroke-opacity='0.58' stroke-width='0.81'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg opacity='0.6'%3E%3Ccircle cx='37' cy='95' r='1.5' fill='%233b2a14' fill-opacity='0.48'/%3E%3Ccircle cx='90' cy='72' r='1.8' fill='%23e8dcc0' fill-opacity='0.36'/%3E%3Ccircle cx='12' cy='12' r='1.0' fill='%23e8dcc0' fill-opacity='0.80'/%3E%3Ccircle cx='93' cy='42' r='0.6' fill='%23e8dcc0' fill-opacity='0.49'/%3E%3Ccircle cx='85' cy='7' r='1.3' fill='%233b2a14' fill-opacity='0.54'/%3E%3Ccircle cx='48' cy='47' r='1.6' fill='%233b2a14' fill-opacity='0.38'/%3E%3Ccircle cx='58' cy='45' r='0.7' fill='%23e8dcc0' fill-opacity='0.48'/%3E%3Ccircle cx='92' cy='33' r='1.3' fill='%23e8dcc0' fill-opacity='0.39'/%3E%3C/g%3E%3C/svg%3E"), radial-gradient(130% 100% at 50% 45%, transparent 62%, rgba(70,48,24,0.3) 100%);
+  --fx-wear-size: 100% 100%, 110px 110px, 100% 100%;
+  --fx-wear-ring: inset 0 0 0 1px rgba(239,228,204,0.14);
+}
+:root:not(#fx) .collection-card[data-quality="good"],
+:root:not(#fx) .craft-card[data-quality="good"],
+:root:not(#fx) .card-modal[data-quality="good"],
+:root:not(#fx) .card[data-quality="good"] {
+  --fx-q: saturate(1);
+}
+:root:not(#fx) .collection-card[data-quality="mint"],
+:root:not(#fx) .craft-card[data-quality="mint"],
+:root:not(#fx) .card-modal[data-quality="mint"],
+:root:not(#fx) .card[data-quality="mint"] {
+  --fx-q: saturate(1.08) contrast(1.04) brightness(1.03);
+  --fx-wear: linear-gradient(115deg, transparent 0 42%, rgba(255,255,255,0.3) 48%, rgba(255,255,255,0.06) 53%, transparent 58% 100%), linear-gradient(135deg, rgba(255,255,255,0.35) 0 7%, rgba(255,255,255,0) 15%);
+  --fx-wear-size: 260% 100%, 100% 100%;
+  --fx-wear-ring: inset 0 0 0 2px rgba(240,249,255,0.85), inset 0 0 0 4px rgba(125,211,252,0.28), inset 0 0 14px rgba(224,242,254,0.45);
+  --fx-wear-anim: fxMintSheen 5s ease-in-out infinite;
+}
+:root:not(#fx) .collection-card[data-quality="mint"],
+:root:not(#fx) .craft-card[data-quality="mint"],
+:root:not(#fx) .card-modal[data-quality="mint"],
+:root:not(#fx) .card[data-quality="mint"] .card-front {
+  outline: 2px solid rgba(224,242,254,0.7) !important; outline-offset: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 0 16px -4px rgba(186,230,253,0.65);
+}
+:root:not(#fx) .collection-card[data-finish="holo"],
+:root:not(#fx) .craft-card[data-finish="holo"],
+:root:not(#fx) .card-modal[data-finish="holo"],
+:root:not(#fx) .card[data-finish="holo"] {
+  --fx-f: saturate(1.3) contrast(1.06) brightness(1.03); --fx-f-shine: repeating-radial-gradient(ellipse at 30% 70%, rgba(255,60,180,0.0) 0, rgba(255,60,180,0.24) 9px, rgba(255,220,60,0.24) 18px, rgba(60,255,160,0.22) 27px, rgba(60,200,255,0.24) 36px, rgba(160,90,255,0.24) 45px, rgba(255,60,180,0.0) 54px), radial-gradient(45% 40% at 75% 25%, rgba(0,230,255,0.38), transparent 70%), radial-gradient(40% 35% at 25% 85%, rgba(255,80,200,0.34), transparent 70%), repeating-linear-gradient(60deg, rgba(255,255,255,0) 0 3px, rgba(255,255,255,0.11) 3px 4px), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120' preserveAspectRatio='xMidYMid slice'%3E%3Cg fill='%23fff'%3E%3Cpath transform='translate(49.3 106.7) scale(0.56)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.91'/%3E%3Cpath transform='translate(66.1 45.6) scale(0.26)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.58'/%3E%3Cpath transform='translate(118.0 53.6) scale(0.32)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.88'/%3E%3Cpath transform='translate(61.2 102.6) scale(0.31)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.81'/%3E%3Cpath transform='translate(94.3 53.4) scale(0.37)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.66'/%3E%3Cpath transform='translate(24.7 82.2) scale(0.77)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.90'/%3E%3Cpath transform='translate(55.3 107.5) scale(0.62)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.98'/%3E%3Cpath transform='translate(91.4 16.8) scale(0.59)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.95'/%3E%3Cpath transform='translate(86.9 93.0) scale(0.68)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.90'/%3E%3Cpath transform='translate(111.6 81.3) scale(0.72)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.74'/%3E%3Cpath transform='translate(17.3 15.7) scale(0.73)' d='M0 -6L1.4 -1.4L6 0L1.4 1.4L0 6L-1.4 1.4L-6 0L-1.4 -1.4Z' fill-opacity='0.78'/%3E%3C/g%3E%3C/svg%3E"); --fx-f-size: 200% 200%, 220% 220%, 220% 220%, 100% 100%, 64px 64px; --fx-f-anim: fxHolo 10s ease-in-out infinite alternate;
+  --fx-f-ring: inset 0 0 0 2px rgba(216,180,254,0.9), inset 0 0 20px -6px rgba(216,180,254,0.9);
+}
+:root:not(#fx) .collection-card[data-finish="gold"],
+:root:not(#fx) .craft-card[data-finish="gold"],
+:root:not(#fx) .card-modal[data-finish="gold"],
+:root:not(#fx) .card[data-finish="gold"] {
+  --fx-f: sepia(0.7) saturate(2) hue-rotate(-10deg) brightness(1.08) contrast(1.06); --fx-f-shine: linear-gradient(120deg, transparent 0 30%, rgba(255,244,190,0.65) 44%, rgba(255,214,90,0.15) 52%, transparent 64% 100%), repeating-linear-gradient(0deg, rgba(255,236,170,0.07) 0 1px, transparent 1px 3px), linear-gradient(180deg, rgba(255,214,80,0.3), rgba(200,135,15,0.32)); --fx-f-size: 260% 260%, 100% 100%, 100% 100%; --fx-f-anim: fxGold 6s ease-in-out infinite alternate;
+  --fx-f-ring: inset 0 0 0 2px rgba(250,204,21,0.9), inset 0 0 20px -6px rgba(250,204,21,0.9);
+}
+:root:not(#fx) .collection-card[data-finish="ghost"],
+:root:not(#fx) .craft-card[data-finish="ghost"],
+:root:not(#fx) .card-modal[data-finish="ghost"],
+:root:not(#fx) .card[data-finish="ghost"] {
+  --fx-f: grayscale(0.62) brightness(1.28) contrast(0.82); --fx-f-shine: radial-gradient(90% 45% at 50% 100%, rgba(255,255,255,0.6), rgba(224,242,254,0.25) 45%, transparent 75%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='w'%3E%3CfeGaussianBlur stdDeviation='0.9'/%3E%3C/filter%3E%3C/defs%3E%3Cg fill='%23f0f9ff' filter='url(%23w)'%3E%3Ccircle cx='25' cy='7' r='2.8' fill-opacity='0.50'/%3E%3Ccircle cx='61' cy='84' r='1.2' fill-opacity='0.46'/%3E%3Ccircle cx='73' cy='14' r='1.3' fill-opacity='0.78'/%3E%3Ccircle cx='74' cy='74' r='2.1' fill-opacity='0.63'/%3E%3Ccircle cx='62' cy='10' r='2.6' fill-opacity='0.44'/%3E%3Ccircle cx='14' cy='75' r='2.5' fill-opacity='0.36'/%3E%3Ccircle cx='20' cy='57' r='1.3' fill-opacity='0.51'/%3E%3Ccircle cx='40' cy='83' r='2.3' fill-opacity='0.62'/%3E%3Ccircle cx='70' cy='33' r='1.7' fill-opacity='0.42'/%3E%3C/g%3E%3C/svg%3E"), radial-gradient(120% 95% at 50% 50%, transparent 52%, rgba(165,243,252,0.32) 82%, rgba(196,181,253,0.45) 100%), linear-gradient(180deg, rgba(255,255,255,0.14), rgba(224,231,255,0.2)); --fx-f-size: 100% 140%, 90px 90px, 100% 100%, 100% 100%; --fx-f-anim: fxGhost 7s linear infinite;
+  --fx-f-ring: inset 0 0 0 2px rgba(165,243,252,0.85), inset 0 0 20px -6px rgba(165,243,252,0.85); --fx-img-opacity: 0.8; --fx-img-anim: fxGhostPhase 5.5s ease-in-out infinite; --fx-art-bg: #dbe4f0;
+}
+:root:not(#fx) .collection-card[data-finish="diamond"],
+:root:not(#fx) .craft-card[data-finish="diamond"],
+:root:not(#fx) .card-modal[data-finish="diamond"],
+:root:not(#fx) .card[data-finish="diamond"] {
+  --fx-f: saturate(0.7) contrast(1.22) brightness(1.18); --fx-f-shine: linear-gradient(130deg, transparent 0 34%, rgba(240,249,255,0.55) 45%, rgba(255,255,255,0.15) 52%, transparent 60% 100%), radial-gradient(circle at 72% 22%, rgba(255,255,255,0.95) 0 1.2%, transparent 3%), radial-gradient(circle at 28% 62%, rgba(255,255,255,0.85) 0 1%, transparent 2.6%), radial-gradient(circle at 62% 84%, rgba(186,230,253,0.85) 0 1%, transparent 2.4%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' preserveAspectRatio='none'%3E%3Cg stroke='%23e0f2fe' stroke-opacity='0.14' stroke-width='0.6'%3E%3Cpath d='M0 0L40 0L20 40Z' fill='%23fff' fill-opacity='0.12'/%3E%3Cpath d='M40 0L80 0L60 40Z' fill='%230c4a6e' fill-opacity='0.06'/%3E%3Cpath d='M20 40L60 40L40 0Z' fill='%23fff' fill-opacity='0.05'/%3E%3Cpath d='M60 40L100 40L80 0Z' fill='%230c4a6e' fill-opacity='0.1'/%3E%3Cpath d='M0 40L40 40L20 80Z' fill='%23fff' fill-opacity='0.07'/%3E%3Cpath d='M40 40L80 40L60 80Z' fill='%230c4a6e' fill-opacity='0.13'/%3E%3Cpath d='M-20 80L20 80L0 40Z' fill='%23fff' fill-opacity='0.06'/%3E%3Cpath d='M20 80L60 80L40 40Z' fill='%230c4a6e' fill-opacity='0.09'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg, rgba(150,215,255,0.38), rgba(40,150,245,0.36)); --fx-f-size: 260% 260%, 100% 100%, 100% 100%, 100% 100%, 44px 44px, 100% 100%; --fx-f-anim: fxShine 4s ease-in-out infinite alternate;
+  --fx-f-ring: inset 0 0 0 2px rgba(224,242,254,0.95), inset 0 0 20px -6px rgba(224,242,254,0.95);
+}
+:root:not(#fx) .collection-card[data-finish="rainbow"],
+:root:not(#fx) .craft-card[data-finish="rainbow"],
+:root:not(#fx) .card-modal[data-finish="rainbow"],
+:root:not(#fx) .card[data-finish="rainbow"] {
+  --fx-f: saturate(1.35) contrast(1.05); --fx-f-shine: repeating-linear-gradient(135deg, rgba(255,80,170,0.34) 0.000px, rgba(255,190,70,0.32) 33.941px, rgba(110,230,130,0.32) 67.882px, rgba(70,190,255,0.34) 101.823px, rgba(170,110,255,0.34) 135.765px, rgba(255,80,170,0.34) 169.706px); --fx-f-size: 240px 240px; --fx-f-anim: fxRainbow 3s linear infinite;
+  --fx-f-ring: inset 0 0 0 2px rgba(255,110,199,0.9), inset 0 0 20px -6px rgba(255,110,199,0.9);
+}
+:root:not(#fx) .card-modal[data-finish="rainbow"] {
+  border-color: transparent !important; background: linear-gradient(var(--bg-panel-solid, #15172e), var(--bg-panel-solid, #15172e)) padding-box, conic-gradient(from var(--tier-angle), #ff6ec7, #ffd76e, #7dd3fc, #a78bfa, #4ade80, #ff6ec7) border-box !important; animation: tierSpin 3s linear infinite;
+}
+:root:not(#fx) .collection-card[data-edition="frost"],
+:root:not(#fx) .craft-card[data-edition="frost"],
+:root:not(#fx) .card-modal[data-edition="frost"],
+:root:not(#fx) .card[data-edition="frost"] {
+  --ed: #a5f3fc; --fx-e: saturate(0.9) brightness(1.05); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.8500000000000001'%3E%3Cg transform='translate(12.420000000000002 13.799999999999999) scale(1.3)'%3E%3Cpath d='M0 -6V6M-5.2 -3L5.2 3M-5.2 3L5.2 -3' fill='none' stroke='%23ecfeff' stroke-width='1.3' stroke-linecap='round'/%3E%3C/g%3E%3Cg transform='translate(34.96 35.88) rotate(18) scale(1.04)'%3E%3Cpath d='M0 -6V6M-5.2 -3L5.2 3M-5.2 3L5.2 -3' fill='none' stroke='%23ecfeff' stroke-width='1.3' stroke-linecap='round'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), radial-gradient(70% 50% at 0% 0%, rgba(224,250,255,0.5), transparent 60%), radial-gradient(70% 50% at 100% 100%, rgba(224,250,255,0.4), transparent 60%), linear-gradient(180deg, #a5f3fc1f, #a5f3fc33); --fx-e-size: 46px 46px, 100% 100%, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #a5f3fc 92%, transparent), inset 0 0 24px -4px #a5f3fc; --fx-e-glow: 0 0 24px -2px #a5f3fc;
+}
+:root:not(#fx) .collection-card[data-edition="tropical"],
+:root:not(#fx) .craft-card[data-edition="tropical"],
+:root:not(#fx) .card-modal[data-edition="tropical"],
+:root:not(#fx) .card[data-edition="tropical"] {
+  --ed: #fb7185; --fx-e: saturate(1.15); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 58' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.8799999999999999'%3E%3Cg transform='translate(15.66 17.4) scale(1.3)'%3E%3Cg fill='%23fecdd3'%3E%3Ccircle cx='0' cy='-3.5' r='2.6'/%3E%3Ccircle cx='3.3' cy='-1' r='2.6'/%3E%3Ccircle cx='2' cy='3' r='2.6'/%3E%3Ccircle cx='-2' cy='3' r='2.6'/%3E%3Ccircle cx='-3.3' cy='-1' r='2.6'/%3E%3C/g%3E%3Ccircle r='1.4' fill='%23fff8'/%3E%3C/g%3E%3Cg transform='translate(44.08 45.24) rotate(18) scale(1.04)'%3E%3Cg fill='%23fecdd3'%3E%3Ccircle cx='0' cy='-3.5' r='2.6'/%3E%3Ccircle cx='3.3' cy='-1' r='2.6'/%3E%3Ccircle cx='2' cy='3' r='2.6'/%3E%3Ccircle cx='-2' cy='3' r='2.6'/%3E%3Ccircle cx='-3.3' cy='-1' r='2.6'/%3E%3C/g%3E%3Ccircle r='1.4' fill='%23fff8'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), linear-gradient(0deg, rgba(251,113,133,0.26), rgba(251,191,36,0.1) 45%, transparent 70%), linear-gradient(180deg, #fb71851f, #fb718533); --fx-e-size: 58px 58px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #fb7185 92%, transparent), inset 0 0 24px -4px #fb7185; --fx-e-glow: 0 0 24px -2px #fb7185;
+}
+:root:not(#fx) .collection-card[data-edition="prism"],
+:root:not(#fx) .craft-card[data-edition="prism"],
+:root:not(#fx) .card-modal[data-edition="prism"],
+:root:not(#fx) .card[data-edition="prism"] {
+  --ed: #818cf8; --fx-e: contrast(1.05); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.8'%3E%3Cg transform='translate(10.8 12) scale(1.3)'%3E%3Cpath d='M0 -5L5 4H-5Z' fill='none' stroke='%23c7d2fe' stroke-width='1.2'/%3E%3C/g%3E%3Cg transform='translate(30.4 31.200000000000003) rotate(18) scale(1.04)'%3E%3Cpath d='M0 -5L5 4H-5Z' fill='none' stroke='%23c7d2fe' stroke-width='1.2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), linear-gradient(135deg, rgba(129,140,248,0.14), rgba(56,189,248,0.1)), linear-gradient(180deg, #818cf81f, #818cf833); --fx-e-size: 40px 40px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #818cf8 92%, transparent), inset 0 0 24px -4px #818cf8; --fx-e-glow: 0 0 24px -2px #818cf8;
+}
+:root:not(#fx) .collection-card[data-edition="ember"],
+:root:not(#fx) .craft-card[data-edition="ember"],
+:root:not(#fx) .card-modal[data-edition="ember"],
+:root:not(#fx) .card[data-edition="ember"] {
+  --ed: #fb923c; --fx-e: contrast(1.08) saturate(1.1); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.8999999999999999'%3E%3Cg transform='translate(14.040000000000001 15.6) scale(1.3)'%3E%3Cpath d='M0 -6C3 -2 4 1 2 4C1 5 -1 5 -2 4C-4 1 -2 -1 0 -6Z' fill='%23fed7aa'/%3E%3C/g%3E%3Cg transform='translate(39.52 40.56) rotate(18) scale(1.04)'%3E%3Cpath d='M0 -6C3 -2 4 1 2 4C1 5 -1 5 -2 4C-4 1 -2 -1 0 -6Z' fill='%23fed7aa'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), radial-gradient(90% 45% at 50% 105%, rgba(251,146,60,0.5), transparent 70%), linear-gradient(180deg, rgba(30,10,0,0.18), transparent 40%), linear-gradient(180deg, #fb923c1f, #fb923c33); --fx-e-size: 52px 52px, 100% 100%, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #fb923c 92%, transparent), inset 0 0 24px -4px #fb923c; --fx-e-glow: 0 0 24px -2px #fb923c;
+}
+:root:not(#fx) .collection-card[data-edition="glitch"],
+:root:not(#fx) .craft-card[data-edition="glitch"],
+:root:not(#fx) .card-modal[data-edition="glitch"],
+:root:not(#fx) .card[data-edition="glitch"] {
+  --ed: #e879f9; --fx-e: contrast(1.1) saturate(1.2); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.8'%3E%3Cg transform='translate(11.88 13.2) scale(1.3)'%3E%3Cg fill='%23f5d0fe'%3E%3Crect x='-6' y='-2' width='8' height='2'/%3E%3Crect x='0' y='1' width='6' height='1.6'/%3E%3Crect x='-3' y='4' width='4' height='1.2'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate(33.44 34.32) rotate(18) scale(1.04)'%3E%3Cg fill='%23f5d0fe'%3E%3Crect x='-6' y='-2' width='8' height='2'/%3E%3Crect x='0' y='1' width='6' height='1.6'/%3E%3Crect x='-3' y='4' width='4' height='1.2'/%3E%3C/g%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), repeating-linear-gradient(0deg, transparent 0 3px, rgba(232,121,249,0.12) 3px 4px, rgba(103,232,249,0.08) 4px 5px), linear-gradient(180deg, #e879f91f, #e879f933); --fx-e-size: 44px 44px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #e879f9 92%, transparent), inset 0 0 24px -4px #e879f9; --fx-e-glow: 0 0 24px -2px #e879f9;
+}
+:root:not(#fx) .collection-card[data-edition="firework"],
+:root:not(#fx) .craft-card[data-edition="firework"],
+:root:not(#fx) .card-modal[data-edition="firework"],
+:root:not(#fx) .card[data-edition="firework"] {
+  --ed: #facc15; --fx-e: saturate(1.1); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.9199999999999999'%3E%3Cg transform='translate(15.120000000000001 16.8) scale(1.3)'%3E%3Cpath d='M0 -6V-2M0 2V6M-6 0H-2M2 0H6M-4.2 -4.2L-1.4 -1.4M1.4 1.4L4.2 4.2M-4.2 4.2L-1.4 1.4M1.4 -1.4L4.2 -4.2' fill='none' stroke='%23fef3c7' stroke-width='1.2' stroke-linecap='round'/%3E%3C/g%3E%3Cg transform='translate(42.56 43.68) rotate(18) scale(1.04)'%3E%3Cpath d='M0 -6V-2M0 2V6M-6 0H-2M2 0H6M-4.2 -4.2L-1.4 -1.4M1.4 1.4L4.2 4.2M-4.2 4.2L-1.4 1.4M1.4 -1.4L4.2 -4.2' fill='none' stroke='%23fef3c7' stroke-width='1.2' stroke-linecap='round'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg, rgba(15,23,42,0.22), transparent 55%), linear-gradient(180deg, #facc151f, #facc1533); --fx-e-size: 56px 56px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #facc15 92%, transparent), inset 0 0 24px -4px #facc15; --fx-e-glow: 0 0 24px -2px #facc15;
+}
+:root:not(#fx) .collection-card[data-edition="heart"],
+:root:not(#fx) .craft-card[data-edition="heart"],
+:root:not(#fx) .card-modal[data-edition="heart"],
+:root:not(#fx) .card[data-edition="heart"] {
+  --ed: #f472b6; --fx-e: saturate(1.08); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.9199999999999999'%3E%3Cg transform='translate(12.96 14.399999999999999) scale(1.3)'%3E%3Cpath d='M0 4.5C-6 -0.5 -4.5 -6 0 -3C4.5 -6 6 -0.5 0 4.5Z' fill='%23fce7f3'/%3E%3C/g%3E%3Cg transform='translate(36.480000000000004 37.44) rotate(18) scale(1.04)'%3E%3Cpath d='M0 4.5C-6 -0.5 -4.5 -6 0 -3C4.5 -6 6 -0.5 0 4.5Z' fill='%23fce7f3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(244,114,182,0.42) 100%), linear-gradient(180deg, #f472b61f, #f472b633); --fx-e-size: 48px 48px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #f472b6 92%, transparent), inset 0 0 24px -4px #f472b6; --fx-e-glow: 0 0 24px -2px #f472b6;
+}
+:root:not(#fx) .collection-card[data-edition="pastel"],
+:root:not(#fx) .craft-card[data-edition="pastel"],
+:root:not(#fx) .card-modal[data-edition="pastel"],
+:root:not(#fx) .card[data-edition="pastel"] {
+  --ed: #c4b5fd; --fx-e: saturate(0.82) brightness(1.07); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.8'%3E%3Cg transform='translate(14.040000000000001 15.6) scale(1.3)'%3E%3Cellipse rx='3.6' ry='4.8' fill='%23fbcfe8'/%3E%3Cpath d='M-3.4 0.5L-1.5 -0.8L0 0.6L1.6 -0.8L3.4 0.5' fill='none' stroke='%23fff9' stroke-width='0.9'/%3E%3C/g%3E%3Cg transform='translate(39.52 40.56) rotate(18) scale(1.04)'%3E%3Cellipse rx='3.6' ry='4.8' fill='%23fbcfe8'/%3E%3Cpath d='M-3.4 0.5L-1.5 -0.8L0 0.6L1.6 -0.8L3.4 0.5' fill='none' stroke='%23fff9' stroke-width='0.9'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), linear-gradient(135deg, rgba(251,207,232,0.26), rgba(187,247,208,0.2) 50%, rgba(196,181,253,0.26)), linear-gradient(180deg, #c4b5fd1f, #c4b5fd33); --fx-e-size: 52px 52px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #c4b5fd 92%, transparent), inset 0 0 24px -4px #c4b5fd; --fx-e-glow: 0 0 24px -2px #c4b5fd;
+}
+:root:not(#fx) .collection-card[data-edition="prank"],
+:root:not(#fx) .craft-card[data-edition="prank"],
+:root:not(#fx) .card-modal[data-edition="prank"],
+:root:not(#fx) .card[data-edition="prank"] {
+  --ed: #60a5fa; --fx-e: saturate(1.05); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 54 54' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.9199999999999999'%3E%3Cg transform='translate(14.580000000000002 16.2) scale(1.3)'%3E%3Cpath d='M-5 0C-2 -4 3 -4 5 0C3 4 -2 4 -5 0ZM5 0L8.5 -3V3Z' fill='%23dbeafe'/%3E%3C/g%3E%3Cg transform='translate(41.04 42.120000000000005) rotate(18) scale(1.04)'%3E%3Cpath d='M-5 0C-2 -4 3 -4 5 0C3 4 -2 4 -5 0ZM5 0L8.5 -3V3Z' fill='%23dbeafe'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg, rgba(96,165,250,0.12), rgba(96,165,250,0.06)), linear-gradient(180deg, #60a5fa1f, #60a5fa33); --fx-e-size: 54px 54px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #60a5fa 92%, transparent), inset 0 0 24px -4px #60a5fa; --fx-e-glow: 0 0 24px -2px #60a5fa;
+}
+:root:not(#fx) .collection-card[data-edition="solar"],
+:root:not(#fx) .craft-card[data-edition="solar"],
+:root:not(#fx) .card-modal[data-edition="solar"],
+:root:not(#fx) .card[data-edition="solar"] {
+  --ed: #fbbf24; --fx-e: brightness(1.06) saturate(1.1); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.8'%3E%3Cg transform='translate(13.5 15) scale(1.3)'%3E%3Cpath d='M1.5 -6V3' stroke='%23fef08a' stroke-width='1.3'/%3E%3Ccircle cx='-0.6' cy='3.2' r='2.3' fill='%23fef08a'/%3E%3Cpath d='M1.5 -6L5 -4.5' stroke='%23fef08a' stroke-width='1.3'/%3E%3C/g%3E%3Cg transform='translate(38 39) rotate(18) scale(1.04)'%3E%3Cpath d='M1.5 -6V3' stroke='%23fef08a' stroke-width='1.3'/%3E%3Ccircle cx='-0.6' cy='3.2' r='2.3' fill='%23fef08a'/%3E%3Cpath d='M1.5 -6L5 -4.5' stroke='%23fef08a' stroke-width='1.3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), radial-gradient(55% 40% at 88% 10%, rgba(254,240,138,0.55), transparent 70%), linear-gradient(180deg, #fbbf241f, #fbbf2433); --fx-e-size: 50px 50px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #fbbf24 92%, transparent), inset 0 0 24px -4px #fbbf24; --fx-e-glow: 0 0 24px -2px #fbbf24;
+}
+:root:not(#fx) .collection-card[data-edition="cursed"],
+:root:not(#fx) .craft-card[data-edition="cursed"],
+:root:not(#fx) .card-modal[data-edition="cursed"],
+:root:not(#fx) .card[data-edition="cursed"] {
+  --ed: #f97316; --fx-e: contrast(1.12) brightness(0.9) saturate(0.85); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.72'%3E%3Cg transform='translate(15.120000000000001 16.8) scale(1.3)'%3E%3Cellipse rx='5.4' ry='4.3' fill='%23fb923c'/%3E%3Cpath d='M-1.8 -4V3.8M1.8 -4V3.8' stroke='%230004' stroke-width='0.8'/%3E%3Crect x='-0.7' y='-6.6' width='1.4' height='2.6' fill='%233f6212'/%3E%3C/g%3E%3Cg transform='translate(42.56 43.68) rotate(18) scale(1.04)'%3E%3Cellipse rx='5.4' ry='4.3' fill='%23fb923c'/%3E%3Cpath d='M-1.8 -4V3.8M1.8 -4V3.8' stroke='%230004' stroke-width='0.8'/%3E%3Crect x='-0.7' y='-6.6' width='1.4' height='2.6' fill='%233f6212'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), radial-gradient(120% 90% at 50% 45%, transparent 45%, rgba(46,16,101,0.6) 100%), radial-gradient(80% 35% at 50% 105%, rgba(249,115,22,0.38), transparent 70%), linear-gradient(180deg, #f973161f, #f9731633); --fx-e-size: 56px 56px, 100% 100%, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #f97316 92%, transparent), inset 0 0 24px -4px #f97316; --fx-e-glow: 0 0 24px -2px #f97316;
+}
+:root:not(#fx) .collection-card[data-edition="snow"],
+:root:not(#fx) .craft-card[data-edition="snow"],
+:root:not(#fx) .card-modal[data-edition="snow"],
+:root:not(#fx) .card[data-edition="snow"] {
+  --ed: #86efac; --fx-e: brightness(1.04) saturate(0.95); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.7'%3E%3Cg transform='translate(15.120000000000001 16.8) scale(1.3)'%3E%3Cpath d='M0 -6L4.5 1H2L5 5H-5L-2 1H-4.5Z' fill='%23bbf7d0'/%3E%3Crect x='-0.8' y='5' width='1.6' height='1.8' fill='%237c2d12'/%3E%3C/g%3E%3Cg transform='translate(42.56 43.68) rotate(18) scale(1.04)'%3E%3Cpath d='M0 -6L4.5 1H2L5 5H-5L-2 1H-4.5Z' fill='%23bbf7d0'/%3E%3Crect x='-0.8' y='5' width='1.6' height='1.8' fill='%237c2d12'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='xMidYMid slice'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='20' cy='30' r='1.6' fill-opacity='0.85'/%3E%3Ccircle cx='70' cy='65' r='2' fill-opacity='0.7'/%3E%3Ccircle cx='45' cy='88' r='1.1' fill-opacity='0.6'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg, #86efac1f, #86efac33); --fx-e-size: 56px 56px, 41px 47px, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #86efac 92%, transparent), inset 0 0 24px -4px #86efac; --fx-e-glow: 0 0 24px -2px #86efac;
+}
+:root:not(#fx) .collection-card[data-edition="phantom"],
+:root:not(#fx) .craft-card[data-edition="phantom"],
+:root:not(#fx) .card-modal[data-edition="phantom"],
+:root:not(#fx) .card[data-edition="phantom"] {
+  --ed: #cbd5e1; --fx-e: grayscale(0.35) brightness(1.08); --fx-e-shine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52' preserveAspectRatio='xMidYMid meet'%3E%3Cg opacity='0.75'%3E%3Cg transform='translate(14.040000000000001 15.6) scale(1.3)'%3E%3Cpath d='M-4 5V-1A4 4 0 0 1 4 -1V5L2 3.2L0 5L-2 3.2Z' fill='%23f1f5f9'/%3E%3Ccircle cx='-1.4' cy='-0.6' r='0.7' fill='%230006'/%3E%3Ccircle cx='1.4' cy='-0.6' r='0.7' fill='%230006'/%3E%3C/g%3E%3Cg transform='translate(39.52 40.56) rotate(18) scale(1.04)'%3E%3Cpath d='M-4 5V-1A4 4 0 0 1 4 -1V5L2 3.2L0 5L-2 3.2Z' fill='%23f1f5f9'/%3E%3Ccircle cx='-1.4' cy='-0.6' r='0.7' fill='%230006'/%3E%3Ccircle cx='1.4' cy='-0.6' r='0.7' fill='%230006'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"), radial-gradient(70% 50% at 50% 100%, rgba(226,232,240,0.42), transparent 70%), linear-gradient(180deg, #cbd5e11f, #cbd5e133); --fx-e-size: 52px 52px, 100% 100%, 100% 100%;
+  --fx-e-ring: inset 0 0 0 5px color-mix(in srgb, #cbd5e1 92%, transparent), inset 0 0 24px -4px #cbd5e1; --fx-e-glow: 0 0 24px -2px #cbd5e1;
+}
+:root:not(#fx) .collection-card .card-art .finish-indicator,
+:root:not(#fx) .craft-card .card-art .finish-indicator,
+:root:not(#fx) .card-modal .card-art .finish-indicator,
+:root:not(#fx) .card .card-front .card-art .finish-indicator,
+:root:not(#fx) .collection-card .card-art .quality-indicator,
+:root:not(#fx) .craft-card .card-art .quality-indicator,
+:root:not(#fx) .card-modal .card-art .quality-indicator,
+:root:not(#fx) .card .card-front .card-art .quality-indicator,
+:root:not(#fx) .collection-card .card-art .edition-badge,
+:root:not(#fx) .craft-card .card-art .edition-badge,
+:root:not(#fx) .card-modal .card-art .edition-badge,
+:root:not(#fx) .card .card-front .card-art .edition-badge,
+:root:not(#fx) .collection-card .card-art .serial-one-badge,
+:root:not(#fx) .craft-card .card-art .serial-one-badge,
+:root:not(#fx) .card-modal .card-art .serial-one-badge,
+:root:not(#fx) .card .card-front .card-art .serial-one-badge {
+  position: absolute !important; z-index: 4; display: inline-flex; align-items: center; gap: 3px;
+  height: 18px; padding: 0 7px !important; border-radius: var(--radius-pill); box-sizing: border-box;
+  font-family: var(--font-body); font-size: 0.6rem !important; font-weight: 800; letter-spacing: 0.01em !important; line-height: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(50% - 9px) !important;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 2px 6px -2px rgba(0,0,0,0.6);
+  top: auto; bottom: auto; left: auto; right: auto; transform: none;
+}
+:root:not(#fx) .collection-card .card-art .finish-indicator,
+:root:not(#fx) .craft-card .card-art .finish-indicator,
+:root:not(#fx) .card-modal .card-art .finish-indicator,
+:root:not(#fx) .card .card-front .card-art .finish-indicator {
+  left: 6px !important; bottom: 6px !important; right: auto !important; top: auto !important; background: rgba(12,12,24,0.72);
+}
+:root:not(#fx) .collection-card .card-art .quality-indicator,
+:root:not(#fx) .craft-card .card-art .quality-indicator,
+:root:not(#fx) .card-modal .card-art .quality-indicator,
+:root:not(#fx) .card .card-front .card-art .quality-indicator {
+  right: 6px !important; bottom: 6px !important; left: auto !important; top: auto !important; background: rgba(12,12,24,0.72);
+}
+:root:not(#fx) .collection-card .card-art .edition-badge,
+:root:not(#fx) .craft-card .card-art .edition-badge,
+:root:not(#fx) .card-modal .card-art .edition-badge,
+:root:not(#fx) .card .card-front .card-art .edition-badge {
+  left: 6px !important; bottom: 6px !important; animation: none;
+}
+:root:not(#fx) .collection-card .card-art:has(.finish-indicator) .edition-badge,
+:root:not(#fx) .craft-card .card-art:has(.finish-indicator) .edition-badge,
+:root:not(#fx) .card-modal .card-art:has(.finish-indicator) .edition-badge,
+:root:not(#fx) .card .card-front .card-art:has(.finish-indicator) .edition-badge {
+  bottom: 28px !important;
+}
+:root:not(#fx) .collection-card .card-art .serial-one-badge,
+:root:not(#fx) .craft-card .card-art .serial-one-badge,
+:root:not(#fx) .card-modal .card-art .serial-one-badge,
+:root:not(#fx) .card .card-front .card-art .serial-one-badge {
+  top: 6px !important; left: 50% !important; right: auto !important; bottom: auto !important; transform: translateX(-50%) !important; max-width: none !important;
+}
+:root:not(#fx) .collection-card .card-art .tile-marks,
+:root:not(#fx) .craft-card .card-art .tile-marks,
+:root:not(#fx) .card-modal .card-art .tile-marks,
+:root:not(#fx) .card .card-front .card-art .tile-marks {
+  position: absolute; right: 6px; left: auto; bottom: 6px; top: auto; z-index: 4; display: flex; gap: 3px;
+}
+:root:not(#fx) .collection-card .card-art:has(.quality-indicator) .tile-marks,
+:root:not(#fx) .craft-card .card-art:has(.quality-indicator) .tile-marks,
+:root:not(#fx) .card-modal .card-art:has(.quality-indicator) .tile-marks,
+:root:not(#fx) .card .card-front .card-art:has(.quality-indicator) .tile-marks {
+  bottom: 28px;
+}
+:root:not(#fx) .collection-card .card-art .tile-marks > span,
+:root:not(#fx) .craft-card .card-art .tile-marks > span,
+:root:not(#fx) .card-modal .card-art .tile-marks > span,
+:root:not(#fx) .card .card-front .card-art .tile-marks > span {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; font-size: 0.7rem; border-radius: 50%; background: rgba(12,12,24,0.72); backdrop-filter: blur(4px);
+}
+@container (max-width: 175px) {
+:root:not(#fx) .collection-card .card-art .finish-indicator,
+:root:not(#fx) .craft-card .card-art .finish-indicator,
+:root:not(#fx) .card-modal .card-art .finish-indicator,
+:root:not(#fx) .card .card-front .card-art .finish-indicator,
+:root:not(#fx) .collection-card .card-art .quality-indicator,
+:root:not(#fx) .craft-card .card-art .quality-indicator,
+:root:not(#fx) .card-modal .card-art .quality-indicator,
+:root:not(#fx) .card .card-front .card-art .quality-indicator,
+:root:not(#fx) .collection-card .card-art .edition-badge,
+:root:not(#fx) .craft-card .card-art .edition-badge,
+:root:not(#fx) .card-modal .card-art .edition-badge,
+:root:not(#fx) .card .card-front .card-art .edition-badge,
+:root:not(#fx) .collection-card .card-art .serial-one-badge,
+:root:not(#fx) .craft-card .card-art .serial-one-badge,
+:root:not(#fx) .card-modal .card-art .serial-one-badge,
+:root:not(#fx) .card .card-front .card-art .serial-one-badge {
+  height: 15px; padding: 0 5px !important; font-size: 0.5rem !important;
+}
+:root:not(#fx) .collection-card .card-art:has(.finish-indicator) .edition-badge,
+:root:not(#fx) .craft-card .card-art:has(.finish-indicator) .edition-badge,
+:root:not(#fx) .card-modal .card-art:has(.finish-indicator) .edition-badge,
+:root:not(#fx) .card .card-front .card-art:has(.finish-indicator) .edition-badge {
+  bottom: 24px !important;
+}
+:root:not(#fx) .collection-card .card-art:has(.quality-indicator) .tile-marks,
+:root:not(#fx) .craft-card .card-art:has(.quality-indicator) .tile-marks,
+:root:not(#fx) .card-modal .card-art:has(.quality-indicator) .tile-marks,
+:root:not(#fx) .card .card-front .card-art:has(.quality-indicator) .tile-marks {
+  bottom: 24px;
+}
+}
+@container (max-width: 120px) {
+:root:not(#fx) .collection-card .card-art .quality-indicator,
+:root:not(#fx) .craft-card .card-art .quality-indicator,
+:root:not(#fx) .card-modal .card-art .quality-indicator,
+:root:not(#fx) .card .card-front .card-art .quality-indicator {
+  display: none !important;
+}
+:root:not(#fx) .collection-card .card-art .edition-badge .eb-label,
+:root:not(#fx) .craft-card .card-art .edition-badge .eb-label,
+:root:not(#fx) .card-modal .card-art .edition-badge .eb-label,
+:root:not(#fx) .card .card-front .card-art .edition-badge .eb-label {
+  display: none;
+}
+:root:not(#fx) .collection-card .card-art .tile-marks,
+:root:not(#fx) .craft-card .card-art .tile-marks,
+:root:not(#fx) .card-modal .card-art .tile-marks,
+:root:not(#fx) .card .card-front .card-art .tile-marks {
+  bottom: 6px !important;
+}
+}
+@keyframes fxHolo { from { background-position: 0% 0%, 100% 0%, 0% 100%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } to { background-position: 100% 100%, 0% 100%, 100% 0%, 0 0, 20px 44px, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } }
+@keyframes fxGhost { 0% { background-position: 0 0%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } 50% { background-position: 0 100%, 0 -45px, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } 100% { background-position: 0 0%, 0 -90px, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } }
+@keyframes fxGhostPhase { 0%, 100% { opacity: 0.84; translate: 0 0; } 40% { opacity: 0.6; } 48% { opacity: 0.42; translate: 2px 0; } 50% { opacity: 0.7; translate: -2px 0; } 52% { opacity: 0.5; translate: 1px 0; } 54% { opacity: 0.66; translate: 0 0; } 75% { opacity: 0.78; } }
+@keyframes fxGold { from { background-position: 0% 0%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } to { background-position: 100% 100%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } }
+@keyframes fxDrift { from { background-position: 0% 0%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } to { background-position: 100% 60%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } }
+@keyframes fxShine { from { background-position: 0% 0%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } to { background-position: 100% 100%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } }
+@keyframes fxRainbow { from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } to { background-position: 240px 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; } }
+@keyframes fxMintSheen { 0%, 65% { background-position: -160% 0, 0 0, 0 0; } 100% { background-position: 160% 0, 0 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+:root:not(#fx) .collection-card .card-art::after,
+:root:not(#fx) .craft-card .card-art::after,
+:root:not(#fx) .card-modal .card-art::after,
+:root:not(#fx) .card .card-front .card-art::after,
+:root:not(#fx) .collection-card .card-art::before,
+:root:not(#fx) .craft-card .card-art::before,
+:root:not(#fx) .card-modal .card-art::before,
+:root:not(#fx) .card .card-front .card-art::before,
+:root:not(#fx) .collection-card .card-art img,
+:root:not(#fx) .craft-card .card-art img,
+:root:not(#fx) .card-modal .card-art img,
+:root:not(#fx) .card .card-front .card-art img {
+  animation: none !important;
+}
+}
+/* Reflet d'ambiance de rarete : reserve aux legendaires / mythiques / uniques sans finition speciale. */
+:root:not(#fx) .collection-card:not(.locked)::after {
+  opacity: 0;
+}
+:root:not(#fx) .collection-card:not(.locked)[data-finish="normal"]:is([data-rarity="legendaire"], [data-rarity="mythique"], [data-rarity="unique"])::after {
+  opacity: 0.32;
+}

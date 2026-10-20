@@ -81,7 +81,7 @@
     list.innerHTML = `
       <div class="cal-filters" role="group" aria-label="Filtrer le calendrier">${Object.entries(KINDS).map(([k, v]) => `<button type="button" class="cal-filter ${filter === k ? "active" : ""}" data-cal-filter="${k}" aria-pressed="${filter === k}">${v}</button>`).join("")}</div>
       ${shown.length ? [...months].map(([m, list2]) => `
-        <section class="cal-month"><h3>${esc(m.charAt(0).toUpperCase() + m.slice(1))}</h3>
+        <section class="cal-month"><h2>${esc(m.charAt(0).toUpperCase() + m.slice(1))}</h2>
           <ul>${list2.map((it, i) => `
             <li class="cal-item kind-${it.kind} ${it.cls || ""} ${it.start <= nowS() && !it.point ? "live" : ""}">
               <span class="cal-icon" aria-hidden="true">${it.icon}</span>

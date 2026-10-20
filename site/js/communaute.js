@@ -235,7 +235,7 @@ function chestCardTile(card) {
   const color = card.rarity?.colorHex || "#9aa0b4";
   return `
     <article class="chest-tile" data-rarity="${card.rarity?.key || "commune"}" style="--r:${color}">
-      <img class="chest-tile-art" src="${imgSrc}" alt="" loading="lazy" />
+      <img class="chest-tile-art" src="${imgSrc}" alt="" loading="lazy" decoding="async" />
       <div class="chest-tile-body">
         <header><strong>${card.name}</strong><span class="chest-tile-rarity">${card.rarity?.name || ""}</span></header>
         <ul class="chest-tile-variants">${variants.map((v) => `
@@ -388,7 +388,7 @@ function renderBossGrid() {
     return `
       <div class="craft-card boss-variant ${qty ? "selected" : ""}" data-card-id="${v.card.cardId}" data-rarity="${v.card.rarity?.key || "commune"}" data-finish="${v.finish}" data-quality="${v.quality}">
         <div class="card-art">
-          <img src="${API.imageUrl(v.card.imageId) || PLACEHOLDER_IMG}" alt="${v.card.name}" loading="lazy" />
+          <img src="${API.imageUrl(v.card.imageId) || PLACEHOLDER_IMG}" alt="${v.card.name}" loading="lazy" decoding="async" />
           ${v.finish !== "normal" ? `<span class="finish-indicator" data-finish="${v.finish}">${BOSS_FINISH_LABELS[v.finish]}</span>` : ""}
           <span class="quality-indicator" data-quality="${v.quality}">${BOSS_QUALITY_LABELS[v.quality]}</span>
         </div>
@@ -639,7 +639,7 @@ function renderChestKeyPool(res) {
     return `
       <div class="craft-card" data-rarity="${p.rarity?.key || "commune"}" data-finish="${p.finish}" data-quality="${p.quality}">
         <div class="card-art">
-          <img src="${imgSrc}" alt="${p.name}" loading="lazy" />
+          <img src="${imgSrc}" alt="${p.name}" loading="lazy" decoding="async" />
           ${p.finish !== "normal" ? `<span class="finish-indicator" data-finish="${p.finish}">${CHEST_FINISH_LABELS[p.finish]}</span>` : ""}
           <span class="quality-indicator" data-quality="${p.quality}">${CHEST_QUALITY_LABELS[p.quality]}</span>
           ${p.serialNumber === 1 ? `<span class="serial-one-badge">#001</span>` : ""}
@@ -709,7 +709,7 @@ async function loadMarket() {
       const imgSrc = API.imageUrl(o.card.imageId) || PLACEHOLDER_IMG;
       return `
         <div class="craft-card" data-rarity="${o.card.rarity?.key || "commune"}">
-          <img src="${imgSrc}" alt="${o.card.name}" loading="lazy" />
+          <img src="${imgSrc}" alt="${o.card.name}" loading="lazy" decoding="async" />
           <div class="card-info">
             ${o.label ? `<div class="market-label">&#128150; ${o.label}</div>` : ""}
             <div class="card-name">${o.card.name}</div>

@@ -123,7 +123,7 @@ function pvRender(data) {
         return `<div class="pv-slot filled" data-finish="${f}">
           <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="${f}" data-quality="mint"${tab ? ` data-edition="${tab.key}"` : ""}>
             <div class="card-art">
-              <img src="${img}" alt="${r.name}" loading="lazy" />
+              <img src="${img}" alt="${r.name}" loading="lazy" decoding="async" />
               ${f !== "normal" ? `<span class="finish-indicator" data-finish="${f}">${PV_FINISH_LABELS[f]}</span>` : ""}
               <span class="quality-indicator" data-quality="mint">Parfait état</span>
               ${tab ? editionBadge(tab.key) : ""}
@@ -148,7 +148,7 @@ function pvRender(data) {
       : "";
     return heading + `<div class="pv-row ${r.complete ? "complete" : ""} ${ready.length ? "can-store" : ""}" data-card-id="${r.cardId}" style="--r:${color}">
       <div class="pv-row-head">
-        ${img ? `<img class="pv-row-thumb" src="${img}" alt="" loading="lazy" />` : ""}
+        ${img ? `<img class="pv-row-thumb" src="${img}" alt="" loading="lazy" decoding="async" />` : ""}
         <span class="pv-row-name">${r.name}</span>
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${r.rarity?.name || ""}</span>
         <span class="pv-row-progress">${r.filled}/6 ${r.claimed ? "&#10004; récompense reçue" : ""}</span>
@@ -256,7 +256,7 @@ function pvRenderCounter(st, fresh) {
     return `<div class="pv-counter-card ${c.owned ? "owned" : "missing"}">
       <div class="pv-dome">
         <div class="collection-card" data-rarity="unique">
-          <div class="card-art"><img src="${img}" alt="${c.owned ? c.name : "Carte Unique à obtenir : " + c.name}" loading="lazy" /></div>
+          <div class="card-art"><img src="${img}" alt="${c.owned ? c.name : "Carte Unique à obtenir : " + c.name}" loading="lazy" decoding="async" /></div>
           <div class="card-info"><div class="card-name">${c.name}</div></div>
         </div>
         <span class="pv-dome-glass" aria-hidden="true"></span>

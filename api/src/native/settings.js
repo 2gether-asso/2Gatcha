@@ -347,7 +347,8 @@ export const REGISTRY = {
 
   // --- Dinos de compagnie (dino.js, 2026-10-15)
   DinoSkullChance: { ...num('Dinos : chance de crâne par tuile creusée', 0.001, 'Dinos', 'Crâne de dinosaure trouvé en creusant (0,001 = 1 tuile sur 1 000).', 0, 0.1), storage: 'app' },
-  DinoHatchBones: { ...int('Dinos : os pour ramener un dino à la vie', 10, 'Dinos', 'En plus d’un crâne. 5 dinos au maximum par joueur.', 0, 500), storage: 'app' },
+  DinoHatchBones: { ...int('Dinos : os pour ramener un dino à la vie', 10, 'Dinos', 'En plus d’un crâne. Nombre de places : DinoMax.', 0, 500), storage: 'app' },
+  DinoMax: { ...int('Dinos : places dans l’enclos', 10, 'Dinos', 'Dinos par joueur, tas d’os compris (5 jusqu’au 20 octobre 2026). Un joueur peut relâcher un dino dans la nature pour libérer une place.', 1, 20), storage: 'app' },
   DinoFoodChance: { ...pct('Dinos : chance de nourriture par lancer de pêche', 0.5, 'Dinos', 'Poisson, algues ou crevette en plus de la prise, seulement pour les joueurs qui ont un dino ou un crâne.'), storage: 'app' },
   DinoDigHours: { ...int('Dinos : heures entre deux trouvailles de la fouille automatique', 6, 'Dinos', 'Dinos adultes et contents seulement (Tricératops 2 fois plus vite). 4 trouvailles en attente au plus.', 1, 48), storage: 'app' },
   DinoAutoSkullChance: { ...num('Dinos : chance de crâne par trouvaille automatique', 0.003, 'Dinos', '', 0, 0.1), storage: 'app' },

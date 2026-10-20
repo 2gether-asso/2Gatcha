@@ -162,7 +162,7 @@
       $("live-feed-panel").hidden = false;
       const html = res.items.map((it) => `<li class="live-item ${lastFeedId ? "fresh" : ""}">
         <span class="live-icon" aria-hidden="true">${it.icon}</span>
-        ${it.card && it.card.imageId ? `<img src="${API.imageUrl(it.card.imageId)}" alt="" loading="lazy" />` : ""}
+        ${it.card && it.card.imageId ? `<img src="${API.imageUrl(it.card.imageId)}" alt="" loading="lazy" decoding="async" />` : ""}
         <span class="live-text">${it.pseudo ? `<a href="profile.html?pseudo=${encodeURIComponent(it.pseudo)}" class="player-link">${esc(it.pseudo)}</a> ` : ""}${esc(it.text)}</span>
         <time datetime="${new Date(it.at * 1000).toISOString()}">${ago(it.at)}</time></li>`).join("");
       list.insertAdjacentHTML("afterbegin", html);

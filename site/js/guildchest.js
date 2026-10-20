@@ -16,7 +16,7 @@
 
   const serial = fmtSerial; // core.js
   const tags = (c) => [FIN[c.finish], QUA[c.quality]].filter(Boolean).map((t) => `<span class="gc-tag">${esc(t)}</span>`).join("");
-  const img = (c) => `<img src="${API.imageUrl(c.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />`;
+  const img = (c) => `<img src="${API.imageUrl(c.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" />`;
 
   function render() {
     const box = document.getElementById("guildchest");

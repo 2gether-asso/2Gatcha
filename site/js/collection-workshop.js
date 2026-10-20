@@ -48,7 +48,7 @@
       <div class="craft-card ${dBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""}" data-card-id="${card.cardId}" data-variant-key="${key}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}">
         ${checkable ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-id="${key}" ${checked ? "checked" : ""} aria-label="Sélectionner ${escapeHtml(card.name)}" /></label>` : ""}
         <div class="card-art">
-          <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(card.name)}" loading="lazy" />
+          <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" />
           ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
           <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
           ${hasFirst ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
@@ -283,7 +283,7 @@
       <div class="craft-card ${canAfford ? "" : "unavailable"} ${cBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${Coll.isDiscovered(card.cardId) ? "" : "coll-missing"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
         ${cBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-craft-bulk-id="${card.cardId}" ${checked ? "checked" : ""} ${canAfford ? "" : "disabled"} aria-label="Sélectionner ${escapeHtml(card.name)}" /></label>` : ""}
         ${wished ? `<span class="coll-wish-flag" title="Dans ta wishlist">&#9733;</span>` : ""}
-        <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(card.name)}" loading="lazy" />
+        <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" />
         <div class="card-info">
           <div class="card-name">${escapeHtml(card.name)}</div>
           <div class="owned-count">${owned ? `Possédée x${owned.count}` : state.protectedMap.has(card.cardId) ? "&#128274; Au coffre-fort" : "<strong>Manquante</strong>"}</div>
@@ -468,7 +468,7 @@
       const reason = !sameRarity ? "Autre rareté que les cartes déjà posées" : !keepsOne ? "Tu dois garder au moins 1 exemplaire de cette carte" : full ? "L'autel est plein" : "Poser sur l'autel";
       return `
         <button type="button" class="altar-copy ${disabled ? "disabled" : ""}" data-pull="${c.pullId}" ${disabled ? "disabled" : ""} title="${reason}" data-rarity="${c.card.rarity.key}">
-          <img src="${API.imageUrl(c.card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />
+          <img src="${API.imageUrl(c.card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" />
           <span class="altar-copy-name">${escapeHtml(c.card.name)}</span>
           <span class="altar-copy-meta">${Coll.serial(c.serialNumber)} · ${altarCopyLabel(c)}</span>
           ${Coll.isPrecious(c) ? '<span class="altar-copy-precious">précieux</span>' : ""}
@@ -653,7 +653,7 @@
     }
     el.innerHTML = list.map((u) => `
       <div class="finish-upgrade-row" data-card-id="${u.card.cardId}">
-        <img src="${API.imageUrl(u.card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(u.card.name)}" loading="lazy" />
+        <img src="${API.imageUrl(u.card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(u.card.name)}" loading="lazy" decoding="async" />
         <div class="finish-upgrade-info">
           <div class="finish-upgrade-name">${escapeHtml(u.card.name)}</div>
           <div class="finish-upgrade-path">

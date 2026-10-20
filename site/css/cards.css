@@ -1,0 +1,753 @@
+/* cards.css - Cartes et ouverture : booster, reveal, typographie des raretes, collection, pochettes, groupes d'extension, squelettes.
+   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
+   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
+   specificite egale. */
+/* ========================================================================
+   Ouverture de booster
+   ======================================================================== */
+
+/* Compteur "credits de borne d'arcade" (page boosters) : le nombre lui-meme
+   ressort fort, le mot "disponible(s)" reste discret a cote. */
+.credit-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  color: var(--text-dim);
+}
+.credit-value {
+  font-size: 1.8rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Le booster lui-meme */
+.booster-stage {
+  position: relative;
+  width: 220px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 800px;
+}
+
+.booster-pack {
+  width: 200px;
+  height: 280px;
+  border-radius: 18px;
+  position: relative;
+  cursor: pointer;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.18), transparent 40%),
+    linear-gradient(160deg, var(--accent) 0%, var(--accent-dark) 45%, var(--accent-2) 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(255,255,255,0.15) inset,
+    0 25px 60px -18px rgba(var(--accent-rgb),  0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: var(--font-display);
+  text-align: center;
+  padding: 20px;
+  animation: boosterFloat 3.4s ease-in-out infinite;
+  transition: transform 0.25s ease, filter 0.25s ease;
+  overflow: hidden;
+  user-select: none;
+}
+
+.booster-pack::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+  transform: rotate(20deg);
+  animation: boosterSheen 3.2s ease-in-out infinite;
+}
+
+.booster-pack .booster-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.booster-pack .booster-sub {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  margin-top: 6px;
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+.booster-pack .booster-emoji {
+  font-size: 2.4rem;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35));
+}
+
+/* Jauge de charge visible autour du pack (#charge-ring, ouverture.html) :
+   jusqu'ici la charge de 750ms avant dechirure n'etait qu'un tremblement CSS
+   sans aucun repere de progression. L'anneau se remplit (stroke-dashoffset)
+   exactement sur la duree du wait() correspondant (voir startOpening,
+   opening.js), qui pose --charge-ring-color et bascule .active. */
+.charge-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* z-index necessaire : #booster-pack est un enfant flex de .booster-stage,
+     et un flex item sans z-index peint comme un element positionne
+     z-index:auto - au meme niveau que cet anneau (lui aussi position:absolute
+     sans z-index), l'ordre DOM tranche alors et le pack (place APRES
+     l'anneau en HTML) le recouvrait entierement avec son fond opaque. */
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  transform: rotate(-90deg);
+}
+.charge-ring-track { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 4; }
+.charge-ring-fill {
+  fill: none;
+  stroke: var(--charge-ring-color, var(--accent));
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 629;
+  stroke-dashoffset: 629;
+  filter: drop-shadow(0 0 6px var(--charge-ring-color, var(--accent)));
+}
+.charge-ring.active { opacity: 1; }
+.charge-ring.active .charge-ring-fill { transition: stroke-dashoffset 0.75s linear; stroke-dashoffset: 0; }
+
+/* --pack-rx/--pack-ry sont poses en JS (attachPackTilt, opening.js) et
+   restent a 0deg par defaut : le tilt s'ajoute a l'animation de flottement
+   sans la remplacer (une propriete personnalisee reste lisible en direct
+   dans des keyframes, contrairement a un transform fixe qu'une animation
+   ecraserait). */
+@keyframes boosterFloat {
+  0%, 100% { transform: translateY(0) rotate(-1deg) rotateX(var(--pack-rx, 0deg)) rotateY(var(--pack-ry, 0deg)); }
+  50% { transform: translateY(-10px) rotate(1deg) rotateX(var(--pack-rx, 0deg)) rotateY(var(--pack-ry, 0deg)); }
+}
+
+@keyframes boosterSheen {
+  0% { left: -60%; }
+  100% { left: 120%; }
+}
+
+.booster-pack.locked {
+  cursor: not-allowed;
+  filter: grayscale(0.85) brightness(0.55);
+  animation: none;
+}
+
+.booster-pack.charging {
+  animation: boosterCharge 0.5s ease-in-out infinite;
+  /* --pity-ratio (0-1) pose en JS a l'ouverture de la modale (openModalFor) :
+     plus la pity de cette extension approche du palier legendaire garanti,
+     plus le pack rougeoie fort des la charge - avant meme de savoir ce qui va
+     sortir. Ecrase par .charging-epique/-legendaire/-mythique ci-dessous des
+     que le meilleur tirage du lot est connu (definis plus loin dans ce
+     fichier, ils gagnent a specificite egale). */
+  box-shadow: 0 0 calc(20px + 55px * var(--pity-ratio, 0)) rgba(245, 165, 36, calc(0.12 + 0.5 * var(--pity-ratio, 0)));
+}
+
+@keyframes boosterCharge {
+  0%, 100% { transform: translate(0, 0) scale(1.02) rotate(0deg); }
+  20% { transform: translate(-4px, 0) scale(1.04) rotate(-2deg); }
+  40% { transform: translate(4px, 0) scale(1.04) rotate(2deg); }
+  60% { transform: translate(-3px, 0) scale(1.05) rotate(-1deg); }
+  80% { transform: translate(3px, 0) scale(1.05) rotate(1deg); }
+}
+
+/* Tremblement intensifie quand le meilleur tirage du lot est deja connu
+   (spoiler discret cote gacha, avant la dechirure du pack). */
+.booster-pack.charging-rare { box-shadow: 0 0 26px rgba(59,130,246,0.55); }
+.booster-pack.charging-epique { animation: boosterChargeEpique 0.35s ease-in-out infinite; box-shadow: 0 0 40px rgba(168,85,247,0.6); }
+.booster-pack.charging-legendaire { animation: boosterChargeLegendaire 0.22s ease-in-out infinite; box-shadow: 0 0 60px rgba(245,165,36,0.8); }
+.booster-pack.charging-mythique { animation: boosterChargeMythique 0.16s ease-in-out infinite; box-shadow: 0 0 75px rgba(239,68,68,0.9); }
+@keyframes boosterChargeEpique {
+  0%, 100% { transform: translate(0, 0) scale(1.04) rotate(0deg); }
+  25% { transform: translate(-6px, 0) scale(1.06) rotate(-3deg); }
+  50% { transform: translate(6px, 0) scale(1.07) rotate(3deg); }
+  75% { transform: translate(-5px, 0) scale(1.06) rotate(-2deg); }
+}
+@keyframes boosterChargeLegendaire {
+  0%, 100% { transform: translate(0, 0) scale(1.06) rotate(0deg); }
+  25% { transform: translate(-9px, 0) scale(1.1) rotate(-4deg); }
+  50% { transform: translate(9px, 0) scale(1.12) rotate(4deg); }
+  75% { transform: translate(-7px, 0) scale(1.1) rotate(-3deg); }
+}
+@keyframes boosterChargeMythique {
+  0%, 100% { transform: translate(0, 0) scale(1.08) rotate(0deg); }
+  25% { transform: translate(-11px, 0) scale(1.13) rotate(-5deg); }
+  50% { transform: translate(11px, 0) scale(1.15) rotate(5deg); }
+  75% { transform: translate(-9px, 0) scale(1.13) rotate(-4deg); }
+}
+
+/* Choix x1/x5 (modale d'ouverture) */
+.quantity-picker { display: flex; gap: 10px; }
+.quantity-picker button.active { outline: 2px solid var(--accent-2); }
+.quantity-picker button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.burst-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.9), transparent 60%);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 50;
+}
+.burst-flash.flash-active {
+  animation: flashPulse 0.9s ease-out forwards;
+}
+@keyframes flashPulse {
+  0% { opacity: 0; }
+  35% { opacity: 0.9; }
+  60% { opacity: 0.75; }
+  100% { opacity: 0; }
+}
+
+.booster-hint {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  min-height: 1.3em;
+}
+
+/* --- Grille de reveal --- */
+.reveal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 22px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.card {
+  position: relative;
+  perspective: 1200px;
+  width: 100%;
+  /* Illustration entiere en 3:4 (comme dans la collection) + bandeau du nom. */
+  aspect-ratio: 30 / 49;
+  opacity: 0;
+  transform: translateY(24px) scale(0.9);
+  animation: cardAppear 0.5s ease forwards;
+}
+
+@keyframes cardAppear {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card.revealed .card-inner { transform: rotateY(180deg); }
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid var(--border-soft);
+}
+
+.card-back {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.08), transparent 50%),
+    linear-gradient(160deg, var(--bg-panel-2), #0d0e24);
+  font-size: 2.2rem;
+  color: var(--accent-2);
+  font-family: var(--font-display);
+}
+/* Lueur avant meme le flip, plus marquee selon la rarete (jamais sur les
+   communes) - fait deviner l'intensite du tirage sans reveler la carte,
+   a la maniere du "shine" de pack dans TCG Pocket. */
+.card-back-shine { box-shadow: inset 0 0 0 2px var(--shine-color, transparent); }
+.card-back-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, var(--shine-color, transparent), transparent 70%);
+  mix-blend-mode: screen;
+}
+
+.card-front {
+  transform: rotateY(180deg);
+  background: var(--bg-panel-2);
+  flex-direction: column;
+  position: relative;
+}
+
+.card-front .card-art { width: 100%; aspect-ratio: 3 / 4; flex: none; }
+.card-front img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* sweep holographique sur reveal */
+.card-front::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -80%;
+  width: 55%;
+  height: 220%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.55), transparent);
+  transform: rotate(20deg);
+  opacity: 0;
+}
+.card.revealed .card-front::after {
+  animation: holoSweep 1.1s ease-out 0.55s;
+}
+@keyframes holoSweep {
+  0% { left: -80%; opacity: 0; }
+  15% { opacity: 0.9; }
+  60% { opacity: 0.5; }
+  100% { left: 130%; opacity: 0; }
+}
+
+.card-info {
+  padding: 8px 8px 10px;
+  text-align: center;
+  width: 100%;
+}
+
+.card-name { font-size: 0.86rem; font-weight: 700; font-family: var(--font-display); }
+
+/* Traitement typographique dedie aux raretes fortes : degrade rouge anime
+   pour mythique (la plus haute, au-dessus de legendaire), dorure animee pour
+   legendaire, neon pour epique - sur toute carte affichant data-rarity
+   (grille, pile de reveal, modale, profil), pas de JS supplementaire. */
+[data-rarity="mythique"] .card-name,
+[data-rarity="mythique"] .card-modal-name,
+[data-rarity="mythique"] .pull-log-name {
+  background: linear-gradient(120deg, #ef4444, #ffb4b4, #ef4444);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: legendaryNameShimmer 3s linear infinite;
+}
+[data-rarity="legendaire"] .card-name,
+[data-rarity="legendaire"] .card-modal-name,
+[data-rarity="legendaire"] .pull-log-name {
+  background: linear-gradient(120deg, #f5a524, #ffe9b8, #f5a524);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: legendaryNameShimmer 3s linear infinite;
+}
+@keyframes legendaryNameShimmer {
+  to { background-position: -200% center; }
+}
+[data-rarity="epique"] .card-name,
+[data-rarity="epique"] .card-modal-name,
+[data-rarity="epique"] .pull-log-name {
+  color: #d8b4fe;
+  text-shadow: 0 0 10px rgba(168,85,247,0.7);
+}
+.card-artist { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+
+.rarity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 9px 3px 6px;
+  border-radius: var(--radius-pill);
+  margin-top: 6px;
+}
+/* Petit "gemme" avant le texte, plutot qu'une pastille plate uniforme. */
+.rarity-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  flex-shrink: 0;
+}
+
+/* Le 2e calque (1.5px/3px, decale, opaque) simule une tranche de carte
+   physique en plus du halo de rarete. */
+.card[data-rarity="commune"] .card-face { box-shadow: 0 0 16px rgba(154,160,180,0.35), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.card[data-rarity="rare"] .card-face { box-shadow: 0 0 22px rgba(59,130,246,0.55), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.card[data-rarity="epique"] .card-face { box-shadow: 0 0 28px rgba(168,85,247,0.6), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22); }
+.card[data-rarity="legendaire"] .card-face {
+  box-shadow: 0 0 40px rgba(245,165,36,0.75), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
+  animation: legendaryPulse 1.6s ease-in-out infinite;
+}
+.card[data-rarity="mythique"] .card-face {
+  box-shadow: 0 0 50px rgba(239,68,68,0.85), 1.5px 1.5px 0 rgba(0,0,0,0.35), 3px 3px 0 -1px rgba(0,0,0,0.22);
+  animation: mythiquePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes legendaryPulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(245,165,36,0.75); }
+  50% { box-shadow: 0 0 60px rgba(245,165,36,1); }
+}
+@keyframes mythiquePulse {
+  0%, 100% { box-shadow: 0 0 50px rgba(239,68,68,0.85); }
+  50% { box-shadow: 0 0 75px rgba(239,68,68,1); }
+}
+
+/* --- Collection --- */
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: var(--bg-panel-2);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: 10px 0 4px;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.6s ease;
+}
+
+.filters { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
+.filters button.active { outline: 2px solid var(--accent-2); }
+/* Liseré degrade sobre sur le filtre "Legendaire" (un contour tournant en
+   continu attirerait l'oeil en permanence, meme sans interaction : trop
+   voyant pour un simple bouton de filtre). */
+.filters button[data-filter="legendaire"] {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box,
+    linear-gradient(135deg, var(--rarity-legendaire), #ffd166) border-box;
+}
+.filters button[data-filter="mythique"] {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--bg-panel-2), var(--bg-panel-2)) padding-box,
+    linear-gradient(135deg, var(--rarity-mythique), #ff9d9d) border-box;
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px;
+}
+
+.collection-card {
+  border-radius: 14px;
+  border: 2px solid var(--border-soft);
+  overflow: hidden;
+  background: var(--bg-panel-2);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.collection-card:not(.locked):hover {
+  transform: translateY(-6px) scale(1.03) rotateX(var(--rx, 3deg)) rotateY(var(--ry, 0deg));
+  box-shadow: 0 18px 34px -14px color-mix(in srgb, var(--accent) 50%, transparent);
+  border-color: var(--border);
+}
+
+.binder-accent-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.binder-accent-label { font-size: 0.78rem; color: var(--text-dim); }
+.binder-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-soft);
+  background: var(--swatch-color, var(--accent));
+  padding: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+.binder-swatch.active { border-color: var(--text); box-shadow: 0 0 0 2px var(--swatch-color, var(--accent)); }
+
+/* Pochettes de cartes (sleeves) : debloquees par niveau de profil. Chacune
+   pose une bordure/texture bien visible - jamais juste un halo discret,
+   c'est precisement ce qui rendait la v1 invisible (retour utilisateur). */
+.sleeve-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; flex-wrap: wrap; }
+.sleeve-swatch {
+  font-size: 0.76rem;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  box-shadow: none;
+}
+.sleeve-swatch.active { border-color: var(--accent-2); color: var(--text); }
+.sleeve-swatch.locked { opacity: 0.5; cursor: not-allowed; }
+.sleeve-swatch.locked::after { content: " \1F512"; }
+
+body[data-sleeve] .collection-card:not(.locked) { position: relative; }
+body[data-sleeve] .collection-card:not(.locked)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+body[data-sleeve="neon"] .collection-card:not(.locked) {
+  border-width: 2px;
+  border-color: var(--accent-2) !important;
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb),  0.55), 0 0 22px rgba(var(--accent-2-rgb),  0.65);
+  animation: sleeve-neon-pulse 2.4s ease-in-out infinite;
+}
+@keyframes sleeve-neon-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(var(--accent-rgb),  0.55), 0 0 14px rgba(var(--accent-2-rgb),  0.5); }
+  50% { box-shadow: 0 0 0 2px rgba(var(--accent-2-rgb),  0.7), 0 0 26px rgba(var(--accent-rgb),  0.75); }
+}
+body[data-sleeve="vintage"] .collection-card:not(.locked) {
+  border-width: 2px;
+  border-color: #c9a876 !important;
+}
+body[data-sleeve="vintage"] .collection-card:not(.locked) img { filter: sepia(0.65) contrast(1.05) brightness(0.96); }
+body[data-sleeve="vintage"] .collection-card:not(.locked)::before {
+  box-shadow: inset 0 0 26px 10px rgba(60,40,15,0.55);
+  background-image: repeating-radial-gradient(circle at 30% 20%, rgba(255,235,200,0.08) 0 2px, transparent 2px 5px);
+}
+body[data-sleeve="carbone"] .collection-card:not(.locked) {
+  border-width: 2px;
+  border-color: #444 !important;
+}
+body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 3px, transparent 3px 9px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,0.35) 0 3px, transparent 3px 9px);
+  mix-blend-mode: overlay;
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-sleeve="neon"] .collection-card:not(.locked) { animation: none; }
+}
+
+.collection-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+
+.collection-card .card-info { padding: 8px 8px; }
+
+.count-badge {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.card-quick-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.quick-craft-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+  padding: 5px 10px;
+  color: var(--accent-3);
+  border-color: var(--accent-3);
+}
+.quick-craft-btn:hover { background: rgba(var(--accent-3-rgb),  0.12); }
+.quick-actions-row { display: flex; justify-content: center; gap: 6px; margin-top: 6px; }
+.quick-actions-row .card-quick-action {
+  width: 26px;
+  height: 26px;
+  justify-content: center;
+  font-size: 0.8rem;
+  padding: 0;
+}
+.quick-actions-row .card-quick-action:hover { color: var(--text); border-color: var(--border); background: rgba(255,255,255,0.06); }
+.quick-showcase-btn.active { color: var(--accent-2); border-color: var(--accent-2); }
+
+/* ========================================================================
+   Groupes d'extension repliables (collection) : le compteur N/X vit dans le
+   titre plutot que dans une barre de progression separee.
+   ======================================================================== */
+.collection-ext-group + .collection-ext-group { margin-top: 10px; }
+.collection-extension-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 28px 0 14px;
+  cursor: pointer;
+  user-select: none;
+}
+/* Cible le premier groupe uniquement (pas juste le premier enfant de CHAQUE
+   groupe, ce qui annulait la marge de toutes les extensions par erreur -
+   voir la marge ajoutee ci-dessus entre groupes, qui compense desormais). */
+.collection-ext-group:first-child .collection-extension-heading { margin-top: 0; }
+.ext-fold-toggle {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 2px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  transform: none !important;
+}
+.collection-ext-group.collapsed .ext-fold-toggle { transform: rotate(-90deg) !important; }
+.ext-heading-name { flex: 1; }
+.ext-heading-count {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-panel-2);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+}
+.collection-ext-group.collapsed .collection-grid { display: none; }
+
+.empty-state { color: var(--text-dim); text-align: center; padding: 40px 0; }
+.empty-state::before {
+  content: "\1F5C3";
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
+/* Message de fonctionnalite verrouillee (niveau insuffisant, voir
+   renderFeatureLockedMessage dans main.js) : porte deja son propre
+   pictogramme dans le texte, pas besoin de celui d'.empty-state. */
+.empty-state.feature-locked { max-width: 480px; margin: 40px auto; line-height: 1.6; }
+.empty-state.feature-locked::before { content: none; }
+
+/* Squelette de chargement (2026-09-30) : remplace le texte statique
+   "Chargement..." par une barre animee, plus doux pour l'oeil qu'un texte
+   fige (et evite l'impression de page bloquee, voir le bug corrige sur le
+   coffre-fort). S'applique directement sur l'element qui contient deja le
+   texte "Chargement..." - le rend transparent et anime son propre fond ; le
+   JS appelant retire cette classe des que le vrai contenu est pose. */
+.skeleton-line {
+  display: inline-block;
+  min-width: 90px;
+  max-width: 100%;
+  height: 0.85em;
+  border-radius: 4px;
+  color: transparent !important;
+  background: linear-gradient(90deg, var(--bg-panel-2) 25%, var(--bg-panel-solid) 50%, var(--bg-panel-2) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line { animation: none; opacity: 0.6; }
+}
+
+.error-box {
+  background: #3b1220;
+  border: 1px solid #7f1d3a;
+  color: #fda4af;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-top: 16px;
+}
+
+/* --- Avatar Discord dans le header --- */
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  object-fit: cover;
+}
+
+/* --- Formulaire de code (redeem.html) --- */
+/* Le code d'evenement a l'allure d'un ticket/coupon a gratter, pas d'un
+   simple champ de formulaire perdu dans la page. */
+.redeem-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),  0.16), rgba(var(--accent-2-rgb),  0.1));
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 22px 24px;
+  margin: 20px 0;
+}
+.redeem-icon { font-size: 2.6rem; flex-shrink: 0; line-height: 1; }
+.redeem-card .code-form { flex: 1; margin: 0; }
+
+/* Serrure cachee (easter egg cartes secretes) : 5 clics sur le cadeau le
+   decalent sur le cote et revelent une serrure, consommee via une clef
+   trouvee en fouillant (voir jeux.js/dig.json et unlock-secret.json) -
+   remplace l'ancien Konami code. */
+.redeem-icon-zone { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+.redeem-icon-zone .redeem-icon { transition: transform 0.4s ease; cursor: default; user-select: none; }
+.redeem-icon-zone .redeem-icon.gift-shifted { transform: translateX(34px); }
+.redeem-lock-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  position: absolute;
+  left: 0;
+  opacity: 0;
+  transform: scale(0.4) rotate(-15deg);
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  filter: drop-shadow(0 0 8px rgba(var(--accent-rgb),  0.6));
+}
+.redeem-lock-icon.lock-revealed {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  pointer-events: auto;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .redeem-icon-zone .redeem-icon, .redeem-lock-icon { transition: none; }
+}
+
+.code-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.code-form input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.reward-banner {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),  0.22), rgba(var(--accent-2-rgb),  0.16));
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin: 16px 0;
+}

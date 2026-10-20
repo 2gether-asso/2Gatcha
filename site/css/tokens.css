@@ -1,0 +1,81 @@
+/* tokens.css - Jetons de design : couleurs, raretes, polices, rayons, espacements, puis les themes de couleur debloques par niveau.
+   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
+   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
+   specificite egale. */
+:root {
+  /* Accents en composantes RGB et nuances (re-skin par difficulte, 2026-10-16). */
+  --accent-rgb: 139, 92, 246; --accent-2-rgb: 34, 211, 238; --accent-3-rgb: 244, 114, 182; --accent-strong-rgb: 124, 58, 237;
+  --accent-light: #a78bfa; --accent-pale: #c4b5fd; --accent-strong: #7c3aed;
+  /* Couleurs "nebuleuse" d'origine (identite 2GETHER) restaurees a la
+     demande de l'asso ; la refonte "Salle d'arcade" garde sa typo (Bungee),
+     ses boutons "bouton-poussoir" et sa mise en page, mais reprend la
+     palette violet/cyan/rose d'avant plutot que le rouge/jaune/bleu. */
+  --bg-void: #06070f;
+  --bg-deep: #0b0d20;
+  --bg-panel: rgba(23, 25, 51, 0.6);
+  --bg-panel-solid: #14162e;
+  --bg-panel-2: #1c1f42;
+  --text: #f5f5fc;
+  --text-dim: #9a9cc4;
+  --border: rgba(139, 92, 246, 0.22);
+  --border-soft: rgba(255, 255, 255, 0.08);
+
+  --accent: #8b5cf6;
+  --accent-2: #22d3ee;
+  --accent-3: #f472b6;
+  --accent-dark: #6d28d9;
+
+  --rarity-commune: #9aa0b4;
+  --rarity-rare: #60a5fa;
+  --rarity-epique: #a855f7;
+  --rarity-legendaire: #f5a524;
+  --rarity-mythique: #ef4444;
+  --rarity-unique: #22c55e;
+
+  --success: #4ade80;
+  --danger: #fb7185;
+
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+
+  --nav-bottom-h: 64px;
+
+  /* Design V2 (2026-10-07) : police de marque, rayons et espacements.
+     Les skins de difficulte redefinissent --font-brand et --radius-*. */
+  --font-brand: "Bungee", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Inter", "Segoe UI", system-ui, sans-serif;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --space-1: 6px; --space-2: 10px; --space-3: 16px; --space-4: 24px; --space-5: 36px;
+  --radius-pill: 999px;
+}
+
+/* ========================================================================
+   Themes de couleur (debloques par niveau, voir main.js cycleTheme()).
+   Chaque theme redefinit les memes variables que :root - tout le reste de
+   la feuille de style les utilise deja via var(...), rien d'autre a toucher.
+   ======================================================================== */
+:root[data-theme="monochrome"] {
+  --bg-void: #060606; --bg-deep: #0d0d0d;
+  --bg-panel: rgba(30,30,30,0.6); --bg-panel-solid: #161616; --bg-panel-2: #202020;
+  --text: #f2f2f2; --text-dim: #9a9a9a;
+  --border: rgba(255,255,255,0.2); --border-soft: rgba(255,255,255,0.08);
+  --accent: #d4d4d4; --accent-2: #a3a3a3; --accent-3: #e5e5e5;
+  --rarity-commune: #8a8a8a; --rarity-rare: #b0b0b0; --rarity-epique: #d9d9d9; --rarity-legendaire: #ffffff; --rarity-mythique: #ef4444; --rarity-unique: #e5e5e5;
+}
+:root[data-theme="sepia"] {
+  --bg-void: #1c140d; --bg-deep: #241a11;
+  --bg-panel: rgba(70,50,30,0.5); --bg-panel-solid: #2c2015; --bg-panel-2: #3a2a1a;
+  --text: #f3e6d0; --text-dim: #c1a887;
+  --border: rgba(212,163,89,0.32); --border-soft: rgba(255,235,200,0.1);
+  --accent: #d4a359; --accent-2: #b5762f; --accent-3: #e8c078;
+  --rarity-commune: #a89078; --rarity-rare: #8ba888; --rarity-epique: #b58ac0; --rarity-legendaire: #d4a359; --rarity-mythique: #c1440e; --rarity-unique: #7fa650;
+}
+:root[data-theme="cyberpunk"] {
+  --bg-void: #04010a; --bg-deep: #0a0316;
+  --bg-panel: rgba(20,6,40,0.6); --bg-panel-solid: #12051f; --bg-panel-2: #1a0a2e;
+  --text: #f0f0ff; --text-dim: #b088e8;
+  --border: rgba(255,0,200,0.32); --border-soft: rgba(0,255,213,0.14);
+  --accent: #ff2ec4; --accent-2: #00ffd5; --accent-3: #ffe600;
+  --rarity-commune: #7dd3fc; --rarity-rare: #00ffd5; --rarity-epique: #ff2ec4; --rarity-legendaire: #ffe600; --rarity-mythique: #ff1f3d; --rarity-unique: #39ff88;
+}

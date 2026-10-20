@@ -38,7 +38,7 @@
       <article class="board-card board-wanted" id="board-wanted">
         <header><span class="board-icon" aria-hidden="true">&#128220;</span><div><h3>Avis de recherche</h3><small>Le serveur réclame cette carte cette semaine</small></div></header>
         <div class="wanted-body">
-          <div class="wanted-poster"><span>RECHERCHÉE</span><img src="${img(w.card)}" alt="" loading="lazy" /><strong>${esc(w.card.name)}</strong></div>
+          <div class="wanted-poster"><span>RECHERCHÉE</span><img src="${img(w.card)}" alt="" loading="lazy" decoding="async" /><strong>${esc(w.card.name)}</strong></div>
           <div class="wanted-info">
             <p>Les <strong>${w.slots} premiers</strong> à en donner un doublon gagnent <strong>${fmt(w.reward)} &#10024;</strong> (le tout premier : une ${resIcon("key")} en plus). La carte rejoint le coffre de guilde.</p>
             <ol class="wanted-slots">${Array.from({ length: w.slots }, (_, i) => `<li class="${w.donors[i] ? "taken" : ""}">${w.donors[i] ? esc(w.donors[i].pseudo) : "libre"}</li>`).join("")}</ol>

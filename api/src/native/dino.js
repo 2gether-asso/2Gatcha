@@ -1,7 +1,9 @@
 // Dinos de compagnie (2026-10-15). Chaque coup de pelle a une chance
 // extremement rare (DinoSkullChance) de deterrer un CRANE DE DINOSAURE
 // (Users.DinoSkulls). Crane + DinoHatchBones os (Users.BoneCount) = un dino
-// de compagnie, 5 au maximum (Users.Dinos, JSON). Espece, couleur et motif
+// de compagnie, DinoMax au maximum (reglage, 10 par defaut ; 5 avant le
+// 2026-10-20) (Users.Dinos, JSON). Un dino vivant peut etre relache dans la
+// nature (action release) pour liberer sa place. Espece, couleur et motif
 // tires au hasard ; 3 % de chromatiques et quelques couleurs nommees
 // ultra-rares (albinos, obsidienne, or, fossile vivant).
 // Facon tamagotchi : satiete (36 h) et bonheur (72 h) baissent avec le temps
@@ -41,7 +43,9 @@ export const schema = {
   }
 };
 
-export const MAX_DINOS = 5;
+// Places dans l'enclos (reglage DinoMax). Le titre « Eleveur » reste a 5 adultes.
+export const maxDinos = (store) => setting(store, 'DinoMax');
+const BREEDER_ADULTS = 5;
 const MAX_EGGS = 3;
 export const FOODS = {
   fish: { label: 'Poisson', icon: '🐟', food: 30, happy: 5 },
@@ -284,7 +288,7 @@ function noteFirsts(store, user, d, dinos) {
   if (d.shiny) recordFirst(store, 'shiny', user, 'Premier dino chromatique', '🌈');
   if (d.color && COLORS[d.color]) recordFirst(store, 'color:' + d.color, user, `Premier dino ${COLORS[d.color].toLowerCase()}`, '🦖');
   if (stageOf(d.xp).key === 'adulte') recordFirst(store, 'adult', user, 'Premier dino adulte', '🦕');
-  if (dinos.filter((x) => !x.deadAt && stageOf(x.xp).key === 'adulte').length >= MAX_DINOS) recordFirst(store, 'breeder', user, 'Éleveur : 5 dinos adultes', '🏅');
+  if (dinos.filter((x) => !x.deadAt && stageOf(x.xp).key === 'adulte').length >= BREEDER_ADULTS) recordFirst(store, 'breeder', user, 'Éleveur : 5 dinos adultes', '🏅');
 }
 
 // --- naissance ---------------------------------------------------------------------
@@ -334,7 +338,7 @@ function state(store, user) {
   return {
     unlocked: (Number(user.DinoSkulls) || 0) > 0 || dinos.length > 0 || eggsOf(user).length > 0 || Object.keys(dex.species).length > 0,
     dinos: dinos.map((d) => view(store, user, d, t)),
-    max: MAX_DINOS,
+    max: maxDinos(store),
     // Regles du mode (moderules.js) : balade (Chill), vacances (Cool).
     walkOn: ruleOn(store, 'chill.dinoWalk'), holiday,
     skulls: Number(user.DinoSkulls) || 0,
@@ -382,6 +386,29 @@ function reap(store, user) {
   return changed ? store.update('Users', user.id, { Dinos: JSON.stringify(list) }) : user;
 }
 
+// Butin de la fouille automatique d'un dino (actions collect et release).
+const newLoot = () => ({ dust: 0, worms: 0, bones: 0, fish: 0, skulls: 0, finds: 0 });
+function digLoot(store, user, d, v, t, loot) {
+  const n = findsOf(store, d, v, t);
+  for (let i = 0; i < n; i++) {
+    loot.finds++;
+    loot.dust += (15 + Math.floor(Math.random() * 26)) * (dinoTalent(user, 'rex') ? 2 : 1);
+    if (Math.random() < 0.25) loot.worms += 1 + Math.floor(Math.random() * 3);
+    if (d.species === 'raptor') loot.bones += 1;
+    if (d.species === 'ptero') loot.fish += 1;
+    if (Math.random() < setting(store, 'DinoAutoSkullChance')) loot.skulls++;
+  }
+  return n;
+}
+function lootFields(user, loot) {
+  const stock = foodOf(user);
+  stock.fish = (stock.fish || 0) + loot.fish;
+  return {
+    StardustCount: (Number(user.StardustCount) || 0) + loot.dust, Worms: (Number(user.Worms) || 0) + loot.worms, BoneCount: (Number(user.BoneCount) || 0) + loot.bones,
+    DinoSkulls: (Number(user.DinoSkulls) || 0) + loot.skulls, DinoFood: JSON.stringify(stock)
+  };
+}
+
 function handleDino({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
@@ -412,7 +439,7 @@ function handleDino({ store, body }) {
   }
 
   if (action === 'hatch') {
-    if (alive.length + dinos.filter((d) => d.deadAt).length >= MAX_DINOS) return fail('max_dinos');
+    if (dinos.length >= maxDinos(store)) return fail('max_dinos');
     if ((Number(user.DinoSkulls) || 0) < 1) return fail('no_skull');
     const need = setting(store, 'DinoHatchBones');
     if ((Number(user.BoneCount) || 0) < need) return fail('not_enough_bones', 400, { need });
@@ -430,7 +457,7 @@ function handleDino({ store, body }) {
     const egg = eggs.find((e) => e.id === Number(body.egg));
     if (!egg) return fail('unknown_egg', 404);
     if (egg.hatchAt > t) return fail('egg_not_ready', 400, { wait: egg.hatchAt - t });
-    if (dinos.length >= MAX_DINOS) return fail('max_dinos');
+    if (dinos.length >= maxDinos(store)) return fail('max_dinos');
     const dino = newDino(store, dinos, egg.genes || {});
     const list = [...dinos, dino];
     const dex = dexNote(store, user, [dino]);
@@ -458,30 +485,15 @@ function handleDino({ store, body }) {
 
   // Fouille automatique : butin de tous les adultes contents.
   if (action === 'collect') {
-    const loot = { dust: 0, worms: 0, bones: 0, fish: 0, skulls: 0, finds: 0 };
+    const loot = newLoot();
     const k = decorK(user);
     const list = dinos.map((d) => {
       if (d.deadAt) return d;
-      const v = live(d, t, k);
-      const n = findsOf(store, d, v, t);
-      if (!n) return d;
-      for (let i = 0; i < n; i++) {
-        loot.finds++;
-        loot.dust += (15 + Math.floor(Math.random() * 26)) * (dinoTalent(user, 'rex') ? 2 : 1);
-        if (Math.random() < 0.25) loot.worms += 1 + Math.floor(Math.random() * 3);
-        if (d.species === 'raptor') loot.bones += 1;
-        if (d.species === 'ptero') loot.fish += 1;
-        if (Math.random() < setting(store, 'DinoAutoSkullChance')) loot.skulls++;
-      }
-      return { ...d, digAt: digBase(d) + n * digPeriod(store, d) };
+      const n = digLoot(store, user, d, live(d, t, k), t, loot);
+      return n ? { ...d, digAt: digBase(d) + n * digPeriod(store, d) } : d;
     });
     if (!loot.finds) return fail('nothing_to_collect');
-    const stock = foodOf(user);
-    stock.fish = (stock.fish || 0) + loot.fish;
-    user = save(list, {
-      StardustCount: dust + loot.dust, Worms: (Number(user.Worms) || 0) + loot.worms, BoneCount: (Number(user.BoneCount) || 0) + loot.bones,
-      DinoSkulls: (Number(user.DinoSkulls) || 0) + loot.skulls, DinoFood: JSON.stringify(stock)
-    });
+    user = save(list, lootFields(user, loot));
     if (loot.skulls) addFeed(store, { userId: user.id, kind: 'dino', icon: '💀', text: 'a reçu un crâne de dinosaure déterré par ses dinos !' });
     return ok({ ...state(store, user), loot });
   }
@@ -522,6 +534,22 @@ function handleDino({ store, body }) {
     return ok({ ...state(store, user), buried: { name: d.name, bones } });
   }
   if (d.deadAt) return fail('dino_dead');
+
+  // Relacher dans la nature (2026-10-20) : le dino part pour de bon et libere
+  // sa place. Ce qu'il avait deja trouve (fouille automatique) et ses cacas
+  // murs sont ramasses au passage ; il reste dans le Dinodex.
+  if (action === 'release') {
+    if (d.walkUntil) return fail('already_walking');
+    const loot = newLoot();
+    digLoot(store, user, d, live(dinos[idx], t, decorK(user)), t, loot);
+    const poop = (d.poops || []).filter((p) => p <= t).length, gold = (d.goldPoops || []).filter((p) => p <= t).length;
+    const extra = { ...lootFields(user, loot), DinoPoop: (Number(user.DinoPoop) || 0) + poop, DinoGoldPoop: (Number(user.DinoGoldPoop) || 0) + gold };
+    if (Number(user.DinoStar) === d.id) extra.DinoStar = 0;
+    if (Number(user.DinoCompanion) === d.id) extra.DinoCompanion = 0;
+    user = save(dinos.filter((x) => x.id !== d.id), extra);
+    addFeed(store, { userId: user.id, kind: 'dino', icon: '🌿', text: `a relâché ${d.name} dans la nature.` });
+    return ok({ ...state(store, user), released: { name: d.name, loot, poop, goldPoop: gold } });
+  }
 
   if (action === 'rename') {
     const name = String(body.name || '').trim().slice(0, 20);

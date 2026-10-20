@@ -1,0 +1,723 @@
+/* widgets.css - Widgets : menus deroulants stylises, fil d'activite, quetes, roue, fouille, bingo, succes, badges, boutons d'arcade.
+   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
+   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
+   specificite egale. */
+/* ========================================================================
+   Menu deroulant stylise (enhanceSelect(), main.js) : remplace le <select>
+   natif du navigateur par une interface a la charte du site, en gardant le
+   <select> d'origine comme source de verite (valeur, evenement "change").
+   ======================================================================== */
+.fancy-select { position: relative; display: inline-block; }
+.fancy-select-native {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.fancy-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.fancy-select-trigger:hover { border-color: var(--border); }
+.fancy-select.open .fancy-select-trigger,
+.fancy-select-trigger:focus-visible {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(var(--accent-2-rgb),  0.25);
+  outline: none;
+}
+.fancy-select-label { flex: 1; text-align: left; white-space: nowrap; }
+.fancy-select-arrow {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+.fancy-select.open .fancy-select-arrow { transform: rotate(180deg); }
+.fancy-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  z-index: 20;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 16px 32px -12px rgba(0,0,0,0.6);
+  animation: fancySelectOpen 0.15s ease both;
+}
+@keyframes fancySelectOpen {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Barre de recherche : hors de la zone qui defile (.fancy-select-options),
+   reste toujours visible en haut du menu. */
+.fancy-select-search {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel-2);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+.fancy-select-search:focus { outline: 2px solid var(--accent-2); outline-offset: -1px; }
+.fancy-select-options {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.fancy-select-option {
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fancy-select-option:hover,
+.fancy-select-option.highlighted { background: rgba(255,255,255,0.06); color: var(--text); }
+.fancy-select-option[aria-selected="true"] { color: var(--accent-2); font-weight: 600; }
+.fancy-select-empty { padding: 9px 12px; font-size: 0.85rem; color: var(--text-dim); font-style: italic; }
+
+/* ========================================================================
+   Fil d'activite (accueil)
+   ======================================================================== */
+.activity-feed { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.88rem;
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.activity-text { flex: 1; color: var(--text-dim); }
+.activity-text strong { color: var(--text); }
+.activity-time { color: var(--text-dim); font-size: 0.76rem; flex-shrink: 0; }
+.activity-ext { color: var(--text-dim); font-weight: 500; }
+.community-counter {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ========================================================================
+   Quetes du jour (accueil)
+   ======================================================================== */
+.quests-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.quest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+.quest-row.done { color: var(--text); border-color: rgba(74,222,128,0.35); }
+.quest-icon { font-size: 1.1rem; display: inline-flex; }
+/* Coche qui se dessine (embellissement 2026-09-30) au lieu du remplacement
+   instantane par un emoji - voir index.html QUEST_CHECK_SVG. */
+.quest-check-svg path {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: questCheckDraw 0.4s ease forwards;
+}
+@keyframes questCheckDraw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .quest-check-svg path { animation: none; stroke-dashoffset: 0; }
+}
+/* Quetes hebdomadaires : compteur 0-5 (pas juste fait/pas fait), une mini
+   barre de progression pleine largeur en dessous via flex-basis:100%. */
+.quest-row.weekly { flex-wrap: wrap; }
+.quest-row.weekly .quest-label { flex: 1; min-width: 110px; }
+.quest-count { font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--text-dim); flex-shrink: 0; }
+.quest-row.weekly.done .quest-count { color: var(--success); font-weight: 700; }
+.quest-mini-track {
+  flex-basis: 100%;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.quest-mini-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.4s ease;
+}
+.quest-reward {
+  margin-top: 4px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),  0.18), rgba(var(--accent-2-rgb),  0.12));
+  border: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  text-align: center;
+}
+.quest-reward.claimed { background: linear-gradient(135deg, rgba(74,222,128,0.2), rgba(var(--accent-2-rgb),  0.12)); border-color: rgba(74,222,128,0.4); }
+.quest-claim-btn { font-size: 0.78rem; padding: 8px 14px; flex-shrink: 0; }
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, rgba(251,146,60,0.22), rgba(239,68,68,0.16));
+  border: 1px solid rgba(251,146,60,0.4);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #fdba74;
+  white-space: nowrap;
+}
+/* Passage de niveau (embellissement 2026-09-30) : bandeau plein ecran cree
+   dynamiquement par main.js showLevelUpBanner() - remplace le simple Toast
+   d'avant, visible depuis n'importe quelle page (pas seulement redeem.html/
+   ouverture.html qui ont leurs propres flashs dedies). */
+.level-up-banner {
+  position: fixed;
+  top: 16%;
+  left: 50%;
+  transform: translate(-50%, -20px) scale(0.6);
+  z-index: 450;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 16px 44px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.7), 0 0 60px color-mix(in srgb, var(--accent) 50%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.level-up-banner.active { animation: levelUpBannerPop 2.6s cubic-bezier(.2,.9,.3,1) forwards; }
+.level-up-banner-label {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(0,0,0,0.6);
+  font-weight: 700;
+}
+.level-up-banner-number {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: var(--bg-void);
+  line-height: 1;
+}
+@keyframes levelUpBannerPop {
+  0% { opacity: 0; transform: translate(-50%, -20px) scale(0.6); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  25% { transform: translate(-50%, 0) scale(1); }
+  85% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(0.95); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .level-up-banner.active { animation: levelUpBannerFade 2.6s ease forwards; }
+}
+@keyframes levelUpBannerFade {
+  0% { opacity: 0; }
+  15%, 85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (max-width: 480px) {
+  .level-up-banner { padding: 12px 28px; }
+  .level-up-banner-number { font-size: 2.1rem; }
+}
+
+p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
+
+/* Roue de la fortune quotidienne (accueil). */
+.wheel-widget { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+.wheel-icon { font-size: 2.4rem; line-height: 1; }
+/* Coffre de guilde (embellissement 2026-09-30) : l'icone "a l'air" pleine ou
+   vide selon poolSize (voir communaute.js loadChest) au lieu d'un simple
+   cadeau fixe - un signal visuel immediat avant meme de lire le texte. */
+.chest-icon { transition: filter 0.3s ease, transform 0.3s ease; }
+.chest-icon.chest-empty { filter: grayscale(0.7) opacity(0.55); }
+.chest-icon.chest-full { animation: chestFullPulse 1.6s ease-in-out infinite; filter: drop-shadow(0 0 10px rgba(212,175,55,0.7)); }
+@keyframes chestFullPulse {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.12) rotate(-4deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chest-icon.chest-full { animation: none; }
+}
+.wheel-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+#wheel-status-text { color: var(--text-dim); font-size: 0.9rem; }
+.chest-status-hint { color: var(--text-dim); font-size: 0.82rem; font-style: italic; }
+.chest-status-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chest-status-actions .btn-secondary { font-size: 0.82rem; padding: 8px 12px; }
+.wheel-prizes-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.wheel-prize-chip {
+  font-size: 0.72rem;
+  font-family: var(--font-display);
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+.wheel-prize-chip.wheel-prize-rare { border-color: var(--accent-2); color: var(--accent-2); }
+
+/* Mini-jeu de fouille : meme squelette que .wheel-widget. */
+.dig-widget { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+/* Petit balancement au repos (embellissement, 2026-09-30) : une pioche
+   parfaitement figee a cote d'une jauge qui vit (pips qui se remplissent)
+   detonnait, comme un element mort au milieu d'une page par ailleurs animee
+   (pack qui flotte, roue qui tourne, etc.). */
+.dig-icon { font-size: 2.4rem; line-height: 1; display: inline-block; animation: digIconIdle 2.6s ease-in-out infinite; }
+@keyframes digIconIdle {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+@media (prefers-reduced-motion: reduce) { .dig-icon { animation: none; } }
+.dig-status { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+#dig-status-text { color: var(--text-dim); font-size: 0.9rem; }
+.dig-energy-bar { display: flex; gap: 6px; }
+.dig-pip { width: 22px; height: 14px; border-radius: 4px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.dig-pip.filled { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: var(--accent-2); }
+.dig-result { margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); font-weight: 700; font-family: var(--font-display); text-align: center; }
+
+/* Site de fouille (2026-09-30) : cadre chaleureux (tons terre) autour du
+   plateau plutot que des tuiles flottant directement sur le fond violet de
+   la page - donne un vrai lieu ("un chantier de fouille") au lieu d'une
+   grille abstraite. */
+.dig-site {
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(245,165,36,0.08), transparent 60%),
+    linear-gradient(180deg, #241a12, #1a130d);
+  border: 1px solid rgba(245, 165, 36, 0.18);
+  box-shadow: inset 0 2px 18px rgba(0,0,0,0.4);
+}
+
+/* Plateau de fouille : grille de tuiles a creuser (voir jeux.js/dig.json).
+   Terre non creusee -> vide (rien) -> fissure (tresor partiel, discret,
+   jamais localise) -> icone (tresor libere), chacun un etat visuel distinct
+   pour rester lisible d'un coup d'oeil pendant la partie. */
+.dig-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.dig-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.3);
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 6px, transparent 6px 14px),
+    linear-gradient(160deg, #4a3728, #2c2013);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  overflow: hidden;
+}
+/* Petits cailloux/mottes eparpilles, une disposition differente par variante
+   (voir data-variant, jeux.js) - sans ca les 16 tuiles etaient un copier-
+   coller visuel exact du meme motif, effet "papier peint" plat. */
+.dig-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle, rgba(0,0,0,0.35) 0 3px, transparent 3px),
+    radial-gradient(circle, rgba(255,255,255,0.08) 0 2px, transparent 2px);
+  pointer-events: none;
+}
+.dig-tile[data-variant="1"]::before { background-position: 15% 25%, 70% 65%; background-size: 30% 30%, 24% 24%; }
+.dig-tile[data-variant="2"]::before { background-position: 75% 20%, 25% 70%; background-size: 26% 26%, 32% 32%; }
+.dig-tile[data-variant="3"]::before { background-position: 40% 75%, 80% 30%; background-size: 34% 34%, 22% 22%; }
+.dig-tile[data-variant="4"]::before { background-position: 20% 55%, 65% 15%; background-size: 24% 24%, 30% 30%; }
+.dig-tile:hover:not([disabled]) {
+  transform: translateY(-3px) scale(1.03);
+  border-color: var(--accent-2);
+  box-shadow: 0 10px 20px -12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.dig-tile[disabled] { cursor: not-allowed; }
+.dig-tile[disabled]:not(.dug) { opacity: 0.4; }
+.dig-tile.dug {
+  background: radial-gradient(circle at 50% 40%, #131418, #0a0b0e 75%);
+  border-style: dashed;
+  border-color: var(--border-soft);
+  box-shadow: inset 0 6px 14px rgba(0,0,0,0.6);
+}
+.dig-tile.dug::before { display: none; }
+.dig-tile.dug.empty { opacity: 0.6; }
+/* Pulsation (embellissement 2026-09-30) : signale qu'un tresor est en cours
+   sur CETTE tuile sans jamais reveler la position des autres tuiles du meme
+   tresor (deliberement caches, voir jeux.js digTileContent). */
+.dig-tile.dug.partial { border-color: #f5a524; animation: digPartialPulse 1.8s ease-in-out infinite; }
+.dig-partial-icon { font-size: 1.3rem; filter: drop-shadow(0 0 6px rgba(245,165,36,0.6)) grayscale(0.35); opacity: 0.85; }
+@keyframes digPartialPulse {
+  0%, 100% { box-shadow: inset 0 6px 14px rgba(0,0,0,0.6), 0 0 0 0 rgba(245,165,36,0.4); }
+  50% { box-shadow: inset 0 6px 14px rgba(0,0,0,0.6), 0 0 14px 2px rgba(245,165,36,0.55); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dig-tile.dug.partial { animation: none; }
+}
+/* Pastille plutot qu'un texte minuscule dans un coin (trop discret pour un
+   chiffre qui compte vraiment pour la strategie du joueur - combien de
+   tuiles il reste a trouver pour ce tresor). */
+.dig-remaining {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: #f5a524;
+  color: #1a130d;
+  font-size: 0.66rem;
+  font-weight: 800;
+  font-family: var(--font-display);
+  box-shadow: 0 0 0 2px #1a130d;
+}
+/* Halo colore par palier de recompense (voir data-reward, DIG_REWARD_ICON
+   dans jeux.js) : une mythique fraichement liberee doit se voir de loin,
+   une simple poussiere reste discrete - jusque-la la meme icone flottante
+   pour tous les paliers ne rendait pas justice a la rarete du tresor. */
+.dig-treasure-glow {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--dig-glow-color, #9aa0b4) 0%, transparent 70%);
+  opacity: 0.5;
+  filter: blur(2px);
+}
+.dig-treasure-icon { position: relative; font-size: 1.7rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+.dig-tile[data-reward="smallDust"] { --dig-glow-color: #9aa0b4; }
+.dig-tile[data-reward="bigDust"] { --dig-glow-color: #22d3ee; }
+.dig-tile[data-reward="booster"] { --dig-glow-color: #8b5cf6; }
+.dig-tile[data-reward="card"] { --dig-glow-color: #f5a524; }
+.dig-tile[data-reward="rareCard"] { --dig-glow-color: #ef4444; }
+.dig-tile.dug.revealed {
+  border-color: var(--dig-glow-color, var(--accent-2));
+  box-shadow: 0 0 16px -4px color-mix(in srgb, var(--dig-glow-color, var(--accent-2)) 70%, transparent);
+  animation: digRevealPop 0.35s cubic-bezier(.2,.9,.3,1.3);
+}
+@keyframes digRevealPop { 0% { transform: scale(0.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@media (max-width: 480px) {
+  .dig-site { padding: 14px; }
+  .dig-board { gap: 8px; }
+  .dig-tile { font-size: 1.3rem; border-radius: 10px; }
+}
+
+/* Volee de terre au coup de pioche (spawnDigDustBurst, jeux.js) : meme
+   calque partage que les particules de rarete/eclats de foil. */
+.dig-dust-speck {
+  position: fixed;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 420;
+  animation: digDustFly 0.6s ease-out forwards;
+}
+@keyframes digDustFly {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(180deg); opacity: 0; }
+}
+
+/* Grille de bingo 3x3. */
+.bingo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; max-width: 480px; margin-left: auto; margin-right: auto; }
+.bingo-cell { position: relative; border-radius: 10px; border: 2px solid transparent; background: var(--bg-panel-2); overflow: hidden; opacity: 0.55; }
+.bingo-cell.owned { opacity: 1; }
+.bingo-cell img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+.bingo-cell-name { padding: 6px 8px; font-size: 0.72rem; text-align: center; }
+.bingo-cell-check { position: absolute; top: 6px; right: 6px; font-size: 1.1rem; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
+
+/* Modale de la roue : une vraie roue SVG qui tourne et s'arrete pile sur le
+   lot renvoye par le serveur (voir spinWheelTo(), index.html), fermeture
+   uniquement par clic explicite du joueur (jamais automatique). */
+.wheel-modal {
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  width: min(360px, 92vw);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.7);
+}
+.wheel-container { position: relative; width: min(280px, 70vw); aspect-ratio: 1; }
+.wheel-pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.8rem;
+  color: var(--accent-2);
+  z-index: 2;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+}
+.wheel-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.5)); }
+#wheel-group { transform-origin: 100px 100px; transition: transform 4s cubic-bezier(.17,.67,.12,1); }
+.wheel-seg { stroke: var(--bg-void); stroke-width: 2; }
+.wheel-seg-small { fill: var(--accent); }
+.wheel-seg-big { fill: var(--accent-2); }
+.wheel-seg-booster { fill: var(--rarity-legendaire); }
+.wheel-seg-key { fill: var(--accent-3); }
+.wheel-seg-jackpot { fill: url(#wheelJackpotGradient); }
+.wheel-icon-label { text-anchor: middle; font-size: 15px; }
+.wheel-icon-label-big { font-size: 18px; }
+.wheel-icon-label-tiny { font-size: 9px; }
+.wheel-icon-label-jackpot { font-size: 17px; }
+.wheel-hub { fill: var(--bg-panel-solid); stroke: var(--border); stroke-width: 3; }
+/* Traine lumineuse au pointeur pendant la rotation (embellissement
+   2026-09-30) : un anneau conique qui tourne vite en continu tant que
+   .spinning est present, pour donner une sensation d'energie qui monte
+   sans avoir a synchroniser au ralentissement reel de la roue (CSS pur). */
+.wheel-pointer-glow {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, var(--accent-2), transparent 60%);
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 0.3s ease;
+}
+.wheel-pointer-glow.spinning { opacity: 0.9; animation: wheel-pointer-spin 0.6s linear infinite; }
+@keyframes wheel-pointer-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .wheel-pointer-glow.spinning { animation: none; opacity: 0.5; }
+}
+.wheel-modal-result {
+  min-height: 1.5em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Succes / achievements (accueil). */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.achievement-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 12px 14px;
+  opacity: 0.55;
+  filter: grayscale(0.6);
+}
+.achievement-tile.unlocked { opacity: 1; filter: none; border-color: rgba(245,165,36,0.4); }
+/* "Presque debloque" (QoL 2026-09-30) : il n'en manque qu'un - liseré discret
+   qui pulse, sans crier aussi fort qu'un succes deja obtenu. */
+.achievement-tile.almost-done { border-color: var(--accent-2); animation: achievementAlmostPulse 2.2s ease-in-out infinite; }
+@keyframes achievementAlmostPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-2-rgb), 0.3); }
+  50% { box-shadow: 0 0 0 5px rgba(var(--accent-2-rgb), 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .achievement-tile.almost-done { animation: none; }
+}
+
+/* Boutique de badges cosmetiques (page profil, "Mes badges"). */
+.badge-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.badge-shop-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 16px 12px;
+}
+.badge-shop-tile.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-2); }
+.badge-shop-tile:not(.owned) { opacity: 0.7; }
+.badge-shop-icon { font-size: 2rem; line-height: 1; }
+/* Achat/equipement (embellissement 2026-09-30) : la vignette concernee joue
+   une entree marquee au prochain rendu (voir profile.html loadMyBadges). */
+.badge-shop-tile.just-buy { animation: badgeUnlockPop 0.6s cubic-bezier(.2,.9,.3,1.4); }
+.badge-shop-tile.just-select { animation: badgeSelectPulse 0.5s ease; }
+@keyframes badgeUnlockPop {
+  0% { transform: scale(0.7); box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+  50% { transform: scale(1.08); box-shadow: 0 0 24px 4px rgba(var(--accent-rgb), 0.55); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+}
+@keyframes badgeSelectPulse {
+  0% { box-shadow: 0 0 0 0 rgba(var(--accent-2-rgb), 0.6); }
+  100% { box-shadow: 0 0 0 10px rgba(var(--accent-2-rgb), 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .badge-shop-tile.just-buy, .badge-shop-tile.just-select { animation: none; }
+}
+.badge-icon-img { width: 28px; height: 28px; object-fit: contain; vertical-align: middle; border-radius: 6px; }
+
+/* Selecteurs de cartes du bingo (page admin). */
+.bingo-admin-selects {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+.bingo-admin-selects label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; }
+.badge-shop-name { font-family: var(--font-display); font-weight: 700; font-size: 0.86rem; }
+.badge-shop-desc { color: var(--text-dim); font-size: 0.72rem; }
+.badge-shop-status { font-size: 0.76rem; font-weight: 700; color: var(--accent-2); }
+.badge-shop-tile button { width: 100%; padding: 6px; font-size: 0.78rem; }
+.achievement-icon { font-size: 1.8rem; flex-shrink: 0; }
+.achievement-info { flex: 1; min-width: 0; }
+.achievement-name { font-family: var(--font-display); font-weight: 700; font-size: 0.88rem; }
+.achievement-desc { color: var(--text-dim); font-size: 0.74rem; margin-top: 2px; }
+.achievement-progress-track {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel-solid);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.achievement-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.achievement-progress-label { font-size: 0.7rem; color: var(--text-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.achievement-tile.unlocked .achievement-progress-label { color: var(--rarity-legendaire); font-weight: 700; }
+
+input[type="text"] {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: var(--font-body);
+  transition: border-color 0.15s;
+}
+input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+/* Boutons "bouton-poussoir" de borne d'arcade : bordure epaisse + une
+   vraie ombre 3D (pas juste un glow) qui s'ecrase au clic, comme un vrai
+   bouton physique plutot qu'un bouton d'appli plat. */
+button, .btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  vertical-align: middle;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  border: 2px solid rgba(0,0,0,0.3);
+  padding: 11px 24px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 10px 22px -10px rgba(var(--accent-rgb),  0.55);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.15s;
+  overflow: hidden;
+  isolation: isolate;
+  -webkit-tap-highlight-color: transparent;
+}
+button::before, .btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.5s ease;
+}
+button:hover:not(:disabled)::before, .btn:hover::before { transform: translateX(120%); }
+button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+button:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35), 0 4px 10px -6px rgba(var(--accent-rgb),  0.5);
+  filter: brightness(0.97);
+}
+button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+.btn-ghost {
+  background: transparent;
+  border: 2px solid var(--border-soft);
+  color: var(--text-dim);
+  text-shadow: none;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  box-shadow: none;
+}
+.btn-ghost:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+
+.btn-secondary {
+  background: var(--bg-panel-2);
+  border: 2px solid var(--border-soft);
+  color: var(--text);
+  text-shadow: none;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.25);
+}
+.btn-secondary:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,0.25); }
+
+.actions { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; }

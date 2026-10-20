@@ -49,7 +49,7 @@ function acRenderExtensions() {
     const active = AC.cards.filter((c) => acRef(c.Extension) === e.id && c.Active).length;
     const pack = acImg(e.PackImage), back = acImg(e.CardBackImage);
     return `<button type="button" class="ac-ext ${e.id === AC.ext ? "selected" : ""} ${e.Active === false || !e.Active ? "inactive" : ""}" data-ext="${e.id}">
-      <span class="ac-ext-imgs">${pack ? `<img src="${adbImageUrl(pack)}" alt="" loading="lazy" />` : '<span class="ac-noimg">pack ?</span>'}${back ? `<img src="${adbImageUrl(back)}" alt="" loading="lazy" />` : '<span class="ac-noimg">dos ?</span>'}</span>
+      <span class="ac-ext-imgs">${pack ? `<img src="${adbImageUrl(pack)}" alt="" loading="lazy" decoding="async" />` : '<span class="ac-noimg">pack ?</span>'}${back ? `<img src="${adbImageUrl(back)}" alt="" loading="lazy" decoding="async" />` : '<span class="ac-noimg">dos ?</span>'}</span>
       <span class="ac-ext-body"><strong>${escapeHtml(e.Name || "(sans nom)")}</strong><small>${escapeHtml(e.Key || "")} · ordre ${e.SortOrder || 0}</small><small>${active}/${n} carte${n > 1 ? "s" : ""} active${active > 1 ? "s" : ""}${e.Active ? "" : " · masquée"}</small></span>
     </button>`;
   }).join("") + `<button type="button" class="ac-ext ac-ext-new" id="ac-new-ext-btn"><span>&#10133;</span><strong>Nouvelle extension</strong></button>`;
@@ -238,7 +238,7 @@ function acRenderCards() {
         <span class="ac-num" title="Numéro dans l'extension (cartes actives)">${num.has(c.id) ? "#" + String(num.get(c.id)).padStart(3, "0") : "—"}</span>
         ${canMove ? `<span class="ac-move"><button type="button" class="btn-ghost" data-move="up" ${i === 0 ? "disabled" : ""} aria-label="Monter ${escapeHtml(c.Name || "")}">&#8593;</button><button type="button" class="btn-ghost" data-move="down" ${i === list.length - 1 ? "disabled" : ""} aria-label="Descendre ${escapeHtml(c.Name || "")}">&#8595;</button></span>` : ""}
       </div>
-      <label class="ac-card-img" title="Changer l'image">${img ? `<img src="${adbImageUrl(img)}" alt="" loading="lazy" />` : '<span class="ac-noimg">image ?</span>'}<input type="file" accept="image/*" data-card-img="${c.id}" hidden /></label>
+      <label class="ac-card-img" title="Changer l'image">${img ? `<img src="${adbImageUrl(img)}" alt="" loading="lazy" decoding="async" />` : '<span class="ac-noimg">image ?</span>'}<input type="file" accept="image/*" data-card-img="${c.id}" hidden /></label>
       <input type="text" value="${escapeHtml(c.Name || "")}" data-cf="Name" aria-label="Nom" />
       <select data-cf="Rarity" aria-label="Rareté">${acRarityOptions(acRef(c.Rarity))}</select>
       <input type="text" value="${escapeHtml(c.Artist || "")}" data-cf="Artist" placeholder="Artiste" aria-label="Artiste" />

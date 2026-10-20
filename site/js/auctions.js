@@ -30,7 +30,7 @@
     $("auctions-lead").innerHTML = `Mets un exemplaire en vente (${data.hours} h, ${data.maxActive} ventes en même temps max), ou enchéris sur ceux des autres. Une enchère surpassée est remboursée aussitôt. Taxe à la vente : <strong>${Math.round(data.taxPct * 100)} %</strong>. Solde : <strong>${data.stardust.toLocaleString("fr-FR")} &#10024;</strong>.`;
     $("auction-list").innerHTML = data.open.length ? data.open.map((a) => `
       <article class="auction ${a.mine ? "mine" : ""} ${a.leading ? "leading" : ""} ${a.starred ? "starred" : ""}" data-rarity="${esc(a.card?.rarity?.key || "commune")}">
-        <img src="${API.imageUrl(a.card?.imageId) || ""}" alt="" loading="lazy" />
+        <img src="${API.imageUrl(a.card?.imageId) || ""}" alt="" loading="lazy" decoding="async" />
         <div class="auction-body">
           <strong>${esc(a.card?.name || "?")}${a.starred ? ' <span class="star-badge" style="position:static;">&#9733;</span>' : ""}</strong>
           <small>${esc(a.card?.rarity?.name || "")}${variant(a) ? " · " + esc(variant(a)) : ""}</small>
@@ -85,7 +85,7 @@
     $("auction-pull").innerHTML = list.length ? list.slice(0, 120).map((c) => `
       <button type="button" class="auction-pick-card ${selectedPull === c.pullId ? "selected" : ""}" data-pull="${c.pullId}" data-rarity="${esc(c.card.rarity?.key || "commune")}" data-finish="${c.finish}" role="option" aria-selected="${selectedPull === c.pullId}" title="${esc(c.label)}">
         <span class="apc-art">
-          <img src="${API.imageUrl(c.card.imageId) || ""}" alt="" loading="lazy" />
+          <img src="${API.imageUrl(c.card.imageId) || ""}" alt="" loading="lazy" decoding="async" />
           ${c.finish !== "normal" ? `<span class="finish-indicator" data-finish="${c.finish}">${FINISH[c.finish]}</span>` : ""}
           <span class="quality-indicator" data-quality="${c.quality}">${QUALITY[c.quality]}</span>
           ${c.edition ? editionBadge(c.edition) : ""}

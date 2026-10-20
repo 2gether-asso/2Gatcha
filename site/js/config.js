@@ -206,6 +206,33 @@ window.APP_CONFIG = {
   });
 })();
 
+// Sens des transitions de page (2026-10-20, refonte.css) : vers une page plus
+// a droite dans le menu, le contenu glisse vers la gauche ("forward"), et
+// inversement ("back") ; retour arriere du navigateur = "back". Pose sur la
+// page quittee (pageswap) et sur la page qui arrive (pagereveal).
+(function viewTransitionDirection() {
+  var ORDER = ["index.html", "ouverture.html", "collection.html", "jeux.html", "communaute.html", "trade.html", "boutique.html", "progression.html", "coffre.html", "mode.html", "profile.html", "stats.html", "nouveautes.html"];
+  var pos = function (url) {
+    try { var p = new URL(url, location.href).pathname.split("/").pop() || "index.html"; return ORDER.indexOf(p); } catch (e) { return -1; }
+  };
+  var type = function (fromUrl, toUrl, navType) {
+    var a = pos(fromUrl), b = pos(toUrl);
+    if (navType === "traverse") return "back";
+    if (a < 0 || b < 0 || a === b) return null;
+    return b > a ? "forward" : "back";
+  };
+  window.addEventListener("pageswap", function (e) {
+    if (!e.viewTransition || !e.activation || !e.activation.entry) return;
+    var t = type(location.href, e.activation.entry.url, e.activation.navigationType);
+    if (t) e.viewTransition.types.add(t);
+  });
+  window.addEventListener("pagereveal", function (e) {
+    if (!e.viewTransition || !window.navigation || !navigation.activation || !navigation.activation.from) return;
+    var t = type(navigation.activation.from.url, location.href, navigation.activation.navigationType);
+    if (t) e.viewTransition.types.add(t);
+  });
+})();
+
 // Suivi des erreurs (GlitchTip, compatible Sentry) : SDK navigateur officiel
 // charge en asynchrone (ne bloque pas l'affichage), empreinte SRI verifiee.
 // config.js est le premier script de chaque page : c'est le point le plus tot.

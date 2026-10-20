@@ -1,0 +1,279 @@
+/* admin.css - Pages d'administration seulement (admin.html, admin-db.html, outils d'apercu) : zone dangereuse, tableaux d'equilibrage, QR et apercu de carte, extensions et cartes, Admin V2.
+   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
+   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
+   specificite egale.
+   Chargee en dernier, apres seasons.css. */
+/* Page admin : zone dangereuse (reinitialisation). */
+.reset-scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 14px 0; }
+.reset-scope-row #reset-target-pseudo {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+}
+
+/* Tableaux d'equilibrage (raretes/finitions) : chaque ligne editable en
+   place, un bouton Enregistrer dedie (pas de formulaire global qui
+   soumettrait tout d'un coup - chaque rangee est sa propre unite de
+   sauvegarde, cote serveur comme cote UI). */
+.balance-table { margin-bottom: 8px; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
+.balance-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.balance-row:last-child { border-bottom: none; }
+#balance-rarities-table .balance-row { grid-template-columns: minmax(90px,1.3fr) repeat(3, minmax(70px,1fr)) minmax(90px,auto); }
+#balance-finishes-table .balance-row,
+#balance-qualities-table .balance-row { grid-template-columns: minmax(90px,1.3fr) repeat(2, minmax(80px,1fr)) minmax(90px,auto); }
+.balance-row.balance-head { background: var(--bg-panel-2); font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+.balance-row-label { font-weight: 700; font-family: var(--font-display); font-size: 0.85rem; }
+.balance-row input[type="number"] {
+  width: 100%;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: var(--font-body);
+}
+.balance-save-btn { font-size: 0.78rem; padding: 7px 10px; }
+@media (max-width: 640px) {
+  #balance-rarities-table .balance-row,
+  #balance-finishes-table .balance-row,
+  #balance-qualities-table .balance-row { grid-template-columns: 1fr 1fr; }
+  .balance-row.balance-head { display: none; }
+  .balance-row-label { grid-column: 1 / -1; }
+  .balance-save-btn { grid-column: 1 / -1; }
+}
+
+/* Recompenses de niveau (100 paliers) : longue liste, un seul bouton
+   "Enregistrer" global plutot qu'un par ligne (contrairement aux tableaux
+   d'equilibrage ci-dessus) - 100 requetes individuelles serait excessif. */
+.level-rewards-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.level-rewards-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.level-rewards-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  padding: 8px 10px;
+  text-align: left;
+  z-index: 1;
+}
+.level-rewards-table td { padding: 6px 10px; border-bottom: 1px solid var(--border-soft); }
+.level-rewards-table tr:last-child td { border-bottom: none; }
+.level-rewards-table td:first-child { font-family: var(--font-display); font-weight: 700; }
+.level-rewards-table input[type="number"] {
+  width: 84px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+.level-rewards-table select {
+  width: 100%;
+  min-width: 160px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+
+/* ========================================================================
+   QR code (admin) et vue calendrier des codes
+   ======================================================================== */
+.qr-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+.qr-box canvas, .qr-box img { display: block; }
+.qr-box .qr-caption { color: #111; font-size: 0.7rem; font-family: var(--font-display); font-weight: 700; }
+
+.codes-calendar { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+.codes-calendar-day { border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px 16px; background: var(--bg-panel-2); }
+.codes-calendar-day .day-label { font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; color: var(--accent-2); margin-bottom: 8px; }
+.codes-calendar-day .day-codes { display: flex; flex-direction: column; gap: 6px; }
+.codes-calendar-day .day-code-row { display: flex; justify-content: space-between; gap: 10px; font-size: 0.85rem; color: var(--text-dim); }
+
+/* ========================================================================
+   Aperçu de carte (outil admin de previsualisation, card-preview-tool.html)
+   ======================================================================== */
+.preview-tool-form { display: flex; flex-direction: column; gap: 12px; }
+.preview-tool-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-dim); }
+
+/* =====================================================================
+   ADMIN : extensions et cartes (admin-db.html, 2026-10-08)
+   ===================================================================== */
+.ac-ext-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 10px; margin: 12px 0 16px; }
+.ac-ext { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px; text-align: left; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text); box-shadow: none; font-weight: 600; }
+.ac-ext::before { display: none; }
+.ac-ext.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-2) 30%, transparent); }
+.ac-ext.inactive { opacity: 0.7; }
+.ac-ext-imgs { display: flex; gap: 4px; }
+.ac-ext-imgs img, .ac-ext-imgs .ac-noimg { width: 38px; height: 52px; object-fit: cover; border-radius: 6px; }
+.ac-ext-body { display: grid; gap: 2px; min-width: 0; }
+.ac-ext-body strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-ext-body small { color: var(--text-dim); font-size: 0.74rem; font-weight: 500; }
+.ac-ext-new { grid-template-columns: auto 1fr; justify-items: start; border-style: dashed; color: var(--text-dim); }
+.ac-ext-new span { font-size: 1.4rem; }
+.ac-noimg { display: grid; place-items: center; background: rgba(0,0,0,0.3); border: 1px dashed var(--border); color: var(--text-dim); font-size: 0.62rem; text-align: center; border-radius: 6px; }
+.ac-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; margin: 10px 0; }
+.ac-form-grid label { display: grid; gap: 4px; font-size: 0.82rem; color: var(--text-dim); }
+.ac-form-grid input[type="text"], .ac-form-grid input[type="number"], .ac-form-grid select { padding: 8px 10px; }
+.ac-form-grid input[type="file"] { font-size: 0.8rem; color: var(--text-dim); }
+.ac-inline { display: inline-flex !important; align-items: center; gap: 6px; font-size: 0.84rem; color: var(--text); cursor: pointer; }
+.ac-inline-tall { align-self: end; padding-bottom: 8px; }
+.ac-visuals { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 12px; }
+.ac-visual { display: grid; justify-items: center; gap: 4px; cursor: pointer; font-size: 0.78rem; color: var(--text-dim); }
+.ac-visual img, .ac-visual .ac-noimg { width: 96px; height: 130px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border-soft); }
+.ac-visual:hover img { outline: 2px solid var(--accent-2); }
+.ac-import-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel-2)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-soft)); position: sticky; top: calc(var(--header-h, 78px) + 6px); z-index: 4; }
+.ac-import-bar[hidden] { display: none; }
+.ac-import-bar #ac-import-btn { margin-left: auto; }
+.ac-progress { flex-basis: 100%; height: 4px; border-radius: var(--radius-pill); background: rgba(0,0,0,0.3); overflow: hidden; }
+.ac-progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.3s; }
+.ac-pending, .ac-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 10px; }
+.ac-pending-card, .ac-card { position: relative; display: grid; gap: 6px; padding: 8px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); min-width: 0; }
+.ac-card { border-top: 3px solid var(--r, var(--border)); }
+.ac-card.inactive { opacity: 0.6; }
+.ac-pending-card img, .ac-card-img img, .ac-card-img .ac-noimg { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; display: block; }
+.ac-card-img { cursor: pointer; }
+.ac-card-img:hover img { outline: 2px solid var(--accent-2); }
+.ac-pending-card input[type="text"], .ac-pending-card select, .ac-card input[type="text"], .ac-card select { width: 100%; min-width: 0; padding: 6px 8px; font-size: 0.82rem; }
+.ac-pending-card [data-remove] { position: absolute; top: 12px; right: 12px; background: rgba(8,9,22,0.8); border-radius: 50%; width: 26px; height: 26px; }
+.ac-card-flags { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.ac-cards-head { margin-top: 22px; }
+.ac-cards-head h3 { margin: 0; }
+.adb-ref { color: var(--accent-2); font-size: 0.8em; }
+.adb-row-actions { white-space: nowrap; }
+.adb-dup { margin-right: 2px; }
+.adb-saved { outline: 2px solid var(--success); outline-offset: -2px; }
+.admin-ext-shortcut { margin-bottom: 10px; }
+
+/* =====================================================================
+   ADMIN V2 (2026-10-11) : menu des rubriques, cartes, vue d'ensemble.
+   ===================================================================== */
+.admin-page main { max-width: 1400px; overflow-x: clip; }
+.adm-shell h1 { margin-bottom: 4px; }
+.adm-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin-bottom: 18px; }
+.adm-lead { margin: 0; font-size: 0.9rem; }
+.adm-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-tools .btn-ghost { font-size: 0.82rem; padding: 7px 12px; }
+
+.adm-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 22px; align-items: start; }
+.adm-nav { position: sticky; top: calc(var(--header-h, 64px) + 14px); display: grid; gap: 4px; padding: 8px; border-radius: 16px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.adm-nav button { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 10px; text-align: left; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text-dim); background: transparent; border: 0; box-shadow: none; cursor: pointer; }
+.adm-nav button::before { display: none; }
+.adm-nav button:hover { transform: none; filter: none; color: var(--text); background: rgba(255,255,255,0.05); }
+.adm-nav button.active { color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.adm-nav-badge { margin-left: auto; min-width: 20px; padding: 1px 6px; border-radius: var(--radius-pill); font-size: 0.7rem; font-weight: 800; text-align: center; color: #fff; background: var(--accent); }
+.adm-nav-badge[data-tone="warn"] { background: #d97706; }
+.adm-nav-badge[data-tone="bad"] { background: var(--danger); }
+.adm-panes { min-width: 0; }
+.adm-pane { display: grid; gap: 16px; }
+.adm-pane[hidden] { display: none; }
+
+.adm-card { min-width: 0; padding: 18px 20px; border-radius: 16px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.adm-card > h3, .adm-fold-body > h3 { font-size: 0.95rem; margin: 18px 0 10px; }
+.adm-card-head { display: block; margin-bottom: 14px; }
+.adm-card-head h2 { margin: 0; font-size: 1.08rem; overflow-wrap: anywhere; }
+.adm-card-head p { margin: 4px 0 0; font-size: 0.84rem; line-height: 1.5; color: var(--text-dim); max-width: 85ch; }
+.adm-card.danger-zone { border-color: rgba(251,113,133,0.5); }
+.adm-card.danger-zone h2 { color: var(--danger); }
+.adm-fold { padding: 0; }
+.adm-fold > summary { list-style: none; cursor: pointer; padding: 18px 44px 18px 20px; margin: 0; position: relative; }
+.adm-fold > summary::-webkit-details-marker { display: none; }
+.adm-fold > summary::after { content: "\25BE"; position: absolute; right: 20px; top: 20px; color: var(--text-dim); transition: transform 0.2s ease; }
+.adm-fold[open] > summary::after { transform: rotate(180deg); }
+.adm-fold[open] > summary { border-bottom: 1px solid var(--border-soft); }
+.adm-fold-body { display: grid; gap: 12px; padding: 16px 20px 20px; justify-items: start; }
+.adm-fold-body > * { max-width: 100%; }
+.adm-fold-body > form, .adm-fold-body > .level-rewards-table-wrap { width: 100%; }
+
+.adm-check { flex-direction: row !important; align-items: center; gap: 8px !important; align-self: end; color: var(--text) !important; }
+.adm-check input { width: auto; }
+.adm-subhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 22px 0 10px; }
+.adm-subhead h3 { margin: 0; font-size: 0.95rem; }
+.adm-seg { display: flex; gap: 6px; }
+.adm-inline-fold summary { cursor: pointer; font-size: 0.86rem; font-weight: 600; color: var(--text-dim); padding: 6px 0; }
+.adm-unlocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; margin-top: 10px; }
+.adm-unlocks label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-dim); }
+.admin-page .card-preview-thumb { width: 90px; height: 120px; margin-top: 6px; }
+.admin-page #event-stop-btn { margin-top: 12px; }
+.admin-page .admin-ext-shortcut { margin-bottom: 12px; }
+
+/* --- Vue d'ensemble --- */
+.adm-overview { display: grid; gap: 16px; }
+.adm-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.adm-tile { display: grid; gap: 4px; align-content: start; padding: 14px 16px; border-radius: 14px; text-align: left; font: inherit; color: var(--text); background: var(--bg-panel-2); border: 1px solid var(--border-soft); box-shadow: none; cursor: pointer; min-width: 0; }
+.adm-tile::before { display: none; }
+.adm-tile:hover { transform: translateY(-2px); filter: none; border-color: var(--border); }
+.adm-tile-k { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+.adm-tile-v { font-size: 1.25rem; overflow-wrap: anywhere; }
+.adm-tile small { font-size: 0.78rem; color: var(--text-dim); line-height: 1.4; }
+.adm-tile.on { border-color: color-mix(in srgb, var(--success) 55%, transparent); }
+.adm-tile.warn { border-color: rgba(251,191,36,0.6); background: rgba(251,191,36,0.06); }
+.adm-tile.bad { border-color: color-mix(in srgb, var(--danger) 60%, transparent); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.adm-alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.adm-alerts button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 10px; text-align: left; font: inherit; font-size: 0.86rem; line-height: 1.45; color: var(--text); background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft); border-left-width: 3px; box-shadow: none; cursor: pointer; }
+.adm-alerts button::before { display: none; }
+.adm-alerts button:hover { transform: none; filter: none; background: rgba(255,255,255,0.06); }
+.adm-alerts .warn button { border-left-color: #fbbf24; }
+.adm-alerts .bad button { border-left-color: var(--danger); }
+.adm-alerts .info button { border-left-color: var(--accent-2); }
+.adm-shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; }
+.adm-shortcut { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; font: inherit; font-size: 0.88rem; font-weight: 600; text-align: left; text-decoration: none; color: var(--text); background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft); box-shadow: none; cursor: pointer; }
+.adm-shortcut::before { display: none; }
+.adm-shortcut:hover { transform: none; filter: none; border-color: var(--accent-2); }
+.adm-shortcut span { font-size: 1.2rem; }
+
+@media (max-width: 959px) {
+  .adm-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .adm-nav { position: sticky; top: calc(var(--header-h, 64px) + 6px); z-index: 5; display: flex; overflow-x: auto; scrollbar-width: none; padding: 6px; }
+  .adm-nav::-webkit-scrollbar { display: none; }
+  .adm-nav button { width: auto; flex: 0 0 auto; padding: 8px 12px; font-size: 0.84rem; white-space: nowrap; }
+  .adm-card { padding: 14px; }
+  .adm-fold > summary { padding: 14px 40px 14px 14px; }
+  .adm-fold-body { padding: 12px 14px 14px; }
+}
+.adm-nav button, .adm-shortcut, .adm-alerts button { justify-content: flex-start; }
+.adm-alerts button span { margin-left: auto; }
+.adm-tile { justify-items: start; justify-content: stretch; text-align: left; }
+@media (max-width: 640px) {
+  .adm-tools { gap: 4px; }
+  .adm-tools .btn-ghost { padding: 5px 9px; font-size: 0.74rem; }
+}
+@media (max-width: 640px) {
+  .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .adm-tile { padding: 10px 12px; }
+  .adm-tile-v { font-size: 1.02rem; }
+  .adm-tile small { font-size: 0.72rem; }
+}

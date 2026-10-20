@@ -8,6 +8,13 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-20', title: 'Plus de place pour tes dinos', items: [
+    'L’enclos accueille maintenant jusqu’à 10 dinos',
+    'Tu peux relâcher un dino dans la nature pour libérer une place : il te laisse ses trouvailles et ses cacas avant de partir',
+    'Draft du mode Medium : la page se met à jour toute seule (arrivée des joueurs, départ, ton tour)',
+    'Les cadres des cartes légendaires, mythiques et uniques sont de retour, et l’effet glitch s’affiche aussi en plein écran',
+    'Nouvelle interface : inspecteur de carte, carte du monde des jeux, session rapide, rappels, transitions et mode hors ligne'
+  ] },
   { date: '2026-10-19', title: 'Codes, chats et mystères', items: [
     'Réclamer un code devient une petite cérémonie : chaque déblocage a sa cinématique',
     'Certains mots, bien choisis, débloquent des titres, des cadres et des couleurs…',

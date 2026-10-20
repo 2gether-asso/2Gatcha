@@ -60,7 +60,7 @@
     $("activity-bars").innerHTML = bars(sorted(s.activity).filter(([k]) => ACTIVITY[k] && k !== "cardsPulled").slice(0, 12), (k) => ACTIVITY[k]);
     $("best-pulls").innerHTML = s.best.length ? s.best.map((c) => `
       <figure class="mystats-card" data-rarity="${esc(c.rarity?.key || "commune")}" style="--r:${esc(c.rarity?.colorHex || "#888")}">
-        <img src="${API.imageUrl(c.imageId) || ""}" alt="" loading="lazy" />
+        <img src="${API.imageUrl(c.imageId) || ""}" alt="" loading="lazy" decoding="async" />
         <figcaption><strong>${esc(c.name)}${c.starred ? " &#9733;" : ""}</strong><small>${esc(c.rarity?.name || "")}${c.finish !== "normal" ? " · " + FINISH[c.finish] : ""} · ${QUALITY[c.quality]}${c.serialNumber != null ? " · #" + String(c.serialNumber).padStart(3, "0") : ""}</small><small>valeur ${fmt(c.value)} &#10024;</small></figcaption>
       </figure>`).join("") : '<p class="muted">Aucune carte obtenue ce mois-ci pour l’instant.</p>';
   }

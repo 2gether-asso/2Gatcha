@@ -26,6 +26,10 @@ const API = {
   },
   _handleOffline() {
     if (location.pathname.endsWith("maintenance.html") || document.body.hasAttribute("data-no-maintenance") || this._offlineCheck) return;
+    // Appareil hors ligne (2026-10-20) : le serveur n'y est pour rien ; la
+    // page (servie par le cache de sw.js) reste consultable, avec la pastille
+    // "Hors ligne" de shell-extras.js.
+    if (navigator.onLine === false) return;
     this._offlineCheck = (async () => {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 6000);

@@ -108,7 +108,7 @@
       <div class="collection-card protected-card" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${Coll.finishOf(c)}" data-quality="mint"${copyEditions([c])[0] ? ` data-edition="${copyEditions([c])[0]}"` : ""} title="Rangée dans ton coffre-fort : clique pour la gérer">
         <button type="button" class="fav-btn ${favorites.has(card.cardId) ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>
         <div class="card-art">
-          <img src="${imgSrc}" alt="${escapeHtml(card.name)}" loading="lazy" />
+          <img src="${imgSrc}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" />
           ${Coll.finishOf(c) !== "normal" ? `<span class="finish-indicator" data-finish="${c.finish}">${FINISH_LABELS[c.finish]}</span>` : ""}
           <span class="quality-indicator" data-quality="mint">${QUALITY_LABELS.mint}</span>
           ${c.serialNumber === 1 ? `<span class="serial-one-badge">#001</span>` : ""}
@@ -135,7 +135,7 @@
       <div class="collection-card locked" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="0">
         <button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${wl}" aria-label="${wl}">&#9733;</button>
         <div class="card-art">
-          <img src="${imgSrc}" alt="Carte non découverte" loading="lazy" />
+          <img src="${imgSrc}" alt="Carte non découverte" loading="lazy" decoding="async" />
           <span class="locked-card-number">${Coll.serial(state.cardNumber.get(card.cardId) || 0)}</span>
         </div>
         <div class="card-info">
@@ -175,7 +175,7 @@
           ${isNew && i === 0 ? '<span class="new-badge">New</span>' : ""}
           ${inBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-bulk-key="${navKey}" ${checked ? "checked" : ""} aria-label="Sélectionner ${name}" /></label>` : `<button type="button" class="fav-btn ${isFav ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>`}
           <div class="card-art" tabindex="0" role="button" aria-label="Voir la carte ${name}">
-            <img src="${imgSrc}" alt="" loading="lazy" />
+            <img src="${imgSrc}" alt="" loading="lazy" decoding="async" />
             ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
             <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
             ${variant.serialNumbers.includes(1) ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
@@ -395,7 +395,7 @@
     const navKey = best ? navKeyOf(card.cardId, best.finish, best.quality) : "";
     return `
       <div class="album-slot album-owned ${owned ? "" : "album-vault"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" style="--slot-color:${color};" ${navKey ? `data-nav-key="${navKey}" role="button" tabindex="0" aria-label="Voir la carte ${escapeHtml(card.name)}"` : ""}>
-        <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />
+        <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" />
         <span class="album-num">${num}</span>
         ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
         <span class="album-name">${escapeHtml(card.name)}</span>
@@ -484,8 +484,13 @@
   function showCardModal(navKey, navList) {
     const overlay = document.createElement("div");
     overlay.className = "card-modal-overlay";
-    document.body.appendChild(overlay);
     let index = Math.max(0, navList.indexOf(navKey));
+    // Illustration de la vignette d'une carte de la grille (point de depart / d'arrivee de l'envol).
+    const tileArt = (key) => {
+      const tile = key && document.querySelector(`#collection-grid [data-nav-key="${CSS.escape(key)}"]`);
+      return tile ? tile.querySelector(".card-art") || tile.querySelector("img") : null;
+    };
+    const modalArt = () => overlay.querySelector(".card-modal .card-art");
 
     function renderAt(newIndex, direction) {
       index = newIndex;
@@ -504,7 +509,7 @@
       // Edition limitee de la variante affichee (effet + badge, comme sur la vignette).
       const modalEdition = state.editions && copies ? (copies.map((c) => state.editions.get(c.pullId)).find(Boolean) || "") : "";
       overlay.innerHTML = `
-        <div class="card-modal ${direction ? "slide-" + direction : ""}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}"${modalEdition ? ` data-edition="${modalEdition}"` : ""} role="dialog" aria-modal="true" aria-label="${escapeHtml(card.name)}">
+        <div class="card-modal ${direction ? "slide-" + direction : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}"${modalEdition ? ` data-edition="${modalEdition}"` : ""} role="dialog" aria-modal="true" aria-label="${escapeHtml(card.name)}">
           <button class="card-modal-close" aria-label="Fermer">&times;</button>
           <div class="card-art">
             <img src="${imgSrc}" alt="${escapeHtml(card.name)}" />
@@ -563,8 +568,17 @@
         }
       }));
       // Inclinaison 3D, verso, historique, cote, partage (card-extras.js).
-      if (window.CardExtras) CardExtras.attach(overlay.querySelector(".card-modal"), { card, copies, finish, quality, edition: modalEdition, owned: !!owned, number: state.cardNumber.get(card.cardId) });
+      // Variantes possedees (finition x etat x edition) : bandeau de l'inspecteur.
+      const variants = Object.values((owned?.copies || []).reduce((m, c) => {
+        const v = { finish: Coll.finishOf(c), quality: Coll.qualityOf(c), edition: (state.editions && state.editions.get(c.pullId)) || "" };
+        const k = v.finish + "|" + v.quality + "|" + v.edition;
+        (m[k] = m[k] || { ...v, count: 0 }).count++;
+        return m;
+      }, {}));
+      if (window.CardExtras) CardExtras.attach(overlay.querySelector(".card-modal"), { card, copies, finish, quality, edition: modalEdition, owned: !!owned, number: state.cardNumber.get(card.cardId), variants });
       else if (finish !== "normal") Coll.attachTilt(overlay.querySelector(".card-modal"));
+      // Effet de carte secrete (glitch, fourrure...) tout de suite, sans attendre le balayage de SecretFx.
+      if (typeof SecretFx !== "undefined") SecretFx.apply();
       // Assurance et carte ★ (api/src/native/market.js, progression.js).
       overlay.querySelectorAll("[data-insure]").forEach((btn) => btn.addEventListener("click", async () => {
         const pullId = Number(btn.dataset.insure);
@@ -620,7 +634,12 @@
       }
     }
     function go(delta) { renderAt((index + delta + navList.length) % navList.length, delta > 0 ? "left" : "right"); }
-    function close() { overlay.remove(); syncScrollLock(); document.removeEventListener("keydown", onKey); }
+    function close() {
+      document.removeEventListener("keydown", onKey);
+      if (!overlay.isConnected) return;
+      // La carte retourne a sa place dans la grille (CardFly, ui.js).
+      CardFly.run(modalArt(), () => { overlay.remove(); syncScrollLock(); }, () => tileArt(navList[index]));
+    }
     // Echap est gere globalement par ui.js (retire l'overlay) : on se
     // desinscrit si l'overlay a deja disparu.
     function onKey(e) {
@@ -638,8 +657,8 @@
       if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
       touchStartX = null;
     }, { passive: true });
-    renderAt(index, null);
-    syncScrollLock();
+    // La vignette cliquee s'envole jusqu'a la fenetre (CardFly, ui.js).
+    CardFly.run(tileArt(navKey), () => { document.body.appendChild(overlay); renderAt(index, null); syncScrollLock(); }, modalArt);
   }
 
   // ---------------------------------------------------------------- actions

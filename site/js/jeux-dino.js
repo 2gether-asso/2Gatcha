@@ -118,6 +118,7 @@
           <button type="button" class="btn-ghost" data-dino-companion="${d.id}" aria-pressed="${st.companion === d.id}" title="Accompagne l’explorateur : jusqu’à +30 % de poussières selon son bonheur, mais il revient affamé">🧭 ${st.companion === d.id ? "Rester à l’enclos" : "Compagnon d’expédition"}</button>
           ${owned.length ? `<label class="dino-acc">🎀 <select data-dino-acc="${d.id}" aria-label="Accessoire de ${esc(d.name)}"><option value="">Aucun accessoire</option>${owned.map((a) => `<option value="${a.key}" ${d.acc === a.key ? "selected" : ""}>${a.icon} ${esc(a.label)}</option>`).join("")}</select></label>` : ""}
           ${adult ? `<button type="button" class="btn-ghost" data-dino-breed="${d.id}" ${d.canBreedAt > t ? "disabled" : ""}>🥚 ${d.canBreedAt > t ? "Pondre dans " + dur(d.canBreedAt - t) : "Pondre un œuf"}</button>` : ""}
+          <button type="button" class="btn-ghost dino-release" data-dino-release="${d.id}" ${d.walkUntil ? "disabled" : ""} title="Il part pour de bon et libère sa place dans l’enclos">🌿 Relâcher dans la nature</button>
         </div>
         ${d.nextPoopAt && !d.poops ? `<small class="muted">Prochain caca dans ${dur(Math.max(0, Math.round(d.nextPoopAt - t)))}</small>` : ""}
       </div>
@@ -198,7 +199,7 @@
   }
 
   const ERRORS = {
-    no_skull: "Il te faut un crâne de dinosaure (fouille).", not_enough_bones: "Pas assez d'os.", max_dinos: "Ton enclos est plein (5 places, tas d'os compris).",
+    no_skull: "Il te faut un crâne de dinosaure (fouille).", not_enough_bones: "Pas assez d'os.", get max_dinos() { return `Ton enclos est plein (${state && state.max ? state.max + " places" : "plus de place"}, tas d'os compris). Tu peux relâcher un dino dans la nature pour libérer une place.`; }, already_walking: "Il est en balade : attends son retour.",
     no_food: "Plus de cette nourriture : va pêcher !", not_hungry: "Il n'a plus faim.", play_cooldown: "Il se repose, reviens plus tard.", sleeping: "Chut, il dort (23 h - 7 h).",
     nothing_to_clean: "Rien à ramasser.", invalid_name: "Nom invalide.", nothing_to_collect: "Pas encore de trouvaille.", max_eggs: "Déjà 3 œufs en attente.",
     not_adult: "Il faut deux adultes.", not_happy_enough: "Les deux parents doivent être heureux (bonheur 70+) et nourris (satiété 40+).", breed_cooldown: "Ils se reposent avant une nouvelle ponte.",
@@ -232,6 +233,11 @@
         Toast.success(`🦕 Retour de balade : +${w.dust} ✨, +${w.worms} ver${w.worms > 1 ? "s" : ""}, +${w.food.n} ${w.food.icon} ${esc(w.food.label.toLowerCase())}${w.bone ? " et un os !" : ""}`);
       }
       if (res.petted) pop(res.petted, res.quiet ? "💗" : "💗 +bonheur");
+      if (res.released) {
+        const r = res.released, l = r.loot || {};
+        const bits = [l.dust ? `+${l.dust} ✨` : "", l.worms ? `+${l.worms} vers` : "", l.bones ? `+${l.bones} os` : "", l.fish ? `+${l.fish} poisson${l.fish > 1 ? "s" : ""}` : "", l.skulls ? "un crâne !" : "", r.poop ? `+${r.poop} engrais` : "", r.goldPoop ? `+${r.goldPoop} engrais doré` : ""].filter(Boolean);
+        Toast.success(`🌿 ${esc(r.name)} est reparti dans la nature. Une place se libère dans l’enclos.${bits.length ? ` Il t’a laissé : ${bits.join(", ")}.` : ""}`);
+      }
       if (res.collected || res.collectedGold) Toast.success(`🧹 +${res.collected} engrais${res.collectedGold ? ` et +${res.collectedGold} engrais DORÉ${res.collectedGold > 1 ? "S" : ""} ${GOLD_POOP}` : ""} ! Utilise-les au <a href="jeux.html#jardin">jardin</a>.`);
       if (res.loot) {
         const l = res.loot;
@@ -281,6 +287,14 @@
     if (b.dataset.dinoClean) return act("clean", { dino: Number(b.dataset.dinoClean) }, b);
     if (b.dataset.dinoEgg) return act("hatchEgg", { egg: Number(b.dataset.dinoEgg) }, b);
     if (b.dataset.dinoBury) return act("bury", { dino: Number(b.dataset.dinoBury) }, b);
+    // Relacher (2026-10-20) : definitif, donc confirme ; ses trouvailles et cacas murs sont ramasses au passage.
+    if (b.dataset.dinoRelease) {
+      const d = state.dinos.find((x) => x.id === Number(b.dataset.dinoRelease));
+      if (!d) return;
+      const ok = await Confirm.show(`Relâcher <strong>${esc(d.name)}</strong> dans la nature ? Il part pour de bon et libère sa place dans l’enclos. Ce qu’il a déjà trouvé et ses cacas sont ramassés pour toi ; il reste dans ton Dinodex.`, { title: "Relâcher dans la nature", confirmText: "Relâcher", dangerous: true });
+      if (ok) act("release", { dino: d.id }, b);
+      return;
+    }
     if (b.dataset.dinoStar) return act("star", { dino: Number(b.dataset.dinoStar) }, b);
     if (b.dataset.dinoCompanion) return act("companion", { dino: Number(b.dataset.dinoCompanion) }, b);
     if (b.dataset.dinoBuy) return act(b.dataset.dinoBuy === "acc" ? "buyAcc" : "buyDecor", { key: b.dataset.key }, b);

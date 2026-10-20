@@ -224,6 +224,7 @@ const CardExtras = (function () {
     const bar = document.createElement("div");
     bar.className = "card-extras-bar";
     bar.innerHTML = `
+      <button type="button" class="btn-ghost" data-cx="inspect">&#128269; Inspecter</button>
       <button type="button" class="btn-ghost" data-cx="verso">&#128260; Verso</button>
       ${serials.length ? '<button type="button" class="btn-ghost" data-cx="history">&#128220; Historique</button>' : ""}
       <button type="button" class="btn-ghost" data-cx="price">&#128200; Cote</button>
@@ -241,6 +242,12 @@ const CardExtras = (function () {
       const what = b.dataset.cx;
       if (what === "verso") { modal.classList.toggle("show-verso"); b.classList.toggle("active", modal.classList.contains("show-verso")); return; }
       if (what === "share") { share({ ...o, serial: serials[0] || null }, b); return; }
+      // Inspecteur plein ecran (js/lazy/card-inspector.js, charge au premier clic).
+      if (what === "inspect") {
+        b.disabled = true;
+        LazyJs.load("js/lazy/card-inspector.js").then(() => CardInspector.open(o)).catch(() => Toast.error("Inspecteur indisponible pour le moment.")).finally(() => { b.disabled = false; });
+        return;
+      }
       bar.querySelectorAll("[data-cx]").forEach((x) => { if (x.dataset.cx !== "verso") x.classList.remove("active"); });
       if (open === what) { open = null; panel.hidden = true; return; }
       open = what;

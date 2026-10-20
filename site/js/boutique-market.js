@@ -54,7 +54,7 @@
     box.innerHTML = `<p class="shop-section-lead">Ta sélection du jour, jusqu'à minuit : ${Math.round((1 - st.discount) * 100)} % moins cher que le craft.</p>
       <div class="sunday-grid">${st.offers.map((o) => `
         <article class="sunday-card ${o.bought ? "bought" : ""}" style="--r:${esc(o.rarity?.colorHex || "#888")}">
-          <img src="${API.imageUrl(o.imageId) || ""}" alt="" loading="lazy" />
+          <img src="${API.imageUrl(o.imageId) || ""}" alt="" loading="lazy" decoding="async" />
           <div class="sunday-body"><strong>${esc(o.name)}</strong><small>${esc(o.rarity?.name || "")}${o.owned ? " · déjà possédée" : " · <b>nouvelle pour toi</b>"}</small></div>
           <button type="button" class="btn${o.bought ? "-secondary" : ""}" data-sunday="${o.cardId}" ${o.bought ? "disabled" : ""}>${o.bought ? "Achetée" : `${fmt(o.price)} &#10024;`}</button>
         </article>`).join("")}</div>`;
@@ -138,7 +138,7 @@
     const draw = () => {
       overlay.querySelector("#contract-pick").innerHTML = c.eligible.map((e) => `
         <button type="button" class="auction-pick-card ${picked.includes(e.pullId) ? "selected" : ""}" data-pull="${e.pullId}" data-rarity="${esc(e.card.rarity?.key || "commune")}" aria-pressed="${picked.includes(e.pullId)}">
-          <span class="apc-art"><img src="${API.imageUrl(e.card.imageId) || ""}" alt="" loading="lazy" />
+          <span class="apc-art"><img src="${API.imageUrl(e.card.imageId) || ""}" alt="" loading="lazy" decoding="async" />
             ${e.finish !== "normal" ? `<span class="finish-indicator" data-finish="${e.finish}">${FINISH[e.finish]}</span>` : ""}
             <span class="quality-indicator" data-quality="${e.quality}">${QUALITY[e.quality]}</span>
             <span class="apc-count" title="Exemplaires de cette carte">×${e.copies}</span>

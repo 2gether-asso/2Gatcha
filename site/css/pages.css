@@ -1,0 +1,421 @@
+/* pages.css - Pages : formulaires, echanges, coffre-fort, journal d'ouvertures.
+   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
+   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
+   specificite egale. */
+
+/* --- Formulaires generiques (trade / admin) --- */
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+  align-items: end;
+}
+.admin-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.admin-form select,
+.admin-form input[type="text"],
+.admin-form input[type="number"],
+.trade-compose-form select {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: var(--font-body);
+}
+.admin-form button { grid-column: -2 / -1; }
+
+/* Panneau imbrique (suggestions, formulaire de creation d'echange...) :
+   version allegee de .panel pour un encart DANS un .panel deja existant -
+   sans son flou/halo/gros padding, qui se cumulaient mal en imbrication. */
+.panel-inset {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 22px 24px;
+}
+
+/* Formulaire de creation d'echange (refonte visuelle, 2026-09-30) : remplace
+   la grille generique .trade-form (ou la case a cocher "doublons" finissait
+   perdue entre deux cellules, se chevauchant avec le label voisin) par une
+   mise en scene "tu donnes <-> tu recois" a deux colonnes, chacune avec un
+   vrai cadre de carte (comme .trade-card-thumb dans l'historique) plutot
+   qu'une petite vignette 44px a cote d'un select. */
+.trade-compose h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.trade-compose-form { display: flex; flex-direction: column; gap: 24px; margin-top: 18px; }
+.trade-target-picker { display: flex; flex-direction: column; gap: 6px; max-width: 320px; }
+.trade-field-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.trade-compose-sides { display: flex; align-items: flex-start; justify-content: center; gap: 20px; flex-wrap: wrap; }
+.trade-side { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1; min-width: 210px; max-width: 280px; }
+.trade-side-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+}
+.trade-side-label em { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: normal; opacity: 0.7; }
+.trade-side select { width: 100%; }
+/* --frame-color pose en JS (updateCardPreview, trade.js) depuis la vraie
+   couleur de rarete de la carte choisie - un cadre neutre tant qu'aucune
+   carte n'est selectionnee. */
+.trade-side-card {
+  position: relative;
+  width: 130px;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  border: 2px solid var(--frame-color, var(--border-soft));
+  background: var(--bg-panel-solid);
+  overflow: hidden;
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--frame-color, var(--accent)) 70%, transparent);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.trade-side-card.empty { border-style: dashed; opacity: 0.7; box-shadow: none; }
+.trade-side-card.empty::before {
+  content: "?";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  color: var(--text-dim);
+}
+.trade-side-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+.trade-compose-arrow {
+  align-self: center;
+  margin-top: 44px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  color: var(--accent-2);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.trade-side-extra { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; flex-wrap: wrap; width: 100%; justify-content: center; }
+.trade-side-sub { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--text-dim); flex: 1; min-width: 90px; }
+.trade-side-extra .checkbox-inline { white-space: nowrap; padding-bottom: 10px; }
+.trade-compose-submit { align-self: center; min-width: 240px; }
+@media (max-width: 640px) {
+  .trade-compose-sides { flex-direction: column; align-items: center; }
+  .trade-compose-arrow { margin-top: 0; transform: rotate(90deg); }
+}
+
+
+/* Coffre-fort (clefs secretes, jeux.html) : une carte arc-en-ciel vitrine,
+   visible mais derriere des barreaux tant que le joueur n'a pas 6 clefs.
+   Reprend la palette/anim shimmer de la finition rainbow (voir plus haut,
+   finish-rainbow-shift) pour que la carte "derriere la vitre" ait deja
+   l'air aussi speciale que la vraie. */
+.vault-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 20px;
+  background: radial-gradient(circle at 50% 20%, rgba(255,110,199,0.1), transparent 60%), var(--bg-panel-2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+}
+.vault-card-frame {
+  position: relative;
+  width: 160px;
+  aspect-ratio: 5 / 7;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 3px solid #ff6ec7;
+  animation: vault-glow-pulse 3s ease-in-out infinite;
+}
+/* Filtre adouci (2026-09-30) : saturate(1.6)+contrast(1.1) ecrasait les
+   photos deja sombres (ex: un chat noir) en quasi-noir illisible - un leger
+   coup de lumiere garde la carte reconnaissable quelle que soit l'image. */
+.vault-card-img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(1.3) brightness(1.25) contrast(1.05); }
+/* Barreaux metalliques (2026-09-30, corrige un vrai bug) : l'ancienne version
+   etait un simple voile sombre semi-transparent, qui se fondait avec toute
+   image deja sombre et rendait la carte totalement illisible (juste un
+   rectangle noir). Un degrade clair-fonce-clair par barreau (comme un reflet
+   sur une tige metallique) reste visible quelle que soit l'image en dessous,
+   ET laisse largement plus de place transparente pour voir la carte. */
+.vault-bars {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px, transparent 22px,
+    rgba(0,0,0,0.7) 22px, rgba(0,0,0,0.7) 24px,
+    rgba(210,210,220,0.9) 25px,
+    rgba(0,0,0,0.7) 26px, rgba(0,0,0,0.7) 28px,
+    transparent 28px
+  );
+  box-shadow: inset 0 0 18px rgba(0,0,0,0.55);
+  pointer-events: none;
+}
+.vault-lock-icon {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 1.4rem;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));
+}
+@keyframes vault-glow-pulse {
+  0%, 100% { box-shadow: 0 0 30px rgba(255,110,199,0.5), 0 0 60px rgba(125,211,252,0.25); }
+  50% { box-shadow: 0 0 42px rgba(255,215,110,0.6), 0 0 70px rgba(167,139,250,0.35); }
+}
+.vault-card-name { font-family: var(--font-display); font-weight: 700; font-size: 1rem; text-align: center; }
+.vault-keys-track {
+  width: min(240px, 100%);
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+.vault-keys-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6ec7, #ffd76e, #7dd3fc, var(--accent-light));
+  background-size: 300% 100%;
+  animation: finish-rainbow-shift 4s linear infinite;
+  transition: width 0.5s ease;
+}
+.vault-keys-label { font-size: 0.82rem; color: var(--text-dim); font-family: var(--font-display); font-weight: 700; }
+.vault-card-frame.vault-unlocking { animation: vault-unlock-burst 0.9s ease forwards; }
+@keyframes vault-unlock-burst {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  30% { transform: scale(1.15) rotate(-4deg); }
+  60% { transform: scale(0.9) rotate(4deg); }
+  100% { transform: scale(1.3) rotate(0deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vault-card-frame, .vault-keys-fill { animation: none; }
+  .vault-card-frame.vault-unlocking { animation: none; opacity: 0; transition: opacity 0.4s ease; }
+}
+
+/* Coffre deja ouvert (2026-09-30, corrige un vrai bug) : reprenait la classe
+   generique .empty-state (icone "boite d'archives" + gros espace vide),
+   qui envoyait un signal "rien a voir ici" - a l'oppose d'un message de
+   reussite. Reprend plutot le ton celebratoire de .reward-banner, avec la
+   carte desormais entierement revelee (sans barreaux) a cote du texte. */
+.vault-opened-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,110,199,0.22), rgba(125,211,252,0.16));
+  border: 1px solid var(--border);
+}
+.vault-opened-img {
+  width: 70px;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 2px solid #ff6ec7;
+  box-shadow: 0 0 18px rgba(255,110,199,0.5);
+  flex-shrink: 0;
+}
+.vault-opened-text { font-size: 0.92rem; line-height: 1.5; }
+@media (max-width: 480px) {
+  .vault-opened-banner { padding: 14px 16px; }
+  .vault-opened-img { width: 54px; }
+}
+
+/* --- Liste d'echanges --- */
+.trade-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+
+.trade-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+/* Liseré colore selon le statut, pour un reperage plus rapide qu'en lisant
+   le badge de texte. */
+.trade-card[data-status="pending"] { border-left-color: var(--accent-2); }
+.trade-card[data-status="accepted"] { border-left-color: #4ade80; }
+.trade-card[data-status="declined"],
+.trade-card[data-status="cancelled"] { border-left-color: #fb7185; }
+.trade-card[data-status="countered"] { border-left-color: #fbbf24; }
+
+.trade-info { font-size: 0.92rem; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+.trade-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.trade-counter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  background: rgba(251,191,36,0.16);
+  border: 1px solid #fbbf24;
+  color: var(--text);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+}
+
+/* Vignettes carte offerte -> carte demandee : remplace le mur de texte pur
+   par un visuel rapide a scanner, dans l'esprit "carte a carte" du site. */
+.trade-visual { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.trade-card-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.trade-card-thumb {
+  width: 56px;
+  height: 74px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-soft);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-panel-solid);
+  transition: transform 0.15s ease;
+}
+.trade-card-thumb:hover { transform: scale(1.06); }
+.trade-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.trade-card-thumb.gift {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  border-style: dashed;
+}
+.trade-arrow { color: var(--text-dim); font-size: 1rem; flex-shrink: 0; }
+/* Detail rarete/etat/finition sous chaque vignette : voir a l'oeil si un
+   echange est equitable sans avoir a deviner depuis la seule couleur de
+   bordure (demande explicite : "plus de details... pour juger si l'echange
+   est equitable"). */
+.trade-card-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 74px;
+}
+.rarity-tag {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid;
+  white-space: nowrap;
+}
+.trade-card-tags .finish-tag,
+.trade-card-tags .quality-tag { font-size: 0.6rem; padding: 1px 6px; }
+
+.trade-status {
+  display: inline-block;
+  width: fit-content;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel-solid);
+  color: var(--text-dim);
+}
+
+/* --- Journal d'ouvertures --- */
+.pull-log-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.pull-log-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.pull-log-row img { width: 40px; height: 53px; object-fit: cover; border-radius: 6px; border: 2px solid; flex-shrink: 0; }
+.pull-log-info { flex: 1; min-width: 0; }
+.pull-log-name { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; }
+.pull-log-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.pull-log-source { font-size: 1.2rem; flex-shrink: 0; }
+.pull-log-time { color: var(--text-dim); font-size: 0.76rem; flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Graphique "tirages au fil du temps" : barres CSS simples (une seule
+   serie, une seule teinte) plutot qu'une lib de charts pour un usage aussi
+   modeste. */
+.timeline-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 120px;
+  margin: 12px 0 20px;
+  padding: 8px;
+  background: var(--bg-panel-2);
+  border-radius: 10px;
+}
+.timeline-bar-col { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
+.timeline-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+}
+
+/* --- Tableau admin --- */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-size: 0.88rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-2) transparent;
+}
+.admin-table::-webkit-scrollbar { height: 8px; }
+.admin-table::-webkit-scrollbar-track { background: transparent; }
+.admin-table::-webkit-scrollbar-thumb { background: var(--accent-2); border-radius: var(--radius-pill); }
+.admin-table th, .admin-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.admin-table th {
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+/* Liseré colore par statut (border-collapse rend un border-left sur <tr>
+   peu fiable entre navigateurs : on le pose sur la 1ere cellule). */
+.admin-table tr[data-status] td:first-child { border-left: 3px solid var(--border-soft); }
+.admin-table tr[data-status="active"] td:first-child { border-left-color: var(--success); }
+.admin-table tr[data-status="expired"] td:first-child { border-left-color: var(--text-dim); }
+.admin-table tr[data-status="exhausted"] td:first-child { border-left-color: var(--accent-3); }
+.admin-table tr[data-status="disabled"] td:first-child { border-left-color: var(--danger); }
+.admin-table code {
+  background: var(--bg-panel-solid);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+.table-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }

@@ -139,7 +139,7 @@ function renderPullLog() {
     const when = p.obtainedAt ? new Date(p.obtainedAt * 1000).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
     return `
       <div class="pull-log-row" data-rarity="${p.rarity?.key || "commune"}">
-        <img src="${imgSrc}" alt="" loading="lazy" style="border-color:${color};" />
+        <img src="${imgSrc}" alt="" loading="lazy" decoding="async" style="border-color:${color};" />
         <div class="pull-log-info">
           <div class="pull-log-name">${p.cardName}</div>
           <div class="pull-log-meta">

@@ -14,6 +14,9 @@ const Toast = {
     if (!el) {
       el = document.createElement("div");
       el.className = "toast-stack";
+      // Annonce aux lecteurs d'ecran (2026-10-20) ; les erreurs passent en role="alert".
+      el.setAttribute("role", "status");
+      el.setAttribute("aria-live", "polite");
       document.body.appendChild(el);
     }
     return el;
@@ -23,6 +26,7 @@ const Toast = {
     const stack = this._stack();
     const el = document.createElement("div");
     el.className = `toast toast-${type}`;
+    if (type === "error") el.setAttribute("role", "alert");
     el.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${message}</span>`;
     stack.appendChild(el);
     setTimeout(() => {
@@ -156,6 +160,38 @@ function renderNotifDropdown() {
     });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Envol d'une carte (2026-10-20, refonte.css "card-hero") : la vignette
+// cliquee se transforme en sa fenetre de detail, et inversement a la
+// fermeture (View Transitions, meme page). Sans prise en charge, mouvement
+// reduit ou depart hors ecran : update() tout de suite, sans animation.
+// ---------------------------------------------------------------------------
+const CardFly = {
+  ok() { return typeof document.startViewTransition === "function" && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches); },
+  visible(el) {
+    if (!el || !el.isConnected) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+  },
+  start(update) {
+    // Type "card" : refonte.css ne fait pas glisser le reste de la page.
+    try { return document.startViewTransition({ update, types: ["card"] }); } catch (e) { return document.startViewTransition(update); }
+  },
+  // from : element de depart ; update() construit l'arrivee ; target() la renvoie.
+  run(from, update, target) {
+    if (!this.ok() || !this.visible(from)) { update(); return; }
+    from.style.viewTransitionName = "card-hero";
+    const vt = this.start(() => {
+      from.style.viewTransitionName = "";
+      update();
+      const t = target();
+      if (t && this.visible(t)) t.style.viewTransitionName = "card-hero";
+    });
+    const clear = () => { const t = target(); if (t) t.style.viewTransitionName = ""; };
+    vt.finished.then(clear, clear);
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Confirmation stylisee (remplace window.confirm, qui casse totalement le
@@ -829,7 +865,9 @@ function playDustDissolve(el) {
 // booster si elle n'est pas en train de jouer une animation bloquante).
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  const cardModal = document.querySelector(".card-modal-overlay");
+  // La plus recente (derniere dans la page), pas la premiere ouverte.
+  const overlays = document.querySelectorAll(".card-modal-overlay");
+  const cardModal = overlays[overlays.length - 1];
   if (cardModal) { cardModal.remove(); syncScrollLock(); return; }
   const packModal = document.getElementById("pack-modal-overlay");
   // `isBusy` est une variable globale declaree dans opening.js (script

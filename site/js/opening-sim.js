@@ -83,7 +83,7 @@
           <tbody>${rows(r.qualities, (x) => QUALITY_LABELS[x.key] || x.key)}</tbody></table></div>
       </div>
       ${r.best.length ? `<h3 class="sim-best-title">Meilleurs tirages</h3><ul class="sim-best">${r.best.map((c) => `
-        <li style="--r:${color(c)}">${c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" />` : ""}
+        <li style="--r:${color(c)}">${c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" decoding="async" />` : ""}
           <span class="sim-best-name">${esc(c.name)}</span>
           <span class="sim-best-meta">${esc(c.rarity?.name || "")}${c.finish !== "normal" ? " · " + esc(FINISH_LABELS[c.finish] || c.finish) : ""} · ${esc(QUALITY_LABELS[c.quality] || c.quality)}${c.isShinyPack ? " · shiny" : ""}</span></li>`).join("")}</ul>` : ""}`;
   }

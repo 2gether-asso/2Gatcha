@@ -2,7 +2,30 @@
 // Themes de couleur, paliers de deblocage par niveau (FEATURE_UNLOCK_LEVEL...),
 // niveau connu du joueur et Session (joueur connecte, stocke en localStorage).
 // Ordre de chargement dans chaque page : config.js, api.js, core.js, ui.js,
-// shell.js, puis le script de la page.
+// shell.js, shell-extras.js, puis le script de la page.
+
+// ---------------------------------------------------------------------------
+// Scripts charges a la demande (2026-10-20, js/lazy/...) : une seule fois par
+// page, avec le meme suffixe de version (?v=) que core.js, pose a chaque
+// deploiement par .github/workflows/static.yml (sinon un ancien module
+// pourrait rester en cache avec un nouveau site).
+// ---------------------------------------------------------------------------
+const LazyJs = {
+  version: (() => { const s = document.currentScript; const m = s && (s.getAttribute("src") || "").match(/\?v=[^&#]+/); return m ? m[0] : ""; })(),
+  pending: new Map(),
+  load(path) {
+    if (!this.pending.has(path)) {
+      this.pending.set(path, new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = path + this.version;
+        s.onload = resolve;
+        s.onerror = () => { this.pending.delete(path); s.remove(); reject(new Error("Chargement impossible : " + path)); };
+        document.head.appendChild(s);
+      }));
+    }
+    return this.pending.get(path);
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Themes de couleur : purement cosmetique, debloques par niveau de profil
@@ -36,6 +59,10 @@ const COMMON_ERRORS = {
   nothing_to_steal: "Ce joueur n'a aucun doublon à voler.",
   already_in_draft: "Tu participes déjà à un draft.",
   draft_full: "Ce draft est complet.",
+  not_in_draft: "Tu ne participes pas à ce draft.",
+  draft_started: "Ce draft a déjà commencé : impossible de le quitter.",
+  not_host: "Seul l'hôte du salon peut lancer le draft.",
+  draft_not_running: "Ce draft n'est pas en cours (terminé ou pas encore lancé).",
   draft_closed: "Ce draft a déjà commencé.",
   need_two_players: "Il faut au moins 2 joueurs pour lancer le draft.",
   not_your_turn: "Ce n'est pas ton tour.",
@@ -471,3 +498,15 @@ const Visuals = {
   }
 };
 Visuals.init();
+
+// ---------------------------------------------------------------------------
+// Images de cartes (2026-10-20) : un fond "chargement" teinte par la rarete
+// (refonte.css) tant que l'illustration n'est pas arrivee ; la classe
+// is-loaded le retire. Ecoute en phase de capture (load ne remonte pas).
+// ---------------------------------------------------------------------------
+(function () {
+  const SEL = ".card-art img, .album-slot img, .mu-item img";
+  const done = (e) => { const t = e.target; if (t && t.tagName === "IMG" && t.closest(SEL.replace(/ img/g, ""))) t.classList.add("is-loaded"); };
+  document.addEventListener("load", done, true);
+  document.addEventListener("error", done, true);
+})();

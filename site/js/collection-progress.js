@@ -44,7 +44,7 @@
       </div>` + st.stars.map((s) => `
       <article class="sky-star ${s.lit ? "lit" : ""} ${s.claimed ? "claimed" : ""}" title="${esc(s.name)} : ${s.owned}/${s.cards.length}">
         <header><span class="sky-icon" aria-hidden="true">${s.lit ? "&#11088;" : "&#9734;"}</span><strong>${esc(s.name)}</strong><small>${s.owned}/${s.cards.length}</small></header>
-        <div class="sky-cards">${s.cards.map((c) => `<span class="sky-card ${c.owned ? "owned" : ""}" style="--r:${esc(c.rarity?.colorHex || "#888")}" title="${esc(c.name)}">${c.owned && c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" />` : "?"}</span>`).join("")}</div>
+        <div class="sky-cards">${s.cards.map((c) => `<span class="sky-card ${c.owned ? "owned" : ""}" style="--r:${esc(c.rarity?.colorHex || "#888")}" title="${esc(c.name)}">${c.owned && c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" decoding="async" />` : "?"}</span>`).join("")}</div>
         ${s.lit && !s.claimed ? `<button type="button" class="btn-secondary sky-claim" data-sky="${s.key}">Récupérer (+${st.dustPerStar} &#10024;)</button>` : ""}
       </article>`).join("");
   }

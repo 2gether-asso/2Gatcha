@@ -1,0 +1,163 @@
+/* refonte.css - Refonte front du 2026-10-20 : hors ligne, transitions de page,
+   inspecteur de carte, carte du monde des jeux, session rapide, accessibilite,
+   rappels. Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css
+   (voir l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
+   specificite egale. */
+
+/* --- Hors ligne (sw.js, shell-extras.js) --- */
+.offline-pill { position: fixed; left: 50%; bottom: calc(var(--nav-bottom-h, 64px) + 14px); z-index: 900; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-pill); font-size: 0.82rem; font-weight: 700; color: #1a1200; background: #fbbf24; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7); }
+@media (min-width: 900px) { .offline-pill { bottom: 18px; } }
+
+/* --- Images de cartes : fond de chargement teinte par la rarete (core.js
+   ajoute .is-loaded au chargement). :root:not(#fx) pour passer devant les
+   effets de carte v3 (card-fx.css), qui animent aussi l'image. --- */
+:root:not(#fx) .collection-card .card-art img:not(.is-loaded),
+:root:not(#fx) .craft-card .card-art img:not(.is-loaded),
+:root:not(#fx) .card-modal .card-art img:not(.is-loaded),
+:root:not(#fx) .album-slot img:not(.is-loaded),
+:root:not(#fx) .mu-item img:not(.is-loaded) {
+  background: linear-gradient(110deg, color-mix(in srgb, var(--r, var(--accent)) 14%, var(--bg-panel-2)) 25%, color-mix(in srgb, var(--r, var(--accent)) 32%, var(--bg-panel-solid)) 37%, color-mix(in srgb, var(--r, var(--accent)) 14%, var(--bg-panel-2)) 63%);
+  background-size: 400% 100%;
+  animation: skeletonShine 1.4s ease infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not(#fx) .collection-card .card-art img:not(.is-loaded), :root:not(#fx) .craft-card .card-art img:not(.is-loaded), :root:not(#fx) .card-modal .card-art img:not(.is-loaded), :root:not(#fx) .album-slot img:not(.is-loaded), :root:not(#fx) .mu-item img:not(.is-loaded) { animation: none; }
+}
+
+/* --- Transitions de page (View Transitions API, Chrome / Edge / Safari
+   recents ; ailleurs, navigation normale). L'en-tete et la barre du bas ne
+   bougent pas, le contenu glisse selon le sens du menu (config.js pose le
+   type forward / back), fondu sinon. La carte cliquee "vole" jusqu'a sa
+   fenetre de detail (collection-binder.js, nom card-hero). --- */
+@media (prefers-reduced-motion: no-preference) {
+  #site-header { view-transition-name: site-header; }
+  .bottom-nav { view-transition-name: bottom-nav; }
+  main { view-transition-name: page; }
+  ::view-transition-group(site-header), ::view-transition-group(bottom-nav) { z-index: 2; animation-duration: 0.25s; }
+  ::view-transition-old(page) { animation: vtPageOut 0.18s ease-in both; }
+  ::view-transition-new(page) { animation: vtPageIn 0.26s ease-out both; }
+  html:active-view-transition-type(forward)::view-transition-old(page) { animation: vtSlideOutLeft 0.22s ease-in both; }
+  html:active-view-transition-type(forward)::view-transition-new(page) { animation: vtSlideInRight 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+  html:active-view-transition-type(back)::view-transition-old(page) { animation: vtSlideOutRight 0.22s ease-in both; }
+  html:active-view-transition-type(back)::view-transition-new(page) { animation: vtSlideInLeft 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+  ::view-transition-group(card-hero) { animation-duration: 0.38s; animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1); z-index: 50; }
+  ::view-transition-old(card-hero), ::view-transition-new(card-hero) { height: 100%; object-fit: cover; }
+  /* Envol de carte (meme page) : seul le fond (fenetre qui apparait) fond. */
+  html:active-view-transition-type(card)::view-transition-old(page), html:active-view-transition-type(card)::view-transition-new(page),
+  html:active-view-transition-type(card)::view-transition-old(site-header), html:active-view-transition-type(card)::view-transition-new(site-header) { animation: none; }
+  html:active-view-transition-type(card)::view-transition-old(root) { animation: vtPageOut 0.3s ease both; }
+  html:active-view-transition-type(card)::view-transition-new(root) { animation: vtFadeIn 0.3s ease both; }
+}
+@keyframes vtFadeIn { from { opacity: 0; } }
+@keyframes vtPageOut { to { opacity: 0; } }
+@keyframes vtPageIn { from { opacity: 0; transform: translateY(6px); } }
+@keyframes vtSlideOutLeft { to { opacity: 0; transform: translateX(-36px); } }
+@keyframes vtSlideInRight { from { opacity: 0; transform: translateX(48px); } }
+@keyframes vtSlideOutRight { to { opacity: 0; transform: translateX(36px); } }
+@keyframes vtSlideInLeft { from { opacity: 0; transform: translateX(-48px); } }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}
+
+/* --- Fil d'Ariane (shell-extras.js, Breadcrumb) --- */
+.breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 10px; font-size: 0.78rem; color: var(--text-dim); }
+.breadcrumb a { color: var(--text-dim); text-decoration: none; border-radius: 4px; }
+.breadcrumb a:hover { color: var(--text); text-decoration: underline; }
+.breadcrumb a[aria-current="page"] { color: var(--text); font-weight: 600; }
+.breadcrumb [data-bc-tab] { color: var(--accent-light, #a78bfa); font-weight: 600; }
+.breadcrumb .bc-sep { opacity: 0.6; }
+
+/* --- Inspecteur de carte (js/lazy/card-inspector.js) --- */
+html.ci-open, html.ci-open body { overflow: hidden; }
+.ci-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 10px; padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom)); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--accent) 22%, rgba(4, 5, 12, 0.94)), rgba(4, 5, 12, 0.97) 70%); backdrop-filter: blur(6px); animation: vtFadeIn 0.2s ease both; color: var(--text); }
+.ci-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ci-title { display: grid; min-width: 0; }
+.ci-title strong { font-size: 1.1rem; }
+.ci-sub { font-size: 0.82rem; color: var(--text-dim); }
+.ci-tools { display: flex; align-items: center; gap: 6px; }
+.ci-tools .btn-ghost { min-width: 40px; min-height: 40px; padding: 6px 10px; font-size: 1.1rem; line-height: 1; }
+.ci-zoom { min-width: 54px; text-align: center; font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--text-dim); }
+.ci-stage { position: relative; display: grid; place-items: center; overflow: hidden; touch-action: none; cursor: default; perspective: 1400px; }
+.ci-stage.zoomed { cursor: grab; }
+.ci-stage.zoomed:active { cursor: grabbing; }
+.ci-pan { transform-origin: center center; will-change: transform; transition: transform 0.08s linear; }
+.ci-overlay .ci-card { width: min(calc((100dvh - 350px) * 0.75), 88vw, 520px); padding: 0; cursor: default; }
+.ci-overlay .ci-card .card-art { aspect-ratio: 3 / 4; width: 100%; height: auto; border-radius: 14px; }
+.ci-overlay .ci-card .card-art img { width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+.ci-overlay .ci-card.tilting { transform: rotateX(calc(var(--rx, 0deg) * 0.6)) rotateY(calc(var(--ry, 0deg) * 0.6)); transition: transform 0.1s ease-out; }
+.ci-variants { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 6px; scroll-snap-type: x proximity; justify-content: safe center; }
+.ci-variant { flex: 0 0 auto; display: grid; justify-items: center; gap: 4px; width: 86px; padding: 6px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text); font: inherit; cursor: pointer; scroll-snap-align: center; }
+.ci-variant[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+.ci-variant small { font-size: 0.64rem; line-height: 1.25; text-align: center; color: var(--text-dim); }
+.ci-variant small b { color: var(--text); }
+.ci-overlay .ci-mini { display: block; width: 64px; padding: 0; pointer-events: none; }
+.ci-overlay .ci-mini .card-art { display: block; aspect-ratio: 3 / 4; border-radius: 6px; }
+.ci-overlay .ci-mini .card-art img { width: 100%; height: 100%; object-fit: cover; }
+.ci-hint { margin: 0; text-align: center; font-size: 0.75rem; color: var(--text-dim); }
+@media (prefers-reduced-motion: reduce) { .ci-overlay { animation: none; } .ci-pan { transition: none; } }
+
+/* --- Carte du monde des jeux (jeux-summary.js) : un lieu par jeu sur un
+   paysage dessine, etat en direct. Vue "liste" = les pastilles d'avant. --- */
+.games-hub { margin: 4px 0 14px; }
+.games-hub[data-view="map"] #games-summary, .games-hub[data-view="list"] .wm-wrap, .games-hub[data-view="map"] .wm-toggle-back { display: none; }
+.wm-wrap { position: relative; }
+.wm-toggle-back { margin-top: 8px; font-size: 0.8rem; padding: 6px 12px; }
+.wm-map { position: relative; height: clamp(230px, 32vw, 340px); border-radius: var(--radius-lg, 18px); overflow: hidden; border: 1px solid var(--border-soft); }
+.wm-world { position: relative; width: 100%; height: 100%; }
+.wm-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wm-pin { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; min-width: 44px; padding: 6px 10px 5px; border-radius: 14px; font: inherit; color: #fff; background: rgba(10, 12, 30, 0.72); border: 1px solid rgba(255, 255, 255, 0.18); backdrop-filter: blur(4px); box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.8); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.wm-pin[hidden] { display: none; }
+/* Survol : seulement la bordure, la tuile ne bouge pas (y compris face aux effets de survol generiques des boutons). */
+.wm-map .wm-pin:hover, .wm-map .wm-pin:focus-visible, .wm-map .wm-pin:active { transform: translate(-50%, -50%); filter: none; border-color: var(--accent-2); z-index: 2; }
+.wm-pin.active { background: color-mix(in srgb, var(--accent) 70%, rgba(10, 12, 30, 0.8)); border-color: #fff; z-index: 1; }
+.wm-pin.hot::after { content: ""; position: absolute; inset: -4px; border-radius: 17px; border: 2px solid var(--success); animation: wmPulse 1.8s ease-out infinite; pointer-events: none; }
+.wm-ico { font-size: 1.35rem; line-height: 1; }
+.wm-name { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.01em; white-space: nowrap; }
+.wm-status { font-size: 0.66rem; font-weight: 600; color: #cbd5e1; white-space: nowrap; }
+.wm-status:empty { display: none; }
+.wm-pin.hot .wm-status { color: #86efac; }
+.wm-toggle { position: absolute; right: 8px; top: 8px; z-index: 3; padding: 4px 10px; font-size: 0.75rem; background: rgba(10, 12, 30, 0.6); }
+@keyframes wmPulse { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { .wm-pin.hot::after { animation: none; } }
+/* Mobile : icone + etat, le nom passe en infobulle (aria-label). */
+@media (max-width: 640px) {
+  /* Panorama a faire glisser : le paysage garde ses proportions (1000 x 360). */
+  .wm-map { height: 250px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; scroll-behavior: smooth; }
+  .wm-map::-webkit-scrollbar { display: none; }
+  .wm-world { width: calc(250px * 1000 / 360); }
+  .wm-pin { padding: 5px 6px 4px; min-width: 40px; }
+  .wm-name { display: none; }
+  .wm-status { font-size: 0.6rem; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* --- Session rapide (js/lazy/quick-session.js) --- */
+.rc-head-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.qs-modal { width: min(560px, 100%); grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.qs-lead { margin: 0; color: var(--text-dim); font-size: 0.9rem; }
+.qs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; overflow-y: auto; }
+.qs-step { display: grid; gap: 2px; padding: 8px 10px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.qs-step label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.qs-step input { width: 18px; height: 18px; accent-color: var(--accent); }
+.qs-state { padding-left: 26px; font-size: 0.8rem; color: var(--text-dim); }
+.qs-state:empty { display: none; }
+.qs-step.running { border-color: var(--accent-2); }
+.qs-step.done { border-color: color-mix(in srgb, var(--success) 60%, transparent); }
+.qs-step.done .qs-state { color: var(--success); }
+.qs-step.failed .qs-state { color: var(--danger); }
+.qs-spin { display: inline-block; width: 12px; height: 12px; border-width: 2px; vertical-align: -2px; margin: 0; }
+.wm-quick { position: absolute; left: 8px; top: 8px; z-index: 3; padding: 4px 10px; font-size: 0.75rem; background: rgba(10, 12, 30, 0.6); }
+
+/* --- Rappels (js/lazy/reminders.js) --- */
+.rm-modal { width: min(520px, 100%); grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+.rm-master { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); cursor: pointer; }
+.rm-master input, .rm-list input { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; margin-top: 2px; }
+.rm-master span { display: grid; gap: 2px; }
+.rm-master small { color: var(--text-dim); font-size: 0.78rem; line-height: 1.4; }
+.rm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; overflow-y: auto; }
+.rm-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 10px; }
+.rm-list li:nth-child(odd) { background: rgba(255, 255, 255, 0.02); }
+.rm-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.rm-list small { font-size: 0.75rem; color: var(--accent-2); white-space: nowrap; }
+.rm-note { margin: 0; font-size: 0.8rem; color: var(--danger); }
+.inv-remind { margin-left: 8px; padding: 2px 10px; font-size: 0.72rem; border-radius: var(--radius-pill); background: transparent; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; box-shadow: none; }
+.inv-remind:hover { color: var(--text); border-color: var(--accent); }

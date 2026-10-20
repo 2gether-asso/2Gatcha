@@ -1589,11 +1589,33 @@ await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardi
   // Sans dino ni crane : pas de nourriture.
   store.update('Users', 2, { Worms: 100, FishingCasts: 0, FishingEnergy: null, Dinos: '[]', DinoSkulls: 0 });
   assert.equal(call('POST', 'fishing', { body: { userId: 2, action: 'cast', count: 1 } }).json.bycatch.length, 0);
-  // Maximum 5 dinos ; suggestion de l'accueil quand il a faim.
+  // Maximum DinoMax dinos (10) ; suggestion de l'accueil quand il a faim.
   const one = dinoMod.dinosOf(user(1))[0];
-  store.update('Users', 1, { DinoSkulls: 1, BoneCount: 99, Dinos: JSON.stringify([1, 2, 3, 4, 5].map((id) => ({ ...one, id, at: now() - 40 * 3600 }))) });
+  store.update('Users', 1, { DinoSkulls: 1, BoneCount: 99, Dinos: JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((id) => ({ ...one, id, at: now() - 40 * 3600 }))) });
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'status' } }).json.max, 10);
   assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatch' } }).json.error, 'max_dinos');
   assert.ok(dinoMod.dinoAlerts(user(1)).some((a) => a.key === 'dino-hungry'));
+  // Relacher dans la nature : la place se libere, la vedette et le compagnon sont retires, les cacas murs ramasses.
+  const poopsBefore = Number(user(1).DinoPoop) || 0;
+  const list = dinoMod.dinosOf(user(1)).map((d) => (d.id === 3 ? { ...d, poops: [now() - 10, now() + 3600] } : d));
+  store.update('Users', 1, { Dinos: JSON.stringify(list), DinoStar: 3, DinoCompanion: 3 });
+  const rel = call('POST', 'dino', { body: { userId: 1, action: 'release', dino: 3 } }).json;
+  assert.equal(rel.released.name, one.name, JSON.stringify(rel.error || rel.released));
+  assert.equal(rel.dinos.length, 9);
+  assert.equal(rel.released.poop, 1);
+  assert.equal(Number(user(1).DinoPoop), poopsBefore + 1);
+  assert.ok(!Number(user(1).DinoStar) && !Number(user(1).DinoCompanion));
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'release', dino: 3 } }).json.error, 'unknown_dino');
+  assert.ok(call('POST', 'dino', { body: { userId: 1, action: 'hatch' } }).json.hatched, 'une place liberee');
+  // Un dino mort ne se relache pas (tas d'os : bury).
+  const dead = dinoMod.dinosOf(user(1)).map((d) => (d.id === 4 ? { ...d, deadAt: now() - 60 } : d));
+  store.update('Users', 1, { Dinos: JSON.stringify(dead) });
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'release', dino: 4 } }).json.error, 'dino_dead');
+  // Reglage DinoMax : 5 places -> enclos plein.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DinoMax: 5 } } });
+  store.update('Users', 1, { DinoSkulls: 1 });
+  assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'hatch' } }).json.error, 'max_dinos');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoMax' } });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoSkullChance' } });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoFoodChance' } });
 });

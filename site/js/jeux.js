@@ -1055,7 +1055,7 @@ async function loadBingo() {
       const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
       return `
         <div class="bingo-cell ${c.owned ? "owned" : ""}" style="border-color:${c.owned ? color : "transparent"};">
-          <img src="${imgSrc}" alt="${c.name}" loading="lazy" />
+          <img src="${imgSrc}" alt="${c.name}" loading="lazy" decoding="async" />
           <div class="bingo-cell-name">${c.name}</div>
           ${c.owned ? `<span class="bingo-cell-check">&#9989;</span>` : ""}
         </div>

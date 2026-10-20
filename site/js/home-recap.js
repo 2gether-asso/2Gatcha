@@ -33,7 +33,7 @@
       </div>
       ${r.rarities.length ? `<p class="recap-rarities">${r.rarities.map((x) => `<span style="--r:${esc(x.colorHex || "#888")}">${x.count} ${esc(x.name)}</span>`).join("")}</p>` : ""}
       ${r.best.length ? `<div class="recap-best"><span class="recap-best-k">Tes plus belles prises</span>${r.best.map((c) => `
-        <span class="recap-card" style="--r:${esc(c.rarity?.colorHex || "#888")}">${c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" />` : ""}<span><strong>${esc(c.name)}</strong><small>${esc(c.rarity?.name || "")}${c.finish !== "normal" ? " · " + (FINISH[c.finish] || c.finish) : ""}</small></span></span>`).join("")}</div>` : ""}`;
+        <span class="recap-card" style="--r:${esc(c.rarity?.colorHex || "#888")}">${c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" decoding="async" />` : ""}<span><strong>${esc(c.name)}</strong><small>${esc(c.rarity?.name || "")}${c.finish !== "normal" ? " · " + (FINISH[c.finish] || c.finish) : ""}</small></span></span>`).join("")}</div>` : ""}`;
     document.getElementById("recap-share").addEventListener("click", () => share(r, from));
     document.getElementById("recap-close").addEventListener("click", () => {
       try { localStorage.setItem(KEY, r.week); } catch (e) { /* stockage indisponible */ }

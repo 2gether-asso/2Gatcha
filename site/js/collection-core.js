@@ -693,7 +693,7 @@ const Coll = (() => {
       const btns = [...nav.querySelectorAll(".coll-mode:not(.locked)")];
       const i = btns.findIndex((b) => b.dataset.mode === mode);
       const next = btns[(i + (e.key === "ArrowRight" ? 1 : -1) + btns.length) % btns.length];
-      if (next) { setMode(next.dataset.mode); next.focus(); }
+      if (next) { e.preventDefault(); setMode(next.dataset.mode); next.focus(); }
     });
     window.addEventListener("hashchange", () => {
       const m = modeFromHash();

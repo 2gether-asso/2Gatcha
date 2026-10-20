@@ -18,7 +18,7 @@
     if (!card) return "";
     const img = card.imageId ? API.imageUrl(card.imageId) : "";
     return `<div class="md-card" data-rarity="${card.rarity?.key || "commune"}" ${attrs}>
-      <div class="md-card-art">${img ? `<img src="${img}" alt="" loading="lazy" />` : "🃏"}</div>
+      <div class="md-card-art">${img ? `<img src="${img}" alt="" loading="lazy" decoding="async" />` : "🃏"}</div>
       <div class="md-card-name">${esc(card.name || "?")}</div>
       <div class="md-card-sub">${card.rarity ? `<span style="color:${card.rarity.colorHex || "inherit"}">${esc(card.rarity.name || "")}</span>` : ""}${sub ? " · " + sub : ""}</div>
     </div>`;
@@ -181,17 +181,45 @@
       renderRules();
       renderWidgets();
       (x && x.notes || []).forEach((n) => Toast.info(`${n.icon} ${esc(n.text)}`));
-      clearTimeout(draftTimer);
-      if (draftSt && draftSt.current && draftSt.current.status === "running") draftTimer = setTimeout(refreshDraft, 6000);
+      pollDraft();
     } catch (e) {
       document.getElementById("md-widgets").innerHTML = `<p class="error-box">${esc(friendlyError(e))}</p>`;
     }
   }
-  async function refreshDraft() {
-    try { draftSt = await API.draft(Session.userId); renderWidgets(); } catch (e) { /* reessai au prochain tour */ }
-    clearTimeout(draftTimer);
-    if (draftSt && draftSt.current && draftSt.current.status === "running") draftTimer = setTimeout(refreshDraft, 6000);
+  // Draft (2026-10-20) : actualise toutes les 6 s dans TOUS les etats (avant :
+  // seulement une fois lance, donc l'hote ne voyait pas arriver les joueurs et
+  // les invites ne voyaient jamais le depart). Seul le bloc Draft est
+  // redessine (les champs des autres blocs ne sont pas effaces), et le joueur
+  // est prevenu au depart, a son tour et a la fin.
+  function paintDraft() {
+    const el = document.getElementById("md-draft");
+    const html = draftSt ? renderDraft() : "";
+    if (el && html) el.outerHTML = html;
+    else if (el || html) renderWidgets();
   }
+  function draftNews(prev, next) {
+    const a = prev && prev.current, b = next && next.current;
+    if (a && a.status === "open" && b && b.status === "running") Toast.success("🃏 Le draft commence !");
+    if (b && b.status === "running" && b.myTurn && !(a && a.status === "running" && a.myTurn)) {
+      Toast.info("🃏 <strong>À toi de piocher</strong> dans le draft !");
+      if (typeof Haptics !== "undefined") Haptics.buzz([20, 40, 20]);
+    }
+    if (a && a.status === "open" && b && b.status === "open" && b.players.length > a.players.length) Toast.info(`🃏 ${esc(b.players[b.players.length - 1].pseudo)} a rejoint le salon.`);
+    if (a && a.status === "running" && !b) {
+      Toast.success("🃏 Draft terminé : tes cartes sont dans ta collection.");
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    }
+  }
+  async function refreshDraft() {
+    const prev = draftSt;
+    try { draftSt = await API.draft(Session.userId); draftNews(prev, draftSt); paintDraft(); } catch (e) { /* reessai au prochain tour */ }
+    pollDraft();
+  }
+  function pollDraft() {
+    clearTimeout(draftTimer);
+    if (draftSt && (draftSt.current || draftSt.active)) draftTimer = setTimeout(() => { if (document.hidden) pollDraft(); else refreshDraft(); }, 6000);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && draftSt && (draftSt.current || draftSt.active)) refreshDraft(); });
   async function act(action, params, done) {
     try {
       const r = await API.modeExtra(Session.userId, action, params);
@@ -239,9 +267,10 @@
       } else if (t.dataset.draft) {
         const a = t.dataset.draft;
         if (a === "create" || a === "join") { if (!(await Confirm.show("Miser 1 booster pour ce draft ? Il est rendu si le salon est annulé avant le départ.", { title: "Draft", confirmText: "Miser 1 booster" }))) return; }
-        try { draftSt = await API.draft(Session.userId, a, { id: Number(t.dataset.id) || undefined }); renderWidgets(); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); clearTimeout(draftTimer); if (draftSt.current && draftSt.current.status === "running") draftTimer = setTimeout(refreshDraft, 6000); } catch (err) { Toast.error(friendlyError(err)); }
+        try { draftSt = await API.draft(Session.userId, a, { id: Number(t.dataset.id) || undefined }); paintDraft(); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); pollDraft(); } catch (err) { Toast.error(friendlyError(err)); refreshDraft(); }
       } else if (t.dataset.draftPick != null) {
-        try { draftSt = await API.draft(Session.userId, "pick", { id: draftSt.current.id, index: Number(t.dataset.draftPick) }); renderWidgets(); Toast.success("🃏 Carte piochée !"); } catch (err) { Toast.error(friendlyError(err)); }
+        const prev = draftSt;
+        try { draftSt = await API.draft(Session.userId, "pick", { id: draftSt.current.id, index: Number(t.dataset.draftPick) }); Toast.success("🃏 Carte piochée !"); draftNews(prev && prev.current ? { current: { ...prev.current, myTurn: true } } : prev, draftSt); paintDraft(); pollDraft(); } catch (err) { Toast.error(friendlyError(err)); refreshDraft(); }
       }
     });
   });

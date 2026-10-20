@@ -341,7 +341,7 @@ function renderTradeCard(trade) {
     return `
       <div class="trade-card-block">
         <div class="trade-card-thumb" style="border-color:${color};cursor:zoom-in;" data-modal-card-id="${card ? card.cardId : ""}" data-modal-finish="${finish || ""}" data-modal-quality="${quality || ""}" data-modal-serial="${isOffered && cardRef?.serialNumber != null ? cardRef.serialNumber : ""}">
-          <img src="${src}" alt="${cardRef?.name || ""}" loading="lazy" />
+          <img src="${src}" alt="${cardRef?.name || ""}" loading="lazy" decoding="async" />
         </div>
         ${card ? `
           <div class="trade-card-tags">
@@ -711,7 +711,7 @@ async function bulkCancel() {
 let tradeMatches = [];
 function matchCardChip(c) {
   const color = (c.rarity && c.rarity.colorHex) || "#9aa0b4";
-  return `<span class="match-card" style="--chip-color:${color};" title="${c.rarity ? c.rarity.name : ""}"><img src="${API.imageUrl(c.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />${c.name}</span>`;
+  return `<span class="match-card" style="--chip-color:${color};" title="${c.rarity ? c.rarity.name : ""}"><img src="${API.imageUrl(c.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" />${c.name}</span>`;
 }
 async function loadTradeSuggestions() {
   const zone = document.getElementById("trade-suggestions");
@@ -782,7 +782,7 @@ async function loadWishAlerts() {
     box.hidden = false;
     document.getElementById("wish-alerts-list").innerHTML = res.items.map((it) => `
       <li class="wish-alert">
-        <img src="${API.imageUrl(it.card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" />
+        <img src="${API.imageUrl(it.card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" />
         <div><strong>${it.card.name}</strong>
           <div class="wish-alert-where">${it.where.map((w) => `<a href="${w.url}">${w.label}</a>`).join(" · ")}</div>
         </div>
