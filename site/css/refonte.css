@@ -161,3 +161,32 @@ html.ci-open, html.ci-open body { overflow: hidden; }
 .rm-note { margin: 0; font-size: 0.8rem; color: var(--danger); }
 .inv-remind { margin-left: 8px; padding: 2px 10px; font-size: 0.72rem; border-radius: var(--radius-pill); background: transparent; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; box-shadow: none; }
 .inv-remind:hover { color: var(--text); border-color: var(--accent); }
+
+/* ==== Fluidite (2026-10-21) ==== */
+/* Panneaux : plus de flou d'arriere-plan. Le fond anime (body::before/after)
+   bouge en continu, donc chaque panneau floute devait etre recalcule a chaque
+   image sur ordinateur (le mobile l'avait deja coupe, features.css). Fond un
+   peu plus couvrant a la place (base.css), couleur du theme conservee. */
+html[data-game-mode="cool"]:not([data-theme]) .panel { backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* Fonds des modes et des saisons : derive par translation (carte graphique)
+   au lieu de la position de fond, qui redessinait tout l'ecran a chaque
+   image. Memes trajets ; la marge couvre le plus long (520 px). */
+@keyframes skinSnow { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(60px, 520px, 0); } }
+@keyframes skinDrift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-160px, -80px, 0); } }
+@keyframes skinEmbers { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-40px, -520px, 0); } }
+@keyframes seasonFall { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(40px, 520px, 0); } }
+html[data-game-mode]:not([data-game-mode="chaos"]):not([data-theme]) body::after, html[data-season-skin]:not([data-theme]) body::after { inset: -560px; }
+
+/* Effets allegés (html[data-fx="light"], menu du compte ou detection d'un
+   appareil lent, shell.js FxLevel) : fond fige, aucun flou, brillances des
+   cartes jouees une seule fois, confettis reduits (core.js). */
+html[data-fx="light"] body::before, html[data-fx="light"] body::after,
+html[data-fx="light"] #site-brand, html[data-fx="light"] .brand-text, html[data-fx="light"] header#site-header { animation: none !important; }
+html[data-fx="light"] *, html[data-fx="light"] *::before, html[data-fx="light"] *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-fx="light"] header#site-header { background: rgba(6, 7, 15, 0.97); }
+html[data-fx="light"] .bottom-nav { background: rgba(10, 11, 24, 0.98); }
+html[data-fx="light"] .card-modal-overlay { background: rgba(4, 5, 12, 0.95); }
+html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini, .fm-card, .achievement-tile, .booster-pack),
+html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini, .fm-card, .achievement-tile, .booster-pack) :is(*, *::before, *::after),
+html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini, .fm-card, .achievement-tile, .booster-pack)::before,
+html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini, .fm-card, .achievement-tile, .booster-pack)::after { animation-iteration-count: 1 !important; }

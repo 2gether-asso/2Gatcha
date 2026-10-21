@@ -364,12 +364,14 @@ main {
 .panel {
   position: relative;
   background: var(--bg-panel);
-  backdrop-filter: blur(10px);
   border: 2px solid var(--border-soft);
   border-radius: 20px;
   padding: 32px;
   box-shadow: 0 20px 60px -20px rgba(0,0,0,0.6);
 }
+/* Sans flou d'arriere-plan (2026-10-21, refonte.css) : fond un peu plus
+   couvrant sur ordinateur, le mobile a deja le sien (features.css). */
+@media (min-width: 769px) and (pointer: fine) { .panel { background: color-mix(in srgb, var(--bg-panel) 45%, var(--bg-panel-solid)); } }
 /* Halo ambiant derriere le panel : --rarity-glow est pose par collection.js
    sur la couleur de la carte la plus rare possedee (accent par defaut
    ailleurs). */

@@ -510,3 +510,33 @@ Visuals.init();
   document.addEventListener("load", done, true);
   document.addEventListener("error", done, true);
 })();
+
+// ---------------------------------------------------------------------------
+// Confettis (2026-10-21) : la bibliotheque est chargee en defer ; ses tirs
+// passent par un seul canevas anime dans un worker (le fil principal reste
+// libre pendant les cinematiques) et sont reduits sur mobile ou en effets
+// alleges (html[data-fx="light"], shell.js FxLevel).
+// ---------------------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const lib = window.confetti;
+  if (typeof lib !== "function" || !lib.create) return;
+  let shoot = null, canvas = null;
+  const wrapped = (opts = {}) => {
+    if (!shoot) {
+      canvas = document.createElement("canvas");
+      canvas.setAttribute("aria-hidden", "true");
+      canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none";
+      document.body.appendChild(canvas);
+      try { shoot = lib.create(canvas, { resize: true, useWorker: true, disableForReducedMotion: true }); } catch (e) { canvas.remove(); shoot = lib; }
+    }
+    const light = document.documentElement.dataset.fx === "light";
+    const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+    const k = light ? 0.35 : coarse ? 0.6 : 1;
+    const o = Object.assign({}, opts, { particleCount: Math.max(12, Math.round((opts.particleCount || 50) * k)) });
+    if (canvas && shoot !== lib) canvas.style.zIndex = String(o.zIndex || 100);
+    return shoot(o);
+  };
+  wrapped.reset = () => shoot && shoot.reset && shoot.reset();
+  wrapped.create = lib.create;
+  window.confetti = wrapped;
+});

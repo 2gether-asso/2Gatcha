@@ -189,8 +189,13 @@ const Coll = (() => {
     // Pas de suivi tactile : sur mobile, un simple scroll recalculait le
     // style de chaque carte survolee (lag).
     el.addEventListener("mouseenter", () => { el.style.willChange = "transform"; });
-    el.addEventListener("mousemove", (e) => update(e.clientX, e.clientY));
-    el.addEventListener("mouseleave", reset);
+    // Une mise a jour par image au plus (souris a haute frequence).
+    let raf = 0, mx = 0, my = 0;
+    el.addEventListener("mousemove", (e) => {
+      mx = e.clientX; my = e.clientY;
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; update(mx, my); });
+    });
+    el.addEventListener("mouseleave", () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } reset(); });
   }
 
   function rarityBadge(card) {

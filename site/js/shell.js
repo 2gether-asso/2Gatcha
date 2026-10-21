@@ -512,6 +512,7 @@ function renderHeader() {
               <button id="compact-toggle-btn" type="button" title="Sur mobile : interface resserrée et actions principales en bas de l'accueil"><span class="mi">&#128241;</span> Mode compact : <span data-compact-label>${document.documentElement.dataset.compact === "1" ? "activé" : "désactivé"}</span></button>
               <button id="text-size-btn" type="button" title="Agrandit tout le texte du site sur cet appareil"><span class="mi">&#128269;</span> Taille du texte : <span data-text-size-label>${TextSize.LABELS[TextSize.get()]}</span></button>
               <button id="cine-pref-btn" type="button" title="Cinématiques d'ouverture, de découverte, de niveau et de changement de mode"><span class="mi">&#127916;</span> Cinématiques : <span data-cine-label>${CinePref.LABELS[CinePref.get()].toLowerCase()}</span></button>
+              <button id="fx-level-btn" type="button" title="Allégés : fond fixe, sans flou ni brillances en boucle, pour les appareils qui saccadent"><span class="mi">&#10024;</span> Effets visuels : <span data-fx-label>${FxLevel.LABELS[FxLevel.get()]}</span></button>
               <button id="kbd-help-btn" type="button" class="only-fine-pointer" title="Raccourcis clavier (touche ?)"><span class="mi">&#9000;</span> Raccourcis clavier</button>
               <button id="discoveries-reset-btn" type="button" title="Rejoue l'animation de chaque ressource que tu possèdes"><span class="mi">&#128270;</span> Revoir les découvertes</button>
               <div class="menu-sep"></div>
@@ -705,6 +706,12 @@ function renderHeader() {
       e.currentTarget.querySelector("[data-cine-label]").textContent = CinePref.LABELS[v].toLowerCase();
       Toast.info({ always: "🎬 Cinématiques toujours affichées.", first: "🎬 Chaque cinématique ne s'affichera qu'une fois (par rareté, mode, métier…).", never: "🎬 Cinématiques désactivées : un court message les remplace." }[v]);
     });
+    document.getElementById("fx-level-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const v = FxLevel.next();
+      e.currentTarget.querySelector("[data-fx-label]").textContent = FxLevel.LABELS[v];
+      Toast.info({ auto: `✨ Effets automatiques (actuellement ${FxLevel.resolve(v) === "light" ? "allégés" : "complets"}).`, full: "✨ Effets visuels complets.", light: "✨ Effets visuels allégés : fond fixe, sans flou ni brillances en boucle." }[v]);
+    });
     document.getElementById("discoveries-reset-btn").addEventListener("click", async () => {
       CinePref.forget("discovery");
       const okReset = await Confirm.show("Rejouer l'animation de découverte de chaque ressource que tu possèdes ? Les nouvelles ressources seront aussi annoncées à nouveau.", { title: "Revoir les découvertes", confirmText: "Revoir" });
@@ -892,6 +899,53 @@ const TextSize = {
   }
 };
 TextSize.apply(TextSize.get());
+// Effets visuels (2026-10-21) : html[data-fx="light"] coupe fond anime, flous
+// et brillances en boucle (refonte.css) et reduit les confettis (core.js).
+// « auto » : alleges si l'appareil le demande (mouvement reduit, economie de
+// donnees, peu de memoire/coeurs) ou si une mesure de la fluidite (une fois
+// par semaine, apres le chargement) tombe sous ~35 images/s.
+const FxLevel = {
+  KEY: "2gatcha_fx",
+  PROBE: "2gatcha_fx_probe",
+  ORDER: ["auto", "full", "light"],
+  LABELS: { auto: "automatiques", full: "complets", light: "allégés" },
+  get() { try { const v = localStorage.getItem(this.KEY); return this.ORDER.includes(v) ? v : "auto"; } catch (e) { return "auto"; } },
+  weakDevice() {
+    const n = navigator;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    if (n.connection && n.connection.saveData) return true;
+    return (n.deviceMemory && n.deviceMemory <= 2) || (n.hardwareConcurrency && n.hardwareConcurrency <= 2);
+  },
+  probed() { try { const p = JSON.parse(localStorage.getItem(this.PROBE) || "null"); return p && Date.now() - p.at < 7 * 86400000 ? p.v : null; } catch (e) { return null; } },
+  resolve(v) { return v !== "auto" ? v : this.weakDevice() || this.probed() === "light" ? "light" : "full"; },
+  apply(v) { if (this.resolve(v) === "light") document.documentElement.dataset.fx = "light"; else delete document.documentElement.dataset.fx; },
+  next() {
+    const v = this.ORDER[(this.ORDER.indexOf(this.get()) + 1) % this.ORDER.length];
+    try { if (v === "auto") localStorage.removeItem(this.KEY); else localStorage.setItem(this.KEY, v); } catch (e) { /* stockage indisponible */ }
+    this.apply(v);
+    return v;
+  },
+  // 90 images mesurees quand la page est au repos ; onglet cache = mesure
+  // abandonnee. Seulement en « auto » : un choix du joueur n'est jamais modifie.
+  probe() {
+    if (this.get() !== "auto" || this.weakDevice() || this.probed()) return;
+    const times = [];
+    // Le choix du joueur prime : s'il en fait un pendant la mesure, elle s'arrete.
+    const step = (t) => {
+      if (document.hidden || this.get() !== "auto") return;
+      times.push(t);
+      if (times.length < 91) { requestAnimationFrame(step); return; }
+      const avg = (times[90] - times[0]) / 90;
+      const v = avg > 28 ? "light" : "full";
+      try { localStorage.setItem(this.PROBE, JSON.stringify({ v, at: Date.now() })); } catch (e) { /* stockage indisponible */ }
+      if (v === "light") { this.apply("auto"); Toast.info("✨ Effets visuels allégés pour plus de fluidité (menu du compte pour changer)."); }
+    };
+    const start = () => setTimeout(() => { if (!document.hidden && this.get() === "auto") requestAnimationFrame(step); }, 2500);
+    if (document.readyState === "complete") start(); else window.addEventListener("load", start, { once: true });
+  }
+};
+FxLevel.apply(FxLevel.get());
+FxLevel.probe();
 
 // Evenement surprise (2026-10-18, api/src/native/surprise.js) : bandeau tant
 // qu'il dure, et une courte cinematique la premiere fois qu'on le voit.

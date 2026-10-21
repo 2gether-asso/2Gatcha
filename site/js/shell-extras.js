@@ -618,6 +618,22 @@ document.addEventListener("click", (e) => {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go();
 })();
 
+// Changements du DOM (2026-10-21) : un seul observateur, regroupe a 250 ms au
+// plus, remplace les sondages permanents (SecretFx toutes les 1,2 s,
+// CardAnimGate toutes les secondes, meme sur une page immobile).
+const DomChange = {
+  subs: [],
+  timer: 0,
+  on(fn) {
+    this.subs.push(fn);
+    if (this.subs.length > 1) return;
+    new MutationObserver(() => {
+      if (this.timer) return;
+      this.timer = setTimeout(() => { this.timer = 0; this.subs.forEach((f) => f()); }, 250);
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-card-id"] });
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Cartes secretes : effet unique de chaque carte (2026-10-19, choisi dans
 // l'admin : Cards.SecretEffect ; GET /webhook/secret-card). Reperage par
@@ -701,7 +717,7 @@ const SecretFx = {
     effects.forEach((e) => this.byId.set(String(e.cardId), e.effect));
     this.selector = [...this.byId.keys()].map((id) => `[data-card-id="${id}"]`).join(",");
     this.apply();
-    setInterval(() => this.apply(), 1200);
+    DomChange.on(() => this.apply());
     if ([...this.byId.values()].includes("glitch")) this.glitchLoop();
   }
 };
@@ -727,7 +743,7 @@ const CardAnimGate = {
     if (!("IntersectionObserver" in window) || !this.seen) return;
     this.io = new IntersectionObserver((entries) => entries.forEach((e) => e.target.classList.toggle("anim-off", !e.isIntersecting)), { rootMargin: "150px 0px" });
     this.scan();
-    setInterval(() => { if (!document.hidden) this.scan(); }, 1000);
+    DomChange.on(() => this.scan());
   }
 };
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => CardAnimGate.init()); else CardAnimGate.init();

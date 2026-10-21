@@ -27,8 +27,14 @@ const CardTilt = (function () {
     if (!el || el._tilt) return;
     el._tilt = true;
     if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-      el.addEventListener("mousemove", (e) => { const r = el.getBoundingClientRect(); set(el, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); });
-      el.addEventListener("mouseleave", () => reset(el));
+      // Une mise a jour par image au plus (souris a haute frequence).
+      let raf = 0, mx = 0, my = 0;
+      el.addEventListener("mousemove", (e) => {
+        mx = e.clientX; my = e.clientY;
+        if (raf) return;
+        raf = requestAnimationFrame(() => { raf = 0; const r = el.getBoundingClientRect(); set(el, (mx - r.left) / r.width, (my - r.top) / r.height); });
+      });
+      el.addEventListener("mouseleave", () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } reset(el); });
     } else if (gyro) focus(el);
   }
   function focus(el) {
