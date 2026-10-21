@@ -1,0 +1,27 @@
+{
+  "name": "2Gatcha - Collection d'art de 2GETHER",
+  "short_name": "2Gatcha",
+  "description": "Ouvre des boosters, collectionne les créations de l'asso 2GETHER, échange et joue.",
+  "id": "./index.html",
+  "start_url": "./index.html?source=app",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#06070f",
+  "theme_color": "#0b0c1a",
+  "lang": "fr",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "assets/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/app/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Ouvrir un booster", "short_name": "Booster", "url": "./ouverture.html?source=app", "icons": [{ "src": "assets/app/sc-booster.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Ma collection", "short_name": "Collection", "url": "./collection.html?source=app", "icons": [{ "src": "assets/app/sc-collection.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Jeux", "short_name": "Jeux", "url": "./jeux.html?source=app", "icons": [{ "src": "assets/app/sc-jeux.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Échanges", "short_name": "Échanges", "url": "./trade.html?source=app", "icons": [{ "src": "assets/app/sc-echanges.png", "sizes": "96x96", "type": "image/png" }] }
+  ]
+}

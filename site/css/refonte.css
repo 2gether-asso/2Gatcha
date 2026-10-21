@@ -27,8 +27,7 @@
 /* --- Transitions de page (View Transitions API, Chrome / Edge / Safari
    recents ; ailleurs, navigation normale). L'en-tete et la barre du bas ne
    bougent pas, le contenu glisse selon le sens du menu (config.js pose le
-   type forward / back), fondu sinon. La carte cliquee "vole" jusqu'a sa
-   fenetre de detail (collection-binder.js, nom card-hero). --- */
+   type forward / back), fondu sinon. --- */
 @media (prefers-reduced-motion: no-preference) {
   #site-header { view-transition-name: site-header; }
   .bottom-nav { view-transition-name: bottom-nav; }
@@ -40,13 +39,6 @@
   html:active-view-transition-type(forward)::view-transition-new(page) { animation: vtSlideInRight 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
   html:active-view-transition-type(back)::view-transition-old(page) { animation: vtSlideOutRight 0.22s ease-in both; }
   html:active-view-transition-type(back)::view-transition-new(page) { animation: vtSlideInLeft 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
-  ::view-transition-group(card-hero) { animation-duration: 0.38s; animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1); z-index: 50; }
-  ::view-transition-old(card-hero), ::view-transition-new(card-hero) { height: 100%; object-fit: cover; }
-  /* Envol de carte (meme page) : seul le fond (fenetre qui apparait) fond. */
-  html:active-view-transition-type(card)::view-transition-old(page), html:active-view-transition-type(card)::view-transition-new(page),
-  html:active-view-transition-type(card)::view-transition-old(site-header), html:active-view-transition-type(card)::view-transition-new(site-header) { animation: none; }
-  html:active-view-transition-type(card)::view-transition-old(root) { animation: vtPageOut 0.3s ease both; }
-  html:active-view-transition-type(card)::view-transition-new(root) { animation: vtFadeIn 0.3s ease both; }
 }
 @keyframes vtFadeIn { from { opacity: 0; } }
 @keyframes vtPageOut { to { opacity: 0; } }
@@ -190,3 +182,128 @@ html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini,
 html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini, .fm-card, .achievement-tile, .booster-pack) :is(*, *::before, *::after),
 html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini, .fm-card, .achievement-tile, .booster-pack)::before,
 html[data-fx="light"] :is(.collection-card, .craft-card, .album-owned, .pv-mini, .fm-card, .achievement-tile, .booster-pack)::after { animation-iteration-count: 1 !important; }
+
+/* --- Grille virtualisee de la collection (collection-core.js VGrid) ---
+   Grille externe : une colonne de blocs (meme gap que la grille, donc meme
+   espacement entre rangees) ; chaque bloc reprend le gabarit des colonnes.
+   Un bloc hors de l'ecran n'est ni mis en page ni peint ; la marge interieure
+   compensee laisse deborder lueurs, badges et bascule des vignettes. */
+.collection-grid.vgrid.vgrid { grid-template-columns: minmax(0, 1fr) !important; }
+.vchunk { content-visibility: auto; contain-intrinsic-size: auto calc(var(--vrow-h, 320px) * var(--vrows, 4)); padding: 18px 12px; margin: -18px -12px; }
+
+/* --- Fenetre de carte sobre (2026-10-21, CardFly ui.js) : fondu court et
+   leger glissement, sans rebond ni flou du fond (le flou recalculait toute la
+   page a l'ouverture). --- */
+.card-modal-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(4, 5, 12, 0.9); animation-duration: 0.16s; }
+.card-modal-overlay .card-modal { transform: translateY(8px); opacity: 0; animation: cardModalIn 0.18s ease-out forwards; }
+.card-modal-overlay.is-closing { animation: cardModalOut 0.13s ease-in forwards; }
+@keyframes cardModalIn { to { transform: none; opacity: 1; } }
+@keyframes cardModalOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .card-modal-overlay, .card-modal-overlay .card-modal { animation-duration: 0.01s !important; } }
+
+/* --- Application installable (shell-extras.js AppInstall) --- */
+.app-install-banner { position: fixed; z-index: 60; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(520px, calc(100% - 24px)); display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--bg-panel-solid)), var(--bg-panel-solid) 60%); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.8), 0 0 30px -10px rgba(var(--accent-rgb), 0.5); animation: appBannerIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.app-install-banner img { border-radius: 12px; }
+.app-install-banner strong { display: block; font-family: var(--font-display); font-size: 0.95rem; }
+.app-install-banner small { display: block; color: var(--text-dim); font-size: 0.76rem; line-height: 1.35; }
+.app-install-banner .btn { padding: 8px 14px; white-space: nowrap; }
+.app-install-x { width: 32px; height: 32px; padding: 0; border-radius: 50%; background: transparent; border: 1px solid var(--border-soft); color: var(--text-dim); box-shadow: none; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+@keyframes appBannerIn { from { opacity: 0; transform: translate(-50%, 16px); } }
+@media (max-width: 640px) { .app-install-banner { bottom: calc(var(--nav-bottom-h) + 10px + env(safe-area-inset-bottom, 0px)); } }
+.app-ios-box { text-align: center; }
+.app-ios-box img { display: block; margin: 0 auto 10px; border-radius: 16px; }
+.app-ios-steps { text-align: left; margin: 8px 0 14px; padding-left: 20px; display: grid; gap: 6px; font-size: 0.9rem; line-height: 1.45; }
+/* Ouvert comme application : pas de lien d'installation, marge des encoches. */
+html[data-standalone] header#site-header { padding-top: env(safe-area-inset-top, 0px); }
+
+/* --- Comparateur de collections (js/lazy/compare.js) --- */
+.profile-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.profile-actions .btn-secondary { padding: 7px 14px; font-size: 0.85rem; }
+.cmp-modal { width: min(820px, 100%); grid-template-rows: auto minmax(0, 1fr); }
+.cmp-body { overflow-y: auto; min-height: 0; display: grid; gap: 14px; align-content: start; padding: 2px; }
+.cmp-meter { display: flex; height: 14px; border-radius: var(--radius-pill); overflow: hidden; background: var(--bg-panel-2); }
+.cmp-meter span { display: block; height: 100%; }
+.cmp-m-mine { background: var(--accent); }
+.cmp-m-common { background: color-mix(in srgb, var(--accent) 50%, var(--accent-2)); }
+.cmp-m-his { background: var(--accent-2); }
+.cmp-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--text-dim); }
+.cmp-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.cmp-legend strong { color: var(--text); }
+.cmp-pairs h3 { margin: 0 0 4px; font-size: 1rem; }
+.cmp-pairs ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.cmp-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.cmp-pair .cmp-tile { flex-direction: row; text-align: left; align-items: center; gap: 8px; padding: 6px; }
+.cmp-pair .cmp-tile img { width: 42px; aspect-ratio: 3 / 4; flex: 0 0 auto; }
+.cmp-pair .cmp-tile small { display: none; }
+.cmp-swap { font-size: 1.3rem; color: var(--accent-2); }
+.cmp-go { padding: 7px 12px; font-size: 0.82rem; }
+.cmp-help { margin: 0 0 8px; font-size: 0.8rem; color: var(--text-dim); }
+.cmp-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--border-soft); padding-bottom: 8px; }
+.cmp-tabs button { padding: 6px 12px; font-size: 0.84rem; border-radius: var(--radius-pill); background: transparent; border: 1px solid var(--border-soft); color: var(--text-dim); box-shadow: none; }
+.cmp-tabs button[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); border-color: var(--accent); }
+.cmp-tabs b { margin-left: 4px; font-weight: 800; }
+.cmp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.cmp-tile { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 6px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--r) 55%, transparent); color: var(--text); text-decoration: none; min-width: 0; text-align: center; }
+a.cmp-tile:hover { border-color: var(--r); box-shadow: 0 0 0 1px var(--r), 0 8px 20px -10px var(--r); }
+.cmp-tile img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; background: rgba(255, 255, 255, 0.04); }
+.cmp-name { font-size: 0.78rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmp-tile small { font-size: 0.7rem; font-weight: 600; }
+.cmp-badge { position: absolute; top: 8px; right: 8px; padding: 1px 7px; border-radius: var(--radius-pill); font-size: 0.7rem; font-weight: 800; background: rgba(6, 7, 15, 0.85); color: #fff; border: 1px solid var(--r); }
+.cmp-badge.cmp-wish { right: auto; left: 8px; color: #fde68a; border-color: #fbbf24; }
+.cmp-pair .cmp-badge { position: static; }
+.cmp-empty { color: var(--text-dim); text-align: center; padding: 16px; margin: 0; }
+@media (max-width: 560px) { .cmp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cmp-pair { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); } .cmp-go { grid-column: 1 / -1; justify-self: stretch; text-align: center; } }
+
+/* --- Studio de partage (js/lazy/share-studio.js) --- */
+.ss-modal { width: min(720px, 100%); grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.ss-formats { display: flex; gap: 6px; flex-wrap: wrap; }
+.ss-formats button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 0.84rem; border-radius: var(--radius-pill); background: transparent; border: 1px solid var(--border-soft); color: var(--text-dim); box-shadow: none; }
+.ss-formats button[aria-checked="true"] { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); border-color: var(--accent); }
+.ss-formats i { display: inline-block; border: 2px solid currentColor; border-radius: 3px; }
+.ss-fmt-post { width: 12px; height: 15px; }
+.ss-fmt-story { width: 10px; height: 18px; }
+.ss-fmt-square { width: 14px; height: 14px; }
+.ss-stage { min-height: 0; display: grid; place-items: center; padding: 6px; border-radius: 14px; background: repeating-conic-gradient(rgba(255, 255, 255, 0.03) 0 25%, transparent 0 50%) 0 0 / 22px 22px; overflow: hidden; }
+.ss-canvas { display: block; max-width: 100%; max-height: min(62vh, 640px); width: auto; height: auto; border-radius: 12px; box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.8); }
+.ss-actions { justify-content: flex-end; }
+@media (max-width: 560px) { .ss-actions { justify-content: stretch; } .ss-actions > * { flex: 1 1 45%; } .ss-canvas { max-height: 52vh; } }
+
+/* --- Centre de notifications (js/lazy/notif-center.js) --- */
+.notif-bell-dot.has-count { width: auto; min-width: 16px; height: 16px; top: -4px; right: -4px; padding: 0 4px; border-radius: var(--radius-pill); font-size: 0.62rem; font-weight: 800; line-height: 16px; text-align: center; color: #fff; }
+.notif-bell-dropdown.nc-root { width: min(420px, 92vw); max-height: min(70vh, 620px); padding: 8px 8px 4px; }
+.nc-head { position: sticky; top: -8px; z-index: 1; background: var(--bg-panel-solid); padding-top: 8px; }
+.nc-count { color: var(--accent-2); font-family: var(--font-body); text-transform: none; letter-spacing: normal; font-weight: 700; }
+.nc-filters { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 8px; }
+.nc-filters button { flex: 0 0 auto; padding: 4px 10px; font-size: 0.76rem; border-radius: var(--radius-pill); background: transparent; border: 1px solid var(--border-soft); color: var(--text-dim); box-shadow: none; }
+.nc-filters button[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 24%, transparent); border-color: var(--accent); color: var(--text); }
+.nc-filters b { margin-left: 2px; font-weight: 800; color: var(--accent-2); }
+.nc-sec + .nc-sec { margin-top: 6px; }
+.nc-sec h3 { display: flex; align-items: center; gap: 6px; margin: 4px 6px 4px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); }
+.nc-sec h3 .nc-btn { margin-left: auto; text-transform: none; letter-spacing: normal; }
+.nc-sec ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.nc-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 10px; font-size: 0.84rem; background: rgba(255, 255, 255, 0.025); }
+.nc-todo { background: color-mix(in srgb, var(--accent) 9%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+.nc-unread { box-shadow: inset 3px 0 0 var(--accent-2); background: rgba(255, 255, 255, 0.05); }
+.nc-ico { flex: 0 0 22px; text-align: center; margin-top: 1px; }
+.nc-ico .ico-token { width: 20px; height: 20px; }
+.nc-h-success .nc-ico { color: var(--success); }
+.nc-h-error .nc-ico { color: var(--danger); }
+.nc-h-info .nc-ico { color: var(--accent-2); }
+.nc-body { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.nc-msg { line-height: 1.38; overflow-wrap: anywhere; }
+.nc-msg a { color: inherit; }
+.nc-time { font-size: 0.72rem; color: var(--text-dim); }
+.nc-ready { color: var(--success); }
+.nc-new { color: var(--accent-2); text-transform: none; letter-spacing: normal; }
+.nc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nc-btn { padding: 4px 10px; font-size: 0.76rem; border-radius: var(--radius-pill); background: transparent; border: 1px solid var(--border); color: var(--text); box-shadow: none; cursor: pointer; }
+.nc-btn.nc-ok { background: var(--accent); border-color: var(--accent); color: #fff; }
+.nc-btn:disabled { opacity: 0.6; cursor: default; }
+.nc-link { font-size: 0.76rem; color: var(--accent-2); }
+.nc-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.78rem; }
+.nc-pick select { max-width: 100%; padding: 4px 8px; font-size: 0.78rem; }
+.nc-warn { color: var(--warning, #fbbf24); }
+@media (max-width: 640px) {
+  .notif-bell-dropdown.nc-root { position: fixed; left: 8px; right: 8px; top: calc(var(--header-h, 64px) + 6px); width: auto; max-height: calc(100vh - var(--header-h, 64px) - var(--nav-bottom-h) - 24px); }
+}

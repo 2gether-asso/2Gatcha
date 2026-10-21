@@ -16,15 +16,16 @@
 // - API (/webhook/...) et tout ce qui n'est pas un GET : jamais en cache.
 // Les notifications push (api/src/native/push.js) restent gerees plus bas.
 
-const VERSION = "2026-10-20";
+const VERSION = "2026-10-21";
 const STATIC = "gatcha-static-" + VERSION;
 const IMAGES = "gatcha-images-v1";
 const KEEP = [STATIC, IMAGES];
 const IMAGE_MAX = 600;
 const NAV_TIMEOUT = 3000;
 // Precharge a l'installation : la page hors ligne (styles en ligne, rien a
-// charger d'autre ; les CSS/JS portent un ?v= qui change a chaque deploiement).
-const PRECACHE = ["offline.html"];
+// charger d'autre ; les CSS/JS portent un ?v= qui change a chaque deploiement),
+// le manifeste et l'icone de l'application installable (2026-10-21).
+const PRECACHE = ["offline.html", "manifest.json", "assets/app/icon-192.png"];
 // Pages a ne jamais garder (jetons dans l'adresse, outils de test).
 const NO_CACHE_PAGES = /\/(auth-callback|dev-login|maintenance)\.html$/;
 
@@ -131,6 +132,8 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     tag: data.tag || undefined,
     renotify: !!data.tag,
+    icon: "assets/app/icon-192.png",
+    badge: "assets/app/icon-maskable-192.png",
     data: { url: data.url || "index.html" }
   }));
 });

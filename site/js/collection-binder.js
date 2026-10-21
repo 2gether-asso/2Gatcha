@@ -267,6 +267,8 @@
     }
     const isDense = document.body.classList.contains("dense-view");
     const showHeadings = groups.length > 1;
+    const gridCls = "collection-grid" + (isDense ? " dense" : "");
+    gridCols = Coll.VGrid.cols(container, gridCls);
     container.innerHTML = groups.map((group) => {
       const ownedCount = group.cards.filter((c) => Coll.isDiscovered(c.cardId)).length;
       const collapsed = showHeadings && collapsedExtensions.has(group.key);
@@ -279,12 +281,26 @@
               <span class="ext-heading-count">${ownedCount}/${group.cards.length}</span>
               ${setChip(group.key)}
             </h2>` : ""}
-          <div class="collection-grid ${isDense ? "dense" : ""}">${group.cards.flatMap((c) => cardTilesHtml(c, now)).join("")}</div>
+          ${Coll.VGrid.html(group.cards.flatMap((c) => cardTilesHtml(c, now)), gridCls, gridCols)}
         </div>`;
     }).join("");
+    Coll.VGrid.fit(container);
     container.querySelectorAll(".collection-card:not(.locked):not(.protected-card)").forEach(Coll.attachTilt);
     updateBulkBar();
   }
+
+  // Colonnes de la grille au dernier rendu : un changement (rotation,
+  // fenetre redimensionnee) refait les blocs de la grille virtualisee.
+  let gridCols = 0, resizeTimer = 0;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const container = $("collection-grid");
+      if (albumMode || !gridCols || !container || !container.querySelector(".vgrid")) return;
+      const cls = "collection-grid" + (document.body.classList.contains("dense-view") ? " dense" : "");
+      if (Coll.VGrid.cols(container, cls) !== gridCols) render();
+    }, 200);
+  });
 
   function visibleNavKeys() {
     return [...document.querySelectorAll("#collection-grid .collection-card[data-nav-key]")].map((el) => el.dataset.navKey);
@@ -485,12 +501,6 @@
     const overlay = document.createElement("div");
     overlay.className = "card-modal-overlay";
     let index = Math.max(0, navList.indexOf(navKey));
-    // Illustration de la vignette d'une carte de la grille (point de depart / d'arrivee de l'envol).
-    const tileArt = (key) => {
-      const tile = key && document.querySelector(`#collection-grid [data-nav-key="${CSS.escape(key)}"]`);
-      return tile ? tile.querySelector(".card-art") || tile.querySelector("img") : null;
-    };
-    const modalArt = () => overlay.querySelector(".card-modal .card-art");
 
     function renderAt(newIndex, direction) {
       index = newIndex;
@@ -637,8 +647,7 @@
     function close() {
       document.removeEventListener("keydown", onKey);
       if (!overlay.isConnected) return;
-      // La carte retourne a sa place dans la grille (CardFly, ui.js).
-      CardFly.run(modalArt(), () => { overlay.remove(); syncScrollLock(); }, () => tileArt(navList[index]));
+      CardFly.close(overlay, syncScrollLock);
     }
     // Echap est gere globalement par ui.js (retire l'overlay) : on se
     // desinscrit si l'overlay a deja disparu.
@@ -657,8 +666,9 @@
       if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
       touchStartX = null;
     }, { passive: true });
-    // La vignette cliquee s'envole jusqu'a la fenetre (CardFly, ui.js).
-    CardFly.run(tileArt(navKey), () => { document.body.appendChild(overlay); renderAt(index, null); syncScrollLock(); }, modalArt);
+    document.body.appendChild(overlay);
+    renderAt(index, null);
+    syncScrollLock();
   }
 
   // ---------------------------------------------------------------- actions

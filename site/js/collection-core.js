@@ -766,8 +766,47 @@ const Coll = (() => {
     return keep;
   }
 
+  // Grilles virtualisees (2026-10-21) : les vignettes sont rangees par blocs
+  // de 4 rangees completes (meme gabarit de colonnes, donc alignement
+  // identique a une grille unique) ; chaque bloc hors de l'ecran est saute
+  // par le navigateur (content-visibility, refonte.css .vchunk) : ni styles,
+  // ni mise en page, ni peinture. Le DOM reste entier : recherche dans la
+  // page, navigation et selections fonctionnent comme avant.
+  const VGrid = {
+    ROWS: 4,
+    // Colonnes reelles de la grille cls a l'interieur de host.
+    cols(host, cls) {
+      const probe = document.createElement("div");
+      probe.className = cls;
+      probe.style.cssText = "visibility:hidden;height:0;overflow:hidden;margin:0";
+      host.appendChild(probe);
+      const n = getComputedStyle(probe).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+      probe.remove();
+      return n;
+    },
+    html(tiles, cls, cols) {
+      const per = Math.max(1, cols) * this.ROWS;
+      let out = "";
+      for (let i = 0; i < tiles.length; i += per) {
+        const n = Math.min(per, tiles.length - i);
+        out += `<div class="${cls} vchunk" style="--vrows:${Math.ceil(n / cols)}">${tiles.slice(i, i + per).join("")}</div>`;
+      }
+      return `<div class="${cls} vgrid">${out}</div>`;
+    },
+    // Hauteur d'une rangee mesuree sur le premier bloc affiche : sert de
+    // taille d'attente aux blocs pas encore vus (la barre de defilement ne saute pas).
+    fit(host) {
+      const first = host.querySelector(".vchunk");
+      if (!first) return;
+      const cs = getComputedStyle(first);
+      const h = first.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const rows = Number(first.style.getPropertyValue("--vrows")) || 1;
+      if (h > 0) host.style.setProperty("--vrow-h", ((h + (parseFloat(cs.rowGap) || 0)) / rows).toFixed(1) + "px");
+    }
+  };
+
   return {
-    keepBestIds,
+    keepBestIds, VGrid,
     FINISH_ORDER, FINISH_LABELS, FINISH_LABELS_LONG, QUALITY_ORDER, QUALITY_LABELS,
     state, filters, prefs,
     get mode() { return mode; },

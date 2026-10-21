@@ -292,6 +292,8 @@ const TabTitle = {
   set(n) {
     if (this.base == null) this.base = document.title.replace(/^\(\d+\+?\)\s*/, "");
     document.title = n > 0 ? `(${n > 99 ? "99+" : n}) ${this.base}` : this.base;
+    // Application installee (2026-10-21) : meme compteur sur son icone.
+    try { if (navigator.setAppBadge) { if (n > 0) navigator.setAppBadge(n).catch(() => {}); else navigator.clearAppBadge().catch(() => {}); } } catch (e) { /* non pris en charge */ }
   }
 };
 
@@ -348,6 +350,9 @@ async function loadNavBadges() {
     const rewardsCount = (await RewardsCenter.collect()).items.length;
     setNavDot("rewards", rewardsCount || "");
     TabTitle.set(rewardsCount + pendingCount);
+    // Cloche : nombre de choses a faire (centre de notifications, 2026-10-21).
+    NotificationHistory.todo = rewardsCount + pendingCount;
+    renderNotifDot();
   } catch (e) { /* pas grave, juste un rappel visuel */ }
 
   try {
@@ -503,6 +508,7 @@ function renderHeader() {
               <a href="nouveautes.html" id="notes-link"><span class="mi">&#128240;</span> Nouveautés</a>
               <button type="button" data-quick-session title="Récompenses, récolte, explorateur, pioche gratuite : tout ce qui se fait sans choisir"><span class="mi">&#9889;</span> Session rapide</button>
               <button type="button" data-reminders title="Être prévenu quand l'énergie, le jardin, l'expédition ou un lot est prêt"><span class="mi">&#9200;</span> Rappels : <span data-reminders-label>${(() => { try { return (JSON.parse(localStorage.getItem("2gatcha_reminders") || "null") || {}).on ? "activés" : "désactivés"; } catch (e) { return "désactivés"; } })()}</span></button>
+              <button type="button" data-app-install hidden title="Plein écran, icône sur l'écran d'accueil, raccourcis Booster, Collection, Jeux"><span class="mi">&#128242;</span> Installer l'application</button>
               <div class="menu-sep"></div>
               <button id="edit-pseudo-btn" type="button"><span class="mi">&#9998;</span> Modifier le pseudo</button>
               <button id="copy-profile-link-btn" type="button"><span class="mi">&#128279;</span> Copier le lien de mon profil</button>
@@ -537,7 +543,11 @@ function renderHeader() {
       const opening = !notifBell.classList.contains("open");
       notifBell.classList.toggle("open", opening);
       if (opening) {
+        // Historique tout de suite, puis le centre de notifications complet
+        // (js/lazy/notif-center.js : a faire, echanges, minuteurs, filtres).
+        const lastSeen = NotificationHistory.lastSeen();
         renderNotifDropdown();
+        LazyJs.load("js/lazy/notif-center.js").then(() => NotifCenter.open(document.getElementById("notif-bell-dropdown"), lastSeen)).catch(() => {});
         NotificationHistory.markAllSeen();
         renderNotifDot();
       }

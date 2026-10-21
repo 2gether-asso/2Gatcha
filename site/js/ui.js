@@ -82,34 +82,43 @@ const Toast = {
 // multi-pages (chaque navigation recharge completement le JS), donc un Toast
 // manque en changeant de page est perdu pour toujours - la petite cloche
 // dans le header garde une trace recente consultable a tout moment.
-// sessionStorage (pas localStorage) : une trace par session de navigation,
-// pas une notification qui ressurgirait des semaines plus tard.
+// Centre de notifications (2026-10-21, js/lazy/notif-center.js) : la trace
+// est gardee 3 jours sur l'appareil (localStorage, 50 au plus) et chaque
+// entree garde son etat lu / non lu ; la cloche affiche aussi les choses a
+// faire (echanges, recompenses : NotificationHistory.todo, pose par shell.js).
 // ---------------------------------------------------------------------------
 const NotificationHistory = {
   KEY: "2gatcha_notif_history",
   LAST_SEEN_KEY: "2gatcha_notif_last_seen",
-  MAX: 20,
+  MAX: 50,
+  TTL: 3 * 86400000,
+  todo: 0,
   getAll() {
-    try { return JSON.parse(sessionStorage.getItem(this.KEY) || "[]"); } catch (e) { return []; }
+    try {
+      const old = Date.now() - this.TTL;
+      return (JSON.parse(localStorage.getItem(this.KEY) || "[]") || []).filter((n) => n.ts > old);
+    } catch (e) { return []; }
   },
   add(type, message) {
     if (!message) return;
     try {
       const list = this.getAll();
       list.unshift({ type, message, ts: Date.now() });
-      sessionStorage.setItem(this.KEY, JSON.stringify(list.slice(0, this.MAX)));
+      localStorage.setItem(this.KEY, JSON.stringify(list.slice(0, this.MAX)));
     } catch (e) {}
   },
+  lastSeen() {
+    try { return Number(localStorage.getItem(this.LAST_SEEN_KEY) || 0); } catch (e) { return 0; }
+  },
   unreadCount() {
-    let lastSeen = 0;
-    try { lastSeen = Number(sessionStorage.getItem(this.LAST_SEEN_KEY) || 0); } catch (e) {}
+    const lastSeen = this.lastSeen();
     return this.getAll().filter((n) => n.ts > lastSeen).length;
   },
   markAllSeen() {
-    try { sessionStorage.setItem(this.LAST_SEEN_KEY, String(Date.now())); } catch (e) {}
+    try { localStorage.setItem(this.LAST_SEEN_KEY, String(Date.now())); } catch (e) {}
   },
   clear() {
-    try { sessionStorage.removeItem(this.KEY); } catch (e) {}
+    try { localStorage.removeItem(this.KEY); } catch (e) {}
   }
 };
 
@@ -126,8 +135,10 @@ function relativeTime(ts) {
 function renderNotifDot() {
   const dot = document.getElementById("notif-bell-dot");
   if (!dot) return;
-  const count = NotificationHistory.unreadCount();
-  dot.style.display = count > 0 ? "block" : "none";
+  const count = NotificationHistory.unreadCount() + NotificationHistory.todo;
+  dot.style.display = count > 0 ? "" : "none";
+  dot.textContent = NotificationHistory.todo > 0 ? (NotificationHistory.todo > 9 ? "9+" : String(NotificationHistory.todo)) : "";
+  dot.classList.toggle("has-count", NotificationHistory.todo > 0);
 }
 
 function renderNotifDropdown() {
@@ -162,34 +173,18 @@ function renderNotifDropdown() {
 }
 
 // ---------------------------------------------------------------------------
-// Envol d'une carte (2026-10-20, refonte.css "card-hero") : la vignette
-// cliquee se transforme en sa fenetre de detail, et inversement a la
-// fermeture (View Transitions, meme page). Sans prise en charge, mouvement
-// reduit ou depart hors ecran : update() tout de suite, sans animation.
+// Ouverture de la fenetre de carte (2026-10-21, refonte.css) : un fondu
+// court et sobre en CSS. L'envol de la vignette (View Transitions, 20 oct.)
+// capturait toute la page a chaque clic : lourd et parfois saccade.
+// run(from, update, target) garde sa signature ; close(overlay) retire la
+// fenetre apres un fondu de sortie.
 // ---------------------------------------------------------------------------
 const CardFly = {
-  ok() { return typeof document.startViewTransition === "function" && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches); },
-  visible(el) {
-    if (!el || !el.isConnected) return false;
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
-  },
-  start(update) {
-    // Type "card" : refonte.css ne fait pas glisser le reste de la page.
-    try { return document.startViewTransition({ update, types: ["card"] }); } catch (e) { return document.startViewTransition(update); }
-  },
-  // from : element de depart ; update() construit l'arrivee ; target() la renvoie.
-  run(from, update, target) {
-    if (!this.ok() || !this.visible(from)) { update(); return; }
-    from.style.viewTransitionName = "card-hero";
-    const vt = this.start(() => {
-      from.style.viewTransitionName = "";
-      update();
-      const t = target();
-      if (t && this.visible(t)) t.style.viewTransitionName = "card-hero";
-    });
-    const clear = () => { const t = target(); if (t) t.style.viewTransitionName = ""; };
-    vt.finished.then(clear, clear);
+  run(from, update) { update(); },
+  close(overlay, done) {
+    if (!overlay || !overlay.isConnected) { if (done) done(); return; }
+    overlay.classList.add("is-closing");
+    setTimeout(() => { overlay.remove(); if (done) done(); }, 130);
   }
 };
 

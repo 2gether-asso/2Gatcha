@@ -589,6 +589,91 @@ document.addEventListener("click", (e) => {
     if ("requestIdleCallback" in window) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
   });
 })();
+// ---------------------------------------------------------------------------
+// Application installable (2026-10-21, manifest.json) : le navigateur propose
+// l'installation (beforeinstallprompt, Chrome/Edge/Android) ; sur iPhone, une
+// fenetre explique le geste (Partager puis « Sur l'écran d'accueil »).
+// Invitation discrete a partir de la 3e visite, au plus une fois par mois si
+// refusee ; toujours disponible dans le menu du compte ([data-app-install]).
+// html[data-standalone] : site ouvert comme application.
+// ---------------------------------------------------------------------------
+const AppInstall = {
+  KEY: "2gatcha_install",
+  deferred: null,
+  standalone() { return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; },
+  ios() { return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; },
+  can() { return !this.standalone() && (!!this.deferred || this.ios()); },
+  st() { try { return JSON.parse(localStorage.getItem(this.KEY) || "null") || {}; } catch (e) { return {}; } },
+  save(v) { try { localStorage.setItem(this.KEY, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } },
+  syncMenu() { document.querySelectorAll("[data-app-install]").forEach((b) => { b.hidden = !this.can(); }); },
+  async install() {
+    if (this.deferred) {
+      const ev = this.deferred;
+      this.deferred = null;
+      ev.prompt();
+      try { const r = await ev.userChoice; if (r && r.outcome === "dismissed") this.save({ ...this.st(), dismissedAt: Date.now() }); } catch (e) { /* choix inconnu */ }
+      this.hideBanner();
+      this.syncMenu();
+      return;
+    }
+    if (this.ios()) this.iosHelp();
+  },
+  iosHelp() {
+    const ov = document.createElement("div");
+    ov.className = "card-modal-overlay confirm-overlay";
+    ov.innerHTML = `<div class="confirm-box app-ios-box" role="dialog" aria-modal="true" aria-labelledby="app-ios-t">
+      <img src="assets/app/icon-192.png" alt="" width="72" height="72" />
+      <div class="confirm-title" id="app-ios-t">Installer 2Gatcha sur l'iPhone</div>
+      <ol class="app-ios-steps">
+        <li>Touche le bouton <strong>Partager</strong> <span aria-hidden="true">&#11014;&#65039;</span> en bas de Safari.</li>
+        <li>Choisis <strong>« Sur l'écran d'accueil »</strong> <span aria-hidden="true">&#10133;</span>.</li>
+        <li>Valide avec <strong>Ajouter</strong> : 2Gatcha s'ouvre ensuite en plein écran, comme une application.</li>
+      </ol>
+      <div class="confirm-actions"><button type="button" class="confirm-ok">Compris</button></div>
+    </div>`;
+    const close = () => { ov.remove(); if (typeof syncScrollLock === "function") syncScrollLock(); };
+    ov.addEventListener("click", (e) => { if (e.target === ov || e.target.closest(".confirm-ok")) close(); });
+    document.body.appendChild(ov);
+    if (typeof syncScrollLock === "function") syncScrollLock();
+    ov.querySelector(".confirm-ok").focus();
+  },
+  hideBanner() { document.getElementById("app-install-banner")?.remove(); },
+  maybeBanner() {
+    const st = this.st();
+    if (!this.can() || !Session.isLoggedIn() || /admin/.test(location.pathname) || (st.visits || 0) < 3) return;
+    if (st.dismissedAt && Date.now() - st.dismissedAt < 30 * 86400000) return;
+    if (document.getElementById("app-install-banner")) return;
+    const b = document.createElement("aside");
+    b.id = "app-install-banner";
+    b.className = "app-install-banner";
+    b.setAttribute("aria-label", "Installer l'application");
+    b.innerHTML = `<img src="assets/app/icon-192.png" alt="" width="44" height="44" />
+      <span><strong>Installe 2Gatcha</strong><small>Plein écran, icône sur ton écran d'accueil, raccourcis Booster, Collection et Jeux.</small></span>
+      <button type="button" class="btn" data-app-install-go>Installer</button>
+      <button type="button" class="app-install-x" aria-label="Plus tard">&times;</button>`;
+    b.querySelector("[data-app-install-go]").addEventListener("click", () => this.install());
+    b.querySelector(".app-install-x").addEventListener("click", () => { this.save({ ...this.st(), dismissedAt: Date.now() }); this.hideBanner(); });
+    document.body.appendChild(b);
+  },
+  init() {
+    if (this.standalone()) document.documentElement.dataset.standalone = "1";
+    // Une visite = une session de navigation.
+    try { if (!sessionStorage.getItem("2gatcha_visit")) { sessionStorage.setItem("2gatcha_visit", "1"); const st = this.st(); this.save({ ...st, visits: (st.visits || 0) + 1 }); } } catch (e) { /* stockage indisponible */ }
+    window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); this.deferred = e; this.syncMenu(); setTimeout(() => this.maybeBanner(), 4000); });
+    window.addEventListener("appinstalled", () => { this.deferred = null; this.hideBanner(); this.syncMenu(); this.save({ ...this.st(), installedAt: Date.now() }); if (typeof Toast !== "undefined") Toast.success("&#128242; 2Gatcha est installé : retrouve-le sur ton écran d'accueil !"); });
+    document.addEventListener("click", (e) => {
+      const b = e.target instanceof Element ? e.target.closest("[data-app-install]") : null;
+      if (!b) return;
+      e.preventDefault();
+      document.getElementById("user-menu")?.classList.remove("open");
+      this.install();
+    });
+    const later = () => { this.syncMenu(); if (this.ios()) setTimeout(() => this.maybeBanner(), 4000); };
+    if (document.readyState === "complete") later(); else window.addEventListener("load", later, { once: true });
+  }
+};
+AppInstall.init();
+
 (function () {
   const sync = () => {
     let pill = document.getElementById("offline-pill");

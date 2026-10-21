@@ -143,67 +143,12 @@ const CardExtras = (function () {
     } catch (e) { box.innerHTML = '<p class="muted">Cote indisponible.</p>'; }
   }
 
-  // ---------------------------------------------------------------- image partagee (canvas)
-  const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = src; });
-  async function renderShareImage(o) {
-    const W = 600, H = 900, c = document.createElement("canvas");
-    c.width = W; c.height = H;
-    const g = c.getContext("2d");
-    const col = o.card.rarity?.colorHex || "#8b5cf6";
-    // Cadre et fond.
-    const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, "#151729"); bg.addColorStop(1, "#0b0c18");
-    g.fillStyle = bg; g.fillRect(0, 0, W, H);
-    if (o.finish === "rainbow") { const rb = g.createLinearGradient(0, 0, W, H); ["#ff6ec7", "#ffd76e", "#4ade80", "#7dd3fc", "#a78bfa"].forEach((cc, i) => rb.addColorStop(i / 4, cc)); g.strokeStyle = rb; } else g.strokeStyle = col;
-    g.lineWidth = 14; g.strokeRect(7, 7, W - 14, H - 14);
-    // Illustration (3:4).
-    const ax = 40, ay = 40, aw = W - 80, ah = Math.round((W - 80) * 4 / 3);
-    try {
-      const img = await loadImg(API.imageUrl(o.card.imageId));
-      const r = Math.max(aw / img.width, ah / img.height), sw = aw / r, sh = ah / r;
-      const f = { damaged: "saturate(0.3) sepia(0.3) brightness(0.82)", worn: "saturate(0.65) brightness(0.93)", mint: "saturate(1.08) contrast(1.04)" }[o.quality] || "none";
-      const ff = { gold: " sepia(0.6) saturate(1.8)", ghost: " grayscale(0.6) brightness(1.25)", diamond: " saturate(0.7) contrast(1.2) brightness(1.15)", holo: " saturate(1.3)", rainbow: " saturate(1.35)" }[o.finish] || "";
-      g.filter = (f + ff).trim() || "none";
-      g.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, ax, ay, aw, ah);
-      g.filter = "none";
-    } catch (e) { g.fillStyle = "#222"; g.fillRect(ax, ay, aw, ah); }
-    // Reflets de finition / edition (approximation fixe pour l'image).
-    const tint = (stops, a) => { const lg = g.createLinearGradient(ax, ay, ax + aw, ay + ah); stops.forEach((s, i) => lg.addColorStop(i / (stops.length - 1), s)); g.globalAlpha = a; g.fillStyle = lg; g.fillRect(ax, ay, aw, ah); g.globalAlpha = 1; };
-    if (o.finish === "holo") tint(["#ff3cb4", "#3cc8ff", "#ffe03c", "#3cff9c", "#a05aff"], 0.22);
-    if (o.finish === "gold") tint(["#ffd650", "#c88a14", "#ffe9a0"], 0.28);
-    if (o.finish === "ghost") tint(["#ffffff", "#e2e8f0", "#ffffff"], 0.3);
-    if (o.finish === "diamond") tint(["#96d7ff", "#2896f5", "#e0f2fe"], 0.3);
-    if (o.finish === "rainbow") tint(["#ff5aaa", "#ffbe46", "#6ee682", "#46beff", "#aa6eff"], 0.26);
-    if (o.edition && EDITIONS[o.edition]) { const ec = getComputedStyle(document.documentElement).getPropertyValue("--ed") || ""; g.globalAlpha = 0.16; g.fillStyle = ec.trim() || col; g.fillRect(ax, ay, aw, ah); g.globalAlpha = 1; }
-    if (o.quality === "damaged" || o.quality === "worn") {
-      g.strokeStyle = "rgba(255,255,255,0.5)"; g.lineWidth = 1.2;
-      for (let i = 0; i < (o.quality === "damaged" ? 40 : 18); i++) { const x = ax + Math.random() * aw, y = ay + Math.random() * ah, l = 15 + Math.random() * 40, a = (Math.random() < 0.5 ? 58 : -32) * Math.PI / 180; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
-    }
-    if (o.quality === "mint") { g.strokeStyle = "rgba(224,242,254,0.9)"; g.lineWidth = 4; g.strokeRect(ax + 2, ay + 2, aw - 4, ah - 4); }
-    g.strokeStyle = col; g.lineWidth = 3; g.strokeRect(ax, ay, aw, ah);
-    // Bandeau : nom, rarete, details.
-    g.textAlign = "center";
-    g.fillStyle = "#fff"; g.font = "800 38px Inter, Arial, sans-serif";
-    g.fillText(o.card.name, W / 2, ay + ah + 58, W - 80);
-    g.fillStyle = col; g.font = "700 22px Inter, Arial, sans-serif";
-    const bits = [o.card.rarity?.name, o.finish !== "normal" ? FINISH[o.finish] : "", QUALITY[o.quality] || "", o.edition && EDITIONS[o.edition] ? "Édition " + EDITIONS[o.edition].label : "", o.serial ? serial(o.serial) : ""].filter(Boolean);
-    g.fillText(bits.join("  ·  "), W / 2, ay + ah + 96, W - 80);
-    g.fillStyle = "rgba(255,255,255,0.55)"; g.font = "600 18px Inter, Arial, sans-serif";
-    g.fillText(`2Gatcha · ${Session.pseudo || ""}`, W / 2, H - 30);
-    return c.toDataURL("image/jpeg", 0.9);
-  }
-
-  async function share(o, btn) {
+  // ---------------------------------------------------------------- partage
+  // Studio de partage (2026-10-21, js/lazy/share-studio.js) : image travaillee
+  // en trois formats, partage, telechargement, copie et publication Discord.
+  function share(o, btn) {
     btn.disabled = true;
-    try {
-      const image = await renderShareImage(o);
-      const okGo = await Confirm.show(`<img src="${image}" alt="" style="width:100%;max-width:240px;display:block;margin:0 auto 10px;border-radius:10px;" />Publier cette image de <strong>${esc(o.card.name)}</strong> sur le Discord de l'asso ?`, { title: "Partager sur Discord", confirmText: "Publier" });
-      if (!okGo) { btn.disabled = false; return; }
-      await API.post("shareCard", { userId: Session.userId, cardId: o.card.cardId, finish: o.finish, quality: o.quality, edition: o.edition || null, serial: o.serial || null, image });
-      Toast.success("&#128228; Carte partagée sur Discord !");
-    } catch (e) {
-      Toast.error({ share_cooldown: `Attends encore ${e.data && e.data.wait ? Math.ceil(e.data.wait / 60) + " min" : "un peu"} avant de repartager.`, discord_unavailable: "Le partage Discord n'est pas configuré.", card_not_owned: "Tu ne possèdes pas cette carte." }[e.code] || "Partage impossible. (" + e.message + ")");
-    }
-    btn.disabled = false;
+    LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.card(o)).catch(() => Toast.error("Partage indisponible pour le moment.")).finally(() => { btn.disabled = false; });
   }
 
   // ---------------------------------------------------------------- branchement sur la fenetre
@@ -269,7 +214,7 @@ const CardExtras = (function () {
       if (what === "price") loadPrice(panel, o.card.cardId);
     });
   }
-  return { attach, renderShareImage };
+  return { attach };
 })();
 // Exposes sur window : les autres scripts testent leur presence (window.CardExtras).
 window.CardTilt = CardTilt;
