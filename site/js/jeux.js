@@ -40,6 +40,8 @@ function setActiveTab(tab) {
 // tuiles du meme tresor) sans jamais reveler ce qui est cache ailleurs.
 // -----------------------------------------------------------------------
 let digEnergy = 0;
+// Heure (ms) d'arrivee du prochain point d'energie de fouille, 0 si pleine.
+let digDeadline = 0;
 let digMaxEnergy = 5;
 let digRegenSeconds = 60;
 let digBusy = false;
@@ -349,33 +351,35 @@ function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
   `).join("");
   const statusText = document.getElementById("dig-status-text");
   statusText.classList.remove("skeleton-line");
-  if (energy > 0) {
+  const fmt = (sec) => { const m = Math.floor(sec / 60), s2 = sec % 60; return `${m > 0 ? `${m} min ` : ""}${String(s2).padStart(m > 0 ? 2 : 1, "0")} s`; };
+  if (energy >= maxEnergy) {
+    digDeadline = 0;
     statusText.textContent = `${energy} / ${maxEnergy} énergie — chaque tuile en coûte 1`;
-    // Jauge pas pleine : on recharge l'etat reel au moment ou le prochain
-    // point revient, au lieu d'attendre un rechargement manuel de la page.
-    if (energy < maxEnergy && secondsUntilNext) {
-      digCountdownTimer = setTimeout(() => { digCountdownTimer = null; loadDig(); }, (secondsUntilNext + 1) * 1000);
-    }
     return;
   }
   // Delai reel renvoye par le serveur (statut ET reponse de fouille depuis
-  // 2026-10-01) plutot qu'un 60s suppose : avec un delai de regen configure
-  // plus long, l'ancien decompte annoncait "moins d'une minute" a tort.
-  let remaining = secondsUntilNext || digRegenSeconds || 60;
+  // 2026-10-01) plutot qu'un 60s suppose. Decompte calcule depuis l'heure
+  // d'arrivee du prochain point (2026-10-21) : onglet en arriere-plan, le
+  // navigateur espace les minuteries (jusqu'a une par minute) et l'ancien
+  // « -1 par tic » prenait du retard, d'ou un compteur fige et une jauge
+  // rechargee bien trop tard. Retour sur l'onglet : voir EnergySync.
+  digDeadline = Date.now() + (secondsUntilNext || digRegenSeconds || 60) * 1000;
+  const left = () => Math.max(0, Math.ceil((digDeadline - Date.now()) / 1000));
   const render = () => {
-    const m = Math.floor(remaining / 60), s = remaining % 60;
-    statusText.textContent = `Énergie épuisée — prochaine dans ${m > 0 ? `${m} min ` : ""}${String(s).padStart(m > 0 ? 2 : 1, "0")} s`;
+    statusText.textContent = energy > 0
+      ? `${energy} / ${maxEnergy} énergie — +1 dans ${fmt(left())}`
+      : `Énergie épuisée — prochaine dans ${fmt(left())}`;
   };
   render();
   digCountdownTimer = setInterval(() => {
-    remaining -= 1;
-    if (remaining <= 0) {
+    if (left() <= 0) {
       clearInterval(digCountdownTimer);
       digCountdownTimer = null;
+      digDeadline = 0;
       loadDig();
       return;
     }
-    render();
+    if (!document.hidden) render();
   }, 1000);
 }
 
@@ -761,6 +765,7 @@ async function loadFishing() {
 // Energie de peche (comme la fouille) : jauge, decompte, rechargement de
 // l'etat reel quand le prochain point revient.
 let fishEnergyTimer = null;
+let fishDeadline = 0;
 function renderFishEnergy(st) {
   const bar = document.getElementById("fish-energy-bar");
   if (!bar || st.maxEnergy == null) return;
@@ -772,14 +777,15 @@ function renderFishEnergy(st) {
   text.classList.remove("skeleton-line");
   const regen = Math.round((st.regenSeconds || 600) / 60);
   const fmt = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return `${m > 0 ? `${m} min ` : ""}${String(s).padStart(m > 0 ? 2 : 1, "0")} s`; };
-  if (energy >= max || !st.secondsUntilNext) { text.textContent = `${energy} / ${max} énergie — +1 toutes les ${regen} min`; return; }
-  let remaining = st.secondsUntilNext;
-  const render = () => { text.textContent = `${energy} / ${max} énergie — ${energy ? "+1" : "prochaine"} dans ${fmt(Math.max(0, remaining))}`; };
+  if (energy >= max || !st.secondsUntilNext) { fishDeadline = 0; text.textContent = `${energy} / ${max} énergie — +1 toutes les ${regen} min`; return; }
+  // Decompte depuis l'heure d'arrivee du prochain point (voir renderDigEnergy).
+  fishDeadline = Date.now() + st.secondsUntilNext * 1000;
+  const left = () => Math.max(0, Math.ceil((fishDeadline - Date.now()) / 1000));
+  const render = () => { text.textContent = `${energy} / ${max} énergie — ${energy ? "+1" : "prochaine"} dans ${fmt(left())}`; };
   render();
   fishEnergyTimer = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) { clearInterval(fishEnergyTimer); fishEnergyTimer = null; if (!fishBusy) loadFishing(); return; }
-    render();
+    if (left() <= 0) { clearInterval(fishEnergyTimer); fishEnergyTimer = null; fishDeadline = 0; if (!fishBusy) loadFishing(); return; }
+    if (!document.hidden) render();
   }, 1000);
 }
 
@@ -1660,3 +1666,23 @@ const ScrollFx = {
     if (fresh) setTimeout(() => { const b = document.getElementById("fish-scroll-btn"); if (!b && fishState) renderScrollBtn({ hasScroll: true }); }, 500);
   }
 };
+
+// Retour sur l'onglet (2026-10-21) : apres plus de 30 s ailleurs, ou si un
+// point d'energie est arrive pendant ce temps, l'energie de fouille et de
+// peche est relue tout de suite (les minuteries de l'onglet cache ont pu
+// etre espacees par le navigateur).
+const EnergySync = {
+  hiddenAt: 0,
+  init() {
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) { this.hiddenAt = Date.now(); return; }
+      const away = this.hiddenAt ? Date.now() - this.hiddenAt : 0;
+      const due = (digDeadline && Date.now() >= digDeadline) || (fishDeadline && Date.now() >= fishDeadline);
+      if (away < 30000 && !due) return;
+      if (API.invalidate) API.invalidate();
+      if (digDeadline || away >= 30000) loadDig();
+      if (typeof fishState !== "undefined" && fishState && !fishBusy) loadFishing();
+    });
+  }
+};
+EnergySync.init();

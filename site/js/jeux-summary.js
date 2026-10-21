@@ -175,6 +175,9 @@
     render();
     // A jour apres chaque action (les reponses invalident le cache de l'API).
     window.addEventListener("api:claimed", () => setTimeout(render, 500));
-    setInterval(render, 60000);
+    setInterval(() => { if (!document.hidden) render(); }, 60000);
+    // Retour sur l'onglet apres plus de 30 s : etat relu tout de suite (2026-10-21).
+    let hiddenAt = 0;
+    document.addEventListener("visibilitychange", () => { if (document.hidden) { hiddenAt = Date.now(); return; } if (hiddenAt && Date.now() - hiddenAt > 30000) render(); });
   });
 })();
