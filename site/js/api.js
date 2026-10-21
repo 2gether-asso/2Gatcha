@@ -251,6 +251,8 @@ const API = {
         throw err;
       }
       this._announce(data);
+      // Carte obtenue qui etait souhaitee : retiree de la liste (shell-extras.js).
+      if (typeof WishlistSync !== "undefined") { try { WishlistSync.fromResponse(name, body, data); } catch (e) { /* sans consequence */ } }
       // Une recuperation a eu lieu : les pages peuvent rafraichir leurs boutons.
       if (body && /claim|redeem/.test(String(body.action || ""))) window.dispatchEvent(new CustomEvent("api:claimed", { detail: { name, body } }));
       return data;

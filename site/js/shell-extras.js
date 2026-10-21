@@ -447,18 +447,22 @@ const Breadcrumb = {
     const last = nav.querySelector("[data-bc-tab]");
     if (last) { last.textContent = tab; last.hidden = !tab; last.previousElementSibling.hidden = !tab; }
   },
+  // Pages hors du menu (2026-10-21) : rattachees a une page du menu.
+  EXTRA: { "pull-log.html": { parent: "ouverture.html", label: "Journal d'ouvertures" }, "profile.html": { label: "Profil" } },
   init() {
     const page = currentPage();
-    const item = NAV_ITEMS.find((i) => i.href === page);
+    const extra = this.EXTRA[page];
+    const item = NAV_ITEMS.find((i) => i.href === page) || (extra && { href: page, label: extra.label, group: extra.parent && (NAV_ITEMS.find((i) => i.href === extra.parent) || {}).group });
     const main = document.querySelector("main");
     if (!item || page === "index.html" || !main || document.getElementById("breadcrumb")) return;
     const group = item.group ? NAV_ITEMS.find((i) => i.group === item.group && i.groupLabel) : null;
     const sep = '<span class="bc-sep" aria-hidden="true">›</span>';
+    const parent = extra && extra.parent && NAV_ITEMS.find((i) => i.href === extra.parent);
     const nav = document.createElement("nav");
     nav.id = "breadcrumb";
     nav.className = "breadcrumb";
     nav.setAttribute("aria-label", "Fil d'Ariane");
-    nav.innerHTML = `<a href="index.html">Accueil</a>${sep}${group ? `<span>${group.groupLabel}</span>${sep}` : ""}<a href="${page}" aria-current="page">${item.label}</a>${sep}<span data-bc-tab></span>`;
+    nav.innerHTML = `<a href="index.html">Accueil</a>${sep}${group ? `<span>${group.groupLabel}</span>${sep}` : ""}${parent ? `<a href="${parent.href}">${parent.label}</a>${sep}` : ""}<a href="${page}${page === "profile.html" ? location.search : ""}" aria-current="page">${item.label}</a>${sep}<span data-bc-tab></span>`;
     main.prepend(nav);
     this.render();
     new MutationObserver(() => this.render()).observe(main, { subtree: true, attributes: true, attributeFilter: ["aria-selected"] });
@@ -575,6 +579,71 @@ document.addEventListener("click", (e) => {
   e.preventDefault();
   document.getElementById("user-menu")?.classList.remove("open");
   LazyJs.load("js/lazy/quick-session.js").then(() => QuickSession.open()).catch(() => Toast.error("Session rapide indisponible pour le moment."));
+});
+
+// Souhaits exauces (2026-10-21) : une carte obtenue sort toute seule de la
+// liste de souhaits. Deux filets : la reponse des actions qui donnent des
+// cartes (api.js -> fromResponse : boosters, craft, codes, coffres, devinette,
+// murissoir, comptoir...) et la collection complete a chaque visite de la page
+// Collection (prune). Liste gardee 5 min en sessionStorage.
+const WishlistSync = {
+  KEY: "2gatcha_wishlist_ids",
+  GRANTS: { openPack: null, craft: null, redeemCode: null, chests: ["open"], guildChest: ["take", "free"], guildChestV2: ["take", "free", "pick"], guessCard: ["guess"], ripen: ["claim"], uniqueCounter: ["redeem"], draft: null },
+  async ids() {
+    try { const c = JSON.parse(sessionStorage.getItem(this.KEY) || "null"); if (c && Date.now() - c.at < 5 * 60000) return new Set(c.ids); } catch (e) { /* stockage indisponible */ }
+    const r = await API.listWishlist(Session.userId);
+    const ids = ((r && r.wishlist) || []).map((w) => w.cardId);
+    try { sessionStorage.setItem(this.KEY, JSON.stringify({ at: Date.now(), ids })); } catch (e) { /* stockage indisponible */ }
+    return new Set(ids);
+  },
+  forget() { try { sessionStorage.removeItem(this.KEY); } catch (e) { /* stockage indisponible */ } },
+  // Cartes (cardId + nom) trouvees dans une reponse, sur quelques niveaux.
+  scan(data) {
+    const out = new Map();
+    const walk = (v, depth) => {
+      if (!v || typeof v !== "object" || depth > 4) return;
+      if (Array.isArray(v)) { v.forEach((x) => walk(x, depth + 1)); return; }
+      if (Number(v.cardId) > 0) out.set(Number(v.cardId), v.name || v.cardName || "");
+      Object.keys(v).forEach((k) => { if (k !== "wishlist" && k !== "owned") walk(v[k], depth + 1); });
+    };
+    walk(data, 0);
+    return out;
+  },
+  fromResponse(name, body, data) {
+    if (name === "wishlist") { this.forget(); return; }
+    if (!(name in this.GRANTS) || !Session.isLoggedIn()) return;
+    const acts = this.GRANTS[name];
+    if (acts && !acts.includes(body && body.action)) return;
+    const got = this.scan(data);
+    if (got.size) this.remove(got, name === "openPack" ? 4500 : 0).catch(() => {});
+  },
+  // owned : Map cardId -> nom (ou Set) des cartes possedees.
+  async remove(owned, delay = 0) {
+    const wished = await this.ids();
+    const hits = [...(owned instanceof Map ? owned.keys() : owned)].filter((id) => wished.has(id));
+    if (!hits.length) return [];
+    const done = [];
+    for (const id of hits) {
+      try { await API.removeFromWishlist(Session.userId, id); done.push(id); document.dispatchEvent(new CustomEvent("wishlist:change", { detail: { cardId: id, on: false } })); } catch (e) { /* reessaye a la prochaine visite */ }
+    }
+    this.forget();
+    if (done.length) {
+      const names = done.map((id) => (owned instanceof Map && owned.get(id)) || "").filter(Boolean);
+      const msg = `&#9829; Souhait exaucé${names.length ? " : <strong>" + names.slice(0, 3).map(escHtml).join(", ") + "</strong>" + (names.length > 3 ? "…" : "") : ""} ! ${done.length > 1 ? `${done.length} cartes retirées` : "Retirée"} de ta liste de souhaits.`;
+      setTimeout(() => Toast.success(msg), delay);
+    }
+    return done;
+  }
+};
+
+// Ma liste de souhaits (2026-10-21, js/lazy/wishlist.js) : [data-wishlist-open]
+// (menu du compte, collection, echanges, message d'ajout).
+document.addEventListener("click", (e) => {
+  const b = e.target instanceof Element ? e.target.closest("[data-wishlist-open]") : null;
+  if (!b) return;
+  e.preventDefault();
+  document.getElementById("user-menu")?.classList.remove("open");
+  LazyJs.load("js/lazy/wishlist.js").then(() => WishlistView.open()).catch(() => Toast.error("Liste de souhaits indisponible pour le moment."));
 });
 
 // ---------------------------------------------------------------------------

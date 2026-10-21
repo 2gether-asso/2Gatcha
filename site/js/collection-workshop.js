@@ -282,7 +282,7 @@
     return `
       <div class="craft-card ${canAfford ? "" : "unavailable"} ${cBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${Coll.isDiscovered(card.cardId) ? "" : "coll-missing"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
         ${cBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-craft-bulk-id="${card.cardId}" ${checked ? "checked" : ""} ${canAfford ? "" : "disabled"} aria-label="Sélectionner ${escapeHtml(card.name)}" /></label>` : ""}
-        ${wished ? `<span class="coll-wish-flag" title="Dans ta wishlist">&#9733;</span>` : ""}
+        ${wished ? `<span class="coll-wish-flag" title="Dans ta liste de souhaits">&#9829;</span>` : ""}
         <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" />
         <div class="card-info">
           <div class="card-name">${escapeHtml(card.name)}</div>

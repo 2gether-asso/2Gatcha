@@ -19,7 +19,14 @@
     $("rc-items").innerHTML = items.length
       ? items.map((it) => `<li class="rc-item"><span class="rc-icon" aria-hidden="true">${it.icon}</span><span class="rc-label">${esc(it.label)}</span><button type="button" class="btn-secondary rc-claim" data-rc="${esc(it.key)}">Récupérer</button></li>`).join("")
       : `<li class="rc-empty">Rien à récupérer pour l'instant.</li>`;
-    $("rc-claim-all").hidden = items.length < 2;
+    // Version compacte (2026-10-21) : une ligne d'icones + « Tout recuperer »,
+    // le detail se deplie (la cloche les liste aussi).
+    $("rc-claim-all").hidden = !items.length;
+    $("rc-claim-all").textContent = items.length > 1 ? `Tout récupérer (${items.length})` : "Récupérer";
+    const sum = $("rc-summary");
+    if (sum) sum.innerHTML = items.length
+      ? `<button type="button" class="rc-toggle" aria-expanded="${box.classList.contains("rc-open")}" aria-controls="rc-items"><span class="rc-sum-icons" aria-hidden="true">${items.map((it) => `<span title="${esc(it.label)}">${it.icon}</span>`).join("")}</span><span>${items.length} récompense${items.length > 1 ? "s" : ""} à récupérer</span><span class="rc-chev" aria-hidden="true">&#9662;</span></button>`
+      : "";
     $("rc-deadlines").innerHTML = deadlines.map((d) => `<li><a href="${d.url}"><span aria-hidden="true">${d.icon}</span> ${esc(d.label)}</a></li>`).join("");
     renderChallenges(current.challenges);
   }

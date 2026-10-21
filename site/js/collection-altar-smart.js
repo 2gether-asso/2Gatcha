@@ -81,7 +81,7 @@
             <label class="recycle-check"><input type="checkbox" data-pref="keepBest" ${prefs.keepBest ? "checked" : ""} /> Toujours ma meilleure finition et mon meilleur état de chaque carte</label>
             <label class="recycle-check"><input type="checkbox" data-pref="keepFinish" ${prefs.keepFinish ? "checked" : ""} /> Les finitions spéciales (holo, dorée…)</label>
             <label class="recycle-check"><input type="checkbox" data-pref="keepQuality" ${prefs.keepQuality ? "checked" : ""} /> Les cartes en bon ou parfait état</label>
-            <label class="recycle-check"><input type="checkbox" data-pref="keepWishlist" ${prefs.keepWishlist ? "checked" : ""} /> Les cartes de ma wishlist</label>
+            <label class="recycle-check"><input type="checkbox" data-pref="keepWishlist" ${prefs.keepWishlist ? "checked" : ""} /> Les cartes de ma liste de souhaits</label>
             <p class="recycle-note">Jamais touchés : exemplaires assurés, cartes ★, numéros #1, éditions limitées, cartes du coffre.</p>
           </fieldset>
           <div class="recycle-preview" id="altar-smart-preview" aria-live="polite"></div>

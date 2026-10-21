@@ -395,6 +395,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const view = pvView();
   document.getElementById("pv-sort").value = view.sort;
   document.getElementById("pv-filter").value = view.filter;
+  // Menus stylises comme sur le reste du site (2026-10-21).
+  enhanceSelect(document.getElementById("pv-sort"));
+  enhanceSelect(document.getElementById("pv-filter"));
   document.getElementById("pv-search").addEventListener("input", () => { if (pvLastData) pvRender(pvLastData); });
   ["pv-sort", "pv-filter"].forEach((id) => document.getElementById(id).addEventListener("change", () => {
     try { localStorage.setItem(PV_VIEW_KEY, JSON.stringify({ sort: document.getElementById("pv-sort").value, filter: document.getElementById("pv-filter").value })); } catch (e) {}

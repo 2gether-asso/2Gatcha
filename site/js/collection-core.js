@@ -327,6 +327,12 @@ const Coll = (() => {
     state.finishMultipliers = catalog.finishMultipliers || {};
     state.qualityMultipliers = catalog.qualityMultipliers || {};
     state.wishlist = new Set((wishlist.wishlist || []).map((w) => w.cardId));
+    // Souhaits deja obtenus (toutes sources) : retires de la liste (2026-10-21).
+    if (!offline && typeof WishlistSync !== "undefined") {
+      const got = new Map();
+      state.wishlist.forEach((id) => { if (state.ownedMap.has(id) || state.protectedMap.has(id)) got.set(id, (state.byId.get(id) || {}).name || ""); });
+      if (got.size) { got.forEach((n, id) => state.wishlist.delete(id)); WishlistSync.remove(got).catch(() => {}); }
+    }
     state.showcase = new Set((showcase.showcase || []).map((s) => s.cardId));
     state.stats = { owned: state.cards.filter((c) => isDiscovered(c.cardId)).length, total: (collection.stats && collection.stats.total) || state.cards.length };
     state.offline = offline;

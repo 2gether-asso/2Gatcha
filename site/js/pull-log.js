@@ -33,6 +33,7 @@ function renderPullLogFilters() {
   el.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
       pullLogRarityFilter = btn.dataset.filter;
+      pullLogShown = GROUPS_PER_PAGE;
       el.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
       renderPullLog();
     });
@@ -117,6 +118,35 @@ function renderPullLuckChart(rarityWeights) {
   }).join("");
 }
 
+// Journal regroupe (2026-10-21) : un booster = une ligne avec ses cartes
+// (meme source, a quelques secondes pres), separateurs par jour, et affichage par pages de
+// GROUPS_PER_PAGE ouvertures (« Afficher plus ») au lieu de tout le journal
+// d'un coup (des centaines de lignes).
+const GROUPS_PER_PAGE = 30;
+let pullLogShown = GROUPS_PER_PAGE;
+
+function pullGroups(items) {
+  const groups = [];
+  items.forEach((p) => {
+    const last = groups[groups.length - 1];
+    // Les cartes d'un meme booster sont notees a quelques secondes d'ecart.
+    if (last && last.source === p.source && Math.abs((last.at || 0) - (p.obtainedAt || 0)) <= 8 && last.cards.length < 10) last.cards.push(p);
+    else groups.push({ source: p.source, at: p.obtainedAt, cards: [p] });
+  });
+  return groups;
+}
+
+function pullCardHtml(p) {
+  const color = p.rarity?.colorHex || "#9aa0b4";
+  const imgSrc = API.imageUrl(p.imageId) || PLACEHOLDER_IMG;
+  return `
+    <div class="pull-log-card" data-rarity="${p.rarity?.key || "commune"}" style="--r:${color}" title="${escHtml(p.cardName)} · ${escHtml(p.rarity?.name || "Commune")}${p.extension ? " · " + escHtml(p.extension.name) : ""}">
+      <img src="${imgSrc}" alt="" loading="lazy" decoding="async" />
+      <span class="pull-log-name">${escHtml(p.cardName)}</span>
+      <small style="color:${rarityTextColor(color)}">${escHtml(p.rarity?.name || "Commune")}</small>
+    </div>`;
+}
+
 function renderPullLog() {
   const listEl = document.getElementById("pull-log-list");
   let items = pullLogCache;
@@ -132,26 +162,31 @@ function renderPullLog() {
     return;
   }
 
-  listEl.innerHTML = items.map((p) => {
-    const color = p.rarity?.colorHex || "#9aa0b4";
-    const imgSrc = API.imageUrl(p.imageId) || PLACEHOLDER_IMG;
-    const source = SOURCE_LABELS[p.source] || SOURCE_LABELS.booster;
-    const when = p.obtainedAt ? new Date(p.obtainedAt * 1000).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
-    return `
-      <div class="pull-log-row" data-rarity="${p.rarity?.key || "commune"}">
-        <img src="${imgSrc}" alt="" loading="lazy" decoding="async" style="border-color:${color};" />
-        <div class="pull-log-info">
-          <div class="pull-log-name">${p.cardName}</div>
-          <div class="pull-log-meta">
-            <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${p.rarity?.name || "Commune"}</span>
-            ${p.extension ? `<span class="activity-ext">${p.extension.name}</span>` : ""}
-          </div>
-        </div>
-        <div class="pull-log-source" title="${source.label}">${source.icon}</div>
-        <div class="pull-log-time">${when}</div>
-      </div>
-    `;
-  }).join("");
+  const groups = pullGroups(items);
+  const shown = groups.slice(0, pullLogShown);
+  let day = "";
+  let html = "";
+  shown.forEach((g) => {
+    const d = g.at ? new Date(g.at * 1000) : null;
+    const dayKey = d ? d.toDateString() : "";
+    if (dayKey !== day) {
+      day = dayKey;
+      const n = groups.filter((x) => x.at && new Date(x.at * 1000).toDateString() === dayKey).reduce((sum, x) => sum + x.cards.length, 0);
+      html += `<h3 class="pull-log-day">${d ? d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : "Date inconnue"}<small>${n} carte${n > 1 ? "s" : ""}</small></h3>`;
+    }
+    const source = SOURCE_LABELS[g.source] || SOURCE_LABELS.booster;
+    const best = g.cards.reduce((b, p) => ((p.rarity?.sortOrder || 0) > (b.rarity?.sortOrder || 0) ? p : b), g.cards[0]);
+    html += `
+      <div class="pull-log-group" data-rarity="${best.rarity?.key || "commune"}" style="--r:${best.rarity?.colorHex || "#9aa0b4"}">
+        <div class="pull-log-when"><span class="pull-log-source" title="${source.label}">${source.icon}</span><strong>${source.label}</strong><span class="pull-log-time">${d ? d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}</span></div>
+        <div class="pull-log-cards">${g.cards.map(pullCardHtml).join("")}</div>
+      </div>`;
+  });
+  const left = groups.length - shown.length;
+  if (left > 0) html += `<button type="button" class="btn-secondary pull-log-more" id="pull-log-more">Afficher plus (${left} ouverture${left > 1 ? "s" : ""} restante${left > 1 ? "s" : ""})</button>`;
+  listEl.innerHTML = html;
+  const more = document.getElementById("pull-log-more");
+  if (more) more.addEventListener("click", () => { pullLogShown += GROUPS_PER_PAGE; renderPullLog(); });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -179,10 +214,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   let searchTimer = null;
   document.getElementById("pull-log-search").addEventListener("input", (e) => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => { pullLogSearch = e.target.value; renderPullLog(); }, 150);
+    searchTimer = setTimeout(() => { pullLogSearch = e.target.value; pullLogShown = GROUPS_PER_PAGE; renderPullLog(); }, 150);
   });
   document.getElementById("pull-log-source-filter").addEventListener("change", (e) => {
     pullLogSourceFilter = e.target.value;
+    pullLogShown = GROUPS_PER_PAGE;
     renderPullLog();
   });
   enhanceSelect(document.getElementById("pull-log-source-filter"));

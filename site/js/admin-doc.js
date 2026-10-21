@@ -374,6 +374,23 @@
             <li><strong>Centre de notifications</strong> (cloche) : filtres Tout / À faire / Échanges / Minuteurs / Historique ; échanges reçus acceptés (en choisissant l'exemplaire donné, les plus précieux en dernier, jamais un exemplaire déjà proposé ailleurs) ou refusés sur place ; récompenses récupérées une par une ou toutes ; jardin récolté et explorateur accueilli quand ils sont prêts ; cartes souhaitées disponibles, notes de mise à jour non lues, échéances proches ; minuteurs en cours ; historique des messages gardé 3 jours sur l'appareil (non lus mis en avant). La cloche affiche le nombre de choses à faire.</li>
           </ul>
         </li>
+        <li><strong>Tour du site, 21 octobre</strong> :
+          <ul>
+            <li><strong>Liste de souhaits</strong> : un cœur « &#9825; Souhaiter / &#9829; Souhaitée » avec son libellé sur chaque carte manquante (l'étoile reste aux favoris des cartes possédées) ; fenêtre « Ma liste de souhaits » (menu du compte, collection, échanges, cloche) : chaque carte avec où l'obtenir maintenant (doublon d'un joueur, marché noir, coffre de guilde), son prix de craft, si elle est déjà obtenue, et un bouton pour la retirer. Le vocabulaire « wishlist » a disparu de l'interface ; la pastille d'Échanges pour une carte souhaitée disponible est un cœur.</li>
+            <li><strong>Journal d'ouvertures</strong> : fil d'Ariane, cartes regroupées par ouverture (un booster = une ligne), séparateurs par jour, 30 ouvertures à la fois avec « Afficher plus ».</li>
+            <li><strong>Statistiques</strong> : les sources de poussières s'affichent toutes avec un nom lisible (Boutique, Minéraux, Grand Chantier… ; les opérations de l'équipe sont regroupées en « Ajustements de l'équipe »).</li>
+            <li><strong>Calendrier</strong> : tournoi de pêche et loterie n'apparaissent qu'à leur prochaine date (« chaque week-end · 3 autres dates »), bouton « Toutes les dates » pour tout voir.</li>
+            <li><strong>Nouveautés</strong> : les non lues et les 4 dernières mises à jour ouvertes, les précédentes repliées.</li>
+            <li><strong>Uniformisation</strong> : toutes les listes déroulantes ont le même style, menus stylisés au coffre-fort et dans l'historique des échanges, pastille de la cloche posée sur le bord du bouton (elle était rognée), bandeau boutique décollé du distributeur.</li>
+          </ul>
+        </li>
+        <li><strong>Suite du 21 octobre</strong> :
+          <ul>
+            <li><strong>Communauté en 3 rubriques</strong> : Événements (calendrier, tableau d'affichage, boss, ensemble), Jouer ensemble (équipes, salle des machines, métiers) et Marché (marché noir, enchères, coffre de guilde). Seuls les onglets de la rubrique ouverte s'affichent ; chaque rubrique rouvre son dernier onglet ; une rubrique sans onglet actif disparaît ; les adresses (#boss, #marche…) ouvrent toujours le bon onglet.</li>
+            <li><strong>Accueil plus court</strong> : « À récupérer » tient sur une ligne (icônes + « Tout récupérer », détail dépliable), chaque panneau se replie depuis son titre (choix gardé sur l'appareil), succès, activité, direct, progression et saison repliés par défaut ; sur mobile « Que faire maintenant ? » passe en tête.</li>
+            <li><strong>Souhaits exaucés</strong> : une carte obtenue sort toute seule de la liste de souhaits, avec un message « Souhait exaucé » : dès la réponse d'un booster, d'un craft, d'un code, d'un coffre, de la devinette, du mûrissoir, du comptoir ou du draft, et pour toutes les autres sources (échanges, cadeaux…) à la visite suivante de la collection ou de « Ma liste de souhaits ».</li>
+          </ul>
+        </li>
         <li><strong>Corrigé le même jour</strong> : les cadres des cartes (toutes raretés, dont l'or des légendaires, le feu des mythiques et l'émeraude des uniques) avaient disparu depuis la cinématique des saisons, qui réutilisait le nom de variable de la couleur de rareté ; l'effet glitch d'une carte secrète apparaît maintenant aussi dans la fenêtre de détail en plein écran.</li>
       </ul>` },
 

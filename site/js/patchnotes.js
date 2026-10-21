@@ -12,11 +12,16 @@
     try { seen = localStorage.getItem("2gatcha_notes_seen") || ""; } catch (e) { /* stockage indisponible */ }
     try {
       const r = await API.get("patchNotes");
-      box.innerHTML = r.notes.map((n) => `
+      const entry = (n) => `
         <article class="pn-entry ${seen && n.date > seen ? "is-new" : ""}">
           <header><time datetime="${esc(n.date)}">${fmt(n.date)}</time><h2>${esc(n.title)}</h2>${seen && n.date > seen ? '<span class="pn-new">nouveau</span>' : ""}</header>
           <ul>${n.items.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
-        </article>`).join("");
+        </article>`;
+      // Les nouveautes non lues et les 4 dernieres, le reste replie (2026-10-21).
+      const open = Math.max(4, r.notes.filter((n) => seen && n.date > seen).length);
+      const older = r.notes.slice(open);
+      box.innerHTML = r.notes.slice(0, open).map(entry).join("") + (older.length ? `
+        <details class="pn-older"><summary>Versions précédentes <small>${older.length} mise${older.length > 1 ? "s" : ""} à jour, jusqu'au ${fmt(older[older.length - 1].date)}</small></summary>${older.map(entry).join("")}</details>` : "");
       if (r.latest) { try { localStorage.setItem("2gatcha_notes_seen", r.latest); } catch (e) { /* stockage indisponible */ } }
       document.querySelectorAll("[data-notes-dot]").forEach((d) => d.remove());
     } catch (e) { box.innerHTML = '<p class="empty-state">Notes indisponibles pour le moment.</p>'; }

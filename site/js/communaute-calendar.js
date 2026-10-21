@@ -28,7 +28,7 @@
       if (d.getUTCDay() !== 6) continue;
       const start = SeasonCalendar.parisMidnight(d.toISOString().slice(0, 10)), end = start + 2 * DAY;
       if (end < nowS() || start > horizon) continue;
-      out.push({ kind: "rdv", icon: "🎣", label: "Tournoi de pêche du week-end", start, end, desc: "Tes premiers lancers du week-end comptent. Prix en poussières et titre « Roi de la pêche ».", href: "communaute.html#metiers" });
+      out.push({ kind: "rdv", repeat: "tourney", every: "chaque week-end", icon: "🎣", label: "Tournoi de pêche du week-end", start, end, desc: "Tes premiers lancers du week-end comptent. Prix en poussières et titre « Roi de la pêche ».", href: "communaute.html#metiers" });
     }
     return out.slice(0, 4);
   }
@@ -64,13 +64,21 @@
   }
 
   const KINDS = { all: "Tout", season: "Saisons", event: "Bonus", rdv: "Rendez-vous", irl: "Asso" };
-  let items = [], filter = "all";
-  try { filter = localStorage.getItem("2gatcha_cal_filter") || "all"; } catch (e) { /* stockage indisponible */ }
+  let items = [], filter = "all", allDates = false;
+  try { filter = localStorage.getItem("2gatcha_cal_filter") || "all"; allDates = localStorage.getItem("2gatcha_cal_all") === "1"; } catch (e) { /* stockage indisponible */ }
 
   function render() {
     const list = document.getElementById("calendar-list");
     if (!list) return;
-    const shown = items.filter((it) => filter === "all" || it.kind === filter);
+    // Rendez-vous recurrents (2026-10-21) : seulement le prochain, avec
+    // « chaque week-end » et le nombre d'autres dates, sauf « Toutes les dates ».
+    const seen = new Map();
+    const shown = items.filter((it) => filter === "all" || it.kind === filter).filter((it) => {
+      if (!it.repeat || allDates) return true;
+      seen.set(it.repeat, (seen.get(it.repeat) || 0) + 1);
+      return seen.get(it.repeat) === 1;
+    });
+    const more = (it) => (it.repeat && !allDates ? (seen.get(it.repeat) || 1) - 1 : 0);
     const months = new Map();
     shown.forEach((it) => {
       const key = new Date(Math.max(it.start, nowS()) * 1000).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
@@ -79,14 +87,15 @@
     });
     list.className = "cal";
     list.innerHTML = `
-      <div class="cal-filters" role="group" aria-label="Filtrer le calendrier">${Object.entries(KINDS).map(([k, v]) => `<button type="button" class="cal-filter ${filter === k ? "active" : ""}" data-cal-filter="${k}" aria-pressed="${filter === k}">${v}</button>`).join("")}</div>
+      <div class="cal-filters" role="group" aria-label="Filtrer le calendrier">${Object.entries(KINDS).map(([k, v]) => `<button type="button" class="cal-filter ${filter === k ? "active" : ""}" data-cal-filter="${k}" aria-pressed="${filter === k}">${v}</button>`).join("")}
+        <button type="button" class="cal-filter cal-all ${allDates ? "active" : ""}" data-cal-all aria-pressed="${allDates}" title="Afficher chaque date des rendez-vous qui reviennent (tournoi, loterie)">&#8635; Toutes les dates</button></div>
       ${shown.length ? [...months].map(([m, list2]) => `
         <section class="cal-month"><h2>${esc(m.charAt(0).toUpperCase() + m.slice(1))}</h2>
           <ul>${list2.map((it, i) => `
             <li class="cal-item kind-${it.kind} ${it.cls || ""} ${it.start <= nowS() && !it.point ? "live" : ""}">
               <span class="cal-icon" aria-hidden="true">${it.icon}</span>
               <div class="cal-body">
-                <div class="cal-title"><strong>${esc(it.label)}</strong>${countdown(it)}</div>
+                <div class="cal-title"><strong>${esc(it.label)}</strong>${countdown(it)}${it.every ? `<span class="cal-every" title="Rendez-vous qui revient">&#8635; ${esc(it.every)}${more(it) ? ` · ${more(it)} autre${more(it) > 1 ? "s" : ""} date${more(it) > 1 ? "s" : ""}` : ""}</span>` : ""}</div>
                 <small class="cal-when">${esc(whenLabel(it))}</small>
                 ${it.desc ? `<p>${it.descHtml ? it.desc : esc(it.desc)}</p>` : ""}
               </div>
@@ -117,7 +126,7 @@
     }
     if (ev && ev.goldenHour && ev.goldenHour.enabled && ev.goldenHour.end > nowS()) out.push({ kind: "event", icon: "🌅", label: "Heure dorée", start: ev.goldenHour.start, end: ev.goldenHour.end, desc: `Finitions ×${ev.goldenHour.multiplier || 2} pendant une heure.`, href: "ouverture.html" });
     if (machine && machine.voteClosesAt) out.push({ kind: "rdv", icon: "⚙️", label: "Fin du vote de la salle des machines", start: machine.voteClosesAt - 60, point: true, desc: machine.appliesNextMonth ? "Le mode le plus voté s'applique au début du mois suivant." : "Le mode le plus voté s'applique aussitôt.", href: "communaute.html#machines" });
-    if (lottery && lottery.enabled && lottery.drawAt) for (let w = 0; w < 4; w++) out.push({ kind: "rdv", icon: "🎟️", label: "Tirage de la loterie", start: lottery.drawAt + w * 7 * DAY, point: true, desc: w === 0 ? `Cagnotte actuelle : ${Number(lottery.pot || 0).toLocaleString("fr-FR")} poussières.` : "Tirage du dimanche soir.", href: "communaute.html#affichage" });
+    if (lottery && lottery.enabled && lottery.drawAt) for (let w = 0; w < 4; w++) out.push({ kind: "rdv", repeat: "lottery", every: "chaque dimanche", icon: "🎟️", label: "Tirage de la loterie", start: lottery.drawAt + w * 7 * DAY, point: true, desc: w === 0 ? `Cagnotte actuelle : ${Number(lottery.pot || 0).toLocaleString("fr-FR")} poussières.` : "Tirage du dimanche soir.", href: "communaute.html#affichage" });
     if (teams && teams.enabled && teams.endsAt) out.push({ kind: "rdv", icon: "🏳️", label: "Fin de la guerre des équipes", start: teams.endsAt - 60, point: true, desc: "Les membres de l'équipe gagnante reçoivent un titre de champion.", href: "communaute.html#equipes" });
     items = out.filter((it) => (it.point ? it.start >= nowS() - 3600 : it.end > nowS()) && it.start <= horizon).sort((a, b) => a.start - b.start);
     if (loading) loading.style.display = "none";
@@ -128,6 +137,7 @@
   document.addEventListener("click", (e) => {
     const f = e.target.closest && e.target.closest("[data-cal-filter]");
     if (f) { filter = f.dataset.calFilter; try { localStorage.setItem("2gatcha_cal_filter", filter); } catch (err) { /* stockage indisponible */ } render(); return; }
+    if (e.target.closest && e.target.closest("[data-cal-all]")) { allDates = !allDates; try { localStorage.setItem("2gatcha_cal_all", allDates ? "1" : "0"); } catch (err) { /* stockage indisponible */ } render(); return; }
     const b = e.target.closest && e.target.closest("[data-cal-ics]");
     if (!b) return;
     const it = items[Number(b.dataset.calIcs)];

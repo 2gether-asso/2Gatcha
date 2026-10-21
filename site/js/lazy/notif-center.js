@@ -87,7 +87,7 @@ const NotifCenter = (function () {
     if (show("todo")) {
       html += sec("&#127873; À récupérer", d.rewards.map(rewardItem).join(""), d.rewards.length > 1 ? ` <button type="button" class="nc-btn nc-ok nc-all" data-nc="claim-all">Tout récupérer (${d.rewards.length})</button>` : "");
       const misc = [];
-      if (d.wish.length) misc.push(`<li class="nc-item nc-todo" data-kind="todo"><span class="nc-ico" aria-hidden="true">&#11088;</span><span class="nc-body"><span class="nc-msg">${d.wish.length} carte${d.wish.length > 1 ? "s" : ""} de ta liste de souhaits ${d.wish.length > 1 ? "sont disponibles" : "est disponible"} : ${d.wish.slice(0, 3).map((w) => `<strong>${esc(w.card.name)}</strong>`).join(", ")}</span><span class="nc-actions"><a class="nc-link" href="trade.html">Voir où</a></span></span></li>`);
+      if (d.wish.length) misc.push(`<li class="nc-item nc-todo" data-kind="todo"><span class="nc-ico" aria-hidden="true">&#9829;</span><span class="nc-body"><span class="nc-msg">${d.wish.length} carte${d.wish.length > 1 ? "s" : ""} de ta liste de souhaits ${d.wish.length > 1 ? "sont disponibles" : "est disponible"} : ${d.wish.slice(0, 3).map((w) => `<strong>${esc(w.card.name)}</strong>`).join(", ")}</span><span class="nc-actions"><a class="nc-link" href="trade.html">Voir où</a><a class="nc-link" href="#" data-wishlist-open>Ma liste</a></span></span></li>`);
       if (d.notes) misc.push(`<li class="nc-item nc-todo" data-kind="todo"><span class="nc-ico" aria-hidden="true">&#128240;</span><span class="nc-body"><span class="nc-msg">Nouveautés : la mise à jour du ${esc(new Date(d.notes + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" }))} est sortie</span><span class="nc-actions"><a class="nc-link" href="nouveautes.html">Lire</a></span></span></li>`);
       d.deadlines.forEach((x) => misc.push(`<li class="nc-item" data-kind="todo"><span class="nc-ico" aria-hidden="true">${x.icon}</span><span class="nc-body"><span class="nc-msg">${x.label}</span><span class="nc-actions"><a class="nc-link" href="${esc(x.url)}">Y aller</a></span></span></li>`));
       html += sec("&#128204; À voir", misc.join(""));
@@ -159,7 +159,7 @@ const NotifCenter = (function () {
   function onClick(e) {
     // Le contenu est redessine apres chaque action : le clic ne doit pas
     // remonter jusqu'au « clic en dehors » qui refermerait la cloche.
-    if (e.target.closest("[data-reminders]")) return; // shell-extras.js s'en charge (document)
+    if (e.target.closest("[data-reminders], [data-wishlist-open]")) return; // shell-extras.js s'en charge (document)
     e.stopPropagation();
     const f = e.target.closest("[data-nc-filter]");
     if (f) { filter = f.dataset.ncFilter; render(); return; }

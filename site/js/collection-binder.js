@@ -125,15 +125,19 @@
       </div>`);
   }
 
+  // Liste de souhaits (2026-10-21) : un coeur avec son libelle, distinct de
+  // l'etoile des favoris (cartes possedees).
+  const wishBtnInner = (on) => `<span class="wl-ico" aria-hidden="true">${on ? "&#9829;" : "&#9825;"}</span><span class="wl-txt">${on ? "Souhaitée" : "Souhaiter"}</span>`;
+
   function lockedTileHtml(card) {
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
     const craftCost = Coll.craftCostOf(card);
     const craftable = card.inCatalog && !card.isPromo && craftCost != null && state.stardust >= craftCost && !Coll.isLocked("craft");
     const inWishlist = state.wishlist.has(card.cardId);
-    const wl = inWishlist ? "Retirer de ma wishlist" : "Ajouter à ma wishlist";
+    const wl = inWishlist ? "Retirer de ma liste de souhaits" : "Ajouter à ma liste de souhaits : tu seras prévenu dès qu'elle est disponible";
     return `
       <div class="collection-card locked" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-promo="0">
-        <button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${wl}" aria-label="${wl}">&#9733;</button>
+        <button type="button" class="wishlist-btn ${inWishlist ? "active" : ""}" data-wishlist-id="${card.cardId}" title="${wl}" aria-label="${wl}">${wishBtnInner(inWishlist)}</button>
         <div class="card-art">
           <img src="${imgSrc}" alt="Carte non découverte" loading="lazy" decoding="async" />
           <span class="locked-card-number">${Coll.serial(state.cardNumber.get(card.cardId) || 0)}</span>
@@ -848,14 +852,15 @@
     });
   }
 
-  // Wishlist / vitrine : mise a jour optimiste du Set local et du bouton.
+  // Liste de souhaits / vitrine : mise a jour du Set local et du bouton.
   async function toggleWishlist(cardId, btn) {
     const wasIn = state.wishlist.has(cardId);
     try {
-      if (wasIn) { await API.removeFromWishlist(Session.userId, cardId); state.wishlist.delete(cardId); Toast.info("Retirée de ta wishlist."); }
-      else { await API.addToWishlist(Session.userId, cardId); state.wishlist.add(cardId); Toast.success("Ajoutée à ta wishlist !"); }
+      if (wasIn) { await API.removeFromWishlist(Session.userId, cardId); state.wishlist.delete(cardId); Toast.info("Retirée de ta liste de souhaits."); }
+      else { await API.addToWishlist(Session.userId, cardId); state.wishlist.add(cardId); Toast.success(`&#9829; Ajoutée à ta liste de souhaits : tu seras prévenu dès qu'un joueur l'a en double. <a href="#" data-wishlist-open>Voir ma liste</a>`); }
       btn.classList.toggle("active", !wasIn);
-      btn.title = !wasIn ? "Retirer de ma wishlist" : "Ajouter à ma wishlist";
+      btn.innerHTML = wishBtnInner(!wasIn);
+      btn.title = !wasIn ? "Retirer de ma liste de souhaits" : "Ajouter à ma liste de souhaits : tu seras prévenu dès qu'elle est disponible";
       btn.setAttribute("aria-label", btn.title);
     } catch (e) {
       Toast.error(friendlyError(e));
@@ -965,6 +970,10 @@
   // ---------------------------------------------------------------- init
   document.addEventListener("DOMContentLoaded", () => {
     if (!Session.isLoggedIn()) return;
+    // Lien « Voir mes cartes manquantes » de la liste de souhaits.
+    try { if (localStorage.getItem("2gatcha_coll_missing_hint")) { localStorage.removeItem("2gatcha_coll_missing_hint"); missingOnly = true; Coll.savePrefs({ missingOnly }); } } catch (e) { /* stockage indisponible */ }
+    // Carte retiree depuis « Ma liste de souhaits » (js/lazy/wishlist.js).
+    document.addEventListener("wishlist:change", (e) => { if (e.detail.on) state.wishlist.add(e.detail.cardId); else state.wishlist.delete(e.detail.cardId); render(); });
     wireGrid();
     $("sort-select").value = sortMode;
     $("missing-toggle").classList.toggle("active", missingOnly);

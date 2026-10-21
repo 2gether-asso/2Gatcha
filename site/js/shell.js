@@ -326,7 +326,7 @@ async function loadNavBadges() {
   // Liste de souhaits : une carte souhaitee est disponible quelque part.
   let wishCount = 0;
   try { wishCount = (await API.wishlistAlerts(Session.userId)).count || 0; } catch (e) { wishCount = 0; }
-  setNavDot("trade", pendingCount ? navCount(pendingCount) : wishCount ? "★" : "", {
+  setNavDot("trade", pendingCount ? navCount(pendingCount) : wishCount ? "♥" : "", {
     cls: pendingCount ? "" : "nav-dot-wish",
     title: pendingCount ? "Échanges en attente" : `${wishCount} carte${wishCount > 1 ? "s" : ""} de ta liste de souhaits disponible${wishCount > 1 ? "s" : ""}`
   });
@@ -504,6 +504,7 @@ function renderHeader() {
               <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}"><span class="mi">&#128100;</span> Mon profil</a>
               <a href="progression.html"><span class="mi">&#127795;</span> Talents et maîtrises</a>
               <a href="stats.html"><span class="mi">&#128202;</span> Mes statistiques</a>
+              <button type="button" data-wishlist-open title="Les cartes que tu cherches, et où les trouver maintenant"><span class="mi">&#9829;</span> Ma liste de souhaits</button>
               <a href="boutique.html#cosmetiques"><span class="mi">&#127912;</span> Titres, cadres, couleurs</a>
               <a href="nouveautes.html" id="notes-link"><span class="mi">&#128240;</span> Nouveautés</a>
               <button type="button" data-quick-session title="Récompenses, récolte, explorateur, pioche gratuite : tout ce qui se fait sans choisir"><span class="mi">&#9889;</span> Session rapide</button>

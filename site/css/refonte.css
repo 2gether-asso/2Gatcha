@@ -270,6 +270,11 @@ a.cmp-tile:hover { border-color: var(--r); box-shadow: 0 0 0 1px var(--r), 0 8px
 @media (max-width: 560px) { .ss-actions { justify-content: stretch; } .ss-actions > * { flex: 1 1 45%; } .ss-canvas { max-height: 52vh; } }
 
 /* --- Centre de notifications (js/lazy/notif-center.js) --- */
+/* Les boutons coupent ce qui depasse (overflow: hidden pour leur reflet,
+   widgets.css) : la pastille de la cloche etait rognee dans le cercle. */
+.notif-bell-trigger { overflow: visible; }
+.notif-bell-trigger::before { display: none; }
+.notif-bell-dot { top: -2px; right: -2px; }
 .notif-bell-dot.has-count { width: auto; min-width: 16px; height: 16px; top: -4px; right: -4px; padding: 0 4px; border-radius: var(--radius-pill); font-size: 0.62rem; font-weight: 800; line-height: 16px; text-align: center; color: #fff; }
 .notif-bell-dropdown.nc-root { width: min(420px, 92vw); max-height: min(70vh, 620px); padding: 8px 8px 4px; }
 .nc-head { position: sticky; top: -8px; z-index: 1; background: var(--bg-panel-solid); padding-top: 8px; }
@@ -307,3 +312,107 @@ a.cmp-tile:hover { border-color: var(--r); box-shadow: 0 0 0 1px var(--r), 0 8px
 @media (max-width: 640px) {
   .notif-bell-dropdown.nc-root { position: fixed; left: 8px; right: 8px; top: calc(var(--header-h, 64px) + 6px); width: auto; max-height: calc(100vh - var(--header-h, 64px) - var(--nav-bottom-h) - 24px); }
 }
+
+/* --- Liste de souhaits (js/lazy/wishlist.js, collection-binder.js) ---
+   Un coeur avec son libelle sur les cartes manquantes (l'etoile reste aux
+   favoris des cartes possedees). */
+.collection-card .wishlist-btn { width: auto; height: 26px; padding: 0 9px 0 7px; gap: 4px; border-radius: var(--radius-pill); font-size: 0.72rem; font-weight: 700; color: rgba(255, 255, 255, 0.82); background: rgba(6, 7, 15, 0.72); border: 1px solid rgba(255, 255, 255, 0.16); }
+.collection-card .wishlist-btn .wl-ico { font-size: 0.9rem; line-height: 1; }
+.collection-card .wishlist-btn:hover { color: #fff; border-color: #f472b6; }
+.collection-card .wishlist-btn.active { color: #fff; background: #db2777; border-color: #f472b6; }
+.collection-grid.dense .wishlist-btn { width: 22px; height: 22px; padding: 0; justify-content: center; }
+.collection-grid.dense .wishlist-btn .wl-txt { display: none; }
+.wish-alerts-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.wish-alerts-head .btn-secondary { margin-left: auto; padding: 5px 12px; font-size: 0.8rem; }
+.wl-modal { width: min(680px, 100%); grid-template-rows: auto auto minmax(0, 1fr); }
+.wl-help { font-size: 0.84rem; color: var(--text-dim); border: 1px solid var(--border-soft); border-radius: 12px; padding: 8px 12px; background: var(--bg-panel-2); }
+.wl-help summary { cursor: pointer; font-weight: 700; color: var(--text); }
+.wl-help ul { margin: 8px 0 2px; padding-left: 18px; display: grid; gap: 4px; line-height: 1.45; }
+.wl-list-host { overflow-y: auto; min-height: 0; }
+.wl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.wl-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 10px 8px 8px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid color-mix(in srgb, var(--r) 35%, transparent); }
+.wl-row.wl-available { border-color: color-mix(in srgb, var(--success) 60%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 25%, transparent); }
+.wl-row img { width: 56px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; border: 2px solid var(--r); }
+.wl-body { display: grid; gap: 2px; min-width: 0; }
+.wl-body strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-body small { font-size: 0.76rem; font-weight: 600; }
+.wl-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.wl-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: var(--radius-pill); font-size: 0.74rem; border: 1px solid var(--border-soft); color: var(--text-dim); background: rgba(255, 255, 255, 0.03); text-decoration: none; }
+a.wl-chip.wl-go { color: var(--text); border-color: color-mix(in srgb, var(--success) 60%, transparent); background: color-mix(in srgb, var(--success) 14%, transparent); }
+a.wl-chip.wl-go:hover { background: color-mix(in srgb, var(--success) 26%, transparent); }
+.wl-chip.wl-ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.wl-remove { width: 36px; height: 36px; padding: 0; border-radius: 50%; background: rgba(219, 39, 119, 0.16); border: 1px solid #f472b6; color: #f472b6; font-size: 1.05rem; box-shadow: none; }
+.wl-remove:hover { background: #db2777; color: #fff; }
+.wl-empty { text-align: center; padding: 18px 12px; display: grid; justify-items: center; gap: 4px; }
+.wl-empty > span { font-size: 2.4rem; color: #f472b6; line-height: 1; }
+.wl-empty p { margin: 0; max-width: 46ch; }
+.wl-empty .btn { margin-top: 10px; }
+
+/* --- Journal d'ouvertures regroupe (pull-log.js) --- */
+.pull-log-day { display: flex; align-items: baseline; gap: 10px; margin: 18px 2px 4px; font-size: 0.82rem; text-transform: capitalize; letter-spacing: 0.02em; color: var(--text-dim); }
+.pull-log-day small { text-transform: none; font-weight: 600; color: var(--accent-2); }
+.pull-log-group { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 12px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); border-left: 3px solid var(--r); }
+.pull-log-when { display: grid; gap: 2px; justify-items: start; font-size: 0.8rem; }
+.pull-log-when .pull-log-source { font-size: 1.3rem; }
+.pull-log-cards { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.pull-log-card { flex: 0 0 auto; width: 64px; display: grid; gap: 2px; text-align: center; min-width: 0; }
+.pull-log-card img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; border: 2px solid var(--r); }
+.pull-log-card .pull-log-name { font-size: 0.68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pull-log-card small { font-size: 0.62rem; font-weight: 700; }
+/* Anciennes regles mobiles des lignes du journal (features.css) neutralisees. */
+.pull-log-when .pull-log-source, .pull-log-when .pull-log-time { grid-area: auto; }
+.pull-log-more { justify-self: center; margin-top: 12px; }
+@media (max-width: 560px) { .pull-log-group { grid-template-columns: 1fr; } .pull-log-when { grid-auto-flow: column; justify-content: start; align-items: center; gap: 8px; } .pull-log-card { width: 58px; } }
+/* Calendrier : rendez-vous qui reviennent (communaute-calendar.js). */
+.cal-filter.cal-all { margin-left: auto; }
+.cal-every { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--radius-pill); font-size: 0.72rem; font-weight: 600; color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent); }
+
+/* --- Listes deroulantes natives (2026-10-21) : meme allure partout que les
+   menus stylises (enhanceSelect, ui.js), fleche dessinee. --- */
+select:not(.fancy-select-native) { -webkit-appearance: none; appearance: none; min-height: 38px; padding: 8px 32px 8px 12px; border-radius: 10px; border: 1px solid var(--border-soft); color: var(--text); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+  background: var(--bg-panel-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a5a8c9' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center / 10px 6px; }
+select:not(.fancy-select-native):hover { border-color: var(--border); }
+select:not(.fancy-select-native):focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+select option { background: var(--bg-panel-solid); color: var(--text); }
+/* Nouveautes : anciennes versions repliees (patchnotes.js). */
+.pn-older { margin-top: 18px; border-top: 1px solid var(--border-soft); padding-top: 12px; }
+.pn-older > summary { cursor: pointer; font-weight: 700; padding: 8px 12px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); list-style-position: inside; }
+.pn-older > summary small { margin-left: 8px; font-weight: 500; color: var(--text-dim); }
+.pn-older[open] > summary { margin-bottom: 12px; }
+/* Bandeau boutique de page (shop-strip.js) : decolle de ce qui precede. */
+[data-shop-strip="ouverture"], [data-shop-strip="collection"] { margin: 14px 0; }
+.dig-shop:empty { display: none; }
+
+/* --- Communaute : rubriques au-dessus des onglets (communaute.js COMM_GROUPS) --- */
+.cm-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 14px 0 6px; }
+.cm-group { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 14px; border-radius: 14px; font-size: 0.95rem; font-weight: 800; color: var(--text-dim); background: var(--bg-panel-2); border: 1px solid var(--border-soft); box-shadow: none; }
+.cm-group::before { display: none; }
+.cm-group:hover:not(.active) { color: var(--text); border-color: var(--border); transform: none; }
+.cm-group.active { color: var(--text); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 30%, var(--bg-panel-2)), color-mix(in srgb, var(--accent-2) 18%, var(--bg-panel-2))); border-color: color-mix(in srgb, var(--accent) 70%, transparent); box-shadow: 0 8px 20px -14px var(--accent); }
+.cm-group .tab-new-dot { position: absolute; top: 7px; right: 9px; }
+.cm-tabs .tab.cm-out { display: none !important; }
+@media (max-width: 560px) { .cm-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; } .cm-group { flex-direction: column; gap: 2px; padding: 8px 4px; font-size: 0.74rem; text-align: center; line-height: 1.15; } .cm-group > span { font-size: 1.15rem; } }
+
+/* --- Accueil plus court (home-fold.js) --- */
+.fold-head { cursor: pointer; position: relative; padding-right: 40px; }
+.fold-btn { position: absolute; top: 50%; right: 0; transform: translateY(-50%); width: 30px; height: 30px; padding: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-soft); color: var(--text-dim); box-shadow: none; font-size: 0.8rem; }
+.fold-btn::before { display: none; }
+.fold-btn:hover:not(:disabled) { color: var(--text); transform: translateY(-50%); }
+.fold-btn span { display: inline-block; transition: transform 0.2s ease; }
+.panel.is-folded > :not(.fold-head) { display: none !important; }
+.panel.is-folded .fold-btn span { transform: rotate(-90deg); }
+.panel.is-folded { padding-top: 16px; padding-bottom: 16px; }
+.panel.is-folded > .fold-head { margin-top: 0; margin-bottom: 0; }
+.panel.is-folded > .fold-head h2, .panel.is-folded > h2.fold-head { margin: 0; }
+/* « A recuperer » compact : une ligne, le detail se deplie. */
+.rewards-center .rc-items { display: none; }
+.rewards-center.rc-open .rc-items { display: grid; }
+.rc-summary:empty { display: none; }
+.rc-toggle { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 10px 14px; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); color: var(--text); font-weight: 600; text-align: left; box-shadow: none; }
+.rc-toggle::before { display: none; }
+.rc-toggle:hover:not(:disabled) { transform: none; border-color: var(--border); }
+.rc-sum-icons { display: inline-flex; gap: 4px; font-size: 1.15rem; }
+.rc-chev { margin-left: auto; color: var(--text-dim); transition: transform 0.2s ease; }
+.rewards-center.rc-open .rc-chev { transform: rotate(180deg); }
+.rewards-center.rc-open .rc-items { margin-top: 8px; }
+@media (max-width: 960px) { #whatnow-panel { order: 0; } }

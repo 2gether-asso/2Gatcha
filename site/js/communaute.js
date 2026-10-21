@@ -59,6 +59,36 @@ function getInitialTab() {
   try { return localStorage.getItem(LAST_TAB_KEY) || "calendar"; } catch (e) { return "calendar"; }
 }
 
+// Rubriques (2026-10-21) : les dix onglets ranges en trois familles ; seule
+// la rubrique de l'onglet ouvert montre ses onglets. Une rubrique sans onglet
+// actif (fonctions coupees) disparait ; sa pastille reprend celles de ses onglets.
+const COMM_GROUPS = [
+  { key: "events", icon: "&#128197;", label: "Événements", tabs: ["calendar", "board", "boss", "together"] },
+  { key: "play", icon: "&#129309;", label: "Jouer ensemble", tabs: ["teams", "machine", "skills"] },
+  { key: "trade", icon: "&#127761;", label: "Marché", tabs: ["market", "auctions", "chest"] }
+];
+const LAST_GROUP_TAB_KEY = "2gatcha_comm_group_tabs";
+function groupOf(tab) { return COMM_GROUPS.find((g) => g.tabs.includes(tab)) || COMM_GROUPS[0]; }
+function tabAvailable(key) { const b = document.getElementById(`tab-${key}-btn`); return !!b && b.style.display !== "none"; }
+function renderGroups() {
+  const host = document.getElementById("cm-groups");
+  if (!host) return;
+  const current = groupOf(activeTab);
+  host.innerHTML = COMM_GROUPS.filter((g) => g.tabs.some(tabAvailable)).map((g) => {
+    const dot = g.key !== current.key && g.tabs.some((k) => { const b = document.getElementById(`tab-${k}-btn`); return b && b.querySelector(".tab-new-dot"); });
+    return `<button type="button" class="cm-group ${g.key === current.key ? "active" : ""}" data-cm-group="${g.key}" aria-pressed="${g.key === current.key}">
+      <span aria-hidden="true">${g.icon}</span> ${g.label}${dot ? '<span class="tab-new-dot" aria-label="Nouveau"></span>' : ""}</button>`;
+  }).join("");
+  COMM_GROUPS.forEach((g) => g.tabs.forEach((k) => { const b = document.getElementById(`tab-${k}-btn`); if (b) b.classList.toggle("cm-out", g.key !== current.key); }));
+}
+function openGroup(key) {
+  const g = COMM_GROUPS.find((x) => x.key === key);
+  if (!g) return;
+  let last = {};
+  try { last = JSON.parse(localStorage.getItem(LAST_GROUP_TAB_KEY) || "{}") || {}; } catch (e) { /* stockage indisponible */ }
+  setActiveTab(g.tabs.includes(last[key]) && tabAvailable(last[key]) ? last[key] : g.tabs.find(tabAvailable) || g.tabs[0]);
+}
+
 // Signaux courants (voir CommunauteSignals, shell.js) : onglets visibles et
 // pastilles de nouveaute.
 let communauteSignals = null;
@@ -75,6 +105,7 @@ function renderTabDots() {
       btn.appendChild(dot);
     }
   });
+  renderGroups();
 }
 
 function setActiveTab(tab) {
@@ -93,7 +124,13 @@ function setActiveTab(tab) {
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
   });
-  try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
+  try {
+    localStorage.setItem(LAST_TAB_KEY, tab);
+    const last = JSON.parse(localStorage.getItem(LAST_GROUP_TAB_KEY) || "{}") || {};
+    last[groupOf(tab).key] = tab;
+    localStorage.setItem(LAST_GROUP_TAB_KEY, JSON.stringify(last));
+  } catch (e) {}
+  renderGroups();
   if (TAB_HASH[tab] && location.hash !== "#" + TAB_HASH[tab]) history.replaceState(null, "", "#" + TAB_HASH[tab]);
   if (tab === "together") loadTogether();
   if (tab === "calendar") loadCalendar();
@@ -772,6 +809,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-board-btn").addEventListener("click", () => setActiveTab("board"));
   document.getElementById("tab-teams-btn").addEventListener("click", () => setActiveTab("teams"));
   window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
+  document.getElementById("cm-groups").addEventListener("click", (e) => { const g = e.target.closest("[data-cm-group]"); if (g) openGroup(g.dataset.cmGroup); });
   document.getElementById("goal-card").addEventListener("click", async (e) => {
     if (!e.target.closest("#goal-claim-btn")) return;
     try { const res = await API.communityGoal(Session.userId, "claim"); renderGoal(res); Toast.success(`&#129309; +${res.claimedNow.dust} poussières et +${res.claimedNow.worms} vers !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); }

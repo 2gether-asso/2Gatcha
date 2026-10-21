@@ -19,7 +19,17 @@
     "personal-vault": "&#128274; Coffre-fort", "mastery": "&#127941; Maîtrise", "constellations": "&#127756; Constellations", "achievement-tiers": "&#127941; Maîtrises de succès",
     "daily-box": "&#127873; Boîte du jour", "evening": "&#127769; Missions du soir", "contracts": "&#128221; Contrats", "welcome-back": "&#128075; Bonus de retour",
     "reroll": "&#127922; Relances", "community-dig": "&#128506;&#65039; Grande fouille", "boss-attack": "&#128128; Boss", "level-rewards": "&#11088; Niveaux",
-    "set-rewards": "&#127942; Sets complets", "redeem-code": "&#127915; Codes", "altar-sacrifice": "&#128293; Autel", "unique-counter": "&#127808; Comptoir Unique"
+    "set-rewards": "&#127942; Sets complets", "redeem-code": "&#127915; Codes", "altar-sacrifice": "&#128293; Autel", "unique-counter": "&#127808; Comptoir Unique",
+    // Routes ajoutees depuis (2026-10-21 : elles s'affichaient sous leur nom technique).
+    "shop": "&#128717;&#65039; Boutique", "minerals": "&#128142; Minéraux", "guild-works": "&#127959;&#65039; Grand Chantier", "guild-chest": "&#127873; Coffre de guilde",
+    "lottery": "&#127903;&#65039; Loterie", "draft": "&#127183; Draft", "duo-expedition": "&#129309; Expédition en duo", "bingo": "&#127922; Bingo", "wanted": "&#128220; Avis de recherche",
+    "treasure-hunt": "&#128506;&#65039; Course aux trésors", "aquarium": "&#128032; Aquarium", "museum": "&#127963;&#65039; Musée", "dino": "&#129430; Dinos", "cat": "&#128008; Moka",
+    "upgrades": "&#128736;&#65039; Améliorations", "sunday-market": "&#127774; Marché du dimanche", "ripen": "&#127817; Mûrissoir", "story": "&#128214; Histoire", "starter": "&#127793; Parcours du débutant",
+    "season-quests": "&#127942; Défis de saison", "sky-tree": "&#127795; Arbre céleste", "teams": "&#128681; Équipes", "fishing-tournament": "&#127907; Tournoi de pêche", "chaos-vote": "&#9881;&#65039; Salle des machines",
+    "machine-room": "&#9881;&#65039; Salle des machines", "player-gift": "&#127873; Cadeaux de joueurs", "dog-gift": "&#128021; Milo", "daily-dice": "&#127922; Dé du jour", "weekly-goal": "&#128220; Contrat de la semaine",
+    "finish-reroll": "&#127752; Relance de finition", "prestige": "&#11088; Prestige", "account-prestige": "&#11088; Prestige", "card-prestige": "&#11088; Prestige de carte", "phantom": "&#128123; Fantôme",
+    "secrets": "&#128273; Mots secrets", "secret-card": "&#10067; Carte secrète", "forbidden": "&#10067; Mystère", "mode-extra": "&#9878;&#65039; Mode du moment", "seasonal": "&#127881; Événements",
+    "visuals": "&#128736;&#65039; Ajustements de l'équipe", "admin-db": "&#128736;&#65039; Ajustements de l'équipe", "admin-gift": "&#127873; Dons de l'équipe"
   };
   const ACTIVITY = {
     boosterOpened: "&#127183; Boosters ouverts", cardsPulled: "&#127183; Cartes tirées", disenchant: "&#9851;&#65039; Décrafts", craft: "&#10024; Crafts", fusion: "&#127752; Fusions",
@@ -54,9 +64,13 @@
       return `<tr><th scope="row"><span class="rarity-dot" style="background:${esc(r.colorHex || "#888")}"></span>${esc(r.name)}</th><td class="num">${fmt(r.count)}</td><td class="num">${r.pct} %</td><td class="num">${r.expected} %</td><td class="${diff >= 0 ? "up" : "down"}">${diff >= 0 ? "+" : ""}${diff.toFixed(1)} pt</td></tr>`;
     }).join("") + "</tbody>";
     const sorted = (o) => Object.entries(o || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    const src = (k) => SOURCES[k] || esc(k);
-    $("dust-earned").innerHTML = bars(sorted(s.dust.earned).slice(0, 12), src);
-    $("dust-spent").innerHTML = bars(sorted(s.dust.spent).slice(0, 12), src);
+    // Route inconnue : les routes d'administration sont regroupees, les autres
+    // gardent un nom lisible (« guild-works » -> « Guild works »).
+    const src = (k) => SOURCES[k] || (/^admin/.test(k) ? SOURCES["admin-db"] : esc(String(k).replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase())));
+    // Routes au meme libelle (ajustements de l'equipe...) : une seule ligne.
+    const byLabel = (obj) => { const m = {}; Object.entries(obj || {}).forEach(([k, v]) => { const l = src(k); m[l] = (m[l] || 0) + v; }); return m; };
+    $("dust-earned").innerHTML = bars(sorted(byLabel(s.dust.earned)).slice(0, 12), (l) => l);
+    $("dust-spent").innerHTML = bars(sorted(byLabel(s.dust.spent)).slice(0, 12), (l) => l);
     $("activity-bars").innerHTML = bars(sorted(s.activity).filter(([k]) => ACTIVITY[k] && k !== "cardsPulled").slice(0, 12), (k) => ACTIVITY[k]);
     $("best-pulls").innerHTML = s.best.length ? s.best.map((c) => `
       <figure class="mystats-card" data-rarity="${esc(c.rarity?.key || "commune")}" style="--r:${esc(c.rarity?.colorHex || "#888")}">

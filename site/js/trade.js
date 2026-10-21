@@ -889,6 +889,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     clearTimeout(historyTimer);
     historyTimer = setTimeout(() => { historySearch = e.target.value; renderAllTrades(); }, 150);
   });
+  enhanceSelect(document.getElementById("trade-status-filter"));
   document.getElementById("trade-status-filter").addEventListener("change", (e) => {
     statusFilter = e.target.value;
     renderAllTrades();
