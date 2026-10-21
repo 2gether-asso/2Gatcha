@@ -1317,6 +1317,9 @@ function celebrateLevelUpIfNeeded(newLevel) {
   try { localStorage.setItem(LEVEL_SEEN_KEY, String(newLevel)); } catch (e) {}
 }
 
+// Reponses de statut deja annoncees (voir loadHeaderBoosterBadge).
+const announcedStatus = new WeakSet();
+const PRESTIGE_SEEN_KEY = "2gatcha_prestige_seen";
 async function loadHeaderBoosterBadge() {
   const badge = document.getElementById("header-booster-badge");
   const dustBadge = document.getElementById("header-stardust-badge");
@@ -1325,23 +1328,34 @@ async function loadHeaderBoosterBadge() {
   try {
     const status = await API.getBoosterStatus(Session.userId);
     window.__hdrStatus = status;
+    // Annonces portees par le statut (une seule fois par reponse du serveur,
+    // 2026-10-21) : la meme reponse est partagee quelques secondes entre tous
+    // les appels de la page (API._shared), et chaque appel la rejouait
+    // (prestige du compte affiche plusieurs fois, pluie de boosters...).
+    const fresh = !announcedStatus.has(status);
+    announcedStatus.add(status);
     // Bonus et malus du mode (modeperks.js).
-    if (typeof Toast !== "undefined") {
+    if (fresh && typeof Toast !== "undefined") {
       if (status.hug) Toast.success(`&#128526; Câlin du jour (mode Cool) : ${status.hug} !`);
       if (status.wear) Toast.info(`&#129533; Usure (mode Hard) : un doublon de <strong>${escHtml(status.wear.card)}</strong> s'est usé.`);
       if (status.modeUnlock) Toast.success(`&#127942; Débloqué : ${escHtml(status.modeUnlock)} !`);
       // Nouvelle etoile de prestige du compte (account-prestige.js).
       const pu = status.prestigeUnlocked;
-      if (pu && typeof LevelFx !== "undefined") {
+      // Etoile deja annoncee (autre onglet, autre page) : pas de seconde cinematique.
+      let seenStar = 0;
+      try { seenStar = Number(localStorage.getItem(PRESTIGE_SEEN_KEY)) || 0; } catch (e) { /* stockage indisponible */ }
+      const starN = pu ? Number(pu.star || pu.stars) || 0 : 0;
+      if (pu && starN > seenStar) { try { localStorage.setItem(PRESTIGE_SEEN_KEY, String(starN)); } catch (e) { /* stockage indisponible */ } }
+      if (pu && starN > seenStar && typeof LevelFx !== "undefined") {
         LevelFx.show({ kind: "prestige", icon: "&#11088;", name: "Prestige du compte", level: `${"★".repeat(Math.min(pu.star || pu.stars, 5))} Étoile ${pu.star || pu.stars}`,
           perks: [pu.boosters ? `🎁 +${pu.boosters} jetons booster` : "", pu.dust ? `✨ +${pu.dust.toLocaleString("fr-FR")} poussières` : "", `🌳 +${pu.gained || 1} point${(pu.gained || 1) > 1 ? "s" : ""} de talent de prestige`, ...(pu.titles || []).map((t) => `🏷️ ${escHtml(t)}`)].filter(Boolean) });
-        if (typeof loadHeaderBoosterBadge === "function" && pu.boosters) setTimeout(loadHeaderBoosterBadge, 500);
+        if (pu.boosters) { API.invalidate && API.invalidate(["boosterStatus"]); setTimeout(loadHeaderBoosterBadge, 500); }
       }
       // Malediction, mutation, larcin subi, serment tenu… (modefun.js).
       (status.modeNotes || []).forEach((n) => Toast.info(`${n.icon} ${escHtml(n.text)}`));
     }
     // Pluie de boosters (objectif commun atteint) : annonce une seule fois.
-    if (status.rain && typeof Toast !== "undefined") {
+    if (fresh && status.rain && typeof Toast !== "undefined") {
       Toast.success(`&#127783;&#65039; Pluie de boosters ! +${status.rain.boosters} jeton${status.rain.boosters > 1 ? "s" : ""} booster grâce à l'objectif commun.`);
       if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.3 } });
       API.invalidate && API.invalidate(["boosterStatus"]);
