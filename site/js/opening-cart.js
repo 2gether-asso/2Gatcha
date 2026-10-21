@@ -41,29 +41,62 @@
     render();
   }
 
+  // Vignette du booster d'une ligne du panier.
+  function thumb(id) {
+    if (keyOf(id) === "mystery") return '<span class="vend-thumb vend-thumb-mystery" aria-hidden="true">?</span>';
+    const e = extensionById(keyOf(id));
+    const img = e && API.imageUrl(e.packImageId);
+    return img ? `<img class="vend-thumb" src="${img}" alt="" loading="lazy" decoding="async" />` : '<span class="vend-thumb" aria-hidden="true">&#127183;</span>';
+  }
+  // Raccourci : un booster de chaque extension (hors mystere) pas encore choisie.
+  function eachIds() { return [...document.querySelectorAll('#extension-picker .extension-tile[data-ext-id]:not(.disabled)')].map((t) => keyOf(t.dataset.extId)).filter((k) => k !== "mystery"); }
+
+  // Panier (2026-10-21) : lignes avec vignette et -/+, gros bouton
+  // d'ouverture, murissoir, vider ; selecteur -/+ pose sur chaque case
+  // choisie ; barre flottante sur mobile.
   function render() {
     clamp();
     const box = document.getElementById("vend-cart");
     if (!box) return;
-    const n = total();
+    const n = total(), max = usableBoosters();
+    const each = eachIds().filter((k) => !items.has(k));
+    const eachBtn = each.length > 1 && n + each.length <= max ? `<button type="button" class="vend-cart-each" data-cart-each>+1 de chaque extension <small>(${each.length})</small></button>` : "";
     box.innerHTML = n
-      ? `<div class="vend-cart-head">Sélection <strong>${n}</strong> / ${usableBoosters()} jeton${usableBoosters() > 1 ? "s" : ""}</div>
-         <ul class="vend-cart-list">${[...items].map(([id, q]) => `<li><span>${escHtml(nameOf(id))}</span><span class="vend-cart-qty"><button type="button" data-cart-dec="${id}" aria-label="Retirer un booster">−</button><b>${q}</b><button type="button" data-cart-inc="${id}" aria-label="Ajouter un booster">+</button></span></li>`).join("")}</ul>
-         <button type="button" class="btn vend-cart-go" data-cart-open>&#127183; Ouvrir la sélection</button>
-         ${ripenHtml()}
-         <button type="button" class="btn-ghost vend-cart-clear" data-cart-clear>Vider</button>`
-      : `<p class="vend-cart-empty">Clique sur des cases pour choisir tes boosters.</p>`;
-    // Pastille du nombre choisi sur chaque case.
+      ? `<div class="vend-cart-head"><span>Sélection <strong>${n}</strong><small> / ${max} jeton${max > 1 ? "s" : ""}</small></span><button type="button" class="vend-cart-clear" data-cart-clear>Vider</button></div>
+         <span class="vend-cart-gauge" aria-hidden="true"><span style="width:${max ? Math.min(100, (n / max) * 100) : 0}%"></span></span>
+         <ul class="vend-cart-list">${[...items].map(([id, q]) => `<li>${thumb(id)}<span class="vend-cart-name">${escHtml(nameOf(id))}</span><span class="vend-cart-qty"><button type="button" data-cart-dec="${id}" aria-label="Retirer un booster ${escHtml(nameOf(id))}">−</button><b>${q}</b><button type="button" data-cart-inc="${id}" aria-label="Ajouter un booster ${escHtml(nameOf(id))}" ${n >= max ? "disabled" : ""}>+</button></span></li>`).join("")}</ul>
+         ${eachBtn}
+         <button type="button" class="btn vend-cart-go" data-cart-open>&#127183; Ouvrir ${n > 1 ? `les ${n} boosters` : "le booster"}</button>
+         ${ripenHtml()}`
+      : `<div class="vend-cart-empty"><strong>Choisis tes boosters</strong><span>Touche une case : 1 jeton = 1 booster de cette extension. Touche encore pour en ajouter.</span>${eachBtn}</div>`;
+    // Selecteur -/+ sur chaque case choisie.
     document.querySelectorAll("#extension-picker .extension-tile[data-ext-id]").forEach((tile) => {
-      const q = items.get(keyOf(tile.dataset.extId)) || 0;
-      let badge = tile.querySelector(".vend-qty");
-      if (!q) { if (badge) badge.remove(); return; }
-      if (!badge) { badge = document.createElement("span"); badge.className = "vend-qty"; tile.appendChild(badge); }
-      badge.textContent = `×${q}`;
+      const id = tile.dataset.extId;
+      const q = items.get(keyOf(id)) || 0;
+      tile.classList.toggle("in-cart", q > 0);
+      tile.querySelector(".vend-qty")?.remove();
+      let step = tile.querySelector(".vend-step");
+      if (!q) { if (step) step.remove(); return; }
+      if (!step) { step = document.createElement("div"); step.className = "vend-step"; (tile.querySelector(".ext-art") || tile).appendChild(step); }
+      step.innerHTML = `<button type="button" data-cart-dec="${id}" aria-label="Retirer un booster">−</button><b>×${q}</b><button type="button" data-cart-inc="${id}" aria-label="Ajouter un booster" ${n >= max ? "disabled" : ""}>+</button>`;
     });
+    renderMobileBar(n);
     // Noms des extensions connus : les lots du murissoir se redessinent.
     if (window.Ripen && Ripen.render) Ripen.render();
     renderBar();
+  }
+
+  // Barre flottante (mobile) : le panier reste a portee pendant le defilement.
+  function renderMobileBar(n) {
+    let bar = document.getElementById("vend-mbar");
+    if (!n) { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "vend-mbar";
+      bar.className = "vend-mbar";
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML = `<button type="button" class="vend-mbar-info" data-cart-scroll><span><strong>${n}</strong> booster${n > 1 ? "s" : ""} choisi${n > 1 ? "s" : ""}</span><small>Voir la sélection</small></button><button type="button" class="btn" data-cart-open>&#127183; Ouvrir</button>`;
   }
 
   // Laisser murir : choix de la duree (stades du murissoir).
@@ -71,8 +104,8 @@
     const r = window.Ripen && Ripen.state;
     if (!r || !r.enabled || !r.slots.total) return "";
     const free = r.slots.open - r.lots.length;
-    if (!ripenPick) return `<button type="button" class="btn-secondary vend-cart-ripen" data-cart-ripen ${free > 0 ? "" : "disabled"} title="${free > 0 ? "Mettre la sélection de côté : elle s'ouvrira plus tard, avec un bonus" : r.slots.open < r.slots.total ? `Un lot de plus au niveau ${r.slots.nextLevel}` : "Mûrissoir plein"}">&#127823; Laisser mûrir <small>(${r.lots.length} / ${r.slots.open} lot${r.slots.open > 1 ? "s" : ""})</small></button>`;
-    return `<div class="vend-ripen-pick"><span>Laisser mûrir combien de temps ?</span>${r.stages.map((s, i) => `<button type="button" class="vend-ripen-stage" data-cart-ripen-stage="${i}"><b>${s.icon || "🍎"} ${s.hours} h</b><span>${escHtml(s.label)} : +${s.finish} pts de finition par booster${s.special ? ", une finition spéciale garantie chacun" : ""}</span></button>`).join("")}<button type="button" class="btn-ghost" data-cart-ripen-cancel>Annuler</button></div>`;
+    if (!ripenPick) return `<button type="button" class="vend-cart-ripen" data-cart-ripen ${free > 0 ? "" : "disabled"} title="${free > 0 ? "Mettre la sélection de côté : elle s'ouvrira plus tard, avec un bonus de finition" : r.slots.open < r.slots.total ? `Un lot de plus au niveau ${r.slots.nextLevel}` : "Mûrissoir plein"}"><span>&#127823; Laisser mûrir</span><small>${free > 0 ? `${free} place${free > 1 ? "s" : ""} libre${free > 1 ? "s" : ""}` : "mûrissoir plein"}</small></button>`;
+    return `<div class="vend-ripen-pick"><span>Laisser mûrir combien de temps ?</span>${r.stages.map((s, i) => `<button type="button" class="vend-ripen-stage" data-cart-ripen-stage="${i}"><b>${s.icon || "🍎"} ${s.hours} h · ${escHtml(s.label)}</b><span>+${s.finish} pts de finition par booster${s.special ? " · finition spéciale garantie" : ""}</span></button>`).join("")}<button type="button" class="vend-ripen-cancel" data-cart-ripen-cancel>Annuler</button></div>`;
   }
 
   // Barre de la selection dans la fenetre d'ouverture.
@@ -119,6 +152,8 @@
     if (inc) add(inc.dataset.cartInc, 1);
     else if (dec) add(dec.dataset.cartDec, -1);
     else if (t.closest("[data-cart-clear]")) { items.clear(); ripenPick = false; save(); render(); }
+    else if (t.closest("[data-cart-each]")) { eachIds().filter((k) => !items.has(k)).forEach((k) => { if (total() < usableBoosters()) items.set(k, 1); }); save(); if (typeof Sfx !== "undefined" && Sfx.click) Sfx.click(); render(); }
+    else if (t.closest("[data-cart-scroll]")) document.getElementById("vend-cart")?.scrollIntoView({ behavior: "smooth", block: "center" });
     else if (t.closest("[data-cart-ripen]")) { ripenPick = true; render(); }
     else if (t.closest("[data-cart-ripen-cancel]")) { ripenPick = false; render(); }
     else if (t.closest("[data-cart-ripen-stage]") && window.Ripen) {

@@ -416,3 +416,107 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 .rewards-center.rc-open .rc-chev { transform: rotate(180deg); }
 .rewards-center.rc-open .rc-items { margin-top: 8px; }
 @media (max-width: 960px) { #whatnow-panel { order: 0; } }
+
+/* =====================================================================
+   Distributeur de boosters, refonte du 2026-10-21 (opening.js, opening-cart.js,
+   ripen.js) : cases compactes avec selecteur -/+, panier large qui reste
+   visible (sticky), lots du murissoir compacts, barre flottante sur mobile.
+   ===================================================================== */
+.vending-body { grid-template-columns: minmax(0, 1fr) 290px; gap: 14px; }
+.vending-glass .extension-picker { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; justify-content: stretch; }
+.vending-glass .extension-tile { padding: 8px 8px 10px; border-radius: 14px; display: flex; flex-direction: column; gap: 4px; }
+.vending-glass .extension-tile:hover:not(.disabled) { transform: translateY(-2px); }
+.vending-glass .ext-art { margin-bottom: 4px; }
+.vending-glass .extension-tile .ext-name { font-size: 0.82rem; line-height: 1.2; min-height: 2.4em; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
+.vending-glass .ext-count { font-size: 0.72rem; color: var(--text-dim); }
+.vending-glass .pity-row { margin-top: 0; font-size: 0.68rem; gap: 6px; }
+.vending-glass .mystery-perk { margin-top: 0; font-size: 0.7rem; }
+.vend-code { top: 4px; left: 4px; font-size: 0.64rem; padding: 0 5px; }
+.extension-tile .last-opened-badge { font-size: 0.62rem; }
+.ext-progress { display: flex; align-items: center; gap: 6px; }
+.ext-progress-track { flex: 1; height: 5px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.ext-progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.ext-progress .ext-count { flex: none; font-variant-numeric: tabular-nums; }
+/* Sommaire du set : petite icone dans le coin de l'illustration. */
+.ext-art .set-summary-link { position: absolute; top: 6px; right: 6px; z-index: 3; width: 28px; height: 28px; min-height: 0; padding: 0; display: grid; place-items: center; border-radius: 50%; font-size: 0.8rem; background: rgba(6, 7, 15, 0.78); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: none; opacity: 0; transition: opacity 0.15s ease; }
+.ext-art .set-summary-link::before { display: none; }
+.extension-tile:hover .set-summary-link, .ext-art .set-summary-link:focus-visible, .extension-tile.in-cart .set-summary-link { opacity: 1; }
+@media (hover: none) { .ext-art .set-summary-link { opacity: 1; } }
+/* Case choisie : lisere dore + selecteur -/+ sur l'illustration. */
+.vending-glass .extension-tile.in-cart { border-color: #fde68a; box-shadow: 0 0 0 1px #fde68a, 0 0 22px -6px rgba(253, 230, 138, 0.8); }
+.vend-step { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--radius-pill); background: rgba(12, 6, 6, 0.92); border: 1px solid #fde68a; box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.9); }
+.vend-step b { min-width: 2.2em; text-align: center; font-weight: 800; color: #fde68a; font-variant-numeric: tabular-nums; }
+.vend-step button { width: 28px; height: 28px; min-height: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; font-weight: 800; background: #3f0a0a; color: #fde68a; border: none; box-shadow: none; }
+.vend-step button::before { display: none; }
+.vend-step button:disabled { opacity: 0.35; }
+/* Monnayeur + panier : colonne large, reste a l'ecran. */
+.vending-coin { position: sticky; top: calc(var(--header-h, 78px) + 12px); max-height: calc(100vh - var(--header-h, 78px) - 24px); overflow-y: auto; scrollbar-width: thin; align-items: stretch; text-align: left; gap: 10px; padding: 12px; }
+.vending-coin-row { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(252, 165, 165, 0.2); }
+.vending-coin-row .vending-token { width: 48px; height: 48px; }
+.vending-coin-row .vending-coin-count { display: flex; align-items: baseline; gap: 6px; }
+.vending-coin-row .vending-coin-count strong { font-size: 1.7rem; }
+.vending-coin-row .vending-slot { margin-left: auto; width: 34px; }
+.vend-cart { gap: 8px; }
+.vend-cart-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; font-size: 0.86rem; color: #fecaca; }
+.vend-cart-head strong { font-size: 1.05rem; }
+.vend-cart-head small { color: #fca5a5; }
+.vend-cart-clear { width: auto; min-height: 0; padding: 3px 10px; font-size: 0.74rem; border-radius: var(--radius-pill); background: transparent; border: 1px solid rgba(252, 165, 165, 0.4); color: #fecaca; box-shadow: none; }
+.vend-cart-clear::before { display: none; }
+.vend-cart-gauge { display: block; height: 4px; border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.4); overflow: hidden; }
+.vend-cart-gauge span { display: block; height: 100%; background: #fde68a; border-radius: inherit; }
+.vend-cart-list { max-height: 260px; gap: 5px; }
+.vend-cart-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; padding: 5px 6px; }
+.vend-thumb { width: 28px; height: 37px; object-fit: cover; border-radius: 5px; display: grid; place-items: center; background: #1e293b; font-size: 0.9rem; }
+.vend-thumb-mystery { background: conic-gradient(from 0deg, #7c3aed, #22d3ee, #f472b6, #facc15, #7c3aed); color: #fff; font-weight: 900; }
+.vend-cart-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.84rem; font-weight: 600; }
+.vend-cart-qty button { width: 26px; height: 26px; min-height: 0; padding: 0; display: grid; place-items: center; box-shadow: none; }
+.vend-cart-qty button::before { display: none; }
+.vend-cart-qty button:disabled { opacity: 0.35; }
+.vend-cart-go { width: 100%; padding: 12px 14px; font-size: 1rem; }
+.vend-cart-each { width: 100%; min-height: 0; padding: 7px 10px; font-size: 0.8rem; border-radius: 10px; background: rgba(0, 0, 0, 0.25); border: 1px dashed rgba(253, 230, 138, 0.5); color: #fde68a; box-shadow: none; }
+.vend-cart-each::before { display: none; }
+.vend-cart-each small { opacity: 0.75; }
+.vend-cart-ripen { width: 100%; margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-radius: 10px; font-size: 0.85rem; background: rgba(132, 204, 22, 0.12); border: 1px solid rgba(163, 230, 53, 0.45); color: #ecfccb; box-shadow: none; }
+.vend-cart-ripen::before { display: none; }
+.vend-cart-ripen small { font-size: 0.72rem; opacity: 0.8; font-weight: 500; }
+.vend-ripen-pick { margin-top: 0; }
+.vend-ripen-stage b { font-size: 0.86rem; }
+.vend-ripen-cancel { min-height: 0; padding: 4px 10px; font-size: 0.76rem; background: transparent; border: 1px solid var(--border-soft); color: var(--text-dim); box-shadow: none; }
+.vend-ripen-cancel::before { display: none; }
+.vend-cart-empty { display: grid; gap: 6px; text-align: center; padding: 6px 2px; }
+.vend-cart-empty strong { color: #fde68a; }
+.vend-cart-empty > span { font-size: 0.78rem; color: #fecaca; line-height: 1.45; }
+/* Lots du murissoir. */
+.vend-lots { margin-top: 0; padding-top: 10px; border-top: 1px solid rgba(252, 165, 165, 0.2); }
+.vend-lots-head { font-weight: 800; font-size: 0.86rem; color: #ecfccb; }
+.vend-lots-head small { font-weight: 500; opacity: 0.7; margin-left: 4px; }
+.vend-lot { text-align: left; gap: 5px; padding: 10px; }
+.vend-lot-top { display: flex; align-items: center; gap: 8px; }
+.vend-lot-top .vend-lot-ico { font-size: 1.2rem; align-self: auto; }
+.vend-lot-top strong { font-size: 0.88rem; }
+.vend-lot-n { margin-left: auto; font-size: 0.74rem; font-weight: 700; padding: 1px 8px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.08); }
+.vend-lot-perk { color: var(--text-dim); font-size: 0.74rem; }
+.vend-lot-bar { display: block; height: 4px; border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.4); overflow: hidden; }
+.vend-lot-bar span { display: block; height: 100%; background: linear-gradient(90deg, #a3e635, #fde68a); border-radius: inherit; }
+.vend-lot-items summary { cursor: pointer; font-size: 0.74rem; color: var(--text-dim); }
+.vend-lot-items small { display: block; margin-top: 4px; font-size: 0.72rem; color: var(--text-dim); line-height: 1.4; }
+/* Mobile : cases d'abord, panier dessous, barre flottante au-dessus du menu du bas. */
+@media (max-width: 720px) {
+  .vending-body { grid-template-columns: 1fr; }
+  .vending-coin { position: static; max-height: none; order: 0; flex-direction: column; flex-wrap: nowrap; }
+  .vending-glass { order: -1; }
+  .vending-glass .extension-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
+.vend-mbar { display: none; }
+@media (max-width: 720px) {
+  .vend-mbar { position: fixed; z-index: 55; left: 10px; right: 10px; bottom: calc(var(--nav-bottom-h, 64px) + 10px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 16px; background: linear-gradient(135deg, #7f1d1d, #3f0a0a); border: 1px solid #fca5a5; box-shadow: 0 16px 34px -12px rgba(0, 0, 0, 0.9); animation: vendBarIn 0.25s ease both; }
+  .vend-mbar-info { flex: 1; display: grid; text-align: left; min-height: 0; padding: 0; background: none; border: 0; box-shadow: none; color: #fff; font-size: 0.9rem; }
+  .vend-mbar-info::before { display: none; }
+  .vend-mbar-info strong { display: inline; color: #fde68a; }
+  .vend-mbar-info small { font-weight: 500; color: #fecaca; font-size: 0.72rem; }
+  .vend-mbar .btn { padding: 10px 18px; }
+}
+@media (min-width: 641px) and (max-width: 720px) { .vend-mbar { bottom: 12px; } }
+@keyframes vendBarIn { from { opacity: 0; transform: translateY(14px); } }
+/* Le bouton « retour en haut » passe au-dessus de la barre du panier. */
+@media (max-width: 720px) { body:has(#vend-mbar) .back-to-top { bottom: calc(var(--nav-bottom-h, 64px) + 86px + env(safe-area-inset-bottom, 0px)); } }

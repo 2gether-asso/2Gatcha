@@ -18,18 +18,25 @@
     const t = Math.floor(Date.now() / 1000);
     box.innerHTML = `
       ${st.ready ? `<p class="lot-ripe-now">${st.ready.icon} ${st.ready.remaining} booster${st.ready.remaining > 1 ? "s" : ""} ${esc(st.ready.label.toLowerCase())}${st.ready.remaining > 1 ? "s" : ""} à ouvrir : ils profitent du bonus</p>` : ""}
-      ${st.lots.map((l) => `
+      ${st.lots.length ? `<div class="vend-lots-head">&#127823; Mûrissoir <small>${st.lots.length} / ${st.slots ? st.slots.open : st.lots.length}</small></div>` : ""}
+      ${st.lots.map((l) => {
+        const kinds = Object.keys(l.items).length;
+        const pct = l.ready ? 100 : l.at && l.readyAt > l.at ? Math.min(100, Math.round(((t - l.at) / (l.readyAt - l.at)) * 100)) : 0;
+        return `
         <div class="vend-lot ${l.ready ? "ready" : "locked"}" data-lot="${esc(l.id)}">
-          <span class="vend-lot-ico" aria-hidden="true">${l.ready ? l.icon : "&#128274;"}</span>
-          <div class="vend-lot-body">
-            <strong>Lot ${esc(l.label.toLowerCase())} · ${l.count} booster${l.count > 1 ? "s" : ""}</strong>
-            <small>${contents(l.items)}</small>
-            <small>+${l.finish} pts de finition par booster${l.special ? " · une finition spéciale garantie chacun" : ""}</small>
+          <div class="vend-lot-top">
+            <span class="vend-lot-ico" aria-hidden="true">${l.ready ? l.icon : "&#128274;"}</span>
+            <strong>Lot ${esc(l.label.toLowerCase())}</strong>
+            <span class="vend-lot-n">${l.count} booster${l.count > 1 ? "s" : ""}</span>
           </div>
+          <small class="vend-lot-perk">+${l.finish} pts de finition par booster${l.special ? " · finition spéciale garantie" : ""}</small>
+          ${l.ready ? "" : `<span class="vend-lot-bar" aria-hidden="true"><span style="width:${pct}%"></span></span>`}
+          <details class="vend-lot-items"><summary>${kinds > 1 ? `${kinds} extensions` : esc(name(Object.keys(l.items)[0]))}</summary><small>${contents(l.items)}</small></details>
           ${l.ready
             ? `<button type="button" class="btn" data-lot-claim="${esc(l.id)}">&#127873; Ouvrir le lot (gratuit)</button>`
-            : `<div class="vend-lot-side"><span class="vend-lot-timer">${left(l.readyAt - t)}</span><button type="button" class="btn-ghost" data-lot-cancel="${esc(l.id)}" title="Rend les jetons, sans bonus">Annuler</button></div>`}
-        </div>`).join("")}`;
+            : `<div class="vend-lot-side"><span class="vend-lot-timer">&#9203; ${left(l.readyAt - t)}</span><button type="button" class="btn-ghost" data-lot-cancel="${esc(l.id)}" title="Rend les jetons, sans bonus">Annuler</button></div>`}
+        </div>`;
+      }).join("")}`;
   }
 
   async function load() {

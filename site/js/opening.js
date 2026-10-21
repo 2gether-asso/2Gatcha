@@ -691,12 +691,12 @@ function renderExtensionPicker() {
   const disabled = usableBoosters() < 1;
   const mysteryTile = extensionsCache.length > 1 ? `
       <div class="extension-tile mystery-tile ${disabled ? "disabled" : ""}" data-ext-id="mystery">
-        <div class="ext-art mystery-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster mystère"'}>
+        <div class="ext-art mystery-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ajouter un booster mystère à la sélection"'}>
           <span class="mystery-q" aria-hidden="true">?</span>
         </div>
         <div class="ext-name">Booster mystère</div>
-        <div class="ext-count">Extension tirée au hasard</div>
-        <div class="mystery-perk">&#10024; Finitions spéciales un peu plus fréquentes</div>
+        <div class="ext-count">Extension au hasard</div>
+        <div class="mystery-perk">&#10024; Plus de finitions spéciales</div>
       </div>` : "";
   // Derniere extension ouverte en premier (2026-10-11).
   let lastId = null;
@@ -713,18 +713,18 @@ function renderExtensionPicker() {
       <div class="extension-tile ${disabled ? "disabled" : ""} ${String(ext.id) === lastId ? "last-opened" : ""}" data-ext-id="${ext.id}">
         <span class="vend-code" aria-hidden="true">${String.fromCharCode(65 + Math.floor(slot / 4))}${(slot % 4) + 1}</span>
         ${String(ext.id) === lastId ? '<span class="last-opened-badge">&#8634; Dernière ouverte</span>' : ""}
-        <div class="ext-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ouvrir un booster ' + ext.name.replace(/"/g, "&quot;") + '"'}>
-          ${img ? `<img class="ext-art-front" src="${img}" alt="" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
-          ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" />` : ""}
+        <div class="ext-art" ${disabled ? "" : 'tabindex="0" role="button" aria-label="Ajouter un booster ' + ext.name.replace(/"/g, "&quot;") + ' à la sélection"'}>
+          ${img ? `<img class="ext-art-front" src="${img}" alt="" loading="lazy" decoding="async" />` : `<div class="booster-emoji" style="font-size:2rem;">&#127183;</div>`}
+          ${backImg ? `<img class="ext-art-back" src="${backImg}" alt="" title="Dos de carte de cette extension" loading="lazy" decoding="async" />` : ""}
+          <button type="button" class="set-summary-link" data-ext-id="${ext.id}" title="Voir les cartes du set" aria-label="Voir les cartes du set ${ext.name.replace(/"/g, "&quot;")}">&#128203;</button>
         </div>
         <div class="ext-name">${ext.name}${masteryByExt.get(ext.id) > 1 ? ` <span class="ext-mastery" title="Maîtrise de l'extension niveau ${masteryByExt.get(ext.id)} : plus de finitions spéciales dans ces boosters">&#127941; ${masteryByExt.get(ext.id)}</span>` : ""}</div>
-        <div class="ext-count">${progress ? `${progress.owned}/${progress.total} cartes (${progress.total ? Math.floor((progress.owned / progress.total) * 100) : 0}%)` : "Ouvrir"}</div>
-        <div class="pity-row" title="Progression vers la légendaire garantie">
+        ${progress && progress.total ? `<div class="ext-progress" title="${progress.owned} cartes découvertes sur ${progress.total}"><span class="ext-progress-track"><span style="width:${Math.floor((progress.owned / progress.total) * 100)}%"></span></span><span class="ext-count">${progress.owned}/${progress.total}</span></div>` : '<div class="ext-count">Nouvelle extension</div>'}
+        <div class="pity-row" title="Légendaire garantie : ${pityLabel} tirages">
           <span class="pity-icon">${rarityIcon("legendaire")}</span>
           <span class="pity-track"><span class="pity-fill" style="width:${pct}%;"></span></span>
           <span class="pity-label">${pityLabel}</span>
         </div>
-        <button type="button" class="set-summary-link" data-ext-id="${ext.id}">Voir les cartes du set</button>
       </div>
     `;
   }).join("");
@@ -734,11 +734,12 @@ function renderExtensionPicker() {
     // Distributeur (2026-10-18) : une case ajoute un booster au panier (opening-cart.js).
     const pick = () => (window.BoosterCart ? BoosterCart.add(tileExt(tile)) : openModalFor(tileExt(tile)));
     tile.addEventListener("click", (e) => {
-      if (e.target.closest(".set-summary-link")) return;
+      // Sommaire du set et selecteur -/+ de la case (opening-cart.js) gardent leur role.
+      if (e.target.closest(".set-summary-link, .vend-step")) return;
       pick();
     });
     tile.addEventListener("keydown", (e) => {
-      if ((e.key !== "Enter" && e.key !== " ") || !e.target.closest(".ext-art")) return;
+      if ((e.key !== "Enter" && e.key !== " ") || !e.target.closest(".ext-art") || e.target.closest(".set-summary-link, .vend-step")) return;
       e.preventDefault();
       pick();
     });

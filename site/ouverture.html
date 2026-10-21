@@ -41,7 +41,7 @@
     <div class="panel">
       <span class="hero-eyebrow">Distributeur à boosters</span>
       <h1 class="hero-title">Ouverture de <span class="hero-highlight">booster</span></h1>
-      <p class="lead">Un booster contient 5 cartes. Tape sur un pack pour l'ouvrir. Plus bas : les coffres, à ouvrir avec une clé.</p>
+      <p class="lead">Un booster contient 5 cartes. Choisis tes boosters dans le distributeur (1 jeton chacun), puis ouvre ta sélection ou laisse-la mûrir. Plus bas : les coffres, à ouvrir avec une clé.</p>
 
       <div id="guest-warning" style="display:none;">
         <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
@@ -65,11 +65,14 @@
             <div class="vending-glass">
               <div class="extension-picker" id="extension-picker"></div>
             </div>
-            <aside class="vending-coin" aria-label="Monnayeur">
-              <img class="vending-token" src="assets/JetonBooster.png" alt="" />
-              <div class="vending-coin-count"><strong id="vending-tokens">0</strong><span>jeton(s)</span></div>
-              <div class="vending-slot" aria-hidden="true"></div>
-              <p class="vending-help">1 jeton = 1 booster de ton choix. Clique sur les cases pour remplir ta sélection.</p>
+            <!-- Monnayeur et panier (2026-10-21) : reste visible pendant le defilement
+                 des cases (sticky), barre flottante sur mobile (opening-cart.js). -->
+            <aside class="vending-coin" aria-label="Monnayeur et sélection">
+              <div class="vending-coin-row">
+                <img class="vending-token" src="assets/JetonBooster.png" alt="" />
+                <div class="vending-coin-count"><strong id="vending-tokens">0</strong><span>jeton(s)</span></div>
+                <div class="vending-slot" aria-hidden="true"></div>
+              </div>
               <div class="vend-cart" id="vend-cart"></div>
               <div class="vend-lots" id="vend-lots" aria-live="polite"></div>
             </aside>
