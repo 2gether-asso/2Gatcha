@@ -83,7 +83,7 @@ function buildCardBackEl(cardBackImageId, rarityKey, colorHex) {
   if (colorHex) back.style.setProperty("--shine-color", colorHex);
   const src = API.imageUrl(cardBackImageId);
   back.innerHTML = src
-    ? `<span class="card-back-fill" style="background-image:url('${src}')" aria-hidden="true"></span><img class="card-back-image" src="${src}" alt="" /><span class="tap-hint" style="position:relative;z-index:1;">Tape pour révéler</span>`
+    ? `<span class="card-back-fill" style="background-image:url('${src}')" aria-hidden="true"></span><img class="card-back-image" src="${src}" alt="" loading="lazy" decoding="async" /><span class="tap-hint" style="position:relative;z-index:1;">Tape pour révéler</span>`
     : `<span>?</span><span class="tap-hint">Tape pour révéler</span>`;
   return back;
 }
@@ -139,7 +139,7 @@ function buildCardEl(card, index, cardBackImageId) {
     ${dupeBadge}
     ${card.isBonusCard ? '<span class="bonus-card-ribbon">&#127873; Carte bonus</span>' : ""}
     <div class="card-art">
-      <img src="${imgSrc}" alt="${card.name}" />
+      <img src="${imgSrc}" alt="${card.name}" loading="lazy" decoding="async" />
       ${finishBadge}
       ${qualityBadge}
       ${card.serialNumber === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
@@ -238,9 +238,22 @@ function attachCardShine(el) {
 // Positionne chaque carte de la pile : la carte a stackIndex est active
 // (au sommet, cliquable) ; les suivantes sont decalees en pile derriere
 // elle ; les precedentes (deja révélées) se sont envolees sur le cote.
+// Gros lots (plus de BIG_LOT cartes) : pastilles groupees, « Tout reveler »
+// rapide et sans mesure carte par carte.
+const BIG_LOT = 30;
+
 function layoutStack() {
   stackCardEls.forEach((el, i) => {
     const rel = i - stackIndex;
+    // Seules la carte qui vient de partir et les 4 suivantes sont dessinees :
+    // sur 200 cartes, la pile entiere (floutee) etait recalculee a chaque tap.
+    const far = rel < -1 || rel > 4;
+    if (el.classList.contains("stack-far") !== far) el.classList.toggle("stack-far", far);
+    if (far) {
+      if (rel < 0) { if (!el.classList.contains("discarded")) el.classList.add("discarded"); }
+      el.dataset.active = "false";
+      return;
+    }
     if (rel < 0) {
       el.classList.add("discarded");
       el.dataset.active = "false";
@@ -281,6 +294,31 @@ function renderStackPips() {
   const el = document.getElementById("stack-pips");
   if (!el) return;
   if (!lastRevealedCards.length) { el.innerHTML = ""; return; }
+  // Vue en ligne (« Tout reveler ») : plus de pastilles.
+  const grid = document.getElementById("reveal-grid");
+  if (grid && grid.classList.contains("row-reveal")) { el.innerHTML = ""; return; }
+  // Gros lot : une pastille par groupe de cartes (40 au plus), couleur de la
+  // meilleure carte deja revelee du groupe ; groupe entame = pastille partielle.
+  if (lastRevealedCards.length > BIG_LOT) {
+    const size = Math.ceil(lastRevealedCards.length / 40);
+    const groups = [];
+    for (let g = 0; g * size < lastRevealedCards.length; g++) {
+      let best = null, seen = 0;
+      const end = Math.min(lastRevealedCards.length, (g + 1) * size);
+      for (let i = g * size; i < end; i++) {
+        if (!(stackCardEls[i] && stackCardEls[i].classList.contains("revealed"))) continue;
+        seen++;
+        const c = lastRevealedCards[i];
+        if (!best || (RARITY_ORDER[c.rarity?.key] ?? 0) > (RARITY_ORDER[best.rarity?.key] ?? 0)) best = c;
+      }
+      const current = stackIndex >= g * size && stackIndex < end;
+      groups.push(`<span class="stack-pip ${seen ? "revealed" : ""} ${current ? "current" : ""} ${seen && seen < end - g * size ? "partial" : ""}" style="${best ? `--pip-color:${best.rarity?.colorHex || "#9aa0b4"}` : ""}" title="Cartes ${g * size + 1} à ${end}"></span>`);
+    }
+    el.classList.add("pips-grouped");
+    el.innerHTML = groups.join("");
+    return;
+  }
+  el.classList.remove("pips-grouped");
   el.innerHTML = lastRevealedCards.map((c, i) => {
     const cardEl = stackCardEls[i];
     const revealed = cardEl && cardEl.classList.contains("revealed");
@@ -719,7 +757,7 @@ function renderExtensionPicker() {
           <button type="button" class="set-summary-link" data-ext-id="${ext.id}" title="Voir les cartes du set" aria-label="Voir les cartes du set ${ext.name.replace(/"/g, "&quot;")}">&#128203;</button>
         </div>
         <div class="ext-name">${ext.name}${masteryByExt.get(ext.id) > 1 ? ` <span class="ext-mastery" title="Maîtrise de l'extension niveau ${masteryByExt.get(ext.id)} : plus de finitions spéciales dans ces boosters">&#127941; ${masteryByExt.get(ext.id)}</span>` : ""}</div>
-        ${progress && progress.total ? `<div class="ext-progress" title="${progress.owned} cartes découvertes sur ${progress.total}"><span class="ext-progress-track"><span style="width:${Math.floor((progress.owned / progress.total) * 100)}%"></span></span><span class="ext-count">${progress.owned}/${progress.total}</span></div>` : '<div class="ext-count">Nouvelle extension</div>'}
+        ${progress && progress.total ? `<div class="ext-progress" title="${progress.owned} cartes découvertes sur ${progress.total}"><span class="ext-progress-track"><span style="width:${Math.floor((progress.owned / progress.total) * 100)}%"></span></span><span class="ext-count">${progress.owned}/${progress.total} · <b>${Math.floor((progress.owned / progress.total) * 100)} %</b></span></div>` : '<div class="ext-count">Nouvelle extension</div>'}
         <div class="pity-row" title="Légendaire garantie : ${pityLabel} tirages">
           <span class="pity-icon">${rarityIcon("legendaire")}</span>
           <span class="pity-track"><span class="pity-fill" style="width:${pct}%;"></span></span>
@@ -1015,13 +1053,15 @@ function addRevealAllButton(grid) {
     // row-reveal recalcule toute la grille CSS d'un coup, sans
     // transition possible directement sur cette bascule).
     revealAllBtn.disabled = true;
-    const firstRects = stackCardEls.map((el) => el.getBoundingClientRect());
+    const big = stackCardEls.length > BIG_LOT;
+    // Gros lot : pas d'animation FLIP (une mesure + un recalcul force par carte).
+    const firstRects = big ? [] : stackCardEls.map((el) => el.getBoundingClientRect());
 
     // Si le joueur avait deja retourne quelques cartes a la main avant
     // de cliquer "Tout révéler", elles portent .discarded (envolees sur
     // le cote, invisibles) : on les remet dans le rang avec les autres.
     stackCardEls.forEach((el) => {
-      el.classList.remove("discarded");
+      el.classList.remove("discarded", "stack-far");
       el.style.transform = "";
       el.style.filter = "";
       el.dataset.active = "true";
@@ -1041,8 +1081,8 @@ function addRevealAllButton(grid) {
 
     // Reflow force : necessaire pour lire la position FINALE (en ligne)
     // juste apres avoir bascule les classes ci-dessus.
-    void grid.offsetWidth;
-    stackCardEls.forEach((el, i) => {
+    if (!big) void grid.offsetWidth;
+    if (!big) stackCardEls.forEach((el, i) => {
       const last = el.getBoundingClientRect();
       const dx = firstRects[i].left - last.left;
       const dy = firstRects[i].top - last.top;
@@ -1061,8 +1101,10 @@ function addRevealAllButton(grid) {
     const order = stackCardEls.map((_, i) => i).filter((i) => !stackCardEls[i].classList.contains("revealed"));
     order.sort((a, b) => (RARITY_ORDER[lastRevealedCards[a].rarity?.key || "commune"] ?? 0) - (RARITY_ORDER[lastRevealedCards[b].rarity?.key || "commune"] ?? 0));
     let totalDelay = 0;
+    // Pas de 90 ms entre deux cartes, raccourci pour que tout tienne en ~2,5 s.
+    const step = Math.max(10, Math.min(90, 2500 / Math.max(1, order.length)));
     order.forEach((idx, k) => {
-      const delay = k * 90 + (k === order.length - 1 && order.length > 1 ? 550 : 0);
+      const delay = k * step + (k === order.length - 1 && order.length > 1 ? 550 : 0);
       totalDelay = Math.max(totalDelay, delay);
       setTimeout(() => stackCardEls[idx]._flip(k !== order.length - 1), delay);
     });
@@ -1118,11 +1160,33 @@ async function startOpening(ext) {
     let godPack = false;
     const editionsSeen = [];
     const modeTags = { wish: null, cursed: 0, mutants: 0, glitch: 0 };
+    // Gros lots (2026-10-21) : 3 boosters demandes en parallele (au lieu d'un
+    // a la fois), compteur dans l'indice ; resultats traites dans l'ordre. Une
+    // erreur en cours de route (limite d'actions...) n'efface pas ce qui est
+    // deja ouvert : ces boosters sont reveles, le reste reste dans la selection.
+    const fetched = [];
+    let fetchError = null, nextIdx = 0, doneCount = 0;
+    const fetchOne = async () => {
+      while (!fetchError && nextIdx < quantity) {
+        const i = nextIdx++;
+        const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
+        try {
+          const res = sim
+            ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
+            : await API.openPack(Session.userId, ext.id, !!ext.mystery, modeOptions());
+          fetched[i] = { res, simExt };
+          if (res && res.error === "no_boosters") fetchError = fetchError || { code: "no_boosters" };
+        } catch (err) { fetchError = fetchError || err; }
+        doneCount++;
+        if (quantity > 3 && hint) hint.textContent = `Ouverture… ${doneCount} / ${quantity} boosters`;
+      }
+    };
+    await Promise.all(Array.from({ length: sim ? 1 : Math.min(3, quantity) }, fetchOne));
+    if (fetchError && fetchError.code !== "no_boosters" && !fetched.some(Boolean)) throw fetchError;
+    let opened = 0;
     for (let i = 0; i < quantity; i++) {
-      const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
-      const res = sim
-        ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
-        : await API.openPack(Session.userId, ext.id, !!ext.mystery, modeOptions());
+      if (!fetched[i]) break;
+      const { res, simExt } = fetched[i];
       if (ext.mystery) {
         const real = extensionById(res.mystery ? res.mystery.extensionId : simExt.id);
         if (real) { mysteryNames.push(real.name); backImageId = backImageId || real.cardBackImageId; }
@@ -1154,6 +1218,7 @@ async function startOpening(ext) {
         break;
       }
       allCards.push(...(res.cards || []));
+      opened++;
       if (res.batchId && !sim) batchIds.push(res.batchId);
       if (res.pack?.shiny) packShiny = true;
       if (res.pack?.godPack) godPack = true;
@@ -1161,6 +1226,9 @@ async function startOpening(ext) {
       if (res.duplicateDust) duplicateDust += res.duplicateDust.total || 0;
       if (res.personalBoost) boosted += (res.personalBoost.finishes || 0) + (res.personalBoost.qualities || 0);
       lastBoosterInfo = res.booster;
+    }
+    if (fetchError && fetchError.code !== "no_boosters" && opened < quantity) {
+      Toast.error(`${opened} booster${opened > 1 ? "s" : ""} ouvert${opened > 1 ? "s" : ""} sur ${quantity} : ${fetchError.code === "rate_limited" ? "trop d'actions d'affilée, le reste attend dans ta sélection (réessaie dans une minute)" : "le reste attend dans ta sélection"}.`);
     }
 
     // Revelation de la moins rare a la plus rare (aussi sur un x5, ou les
@@ -1281,7 +1349,8 @@ async function startOpening(ext) {
 
     lastRevealedCards = allCards;
     sessionBatchIds = batchIds;
-    if (window.BoosterCart && !sim) BoosterCart.consumed(ext.id, quantity);
+    if (window.BoosterCart && !sim) BoosterCart.consumed(ext.id, opened);
+    if (grid) grid.classList.toggle("big-lot", allCards.length > BIG_LOT);
     stackIndex = 0;
     stackCardEls = allCards.map((card, i) => {
       const el = buildCardEl(card, i, backImageId);

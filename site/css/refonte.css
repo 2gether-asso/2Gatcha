@@ -520,3 +520,15 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 @keyframes vendBarIn { from { opacity: 0; transform: translateY(14px); } }
 /* Le bouton « retour en haut » passe au-dessus de la barre du panier. */
 @media (max-width: 720px) { body:has(#vend-mbar) .back-to-top { bottom: calc(var(--nav-bottom-h, 64px) + 86px + env(safe-area-inset-bottom, 0px)); } }
+.ext-progress .ext-count b { color: var(--text); font-weight: 800; }
+
+/* --- Ouverture de gros lots (opening.js BIG_LOT, 2026-10-21) ---
+   Pile : seules les cartes proches du sommet sont dessinees ; pastilles
+   groupees sur deux lignes au plus ; vue « tout reveler » : les cartes hors
+   de l'ecran ne sont ni mises en page ni peintes. */
+.reveal-grid.stacked .card.stack-far { display: none; }
+.stack-pips { flex-wrap: wrap; max-width: min(560px, 92vw); margin-left: auto; margin-right: auto; }
+.stack-pips.pips-grouped { gap: 5px; }
+.stack-pips.pips-grouped .stack-pip { width: 10px; height: 10px; }
+.stack-pips.pips-grouped .stack-pip.partial { background: linear-gradient(90deg, var(--pip-color, #9aa0b4) 50%, rgba(255, 255, 255, 0.18) 50%); box-shadow: none; }
+.reveal-grid.big-lot.row-reveal .card { content-visibility: auto; contain-intrinsic-size: auto 280px; }
