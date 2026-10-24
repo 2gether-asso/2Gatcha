@@ -209,7 +209,7 @@ const EVENING = [
   { key: 'boss3', type: 'bossAttack', target: 3, label: 'Envoyer 3 cartes au boss', icon: '🗡️', url: 'communaute.html#boss' },
   { key: 'craft1', type: 'craft', target: 1, label: 'Crafter une carte', icon: '✨', url: 'collection.html#crafter' },
   { key: 'treasure1', type: 'treasure', target: 1, label: 'Dégager un trésor de fouille', icon: '💎', url: 'jeux.html#fouille' },
-  { key: 'cdig2', type: 'communityDig', target: 2, label: '2 coups de pioche à la grande fouille', icon: '🗺️', url: 'communaute.html#ensemble' }
+  { key: 'cdig2', type: 'communityDig', target: 2, label: 'Contribuer 2 fois au Grand Chantier', icon: '🗺️', url: 'communaute.html#ensemble' }
 ];
 export const EVENING_START = 18;
 

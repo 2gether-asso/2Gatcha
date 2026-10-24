@@ -37,7 +37,7 @@ const TEMPLATES = [
   { key: 'guess3', label: 'Trouver 3 cartes du jour', type: 'guess', target: 3, dust: 130, icon: '🔍' },
   { key: 'expedition2', label: 'Terminer 2 expéditions', type: 'expedition', target: 2, dust: 130, icon: '🧭' },
   { key: 'harvest4', label: 'Récolter 4 fois au jardin', type: 'harvest', target: 4, dust: 130, icon: '🌱' },
-  { key: 'communityDig3', label: 'Donner 3 coups de pioche à la grande fouille', type: 'communityDig', target: 3, dust: 110, icon: '🏗️' }
+  { key: 'communityDig3', label: 'Contribuer 3 fois au Grand Chantier', type: 'communityDig', target: 3, dust: 110, icon: '🏗️' }
 ];
 const byKey = new Map(TEMPLATES.map((t) => [t.key, t]));
 

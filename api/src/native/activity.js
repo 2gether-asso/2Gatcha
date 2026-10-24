@@ -106,6 +106,11 @@ export function eventsFrom(store, path, body = {}, response = {}) {
     case 'community-dig':
       if (body.action === 'dig' && json.dug) out.push(ev('communityDig'), ...(json.found ? [ev('communityTreasure')] : []));
       break;
+    // Grand Chantier (remplace la grande fouille) : meme evenement, pour que
+    // quetes, bingo, equipes et progression restent alimentes.
+    case 'guild-works':
+      if (body.action === 'give' && json.given) out.push(ev('communityDig'));
+      break;
     case 'prestige':
       if (json.prestiged) out.push(ev('prestige', 1, { skill: body.skill }));
       break;

@@ -55,7 +55,7 @@ export const OBJECTIVES = [
   { key: 'repair', icon: '🧽', label: 'Restaurer {n} cartes', event: 'repair', n: 2 },
   { key: 'boss', icon: '💀', label: 'Envoyer {n} cartes au boss', event: 'bossAttack', n: 8 },
   { key: 'chest', icon: '🧰', label: 'Ouvrir {n} coffres', event: 'chestOpened', n: 3 },
-  { key: 'cdig', icon: '🪏', label: 'Donner {n} coups de pioche à la grande fouille', event: 'communityDig', n: 8 },
+  { key: 'cdig', icon: '🪏', label: 'Contribuer {n} fois au Grand Chantier', event: 'communityDig', n: 4 },
   { key: 'vault', icon: '🔒', label: 'Compléter une ligne du coffre-fort', event: 'vaultRow', n: 1 },
   { key: 'machine', icon: '⚙️', label: 'Remettre en marche la salle des machines', event: 'machineDone', n: 1 },
   { key: 'lottery', icon: '🎟️', label: 'Acheter {n} tickets de loterie', event: 'lotteryTicket', n: 3 },

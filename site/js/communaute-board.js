@@ -20,6 +20,7 @@
     return `
       <article class="board-card board-lottery" id="board-lottery">
         <header><span class="board-icon" aria-hidden="true">&#127903;&#65039;</span><div><h3>Loterie du dimanche</h3><small>Tirage ${esc(when(l.drawAt))} · ${esc(untilLabel(l.drawAt))}</small></div></header>
+        ${l.won ? `<p class="board-last"><strong>&#127881; Tu as gagné la loterie : +${fmt(l.won.pot)} &#10024; crédités !</strong></p>` : ""}
         <p class="board-pot"><span>Cagnotte</span><strong>${fmt(l.pot)} &#10024;</strong></p>
         <p class="board-meta">${l.totalTickets} ticket${l.totalTickets > 1 ? "s" : ""} vendu${l.totalTickets > 1 ? "s" : ""} · ${l.players} joueur${l.players > 1 ? "s" : ""}${l.tickets ? ` · <strong>tes tickets : ${l.tickets}</strong> (${l.chance} % de chances)` : ""}</p>
         <div class="board-actions">
@@ -115,7 +116,7 @@
           <ol class="team-top">${x.top.map((m) => `<li>${esc(m.pseudo)} <small>${fmt(m.points)}</small></li>`).join("") || "<li><small>Pas encore de points</small></li>"}</ol>
         </article>`).join("")}</div>
       ${t.last && t.last.winner ? `<p class="board-last">Mois dernier : victoire de l'équipe <strong>${esc((t.last.teams.find((x) => x.key === t.last.winner) || {}).label || t.last.winner)}</strong>.</p>` : ""}
-      <details class="teams-points"><summary>Barème des points</summary><p>${Object.entries({ boosterOpened: "booster ouvert", fish: "lancer de pêche", board: "grille de fouille", harvest: "récolte", bossAttack: "carte envoyée au boss", expedition: "expédition", tradeDone: "échange", guess: "carte devinée", craft: "craft", chestOpened: "coffre", communityDig: "fouille commune", wheel: "roue", vaultRow: "ligne du coffre-fort" }).map(([k, v]) => `${esc(v)} : ${t.points[k] || 0}`).join(" · ")}</p></details>`;
+      <details class="teams-points"><summary>Barème des points</summary><p>${Object.entries({ boosterOpened: "booster ouvert", fish: "lancer de pêche", board: "grille de fouille", harvest: "récolte", bossAttack: "carte envoyée au boss", expedition: "expédition", tradeDone: "échange", guess: "carte devinée", craft: "craft", chestOpened: "coffre", communityDig: "contribution au Grand Chantier", wheel: "roue", vaultRow: "ligne du coffre-fort" }).map(([k, v]) => `${esc(v)} : ${t.points[k] || 0}`).join(" · ")}</p></details>`;
   }
   window.loadTeams = loadTeams;
 
