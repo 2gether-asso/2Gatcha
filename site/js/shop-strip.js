@@ -14,7 +14,7 @@
       const page = el.dataset.shopStrip;
       const items = state ? state.items.filter((it) => (it.pages || []).includes(page)) : [];
       el.classList.add("dig-shop");
-      el.innerHTML = items.length ? `<span class="dig-shop-label">Boutique :</span>${items.map((it) => `<button type="button" class="btn-ghost dig-shop-btn" data-shop-buy="${it.key}" ${it.left === 0 || state.stardust < it.price ? "disabled" : ""} title="${escHtml(it.desc)}${it.left != null ? ` · encore ${it.left} cette semaine` : ""}">${iconOf(it.icon)} ${escHtml(it.label)} <small>${it.price} &#10024;</small></button>`).join("")}<a class="dig-shop-more" href="boutique.html#${LINK[page] || "ressources"}">Tout voir</a>` : "";
+      el.innerHTML = items.length ? `<span class="dig-shop-label">Boutique :</span>${items.map((it) => `<button type="button" class="btn-ghost dig-shop-btn" data-shop-buy="${it.key}" ${it.left === 0 || state.stardust < it.price ? "disabled" : ""} title="${escHtml(it.desc)}${it.escalate && it.escalate.today ? ` · ${it.escalate.today} acheté(s) aujourd’hui, prix de base à minuit` : ""}">${iconOf(it.icon)} ${escHtml(it.label)} <small>${it.price} &#10024;</small></button>`).join("")}<a class="dig-shop-more" href="boutique.html#${LINK[page] || "ressources"}">Tout voir</a>` : "";
     });
   }
 

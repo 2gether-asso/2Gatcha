@@ -19,6 +19,7 @@ import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { isTestUser } from './testuser.js';
 import { ruleOn } from './moderules.js';
+import { questTypeOpen } from './features.js';
 
 const TEMPLATES = [
   { key: 'fish10', label: 'Pêcher 10 fois', type: 'fish', target: 10, dust: 120, icon: '🎣' },
@@ -37,6 +38,7 @@ const TEMPLATES = [
   { key: 'guess3', label: 'Trouver 3 cartes du jour', type: 'guess', target: 3, dust: 130, icon: '🔍' },
   { key: 'expedition2', label: 'Terminer 2 expéditions', type: 'expedition', target: 2, dust: 130, icon: '🧭' },
   { key: 'harvest4', label: 'Récolter 4 fois au jardin', type: 'harvest', target: 4, dust: 130, icon: '🌱' },
+  { key: 'tablet2', label: 'Dégager 2 tablettes anciennes', type: 'tablet', target: 2, dust: 140, icon: '🏺' },
   { key: 'communityDig3', label: 'Contribuer 3 fois au Grand Chantier', type: 'communityDig', target: 3, dust: 110, icon: '🏗️' }
 ];
 const byKey = new Map(TEMPLATES.map((t) => [t.key, t]));
@@ -66,7 +68,8 @@ export const schema = {
 function rowFor(store, userId, week = weekKey()) {
   let row = store.getAll('WeeklyChallenges').find((r) => r.User === userId && r.Week === week);
   if (!row) {
-    const pool = [...TEMPLATES];
+    // Seulement des defis realisables cette semaine (boss en vie, jeu ouvert dans le mode).
+    const pool = TEMPLATES.filter((t) => questTypeOpen(store, t.type));
     const offered = [];
     let h = hash(`${userId}|${week}`);
     while (offered.length < 5 && pool.length) { offered.push(pool.splice(h % pool.length, 1)[0].key); h = hash(String(h)); }

@@ -43,6 +43,7 @@
       <div class="games-summary" id="games-summary" aria-label="Où en sont tes jeux"></div>
       <div class="tabs tabs-scroll" role="tablist">
         <button type="button" class="tab active" id="tab-dig-btn" role="tab" aria-selected="true">&#9935; Fouille</button>
+        <button type="button" class="tab" id="tab-archeo-btn" role="tab" aria-selected="false">&#127994; Archéologie</button>
         <button type="button" class="tab" id="tab-guess-btn" role="tab" aria-selected="false">&#10067; Devine la carte</button>
         <button type="button" class="tab" id="tab-expedition-btn" role="tab" aria-selected="false">&#129517; Expédition</button>
         <button type="button" class="tab" id="tab-fish-btn" role="tab" aria-selected="false">&#127907; Pêche</button>
@@ -66,25 +67,26 @@
           </div>
         </div>
         <div class="skill-level" id="dig-level" hidden></div>
+        <div class="dig-shop" id="dig-shop" data-shop-strip="fouille"></div>
         <div id="dig-kennel" class="dig-kennel" style="display:none;">
-          <span class="dig-kennel-dog-wrap" id="dig-kennel-dog-wrap" aria-hidden="true"><span class="dig-kennel-dog" id="dig-kennel-dog">&#128021;</span><span class="dig-dog-badge"></span></span>
+          <span class="dig-kennel-dog-wrap pet-medal" id="dig-kennel-dog-wrap" aria-hidden="true"><span class="dig-kennel-dog" id="dig-kennel-dog">&#128021;</span><span class="dig-dog-badge"></span></span>
           <div class="dig-kennel-body">
-            <div class="dig-kennel-title">Chenil de Milo &#128021; <span class="dig-kennel-bones" id="dig-kennel-bones"></span></div>
+            <div class="dig-kennel-title">Chenil de Milo &#128021; <span class="dig-kennel-bones" id="dig-kennel-bones"></span><span class="pet-chip" data-pet-chip="milo" hidden></span></div>
             <div class="dig-kennel-text" id="dig-kennel-text"></div>
+            <div class="pet-fatigue" data-pet-fatigue="milo" hidden></div>
           </div>
           <div class="dig-kennel-actions">
-            <button type="button" class="btn-secondary" id="dig-buy-bone-btn"></button>
             <button type="button" class="btn" id="dig-use-bone-btn"><img class="ico-token" src="assets/Os.PNG" alt="" /> Envoyer Milo</button>
             <button type="button" class="btn-secondary dig-frenzy-btn" id="dig-frenzy-btn" hidden></button>
+            <div class="pet-acts" data-pet-acts="milo" hidden></div>
           </div>
         </div>
-        <div class="dig-depths" id="dig-depths" role="radiogroup" aria-label="Profondeur de fouille"></div>
-        <div class="dig-tools">
-          <div class="dig-bag" id="dig-bag"></div>
-          <div class="dig-shop" id="dig-shop" data-shop-strip="fouille"></div>
-        </div>
-        <div class="dig-site">
-          <div id="dig-board" class="dig-board"></div>
+        <div class="dig-ground">
+          <div class="dig-depths" id="dig-depths" role="radiogroup" aria-label="Profondeur de fouille"></div>
+          <div class="dig-bag fish-extras" id="dig-bag"></div>
+          <div class="dig-site">
+            <div id="dig-board" class="dig-board"></div>
+          </div>
         </div>
         <div id="dig-result" class="dig-result" style="display:none;"></div>
       </div>
@@ -116,6 +118,11 @@
         <section class="duo-expedition panel" id="duo-expedition" hidden></section>
       </div>
 
+      <div id="archeo-pane" style="display:none;">
+        <h2>&#127994; Archéologie</h2>
+        <p class="lead" style="font-size:0.85rem;">Des <strong>tablettes anciennes</strong> dorment sous tes grilles de fouille (une chance à chaque grille terminée, par toi ou par Milo). Dégage la terre couche par couche : minéraux, tessons gravés, crânes de dino et, si tu as de la chance, une relique. Le <strong>pinceau</strong> est précis et sans risque ; la <strong>truelle</strong> va plus vite mais abîme ce qui est déjà à nu.</p>
+        <div id="archeo-zone" class="archeo-zone"><p class="muted">Chargement…</p></div>
+      </div>
       <div id="bingo-pane" style="display:none;">
         <p class="lead" style="font-size:0.85rem;">Complète les 9 cases de la grille du mois pour débloquer la récompense.</p>
         <div id="bingo-no-grid" class="empty-state" style="display:none;">Aucune grille de bingo ce mois-ci.</div>
@@ -142,12 +149,14 @@
         <div id="fish-cat" class="dig-kennel fish-cat" hidden>
           <span class="dig-kennel-dog-wrap pet-medal" id="fish-cat-wrap" aria-hidden="true"><span class="fish-cat-pic" id="fish-cat-pic">&#128008;</span><span class="dig-dog-badge"></span></span>
           <div class="dig-kennel-body">
-            <div class="dig-kennel-title">Moka le chat &#127907; <span class="dig-kennel-bones fish-cat-count" id="fish-cat-count"></span></div>
+            <div class="dig-kennel-title">Moka le chat &#127907; <span class="dig-kennel-bones fish-cat-count" id="fish-cat-count"></span><span class="pet-chip" data-pet-chip="moka" hidden></span></div>
             <div class="dig-kennel-text" id="fish-cat-text"></div>
+            <div class="pet-fatigue" data-pet-fatigue="moka" hidden></div>
           </div>
           <div class="dig-kennel-actions">
             <button type="button" class="btn" id="fish-cat-feed1">&#128031; Donner 1 poisson</button>
             <button type="button" class="btn-secondary" id="fish-cat-feedmax" hidden></button>
+            <div class="pet-acts" data-pet-acts="moka" hidden></div>
           </div>
         </div>
         <div class="fish-site">
@@ -247,6 +256,8 @@
   <script src="js/shell-extras.js"></script>
   <script src="js/shop-strip.js"></script>
   <script src="js/jeux.js"></script>
+  <script src="js/pets.js"></script>
+  <script src="js/archeo.js"></script>
   <script src="js/jeux-summary.js"></script>
   <script src="js/jeux-duo.js"></script>
   <script src="js/jeux-bingo.js"></script>

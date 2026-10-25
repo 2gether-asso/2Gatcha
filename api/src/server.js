@@ -281,7 +281,11 @@ function bearer(req) {
 function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
 }
-const isWriteRequest = (method, body) => method !== 'GET' && !READ_ACTIONS.has(body && body.action);
+// Gestes continus (2026-10-26) : le grattage de l'archeologie envoie un paquet
+// de points toutes les ~1,5 s ; compte dans la limite des lectures (plus large)
+// pour ne pas bloquer un joueur en train de gratter.
+const GESTURE_ROUTES = new Set(['archeo:scrape', 'archeo:clean']);
+const isWriteRequest = (method, body, path = '') => method !== 'GET' && !READ_ACTIONS.has(body && body.action) && !GESTURE_ROUTES.has(`${path}:${body && body.action}`);
 function sendGate(res, req, denied) {
   sendJson(res, req, denied.status, denied.json, denied.headers || {});
 }
@@ -387,7 +391,7 @@ const server = http.createServer(async (req, res) => {
       if (!isNativeRoute && !route) return sendJson(res, req, 404, { code: 404, message: `The requested webhook "${req.method} ${hookPath}" is not registered.` });
       const body = req.method === 'POST' ? await readBody(req) : {};
       const query = Object.fromEntries(url.searchParams);
-      const denied = native.gate({ token: bearer(req), ip: clientIp(req), body, query, isWrite: isWriteRequest(req.method, body) });
+      const denied = native.gate({ token: bearer(req), ip: clientIp(req), body, query, isWrite: isWriteRequest(req.method, body, hookPath) });
       if (denied) {
         sendGate(res, req, denied);
         if (process.env.LOG_REQUESTS !== '0') console.log(`${req.method} /webhook/${hookPath} ${denied.status} (${denied.json.error})`);

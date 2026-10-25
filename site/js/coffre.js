@@ -1,4 +1,6 @@
-// Coffre-fort perso (coffre.html, 2026-10-02) - voir personal-vault.json.
+// Coffre-fort perso (coffre.html, 2026-10-02) - voir api/src/native/personal-vault.js.
+// 2026-10-25 : lignes groupees par extension ; carte emeraude (7e case) pour
+// chaque ligne complete, verrouillee dans le coffre.
 // Une ligne = une carte, 6 emplacements (un par finition), parfait etat
 // uniquement. Ligne complete = recompense unique (boosters + poussieres +
 // un Ticket Unique a echanger au comptoir, voir api/src/native/unique.js). Cartes promo
@@ -13,7 +15,8 @@ const PV_ERRORS = {
   already_stored: "Cette carte est déjà au coffre.",
   not_stored: "Cette carte n'est pas au coffre.",
   pull_not_owned: "Cet exemplaire ne t'appartient plus.",
-  promo_not_storable: "Les cartes promo ne vont pas au coffre-fort (une seule finition possible)."
+  promo_not_storable: "Les cartes promo ne vont pas au coffre-fort (une seule finition possible).",
+  emerald_locked: "Une carte émeraude ne quitte jamais le coffre : elle atteste ta maîtrise de la carte."
 };
 let pvBusy = false;
 
@@ -24,7 +27,7 @@ function pvSerial(n) {
 // Tri / filtre des lignes (memorises dans le navigateur).
 const PV_VIEW_KEY = "2gatcha_pv_view";
 function pvView() {
-  try { return { sort: "progress", filter: "all", ...JSON.parse(localStorage.getItem(PV_VIEW_KEY) || "{}") }; } catch (e) { return { sort: "progress", filter: "all" }; }
+  try { return { sort: "progress", filter: "all", ext: "all", ...JSON.parse(localStorage.getItem(PV_VIEW_KEY) || "{}") }; } catch (e) { return { sort: "progress", filter: "all", ext: "all" }; }
 }
 // Exemplaires rangeables tout de suite (case vide + exemplaire en parfait etat possede).
 function pvStorable(r) {
@@ -43,13 +46,46 @@ function pvApplyView(rows) {
     name: (a, b) => a.name.localeCompare(b.name)
   };
   const q = (document.getElementById("pv-search")?.value || "").trim().toLowerCase();
-  // Les lignes ou l'on peut ranger quelque chose remontent toujours en tete
-  // (d'abord celles qu'on peut terminer d'un coup), puis le tri choisi.
+  // Rangement par extension (2026-10-25), puis dans chaque extension : les
+  // lignes ou l'on peut ranger quelque chose en tete (d'abord celles qu'on
+  // peut terminer d'un coup), puis le tri choisi.
   const sorter = sorters[v.sort] || sorters.progress;
   const rank = (r) => { const n = pvStorable(r).length; return !n ? 0 : r.filled + n >= 6 ? 2 : 1; };
-  return rows.filter(keep).filter((r) => !q || r.name.toLowerCase().includes(q)).sort((a, b) => (rank(b) - rank(a)) || sorter(a, b));
+  const extOrder = (r) => (r.extension ? r.extension.sortOrder : 1e9);
+  return rows.filter(keep).filter((r) => v.ext === "all" || String(pvExtId(r)) === String(v.ext)).filter((r) => !q || r.name.toLowerCase().includes(q))
+    .sort((a, b) => (extOrder(a) - extOrder(b)) || (pvExtId(a) - pvExtId(b)) || (rank(b) - rank(a)) || sorter(a, b));
 }
 let pvLastData = null;
+const pvExtId = (r) => (r.extension ? r.extension.id : 0);
+// Liste des extensions presentes dans l'onglet (menu "Extension").
+function pvRenderExtSelect(rows) {
+  const sel = document.getElementById("pv-ext");
+  if (!sel) return;
+  const exts = new Map();
+  rows.forEach((r) => { const id = pvExtId(r); const e = exts.get(id) || { id, name: r.extension ? r.extension.name : "Hors extension", order: r.extension ? r.extension.sortOrder : 1e9, n: 0, done: 0 }; e.n++; if (r.complete) e.done++; exts.set(id, e); });
+  const list = [...exts.values()].sort((a, b) => a.order - b.order || a.id - b.id);
+  const v = pvView();
+  const html = `<option value="all">Toutes (${list.length})</option>` + list.map((e) => `<option value="${e.id}">${escHtml(e.name)} · ${e.done}/${e.n}</option>`).join("");
+  if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; }
+  sel.value = list.some((e) => String(e.id) === String(v.ext)) ? String(v.ext) : "all";
+  if (sel._fancyRefresh) sel._fancyRefresh();
+  sel.closest("label").hidden = list.length < 2;
+}
+// Carte emeraude : 7e case de la ligne, verrouillee dans le coffre.
+function pvEmeraldSlot(r, img, tab) {
+  if (r.emerald) return `<div class="pv-emerald has" title="Carte émeraude : atteste ta maîtrise de ${escHtml(r.name)}. Elle ne quitte jamais le coffre.">
+      <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="emerald" data-quality="mint"${tab ? ` data-edition="${tab.key}"` : ""}>
+        <div class="card-art"><img src="${img}" alt="${escHtml(r.name)} émeraude" loading="lazy" decoding="async" />${tab ? editionBadge(tab.key) : ""}</div>
+      </div>
+      <span class="pv-slot-label">💚 Émeraude ${pvSerial(r.emerald.serialNumber)}</span>
+      <span class="pv-emerald-lock">🔒 Maîtrise</span>
+    </div>`;
+  return `<div class="pv-emerald" title="Complète les 6 finitions pour obtenir la carte émeraude, preuve de maîtrise (elle reste au coffre).">
+      <span class="pv-emerald-gem" aria-hidden="true">💚</span>
+      <span class="pv-slot-label">Émeraude</span>
+      <small>${r.claimed ? "bientôt" : `encore ${6 - r.filled} finition${6 - r.filled > 1 ? "s" : ""}`}</small>
+    </div>`;
+}
 
 // ------------------------------------------------------- onglets par edition
 // "Classique" = cartes sans edition. Un onglet par edition deja obtenue, qui
@@ -84,6 +120,7 @@ function pvRender(data) {
   pvRenderTabs(data);
   const tab = pvEditionTab();
   const allRows = pvCurrentRows();
+  pvRenderExtSelect(allRows);
   const rows = pvApplyView(allRows);
   const complete = allRows.filter((r) => r.complete).length;
   document.getElementById("pv-summary").innerHTML = `
@@ -107,11 +144,14 @@ function pvRender(data) {
         : `<p class="muted">Aucune carte en parfait état pour l'instant. Restaure tes cartes (Craft &rarr; Qualité) pour pouvoir les ranger ici.</p>`;
     return;
   }
-  const readyCount = rows.filter((r) => pvStorable(r).length).length;
+  // Un titre par extension (lignes completes / total de l'extension dans l'onglet).
+  const extStats = new Map();
+  allRows.forEach((r) => { const id = pvExtId(r); const e = extStats.get(id) || { n: 0, done: 0, emerald: 0 }; e.n++; if (r.complete) e.done++; if (r.emerald) e.emerald++; extStats.set(id, e); });
   box.innerHTML = rows.map((r, i) => {
     const ready = pvStorable(r);
-    const heading = readyCount && readyCount < rows.length && (i === 0 || i === readyCount)
-      ? `<h3 class="pv-group">${i === 0 ? `📥 À ranger maintenant <small>(${readyCount} ligne${readyCount > 1 ? "s" : ""})</small>` : "Le reste du coffre"}</h3>` : "";
+    const st = extStats.get(pvExtId(r)) || { n: 0, done: 0, emerald: 0 };
+    const heading = i === 0 || pvExtId(rows[i - 1]) !== pvExtId(r)
+      ? `<h3 class="pv-group pv-ext-group"><span>📦 ${escHtml(r.extension ? r.extension.name : "Hors extension")}</span><small>${st.done}/${st.n} ligne${st.n > 1 ? "s" : ""} complète${st.done > 1 ? "s" : ""}${st.emerald ? ` · 💚 ${st.emerald}` : ""}</small><span class="pv-ext-bar" aria-hidden="true"><span style="width:${st.n ? Math.round((st.done / st.n) * 100) : 0}%"></span></span></h3>` : "";
     const color = r.rarity?.colorHex || "#9aa0b4";
     const img = API.imageUrl(r.imageId) || "";
     const slots = PV_FINISHES.map((f) => {
@@ -156,7 +196,7 @@ function pvRender(data) {
         ${ready.length ? `<span class="pv-ready-badge">📥 ${ready.length} à ranger${r.filled + ready.length >= 6 && !r.claimed ? " · ligne complète !" : ""}</span>${ready.length > 1 ? `<button type="button" class="pv-store-row" data-pull-ids="${ready.join(",")}">Tout ranger</button>` : ""}` : ""}
       </div>
       ${preview}
-      <div class="pv-slots">${slots}</div>
+      <div class="pv-row-body"><div class="pv-slots">${slots}</div>${pvEmeraldSlot(r, img, tab)}</div>
     </div>`;
   }).join("");
   // Animation FLIP : chaque ligne glisse de son ancienne place vers la nouvelle.
@@ -191,7 +231,7 @@ async function pvStoreMany(pullIds) {
   if (stored) Toast.success(`📥 ${stored} carte${stored > 1 ? "s" : ""} rangée${stored > 1 ? "s" : ""} au coffre.`);
   rewards.forEach((r) => {
     pvSealRow(r.cardId);
-    Toast.success(`Ligne ${r.cardName}${r.edition && EDITIONS[r.edition] ? " " + EDITIONS[r.edition].label : ""} complète ! +${r.boosters} boosters, +${r.dust} poussières${r.ticket ? " et un Ticket Unique 🎫" : ""}.`);
+    Toast.success(`Ligne ${r.cardName}${r.edition && EDITIONS[r.edition] ? " " + EDITIONS[r.edition].label : ""} complète ! +${r.boosters} boosters, +${r.dust} poussières${r.ticket ? ", un Ticket Unique 🎫" : ""}${r.emerald ? " et la carte émeraude 💚" : ""}.`);
   });
   if (rewards.length) {
     if (typeof loadNavBadges === "function") loadNavBadges();
@@ -356,11 +396,16 @@ async function pvLoad(action, pullId) {
     }
     document.getElementById("pv-zone").style.display = "block";
     pvRender(data);
+    // Cartes emeraude des lignes completees avant leur arrivee (rattrapage).
+    if (data.emeraldGrants && data.emeraldGrants.length) {
+      const n = data.emeraldGrants.length;
+      Toast.success(`💚 ${n} carte${n > 1 ? "s" : ""} émeraude ajoutée${n > 1 ? "s" : ""} au coffre pour tes lignes déjà complètes : ${data.emeraldGrants.slice(0, 4).map((g) => escHtml(g.cardName)).join(", ")}${n > 4 ? "…" : ""}`);
+    }
     if (action === "store") Toast.success("Carte rangée au coffre : elle est protégée.");
     if (action === "withdraw") Toast.info("Carte retirée du coffre : elle revient dans ta collection.");
     if (data.reward) {
       pvSealRow(data.reward.cardId);
-      Toast.success(`Ligne ${data.reward.cardName}${data.reward.edition && EDITIONS[data.reward.edition] ? " " + EDITIONS[data.reward.edition].label : ""} complète ! +${data.reward.boosters} boosters, +${data.reward.dust} poussières${data.reward.ticket ? " et un Ticket Unique 🎫" : ""}.`);
+      Toast.success(`Ligne ${data.reward.cardName}${data.reward.edition && EDITIONS[data.reward.edition] ? " " + EDITIONS[data.reward.edition].label : ""} complète ! +${data.reward.boosters} boosters, +${data.reward.dust} poussières${data.reward.ticket ? ", un Ticket Unique 🎫" : ""}${data.reward.emerald ? " et la carte émeraude 💚" : ""}.`);
       if (typeof loadNavBadges === "function") loadNavBadges();
     }
     pvLoadCounter(data.reward && data.reward.ticket ? "new" : null);
@@ -398,9 +443,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Menus stylises comme sur le reste du site (2026-10-21).
   enhanceSelect(document.getElementById("pv-sort"));
   enhanceSelect(document.getElementById("pv-filter"));
+  enhanceSelect(document.getElementById("pv-ext"));
   document.getElementById("pv-search").addEventListener("input", () => { if (pvLastData) pvRender(pvLastData); });
-  ["pv-sort", "pv-filter"].forEach((id) => document.getElementById(id).addEventListener("change", () => {
-    try { localStorage.setItem(PV_VIEW_KEY, JSON.stringify({ sort: document.getElementById("pv-sort").value, filter: document.getElementById("pv-filter").value })); } catch (e) {}
+  ["pv-sort", "pv-filter", "pv-ext"].forEach((id) => document.getElementById(id).addEventListener("change", () => {
+    try { localStorage.setItem(PV_VIEW_KEY, JSON.stringify({ sort: document.getElementById("pv-sort").value, filter: document.getElementById("pv-filter").value, ext: document.getElementById("pv-ext").value })); } catch (e) {}
     if (pvLastData) pvRender(pvLastData);
   }));
   document.getElementById("pv-store-all").addEventListener("click", async (e) => {

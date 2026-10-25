@@ -7,11 +7,11 @@
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
   const fmt = fmtNum; // core.js
-  const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+  const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const serial = fmtSerial; // core.js
   const rewardLabel = (r) => [r.boosters ? `${r.boosters} <img class="ico-token" src="assets/JetonBooster.png" alt="jeton booster" />` : "", r.chests ? `${r.chests} coffre${r.chests > 1 ? "s" : ""}` : "", r.keys ? `${r.keys} clé${r.keys > 1 ? "s" : ""}` : "", r.dust ? `${r.dust} &#10024;` : "", r.worms ? `${r.worms} vers` : ""].filter(Boolean).join(" + ");
-  const ERR = { energy_full: "Ton énergie est déjà pleine.", weekly_cap: "Stock épuisé pour cette semaine.", not_enough_dust: "Pas assez de poussières.", nothing_growing: "Rien ne pousse au jardin en ce moment.", no_expedition: "Aucune expédition en cours.", copy_not_matching: "Un des exemplaires ne correspond pas au contrat.", wrong_count: "Mauvais nombre d'exemplaires.", already_claimed: "Contrat déjà rempli cette semaine." };
+  const ERR = { energy_full: "Ton énergie est déjà pleine.", weekly_cap: "Stock épuisé pour cette semaine.", shop_closed: "La vente de jetons booster est fermée.", not_enough_dust: "Pas assez de poussières.", nothing_growing: "Rien ne pousse au jardin en ce moment.", no_expedition: "Aucune expédition en cours.", copy_not_matching: "Un des exemplaires ne correspond pas au contrat.", wrong_count: "Mauvais nombre d'exemplaires.", already_claimed: "Contrat déjà rempli cette semaine." };
   let shop = null, contracts = null, boosterSt = null, eco = null;
 
   // --- porte-monnaie ------------------------------------------------------------
@@ -27,17 +27,21 @@
   window.refreshShopWallet = () => API.shop(Session.userId).then((s) => { shop = s; renderWallet(); renderItems(); }).catch(() => {});
 
   // --- boosters de la semaine --------------------------------------------------------
+  // Inflation personnelle du jour (2026-10-25) : illimite, chaque achat fait
+  // monter le prix du suivant, retour au prix de base a minuit.
+  const resetLabel = (t) => (t ? `retour au prix de base à minuit (dans ${Math.max(1, Math.round((t - Date.now() / 1000) / 3600))} h)` : "retour au prix de base à minuit");
   function renderBoosters(st) {
     boosterSt = st;
-    $("booster-shop-body").innerHTML = st.cap
+    const open = st.unlimited || st.cap > 0;
+    $("booster-shop-body").innerHTML = open
       ? `<div class="offer-card">
           <div class="offer-art" aria-hidden="true"><span>&#127183;</span></div>
           <div class="offer-body">
-            <strong>Booster</strong>
-            <small>5 cartes de l'extension de ton choix. Le prix monte à chaque achat de la semaine.</small>
-            <div class="offer-stock">${Array.from({ length: st.cap }, (_, i) => `<span class="${i < st.bought ? "used" : ""}"></span>`).join("")}<em>${st.left}/${st.cap} cette semaine</em></div>
+            <strong>Jeton booster</strong>
+            <small>5 cartes de l'extension de ton choix. Illimité : chaque jeton acheté aujourd'hui rend le suivant ${st.growth ? `${Math.round((st.growth - 1) * 100)} % ` : ""}plus cher pour toi.</small>
+            <div class="offer-stock"><em>${st.bought ? `${st.bought} acheté${st.bought > 1 ? "s" : ""} aujourd'hui · ` : ""}${resetLabel(st.resetAt)}</em></div>
           </div>
-          <button type="button" class="btn offer-buy" id="booster-buy" ${st.left && st.stardust >= st.price ? "" : "disabled"}>${st.left ? `${fmt(st.price)} &#10024;` : "Épuisé"}</button>
+          <button type="button" class="btn offer-buy" id="booster-buy" ${st.stardust >= st.price ? "" : "disabled"}>${fmt(st.price)} &#10024;${st.bought && st.basePrice ? `<small class="offer-was"> (base ${fmt(st.basePrice)})</small>` : ""}</button>
         </div>`
       : `<p class="muted">La boutique de boosters est fermée pour l'instant.</p>`;
   }
@@ -61,20 +65,7 @@
   }
   function loadSunday() { if (API.sundayMarket) API.sundayMarket(Session.userId).then(renderSunday).catch(() => { $("dimanche").hidden = true; }); }
 
-  // --- ameliorations permanentes (api/src/native/upgrades.js) -----------------------
-  function renderUpgrades(st) {
-    const grid = $("upgrade-grid");
-    if (!grid) return;
-    grid.innerHTML = st.upgrades.map((u) => `
-      <article class="upgrade-card ${u.next ? "" : "maxed"}">
-        <div class="upgrade-head"><span class="upgrade-icon" aria-hidden="true">${u.icon}</span><strong>${esc(u.label)}</strong><span class="upgrade-level">niv. ${u.level}/${u.max}</span></div>
-        <div class="upgrade-pips" aria-hidden="true">${Array.from({ length: u.max }, (_, i) => `<span class="${i < u.level ? "on" : ""}"></span>`).join("")}</div>
-        <p class="upgrade-effect">${u.level ? esc(u.effect) : "Aucun bonus pour l'instant"}</p>
-        ${u.next ? `<p class="upgrade-next">Niveau suivant : ${esc(u.next.effect)}</p>
-          <button type="button" class="btn${st.stardust < u.next.price ? "-secondary" : ""} upgrade-buy" data-upgrade="${u.key}" ${st.stardust < u.next.price ? "disabled" : ""}>${fmt(u.next.price)} &#10024;</button>` : '<p class="upgrade-next">Niveau maximum atteint</p>'}
-      </article>`).join("");
-  }
-  function loadUpgrades() { if (API.upgrades) API.upgrades(Session.userId).then(renderUpgrades).catch(() => { const s = $("ameliorations"); if (s) s.hidden = true; }); }
+  // Ameliorations permanentes : deplacees sur la page Progression (progression.js, 2026-10-25).
 
   // --- objets et bonus -----------------------------------------------------------
   function itemCard(it) {
@@ -84,7 +75,7 @@
       <div class="thing-icon" aria-hidden="true">${iconOf(it.icon)}</div>
       <div class="thing-body"><strong>${esc(it.label)}</strong><small>${esc(it.desc)}</small></div>
       <div class="thing-foot">
-        ${it.escalate ? `<span class="thing-stock" title="Le prix est multiplié par ${String(it.escalate.growth).replace(".", ",")} à chaque achat du jour, puis revient au prix de base le lendemain.">Illimité · ${it.escalate.today ? `${it.escalate.today} acheté${it.escalate.today > 1 ? "s" : ""} aujourd'hui` : "prix de base"}</span>` : it.weekly ? `<span class="thing-stock">${it.left}/${it.weekly} cette semaine</span>` : `<span class="thing-stock">Illimité</span>`}
+        ${it.escalate ? `<span class="thing-stock ${it.escalate.today ? "inflated" : ""}" title="Inflation personnelle : le prix est multiplié par ${String(it.escalate.growth).replace(".", ",")} à chaque achat du jour, puis revient au prix de base à minuit.">Illimité · ${it.escalate.today ? `${it.escalate.today} acheté${it.escalate.today > 1 ? "s" : ""} aujourd'hui (base ${fmt(it.basePrice)})` : "prix de base"}</span>` : it.weekly ? `<span class="thing-stock">${it.left}/${it.weekly} cette semaine</span>` : `<span class="thing-stock">Illimité</span>`}
         <button type="button" class="btn${poor || out ? "-secondary" : ""} thing-buy" data-item="${esc(it.key)}" ${out || poor ? "disabled" : ""}>${out ? "Épuisé" : `${fmt(it.price)} &#10024;`}</button>
       </div>
     </article>`;
@@ -182,7 +173,6 @@
     if (!$("shop-wallet")) return;
     API.shop(Session.userId).then((s) => { shop = s; renderWallet(); renderItems(); }).catch(() => { $("ressources").hidden = true; $("bonus").hidden = true; });
     API.boosterShop(Session.userId).then((s) => { renderBoosters(s); renderWallet(); }).catch(() => { $("offres").hidden = true; });
-    loadUpgrades();
     loadSunday();
     if (API.getEconomyState) API.getEconomyState().then((e) => { eco = e; renderWallet(); }).catch(() => {});
     API.contracts(Session.userId).then(renderContracts).catch(() => { $("contrats").hidden = true; });
@@ -199,19 +189,6 @@
           renderWallet();
           if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
         } catch (err) { sun.disabled = false; Toast.error({ not_enough_dust: "Pas assez de poussières.", already_bought: "Déjà achetée." }[err.code] || friendlyError(err)); }
-        return;
-      }
-      const up = e.target.closest("[data-upgrade]");
-      if (up) {
-        up.disabled = true;
-        try {
-          const res = await API.upgrades(Session.userId, "buy", up.dataset.upgrade);
-          renderUpgrades(res);
-          Toast.success(`&#128736;&#65039; Amélioration niveau ${res.level} !`);
-          if (shop) shop.stardust = res.newStardust;
-          renderWallet();
-          if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
-        } catch (err) { up.disabled = false; Toast.error(ERR[err.code] || friendlyError(err)); }
         return;
       }
       const thing = e.target.closest("[data-item]");

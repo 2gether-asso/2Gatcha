@@ -15,7 +15,9 @@
   const reduced = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const skeyImg = (cls = "ico-token") => `<img class="${cls}" src="assets/${encodeURI("cléSpeciale.png")}" alt="clé spéciale" />`;
-  const ERR = { missing_ingredients: "Il manque des ingrédients.", no_special_key: "Il te faut une clé spéciale.", not_enough_dust: "Pas assez de poussières.", cannot_nudge: "Plus de relance possible pour ce tour.", cannot_risk: "Rien à remettre en jeu.", not_enough_boosters: "Tu n'as plus ces jetons.", locked: "La porte est fermée.", already_open: "La porte est déjà ouverte." };
+  // Mise en poussieres ou en jetons du casino (2026-10-26, js/casino.js).
+  let currency = (() => { try { return localStorage.getItem("2gatcha_fm_currency") === "chips" ? "chips" : "dust"; } catch (e) { return "dust"; } })();
+  const ERR = { not_enough_chips: "Pas assez de jetons : passe à la caisse du casino.", missing_ingredients: "Il manque des ingrédients.", no_special_key: "Il te faut une clé spéciale.", not_enough_dust: "Pas assez de poussières.", cannot_nudge: "Plus de relance possible pour ce tour.", cannot_risk: "Rien à remettre en jeu.", not_enough_boosters: "Tu n'as plus ces jetons.", locked: "La porte est fermée.", already_open: "La porte est déjà ouverte." };
   const errText = (e) => ERR[e.code] || friendlyError(e);
 
   // Pas d'acces (mot pas encore reclame, ou visiteur) : la page reste une
@@ -149,6 +151,7 @@
             <span>&#128293;</span><div class="fm-heat-bar"><div id="fm-heat-fill"></div></div><small id="fm-heat-n"></small>
           </div>
           <div class="fm-bets" role="radiogroup" aria-label="Mise">${m.bets.map((b) => `<button type="button" role="radio" class="fm-bet" data-bet="${b}">×${b}</button>`).join("")}</div>
+          <div class="fm-pay" role="radiogroup" aria-label="Payer en"><span>Payer en</span><button type="button" role="radio" class="fm-cur" data-cur="dust">&#10024; poussières</button><button type="button" role="radio" class="fm-cur" data-cur="chips">&#129689; jetons <small id="fm-chips"></small></button></div>
           <div class="fm-controls">
             <button type="button" class="fm-lever" id="fm-spin"></button>
             <button type="button" class="btn btn-secondary" id="fm-spin10"></button>
@@ -176,6 +179,7 @@
         </aside>
       </div>`;
     z.querySelectorAll(".fm-bet").forEach((b) => b.addEventListener("click", () => { bet = Number(b.dataset.bet); try { localStorage.setItem("2gatcha_fm_bet", String(bet)); } catch (e) { /* stockage indisponible */ } refresh(); if (typeof Sfx !== "undefined" && Sfx._tone) Sfx._tone(500 + bet * 80, 0, 0.05, "square", 0.03); }));
+    z.querySelectorAll(".fm-cur").forEach((b) => b.addEventListener("click", () => { currency = b.dataset.cur; try { localStorage.setItem("2gatcha_fm_currency", currency); } catch (e) { /* stockage indisponible */ } refresh(); }));
     $("fm-spin").addEventListener("click", () => spin(1));
     $("fm-spin10").addEventListener("click", () => spin(10));
     refresh();
@@ -188,9 +192,13 @@
     const m = M();
     document.querySelectorAll(".fm-bet").forEach((b) => { const on = Number(b.dataset.bet) === bet; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); });
     const kind = m.bonusSpins > 0 ? "bonus" : m.freeSpin ? "daily" : m.freeSpins > 0 ? "bank" : "paid";
-    $("fm-spin").innerHTML = kind === "bonus" ? `Tour bonus ×2 <small>(${m.bonusSpins})</small>` : kind === "daily" ? "Tour gratuit du jour" : kind === "bank" ? `Tour gratuit <small>(${m.freeSpins})</small>` : `Tirer · ${fmt(m.spinCost * bet)} &#10024;`;
+    const chips = currency === "chips" && m.spinCostChips;
+    const price = (n) => (chips ? `${fmt(m.spinCostChips * bet * n)} &#129689;` : `${fmt(m.spinCost * bet * n)} &#10024;`);
+    document.querySelectorAll(".fm-cur").forEach((b) => { const on = b.dataset.cur === (chips ? "chips" : "dust"); b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); });
+    if ($("fm-chips")) $("fm-chips").textContent = m.chips != null ? `(${fmt(m.chips)})` : "";
+    $("fm-spin").innerHTML = kind === "bonus" ? `Tour bonus ×2 <small>(${m.bonusSpins})</small>` : kind === "daily" ? "Tour gratuit du jour" : kind === "bank" ? `Tour gratuit <small>(${m.freeSpins})</small>` : `Tirer · ${price(1)}`;
     $("fm-spin").classList.toggle("bonus", kind === "bonus");
-    $("fm-spin10").innerHTML = `×10 · ${fmt(m.spinCost * bet * 10)} &#10024;`;
+    $("fm-spin10").innerHTML = `×10 · ${price(10)}`;
     setJackpot(m.jackpot);
     $("fm-heat-fill").style.width = `${Math.round((m.heat / Math.max(1, m.heatMax)) * 100)}%`;
     $("fm-heat-n").textContent = `${m.heat} / ${m.heatMax}`;
@@ -306,7 +314,7 @@
     $("fm-spin").classList.add("pulled");
     const cab = $("fm-cabinet");
     try {
-      const res = await API.post("forbidden", { userId: Session.userId, action: "spin", count, bet });
+      const res = await API.post("forbidden", { userId: Session.userId, action: "spin", count, bet, currency });
       const heat = M().heat;
       state = res;
       if (M().reels !== document.querySelectorAll(".fm-reel").length) { renderMachine(res); }
@@ -334,9 +342,18 @@
         if (res.results.some((r) => r.jackpot)) jackpotFx();
         if (wins.length) celebrate({ tier: "triple", cards: all.cards });
       }
+      // Bilan du tour : ce qui a ete paye face a ce qui est gagne (gains lisibles, 2026-10-27).
+      {
+        const won = sumGains(res.results.flatMap((r) => [r, ...(r.cascades || [])])).dust;
+        const paidTxt = res.paidChips ? `${fmt(res.paidChips)} 🪙` : res.paid ? `${fmt(res.paid)} &#10024;` : "gratuit";
+        const net = res.paid && !res.paidChips ? won - res.paid : null;
+        $("fm-result").insertAdjacentHTML("beforeend", `<div class="fm-ledger ${net == null ? "" : net > 0 ? "up" : net < 0 ? "down" : ""}">Payé <b>${paidTxt}</b> → gagné <b>${fmt(won)} &#10024;</b>${net != null ? ` <strong>= ${net > 0 ? "+" : net < 0 ? "−" : "±"}${fmt(Math.abs(net))} &#10024;</strong>` : ""}</div>`);
+      }
       if (res.riskResult) Toast[res.riskResult.won ? "success" : "info"](res.riskResult.won ? `Quitte ou double : gagné ! +${res.riskResult.amount} jetons` : `Quitte ou double : perdu (${res.riskResult.staked} jeton${res.riskResult.staked > 1 ? "s" : ""})`);
       (res.notices || []).forEach((n, i) => setTimeout(() => Toast.success(`${n.icon} ${esc(n.text)}`), 400 + i * 700));
       refresh();
+      // Jetons depenses, niveau de la machine (jeux du casino debloques) : le casino se met a jour.
+      document.dispatchEvent(new CustomEvent("casino:refresh"));
       if (typeof refreshStatus === "function") refreshStatus();
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     } catch (e) {
@@ -441,6 +458,12 @@
     c.classList.remove("fm-jackpot-hit"); void c.offsetWidth; c.classList.add("fm-jackpot-hit");
     if (typeof Haptics !== "undefined") Haptics.buzz([80, 40, 80, 40, 240]);
   }
+
+  // Jetons achetes ou revendus a la caisse du casino : prix en jetons a jour.
+  document.addEventListener("casino:chips", async () => {
+    if (!state || !state.machine) return;
+    try { const st = await API.post("forbidden", { userId: Session.userId, action: "status" }); if (st.machine) { state.machine = st.machine; refresh(); } } catch (e) { /* rien */ }
+  });
 
   // ---------------------------------------------------------------- demarrage
   document.addEventListener("DOMContentLoaded", async () => {

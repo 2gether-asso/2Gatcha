@@ -172,6 +172,9 @@ window.APP_CONFIG = {
     modeRules: "/mode-rules",           // GET -> regles actives du mode en cours
     modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode
     draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }
+    casino: "/casino",                   // POST { userId, game, action, ... } (casino de la salle interdite)
+    archeo: "/archeo",                   // POST { userId, action: 'status'|'start'|'brush'|'finish', ops? } (tablettes anciennes)
+    pets: "/pets",                       // POST { userId, action: 'status'|'cuddle'|'play'|'treat', pet: 'milo'|'moka' } (tendresse)
     skyTree: "/sky-tree",               // POST { userId, action: 'status'|'light'|'reset', key? } (arbre celeste)
     chaosVote: "/chaos-vote",           // POST { userId, action: 'status'|'vote', rule? }
     dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille de Milo (le chien)
@@ -184,6 +187,7 @@ window.APP_CONFIG = {
     rarityPity: "/rarity-pity",         // GET ?userId=&extensionId= -> { rarities: [{ name, left }] }
     treasureHunt: "/treasure-hunt",     // GET ?userId= | POST { userId, clue, page }
     accountPrestige: "/account-prestige", // GET ?userId= -> { stars, nextLevel }
+    adminCosmetics: "/admin-cosmetics",   // POST { discordId, action: 'list'|'save'|'delete'|'grant', item?, key?, userId? } (editeur de cosmetiques)
     adminEvents: "/admin-events",       // POST { discordId, action: 'list'|'save'|'delete', event?, id? }
     push: "/push"                       // POST { userId, action: 'status'|'subscribe'|'unsubscribe'|'test', subscription? }
   }

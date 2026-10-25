@@ -20,7 +20,8 @@
 //  - Restaurations repetees : la n-ieme restauration d'une meme carte dans la
 //    semaine coute (n-1) x RepairEscalationDust poussieres en plus.
 
-import { refId, now, ok, fail, userById, cardSummary, parseJson as parse, hash } from './common.js';
+import { refId, now, ok, fail, userById, cardSummary, parseJson as parse, hash, parisDay } from './common.js';
+import { parisEpoch } from './daily.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { talentValue } from './talents.js';
@@ -180,11 +181,16 @@ export function restoreHidden(store, request) {
 }
 
 // --- boutique de boosters ---------------------------------------------------------
+// 2026-10-25 : plus de plafond par semaine ; chaque jeton achete dans la
+// journee fait monter le prix du suivant pour ce joueur (x BoosterShopDailyGrowth),
+// remise a zero a minuit (heure de Paris). BoosterShopWeeklyCap = 0 ferme la boutique.
 function shopState(store, user) {
-  const week = weekKey();
-  const bought = user.ShopWeek === week ? Number(user.ShopBought) || 0 : 0;
-  const cap = setting(store, 'BoosterShopWeeklyCap');
-  return { week, bought, cap, left: Math.max(0, cap - bought), price: Math.round(indexed(store, setting(store, 'BoosterShopPrice')) * (1 + setting(store, 'BoosterShopIncrease') * bought) * happyFactor(store)), happyHour: happyHourNow(store), stardust: dust(user) };
+  const day = 'd:' + parisDay(0);
+  const bought = user.ShopWeek === day ? Number(user.ShopBought) || 0 : 0;
+  const open = setting(store, 'BoosterShopWeeklyCap') > 0;
+  const base = indexed(store, setting(store, 'BoosterShopPrice')) * happyFactor(store);
+  const price = Math.round((base * Math.pow(setting(store, 'BoosterShopDailyGrowth'), bought)) / 5) * 5;
+  return { day, week: day, bought, cap: open ? null : 0, left: open ? null : 0, unlimited: open, growth: setting(store, 'BoosterShopDailyGrowth'), resetAt: parisEpoch(parisDay(1), 0), price: Math.max(1, price), basePrice: Math.round(base), happyHour: happyHourNow(store), stardust: dust(user) };
 }
 
 function handleShop({ store, body }) {
@@ -193,9 +199,9 @@ function handleShop({ store, body }) {
   const st = shopState(store, user);
   if ((body.action || 'status') === 'status') return ok(st);
   if (body.action !== 'buy') return fail('unknown_action');
-  if (st.left < 1) return fail('weekly_cap', 400, st);
+  if (!st.unlimited) return fail('shop_closed', 400, st);
   if (st.stardust < st.price) return fail('not_enough_dust', 400, st);
-  user = store.update('Users', user.id, { StardustCount: st.stardust - st.price, BoosterCount: (Number(user.BoosterCount) || 0) + 1, ShopWeek: st.week, ShopBought: st.bought + 1 });
+  user = store.update('Users', user.id, { StardustCount: st.stardust - st.price, BoosterCount: (Number(user.BoosterCount) || 0) + 1, ShopWeek: st.day, ShopBought: st.bought + 1 });
   return ok({ ...shopState(store, user), bought: true, paid: st.price, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount });
 }
 

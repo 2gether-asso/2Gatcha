@@ -17,8 +17,16 @@
 // exactement comme le Classique : une ligne par carte, 6 emplacements (un par
 // finition), parfait etat, recompense de ligne complete une fois par carte ET
 // par edition (VaultRewards.Edition, vide = Classique).
+//
+// 2026-10-25 : lignes rangees PAR EXTENSION (row.extension, le site les
+// groupe). Carte EMERAUDE : une ligne complete donne en plus (ticket compris)
+// un exemplaire en finition emeraude de la carte, cree directement dans le
+// coffre (Pulls.VaultLocked) : il ne peut pas en sortir (ni retrait, ni
+// echange, ni decraft : InVault l'exclut de tout le reste) et atteste de la
+// maitrise de la carte. Une par carte et par edition ; rattrapage pour les
+// lignes completees avant (au premier passage sur le coffre).
 
-import { refId, now, ok, fail, userById, firstAttachment, parseJson } from './common.js';
+import { refId, now, ok, fail, userById, firstAttachment, parseJson, nextSerial } from './common.js';
 import { EDITIONS } from './editions.js';
 import { setting } from './settings.js';
 import { addTicket, vaultSummary } from './unique.js';
@@ -26,7 +34,7 @@ import { addTicket, vaultSummary } from './unique.js';
 export const FINISHES = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'];
 
 export const schema = {
-  Pulls: { InVault: { type: 'Bool' } },
+  Pulls: { InVault: { type: 'Bool' }, VaultLocked: { type: 'Bool' } },
   VaultRewards: { User: { type: 'Ref:Users' }, Card: { type: 'Ref:Cards' }, ClaimedAt: { type: 'Numeric' }, Edition: { type: 'Text' } }
 };
 
@@ -39,11 +47,14 @@ function isUnlocked(store, userId) {
 }
 
 const editionOf = (p) => p.Edition || '';
+export const EMERALD = 'emerald';
+const isEmerald = (p) => p.Finish === EMERALD;
 function buildRows(store, userId, edition = '') {
   const cards = store.getAll('Cards');
   const myPulls = store.getAll('Pulls').filter((p) => refId(p.User) === userId && editionOf(p) === edition);
   const claimed = new Set(store.getAll('VaultRewards').filter((r) => refId(r.User) === userId && (r.Edition || '') === edition).map((r) => refId(r.Card)));
   const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
+  const exts = new Map((store.tables.has('Extensions') ? store.getAll('Extensions') : []).map((e) => [e.id, e]));
   return cards.filter((c) => !c.IsPromo).map((card) => {
     const mine = myPulls.filter((p) => refId(p.Card) === card.id && qualityOf(p) === 'mint');
     if (!mine.length && !claimed.has(card.id)) return null;
@@ -54,13 +65,37 @@ function buildRows(store, userId, edition = '') {
     });
     const rarity = rarities.get(refId(card.Rarity));
     const filled = slots.filter((s) => s.stored).length;
+    const ext = exts.get(refId(card.Extension));
+    const emerald = myPulls.find((p) => refId(p.Card) === card.id && isEmerald(p));
     return {
       cardId: card.id, name: card.Name, imageId: firstAttachment(card.Image),
       rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null,
-      slots, filled,
+      extension: ext ? { id: ext.id, name: ext.Name || ext.Label || 'Extension', sortOrder: Number(ext.SortOrder) || ext.id } : { id: 0, name: 'Hors extension', sortOrder: 1e9 },
+      slots, filled, emerald: emerald ? { pullId: emerald.id, serialNumber: emerald.SerialNumber } : null,
       complete: filled === FINISHES.length, claimed: claimed.has(card.id)
     };
-  }).filter(Boolean).sort((a, b) => (b.filled - a.filled) || ((b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0)) || a.name.localeCompare(b.name));
+  }).filter(Boolean).sort((a, b) => (a.extension.sortOrder - b.extension.sortOrder) || (b.filled - a.filled) || ((b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0)) || a.name.localeCompare(b.name));
+}
+
+// Exemplaire emeraude d'une carte maitrisee (ligne complete) : cree dans le
+// coffre, verrouille. null s'il existe deja.
+function grantEmerald(store, userId, cardId, edition = '') {
+  const has = store.getAll('Pulls').some((p) => refId(p.User) === userId && refId(p.Card) === cardId && isEmerald(p) && editionOf(p) === edition);
+  if (has || !store.get('Cards', cardId)) return null;
+  const pull = store.create('Pulls', {
+    User: userId, Card: cardId, SerialNumber: nextSerial(store, cardId), Finish: EMERALD, Quality: 'mint',
+    InVault: true, VaultLocked: true, ObtainedAt: now(), BatchId: `emerald-${userId}-${cardId}-${Date.now()}`, ...(edition ? { Edition: edition } : {})
+  });
+  return { pullId: pull.id, cardId, serialNumber: pull.SerialNumber, edition: edition || null };
+}
+// Lignes completees avant l'arrivee de l'emeraude : rattrapage.
+function emeraldCatchUp(store, userId) {
+  const out = [];
+  for (const r of store.getAll('VaultRewards').filter((x) => refId(x.User) === userId)) {
+    const g = grantEmerald(store, userId, refId(r.Card), r.Edition || '');
+    if (g) { const c = store.get('Cards', g.cardId); out.push({ ...g, cardName: c ? c.Name : '?' }); }
+  }
+  return out;
 }
 
 // Ligne de cette carte devenue complete (et jamais recompensee) : recompense.
@@ -73,7 +108,8 @@ function maybeReward(store, user, cardId, edition = '') {
   store.update('Users', user.id, { BoosterCount: (Number(u.BoosterCount) || 0) + boosters, StardustCount: (Number(u.StardustCount) || 0) + dust });
   store.create('VaultRewards', { User: user.id, Card: cardId, ClaimedAt: now(), ...(edition ? { Edition: edition } : {}) });
   addTicket(store, user.id);
-  return { cardId, cardName: row.name, boosters, dust, ticket: 1, edition: edition || null };
+  const emerald = grantEmerald(store, user.id, cardId, edition);
+  return { cardId, cardName: row.name, boosters, dust, ticket: 1, edition: edition || null, emerald };
 }
 
 // Editions deja obtenues par le joueur : exemplaires actuels + historique
@@ -106,8 +142,10 @@ function buildEditionTabs(store, userId) {
 }
 
 function payload(store, userId, reward = null) {
+  const emeraldGrants = emeraldCatchUp(store, userId);
   return {
     unlocked: true,
+    emeraldGrants,
     rows: buildRows(store, userId),
     editions: buildEditionTabs(store, userId),
     boostersPerRow: setting(store, 'VaultBoostersPerRow'),
@@ -130,6 +168,7 @@ function handleVault({ store, body }) {
     const cardId = refId(target.Card);
     if (action === 'withdraw') {
       if (!target.InVault) return fail('not_stored');
+      if (target.VaultLocked || isEmerald(target)) return fail('emerald_locked');
       store.update('Pulls', target.id, { InVault: false });
       return ok(payload(store, user.id));
     }

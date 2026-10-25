@@ -120,6 +120,9 @@ import * as forbidden from './forbidden.js';
 import * as slots from './slots.js';
 import * as secrets from './secrets.js';
 import * as ripen from './ripen.js';
+import * as pets from './pets.js';
+import * as archeo from './archeo.js';
+import * as casino from './casino.js';
 import { isTestUser } from './testuser.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
@@ -128,7 +131,7 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, starter, seasonquests, story];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
@@ -175,6 +178,12 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     // bonus d'XP, journal, statistiques de l'economie ni succes.
     if (currentContext().source === 'admin-test-account') return rawUpdate(name, id, fields);
     const before = store.get('Users', id);
+    // Solde de depart de la requete (bonus d'evenement sur le gain net, events.js).
+    if (before && currentContext().source) {
+      const c = currentContext();
+      c.balances = c.balances || {};
+      if (!c.balances[id]) c.balances[id] = { dust: Number(before.StardustCount) || 0, worms: Number(before.Worms) || 0 };
+    }
     // XP doublee : action du jour (daily.js) et potion de savoir (shop.js).
     const boosted = xpWrite && before && (Number(before.XpBoostUntil) || 0) > Math.floor(Date.now() / 1000);
     const ctx = currentContext();
@@ -221,6 +230,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   // Evenements d'une action -> abonnes ; annonces du joueur dans la reponse.
   const observe = (path, body, response) => {
     const ctx = currentContext();
+    try { events.applyEventBonus(store, path, ctx, response); } catch (e) { console.error(e); captureError(e, { hook: 'event-bonus' }); }
     try {
       const events = activity.eventsFrom(store, path, body, response);
       // Compte test admin : pas de points d'equipe.
@@ -233,6 +243,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       // Musee : mineraux et objets eus au moins une fois (museum.js).
       try { museum.note(store, ctx.userId); } catch (e) { console.error(e); captureError(e, { hook: 'museum' }); }
     }
+    try { const won = lottery.winNotice(store, ctx.userId); if (won) ctx.notices.push(won); } catch (e) { console.error(e); }
     const mine = ctx.notices.filter((n) => n && n.userId === ctx.userId);
     if (mine.length && response && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
       response.json.notices = [...(response.json.notices || []), ...mine.map(({ kind, icon, label }) => ({ kind, icon, label }))];
@@ -270,13 +281,17 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
         try { m.beforeRequest({ store }); } catch (e) { console.error(e); captureError(e, { hook: 'beforeRequest' }); }
       }
       const userId = Number(body.userId || query.userId) || 0;
-      if (!userId) return;
-      try { seasons.ensureProgress(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'season' }); }
-      try { daily.touch(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'touch' }); }
+      if (userId) {
+        try { seasons.ensureProgress(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'season' }); }
+        try { daily.touch(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'touch' }); }
+      }
+      // Gains poses avant l'action (tirage de la loterie, bonus de retour...) :
+      // pas de bonus d'evenement dessus (events.applyEventBonus).
+      ctx.balances = null;
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      for (const m of [testaccount, secrets, forbidden, features, starter, ripen, digdepth, modeperks, pity, balance, comfort, rules, levels, expedition2, market, modefun]) {
+      for (const m of [testaccount, secrets, forbidden, features, starter, ripen, digdepth, modeperks, pity, balance, comfort, rules, levels, expedition2, market, modefun, pets]) {
         try {
           const denied = m.beforeWorkflow({ store, path, request });
           if (denied) { market.restoreHidden(store, request); return denied; }
@@ -287,7 +302,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     // Remet en place les exemplaires assures si le workflow a echoue.
     restore(request) { try { market.restoreHidden(store, request); } catch (e) { console.error(e); } },
     // Fin de la requete : le journal n'attribue plus rien a cette source.
-    endRequest() { Object.assign(currentContext(), { source: null, action: null, userId: 0, actor: null, detail: null, notices: [] }); },
+    endRequest() { Object.assign(currentContext(), { source: null, action: null, userId: 0, actor: null, detail: null, notices: [], balances: null }); },
     // A appeler sous le verrou.
     run(method, path, { body = {}, query = {} } = {}) {
       // Fonctionnalite fermee dans le mode en cours (features.js) : ecriture refusee.

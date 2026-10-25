@@ -6,11 +6,19 @@
 // Supernova qui demande le bout des trois bras. Les bonus s'ajoutent aux
 // talents (talents.js talentValue, champ adds) : ils jouent partout.
 // Remise a zero payante (SkyResetCost), points rendus.
-//   POST /webhook/sky-tree { userId, action: 'status' | 'light' | 'reset', key? }
+// 2026-10-25 : l'arbre complet coute 29 points pour 40 constellations, des
+// points restaient sans usage. Deux ajouts :
+//  - Nebuleuses : bonus a rangs illimites, ouverts une fois la Supernova
+//    allumee (ou le bras correspondant termine). Le rang N coute N points :
+//    il y a toujours de quoi depenser ses points.
+//  - Points d'etoile en plus : 1 par carte emeraude du coffre-fort perso
+//    (maitrise d'une carte, personal-vault.js).
+//   POST /webhook/sky-tree { userId, action: 'status' | 'light' | 'reset' | 'nebula', key? }
 
 import { ok, fail, userById, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { litConstellations } from './progression.js';
+import { refId } from './common.js';
 
 // x, y : position sur la carte (0 a 100). links : etoiles reliees (dans les deux sens).
 export const SKY_NODES = [
@@ -39,7 +47,25 @@ export const SKY_NODES = [
 const BY_KEY = new Map(SKY_NODES.map((n) => [n.key, n]));
 export const ARMS = { collection: { label: 'Collection', icon: '🎴' }, artisan: { label: 'Artisanat', icon: '⚒️' }, adventure: { label: 'Aventure', icon: '🧭' } };
 
-export const schema = { Users: { SkyNodes: { type: 'Text' } } };
+export const schema = { Users: { SkyNodes: { type: 'Text' }, SkyNebulae: { type: 'Text' } } };
+
+// Nebuleuses : rangs illimites, rang N = N points. opens : etoile a allumer avant.
+export const NEBULAE = [
+  { key: 'nebDust', label: 'Nébuleuse de poussière', icon: '🌫️', opens: 'rigel', adds: { patron: 0.01, recycler: 0.02 }, desc: (r) => `+${r} % de poussières au décraft et +${2 * r} % sur les doublons` },
+  { key: 'nebGold', label: 'Nébuleuse dorée', icon: '🌟', opens: 'deneb', adds: { lynx: 0.001 }, desc: (r) => `+${(r * 0.1).toLocaleString('fr-FR')} point de chance de finition spéciale` },
+  { key: 'nebForge', label: 'Nébuleuse de la forge', icon: '🔥', opens: 'spica', adds: { thrifty: 0.005, master: 0.01 }, desc: (r) => `−${(r * 0.5).toLocaleString('fr-FR')} % sur le craft et −${r} % de taxes` },
+  { key: 'nebWild', label: 'Nébuleuse vagabonde', icon: '🧭', opens: 'bellatrix', adds: { explorer: 0.02, tireless: 0.02 }, desc: (r) => `+${2 * r} % de poussières d’expédition et de fouille` },
+  { key: 'nebTide', label: 'Nébuleuse des marées', icon: '🌊', opens: 'mira', adds: { angler: 0.5, greenthumb: 0.01 }, desc: (r) => `+${(r * 0.5).toLocaleString('fr-FR')} énergie de pêche max et jardin ${r} % plus rapide` }
+];
+// Plafonds de securite (bonus qui ne doivent pas casser le jeu).
+const CAPS = { thrifty: 0.3, master: 0.5, greenthumb: 0.5, lynx: 0.05, angler: 20 };
+const NEB_BY_KEY = new Map(NEBULAE.map((n) => [n.key, n]));
+export function nebulaRanks(user) {
+  const v = parseJson(user && user.SkyNebulae, {});
+  return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+}
+const nebCost = (rank) => rank + 1; // passer du rang `rank` au suivant
+const nebSpent = (ranks) => Object.values(ranks).reduce((s, r) => s + ((Number(r) || 0) * ((Number(r) || 0) + 1)) / 2, 0);
 
 export function skyNodesOf(user) {
   const list = parseJson(user && user.SkyNodes, []);
@@ -47,18 +73,27 @@ export function skyNodesOf(user) {
 }
 // Bonus de l'arbre ajoutes a un talent (talents.js).
 export function skyAdd(user, key) {
-  if (!user || !user.SkyNodes) return 0;
+  if (!user || (!user.SkyNodes && !user.SkyNebulae)) return 0;
   let v = 0;
   for (const k of skyNodesOf(user)) { const n = BY_KEY.get(k); if (n && n.adds && n.adds[key]) v += n.adds[key]; }
-  return v;
+  let neb = 0;
+  for (const [k, r] of Object.entries(nebulaRanks(user))) { const n = NEB_BY_KEY.get(k); if (n && n.adds[key]) neb += (Number(r) || 0) * n.adds[key]; }
+  return v + (CAPS[key] != null ? Math.min(CAPS[key], neb) : neb);
+}
+// Cartes emeraude (coffre-fort perso) : 1 point d'etoile chacune.
+function emeraldPoints(store, user) {
+  return store.getAll('Pulls').filter((p) => p.Finish === 'emerald' && refId(p.User) === user.id).length;
 }
 // Voisines d'une etoile (liens dans les deux sens).
 const neighbors = (key) => SKY_NODES.filter((n) => (n.links || []).includes(key) || (BY_KEY.get(key).links || []).includes(n.key)).map((n) => n.key);
 
 function state(store, user) {
   const lit = skyNodesOf(user);
-  const points = litConstellations(store, user);
-  const spent = [...lit].reduce((s, k) => s + (BY_KEY.get(k)?.cost || 0), 0);
+  const fromConstellations = litConstellations(store, user);
+  const fromEmeralds = emeraldPoints(store, user);
+  const points = fromConstellations + fromEmeralds;
+  const ranks = nebulaRanks(user);
+  const spent = [...lit].reduce((s, k) => s + (BY_KEY.get(k)?.cost || 0), 0) + nebSpent(ranks);
   const available = points - spent;
   const nodes = SKY_NODES.map((n) => {
     const on = lit.has(n.key);
@@ -67,8 +102,13 @@ function state(store, user) {
   });
   // Bonus cumules de l'arbre, par effet.
   const totals = {};
-  for (const k of lit) for (const [e, v] of Object.entries(BY_KEY.get(k)?.adds || {})) totals[e] = Math.round(((totals[e] || 0) + v) * 1000) / 1000;
-  return { points, spent, available, nodes, totals, arms: ARMS, resetCost: setting(store, 'SkyResetCost'), stardust: Number(user.StardustCount) || 0, totalCost: SKY_NODES.reduce((s, n) => s + n.cost, 0) };
+  for (const e of new Set([...SKY_NODES, ...NEBULAE].flatMap((n) => Object.keys(n.adds || {})))) { const v = skyAdd(user, e); if (v) totals[e] = Math.round(v * 1000) / 1000; }
+  const nebulae = NEBULAE.map((n) => {
+    const rank = Number(ranks[n.key]) || 0;
+    const open = lit.has(n.opens) || lit.has('supernova');
+    return { key: n.key, label: n.label, icon: n.icon, rank, open, opens: n.opens, opensLabel: BY_KEY.get(n.opens)?.label || n.opens, cost: nebCost(rank), effect: rank ? n.desc(rank) : null, next: n.desc(rank + 1), canBuy: open && available >= nebCost(rank) };
+  });
+  return { points, fromConstellations, fromEmeralds, spent, available, nodes, nebulae, totals, arms: ARMS, resetCost: setting(store, 'SkyResetCost'), stardust: Number(user.StardustCount) || 0, totalCost: SKY_NODES.reduce((s, n) => s + n.cost, 0) };
 }
 
 function handle({ store, body }) {
@@ -87,11 +127,22 @@ function handle({ store, body }) {
     user = store.update('Users', user.id, { SkyNodes: JSON.stringify(list) });
     return ok({ ...state(store, user), litStar: n.key });
   }
+  if (action === 'nebula') {
+    const st = state(store, user);
+    const n = st.nebulae.find((x) => x.key === String(body.key));
+    if (!n) return fail('unknown_star');
+    if (!n.open) return fail('star_unreachable');
+    if (st.available < n.cost) return fail('no_star_points', 400, { cost: n.cost, available: st.available });
+    const ranks = nebulaRanks(user);
+    ranks[n.key] = n.rank + 1;
+    user = store.update('Users', user.id, { SkyNebulae: JSON.stringify(ranks) });
+    return ok({ ...state(store, user), nebula: n.key, rank: n.rank + 1 });
+  }
   if (action === 'reset') {
     const cost = setting(store, 'SkyResetCost');
-    if (skyNodesOf(user).size <= 1) return fail('nothing_to_reset');
+    if (skyNodesOf(user).size <= 1 && !Object.keys(nebulaRanks(user)).length) return fail('nothing_to_reset');
     if ((Number(user.StardustCount) || 0) < cost) return fail('not_enough_dust', 400, { cost });
-    user = store.update('Users', user.id, { SkyNodes: '[]', StardustCount: (Number(user.StardustCount) || 0) - cost });
+    user = store.update('Users', user.id, { SkyNodes: '[]', SkyNebulae: '{}', StardustCount: (Number(user.StardustCount) || 0) - cost });
     return ok({ ...state(store, user), reset: true });
   }
   return fail('unknown_action');

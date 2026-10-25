@@ -32,7 +32,7 @@ const MARKET_ERRORS = {
 // quel exemplaire il donne (pas un exemplaire au hasard parmi ses
 // doublons - voir buildChestVariants/chestCardTile plus bas).
 const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
-const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
 const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
 const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
@@ -353,7 +353,7 @@ async function loadBossLeaderboard() {
 let bossRules = { finish: { normal: 1, holo: 1.5, gold: 2, ghost: 2.5, diamond: 3, rainbow: 5 }, quality: { damaged: 0.75, worn: 1, good: 1.25, mint: 1.5 }, volleyStep: 0.1, maxCards: 10 };
 let bossState = null;
 const bossSelection = new Map(); // cle de variante -> quantite
-const BOSS_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const BOSS_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
 const BOSS_QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
 const bossVolley = (n) => Math.round((1 + bossRules.volleyStep * Math.max(0, Math.min(n, bossRules.maxCards) - 1)) * 100) / 100;
@@ -663,7 +663,7 @@ async function depositChest(cardId, finish, quality) {
 // Pioche au choix contre 1 clef (2026-10-02) : le contenu du coffre n'est
 // renvoye par le serveur que si le joueur possede une clef - sans clef, cette
 // zone n'existe tout simplement pas pour lui (les clefs restent un secret).
-const CHEST_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const CHEST_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
 const CHEST_QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 function renderChestKeyPool(res) {
   const zone = document.getElementById("chest-key-zone");

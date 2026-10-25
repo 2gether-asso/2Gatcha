@@ -38,11 +38,11 @@
   <main id="main-content">
     <div class="panel">
       <h1>&#127775; Progression</h1>
-      <p class="lead">Tout ce qui te fait grandir sur le long terme : talents et prestige du compte, constellations et arbre céleste, maîtrises.</p>
+      <p class="lead">Tout ce qui te fait grandir sur le long terme : talents, améliorations permanentes et prestige du compte, constellations et arbre céleste, maîtrises.</p>
       <div id="pg-guest" class="error-box" style="display:none">Connecte-toi pour voir ta progression.</div>
       <div id="pg-summary" class="pg-summary"></div>
       <nav class="tabs tabs-scroll pg-tabs" role="tablist" aria-label="Sections de la progression">
-        <button type="button" class="tab active" role="tab" data-pg="talents" aria-selected="true">&#127795; Talents &amp; prestige</button>
+        <button type="button" class="tab active" role="tab" data-pg="talents" aria-selected="true">&#127795; Talents &amp; améliorations</button>
         <button type="button" class="tab" role="tab" data-pg="ciel" aria-selected="false">&#127756; Constellations</button>
         <button type="button" class="tab" role="tab" data-pg="maitrises" aria-selected="false">&#127941; Maîtrises</button>
       </nav>
@@ -52,13 +52,18 @@
           <span id="talents" class="anchor"></span>
           <div class="talents-panel" id="talents-panel"></div>
         </section>
+        <section class="pg-upgrades" id="ameliorations">
+          <h2>&#128736;&#65039; Améliorations permanentes</h2>
+          <p class="lead">Investis tes poussières une fois pour toutes dans tes ateliers. Chaque niveau coûte le double du précédent ; les bonus s'ajoutent à tes talents.</p>
+          <div class="upgrade-grid" id="upgrade-grid"><p class="muted">Chargement…</p></div>
+        </section>
       </section>
 
       <section class="pg-pane" id="pg-ciel" role="tabpanel" hidden>
         <div class="sky-tree-wrap">
           <div class="sky-tree-head">
             <h2>&#10024; Arbre céleste</h2>
-            <p class="lead">Chaque constellation allumée te donne <strong>1 point d'étoile</strong>. Dépense-les pour allumer les étoiles du ciel, en partant de l'Étoile polaire : une étoile ne s'allume que si elle est reliée à une étoile déjà allumée. Leurs bonus s'ajoutent à tes talents.</p>
+            <p class="lead">Chaque constellation allumée et chaque carte émeraude de ton coffre-fort te donnent <strong>1 point d'étoile</strong>. Dépense-les pour allumer les étoiles du ciel, en partant de l'Étoile polaire : une étoile ne s'allume que si elle est reliée à une étoile déjà allumée. Au bout des bras, les <strong>nébuleuses</strong> s'améliorent sans fin. Leurs bonus s'ajoutent à tes talents.</p>
           </div>
           <div class="sky-tree" id="sky-tree"><p class="muted">Chargement du ciel…</p></div>
         </div>

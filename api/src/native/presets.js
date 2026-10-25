@@ -27,7 +27,7 @@ const PRESETS = {
       FishingLoot: loot('FishingLoot', { booster: 9, bone: 16 }), DeepFishingLoot: loot('DeepFishingLoot', { booster: 8, bone: 10 }), FishingFullRewardsPerDay: 30,
       DailyQuestRewardBoosters: 2, WeeklyQuestRewardBoosters: 6,
       DuplicateDustCommon: 5, DuplicateDustOther: 10, DuplicateDustCapCopies: 10, ExchangeRateSwing: 0.1,
-      BoosterShopPrice: 250, BoosterShopIncrease: 0.15, BoosterShopWeeklyCap: 6,
+      BoosterShopPrice: 250, BoosterShopIncrease: 0.15, BoosterShopWeeklyCap: 6, BoosterShopDailyGrowth: 1.2, ShopItemGrowth: 1.15,
       TradeTaxPerCard: 5, AuctionTaxPct: 0.05, ChestCost: 60, WeatherRerollCost: 40, ExpeditionRushCost: 60,
       RarityPityMultiplier: 1.5, PriceIndexMax: 1.5, AutoTightDays: 14,
       ShardsPerBooster: 6, ShardsDailyCap: 10, RipenMaxPoints: 5, GardenWiltHours: 72
@@ -40,7 +40,7 @@ const PRESETS = {
       FishingLoot: loot('FishingLoot', { booster: 6, bone: 12 }), DeepFishingLoot: loot('DeepFishingLoot', { booster: 6, bone: 8 }), FishingFullRewardsPerDay: 20,
       DailyQuestRewardBoosters: 2, WeeklyQuestRewardBoosters: 5,
       DuplicateDustCommon: 4, DuplicateDustOther: 8, DuplicateDustCapCopies: 8, ExchangeRateSwing: 0.2,
-      BoosterShopPrice: 350, BoosterShopIncrease: 0.25, BoosterShopWeeklyCap: 4,
+      BoosterShopPrice: 350, BoosterShopIncrease: 0.25, BoosterShopWeeklyCap: 4, BoosterShopDailyGrowth: 1.25, ShopItemGrowth: 1.2,
       TradeTaxPerCard: 10, AuctionTaxPct: 0.1, ChestCost: 80, WeatherRerollCost: 60, ExpeditionRushCost: 90,
       RarityPityMultiplier: 2, PriceIndexMax: 2, AutoTightDays: 10,
       ShardsPerBooster: 8, ShardsDailyCap: 8, RipenMaxPoints: 4, GardenWiltHours: 36
@@ -53,7 +53,7 @@ const PRESETS = {
       FishingLoot: loot('FishingLoot', { booster: 3, bone: 8 }), DeepFishingLoot: loot('DeepFishingLoot', { booster: 4, bone: 6 }), FishingFullRewardsPerDay: 15,
       DailyQuestRewardBoosters: 1, WeeklyQuestRewardBoosters: 3,
       DuplicateDustCommon: 3, DuplicateDustOther: 6, DuplicateDustCapCopies: 5, ExchangeRateSwing: 0.3,
-      BoosterShopPrice: 450, BoosterShopIncrease: 0.35, BoosterShopWeeklyCap: 3,
+      BoosterShopPrice: 450, BoosterShopIncrease: 0.35, BoosterShopWeeklyCap: 3, BoosterShopDailyGrowth: 1.3, ShopItemGrowth: 1.25,
       TradeTaxPerCard: 15, AuctionTaxPct: 0.15, ChestCost: 100, WeatherRerollCost: 80, ExpeditionRushCost: 120,
       RarityPityMultiplier: 2.5, PriceIndexMax: 2.5, AutoTightDays: 7,
       ShardsPerBooster: 10, ShardsDailyCap: 6, RipenMaxPoints: 3, GardenWiltHours: 24
@@ -66,7 +66,7 @@ const PRESETS = {
       FishingLoot: loot('FishingLoot', { booster: 2, bone: 6 }), DeepFishingLoot: loot('DeepFishingLoot', { booster: 3, bone: 4 }), FishingFullRewardsPerDay: 10,
       DailyQuestRewardBoosters: 1, WeeklyQuestRewardBoosters: 2,
       DuplicateDustCommon: 2, DuplicateDustOther: 4, DuplicateDustCapCopies: 3, ExchangeRateSwing: 0.4,
-      BoosterShopPrice: 600, BoosterShopIncrease: 0.5, BoosterShopWeeklyCap: 2,
+      BoosterShopPrice: 600, BoosterShopIncrease: 0.5, BoosterShopWeeklyCap: 2, BoosterShopDailyGrowth: 1.45, ShopItemGrowth: 1.35,
       TradeTaxPerCard: 20, AuctionTaxPct: 0.2, ChestCost: 140, WeatherRerollCost: 110, ExpeditionRushCost: 160,
       RarityPityMultiplier: 3, PriceIndexMax: 3, AutoTightDays: 5,
       ShardsPerBooster: 12, ShardsDailyCap: 4, RipenMaxPoints: 2, GardenWiltHours: 18

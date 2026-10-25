@@ -115,11 +115,26 @@ await test('evenement : reserve aux admins, poussieres x2 et finitions apres les
   const ev = call('POST', 'admin-event', { body: { discordId: ADMIN, action: 'set', active: true, label: 'Week-end x2', dustMultiplier: 2, finishMultiplier: 5, endsAt: Math.floor(Date.now() / 1000) + 3600 } }).json;
   assert.equal(ev.active, true);
   assert.equal(call('GET', 'event-status', {}).json.dustMultiplier, 2);
+  // Bonus sur le gain NET de la requete (workflow + autres bonus/malus), 2026-10-25.
   const dust = user(1).StardustCount;
-  const resp = { status: 200, json: { disenchanted: true, dustGained: 30, newStardust: dust } };
+  native.beforeRequest({ userId: 1 }, {}, 'disenchant');
+  store.update('Users', 1, { StardustCount: dust + 40 }); // le workflow
+  store.update('Users', 1, { StardustCount: dust + 30 }); // un malus (bourse) apres coup
+  const resp = { status: 200, json: { disenchanted: true, dustGained: 30, newStardust: dust + 30 } };
   native.afterWorkflow('disenchant', { body: { userId: 1 } }, resp);
+  native.endRequest();
   assert.equal(resp.json.eventBonus.dust, 30);
-  assert.equal(user(1).StardustCount, dust + 30);
+  assert.equal(user(1).StardustCount, dust + 60);
+  assert.equal(resp.json.newStardust, dust + 60);
+  // Une route native de jeu (peche) a droit au bonus, un achat non.
+  native.beforeRequest({ userId: 1 }, {}, 'cosmetics');
+  store.update('Users', 1, { StardustCount: dust + 100 });
+  const shop = { status: 200, json: {} };
+  native.afterWorkflow('cosmetics', { body: { userId: 1 } }, shop);
+  native.endRequest();
+  assert.equal(shop.json.eventBonus, undefined);
+  // beforeRequest a pose la base de la saison du mois : on la retire pour le test de saison.
+  if (store.tables.has('SeasonProgress')) store.getAll('SeasonProgress').filter((r) => (Array.isArray(r.User) ? r.User[1] : r.User) === 1).forEach((r) => store.delete('SeasonProgress', r.id));
   // Finitions : un booster de 40 cartes normales, x5 => quelques ameliorations.
   const batchId = '1-123456';
   const cards = Array.from({ length: 40 }, (_, i) => {

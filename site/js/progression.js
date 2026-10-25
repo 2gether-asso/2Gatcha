@@ -1,6 +1,8 @@
 // Page Progression (2026-10-17) : talents et prestige (profile-progress.js),
 // constellations et arbre celeste (collection-progress.js + ici), maitrises.
-// Arbre celeste : api/src/native/skytree.js.
+// Arbre celeste : api/src/native/skytree.js (nebuleuses a rangs illimites
+// depuis le 2026-10-25). Ameliorations permanentes (api/src/native/upgrades.js) :
+// onglet Talents depuis le 2026-10-25 (avant : boutique).
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -69,7 +71,7 @@
       <div class="sk-bar">
         <span class="sk-points ${sky.available > 0 ? "hot" : ""}">✨ <strong>${sky.available}</strong> point${sky.available > 1 ? "s" : ""} d'étoile à dépenser</span>
         <span class="muted">${sky.spent} dépensé${sky.spent > 1 ? "s" : ""} / ${sky.points} gagné${sky.points > 1 ? "s" : ""} · ${sky.totalCost} pour tout allumer</span>
-        ${sky.nodes.filter((x) => x.lit).length > 1 ? `<button type="button" class="btn-ghost" id="sk-reset">Tout éteindre (${sky.resetCost} ✨)</button>` : ""}
+        ${sky.nodes.filter((x) => x.lit).length > 1 || (sky.nebulae || []).some((x) => x.rank) ? `<button type="button" class="btn-ghost" id="sk-reset">Tout éteindre (${sky.resetCost} ✨)</button>` : ""}
       </div>
       <div class="sk-layout">
         <svg class="sk-map" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Carte du ciel">
@@ -82,7 +84,42 @@
           ${n.lit ? '<p class="sk-state on">✓ Allumée</p>' : n.canLight ? `<button type="button" class="btn" id="sk-light" data-key="${n.key}">✨ Allumer (${n.cost} point${n.cost > 1 ? "s" : ""})</button>` : n.reachable ? `<p class="sk-state">Il te faut ${n.cost} point${n.cost > 1 ? "s" : ""} d'étoile (tu en as ${sky.available}). Allume des constellations !</p>` : `<p class="sk-state">${n.requires ? `Allume d'abord ${n.requires.map((k) => esc(byKey.get(k)?.label || k)).join(", ")}.` : "Allume d'abord une étoile reliée à celle-ci."}</p>`}
           <div class="sk-totals"><h3>Bonus de ton ciel</h3>${totals.length ? `<ul>${totals.map((t) => `<li>${t}</li>`).join("")}</ul>` : '<p class="muted">Aucun pour l\'instant.</p>'}</div>
         </aside>
-      </div>`;
+      </div>
+      ${nebulaeHtml()}`;
+  }
+  // Nebuleuses : bonus a rangs illimites (rang N = N points d'etoile).
+  function nebulaeHtml() {
+    if (!sky.nebulae) return "";
+    return `<div class="sk-nebulae">
+      <h3>🌌 Nébuleuses <small>améliorables sans fin · rang suivant = rang actuel + 1 point${sky.fromEmeralds ? ` · dont ${sky.fromEmeralds} point${sky.fromEmeralds > 1 ? "s" : ""} grâce à tes cartes émeraude` : ""}</small></h3>
+      <div class="sk-neb-grid">${sky.nebulae.map((n) => `
+        <article class="sk-neb ${n.open ? "" : "locked"} ${n.rank ? "on" : ""}">
+          <header><span aria-hidden="true">${n.icon}</span><strong>${esc(n.label)}</strong><span class="sk-neb-rank">rang ${n.rank}</span></header>
+          <p>${n.effect ? esc(n.effect) : "Aucun bonus pour l'instant"}</p>
+          ${n.open ? `<small>Rang suivant : ${esc(n.next)}</small>
+            <button type="button" class="btn${n.canBuy ? "" : "-secondary"}" data-neb="${n.key}" ${n.canBuy ? "" : "disabled"}>✨ ${n.cost} point${n.cost > 1 ? "s" : ""}</button>`
+            : `<small>S'ouvre en allumant ${esc(n.opensLabel)} (ou la Supernova).</small>`}
+        </article>`).join("")}</div>
+    </div>`;
+  }
+
+  // ---------------------------------------------------------------- ameliorations permanentes
+  function renderUpgrades(st) {
+    const grid = $("upgrade-grid");
+    if (!grid) return;
+    const fmt = fmtNum;
+    grid.innerHTML = st.upgrades.map((u) => `
+      <article class="upgrade-card ${u.next ? "" : "maxed"}">
+        <div class="upgrade-head"><span class="upgrade-icon" aria-hidden="true">${u.icon}</span><strong>${esc(u.label)}</strong><span class="upgrade-level">niv. ${u.level}/${u.max}</span></div>
+        <div class="upgrade-pips" aria-hidden="true">${Array.from({ length: u.max }, (_, i) => `<span class="${i < u.level ? "on" : ""}"></span>`).join("")}</div>
+        <p class="upgrade-effect">${u.level ? esc(u.effect) : "Aucun bonus pour l'instant"}</p>
+        ${u.next ? `<p class="upgrade-next">Niveau suivant : ${esc(u.next.effect)}</p>
+          <button type="button" class="btn${st.stardust < u.next.price ? "-secondary" : ""} upgrade-buy" data-upgrade="${u.key}" ${st.stardust < u.next.price ? "disabled" : ""}>${fmt(u.next.price)} &#10024;</button>` : '<p class="upgrade-next">Niveau maximum atteint</p>'}
+      </article>`).join("");
+  }
+  function loadUpgrades() {
+    if (!API.upgrades) return;
+    API.upgrades(Session.userId).then(renderUpgrades).catch(() => { const s = $("ameliorations"); if (s) s.hidden = true; });
   }
   async function loadSky() {
     try { sky = await API.skyTree(Session.userId); renderSky(); } catch (e) { $("sky-tree").innerHTML = `<p class="error-box">${esc(friendlyError(e))}</p>`; }
@@ -95,6 +132,18 @@
     showTab(["talents", "ciel", "maitrises"].includes(tab) ? tab : "talents");
     document.querySelector(".pg-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-pg]"); if (b) showTab(b.dataset.pg); });
     if (typeof window.renderOwnProgress === "function") window.renderOwnProgress();
+    loadUpgrades();
+    $("upgrade-grid").addEventListener("click", async (e) => {
+      const up = e.target.closest("[data-upgrade]");
+      if (!up) return;
+      up.disabled = true;
+      try {
+        const res = await API.upgrades(Session.userId, "buy", up.dataset.upgrade);
+        renderUpgrades(res);
+        Toast.success(`&#128736;&#65039; Amélioration niveau ${res.level} !`);
+        if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+      } catch (err) { up.disabled = false; Toast.error(err.code === "not_enough_dust" ? "Pas assez de poussières." : friendlyError(err)); }
+    });
     await loadSky();
     renderSummary();
     const tree = $("sky-tree");
@@ -110,6 +159,16 @@
           if (typeof confetti === "function") confetti({ particleCount: 70, spread: 70, colors: ["#fde68a", "#ffffff", "#7dd3fc"], origin: { y: 0.45 } });
           renderSky(); renderSummary();
         } catch (err) { Toast.error({ no_star_points: "Pas assez de points d'étoile : allume des constellations !", star_unreachable: "Cette étoile n'est reliée à aucune étoile allumée." }[err.code] || friendlyError(err)); }
+      }
+      if (e.target.closest("[data-neb]")) {
+        const key = e.target.closest("[data-neb]").dataset.neb;
+        try {
+          sky = await API.skyTree(Session.userId, "nebula", key);
+          const n = sky.nebulae.find((x) => x.key === key);
+          Toast.success(`🌌 ${esc(n ? n.label : "Nébuleuse")} : rang ${n ? n.rank : ""} !`);
+          renderSky(); renderSummary();
+        } catch (err) { Toast.error(err.code === "no_star_points" ? "Pas assez de points d'étoile." : friendlyError(err)); }
+        return;
       }
       if (e.target.closest("#sk-reset")) {
         if (!(await Confirm.show(`Éteindre toutes les étoiles de ton ciel pour ${sky.resetCost} poussières ? Tes points d'étoile te seront rendus.`, { title: "Tout éteindre", confirmText: "Éteindre" }))) return;

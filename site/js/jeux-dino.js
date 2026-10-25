@@ -103,7 +103,7 @@
         ${tags ? `<div class="dino-tags">${tags}</div>` : ""}
         <small class="dino-sub">${esc(d.speciesLabel)} · ${esc(d.stageLabel)}${d.nextStageXp ? ` · ${d.xp} / ${d.nextStageXp} XP` : ""}</small>
         ${d.nextStageXp ? `<div class="dino-xp"><div style="width:${pct}%"></div></div>` : ""}
-        <small class="dino-talent" title="Actif quand il est content (satiété 25+, bonheur 40+)">🎖️ ${esc(d.talent)}</small>
+        <small class="dino-talent ${d.talentState && !d.talentState.on ? "off" : "on"}" title="${d.talentState && !d.talentState.on ? `Pouvoir en pause : ${esc(d.talentState.why)}` : "Pouvoir actif"}">${d.talentState && !d.talentState.on ? "⏸️" : "🎖️"} ${esc(d.talent)}${d.talentState && !d.talentState.on ? ` <em>(en pause : ${esc(d.talentState.why)})</em>` : ""}</small>
         <small class="dino-fav">Plat préféré : ${d.fav ? `${foodIcon(d.fav)} <strong>trouvé !</strong>` : "<em>à découvrir</em>"}</small>
         ${bar("Satiété", d.food, "food")}${bar("Bonheur", d.happy, "happy")}${bar("Propreté", d.clean, "clean")}
         <div class="dino-foods" role="group" aria-label="Nourrir ${esc(d.name)}">${foods}</div>

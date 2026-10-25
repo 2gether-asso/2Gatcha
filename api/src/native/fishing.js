@@ -402,10 +402,9 @@ export function afterWorkflow({ store, path, request, response }) {
   const json = response.json;
   const perBoard = setting(store, 'WormsPerBoard');
   const perTile = setting(store, 'WormsPerLeftoverTile');
-  const evW = eventState(store);
-  const wm = evW.active ? evW.wormsMultiplier : 1;
-  const mine = json.boardCleared ? Math.round((perBoard + perTile * (Number(json.leftoverTiles) || 0)) * wm) : 0;
-  const dog = json.dogReport && json.dogReport.boards ? Math.round((perBoard * json.dogReport.boards + perTile * (Number(json.dogReport.leftover) || 0)) * wm) : 0;
+  // Bonus "vers x N" d'un evenement : events.js (gain net de la requete).
+  const mine = json.boardCleared ? Math.round(perBoard + perTile * (Number(json.leftoverTiles) || 0)) : 0;
+  const dog = json.dogReport && json.dogReport.boards ? Math.round(perBoard * json.dogReport.boards + perTile * (Number(json.dogReport.leftover) || 0)) : 0;
   if (mine) json.wormsFound = mine;
   if (dog) json.dogReport.worms = dog;
   if (mine + dog) store.update('Users', user.id, { Worms: (Number(user.Worms) || 0) + mine + dog });

@@ -22,7 +22,7 @@ import { diceFace } from './daily.js';
 import { price as indexed } from './inflation.js';
 import { upgradeValue } from './upgrades.js';
 import { modeIs } from './modeperks.js';
-import { dinoTalent } from './dino.js';
+import { dinoTalent, talentUntil } from './dino.js';
 import { ruleOn } from './moderules.js';
 
 export const PLOTS = 4;
@@ -62,17 +62,32 @@ function gardenStreak(user) {
   return day === parisDay(0) || day === parisDay(-1) ? Number(user.GardenStreak) || 0 : 0;
 }
 const rareChance = (store, streak) => Math.max(ruleOn(store, 'cool.magicGarden') ? 0.2 : 0, streak >= 3 ? Math.min(0.5, setting(store, 'GardenRareChancePerDay') * (streak - 2)) : 0);
-// Stegosaure content : les plantes ne fanent plus (dino.js).
+// Stegosaure (dino.js) : les plantes ne fanent plus.
 const wiltSeconds = (store, user) => (ruleOn(store, 'cool.magicGarden') || dinoTalent(user, 'stego') ? 0 : setting(store, 'GardenWiltHours') * 3600);
+// Une plante protegee (Stegosaure, jardin magique) garde la date de sa derniere
+// protection (p.safeAt) : si la protection s'arrete, elle ne fane qu'a partir
+// de la, jamais d'un coup pour tout le temps deja passe (2026-10-26).
+const wiltFrom = (p, readyAt, stegoUntil = 0) => Math.max(readyAt, Number(p.safeAt) || 0, stegoUntil);
+function protectPlots(store, user) {
+  if (wiltSeconds(store, user) > 0) return user;
+  let p = [];
+  try { p = JSON.parse(user.GardenPlots || '[]'); } catch (e) { return user; }
+  if (!Array.isArray(p) || !p.some((x) => x && x.plantedAt)) return user;
+  const t = now();
+  const next = p.map((x) => (x && x.plantedAt ? { ...x, safeAt: t } : x));
+  return store.update('Users', user.id, { GardenPlots: JSON.stringify(next) });
+}
+export { protectPlots };
 
 function state(store, user) {
   const grow = growSeconds(store, user);
   const wilt = wiltSeconds(store, user);
+  const stegoUntil = talentUntil(user, 'stego');
   const t = now();
   const plots = plotsOf(user, plotCount(store, user)).map((p, i) => {
     if (!p) return { plot: i, planted: false };
     const g = Math.round(grow * seedMult(p));
-    const wiltAt = p.plantedAt + g + wilt;
+    const wiltAt = wiltFrom(p, p.plantedAt + g, stegoUntil) + wilt;
     return { plot: i, planted: true, seed: p.seed || 'mix', fertilized: !!p.fert, goldFertilized: !!p.gfert, plantedAt: p.plantedAt, readyAt: p.plantedAt + g, ready: p.plantedAt + g <= t, wiltAt, wilted: wilt > 0 && wiltAt <= t, progress: Math.min(1, (t - p.plantedAt) / g) };
   });
   const streak = gardenStreak(user);
@@ -92,6 +107,7 @@ function state(store, user) {
 function handleGarden({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
+  user = protectPlots(store, user);
   const action = body.action || 'status';
   const n = plotCount(store, user);
   const plots = plotsOf(user, n);
@@ -152,7 +168,7 @@ function handleGarden({ store, body }) {
     for (const i of ready) {
       const seed = (plots[i] && plots[i].seed) || 'mix';
       const item = { plot: i, seed, worms: 0, bait: 0, dust: 0 };
-      const wilted = wilt > 0 && plots[i].plantedAt + Math.round(grow * seedMult(plots[i])) + wilt <= now();
+      const wilted = wilt > 0 && wiltFrom(plots[i], plots[i].plantedAt + Math.round(grow * seedMult(plots[i])), talentUntil(user, 'stego')) + wilt <= now();
       if (seed === 'worm') item.worms = 3 + Math.floor(Math.random() * 3);
       else if (seed === 'bait') { item.worms = 1; if (Math.random() < Math.min(0.95, baitChance * 2)) item.bait = 1; }
       else if (seed === 'dust') item.dust = 30 + Math.floor(Math.random() * 41);

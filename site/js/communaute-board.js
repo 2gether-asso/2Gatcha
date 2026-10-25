@@ -20,7 +20,7 @@
     return `
       <article class="board-card board-lottery" id="board-lottery">
         <header><span class="board-icon" aria-hidden="true">&#127903;&#65039;</span><div><h3>Loterie du dimanche</h3><small>Tirage ${esc(when(l.drawAt))} · ${esc(untilLabel(l.drawAt))}</small></div></header>
-        ${l.won ? `<p class="board-last"><strong>&#127881; Tu as gagné la loterie : +${fmt(l.won.pot)} &#10024; crédités !</strong></p>` : ""}
+        ${l.won ? `<p class="board-last board-won"><strong>&#127881; Tu as gagné la loterie : +${fmt(l.won.pot)} &#10024; crédités !</strong> <small>(${l.won.tickets} ticket${l.won.tickets > 1 ? "s" : ""} sur ${l.won.totalTickets})</small> <button type="button" class="btn-ghost" data-lottery-ack>Super !</button></p>` : ""}
         <p class="board-pot"><span>Cagnotte</span><strong>${fmt(l.pot)} &#10024;</strong></p>
         <p class="board-meta">${l.totalTickets} ticket${l.totalTickets > 1 ? "s" : ""} vendu${l.totalTickets > 1 ? "s" : ""} · ${l.players} joueur${l.players > 1 ? "s" : ""}${l.tickets ? ` · <strong>tes tickets : ${l.tickets}</strong> (${l.chance} % de chances)` : ""}</p>
         <div class="board-actions">
@@ -122,6 +122,12 @@
 
   // ------------------------------------------------------------------ actions
   document.addEventListener("click", async (e) => {
+    const ack = e.target.closest && e.target.closest("[data-lottery-ack]");
+    if (ack) {
+      ack.disabled = true;
+      try { await API.lottery(Session.userId, "ack"); ack.closest(".board-won").remove(); } catch (err) { ack.disabled = false; }
+      return;
+    }
     const lot = e.target.closest && e.target.closest("[data-lottery]");
     const wan = e.target.closest && e.target.closest("[data-wanted]");
     if (!lot && !wan) return;

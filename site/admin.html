@@ -265,6 +265,40 @@
               </form>
             </section>
 
+            <section class="adm-card" id="cosmetics-admin">
+              <header class="adm-card-head"><h2>&#127912; Cosmétiques</h2><p>Titres, cadres d'avatar et couleurs de pseudo vendus en boutique. Un cadre ou une couleur peut avoir son propre style (couleurs, halo, animation), visible tout de suite sur le site. Supprimer un objet déjà possédé le retire seulement de la vente.</p></header>
+              <div class="cz-bets"><button type="button" class="cz-bet on active" data-cosm-filter="all">Tous</button><button type="button" class="cz-bet" data-cosm-filter="title">Titres</button><button type="button" class="cz-bet" data-cosm-filter="frame">Cadres</button><button type="button" class="cz-bet" data-cosm-filter="color">Couleurs</button><button type="button" class="btn-ghost" id="cosm-new">+ Nouveau</button></div>
+              <div class="cosm-editor">
+                <div class="cosm-list" id="cosm-list"><p class="muted">Chargement…</p></div>
+                <form class="cosm-form" id="cosm-form">
+                  <strong id="cosm-form-title">Nouveau cosmétique</strong>
+                  <div class="cosm-preview" id="cosm-preview"></div>
+                  <div class="row">
+                    <label>Type <select id="cosm-type"><option value="title">Titre</option><option value="frame">Cadre d'avatar</option><option value="color">Couleur de pseudo</option></select></label>
+                    <label>Prix (✨) <input type="number" id="cosm-price" min="0" value="500" /></label>
+                  </div>
+                  <label>Nom affiché <input type="text" id="cosm-label" maxlength="60" required /></label>
+                  <label>Clé <input type="text" id="cosm-key" maxlength="48" placeholder="frame-aurore" required /></label>
+                  <label>Description (facultatif) <input type="text" id="cosm-desc" maxlength="160" /></label>
+                  <div class="row">
+                    <label>Étiquette <select id="cosm-tag"><option value="">Aucune</option><option value="nouveau">Nouveau</option><option value="saison">Saison</option><option value="limite">Limité</option></select></label>
+                    <label style="align-self:end"><span><input type="checkbox" id="cosm-hidden" /> Retiré de la vente</span></label>
+                  </div>
+                  <fieldset id="cosm-style-fields" style="border:0;padding:0;margin:0;display:grid;gap:8px;">
+                    <label><span><input type="checkbox" id="cosm-styled" checked /> Style personnalisé (sinon : classe CSS du site portant la clé)</span></label>
+                    <div class="row">
+                      <label>Couleur 1 <input type="color" id="cosm-c1" value="#a855f7" /></label>
+                      <label>Couleur 2 <span><input type="checkbox" id="cosm-use-c2" /> <input type="color" id="cosm-c2" value="#22d3ee" /></span></label>
+                      <label>Halo <input type="range" id="cosm-glow" min="0" max="40" value="12" /></label>
+                    </div>
+                    <label>Animation <select id="cosm-anim"></select></label>
+                  </fieldset>
+                  <div class="row"><button type="submit" class="btn">Enregistrer</button><button type="button" class="btn-ghost" id="cosm-delete" hidden>Supprimer</button></div>
+                  <div class="row"><input type="number" id="cosm-grant-user" placeholder="ID joueur" style="width:110px" /><button type="button" class="btn-ghost" id="cosm-grant">Offrir à ce joueur</button></div>
+                </form>
+              </div>
+            </section>
+
             <section class="adm-card" id="season-admin-section">
               <header class="adm-card-head"><h2>&#127942; Saison mensuelle</h2><p>Carte exclusive du dernier palier (de préférence une carte <strong>promo</strong>, pour qu'elle ne sorte pas des boosters). Paliers, XP et récompenses : Réglages &gt; Réglages avancés &gt; Saison.</p></header>
               <div id="season-admin-zone" class="empty-state">Chargement…</div>
@@ -475,6 +509,7 @@
   <script src="js/json-table.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
+  <script src="js/admin-cosmetics.js"></script>
   <script src="js/admin-home.js"></script>
   <script src="js/admin-bingo.js"></script>
   <script src="js/admin-modes.js"></script>

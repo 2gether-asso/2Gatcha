@@ -60,11 +60,13 @@ function handleLottery({ store, body }) {
   const action = body.action || 'status';
   draw(store);
   user = userById(store, user.id);
-  // Gain pas encore annonce au gagnant : rendu une fois puis efface.
-  if (action === 'status') {
-    const won = parseJson(user.LotteryWon, null);
-    if (won) user = store.update('Users', user.id, { LotteryWon: '' });
-    return ok({ ...stateOf(store, user), won });
+  // Gain annonce au gagnant (2026-10-25) : garde jusqu'a ce qu'il le ferme
+  // (action 'ack'). Avant, il etait efface au premier "status", souvent lu en
+  // arriere-plan (prechargement, calendrier) : le gagnant ne voyait rien.
+  if (action === 'status') return ok({ ...stateOf(store, user), won: parseJson(user.LotteryWon, null) });
+  if (action === 'ack') {
+    if (user.LotteryWon) user = store.update('Users', user.id, { LotteryWon: '' });
+    return ok({ ...stateOf(store, user), won: null });
   }
   if (action !== 'buy') return fail('unknown_action');
   if (!setting(store, 'LotteryEnabled')) return fail('lottery_closed');
@@ -107,6 +109,16 @@ function draw(store) {
   save(store, LAST, { week: st.week, at: t, userId: winner.id, pseudo: winner.Pseudo, pot, tickets: ticketsOf(winner, st.week), totalTickets: total, players: players.length });
   save(store, KEY, { week: st.week, drawn: true, carry: 0 });
   addFeed(store, { userId: winner.id, kind: 'lottery', icon: '🎟️', text: `remporte la loterie du dimanche : ${pot.toLocaleString('fr-FR')} poussières (${ticketsOf(winner, st.week)} ticket${ticketsOf(winner, st.week) > 1 ? 's' : ''} sur ${total}) !` });
+}
+
+// Annonce du gain sur n'importe quelle page, une seule fois (index.js, apres
+// chaque action du joueur). Le panneau de la loterie la garde jusqu'au 'ack'.
+export function winNotice(store, userId) {
+  const user = userId ? store.get('Users', Number(userId)) : null;
+  const won = user ? parseJson(user.LotteryWon, null) : null;
+  if (!won || won.notified) return null;
+  store.update('Users', user.id, { LotteryWon: JSON.stringify({ ...won, notified: true }) });
+  return { userId: user.id, kind: 'lottery', icon: '🎟️', label: `Tu as gagné la loterie du dimanche : +${Number(won.pot || 0).toLocaleString('fr-FR')} poussières créditées !` };
 }
 
 export function _reset() { checked = 0; }

@@ -16,10 +16,11 @@
 //      POST /webhook/evening { userId, action: 'status' | 'claim' }
 //   GET /webhook/today ?userId= : tout ce qui precede en un appel (accueil).
 
-import { refId, now, ok, fail, userById, parisDay, parisHour, parseJson as parse, hash } from './common.js';
+import { refId, now, ok, fail, userById, parisDay, parisHour, parseJson as parse, hash, frozenPick } from './common.js';
+import { questTypeOpen } from './features.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
-import { grantCosmetic } from './cosmetics.js';
+import { grantCosmetic, catalog as cosmeticCatalog } from './cosmetics.js';
 import { PATCH_NOTES } from './patchnotes.js';
 
 export const schema = {
@@ -120,7 +121,7 @@ function handleBox({ store, body }) {
   const fields = { BoxDay: today };
   if (pick.type === 'cosmetic') {
     const ownedKeys = new Set(store.tables.has('UserCosmetics') ? store.getAll('UserCosmetics').filter((c) => refId(c.User) === user.id).map((c) => c.Key) : []);
-    const free = setting(store, 'CosmeticsCatalog').filter((c) => c && c.key && !ownedKeys.has(c.key) && (Number(c.price) || 0) <= 1500);
+    const free = cosmeticCatalog(store).filter((c) => !ownedKeys.has(c.key) && (Number(c.price) || 0) <= 1500);
     if (free.length) {
       const c = free[Math.floor(Math.random() * free.length)];
       grantCosmetic(store, user.id, c.key, { type: c.type, label: c.label });
@@ -213,19 +214,24 @@ const EVENING = [
 ];
 export const EVENING_START = 18;
 
-export function eveningMissions(day = parisDay(0)) {
-  const list = [...EVENING];
-  const out = [];
-  let h = hash('evening:' + day);
-  while (out.length < 3 && list.length) { out.push(list.splice(h % list.length, 1)[0]); h = hash(String(h)); }
-  return out;
+export function eveningMissions(day = parisDay(0), store = null) {
+  const draw = () => {
+    // Missions irrealisables ce soir (boss absent, jeu ferme dans le mode) ecartees ; tirage fige pour la journee.
+    const list = EVENING.filter((m) => !store || questTypeOpen(store, m.type));
+    const out = [];
+    let h = hash('evening:' + day);
+    while (out.length < 3 && list.length) { out.push(list.splice(h % list.length, 1)[0].key); h = hash(String(h)); }
+    return out;
+  };
+  const keys = store && day === parisDay(0) ? frozenPick(store, 'eveningMissionsDay', day, draw) : draw();
+  return keys.map((k) => EVENING.find((m) => m.key === k)).filter(Boolean);
 }
 
 function eveningState(store, user, hour = parisHour()) {
   const today = parisDay(0);
   const progress = user.EveningDay === today ? parse(user.EveningProgress, {}) : {};
   const claimedList = user.EveningDay === today ? parse(user.EveningClaimed, []) : [];
-  const missions = eveningMissions(today).map((m) => {
+  const missions = eveningMissions(today, store).map((m) => {
     const p = Math.min(m.target, Number(progress[m.key]) || 0);
     return { ...m, progress: p, done: p >= m.target, claimed: claimedList.includes(m.key) };
   });
@@ -258,7 +264,7 @@ export function onEvents(store, events) {
   const hour = parisHour();
   if (hour < EVENING_START) return [];
   const today = parisDay(0);
-  const missions = eveningMissions(today);
+  const missions = eveningMissions(today, store);
   const notices = [];
   for (const e of events) {
     const m = missions.find((x) => x.type === e.type);

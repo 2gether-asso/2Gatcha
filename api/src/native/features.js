@@ -29,6 +29,7 @@ export const FEATURES = [
   { key: 'guess', group: 'Jeux', icon: '❓', label: 'Devine la carte', paths: ['guess-card'], hide: ['#tab-guess-btn'], urls: ['jeux.html#devine'], nudges: ['guess'], off: [] },
   { key: 'expedition', group: 'Jeux', icon: '🧭', label: 'Expédition', paths: ['expedition'], hide: ['#tab-expedition-btn'], urls: ['jeux.html#expedition'], nudges: ['expedition', 'expedition-start'], off: [] },
   { key: 'fishing', group: 'Jeux', icon: '🎣', label: 'Pêche', paths: ['fishing', 'fishing-tournament'], hide: ['#tab-fish-btn'], urls: ['jeux.html#peche'], nudges: ['fishing'], off: [] },
+  { key: 'archeo', group: 'Jeux', icon: '🏺', label: 'Archéologie', paths: ['archeo'], hide: ['#tab-archeo-btn'], urls: ['jeux.html#archeologie'], off: [] },
   { key: 'bingo', group: 'Jeux', icon: '🎱', label: 'Bingo du mois', paths: ['bingo'], hide: ['#tab-bingo-btn'], urls: ['jeux.html#bingo'], off: [] },
   { key: 'dinos', group: 'Jeux', icon: '🦖', label: 'Dinos de compagnie', paths: ['dino'], hide: ['#tab-dino-btn'], urls: ['jeux.html#dinos'], nudges: ['dino-hungry', 'dino-poop', 'dino-skull'], off: [] },
   { key: 'garden', group: 'Jeux', icon: '🌱', label: 'Jardin', paths: ['garden'], hide: ['#tab-garden-btn'], urls: ['jeux.html#jardin'], nudges: ['garden', 'garden-plant'], off: [] },
@@ -94,6 +95,22 @@ export function publicView(store) {
 // Suggestion de "Que faire maintenant ?" vers une fonctionnalite fermee ?
 export function nudgeOff(store, item) {
   return disabled(store).some((f) => (f.nudges || []).includes(item.key) || (f.urls || []).some((u) => String(item.url || '').startsWith(u)));
+}
+
+// Quetes (2026-10-25) : un objectif n'est propose (defis de la semaine,
+// missions du soir, quetes de saison, bingo du mois suivant) que s'il est
+// realisable maintenant : fonctionnalite ouverte dans le mode en cours, boss
+// commun en vie pour les objectifs de boss.
+const QUEST_FEATURE = {
+  fish: 'fishing', 'fishCatch:chest': 'fishing', 'fishCatch:part': 'fishing', dig: 'dig', board: 'dig', treasure: 'dig',
+  harvest: 'garden', guess: 'guess', expedition: 'expedition', wheel: 'wheel', tradeDone: 'trade', tradeProposed: 'trade',
+  bossAttack: 'boss', repair: 'quality', fusion: 'finish', lotteryTicket: 'lottery', wantedDonate: 'wanted', duoDone: 'duo',
+  machineDone: 'machine', vaultRow: 'vault', tablet: 'archeo'
+};
+export function questTypeOpen(store, type) {
+  if (type === 'bossAttack' && !(store.tables.has('CommunityBoss') && store.getAll('CommunityBoss').some((b) => b.Active && (Number(b.CurrentHp) || 0) > 0))) return false;
+  const key = QUEST_FEATURE[type];
+  return !key || !disabled(store).some((f) => f.key === key);
 }
 
 // Ecriture vers une fonctionnalite fermee : la reponse de refus, sinon null.

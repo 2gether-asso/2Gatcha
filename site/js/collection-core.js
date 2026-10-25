@@ -15,8 +15,8 @@
 
 const Coll = (() => {
   const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
-  const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
-  const FINISH_LABELS_LONG = { normal: "Normal", holo: "Holographique", gold: "Doré", ghost: "Ghost Rare", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+  const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
+  const FINISH_LABELS_LONG = { normal: "Normal", holo: "Holographique", gold: "Doré", ghost: "Ghost Rare", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
   const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
   const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 

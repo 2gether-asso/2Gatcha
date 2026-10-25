@@ -64,7 +64,8 @@
       try {
         const r = await API.seasonal(Session.userId, "claim");
         render(r);
-        (r.reward.kind === "trick" ? Toast.error : Toast.success)(esc(r.reward.label));
+        // Appel lie a Toast (sinon "this.show is not a function").
+        if (r.reward.kind === "trick") Toast.error(esc(r.reward.label)); else Toast.success(esc(r.reward.label));
         if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
       } catch (err) {
         b.disabled = false;

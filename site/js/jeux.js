@@ -7,7 +7,7 @@
 // de son temps sur "Coffre-fort".
 const LAST_TAB_KEY = "2gatcha_last_tab_jeux";
 // Ancre d'URL de chaque onglet (2026-10-05) : jeux.html#peche, #jardin...
-const TAB_HASH = { dig: "fouille", guess: "devine", expedition: "expedition", fish: "peche", garden: "jardin", dino: "dinos", bingo: "bingo", vault: "coffre-fort" };
+const TAB_HASH = { dig: "fouille", archeo: "archeologie", guess: "devine", expedition: "expedition", fish: "peche", garden: "jardin", dino: "dinos", bingo: "bingo", vault: "coffre-fort" };
 const HASH_TAB = Object.fromEntries(Object.entries(TAB_HASH).map(([k, v]) => [v, k]));
 function getInitialTab() {
   const fromHash = HASH_TAB[location.hash.slice(1)];
@@ -16,7 +16,7 @@ function getInitialTab() {
 }
 
 function setActiveTab(tab) {
-  ["dig", "guess", "expedition", "fish", "garden", "dino", "bingo", "vault"].forEach((key) => {
+  ["dig", "archeo", "guess", "expedition", "fish", "garden", "dino", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
@@ -26,6 +26,7 @@ function setActiveTab(tab) {
   if (tab === "garden") loadGarden();
   if (tab === "dino" && window.loadDinos) window.loadDinos();
   if (tab === "dig") loadDig();
+  if (tab === "archeo" && window.loadArcheo) window.loadArcheo();
   if (tab === "guess") loadGuess();
   if (tab === "expedition") loadExpedition();
   if (tab === "fish") loadFishing();
@@ -456,14 +457,13 @@ function renderKennel(res) {
   const bones = res.bones || 0;
   const left = res.dogSecondsLeft || 0;
   document.getElementById("dig-kennel-bones").textContent = bones ? `${bones} os` : "";
-  const buyBtn = document.getElementById("dig-buy-bone-btn");
-  buyBtn.innerHTML = `Acheter un os (${res.boneCost} &#10024;)`;
   const useBtn = document.getElementById("dig-use-bone-btn");
   // Os cumulables (2026-10-04) : redonner un os prolonge la sortie de 2 h,
   // tant que le chien n'a pas deja plus de 10 h devant lui.
-  const bonesLeft = res.bonesLeftToday;
+  // Plus de limite d'os par jour (2026-10-26) : la fatigue (pets.js) fait des pauses.
   const tired = res.dogTiredSecondsLeft || 0;
-  useBtn.disabled = bones < 1 || left > 10 * 3600 || bonesLeft === 0 || tired > 0;
+  useBtn.disabled = bones < 1 || left > 10 * 3600 || tired > 0;
+  zone.dataset.working = left > 0 && !tired ? "1" : "0";
   // Mode excite : beaucoup d'os d'un coup, plusieurs grilles tout de suite.
   const frenzyBtn = document.getElementById("dig-frenzy-btn");
   if (frenzyBtn) {
@@ -476,8 +476,8 @@ function renderKennel(res) {
     frenzyBtn.dataset.rest = res.frenzyRestHours || "";
   }
   document.getElementById("dig-kennel-dog").classList.toggle("tired", tired > 0);
-  useBtn.title = bonesLeft != null ? `Encore ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui` : "";
-  useBtn.innerHTML = left > 0 ? resIcon("bone") + " Prolonger de 2 h" : resIcon("bone") + " Envoyer Milo";
+  useBtn.title = bones < 1 ? "Il te faut un os (boutique ci-dessus)" : left > 10 * 3600 ? "Il a déjà plus de 10 h de travail devant lui" : "1 os = 2 h de travail";
+  useBtn.innerHTML = left > 0 ? resIcon("bone") + " +2 h de travail" : resIcon("bone") + " Faire travailler Milo (2 h)";
   document.getElementById("dig-kennel-dog").classList.toggle("digging", left > 0);
   const text = document.getElementById("dig-kennel-text");
   if (kennelTimer) { clearInterval(kennelTimer); kennelTimer = null; }
@@ -488,14 +488,14 @@ function renderKennel(res) {
     let remaining = left;
     const render = () => {
       const h = Math.floor(remaining / 3600), m = Math.floor((remaining % 3600) / 60);
-      text.textContent = `Milo creuse pour toi encore ${h ? h + " h " : ""}${m} min (1 tuile toutes les ${Math.round((res.dogInterval || 300) / 60)} min). Il flaire les trésors et te montre où creuser 🐾`;
+      text.innerHTML = `<strong class="pet-work">Travaille encore ${h ? h + " h " : ""}${String(m).padStart(h ? 2 : 1, "0")} min</strong> · 1 tuile toutes les ${Math.round((res.dogInterval || 300) / 60)} min en moyenne, il flaire les trésors et te montre où creuser 🐾`;
     };
     render();
     kennelTimer = setInterval(() => { remaining -= 30; if (remaining <= 0) { clearInterval(kennelTimer); kennelTimer = null; loadDig(); return; } render(); }, 30000);
   } else {
-    text.textContent = bones
-      ? `Donne-lui un os : il creuse 2 h pour toi sans énergie (24 tuiles), flaire les trésors, rapporte cartes et poussières et te montre où creuser.${bonesLeft != null ? ` ${bonesLeft} os utilisable${bonesLeft > 1 ? "s" : ""} aujourd'hui.` : ""}`
-      : "Un os envoie Milo creuser 2 h à ta place : 24 tuiles, du flair pour les trésors, les cartes et les poussières rapportées (nombre d'os limité par jour).";
+    text.innerHTML = bones
+      ? `<strong class="pet-work idle">Au repos</strong> · un os = 2 h de travail : il creuse sans énergie, flaire les trésors et rapporte cartes et poussières. Il fait de petites pauses quand il est fatigué.`
+      : `<strong class="pet-work idle">Au repos</strong> · un os (boutique ci-dessus) envoie Milo creuser 2 h à ta place. Il fait de petites pauses quand il est fatigué.`;
   }
   announceDogReport(res.dogReport);
 }
@@ -506,6 +506,9 @@ function announceDogReport(r) {
     if (r.dust) parts.push(`+${r.dust} poussières`);
     if (r.boosters) parts.push(`+${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster`);
     if (r.kennelBonus) parts.push(`(dont +${r.kennelBonus} grâce au chenil)`);
+    if (r.tablets) parts.push(`🏺 ${r.tablets} tablette${r.tablets > 1 ? "s" : ""} ancienne${r.tablets > 1 ? "s" : ""} (onglet Archéologie)`);
+    if (r.loveBonus) parts.push(`(dont +${r.loveBonus} grâce à ta tendresse ❤️)`);
+    if (r.loveGift) parts.push(`${r.loveGift.icon} un petit cadeau : ${escHtml(r.loveGift.label)}`);
     if (r.keys) parts.push(`+${r.keys} ${resIcon("key")}`);
     if (r.worms) parts.push(`+${r.worms} vers de terre ${resIcon("worm")}`);
     (r.mineralItems || []).forEach((m) => parts.push(`<img class="ico-art" src="assets/${encodeURI(m.img)}" alt="" /> ${escHtml(m.name)} (palier ${m.tier})`));
@@ -634,6 +637,11 @@ async function doDig(tileIndex, tileEl) {
     }
 
     if (res.reducedRewards) resultEl.insertAdjacentHTML("beforeend", `<div class="dig-reduced">Rendement réduit : plus de poussières à plein tarif aujourd'hui (reviens demain).</div>`);
+    // Tablette ancienne (api/src/native/archeo.js) : a degager dans l'onglet Archeologie.
+    if (res.tabletsFound) {
+      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">${res.tabletKinds && res.tabletKinds.length ? res.tabletKinds.map((k) => `${k.icon} <strong>${escHtml(k.label)}</strong>${k.rarity !== "commune" ? ` (${escHtml(k.rarity)})` : ""}`).join(", ") : `🏺 ${res.tabletsFound > 1 ? res.tabletsFound + " tablettes anciennes" : "Une tablette ancienne"}`} sous la terre ! <a href="jeux.html#archeologie">Va la dégager</a></div>`);
+      Toast.success(`🏺 Tablette ancienne trouvée ! Onglet Archéologie.`);
+    }
     if (res.wormsFound) {
       resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">${resIcon("worm")} +${res.wormsFound} vers de terre dans la terre qui restait${res.leftoverTiles ? ` (${res.leftoverTiles} case${res.leftoverTiles > 1 ? "s" : ""} jamais creusée${res.leftoverTiles > 1 ? "s" : ""})` : ""} : de quoi pêcher !</div>`);
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
@@ -816,30 +824,31 @@ function renderCat(c) {
   if (catTimer) { clearInterval(catTimer); catTimer = null; }
   const can = catFeedable(c);
   const active = c.secondsLeft > 0;
+  box.dataset.working = active ? "1" : "0";
   document.getElementById("fish-cat-count").textContent = c.fish ? `${c.fish} poisson${c.fish > 1 ? "s" : ""}` : "";
   document.getElementById("fish-cat-pic").classList.toggle("fishing", active);
   const sit = document.getElementById("fish-cat-sit");
   if (sit) sit.hidden = !active;
   const b1 = document.getElementById("fish-cat-feed1");
   b1.disabled = can < 1;
-  b1.innerHTML = active ? `&#128031; +${c.minutesPerFish} min (1 poisson)` : "&#128031; Donner 1 poisson";
+  b1.innerHTML = active ? `&#128031; +${c.minutesPerFish} min de travail` : `&#128031; Faire travailler Moka (${c.minutesPerFish} min)`;
   const bm = document.getElementById("fish-cat-feedmax");
   bm.hidden = can < 2;
   bm.dataset.count = String(can);
-  bm.innerHTML = `Donner ${can} poissons (${String(Math.round(can * c.minutesPerFish / 60 * 10) / 10).replace(".", ",")} h)`;
+  bm.innerHTML = `+${String(Math.round(can * c.minutesPerFish / 60 * 10) / 10).replace(".", ",")} h de travail (${can} poissons)`;
   const dayLeft = c.dailyFish > 0 ? Math.max(0, c.dailyFish - c.fedToday) : null;
   b1.title = dayLeft != null ? `Encore ${dayLeft} poisson${dayLeft > 1 ? "s" : ""} aujourd'hui` : "";
   const text = document.getElementById("fish-cat-text");
   const casts = Math.max(1, Math.round(c.minutesPerFish / c.castMinutes));
   if (active) {
     let remaining = c.secondsLeft;
-    const render = () => { const h = Math.floor(remaining / 3600), m = Math.ceil((remaining % 3600) / 60); text.textContent = `Moka pêche pour toi encore ${h ? h + " h " : ""}${m} min (1 lancer toutes les ${c.castMinutes} min, sans ver ni énergie). Reviens voir ce qu'il a attrapé 🐾`; };
+    const render = () => { const h = Math.floor(remaining / 3600), m = Math.ceil((remaining % 3600) / 60); text.innerHTML = `<strong class="pet-work">Travaille encore ${h ? h + " h " : ""}${String(m).padStart(h ? 2 : 1, "0")} min</strong> · environ 1 lancer toutes les ${c.castMinutes} min, sans ver ni énergie. Reviens voir ce qu'il a attrapé 🐾`; };
     render();
     catTimer = setInterval(() => { remaining -= 30; if (remaining <= 0) { clearInterval(catTimer); catTimer = null; loadFishing(); return; } render(); }, 30000);
   } else {
-    text.textContent = c.fish
-      ? `Donne-lui du poisson : 1 poisson = ${c.minutesPerFish} min de pêche (${casts} lancers) sans ver ni énergie, jusqu'à ${Math.round(c.maxMinutes / 60)} h d'affilée.${dayLeft != null ? ` ${dayLeft} poisson${dayLeft > 1 ? "s" : ""} encore aujourd'hui.` : ""}`
-      : "Moka adore le poisson : chaque espèce que tu remontes pour l'aquarium lui en donne un (ou une boîte de sardines à la boutique). Nourri, il pêche à ta place.";
+    text.innerHTML = c.fish
+      ? `<strong class="pet-work idle">Au repos</strong> · 1 poisson = ${c.minutesPerFish} min de travail (${casts} lancers environ) sans ver ni énergie, jusqu'à ${Math.round(c.maxMinutes / 60)} h d'avance. Il fait de petites pauses quand il est fatigué.`
+      : `<strong class="pet-work idle">Au repos</strong> · Moka travaille contre du poisson : chaque espèce remontée pour l'aquarium lui en donne un (ou une boîte de sardines à la boutique).`;
   }
 }
 
@@ -847,6 +856,7 @@ function showCatPostcard(r) {
   if (!r || !r.casts) return;
   const parts = (r.items || []).map((x) => `${FISH_ICONS[x.type] || ""} ${x.type === "dust" || x.type === "pearl" ? `+${x.amount} poussières` : `${x.label} ×${x.amount}`}`);
   (r.species || []).forEach((f) => parts.push(`${aqIcon(f)} ${escHtml(f.name)} ${f.size} cm (+${f.dust} ✨)${f.first ? " <strong>nouvelle espèce !</strong>" : ""}`));
+  if (r.loveGift) parts.push(`${r.loveGift.icon} un petit cadeau pour toi : ${escHtml(r.loveGift.label)} ❤️`);
   const overlay = document.createElement("div");
   overlay.className = "card-modal-overlay dog-postcard-overlay";
   overlay.setAttribute("role", "dialog");
@@ -1529,6 +1539,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   document.getElementById("tab-dig-btn").addEventListener("click", () => setActiveTab("dig"));
   document.getElementById("tab-guess-btn").addEventListener("click", () => setActiveTab("guess"));
+  document.getElementById("tab-archeo-btn").addEventListener("click", () => setActiveTab("archeo"));
   document.getElementById("tab-expedition-btn").addEventListener("click", () => setActiveTab("expedition"));
   document.getElementById("tab-fish-btn").addEventListener("click", () => setActiveTab("fish"));
   // Lien de l'en-tete vers la peche alors qu'on est deja sur la page.
@@ -1569,7 +1580,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btn && !btn.disabled) submitGuess(Number(btn.dataset.cardId));
   });
   document.getElementById("vault-padlocks").addEventListener("click", (e) => { const b = e.target.closest(".vault-padlock.can"); if (b) popPadlock(b); });
-  document.getElementById("dig-buy-bone-btn").addEventListener("click", (e) => kennelAction("buy", e.currentTarget));
   document.getElementById("dig-depths").addEventListener("click", (e) => { const b = e.target.closest(".dig-depth:not([disabled])"); if (b) setDigDepth(Number(b.dataset.depth)); });
   // Achat depuis un bandeau de la boutique : la partie concernee se rafraichit.
   document.addEventListener("shop:bought", (e) => {

@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ------------------------------------------------------------------ fenetre detaillee
 const CardExtras = (function () {
   const esc = escHtml;
-  const FINISH = { normal: "Normale", holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+  const FINISH = { normal: "Normale", holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const SOURCE = {
     "open-pack": "tirée dans un booster", trade: "échangée", auctions: "vendue aux enchères", craft: "craftée", "guild-chest": "passée par le coffre de guilde",

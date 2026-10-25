@@ -8,6 +8,29 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-27', title: 'Pierre gravée et maître archéologue', items: [
+    'Trois sortes de tablettes : l’argile commune, la pierre gravée (rare, veines de roche dure) et la tablette dorée (légendaire, pièces fragiles mais reliques fréquentes). Plus tu fouilles profond, plus les belles sont fréquentes',
+    'Nouveau niveau d’archéologue : il monte en dégageant et débloque la loupe, le pinceau fin, le burin doux, le soufflet et d’autres avantages',
+    'Derrière une certaine porte, on sait enfin exactement ce qu’on gagne'
+  ] },
+  { date: '2026-10-26', title: 'Gratter, souffler, se reposer', items: [
+    'Archéologie revue : on gratte librement la terre au pinceau, au grattoir ou à la pioche, puis on nettoie chaque bloc à l’atelier pour découvrir ce qu’il cache. Attention à la pression : trop brusque, la trouvaille se fissure',
+    'Milo et Moka n’ont plus de limite par jour : ils travaillent, se fatiguent et font de petites pauses avant de s’y remettre',
+    'Chenil et coin de Moka plus clairs, rangés de la même façon ; la tendresse s’affiche discrètement',
+    'Archéologie plus juste : un bloc est extrait aux trois quarts dégagé, seul le cœur de la trouvaille compte au nettoyage, et le pinceau ne casse jamais',
+    'Les pouvoirs des dinos marchent tant qu’ils ne sont pas en danger : le Stégosaure protège vraiment le jardin',
+    'Derrière une certaine porte, les lumières clignotent plus fort…'
+  ] },
+  { date: '2026-10-25', title: 'Tablettes, tendresse et émeraudes', items: [
+    'Nouveau jeu : l’Archéologie. Des tablettes anciennes dorment sous tes grilles de fouille ; dégage-les au pinceau (ou à la truelle, attention à ne rien fissurer)',
+    'Milo et Moka adorent la tendresse : caresses, jeux et friandises les rendent plus rapides et plus généreux',
+    'Coffre-fort perso rangé par extension, et une carte émeraude pour chaque carte aux 6 finitions : la preuve de ta maîtrise',
+    'Boutique : tout est en vente illimitée, mais chaque achat du jour fait monter le prix pour toi jusqu’à minuit',
+    'Les améliorations permanentes rejoignent les talents, et l’arbre céleste gagne des nébuleuses à améliorer sans fin',
+    'Nouveaux cosmétiques en boutique, à essayer avant d’acheter',
+    'Corrigé : les bonus des événements (calcul et activités oubliées), l’annonce du gain de la loterie, le cadeau « Un bonbon ou un sort ? » et des quêtes impossibles',
+    'Derrière une certaine porte, on entend désormais des cartes qu’on bat et des billes qui rebondissent…'
+  ] },
   { date: '2026-10-20', title: 'Plus de place pour tes dinos', items: [
     'L’enclos accueille maintenant jusqu’à 10 dinos',
     'Tu peux relâcher un dino dans la nature pour libérer une place : il te laisse ses trouvailles et ses cacas avant de partir',

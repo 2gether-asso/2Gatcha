@@ -167,6 +167,13 @@ function live(d, t = now(), k = 1) {
 }
 
 const content = (v) => !v.dead && v.food >= 25 && v.happy >= 40;
+// Pouvoir passif (Stegosaure, Tyrannosaure, Diplodocus), 2026-10-26 : actif
+// tant que le dino est vivant et pas en danger (affame ET malheureux). Avant :
+// seulement s'il etait « content », et le jardin fanait d'un coup des qu'il
+// avait un peu faim.
+const talentOn = (v) => !v.dead && !(v.food < 25 && v.happy < 25);
+// Pouvoir de fouille automatique (Triceratops, Velociraptor, Pterodactyle) :
+// adulte et content, comme sa fouille.
 function moodOf(v, sleeping) {
   if (v.dead) return { key: 'dead', label: 'Tas d’os', icon: '🦴' };
   if (v.food < 25 && v.happy < 25) return { key: 'dying', label: 'En danger !', icon: '⚠️' };
@@ -201,6 +208,7 @@ function view(store, user, d, t = now()) {
     canPlayAt: (d.playAt || 0) + PLAY_COOLDOWN, canPetAt: (d.petAt || 0) + PET_COOLDOWN, canBreedAt: (d.breedAt || 0) + breedCooldown(),
     fav: d.favKnown ? favOf(d) : null, sleeping, dead: v.dead, deadAt: v.deadAt || null,
     finds: v.dead ? 0 : findsOf(store, d, v, t), digging: !v.dead && st.key === 'adulte' && content(v),
+    talentState: talentState(d, v, st),
     mood: moodOf(v, sleeping),
     walkUntil: d.walkUntil || null, walkedToday: d.walkDay === parisDayKey()
   };
@@ -228,11 +236,37 @@ function settle(user, d, t = now()) {
 }
 
 // --- talents (utilises par boosts.js, garden.js) ------------------------------
-// Vrai si le joueur a au moins un dino vivant et content de cette espece.
+// Vrai si le joueur a au moins un dino de cette espece dont le pouvoir passif marche.
 export function dinoTalent(user, species) {
   if (!user || !user.Dinos) return false;
   const t = now(), k = decorK(user);
-  return dinosOf(user).some((d) => d.species === species && content(live(d, t, k)));
+  return dinosOf(user).some((d) => d.species === species && talentOn(live(d, t, k)));
+}
+// Dernier instant ou un dino de cette espece avait son pouvoir passif (now
+// s'il l'a encore, 0 s'il n'y en a pas) : faim et bonheur ne font que baisser
+// entre deux soins, on cherche l'instant de bascule par dichotomie.
+export function talentUntil(user, species) {
+  if (!user || !user.Dinos) return 0;
+  const t = now(), k = decorK(user);
+  let best = 0;
+  for (const d of dinosOf(user)) {
+    if (d.species !== species) continue;
+    if (talentOn(live(d, t, k))) return t;
+    let lo = d.at || t, hi = t;
+    if (!talentOn(live(d, lo, k))) continue;
+    for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (talentOn(live(d, mid, k))) lo = mid; else hi = mid; }
+    best = Math.max(best, Math.floor(lo));
+  }
+  return best;
+}
+const PASSIVE = new Set(['rex', 'stego', 'long']);
+// Etat du pouvoir d'un dino, pour l'afficher : actif, ou pourquoi pas.
+function talentState(d, v, st) {
+  if (v.dead) return { on: false, why: 'tas d’os' };
+  if (PASSIVE.has(d.species)) return talentOn(v) ? { on: true } : { on: false, why: 'en danger : nourris-le et joue avec lui' };
+  if (st.key !== 'adulte') return { on: false, why: 'quand il sera adulte' };
+  if (!content(v)) return { on: false, why: v.food < 25 ? 'il a faim' : 'il est triste' };
+  return { on: true };
 }
 // Compagnon d'expedition : bonus selon son bonheur (0 a +30 %).
 export function companionBonus(user) {

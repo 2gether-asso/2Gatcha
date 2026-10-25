@@ -111,6 +111,12 @@ export function eventsFrom(store, path, body = {}, response = {}) {
     case 'guild-works':
       if (body.action === 'give' && json.given) out.push(ev('communityDig'));
       break;
+    case 'casino':
+      if (json.wallet && body.action && !['status'].includes(body.action) && body.game && !['cashier', 'lots'].includes(body.game)) out.push(ev('casinoPlay', 1, { game: body.game }));
+      break;
+    case 'archeo':
+      if (json.finished) out.push(ev('tablet', 1, { perfect: !!json.finished.perfect }));
+      break;
     case 'prestige':
       if (json.prestiged) out.push(ev('prestige', 1, { skill: body.skill }));
       break;

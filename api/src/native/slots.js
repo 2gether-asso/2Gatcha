@@ -23,6 +23,9 @@
 //  - Surchauffe : ForbiddenHeatMax sans triple -> triple garanti. Relance du
 //    rouleau intrus sur une paire (ForbiddenNudgeCost).
 // Toutes les cartes gagnees sont en edition « Interdite ».
+// 2026-10-26 : le niveau de la machine ouvre aussi les jeux du casino
+// (casino.js, GAME_LEVEL) et un tour peut se payer en jetons du casino
+// (body.currency = 'chips' : prix en poussieres / prix d'un jeton, arrondi au-dessus).
 
 import { ok, fail, now, refId, parisDay, parisHour, firstAttachment, parseJson, nextSerial, hash } from './common.js';
 import { setting } from './settings.js';
@@ -30,6 +33,7 @@ import { priceMultiplier } from './inflation.js';
 import { addFeed } from './feed.js';
 import { grantCosmetic } from './cosmetics.js';
 import { weekKey } from './levels.js';
+import { chipPrice } from './casino.js';
 
 export const schema = {
   Users: {
@@ -58,7 +62,16 @@ const SYM = new Map(SYMBOLS.map((s) => [s.key, s]));
 const BASE_COMBOS = ['commune', 'rare', 'epique', 'legendaire', 'finition', 'jeton', 'crane'];
 const CARDS_BY_RARITY = { commune: [1, 3], rare: [1, 3], epique: [1, 2], legendaire: [1, 2], mythique: [1, 2] };
 const LEVELS = [0, 30, 80, 150, 250, 400, 600, 850, 1150, 1500];
-const LEVEL_PERKS = { 3: 'Nouveau symbole : 👻 Fantôme (cartes en finition ghost)', 6: 'Nouveau symbole : 🗝️ Clé (clés et pièces de gatchapon)', 10: 'Un 4e rouleau : les carrés paient double' };
+// Niveau de la machine a sous qui ouvre chaque jeu.
+export const GAME_LEVEL = { cashier: 1, lots: 1, scratch: 1, blackjack: 2, cans: 3, plinko: 4, cups: 5, claw: 6, roulette: 7 };
+export const GAME_LABELS = { cashier: 'la caisse', lots: 'le comptoir des lots', scratch: 'le ticket à gratter', blackjack: 'le Blackjack', cans: 'le Chamboule-tout', plinko: 'le Plinko', cups: 'le Bonneteau', claw: 'la machine à pinces', roulette: 'la Roulette' };
+const BASE_PERKS = { 3: 'Nouveau symbole : 👻 Fantôme (cartes en finition ghost)', 6: 'Nouveau symbole : 🗝️ Clé (clés et pièces de gatchapon)', 10: 'Un 4e rouleau : les carrés paient double' };
+// Jeux du casino ouverts a chaque niveau (casino.js).
+const LEVEL_PERKS = Object.fromEntries(Array.from({ length: 10 }, (_, i) => i + 1).map((lv) => {
+  const games = Object.entries(GAME_LEVEL).filter(([, l]) => l === lv && lv > 1).map(([k]) => GAME_LABELS[k]);
+  const parts = [BASE_PERKS[lv], games.length ? `Au casino : ${games.join(', ')} ouvre${games.length > 1 ? 'nt' : ''}` : null].filter(Boolean);
+  return [lv, parts.join(' · ')];
+}).filter(([, t]) => t));
 const CHALLENGES = [
   { key: 'pairs', label: 'Obtiens 3 paires', target: 3, reward: 2 },
   { key: 'triples', label: 'Fais un triple', target: 1, reward: 2 },
@@ -233,6 +246,7 @@ export function machineView(store, user) {
     reels: reelsFor(lv.level),
     bets: BETS,
     spinCost: cost(store, 'ForbiddenSpinCost'), nudgeCost: cost(store, 'ForbiddenNudgeCost'),
+    spinCostChips: Math.ceil(cost(store, 'ForbiddenSpinCost') / chipPrice(store)), chips: Number(user.CasinoChips) || 0,
     freeSpin: user.ForbiddenFreeDay !== parisDay(0),
     freeSpins: Number(user.ForbiddenFreeSpins) || 0,
     bonusSpins: Number(user.ForbiddenBonus) || 0,
@@ -286,7 +300,11 @@ export function spin(store, user, body) {
   }
   if (kind !== 'paid') bet = 1;
   const total = kind === 'paid' ? price * bet * count : 0;
-  if ((Number(user.StardustCount) || 0) < total) return fail('not_enough_dust', 400, { machine: machineView(store, user) });
+  // Mise en jetons du casino a la place des poussieres.
+  const useChips = kind === 'paid' && body.currency === 'chips';
+  const chipCost = useChips ? Math.ceil(total / chipPrice(store)) : 0;
+  if (useChips && (Number(user.CasinoChips) || 0) < chipCost) return fail('not_enough_chips', 400, { machine: machineView(store, user) });
+  if (!useChips && (Number(user.StardustCount) || 0) < total) return fail('not_enough_dust', 400, { machine: machineView(store, user) });
   if (kind === 'bonus') bonusLeft--; else if (kind === 'daily') dailyFree = false; else if (kind === 'bank') bank--;
 
   const heatMax = setting(store, 'ForbiddenHeatMax');
@@ -296,7 +314,7 @@ export function spin(store, user, body) {
   const acc = { daily: dailyOf(user), combos: combosOf(user) };
   const notices = [];
   let heat = Number(user.ForbiddenHeat) || 0;
-  let dust = -total, boosters = 0, keys = 0, coins = 0, skulls = 0, xp = 0;
+  let dust = useChips ? 0 : -total, boosters = 0, keys = 0, coins = 0, skulls = 0, xp = 0;
   let risk = Number(user.ForbiddenRisk) || 0;
   let riskResult = null;
   const results = [];
@@ -390,12 +408,13 @@ export function spin(store, user, body) {
     ForbiddenBonus: bonusLeft, ForbiddenFreeSpins: bank, ForbiddenDaily: JSON.stringify(acc.daily), ForbiddenCombos: JSON.stringify(acc.combos), ForbiddenRisk: risk,
     ForbiddenSpin: JSON.stringify(count === 1 ? { line: results[0].line, nudgeable: results[0].nudgeable, nudged: false, bet: results[0].bet, mult: results[0].mult, boosters: results[0].boosters + results[0].cascades.reduce((s, x) => s + x.boosters, 0), risked: false, at: now() } : null)
   };
+  if (chipCost) fields.CasinoChips = Math.max(0, (Number(fresh.CasinoChips) || 0) - chipCost);
   if (keys) fields.KeyCount = (Number(fresh.KeyCount) || 0) + keys;
   if (coins) fields.ChestCount = (Number(fresh.ChestCount) || 0) + coins;
   if (skulls) fields.DinoSkulls = (Number(fresh.DinoSkulls) || 0) + skulls;
   if (!dailyFree && user.ForbiddenFreeDay !== today) fields.ForbiddenFreeDay = today;
   const updated = store.update('Users', user.id, fields);
-  return ok({ machine: machineView(store, updated), results, notices, riskResult, paid: total, kind, newStardust: updated.StardustCount, newBoosterCount: updated.BoosterCount });
+  return ok({ machine: machineView(store, updated), results, notices, riskResult, paid: useChips ? 0 : total, paidChips: chipCost, kind, newStardust: updated.StardustCount, newBoosterCount: updated.BoosterCount });
 }
 
 export function nudge(store, user) {

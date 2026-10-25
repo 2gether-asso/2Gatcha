@@ -1,8 +1,11 @@
 // Boutique d'objets (2026-10-07) : de quoi depenser ses poussieres au
 // quotidien. Ressources (vers, appats, os, coffres, cles, pieces detachees)
 // et bonus (elixir de chance, potion de savoir, cafe du fouilleur, engrais
-// express, boussole doree), chacun avec un plafond par semaine pour ne pas
-// casser l'economie. Catalogue reglable dans l'admin (ShopCatalog).
+// express, boussole doree). Catalogue reglable dans l'admin (ShopCatalog).
+// 2026-10-25 : plus aucun plafond par semaine. Tout est achetable a volonte,
+// mais chaque achat du jour d'un objet fait monter SON prix pour ce joueur
+// (inflation personnelle, x ShopItemGrowth par achat ; x EnergyRefillGrowth
+// pour les recharges d'energie), remise a zero a minuit (heure de Paris).
 //   POST /webhook/shop { userId, action: 'status' | 'buy', key? }
 // Effets lus ailleurs : Users.LuckCharges (boosts.js, ouverture de booster),
 // Users.XpBoostUntil (index.js, XP doublee).
@@ -15,6 +18,7 @@ import { price as indexed } from './inflation.js';
 import { happyFactor, happyHourNow } from './moderules.js';
 import { fishEnergy } from './fishing.js';
 import { digTimer } from './timers.js';
+import { parisEpoch } from './daily.js';
 // Happy hour (mode Chill) : -30 % sur toute la boutique.
 const shopPrice = (store, base) => Math.round(indexed(store, base) * happyFactor(store));
 
@@ -44,21 +48,22 @@ function catalog(store) {
 const DEFAULT_PAGES = { worms10: ['peche'], bait: ['peche'], thermos: ['peche'], bone: ['fouille'], coffee: ['fouille'], chest: ['ouverture'], key: ['ouverture'], luck5: ['ouverture'], part: ['collection'], fertilizer: ['jardin'], compass: ['expedition'], xp1h: ['fouille', 'peche', 'expedition', 'jardin'] };
 const pagesOf = (it) => (Array.isArray(it.pages) ? it.pages : DEFAULT_PAGES[it.key] || []);
 
-// Recharges d'energie (2026-10-19) : sans plafond, mais chaque achat du jour
-// coute EnergyRefillGrowth fois plus cher que le precedent (remis a zero
-// chaque jour, heure de Paris). Cafe du fouilleur et thermos du pecheur par
-// defaut ; un objet du catalogue peut l'activer avec escalate: true.
+// Inflation personnelle du jour (Users.EnergyBuys = { day, counts }) :
+// recharges d'energie (cafe du fouilleur, thermos du pecheur, ou un objet du
+// catalogue avec escalate: true) a EnergyRefillGrowth, tout le reste a
+// ShopItemGrowth (2026-10-25).
 const ESCALATE_DEFAULT = new Set(['coffee', 'thermos']);
-const escalates = (it) => (it.escalate != null ? !!it.escalate : ESCALATE_DEFAULT.has(it.key));
+const isEnergy = (it) => (it.escalate != null ? !!it.escalate : ESCALATE_DEFAULT.has(it.key));
+const growthOf = (store, it) => setting(store, isEnergy(it) ? 'EnergyRefillGrowth' : 'ShopItemGrowth');
 function energyBuysToday(user) {
   const v = parse(user.EnergyBuys, {});
   return v && v.day === parisDay(0) ? v.counts || {} : {};
 }
 function itemPrice(store, user, it) {
   const base = shopPrice(store, it.price);
-  if (!escalates(it)) return base;
   const n = Number(energyBuysToday(user)[it.key]) || 0;
-  return Math.round((base * Math.pow(setting(store, 'EnergyRefillGrowth'), n)) / 5) * 5;
+  if (!n) return base;
+  return Math.max(base, Math.round((base * Math.pow(growthOf(store, it), n)) / 5) * 5);
 }
 
 function boughtThisWeek(user) {
@@ -73,13 +78,14 @@ function stateOf(store, user) {
     luckCharges: Number(user.LuckCharges) || 0,
     xpBoostUntil: (Number(user.XpBoostUntil) || 0) > t ? Number(user.XpBoostUntil) : null,
     umbrellaUntil: (Number(user.UmbrellaUntil) || 0) > t ? Number(user.UmbrellaUntil) : null,
+    // Minuit (heure de Paris) : remise a zero de l'inflation personnelle.
+    resetAt: parisEpoch(parisDay(1), 0),
     items: catalog(store).map((it) => {
-      const esc = escalates(it);
-      const weekly = esc ? 0 : Number(it.weekly) || 0;
       const n = Number(bought[it.key]) || 0;
+      const today = Number(energyBuysToday(user)[it.key]) || 0;
       // Catalogue personnalise avant la refonte du gatchapon : « Coffre » = une piece.
       const legacyChest = it.key === 'chest' && /^coffre$/i.test(String(it.label || '').trim());
-      return { key: it.key, pages: pagesOf(it), group: it.group || 'resources', label: legacyChest ? 'Pièce de gatchapon' : it.label, icon: legacyChest ? '🪙' : it.icon || '🎁', desc: it.desc || '', price: itemPrice(store, user, it), basePrice: indexed(store, it.price), happyHour: happyHourNow(store), weekly, bought: n, left: weekly ? Math.max(0, weekly - n) : null, ...(esc ? { escalate: { today: Number(energyBuysToday(user)[it.key]) || 0, growth: setting(store, 'EnergyRefillGrowth') } } : {}) };
+      return { key: it.key, pages: pagesOf(it), group: it.group || 'resources', label: legacyChest ? 'Pièce de gatchapon' : it.label, icon: legacyChest ? '🪙' : it.icon || '🎁', desc: it.desc || '', price: itemPrice(store, user, it), basePrice: shopPrice(store, it.price), happyHour: happyHourNow(store), weekly: 0, bought: n, left: null, escalate: { today, growth: growthOf(store, it), energy: isEnergy(it) } };
     })
   };
 }
@@ -129,9 +135,6 @@ function handleShop({ store, body }) {
   const it = catalog(store).find((x) => x.key === String(body.key));
   if (!it) return fail('unknown_item');
   const bought = boughtThisWeek(user);
-  const esc = escalates(it);
-  const weekly = esc ? 0 : Number(it.weekly) || 0;
-  if (weekly && (Number(bought[it.key]) || 0) >= weekly) return fail('weekly_cap', 400, stateOf(store, user));
   const price = itemPrice(store, user, it);
   if (dust(user) < price) return fail('not_enough_dust', 400, stateOf(store, user));
   const fields = {};
@@ -144,11 +147,9 @@ function handleShop({ store, body }) {
     if (GIVE_FIELDS.includes(k) && Number(v) > 0) fields[k] = (Number(user[k]) || 0) + Number(v);
   }
   bought[it.key] = (Number(bought[it.key]) || 0) + 1;
-  if (esc) {
-    const counts = energyBuysToday(user);
-    counts[it.key] = (Number(counts[it.key]) || 0) + 1;
-    fields.EnergyBuys = JSON.stringify({ day: parisDay(0), counts });
-  }
+  const counts = energyBuysToday(user);
+  counts[it.key] = (Number(counts[it.key]) || 0) + 1;
+  fields.EnergyBuys = JSON.stringify({ day: parisDay(0), counts });
   user = store.update('Users', user.id, { ...fields, StardustCount: dust(user) - price, ShopItemsWeek: weekKey(), ShopItemsBought: JSON.stringify(bought) });
   return ok({ ...stateOf(store, user), bought: it.key, paid: price, newStardust: user.StardustCount });
 }

@@ -118,7 +118,10 @@ export function gridFor(store, m = month()) {
   if (gridCache.has(cacheKey)) return gridCache.get(cacheKey);
   const rand = rng(`bingo-${m}-${cfg.seed || ''}`);
   const cards = pickCards(store, m, cfg, rand).map((c) => ({ type: 'card', cardId: c.id }));
-  const objectives = shuffle(OBJECTIVES, rand).slice(0, 24 - cards.length).map((o) => ({ type: 'objective', key: o.key }));
+  // A partir de novembre 2026 : plus d'objectif de boss (boss commun seulement
+  // pendant certains evenements, case souvent impossible). Mois deja commences : grille inchangee.
+  const pool = monthNum(m) >= 202611 ? OBJECTIVES.filter((o) => o.event !== 'bossAttack') : OBJECTIVES;
+  const objectives = shuffle(pool, rand).slice(0, 24 - cards.length).map((o) => ({ type: 'objective', key: o.key }));
   const cells = shuffle([...cards, ...objectives], rand);
   cells.splice(FREE, 0, { type: 'free' });
   const grid = { month: m, cells };

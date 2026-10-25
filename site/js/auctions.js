@@ -6,7 +6,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
-  const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+  const FINISH = { normal: "", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const serial = fmtSerial; // core.js
   let data = null;

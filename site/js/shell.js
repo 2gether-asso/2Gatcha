@@ -1143,12 +1143,33 @@ async function spawnModeBugs() {
   });
 }
 
+// Cosmetiques a style (Admin > Contenu > Cosmetiques, 2026-10-25) : une regle
+// .decor-<key> fabriquee a partir de { c1, c2, glow, anim }, utilisee comme
+// les classes ecrites a la main (cadres d'avatar, couleurs de pseudo).
+function cosmeticCss(key, st) {
+  if (!/^[a-z0-9-]+$/.test(key) || !/^#[0-9a-f]{6}$/i.test(st.c1 || "")) return "";
+  const c2 = /^#[0-9a-f]{6}$/i.test(st.c2 || "") ? st.c2 : null;
+  const glow = Math.max(0, Math.min(40, Number(st.glow) || 0));
+  const anim = { pulse: "decorPulse 2.4s ease-in-out infinite", spin: "decorHue 6s linear infinite", shine: "decorShine 3s linear infinite" }[st.anim] || "";
+  if (st.type === "frame") return `.decor-${key}{box-shadow:0 0 0 3px ${st.c1}${c2 ? `,0 0 0 5px ${c2}` : ""}${glow ? `,0 0 ${glow}px ${st.c1}` : ""}${anim ? `;animation:${anim}` : ""}}`;
+  if (c2) return `.decor-${key}{background:linear-gradient(90deg,${st.c1},${c2},${st.c1});background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important${glow ? `;filter:drop-shadow(0 0 ${Math.round(glow / 2)}px ${st.c1})` : ""}${anim ? `;animation:${anim}` : ""}}`;
+  return `.decor-${key}{color:${st.c1}!important${glow ? `;text-shadow:0 0 ${glow}px ${st.c1}` : ""}${anim ? `;animation:${anim}` : ""}}`;
+}
+function applyCosmeticStyles(map) {
+  let el = document.getElementById("cosmetic-styles");
+  if (!el) { el = document.createElement("style"); el.id = "cosmetic-styles"; document.head.appendChild(el); }
+  el.textContent = Object.entries(map || {}).map(([k, st]) => cosmeticCss(k, st)).join("\n");
+}
+window.cosmeticCss = cosmeticCss;
+window.applyCosmeticStyles = applyCosmeticStyles;
+
 // Week-end evenement (api/src/native/events.js) : bandeau festif tant qu'il dure.
 async function loadEventBanner() {
   const el = document.getElementById("site-header");
   if (!el) return;
   try {
     const ev = await API.getEventStatus();
+    if (ev && ev.cosmeticStyles) applyCosmeticStyles(ev.cosmeticStyles);
     if (ev && ev.gameMode) applyGameMode(ev.gameMode);
     if (ev) applySeason(ev.season);
     if (ev) applySurprise(el, ev.surprise);
@@ -1157,6 +1178,8 @@ async function loadEventBanner() {
     const perks = [];
     if (ev.dustMultiplier > 1) perks.push(`poussières x${ev.dustMultiplier}`);
     if (ev.finishMultiplier > 1) perks.push(`finitions x${ev.finishMultiplier}`);
+    if (ev.fishingRare > 1) perks.push(`prises rares x${ev.fishingRare}`);
+    if (ev.wormsMultiplier > 1) perks.push(`vers x${ev.wormsMultiplier}`);
     const until = ev.endsAt ? " · jusqu'au " + new Date(ev.endsAt * 1000).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" }) : "";
     const label = String(ev.label || "Événement").replace(/[<>&"]/g, "");
     el.insertAdjacentHTML("afterbegin", `<a class="beta-banner banner-event banner-link" href="communaute.html#calendrier" title="Voir le calendrier des événements">&#127881; <strong>${label}</strong>${perks.length ? " : " + perks.join(", ") : ""}${until}</a>`);

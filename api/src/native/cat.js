@@ -14,6 +14,7 @@ import { ok, fail, userById, now, parisDay, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { catLoot } from './fishing.js';
 import { catchSpecies } from './aquarium.js';
+import { petBoost, petGift, petRhythm } from './pets.js';
 
 export const schema = { Users: { CatFish: { type: 'Numeric' }, CatState: { type: 'Text' }, CatFedDay: { type: 'Text' }, CatFedCount: { type: 'Numeric' } } };
 
@@ -26,7 +27,10 @@ export function settleCat(store, user) {
   const s = stateOf(user);
   if (!s) return null;
   const t = now();
-  const castSec = Math.max(60, setting(store, 'CatCastMinutes') * 60);
+  // Tendresse (pets.js) : Moka lance plus souvent et rapporte plus de poussieres.
+  const love = petBoost(store, user, 'moka');
+  // Fatigue (pets.js) : ses pauses ralentissent le rythme moyen.
+  const castSec = Math.max(60, Math.round(setting(store, 'CatCastMinutes') * 60 * (1 - love.speed) * petRhythm(store, user, 'moka').factor));
   const total = Math.floor((Math.min(t, s.until) - s.start) / castSec);
   const n = Math.max(0, total - (Number(s.done) || 0));
   const finished = t >= s.until;
@@ -48,13 +52,20 @@ export function settleCat(store, user) {
     g.amount += amount;
     items.set(x.type, g);
   }
+  if (love.loot > 0 && fields.StardustCount != null) {
+    const gained = fields.StardustCount - (Number(user.StardustCount) || 0);
+    const extra = Math.round(gained * love.loot);
+    if (extra > 0) { fields.StardustCount += extra; const g = items.get('dust'); if (g) g.amount += extra; }
+  }
+  const gift = petGift(store, { ...user, ...fields }, 'moka');
+  if (gift) Object.assign(fields, gift.fields);
   const species = catchSpecies({ ...user, ...fields }, { store, count: n, weatherKey: weather.key });
   if (species) { Object.assign(fields, species.fields); add('StardustCount', species.dust); }
   fields.CatState = finished && total >= Math.floor((s.until - s.start) / castSec) ? '' : JSON.stringify({ ...s, done: total });
   // P.S. (2026-10-19) : un indice sur ses amis chats (reglages MokaHints, MokaHintChance).
   const hints = (setting(store, 'MokaHints') || []).filter((h) => typeof h === 'string' && h.trim());
   const hint = hints.length && Math.random() < setting(store, 'MokaHintChance') ? hints[Math.floor(Math.random() * hints.length)] : null;
-  return { fields, report: { casts: n, items: [...items.values()], species: species ? species.items : [], speciesDust: species ? species.dust : 0, done: !fields.CatState, ...(hint ? { hint } : {}) } };
+  return { fields, report: { casts: n, items: [...items.values()], species: species ? species.items : [], speciesDust: species ? species.dust : 0, done: !fields.CatState, ...(hint ? { hint } : {}), ...(gift ? { loveGift: gift.gift } : {}), ...(love.love ? { love: Math.round(love.love) } : {}) } };
 }
 
 function rollLoot(table) {
@@ -72,7 +83,8 @@ export function catView(store, user) {
     minutesPerFish: setting(store, 'CatMinutesPerFish'),
     castMinutes: setting(store, 'CatCastMinutes'),
     maxMinutes: setting(store, 'CatMaxMinutes'),
-    dailyFish: setting(store, 'CatDailyFish'),
+    // Plus de limite de poissons par jour (2026-10-26) : la fatigue (pets.js) la remplace.
+    dailyFish: 0,
     fedToday: fedToday(user)
   };
 }
@@ -89,7 +101,6 @@ function handle({ store, body }) {
   const count = Math.max(1, Math.floor(Number(body.count) || 1));
   const v = catView(store, user);
   if (v.fish < count) return fail('no_cat_fish', 400, { cat: v });
-  if (v.dailyFish > 0 && v.fedToday + count > v.dailyFish) return fail('cat_daily_limit', 400, { cat: v });
   const t = now();
   const s = stateOf(user);
   const add = count * v.minutesPerFish * 60;

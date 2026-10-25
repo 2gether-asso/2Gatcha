@@ -4,7 +4,8 @@
 // un bonus de SeasonQuestAllXp. Progression par les evenements d'activite.
 //   POST /webhook/season-quests { userId, action: 'status' | 'claim', key? }
 
-import { ok, fail, userById, parseJson } from './common.js';
+import { ok, fail, userById, parseJson, frozenPick } from './common.js';
+import { questTypeOpen } from './features.js';
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
 import { addSeasonXp } from './seasons.js';
@@ -16,22 +17,28 @@ export const POOL = [
   { key: 'dig30', label: 'Creuser 30 cases', icon: '⛏️', type: 'dig', target: 30 },
   { key: 'fish10', label: 'Lancer 10 fois ta ligne', icon: '🎣', type: 'fish', target: 10 },
   { key: 'expe2', label: 'Revenir de 2 expéditions', icon: '🧭', type: 'expedition', target: 2 },
-  { key: 'guess5', label: 'Jouer 5 fois à Devine la carte', icon: '❓', type: 'guess', target: 5 },
+  { key: 'guess5', label: 'Trouver 5 cartes à Devine la carte', icon: '❓', type: 'guess', target: 5 },
   { key: 'harvest6', label: 'Récolter 6 plantes', icon: '🌱', type: 'harvest', target: 6 },
   { key: 'craft2', label: 'Crafter 2 cartes', icon: '✨', type: 'craft', target: 2 },
   { key: 'recycle10', label: 'Recycler 10 doublons', icon: '♻️', type: 'disenchant', target: 10 },
   { key: 'chest3', label: 'Ouvrir 3 coffres du gatchapon', icon: '🎁', type: 'chestOpened', target: 3 },
   { key: 'boss5', label: 'Envoyer 5 cartes au boss', icon: '💀', type: 'bossAttack', target: 5 },
+  { key: 'tablet2', label: 'Dégager 2 tablettes anciennes', icon: '🏺', type: 'tablet', target: 2 },
   { key: 'wheel3', label: 'Tourner 3 fois la roue', icon: '🎡', type: 'wheel', target: 3 }
 ];
 
 function seeded(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } let a = h >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 // Les 3 defis de la semaine (memes pour tous).
-export function weekQuests(week = weekKey()) {
-  const rnd = seeded('seasonq-' + week);
-  const left = [...POOL], out = [];
-  while (out.length < 3 && left.length) out.push(left.splice(Math.floor(rnd() * left.length), 1)[0]);
-  return out;
+export function weekQuests(week = weekKey(), store = null) {
+  const draw = () => {
+    const rnd = seeded('seasonq-' + week);
+    // Objectifs irrealisables (boss absent, jeu ferme dans le mode) ecartes ; tirage fige pour la semaine.
+    const left = POOL.filter((q) => !store || questTypeOpen(store, q.type)), out = [];
+    while (out.length < 3 && left.length) out.push(left.splice(Math.floor(rnd() * left.length), 1)[0]);
+    return out.map((q) => q.key);
+  };
+  const keys = week === weekKey() ? frozenPick(store, 'seasonQuestsWeek', week, draw) : draw();
+  return keys.map((k) => POOL.find((q) => q.key === k)).filter(Boolean);
 }
 const stateOf = (user, week) => { const s = parseJson(user.SeasonQuests, null); return s && s.week === week ? { week, counts: s.counts || {}, claimed: s.claimed || [], all: !!s.all } : { week, counts: {}, claimed: [], all: false }; };
 
@@ -39,7 +46,7 @@ function view(store, user) {
   const week = weekKey();
   const st = stateOf(user, week);
   const xp = setting(store, 'SeasonQuestXp');
-  const quests = weekQuests(week).map((q) => { const n = Math.min(q.target, Number(st.counts[q.key]) || 0); return { ...q, progress: n, complete: n >= q.target, claimed: st.claimed.includes(q.key), xp }; });
+  const quests = weekQuests(week, store).map((q) => { const n = Math.min(q.target, Number(st.counts[q.key]) || 0); return { ...q, progress: n, complete: n >= q.target, claimed: st.claimed.includes(q.key), xp }; });
   return { enabled: !!setting(store, 'SeasonEnabled') && setting(store, 'SeasonQuestXp') > 0, week, quests, allBonus: setting(store, 'SeasonQuestAllXp'), allClaimed: st.all };
 }
 
@@ -65,7 +72,7 @@ function handle({ store, body }) {
 
 export function onEvents(store, events) {
   const week = weekKey();
-  const quests = weekQuests(week);
+  const quests = weekQuests(week, store);
   const notices = [];
   const byUser = new Map();
   for (const e of events) { if (!byUser.has(e.userId)) byUser.set(e.userId, []); byUser.get(e.userId).push(e); }

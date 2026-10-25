@@ -292,14 +292,17 @@ await test('encheres : sequestre, surenchere remboursee, vente reglee avec taxe'
   assert.equal(store.get('Auctions', a.id).Status, 'sold');
 });
 
-await test('boutique de boosters : prix croissant, plafond hebdomadaire', () => {
-  store.update('Users', 1, { StardustCount: 5000, ShopWeek: '', ShopBought: 0 });
-  // Base 30 boosters/jour : 300 poussieres (+35 % par achat), plafond ramene a 3 pour le test.
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BoosterShopWeeklyCap: 3 } } });
+await test('boutique de boosters : illimitee, inflation personnelle du jour, fermee a 0', () => {
+  store.update('Users', 1, { StardustCount: 50000, ShopWeek: '', ShopBought: 0 });
+  // 2026-10-25 : plus de plafond ; prix x BoosterShopDailyGrowth (1,3) par jeton du jour, arrondi a 5.
   const prices = [];
-  for (let i = 0; i < 3; i++) prices.push(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.paid);
-  assert.deepEqual(prices, [300, 405, 510]);
-  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.error, 'weekly_cap');
+  for (let i = 0; i < 4; i++) prices.push(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.paid);
+  assert.deepEqual(prices, [300, 390, 505, 660]);
+  // Le lendemain : prix de base.
+  store.update('Users', 1, { ShopWeek: 'd:2000-01-01' });
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1 } }).json.price, 300);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { BoosterShopWeeklyCap: 0 } } });
+  assert.equal(call('POST', 'booster-shop', { body: { userId: 1, action: 'buy' } }).json.error, 'shop_closed');
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'BoosterShopWeeklyCap' } });
 });
 
@@ -348,15 +351,18 @@ await test('notifications : preferences par categorie', () => {
   assert.equal(r.kinds.find((k) => k.key === 'garden').on, true);
 });
 
-await test('boutique d objets : achat, plafond hebdo, effets, potion de savoir, elixir de chance', () => {
+await test('boutique d objets : achat illimite a inflation personnelle, effets, potion de savoir, elixir de chance', () => {
   store.update('Users', 1, { StardustCount: 5000, ShopItemsWeek: '', ShopItemsBought: '{}', Worms: 0, LuckCharges: 0, XpBoostUntil: 0, GardenPlots: '[]', ExpeditionUntil: 0 });
   const st = call('POST', 'shop', { body: { userId: 1 } }).json;
   assert.ok(st.items.length >= 10);
   let r = call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } }).json;
   assert.equal(r.paid, 60);
   assert.equal(user(1).Worms, 10);
-  for (let i = 0; i < 4; i++) call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } });
-  assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } }).json.error, 'weekly_cap');
+  // 2026-10-25 : plus de plafond par semaine, prix x ShopItemGrowth (1,25) par achat du jour.
+  r = call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } }).json;
+  assert.equal(r.paid, 75);
+  for (let i = 0; i < 6; i++) assert.ok(!call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'worms10' } }).json.error);
+  store.update('Users', 1, { EnergyBuys: '' });
   assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'fertilizer' } }).json.error, 'nothing_growing');
   assert.equal(call('POST', 'shop', { body: { userId: 1, action: 'buy', key: 'compass' } }).json.error, 'no_expedition');
   // Recharges d'energie (2026-10-19) : illimitees, prix x1,6 par achat du jour, refusees si pleine.
@@ -606,7 +612,7 @@ await test('evenements planifies : appliques tout seuls entre le debut et la fin
 });
 
 // ------------------------------------------------------------------ equilibrage 2026-10-11
-await test('equilibrage : boosters de fouille et du chien convertis, os limites par jour', () => {
+await test('equilibrage : boosters de fouille et du chien convertis, plus de limite d os par jour', () => {
   const set = (values) => call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values } });
   set({ DigBoosterKeepChance: 0, DogKeepBoosters: false, DogBonesPerDay: 4 });
   store.update('Users', 1, { BoosterCount: 10, StardustCount: 0, DigDay: '', DigDayCount: 0, BoneUseDay: '', BoneUseCount: 0 });
@@ -625,12 +631,11 @@ await test('equilibrage : boosters de fouille et du chien convertis, os limites 
   assert.equal(dog.json.dogReport.convertedBoosters, 2);
   assert.equal(user(1).BoosterCount, 7);
   assert.equal(user(1).StardustCount, before + 80);
-  // Os : 4 par jour.
-  for (let i = 0; i < 4; i++) {
+  // Os : plus de limite par jour depuis le 26/10/2026 (la fatigue de Milo la remplace).
+  for (let i = 0; i < 8; i++) {
     assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'useBone' } }), null);
     native.afterWorkflow('dig', { body: { userId: 1, action: 'useBone' } }, { status: 200, json: {} });
   }
-  assert.equal(native.beforeWorkflow('dig', { body: { userId: 1, action: 'useBone' } }).json.error, 'dog_daily_limit');
   for (const key of ['DigBoosterKeepChance', 'DogKeepBoosters', 'DogBonesPerDay']) call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key } });
 });
 
@@ -1192,7 +1197,8 @@ await test('changement de mode programme : preavis public puis application', () 
 });
 
 await test('editions limitees : posees a l ouverture, listees dans la collection, protegees', () => {
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EditionChance: 0.5 } } });
+  // Hors evenement saisonnier : sinon son edition passe avant celle du mode (Halloween = Maudite).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { EditionChance: 0.5, SeasonalEventsEnabled: false } } });
   const card = cards()[3];
   const batch = '1-edition-test';
   const ids = [];
@@ -1207,6 +1213,7 @@ await test('editions limitees : posees a l ouverture, listees dans la collection
   assert.equal(coll.json.editionPulls[marked[0]], 'prism');
   ids.forEach((id) => store.delete('Pulls', id));
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'EditionChance' } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SeasonalEventsEnabled' } });
 });
 
 await test('evenements saisonniers : calendrier (Halloween, Noel, Paques, nouvel an), edition de l evenement', () => {
@@ -1685,10 +1692,13 @@ await test('dinos (2) : mort et tas d os, fouille auto, oeufs, plat prefere, Din
   assert.ok(g.gold && g.plots[0].ready);
   g = call('POST', 'garden', { body: { userId: 1, action: 'harvest' } }).json;
   assert.ok(g.items[0].goldFertilized && g.items[0].bait >= 1);
-  // Talents : Stegosaure content -> plus de fanage.
+  // Talents : Stegosaure vivant -> plus de fanage ; affame seulement : il protege encore (2026-10-26).
   set([{ ...base, id: 1, name: 'Stego', species: 'stego' }]);
   assert.equal(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours, 0);
   set([{ ...base, id: 1, name: 'Stego', species: 'stego', food: 5 }]);
+  assert.equal(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours, 0);
+  // En danger (affame ET malheureux) : plus de protection.
+  set([{ ...base, id: 1, name: 'Stego', species: 'stego', food: 5, happy: 5 }]);
   assert.ok(call('POST', 'garden', { body: { userId: 1 } }).json.wiltHours > 0);
   // Compagnon d'expedition : bonus de poussieres, revient affame.
   set([{ ...base, id: 1, name: 'Compagnon', species: 'long', happy: 100 }], { DinoCompanion: 1 });
@@ -1880,6 +1890,8 @@ function fakePack(userId, n = 5) {
 }
 
 await test('regles par difficulte : registre, admin (activer, desactiver, par mode), regles existantes rebranchees', () => {
+  // Edition du mode : hors evenement saisonnier (sinon Halloween impose la sienne).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SeasonalEventsEnabled: false } } });
   assert.equal(call('POST', 'admin-mode-rules', { body: { discordId: 'x' } }).status, 403);
   let st = call('POST', 'admin-mode-rules', { body: { discordId: ADMIN } }).json;
   assert.deepEqual(st.modes.map((m) => m.key), ['cool', 'chill', 'medium', 'hard', 'chaos']);
@@ -2952,6 +2964,8 @@ await test('gatchapon : une piece fait tomber une boule, ouverture par palier av
 });
 
 await test('Moka le chat : poisson donne, peche passive creditee une fois, jamais de booster, plafonds', () => {
+  // Sans pause de fatigue (pets.js) : rythme exact d'un lancer toutes les CatCastMinutes.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { PetRestMinutes: 0 } } });
   const cat = (action = 'status', count) => call('POST', 'cat', { body: { userId: 1, action, count } }).json;
   store.update('Users', 1, { CatFish: 0, CatState: '', CatFedDay: '', CatFedCount: 0, Worms: 100, FishingEnergy: null, ShopItemsWeek: '', ShopItemsBought: '{}', StardustCount: 5000 });
   assert.equal(cat('feed').error, 'no_cat_fish');
@@ -2984,11 +2998,11 @@ await test('Moka le chat : poisson donne, peche passive creditee une fois, jamai
   assert.equal(JSON.parse(user(1).CatState).done, 2);
   assert.equal(cat().catReport, null);
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
-  // Plafond du jour : 8 poissons.
+  // Plus de plafond du jour (2026-10-26) : seul le temps d'avance compte.
   store.update('Users', 1, { CatState: '', CatFedCount: 7, CatFish: 5 });
-  assert.equal(cat('feed', 2).error, 'cat_daily_limit');
-  assert.equal(cat('feed', 1).fed, 1);
+  assert.equal(cat('feed', 2).fed, 2);
   store.update('Users', 1, { CatState: '', CatFish: 0, CatFedCount: 0 });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'PetRestMinutes' } });
 });
 
 await test('aquarium : especes pechees, ferrage, records, paliers reclames une fois, thermos', () => {

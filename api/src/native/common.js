@@ -97,3 +97,18 @@ export function cardSummary(store, card) {
     rarity: rarity ? { id: rarity.id, key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null
   };
 }
+
+// Liste tiree une fois pour une periode puis figee (AppSettings), pour
+// qu'elle ne change pas en cours de route quand le contexte bouge (boss
+// vaincu, mode change...). compute() -> tableau de cles.
+export function frozenPick(store, key, period, compute) {
+  if (!store || !store.tables.has('AppSettings')) return compute();
+  const row = store.getAll('AppSettings').find((r) => r.Key === key);
+  let saved = null;
+  try { saved = row ? JSON.parse(row.Value) : null; } catch (e) { saved = null; }
+  if (saved && saved.period === period && Array.isArray(saved.keys)) return saved.keys;
+  const keys = compute();
+  const value = JSON.stringify({ period, keys });
+  if (row) store.update('AppSettings', row.id, { Value: value }); else store.create('AppSettings', { Key: key, Value: value });
+  return keys;
+}

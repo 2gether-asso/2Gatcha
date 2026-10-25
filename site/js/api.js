@@ -189,17 +189,29 @@ const API = {
         data = await this._post(name, { ...(body || {}), confirmEdition: true });
       }
       // Bonus d'un week-end evenement (api/src/native/events.js) : annonce.
-      if (data && data.eventBonus && typeof Toast !== "undefined") {
-        const b = data.eventBonus;
-        if (b.dust) Toast.success(`&#127881; ${b.label} : +${b.dust} poussières bonus !`);
-        else if (b.finishes) Toast.success(`&#127881; ${b.label} : ${b.finishes} finition${b.finishes > 1 ? "s" : ""} améliorée${b.finishes > 1 ? "s" : ""} !`);
-      }
+      // Ecritures en lot : bonus cumules sur tout le paquet.
+      const bonus = data && data.eventBonus ? data.eventBonus : data && Array.isArray(data.results) ? this._sumEventBonus(data.results) : null;
+      if (bonus) this._toastEventBonus(bonus);
       return data;
     } finally {
       // Une ecriture peut avoir change n'importe quelle lecture faite pendant
       // qu'elle tournait.
       this.invalidate();
     }
+  },
+
+  _sumEventBonus(results) {
+    const out = { dust: 0, worms: 0, finishes: 0, label: "" };
+    results.forEach((r) => { const b = r && r.json && r.json.eventBonus; if (!b) return; out.dust += b.dust || 0; out.worms += b.worms || 0; out.finishes += b.finishes || 0; out.label = b.label || out.label; });
+    return out.dust || out.worms || out.finishes ? out : null;
+  },
+  _toastEventBonus(b) {
+    if (typeof Toast === "undefined") return;
+    const parts = [];
+    if (b.dust) parts.push(`+${b.dust} poussières`);
+    if (b.worms) parts.push(`+${b.worms} vers`);
+    if (b.finishes) parts.push(`${b.finishes} finition${b.finishes > 1 ? "s" : ""} améliorée${b.finishes > 1 ? "s" : ""}`);
+    if (parts.length) Toast.success(`&#127881; ${String(b.label || "Événement").replace(/[<>&"]/g, "")} : ${parts.join(", ")} en bonus !`);
   },
 
   // Confirmation de la perte d'exemplaires en edition limitee.
@@ -858,6 +870,8 @@ const API = {
   modeExtra(userId, action = "status", params = {}) { return this.post("modeExtra", { userId, action, ...params }); },
   draft(userId, action = "status", params = {}) { return this.post("draft", { userId, action, ...params }); },
   skyTree(userId, action = "status", key) { return this.post("skyTree", { userId, action, key }); },
+  pets(userId, action = "status", pet) { return this.post("pets", { userId, action, pet }); },
+  archeo(userId, action = "status", extra = {}) { return this.post("archeo", { userId, action, ...extra }); },
   chaosVote(userId, action = "status", rule) { return this.post("chaosVote", { userId, action, rule }); },
   dogGift(userId, action = "status") { return this.post("dogGift", { userId, action }); },
   sundayMarket(userId, action = "status", cardId) { return this.post("sundayMarket", { userId, action, cardId }); },
@@ -871,6 +885,7 @@ const API = {
   findTreasure(userId, clue, page) { return this.post("treasureHunt", { userId, clue, page }); },
   getAccountPrestige(userId) { return this.get("accountPrestige", { userId }); },
   adminEvents(discordId, action = "list", params = {}) { return this.post("adminEvents", { discordId, action, ...params }); },
+  adminCosmetics(discordId, action = "list", params = {}) { return this.post("adminCosmetics", { discordId, action, ...params }); },
   chests(userId, action, count, tier) {
     return this.post("chests", { userId, action, ...(count ? { count } : {}), ...(tier ? { tier } : {}) });
   },

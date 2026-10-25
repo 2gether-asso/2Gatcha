@@ -169,8 +169,7 @@ export function beforeWorkflow({ store, path, request }) {
   if (body.action !== 'useBone') return null;
   const user = store.get('Users', Number(body.userId));
   if (!user) return null;
-  const max = setting(store, 'DogBonesPerDay');
-  if (max > 0 && bonesToday(user) >= max) return { status: 400, json: { error: 'dog_daily_limit', max } };
+  // Plus de limite d'os par jour (2026-10-26) : la fatigue de Milo (pets.js) la remplace.
   return null;
 }
 
@@ -210,8 +209,7 @@ export function afterWorkflow({ store, path, request, response }) {
   }
   if (boosters !== (Number(user.BoosterCount) || 0)) fields.BoosterCount = boosters;
   if (dust !== (Number(user.StardustCount) || 0)) fields.StardustCount = dust;
-  const maxBones = setting(store, 'DogBonesPerDay');
-  if (maxBones > 0) json.bonesLeftToday = Math.max(0, maxBones - (fields.BoneUseCount != null ? fields.BoneUseCount : bonesToday(user)));
+
   if (!Object.keys(fields).length) return;
   user = store.update('Users', user.id, fields);
   if ('newBoosterCount' in json) json.newBoosterCount = user.BoosterCount;

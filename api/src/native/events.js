@@ -20,6 +20,7 @@ import { publicView as featuresOff } from './features.js';
 import { chaosRule, nextMode } from './modeextras.js';
 import { publicSurprise } from './surprise.js';
 import { publicSeason } from './seasonal.js';
+import { publicStyles as cosmeticStyles } from './cosmetics.js';
 
 export const schema = {
   ScheduledEvents: {
@@ -78,7 +79,7 @@ function modeView(store) {
 }
 
 function handleStatus({ store }) {
-  return ok({ ...eventState(store), goldenHour: goldenState(store), gameMode: modeView(store), season: publicSeason(store), surprise: publicSurprise(store) });
+  return ok({ ...eventState(store), goldenHour: goldenState(store), gameMode: modeView(store), season: publicSeason(store), surprise: publicSurprise(store), cosmeticStyles: cosmeticStyles(store) });
 }
 
 function handleAdmin({ store, body }) {
@@ -133,22 +134,38 @@ function handleSchedule({ store, body }) {
   return ok({ now: t, current: eventState(store), events });
 }
 
-function grantDust(store, userId, bonus) {
-  const u = store.get('Users', Number(userId));
-  if (!u) return null;
-  return store.update('Users', u.id, { StardustCount: (u.StardustCount || 0) + bonus }).StardustCount;
-}
-
-// Bonus de poussieres sur une reponse { dustGained, newStardust? }.
-function boostDust(store, ev, userId, json, gained) {
-  if (!(gained > 0) || ev.dustMultiplier <= 1) return;
-  const bonus = Math.round(gained * (ev.dustMultiplier - 1));
-  if (!bonus) return;
-  const newStardust = grantDust(store, userId, bonus);
-  if (newStardust == null) return;
-  json.eventBonus = { dust: bonus, label: ev.label };
-  if ('newStardust' in json) json.newStardust = newStardust;
-  return bonus;
+// Bonus de poussieres / vers (2026-10-25) : calcule sur le GAIN NET reel de
+// la requete (apres tous les autres bonus et malus : bourse, talents...),
+// pour toutes les activites de jeu, workflows ET routes natives. Avant, le
+// bonus etait calcule sur le montant brut du workflow (decraft +3 reel mais
+// +10 de bonus) et oubliait la peche, le chien, les mineraux, le jardin...
+// index.js note le solde de depart de chaque joueur (ctx.balances) au premier
+// changement, puis appelle applyEventBonus a la fin de la requete.
+export const EVENT_PATHS = new Set(['disenchant', 'dig', 'expedition', 'fishing', 'minerals', 'garden', 'aquarium', 'dino', 'guess-card', 'cat', 'archeo', 'duo-expedition', 'guild-works']);
+export function applyEventBonus(store, path, ctx, response) {
+  if (!EVENT_PATHS.has(path) || !ctx.userId || !ctx.balances || !response || response.status !== 200) return;
+  const json = response.json;
+  if (!json || typeof json !== 'object' || Array.isArray(json) || response.raw) return;
+  const start = ctx.balances[ctx.userId];
+  if (!start) return;
+  const ev = eventState(store);
+  if (!ev.active || (ev.dustMultiplier <= 1 && ev.wormsMultiplier <= 1)) return;
+  const u = store.get('Users', ctx.userId);
+  if (!u) return;
+  const dustGain = (Number(u.StardustCount) || 0) - start.dust;
+  const wormGain = (Number(u.Worms) || 0) - start.worms;
+  const dust = dustGain > 0 && ev.dustMultiplier > 1 ? Math.round(dustGain * (ev.dustMultiplier - 1)) : 0;
+  const worms = wormGain > 0 && ev.wormsMultiplier > 1 ? Math.round(wormGain * (ev.wormsMultiplier - 1)) : 0;
+  if (!dust && !worms) return;
+  const row = store.update('Users', u.id, {
+    ...(dust ? { StardustCount: (Number(u.StardustCount) || 0) + dust } : {}),
+    ...(worms ? { Worms: (Number(u.Worms) || 0) + worms } : {})
+  });
+  json.eventBonus = { ...(json.eventBonus || {}), ...(dust ? { dust } : {}), ...(worms ? { worms } : {}), label: ev.label };
+  if (dust && 'newStardust' in json) json.newStardust = row.StardustCount;
+  if (dust && path === 'expedition' && json.reward && typeof json.reward.dust === 'number') json.reward.dust += dust;
+  if (worms && typeof json.worms === 'number') json.worms = row.Worms;
+  if (worms && 'newWorms' in json) json.newWorms = row.Worms;
 }
 
 function boostFinishes(store, ev, json) {
@@ -183,12 +200,8 @@ export function afterWorkflow({ store, path, request, response }) {
   if (!ev.active) return;
   const body = request.body || {};
   const json = response.json;
-  if (path === 'disenchant') boostDust(store, ev, body.userId, json, json.dustGained);
-  else if (path === 'dig' && body.action === 'dig') boostDust(store, ev, body.userId, json, json.dustGained);
-  else if (path === 'expedition' && body.action === 'claim' && json.reward) {
-    const bonus = boostDust(store, ev, body.userId, json, json.reward.dust);
-    if (bonus) json.reward.dust += bonus;
-  } else if (path === 'open-pack' && !body.dryRun) boostFinishes(store, ev, json);
+  // Poussieres et vers : applyEventBonus, a la fin de la requete (index.js).
+  if (path === 'open-pack' && !body.dryRun) boostFinishes(store, ev, json);
 }
 
 export const routes = {

@@ -65,8 +65,8 @@ function whatNow(store, user) {
   if (parisHour() >= EVENING_START) {
     const progress = user.EveningDay === today ? parse(user.EveningProgress, {}) : {};
     const claimedList = user.EveningDay === today ? parse(user.EveningClaimed, []) : [];
-    const left = eveningMissions(today).filter((m) => (Number(progress[m.key]) || 0) < m.target).length;
-    const claimable = eveningMissions(today).some((m) => (Number(progress[m.key]) || 0) >= m.target && !claimedList.includes(m.key));
+    const left = eveningMissions(today, store).filter((m) => (Number(progress[m.key]) || 0) < m.target).length;
+    const claimable = eveningMissions(today, store).some((m) => (Number(progress[m.key]) || 0) >= m.target && !claimedList.includes(m.key));
     if (claimable) add(66, 'evening-claim', '🌙', 'Récupère tes missions du soir', 'index.html#aujourdhui');
     else if (left) add(62, 'evening', '🌙', `${left} mission${left > 1 ? 's' : ''} du soir à faire avant minuit`, 'index.html#aujourdhui');
   }

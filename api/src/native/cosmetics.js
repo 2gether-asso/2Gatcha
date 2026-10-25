@@ -2,10 +2,17 @@
 // achetes avec des poussieres (nouvelle depense, sans effet sur le jeu) ou
 // gagnes (saison, collections thematiques, tournoi de peche).
 // Catalogue reglable dans l'admin (CosmeticsCatalog).
+// Editeur (2026-10-25, Admin > Contenu > Cosmetiques) : un objet peut porter
+// son propre style (style: { c1, c2, glow, anim }) au lieu d'une classe CSS
+// du site ; le site fabrique la regle .decor-<key> a partir de
+// event-status.cosmeticStyles. Un objet peut etre retire de la vente
+// (hidden) sans rien enlever a ceux qui l'ont ; desc et tag (nouveau,
+// limite, saison) s'affichent en boutique.
 //   POST /webhook/cosmetics { userId, action: 'status' | 'buy' | 'equip', key?, type? }
+//   POST /webhook/admin-cosmetics { discordId, action: 'list' | 'save' | 'delete' | 'grant', item?, key?, userId? }
 
-import { refId, now, ok, fail, userById } from './common.js';
-import { setting } from './settings.js';
+import { refId, now, ok, fail, userById, isAdmin } from './common.js';
+import { setting, setSettings, REGISTRY } from './settings.js';
 
 const TYPES = { title: 'EquippedTitle', frame: 'EquippedFrame', color: 'EquippedColor' };
 
@@ -14,7 +21,32 @@ export const schema = {
   Users: { EquippedTitle: { type: 'Text' }, EquippedFrame: { type: 'Text' }, EquippedColor: { type: 'Text' } }
 };
 
-const catalog = (store) => setting(store, 'CosmeticsCatalog').filter((c) => c && c.key && TYPES[c.type]);
+// Objets ajoutes par une mise a jour : montres meme si le catalogue a deja
+// ete personnalise dans l'admin, sauf si l'admin les a supprimes depuis
+// (AppSettings 'cosmeticsRemoved').
+const ADDED_2026_10_25 = ['frame-aurore', 'frame-citrouille', 'frame-ocean', 'color-aurore', 'color-menthe', 'title-pinceau', 'title-maitre-chien', 'title-emeraude'];
+function removedKeys(store) {
+  const r = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((x) => x.Key === 'cosmeticsRemoved') : null;
+  try { return new Set(r ? JSON.parse(r.Value) : []); } catch (e) { return new Set(); }
+}
+function storedCatalog(store) {
+  const list = setting(store, 'CosmeticsCatalog').filter((c) => c && c.key);
+  const have = new Set(list.map((c) => c.key));
+  const removed = removedKeys(store);
+  const added = REGISTRY.CosmeticsCatalog.def.filter((c) => ADDED_2026_10_25.includes(c.key) && !have.has(c.key) && !removed.has(c.key));
+  return [...list, ...added];
+}
+const allCatalog = (store) => storedCatalog(store).filter((c) => TYPES[c.type]);
+// En vente : sans les objets retires (hidden).
+export const catalog = (store) => allCatalog(store).filter((c) => !c.hidden);
+const ANIMS = ['none', 'pulse', 'spin', 'shine'];
+const isColor = (v) => /^#[0-9a-f]{6}$/i.test(String(v || ''));
+// Styles des objets qui en ont un (meme retires : ceux qui les ont les gardent).
+export function publicStyles(store) {
+  const out = {};
+  for (const c of allCatalog(store)) if (c.style && (c.type === 'frame' || c.type === 'color')) out[c.key] = { type: c.type, ...c.style };
+  return out;
+}
 const owned = (store, userId) => store.getAll('UserCosmetics').filter((r) => refId(r.User) === userId);
 
 // Donne un cosmetique gagne (titre de saison, de collection...). Idempotent.
@@ -83,7 +115,68 @@ function handleCosmetics({ store, body }) {
   return ok(state(store, user));
 }
 
-export const routes = { 'POST cosmetics': handleCosmetics };
+// --- editeur admin ------------------------------------------------------------
+function cleanItem(it) {
+  const key = String(it.key || '').trim().toLowerCase();
+  if (!/^(title|frame|color)-[a-z0-9-]{2,40}$/.test(key)) return { error: 'invalid_key' };
+  const type = String(it.type || '');
+  if (!TYPES[type] || !key.startsWith(type + '-')) return { error: 'invalid_type' };
+  const label = String(it.label || '').trim().slice(0, 60);
+  if (!label) return { error: 'invalid_label' };
+  const out = { key, type, label, price: Math.max(0, Math.min(1000000, Math.round(Number(it.price) || 0))) };
+  if (it.desc) out.desc = String(it.desc).slice(0, 160);
+  if (it.tag) out.tag = String(it.tag).slice(0, 20);
+  if (it.hidden) out.hidden = true;
+  if (type !== 'title' && it.style && typeof it.style === 'object') {
+    const st = it.style;
+    if (!isColor(st.c1)) return { error: 'invalid_style' };
+    out.style = { c1: st.c1.toLowerCase(), ...(isColor(st.c2) ? { c2: st.c2.toLowerCase() } : {}), glow: Math.max(0, Math.min(40, Math.round(Number(st.glow) || 0))), anim: ANIMS.includes(st.anim) ? st.anim : 'none' };
+  }
+  return { item: out };
+}
+function adminList(store) {
+  const counts = {};
+  if (store.tables.has('UserCosmetics')) for (const r of store.getAll('UserCosmetics')) counts[r.Key] = (counts[r.Key] || 0) + 1;
+  return { items: allCatalog(store).map((c) => ({ ...c, owners: counts[c.key] || 0 })), anims: ANIMS };
+}
+function handleAdmin({ store, body }) {
+  if (!isAdmin(body.discordId)) return fail('forbidden', 403);
+  const action = body.action || 'list';
+  const list = storedCatalog(store).slice();
+  if (action === 'save') {
+    const r = cleanItem(body.item || {});
+    if (r.error) return fail(r.error);
+    const i = list.findIndex((c) => c && c.key === r.item.key);
+    if (i >= 0) list[i] = r.item; else list.push(r.item);
+    const errors = setSettings(store, { CosmeticsCatalog: list });
+    if (errors.length) return fail('invalid_catalog', 400, { errors });
+    return ok({ ...adminList(store), saved: r.item.key });
+  }
+  if (action === 'delete') {
+    const key = String(body.key || '');
+    const owners = store.tables.has('UserCosmetics') ? store.getAll('UserCosmetics').filter((r) => r.Key === key).length : 0;
+    // Deja possede : retire de la vente seulement (les joueurs le gardent, style compris).
+    const next = owners ? list.map((c) => (c && c.key === key ? { ...c, hidden: true } : c)) : list.filter((c) => !c || c.key !== key);
+    const errors = setSettings(store, { CosmeticsCatalog: next });
+    if (!owners && !errors.length) {
+      const removed = [...removedKeys(store), key];
+      const row = store.getAll('AppSettings').find((x) => x.Key === 'cosmeticsRemoved');
+      if (row) store.update('AppSettings', row.id, { Value: JSON.stringify(removed) }); else store.create('AppSettings', { Key: 'cosmeticsRemoved', Value: JSON.stringify(removed) });
+    }
+    if (errors.length) return fail('invalid_catalog', 400, { errors });
+    return ok({ ...adminList(store), deleted: key, hiddenOnly: owners > 0 });
+  }
+  if (action === 'grant') {
+    const item = allCatalog(store).find((c) => c.key === String(body.key || ''));
+    const target = userById(store, body.userId);
+    if (!item || !target) return fail('not_found', 404);
+    return ok({ ...adminList(store), granted: grantCosmetic(store, target.id, item.key, { type: item.type, label: item.label }) });
+  }
+  if (action !== 'list') return fail('unknown_action');
+  return ok(adminList(store));
+}
+
+export const routes = { 'POST cosmetics': handleCosmetics, 'POST admin-cosmetics': handleAdmin };
 
 // Decorations du joueur connecte avec le statut des boosters (en-tete).
 export function afterWorkflow({ store, path, request, response }) {
