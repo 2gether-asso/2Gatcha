@@ -62,6 +62,7 @@
         <nav class="adm-nav" id="adm-nav" role="tablist" aria-label="Sections de l'administration">
           <button type="button" role="tab" data-pane="accueil"><span aria-hidden="true">&#127968;</span> Vue d'ensemble</button>
           <button type="button" role="tab" data-pane="codes"><span aria-hidden="true">&#127915;</span> Codes &amp; dons</button>
+          <button type="button" role="tab" data-pane="joueurs"><span aria-hidden="true">&#128100;</span> Joueurs</button>
           <button type="button" role="tab" data-pane="economie"><span aria-hidden="true">&#128176;</span> Économie</button>
           <button type="button" role="tab" data-pane="modes"><span aria-hidden="true">&#127922;</span> Difficultés</button>
           <button type="button" role="tab" data-pane="visuels"><span aria-hidden="true">&#127912;</span> Visuels</button>
@@ -81,8 +82,8 @@
             <section class="adm-card">
               <header class="adm-card-head"><h2>&#9889; Raccourcis</h2></header>
               <div class="adm-shortcuts">
-                <button type="button" class="adm-shortcut" data-goto="codes" data-focus="code-input"><span aria-hidden="true">&#127915;</span>Créer un code événement</button>
-                <button type="button" class="adm-shortcut" data-goto="codes" data-focus="gift-user-select"><span aria-hidden="true">&#127873;</span>Faire un don à un joueur</button>
+                <button type="button" class="adm-shortcut" data-goto="codes" data-focus="rw-code"><span aria-hidden="true">&#127915;</span>Créer un code événement</button>
+                <button type="button" class="adm-shortcut" data-goto="codes" data-focus="rw-app"><span aria-hidden="true">&#127873;</span>Faire un don à un joueur</button>
                 <button type="button" class="adm-shortcut" data-goto="evenements" data-focus="evd-label"><span aria-hidden="true">&#128197;</span>Planifier un événement</button>
                 <button type="button" class="adm-shortcut" data-goto="economie"><span aria-hidden="true">&#127918;</span>Changer le mode de jeu</button>
                 <a class="adm-shortcut" href="admin-db.html#extensions"><span aria-hidden="true">&#129513;</span>Ajouter une extension</a>
@@ -93,6 +94,12 @@
 
           <!-- ============================== Codes & dons ============================== -->
           <section class="adm-pane" id="pane-codes" role="tabpanel" data-title="Codes & dons" hidden>
+            <section class="adm-card rw-card">
+              <header class="adm-card-head"><h2>&#127873; Codes &amp; dons</h2><p>Tout ce qui se donne dans le jeu, en un seul endroit : boosters, poussières, clés, vers, os, tablettes, jetons du casino, XP ×2, cartes précises ou au hasard (finition, état, édition), cosmétiques. Un code peut cumuler plusieurs récompenses, commencer plus tard et avoir un nombre de joueurs limité ; un don peut viser plusieurs joueurs d'un coup.</p></header>
+              <div id="rw-app"><div class="loading-row"><div class="spinner"></div></div></div>
+            </section>
+            <details class="adm-card codes-legacy" id="codes-legacy">
+              <summary><strong>Formulaires classiques</strong> <small class="muted">(boosters ou une carte ; anciens codes et calendrier)</small></summary>
             <section class="adm-card">
               <header class="adm-card-head"><h2>&#127915; Codes événement</h2><p>Un code à distribuer pendant un événement de l'asso : boosters ou carte précise, durée et nombre de joueurs limités.</p></header>
               <form id="create-code-form" class="admin-form">
@@ -180,6 +187,15 @@
                 <label>Quantité <input type="number" id="gift-quantity-input" min="1" value="1" required /></label>
                 <button type="submit">Envoyer le don</button>
               </form>
+            </section>
+            </details>
+          </section>
+
+          <!-- ============================== Joueurs ============================== -->
+          <section class="adm-pane" id="pane-joueurs" role="tabpanel" data-title="Joueurs" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128100; Fiche d'un joueur</h2><p>En cas de bug : choisis un joueur pour corriger ses ressources, ses niveaux (XP et prestiges), ses énergies, sa série, ses tablettes et chacune de ses cartes (finition, état, édition, coffre-fort, suppression). Tout est inscrit au journal de l'économie.</p></header>
+              <div id="pa-app"><div class="loading-row"><div class="spinner"></div></div></div>
             </section>
           </section>
 
@@ -510,6 +526,9 @@
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
   <script src="js/admin-cosmetics.js"></script>
+  <script src="js/admin-rewards.js"></script>
+  <script src="js/admin-player.js"></script>
+  <script src="js/admin-search.js"></script>
   <script src="js/admin-home.js"></script>
   <script src="js/admin-bingo.js"></script>
   <script src="js/admin-modes.js"></script>

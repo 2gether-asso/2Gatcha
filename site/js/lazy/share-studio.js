@@ -11,7 +11,7 @@
 const ShareStudio = (function () {
   const esc = escHtml;
   const FORMATS = { post: { w: 1080, h: 1350, label: "Publication" }, story: { w: 1080, h: 1920, label: "Story" }, square: { w: 1080, h: 1080, label: "Carré" } };
-  const FINISH = { normal: "Normale", holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+  const FINISH = { normal: "Normale", holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
   const RAINBOW = ["#ff5aaa", "#ffbe46", "#6ee682", "#46beff", "#aa6eff"];
   const SANS = "Inter, 'Segoe UI', system-ui, sans-serif";
@@ -236,6 +236,7 @@ const ShareStudio = (function () {
     const frame = g.createLinearGradient(0, 0, w, h);
     if (finish === "rainbow") RAINBOW.forEach((cc, i) => frame.addColorStop(i / (RAINBOW.length - 1), cc));
     else if (finish === "gold") { frame.addColorStop(0, "#fff3c4"); frame.addColorStop(0.45, "#f5b82e"); frame.addColorStop(1, "#9a5b0c"); }
+    else if (finish === "emerald") { frame.addColorStop(0, "#a7f3d0"); frame.addColorStop(0.4, "#10b981"); frame.addColorStop(1, "#064e3b"); }
     else { frame.addColorStop(0, shade(col, 0.55)); frame.addColorStop(0.5, col); frame.addColorStop(1, shade(col, -0.45)); }
     rr(g, 0, 0, w, h, R);
     g.fillStyle = frame;
@@ -259,7 +260,7 @@ const ShareStudio = (function () {
     if (img) {
       const r = Math.max(aw / img.width, ah / img.height), sw = aw / r, sh = ah / r;
       const q = { damaged: "saturate(0.45) sepia(0.25) brightness(0.86)", worn: "saturate(0.7) brightness(0.94)", mint: "saturate(1.08) contrast(1.05)" }[opt.quality] || "";
-      const f = { gold: "sepia(0.45) saturate(1.6)", ghost: "grayscale(0.55) brightness(1.2)", diamond: "saturate(0.8) contrast(1.15) brightness(1.08)", holo: "saturate(1.25)", rainbow: "saturate(1.3)" }[finish] || "";
+      const f = { gold: "sepia(0.45) saturate(1.6)", ghost: "grayscale(0.55) brightness(1.2)", diamond: "saturate(0.8) contrast(1.15) brightness(1.08)", emerald: "saturate(1.15) contrast(1.16) brightness(1.06) hue-rotate(-6deg)", holo: "saturate(1.25)", rainbow: "saturate(1.3)" }[finish] || "";
       g.filter = (q + " " + f).trim() || "none";
       g.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, ax, ay, aw, ah);
       g.filter = "none";
@@ -295,6 +296,22 @@ const ShareStudio = (function () {
       g.globalCompositeOperation = "source-over";
       for (let i = 0; i < 6; i++) sparkle(g, ax + rand() * aw, ay + rand() * ah, aw * (0.02 + rand() * 0.03), "#ffffff", 0.9);
     }
+    // Emeraude : taille a gradins (anneaux concentriques a pans coupes), eclats verts.
+    if (finish === "emerald") {
+      sheen(["#6ee7b7", "#047857", "#d1fae5"], 0.32, "soft-light");
+      const ring = (i) => { const c = aw * (0.16 - i * 0.03), x0 = ax + aw * i * 0.09, y0 = ay + ah * i * 0.09, x1 = ax + aw - aw * i * 0.09, y1 = ay + ah - ah * i * 0.09; return [[x0 + c, y0], [x1 - c, y0], [x1, y0 + c], [x1, y1 - c], [x1 - c, y1], [x0 + c, y1], [x0, y1 - c], [x0, y0 + c]]; };
+      const rings = [0, 1, 2, 3, 4].map(ring);
+      const tones = [0.22, 0.1, -0.16, -0.1, -0.24, -0.12, 0.08, 0.16];
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 8; k++) {
+        const o = rings[r], n = rings[r + 1], k2 = (k + 1) % 8, t = tones[k] * 0.7 * (1 - r * 0.15);
+        g.fillStyle = t > 0 ? `rgba(236, 253, 245, ${t})` : `rgba(2, 44, 34, ${-t})`;
+        g.beginPath(); g.moveTo(...o[k]); g.lineTo(...o[k2]); g.lineTo(...n[k2]); g.lineTo(...n[k]); g.closePath(); g.fill();
+      }
+      g.strokeStyle = "rgba(209, 250, 229, 0.2)"; g.lineWidth = Math.max(1, w * 0.002);
+      rings.forEach((rg) => { g.beginPath(); rg.forEach((p, i) => (i ? g.lineTo(...p) : g.moveTo(...p))); g.closePath(); g.stroke(); });
+      for (let k = 0; k < 8; k++) { g.beginPath(); g.moveTo(...rings[0][k]); g.lineTo(...rings[4][k]); g.stroke(); }
+      for (let i = 0; i < 6; i++) sparkle(g, ax + rand() * aw, ay + rand() * ah, aw * (0.02 + rand() * 0.03), "#ecfdf5", 0.9);
+    }
     // Reflet de vitre.
     const glare = g.createLinearGradient(ax, ay, ax + aw, ay + ah);
     glare.addColorStop(0, "rgba(255,255,255,0)"); glare.addColorStop(0.38, "rgba(255,255,255,0)"); glare.addColorStop(0.47, "rgba(255,255,255,0.22)"); glare.addColorStop(0.53, "rgba(255,255,255,0)");
@@ -312,7 +329,7 @@ const ShareStudio = (function () {
     g.restore();
     rr(g, ax, ay, aw, ah, R * 0.45);
     g.lineWidth = Math.max(1, w * 0.006);
-    g.strokeStyle = opt.quality === "mint" ? "rgba(224,242,254,0.95)" : alpha(col, 0.9);
+    g.strokeStyle = finish === "emerald" ? "rgba(167,243,208,0.95)" : opt.quality === "mint" ? "rgba(224,242,254,0.95)" : alpha(col, 0.9);
     g.stroke();
     // Edition : bandeau en coin.
     if (opt.edition && EDITIONS[opt.edition]) {
@@ -396,7 +413,7 @@ const ShareStudio = (function () {
     background(g, W, H, pal, col, "card" + c.cardId + fmt);
     const opt = { finish: o.finish, quality: o.quality, edition: o.edition, serial: o.serial, number: o.number };
     const bits = [[(c.rarity && c.rarity.name) || "Commune", col]];
-    if (o.finish && o.finish !== "normal") bits.push([FINISH[o.finish] || o.finish, o.finish === "gold" ? "#fbbf24" : pal.a2]);
+    if (o.finish && o.finish !== "normal") bits.push([FINISH[o.finish] || o.finish, o.finish === "gold" ? "#fbbf24" : o.finish === "emerald" ? "#34d399" : pal.a2]);
     if (o.quality) bits.push([QUALITY[o.quality] || o.quality, "#94a3b8"]);
     if (o.edition && EDITIONS[o.edition]) bits.push([`Édition ${EDITIONS[o.edition].label}`, editionColor(o.edition)]);
     const owner = Session.pseudo ? `Dans la collection de ${Session.pseudo}` : "";
@@ -521,7 +538,7 @@ const ShareStudio = (function () {
       best.forEach((c, i) => {
         const k = n === 1 ? 0 : i / (n - 1) - 0.5;
         const angle = k * 0.42;
-        placeCard(g, W / 2 + k * cw * 1.45, cy + Math.abs(k) * 40, cw, angle, c, imgs[i], { finish: c.finish, quality: c.quality });
+        placeCard(g, W / 2 + k * cw * 1.45, cy + Math.abs(k) * 40, cw, angle, c, imgs[i], { finish: c.finish, quality: c.quality, edition: c.edition });
       });
 
     }
@@ -600,18 +617,68 @@ const ShareStudio = (function () {
       const cy = y + 40 + cw * 0.7;
       showcase.forEach((c, i) => {
         const k = showcase.length === 1 ? 0 : i / (showcase.length - 1) - 0.5;
-        placeCard(g, W / 2 + k * cw * 1.45, cy + Math.abs(k) * 36, cw, k * 0.4, c, imgs[i], {});
+        placeCard(g, W / 2 + k * cw * 1.45, cy + Math.abs(k) * 36, cw, k * 0.4, c, imgs[i], { finish: c.finish, quality: c.quality, edition: c.edition });
       });
     } else if (showcase.length) {
       // Carre : petit eventail a droite des statistiques.
       const cw = 150;
       showcase.forEach((c, i) => {
         const k = showcase.length === 1 ? 0 : i / (showcase.length - 1) - 0.5;
-        placeCard(g, 850 + k * cw * 1.1, ry + 30 + Math.abs(k) * 24, cw, k * 0.4, c, imgs[i], {});
+        placeCard(g, 850 + k * cw * 1.1, ry + 30 + Math.abs(k) * 24, cw, k * 0.4, c, imgs[i], { finish: c.finish, quality: c.quality, edition: c.edition });
       });
     }
     if (p.memberSince) footer(g, W, H, pal, `Membre depuis ${new Date(p.memberSince * 1000).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} · 2Gatcha, asso 2GETHER`);
     else footer(g, W, H, pal);
+    return cv;
+  }
+
+  // Salle des tresors du coffre-fort (2026-10-26) : les plus belles cartes
+  // rangees (emeraudes en tete), en vitrine sous projecteurs.
+  async function renderVault(fmt, d, pal) {
+    const { w: W, h: H } = FORMATS[fmt];
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    const story = fmt === "story", square = fmt === "square";
+    const cards = (d.cards || []).slice(0, square ? 6 : 9);
+    const imgs = await Promise.all(cards.map((c) => tryImg(API.imageUrl(c.imageId))));
+    background(g, W, H, pal, cards[0] && cards[0].finish === "emerald" ? "#10b981" : "#d6b98c", "vault" + (d.pseudo || "") + fmt);
+    // Velours sombre et projecteurs.
+    const vel = g.createLinearGradient(0, 0, 0, H);
+    vel.addColorStop(0, "rgba(26,15,31,0.55)"); vel.addColorStop(1, "rgba(11,7,16,0.85)");
+    g.fillStyle = vel; g.fillRect(0, 0, W, H);
+    let y = story ? 170 : square ? 80 : 110;
+    brand(g, W / 2 + 26, y, story ? 70 : 52, pal);
+    y += story ? 130 : square ? 80 : 100;
+    g.save(); g.textAlign = "center"; g.fillStyle = "#fde68a"; g.shadowColor = "rgba(253,230,138,0.6)"; g.shadowBlur = 22;
+    fitText(g, "Salle des trésors", W - 160, story ? 84 : square ? 56 : 68, 700, "Georgia, 'Times New Roman', serif");
+    g.fillText("Salle des trésors", W / 2, y);
+    g.shadowBlur = 0;
+    if (d.pseudo) { g.fillStyle = pal.dim; g.font = `700 ${story ? 36 : 28}px ${SANS}`; g.fillText(d.pseudo, W / 2, y + (story ? 56 : 44)); }
+    g.restore();
+    y += story ? 110 : square ? 70 : 86;
+    const bits = [[`${d.total} carte${d.total > 1 ? "s" : ""} au coffre`, "#d6b98c"]];
+    if (d.emeralds) bits.push([`${d.emeralds} maîtrise${d.emeralds > 1 ? "s" : ""} 💚`, "#34d399"]);
+    if (d.lines) bits.push([`${d.lines} ligne${d.lines > 1 ? "s" : ""} complète${d.lines > 1 ? "s" : ""}`, "#fde68a"]);
+    if (d.firsts) bits.push([`${d.firsts} × #001`, "#fbbf24"]);
+    chipsRow(g, bits, W / 2, y, square ? 22 : 26);
+    y += square ? 50 : 70;
+    // Grille de cartes : 3 colonnes, projecteur au-dessus de chacune.
+    const cols = 3, rows = Math.ceil(cards.length / cols) || 1;
+    const avail = H - y - (square ? 90 : 150);
+    const cw = Math.min((W - 160) / cols * 0.82, avail / rows / 1.4 * 0.86);
+    const cellW = (W - 120) / cols, cellH = avail / rows;
+    cards.forEach((c, i) => {
+      const col = i % cols, row = Math.floor(i / cols);
+      const inRow = Math.min(cols, cards.length - row * cols);
+      const cx = 60 + cellW * col + cellW / 2 + (cols - inRow) * cellW / 2;
+      const top = y + cellH * row + (cellH - cw * 1.4) / 2;
+      const spot = g.createRadialGradient(cx, top - cw * 0.1, 0, cx, top + cw * 0.3, cw * 1.1);
+      spot.addColorStop(0, c.finish === "emerald" ? "rgba(110,231,183,0.35)" : "rgba(255,244,214,0.28)"); spot.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = spot; g.fillRect(cx - cw * 1.1, top - cw * 0.3, cw * 2.2, cw * 1.9);
+      placeCard(g, cx, top + cw * 0.7, cw, 0, c, imgs[i], { finish: c.finish, quality: c.quality, edition: c.edition, serial: c.serial });
+    });
+    footer(g, W, H, pal, "Coffre-fort perso · 2Gatcha, asso 2GETHER");
     return cv;
   }
 
@@ -707,7 +774,7 @@ const ShareStudio = (function () {
 
   return {
     FORMATS,
-    renderCard, renderRecap, renderPlayer,
+    renderCard, renderRecap, renderPlayer, renderVault,
     // o : { card, finish, quality, edition, serial, number, owned } (card-extras.js)
     card(o) {
       return open({
@@ -718,6 +785,9 @@ const ShareStudio = (function () {
     },
     recap(r, from) {
       return open({ kind: "recap", title: `Ma semaine du ${from}`, file: "2gatcha-semaine", render: (f, pal) => renderRecap(f, { r, from }, pal) });
+    },
+    vault(d) {
+      return open({ kind: "vault", title: "Ma salle des trésors", file: "2gatcha-salle-des-tresors", render: (f, pal) => renderVault(f, d, pal) });
     },
     player(p) {
       return open({ kind: "player", title: `Profil de ${p.pseudo}`, file: "2gatcha-" + String(p.pseudo || "profil").toLowerCase().replace(/[^a-z0-9]+/gi, "-"), render: (f, pal) => renderPlayer(f, p, pal) });

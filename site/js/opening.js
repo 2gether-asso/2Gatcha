@@ -112,7 +112,7 @@ function buildCardEl(card, index, cardBackImageId) {
     const front = document.createElement("div");
     front.className = "card-face card-front loot-front loot-" + card.lootType;
     front.innerHTML = `
-      <div class="card-art loot-art"><span class="loot-icon" aria-hidden="true">${card.lootType === "dust" ? "&#10024;" : "&#127873;"}</span></div>
+      <div class="card-art loot-art"><span class="loot-icon" aria-hidden="true">${card.lootType === "dust" ? "&#10024;" : card.icon ? escHtml(card.icon) : "&#127873;"}</span></div>
       <div class="card-info">
         <div class="card-name">${card.name}</div>
         <div class="card-artist">Trouvé dans le coffre</div>
@@ -360,7 +360,7 @@ function renderRevealSummary() {
   const colors = {};
   cards.forEach((c) => { const k = c.rarity?.key || "commune"; counts[k] = (counts[k] || 0) + 1; colors[k] = c.rarity?.colorHex || "#9aa0b4"; });
   const pills = order.filter((k) => counts[k]).map((k) => `<span class="summary-pill" style="--pill-color:${colors[k]};">${rarityIcon(k)} ${counts[k]} ${cards.find((c) => (c.rarity?.key || "commune") === k).rarity?.name || k}</span>`);
-  items.filter((c) => c.lootType).forEach((c) => pills.push(`<span class="summary-pill" style="--pill-color:${c.rarity.colorHex};">${c.lootType === "dust" ? "&#10024;" : "&#127873;"} ${c.name}</span>`));
+  items.filter((c) => c.lootType).forEach((c) => pills.push(`<span class="summary-pill" style="--pill-color:${c.rarity.colorHex};">${c.lootType === "dust" ? "&#10024;" : c.icon ? escHtml(c.icon) : "&#127873;"} ${c.name}</span>`));
   const notable = [];
   const seen = new Set();
   cards.forEach((c) => {
@@ -1559,6 +1559,8 @@ function chestItemsToCards(items) {
   return items.map((it) => {
     if (it.type === "dust") return { lootType: "dust", cardId: 0, name: `+${it.amount} poussières`, rarity: { key: "commune", name: "Poussières", colorHex: "#f472b6" } };
     if (it.type === "booster") return { lootType: "booster", cardId: 0, name: `+${it.count} jeton${it.count > 1 ? "s" : ""} booster`, rarity: { key: "rare", name: "Booster", colorHex: "#22d3ee" } };
+    // Bonus du coffre (2026-10-26) : ressources des autres jeux.
+    if (it.type === "resource") return { lootType: "resource", icon: it.icon, cardId: 0, name: it.label, rarity: { key: "commune", name: "Bonus", colorHex: "#a3e635" } };
     return it.card;
   });
 }
@@ -1597,7 +1599,7 @@ async function startChestOpening() {
     hint.textContent = "Tape sur chaque objet pour le révéler";
     const n = Number(res.opened) || 1;
     // Recapitulatif du butin (regroupe quand plusieurs coffres).
-    lastPackTags = [{ kind: "chest", html: `&#129520; ${n > 1 ? `${n} coffres` : "Coffre"} : +${res.dust} &#10024;${res.boosters ? ` · +${res.boosters} jeton${res.boosters > 1 ? "s" : ""} booster` : ""} · ${res.cardCount ?? realCards.length} carte${(res.cardCount ?? realCards.length) > 1 ? "s" : ""}`, short: n > 1 ? `${n} coffres ouverts` : "coffre ouvert" }];
+    lastPackTags = [{ kind: "chest", html: `&#129520; ${n > 1 ? `${n} coffres` : "Coffre"} : +${res.dust} &#10024;${res.boosters ? ` · +${res.boosters} jeton${res.boosters > 1 ? "s" : ""} booster` : ""} · ${res.cardCount ?? realCards.length} carte${(res.cardCount ?? realCards.length) > 1 ? "s" : ""}${(res.extras || []).length ? ` · ${res.extras.map((x) => `${escHtml(x.icon)} ${escHtml(x.label)}`).join(" · ")}` : ""}`, short: n > 1 ? `${n} coffres ouverts` : "coffre ouvert" }];
     renderPackTags(lastPackTags);
     realCards.forEach((card) => {
       const before = ownedCountMap.get(card.cardId) || 0;

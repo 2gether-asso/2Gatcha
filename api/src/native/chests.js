@@ -20,6 +20,7 @@ import { refId, now, ok, fail, userById, levelForXp, firstAttachment } from './c
 import { setting } from './settings.js';
 import { price as indexed } from './inflation.js';
 import { visualLabel } from './visuals.js';
+import { RESOURCES, grant } from './rewards.js';
 
 export const schema = {
   Users: { ChestCount: { type: 'Numeric' }, ChestLevelGranted: { type: 'Numeric' }, ChestBalls: { type: 'Text' } }
@@ -137,6 +138,28 @@ function drawCard(store, userId, batchId, { tilt = 1, finishK = 1 } = {}) {
   };
 }
 
+// Bonus du coffre (ChestExtraLoot, 2026-10-26) : des ressources des autres
+// jeux, tirees a chaque coffre ; k = facteur du palier (1 hors gatchapon).
+function rollExtras(store, n, k = 1) {
+  const rows = (setting(store, 'ChestExtraLoot') || []).filter((l) => l && RESOURCES[l.key]);
+  const got = new Map();
+  for (let i = 0; i < n; i++) {
+    for (const l of rows) {
+      if (Math.random() >= Math.min(0.95, (Number(l.chance) || 0) * k)) continue;
+      const lo = Math.max(1, Math.round(Number(l.min) || 1)), hi = Math.max(lo, Math.round(Number(l.max) || lo));
+      const q = Math.round((lo + Math.floor(Math.random() * (hi - lo + 1))) * Math.max(1, Math.sqrt(k)));
+      got.set(l.key, (got.get(l.key) || 0) + q);
+    }
+  }
+  return [...got].map(([key, q]) => ({ type: 'resource', key, n: Math.min(q, RESOURCES[key].max) }));
+}
+// Donne les bonus et renvoie les objets du butin (icone et libelle).
+function giveExtras(store, userId, lines, batchId) {
+  if (!lines.length) return [];
+  const g = grant(store, userId, lines, batchId);
+  return lines.map((l, i) => ({ type: 'resource', key: l.key, amount: l.n, icon: (g.rewards[i] || {}).icon || RESOURCES[l.key].icon, label: (g.rewards[i] || {}).label || `+${l.n} ${RESOURCES[l.key].many}` }));
+}
+
 function handleChests({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
@@ -189,10 +212,13 @@ function handleChests({ store, body }) {
       StardustCount: (Number(user.StardustCount) || 0) + dust,
       BoosterCount: (Number(user.BoosterCount) || 0) + boosters
     });
+    const bonus = giveExtras(store, user.id, rollExtras(store, n, k), batchId);
+    user = store.get('Users', user.id);
     const items = [{ type: 'dust', amount: dust }];
     if (boosters) items.push({ type: 'booster', count: boosters });
+    items.push(...bonus);
     cards.sort((a, b) => a.rarity.sortOrder - b.rarity.sortOrder).forEach((card) => items.push({ type: 'card', card }));
-    return ok(statusOf(store, user, { ...extra, opened: n, tier: tierView(store, CHEST_TIERS[tier - 1]), batchId, items, dust, boosters, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
+    return ok(statusOf(store, user, { ...extra, opened: n, tier: tierView(store, CHEST_TIERS[tier - 1]), batchId, items, dust, boosters, extras: bonus, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
   }
 
   if (body.action === 'open') {
@@ -218,10 +244,13 @@ function handleChests({ store, body }) {
     });
     // Ordre de revelation : poussieres, boosters, puis cartes de la moins a
     // la plus rare (le meilleur en dernier, comme a l'ouverture d'un booster).
+    const bonus = giveExtras(store, user.id, rollExtras(store, n), batchId);
+    user = store.get('Users', user.id);
     const items = [{ type: 'dust', amount: dust }];
     if (boosters) items.push({ type: 'booster', count: boosters });
+    items.push(...bonus);
     cards.sort((a, b) => a.rarity.sortOrder - b.rarity.sortOrder).forEach((card) => items.push({ type: 'card', card }));
-    return ok(statusOf(store, user, { ...extra, opened: n, batchId, items, dust, boosters, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
+    return ok(statusOf(store, user, { ...extra, opened: n, batchId, items, dust, boosters, extras: bonus, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
   }
 
   return ok(statusOf(store, user, extra));

@@ -105,7 +105,7 @@
   function protectedTilesHtml(card) {
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
     return (state.protectedMap.get(card.cardId) || []).filter((c) => variantMatches(Coll.finishOf(c), "mint", c.serialNumber === 1 ? [1] : [], copyEditions([c]))).map((c) => `
-      <div class="collection-card protected-card" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${Coll.finishOf(c)}" data-quality="mint"${copyEditions([c])[0] ? ` data-edition="${copyEditions([c])[0]}"` : ""} title="Rangée dans ton coffre-fort : clique pour la gérer">
+      <div class="collection-card protected-card" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${Coll.finishOf(c)}" data-quality="mint"${copyEditions([c])[0] ? ` data-edition="${copyEditions([c])[0]}"` : ""} title="Rangée dans ton coffre-fort : clique pour l'examiner">
         <button type="button" class="fav-btn ${favorites.has(card.cardId) ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>
         <div class="card-art">
           <img src="${imgSrc}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" />
@@ -132,7 +132,8 @@
   function lockedTileHtml(card) {
     const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
     const craftCost = Coll.craftCostOf(card);
-    const craftable = card.inCatalog && !card.isPromo && craftCost != null && state.stardust >= craftCost && !Coll.isLocked("craft");
+    const coupon = Coll.couponOf(card);
+    const craftable = card.inCatalog && !card.isPromo && craftCost != null && Coll.canCraftNow(card) && !Coll.isLocked("craft");
     const inWishlist = state.wishlist.has(card.cardId);
     const wl = inWishlist ? "Retirer de ma liste de souhaits" : "Ajouter à ma liste de souhaits : tu seras prévenu dès qu'elle est disponible";
     return `
@@ -145,7 +146,7 @@
         <div class="card-info">
           <div class="card-name">???</div>
           ${Coll.rarityBadge(card)}
-          ${craftable ? `<button type="button" class="card-quick-action quick-craft-btn" data-card-id="${card.cardId}">&#10024; Crafter (${craftCost})</button>` : ""}
+          ${craftable ? `<button type="button" class="card-quick-action quick-craft-btn" data-card-id="${card.cardId}">&#10024; Crafter (${coupon ? `${craftCost - coupon.refund} avec ton bon` : craftCost})</button>` : ""}
         </div>
       </div>`;
   }
@@ -349,7 +350,14 @@
         else if (a === "quality") repairQuality(cardId, act.dataset.quality);
         return;
       }
-      if (tile.classList.contains("protected-card") && !e.target.closest("a")) { location.href = "coffre.html"; return; }
+      // Carte au coffre (2026-10-26) : l'inspecteur avec ses exemplaires rangés, et un lien vers le coffre.
+      if (tile.classList.contains("protected-card") && !e.target.closest("a")) {
+        const card = cardOf(cardId);
+        const copies = state.protectedMap.get(cardId) || [];
+        const variants = copies.map((c) => ({ finish: Coll.finishOf(c), quality: "mint", edition: copyEditions([c])[0] || "", count: 1 }));
+        LazyJs.load("js/lazy/card-inspector.js").then(() => CardInspector.open({ card, finish: tile.dataset.finish || "normal", quality: "mint", edition: tile.dataset.edition || "", variants, actions: [{ label: "🔒 Gérer au coffre", href: "coffre.html" }] })).catch(() => { location.href = "coffre.html"; });
+        return;
+      }
       if (!tile.dataset.navKey) return;
       // Selection multiple : un clic n'importe ou sur la vignette la coche.
       if (bulkSelectMode && tile.classList.contains("bulk-mode")) {
@@ -679,13 +687,16 @@
   async function craftQuick(cardId) {
     const card = cardOf(cardId);
     const cost = (card && Coll.craftCostOf(card)) || 0;
+    const coupon = Coll.couponOf(card);
+    const back = coupon ? coupon.refund : 0;
     const ok = await Confirm.show(
-      `Crafter <strong>${escapeHtml(card?.name || "cette carte")}</strong> pour <strong>${cost} poussières d'étoile</strong> ? Solde : ${state.stardust} &rarr; <strong>${state.stardust - cost}</strong>.`,
+      `Crafter <strong>${escapeHtml(card?.name || "cette carte")}</strong> pour <strong>${cost} poussières d'étoile</strong>${back ? `, dont <strong>${back}</strong> rendues tout de suite par ton bon de craft (−${coupon.pct} %)` : ""} ? Solde : ${state.stardust} &rarr; <strong>${state.stardust - cost + back}</strong>.`,
       { title: "Crafter cette carte ?", confirmText: "Crafter" });
     if (!ok) return;
     try {
       const res = await API.craftCard(Session.userId, cardId);
-      Toast.success(`${res.card.name} craftée !`);
+      const receipt = Coll.craftReceipt(res);
+      Toast.success(`${res.card.name} craftée !${receipt ? ` ${receipt}` : ""}`);
       if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
       await Coll.refresh();
     } catch (e) {
@@ -875,10 +886,18 @@
     const wasIn = state.showcase.has(cardId);
     try {
       if (wasIn) { await API.removeFromShowcase(Session.userId, cardId); state.showcase.delete(cardId); Toast.info("Retirée de ta vitrine."); }
-      else { await API.addToShowcase(Session.userId, cardId); state.showcase.add(cardId); Toast.success("Ajoutée à ta vitrine !"); }
-      document.querySelectorAll(`#collection-grid .collection-card[data-card-id="${cardId}"] .quick-showcase-btn`).forEach((b) => {
-        b.classList.toggle("active", !wasIn);
-        b.title = !wasIn ? "Retirer de ma vitrine" : "Ajouter à ma vitrine";
+      else if (state.showcase.size >= 6) {
+        // Vitrine pleine (2026-10-26) : on choisit la carte a remplacer.
+        await LazyJs.load("js/lazy/showcase.js");
+        const r = await ShowcaseKit.add(cardId, (cardOf(cardId) || {}).name);
+        if (!r) return;
+        state.showcase = new Set(r.items.map((c) => c.cardId));
+        Toast.success("Ajoutée à ta vitrine à la place d'une autre.");
+      } else { await API.addToShowcase(Session.userId, cardId); state.showcase.add(cardId); Toast.success(`Ajoutée à ta vitrine (${state.showcase.size}/6) !`); }
+      document.querySelectorAll("#collection-grid .collection-card[data-card-id] .quick-showcase-btn").forEach((b) => {
+        const on = state.showcase.has(Number(b.closest("[data-card-id]").dataset.cardId));
+        b.classList.toggle("active", on);
+        b.title = on ? "Retirer de ma vitrine" : "Ajouter à ma vitrine";
         b.setAttribute("aria-label", b.title);
       });
     } catch (e) {
@@ -1052,5 +1071,27 @@
     }, { passive: true });
     $("bulk-select-toggle").addEventListener("click", () => setBulkMode(!bulkSelectMode));
     $("bulk-disenchant-btn").addEventListener("click", bulkDisenchant);
+    advancedFilters();
   });
+
+  // Telephone (2026-10-26) : les lignes Affiner / Affichage sont repliees
+  // derriere un bouton qui compte les filtres actifs, pour que les cartes
+  // arrivent plus vite a l'ecran. Rien ne change sur ordinateur.
+  function advancedFilters() {
+    const bar = $("shared-toolbar"), btn = $("adv-filters-toggle"), out = $("adv-count");
+    if (!bar || !btn) return;
+    const KEY = "2gatcha_coll_adv";
+    let open = false;
+    try { open = localStorage.getItem(KEY) === "1"; } catch (e) { /* stockage indisponible */ }
+    const paint = () => { bar.classList.toggle("adv-open", open); btn.setAttribute("aria-expanded", String(open)); };
+    const count = () => {
+      const rows = [...bar.querySelectorAll(".toolbar-row[data-only-mode]")];
+      const n = rows.reduce((a, r) => a + [...r.querySelectorAll("select")].filter((s) => s.value).length + r.querySelectorAll(".btn-secondary.active").length, 0);
+      out.textContent = n; out.hidden = !n;
+    };
+    btn.addEventListener("click", () => { open = !open; paint(); try { localStorage.setItem(KEY, open ? "1" : "0"); } catch (e) { /* idem */ } });
+    bar.addEventListener("change", count);
+    bar.addEventListener("click", () => setTimeout(count, 0));
+    paint(); count();
+  }
 })();

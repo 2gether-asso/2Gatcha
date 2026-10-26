@@ -160,50 +160,87 @@ async function renderFishExtras(st) {
 // Jardin (api/src/native/garden.js) : 4 parcelles, vers et appats dores.
 // -----------------------------------------------------------------------
 let gardenTimer = null;
-let gardenSeed = "mix";
+let gardenSeed = (() => { try { return localStorage.getItem("2gatcha_garden_seed") || "mix"; } catch (e) { return "mix"; } })();
 let gardenState = null;
-const SEED_ICONS = { mix: "&#127793;", worm: resIcon("worm"), bait: resIcon("bait"), dust: "&#127776;" };
+// Refonte du 26 octobre : sachets de graines, champ (ciel jour / nuit,
+// cloture, tournesols, abeilles, epouvantail), sillons, anneau de pousse,
+// plantation parcelle par parcelle, « caca partout », gains qui s'envolent.
+const SEED_ICONS = { mix: "&#127793;", worm: resIcon("worm"), bait: resIcon("bait"), dust: "&#127776;", catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;" };
 // Culture prete : selon la graine (melange : legume different selon la parcelle).
 const CROP_ART = { worm: "Jardin/Champi.PNG", bait: "Jardin/Blé.png", dust: "Jardin/Gingembre.PNG" };
+const CROP_EMOJI = { catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;" };
 const MIX_ART = ["Jardin/Carotte.png", "Jardin/Brocoli.png", "Jardin/Poivron.png"];
-const gardenCrop = (p, i) => CROP_ART[p.seed] || MIX_ART[i % MIX_ART.length];
+const gardenCrop = (p, i) => (CROP_EMOJI[p.seed] ? `<span class="gp-emoji">${CROP_EMOJI[p.seed]}</span>` : artImg(CROP_ART[p.seed] || MIX_ART[i % MIX_ART.length]));
+const gardenLeft = (s) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.ceil((s % 3600) / 60)).padStart(2, "0")}` : `${Math.max(1, Math.ceil(s / 60))} min`);
 function renderGardenSeeds(st) {
   const el = document.getElementById("garden-seeds");
   if (!el || !st.seeds) return;
+  if (!st.seeds.some((s) => s.key === gardenSeed && !s.locked)) gardenSeed = "mix";
   el.innerHTML = st.seeds.map((s) => `
-    <button type="button" role="radio" aria-checked="${gardenSeed === s.key}" class="garden-seed ${gardenSeed === s.key ? "active" : ""}" data-seed="${s.key}">
+    <button type="button" role="radio" aria-checked="${gardenSeed === s.key}" class="garden-seed seed-${s.key} ${gardenSeed === s.key ? "active" : ""} ${s.locked ? "locked" : ""}" data-seed="${s.key}" ${s.locked ? `disabled title="Se débloque au niveau ${s.level} de jardinage"` : ""}>
       <span class="garden-seed-icon" aria-hidden="true">${SEED_ICONS[s.key] || s.icon}</span>
-      <span class="garden-seed-body"><strong>${s.label}</strong><small>${s.desc}</small><small>${s.cost} &#10024; · ${s.growHours} h</small></span>
+      <span class="garden-seed-body"><strong>${escHtml(s.label)}</strong><small>${escHtml(s.desc)}</small>
+        <span class="garden-seed-price">${s.locked ? `&#128274; Niv. ${s.level}` : `${s.cost} &#10024; · ${s.growHours} h`}</span></span>
     </button>`).join("");
-  el.querySelectorAll(".garden-seed").forEach((b) => b.addEventListener("click", () => { gardenSeed = b.dataset.seed; renderGarden(gardenState); }));
+}
+function gardenSky() {
+  const h = new Date().getHours();
+  return h >= 21 || h < 6 ? "night" : h < 8 ? "dawn" : h >= 19 ? "dusk" : "day";
 }
 function renderGarden(st) {
   gardenState = st;
   renderGardenSeeds(st);
   const seedCost = (st.seeds || []).find((s) => s.key === gardenSeed)?.cost ?? st.plantCost;
-  document.getElementById("garden-meta").innerHTML = `${resIcon("worm")} <strong>${st.worms}</strong> vers · ${resIcon("bait")} <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""} · une plantation coûte ${st.plantCost} &#10024; et pousse ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât par récolte${st.wiltHours ? ` · une plante prête fane au bout de ${st.wiltHours} h` : ""}`
-    + (st.fertilizer || st.goldFertilizer ? `<span class="garden-fert">${POOP} <strong>${st.fertilizer}</strong> engrais de dino${st.goldFertilizer ? ` · ${GOLD_POOP} <strong class="gold">${st.goldFertilizer}</strong> doré${st.goldFertilizer > 1 ? "s" : ""} (parcelle prête tout de suite, appât garanti)` : ""}</span>` : "")
-    + (st.streak ? `<span class="garden-streak">&#128293; ${st.streak} jour${st.streak > 1 ? "s" : ""} de récolte d'affilée${st.rareChance ? ` · ${Math.round(st.rareChance * 100)} % de récolte rare demain` : " · récolte rare dès 3 jours"}</span>` : "");
+  const chip = (html, cls = "", title = "") => `<span class="gm-chip ${cls}"${title ? ` title="${title}"` : ""}>${html}</span>`;
+  document.getElementById("garden-meta").innerHTML = `<div class="gm-chips">`
+    + chip(`${resIcon("worm")} <strong>${st.worms}</strong> vers`)
+    + chip(`${resIcon("bait")} <strong>${st.goldBait}</strong> appât${st.goldBait > 1 ? "s" : ""} doré${st.goldBait > 1 ? "s" : ""}`, "gold")
+    + chip(`${POOP} <strong>${st.fertilizer || 0}</strong> engrais`, "poop", "Les cacas de tes dinos : pousse accélérée et récolte doublée")
+    + (st.goldFertilizer ? chip(`${GOLD_POOP} <strong>${st.goldFertilizer}</strong> doré${st.goldFertilizer > 1 ? "s" : ""}`, "gold", "Parcelle prête tout de suite, appât doré garanti") : "")
+    + (st.catFish ? chip(`&#128031; <strong>${st.catFish}</strong> pour Moka`) : "")
+    + (st.bones ? chip(`&#129460; <strong>${st.bones}</strong> os`) : "")
+    + (st.streak ? chip(`&#128293; <strong>${st.streak}</strong> jour${st.streak > 1 ? "s" : ""} d'affilée${st.rareChance ? ` · ${Math.round(st.rareChance * 100)} % de récolte rare` : ""}`, "streak", "Récolte rare dès 3 jours de suite") : "")
+    + `</div><small class="gm-info">Pousse de base ${st.growHours} h · ${Math.round(st.baitChance * 100)} % de chances d'appât doré par récolte${st.wiltHours ? ` · une plante prête fane au bout de ${st.wiltHours} h` : " · tes plantes ne fanent pas"}</small>`;
   const t = Date.now() / 1000;
+  const field = document.getElementById("garden-field");
+  if (field) field.dataset.sky = gardenSky();
   document.getElementById("garden-plots").innerHTML = st.plots.map((p, i) => {
-    if (!p.planted) return `<div class="garden-plot empty"><span class="garden-soil" aria-hidden="true"></span><span class="garden-label">Parcelle libre</span></div>`;
+    if (!p.planted) return `<div class="garden-plot empty" data-plot="${i}"><span class="gp-furrows" aria-hidden="true"></span><button type="button" class="gp-plant" data-plant-plot="${i}" ${st.stardust < seedCost ? "disabled" : ""}>+ Planter ici<small>${SEED_ICONS[gardenSeed] || ""} ${seedCost} &#10024;</small></button></div>`;
     const pct = Math.min(100, Math.round(((t - p.plantedAt) / (p.readyAt - p.plantedAt)) * 100));
-    const stage = artImg(p.wilted ? "Jardin/Fanee.PNG" : pct >= 100 ? gardenCrop(p, i) : pct >= 25 ? "Jardin/Pousse.png" : "Jardin/Graine.png");
+    const ready = pct >= 100;
+    const stage = p.wilted ? artImg("Jardin/Fanee.PNG") : ready ? gardenCrop(p, i) : pct >= 25 ? artImg("Jardin/Pousse.png") : artImg("Jardin/Graine.png");
     const left = Math.max(0, Math.round(p.readyAt - t));
     const wiltLeft = p.wiltAt ? Math.max(0, Math.round(p.wiltAt - t)) : null;
-    return `<div class="garden-plot ${pct >= 100 ? "ready" : ""} ${p.wilted ? "wilted" : ""}">${p.seed && p.seed !== "mix" ? `<span class="garden-seed-tag" title="${(st.seeds || []).find((s) => s.key === p.seed)?.label || ""}">${SEED_ICONS[p.seed] || ""}</span>` : ""}<span class="garden-plant" aria-hidden="true">${stage}</span>
-      <div class="challenge-bar"><div style="width:${pct}%"></div></div>
-      ${p.goldFertilized ? `<span class="garden-fert-tag" title="Engrais doré : appât doré garanti">${GOLD_POOP}</span>` : p.fertilized ? '<span class="garden-fert-tag" title="Engrais de dino : pousse accélérée, vers doublés">&#128169;</span>' : ""}
-      ${pct < 100 && st.fertilizer && !p.fertilized ? `<button type="button" class="btn-ghost garden-fert-btn" data-fertilize="${p.plot}" title="Engrais de dino : saute une partie de la pousse et double les vers">&#128169; Engrais</button>` : ""}
-      ${pct < 100 && st.goldFertilizer && !p.goldFertilized ? `<button type="button" class="btn-ghost garden-fert-btn gold" data-fertilize="${p.plot}" data-gold="1" title="Engrais doré : prête tout de suite, appât doré garanti">${GOLD_POOP} Doré</button>` : ""}
-      <span class="garden-label">${p.wilted ? "Fanée : récolte réduite" : pct >= 100 ? (wiltLeft != null && wiltLeft < 6 * 3600 ? `Prête ! Fane dans ${Math.max(1, Math.round(wiltLeft / 3600))} h` : "Prête à récolter !") : `Encore ${left >= 3600 ? Math.floor(left / 3600) + " h " : ""}${Math.ceil((left % 3600) / 60)} min`}</span></div>`;
+    const seedName = (st.seeds || []).find((s) => s.key === p.seed)?.label || "Mélange";
+    return `<div class="garden-plot ${ready ? "ready" : "growing"} ${p.wilted ? "wilted" : ""} ${p.fertilized ? "fert" : ""}" data-plot="${i}" style="--p:${pct}">
+      <span class="gp-furrows" aria-hidden="true"></span>
+      <span class="gp-tag" title="${escHtml(seedName)}">${SEED_ICONS[p.seed || "mix"] || ""}</span>
+      ${p.goldFertilized ? `<span class="garden-fert-tag" title="Engrais doré : appât doré garanti">${GOLD_POOP}</span>` : p.fertilized ? `<span class="garden-fert-tag" title="Engrais de dino : pousse accélérée, récolte doublée">${POOP}</span>` : ""}
+      <span class="garden-plant stage-${p.wilted ? "wilted" : ready ? "ready" : pct >= 25 ? "sprout" : "seed"}" aria-hidden="true">${stage}</span>
+      ${ready && !p.wilted ? `<span class="gp-sparkles" aria-hidden="true"><i></i><i></i><i></i></span>` : ""}
+      ${!ready ? `<span class="gp-ring" aria-hidden="true"></span>` : ""}
+      <span class="garden-label">${p.wilted ? "Fanée : récolte réduite" : ready ? (wiltLeft != null && wiltLeft < 6 * 3600 ? `Prête ! Fane dans ${Math.max(1, Math.round(wiltLeft / 3600))} h` : "Prête à récolter !") : `Encore ${gardenLeft(left)}`}</span>
+      ${!ready && (st.fertilizer && !p.fertilized || st.goldFertilizer && !p.goldFertilized) ? `<span class="gp-fert-btns">${st.fertilizer && !p.fertilized ? `<button type="button" class="garden-fert-btn" data-fertilize="${p.plot}" title="Engrais de dino : saute une partie de la pousse et double la récolte">${POOP}</button>` : ""}${st.goldFertilizer && !p.goldFertilized ? `<button type="button" class="garden-fert-btn gold" data-fertilize="${p.plot}" data-gold="1" title="Engrais doré : prête tout de suite, appât doré garanti">${GOLD_POOP}</button>` : ""}</span>` : ""}
+    </div>`;
   }).join("");
-  document.getElementById("garden-plant-btn").disabled = !st.plots.some((p) => !p.planted) || st.stardust < seedCost;
+  const free = st.plots.filter((p) => !p.planted).length;
+  const plantBtn = document.getElementById("garden-plant-btn");
+  plantBtn.disabled = !free || st.stardust < seedCost;
+  plantBtn.innerHTML = `${SEED_ICONS[gardenSeed] || "&#127793;"} Tout planter${free ? ` (${free})` : ""}`;
   const buy = document.getElementById("garden-buyplot-btn");
   if (buy && st.extraPlot) {
     buy.hidden = st.extraPlot.price == null;
     buy.innerHTML = `&#10133; Parcelle (${st.extraPlot.owned}/${st.extraPlot.max}) · ${st.extraPlot.price} &#10024;`;
     buy.disabled = st.stardust < st.extraPlot.price;
+  }
+  // Caca partout : toutes les parcelles qui poussent et n'ont pas encore d'engrais.
+  const poopable = st.plots.filter((p) => p.planted && !p.ready && !p.fertilized).length;
+  const poop = document.getElementById("garden-poop-btn");
+  if (poop) {
+    poop.hidden = !st.fertilizer && !poopable;
+    poop.disabled = !st.fertilizer || !poopable;
+    poop.innerHTML = `${POOP} Mettre du caca partout${poopable && st.fertilizer ? ` (${Math.min(poopable, st.fertilizer)})` : ""}`;
+    poop.title = !st.fertilizer ? "Plus d'engrais : ramasse les cacas de tes dinos" : !poopable ? "Aucune parcelle en train de pousser sans engrais" : "Un caca de dino sur chaque parcelle qui pousse : plus rapide, récolte doublée";
   }
   if (st.level) renderSkillLevel("garden-level", "&#127793;", "Jardin", st.level, gardenPerkTexts(st.level.perks));
   document.getElementById("garden-harvest-btn").disabled = !st.readyCount;
@@ -217,25 +254,75 @@ async function loadGarden() {
   catch (e) { document.getElementById("garden-meta").textContent = "Impossible de charger le jardin."; }
 }
 
+// Pluie de cacas : un caca tombe sur chaque parcelle visee, puis « splotch ».
+function gardenPoopRain(plots) {
+  const field = document.getElementById("garden-field");
+  if (!field || !plots.length || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) return Promise.resolve();
+  const fr = field.getBoundingClientRect();
+  plots.forEach((el, k) => {
+    const r = el.getBoundingClientRect();
+    const d = document.createElement("span");
+    d.className = "gp-poop-drop";
+    d.textContent = "\u{1F4A9}";
+    d.style.left = `${r.left - fr.left + r.width / 2}px`;
+    d.style.setProperty("--fall", `${r.top - fr.top + r.height * 0.55}px`);
+    d.style.animationDelay = `${k * 120}ms`;
+    field.appendChild(d);
+    setTimeout(() => {
+      el.classList.add("splat");
+      if (typeof Sfx !== "undefined" && Sfx._tone) { Sfx._tone(140 - k * 6, 0, 0.12, "sine", 0.08); Sfx._tone(90, 0.05, 0.1, "triangle", 0.05); }
+      setTimeout(() => el.classList.remove("splat"), 700);
+    }, 520 + k * 120);
+    setTimeout(() => d.remove(), 900 + k * 120);
+  });
+  return new Promise((res) => setTimeout(res, 600 + plots.length * 120));
+}
+// Gains qui s'envolent au-dessus des parcelles recoltees.
+function gardenFloat(items) {
+  const field = document.getElementById("garden-field");
+  if (!field) return;
+  const fr = field.getBoundingClientRect();
+  (items || []).forEach((it, k) => {
+    const el = document.querySelector(`#garden-plots [data-plot="${it.plot}"]`);
+    if (!el) return;
+    const bits = [it.worms && `+${it.worms} ${resIcon("worm")}`, it.bait && `+${it.bait} ${resIcon("bait")}`, it.dust && `+${it.dust} &#10024;`, it.catFish && `+${it.catFish} &#128031;`, it.bones && `+${it.bones} &#129460;`, it.skulls && `+${it.skulls} &#128128;`, it.parts && `+${it.parts} &#128297;`].filter(Boolean);
+    if (!bits.length) return;
+    const r = el.getBoundingClientRect();
+    const f = document.createElement("span");
+    f.className = "gp-float";
+    f.innerHTML = bits.join(" ");
+    f.style.left = `${r.left - fr.left + r.width / 2}px`;
+    f.style.top = `${r.top - fr.top + r.height * 0.35}px`;
+    f.style.animationDelay = `${k * 90}ms`;
+    field.appendChild(f);
+    setTimeout(() => f.remove(), 1700 + k * 90);
+  });
+}
+
 async function gardenAction(action, extra = {}) {
   try {
     if (action === "buyPlot" && !(await Confirm.show(`Acheter une parcelle de plus pour ${gardenState.extraPlot.price} poussières ?`, { title: "Agrandir le jardin", confirmText: "Acheter" }))) return;
-    const res = await API.garden(Session.userId, action, action === "plant" ? { seed: gardenSeed } : extra);
+    // Caca partout : on repere les parcelles avant l'appel (pour la pluie).
+    const before = action === "fertilize" && extra.plot == null ? (gardenState?.plots || []).filter((p) => p.planted && !p.ready && !p.fertilized).map((p) => document.querySelector(`#garden-plots [data-plot="${p.plot}"]`)).filter(Boolean) : action === "fertilize" ? [document.querySelector(`#garden-plots [data-plot="${extra.plot}"]`)].filter(Boolean) : [];
+    const res = await API.garden(Session.userId, action, action === "plant" ? { seed: gardenSeed, ...extra } : extra);
+    if (action === "fertilize") await gardenPoopRain(before.slice(0, res.fertilized || before.length));
+    if (action === "harvest") gardenFloat(res.items);
     renderGarden(res);
     if (action === "buyPlot") Toast.success("&#10133; Nouvelle parcelle !");
-    else if (action === "fertilize") Toast.success(res.gold ? `${GOLD_POOP} Engrais doré : la plante est prête, et un appât doré t'attend !` : "&#128169; Engrais posé : ça pousse plus vite, et la récolte de vers sera doublée !");
-    else if (action === "plant") Toast.success(`&#127793; ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
-    else {
+    else if (action === "fertilize") Toast.success(res.gold ? `${GOLD_POOP} Engrais doré : la plante est prête, et un appât doré t'attend !` : res.fertilized > 1 ? `${POOP} Caca partout : ${res.fertilized} parcelles fertilisées ! Ça pousse plus vite, et la récolte sera doublée.` : `${POOP} Engrais posé : ça pousse plus vite, et la récolte sera doublée !`);
+    else if (action === "plant") Toast.success(`${SEED_ICONS[gardenSeed] || "&#127793;"} ${res.planted} parcelle${res.planted > 1 ? "s" : ""} plantée${res.planted > 1 ? "s" : ""} !`);
+    else if (action === "harvest") {
       const g = res.gained;
       if (g.rare) setTimeout(() => Toast.success(`&#127775; Récolte rare : ${g.rare.icon} ${g.rare.label} !`), 600);
       if (g.wilted) setTimeout(() => Toast.info(`&#129344; ${g.wilted} plante${g.wilted > 1 ? "s" : ""} fanée${g.wilted > 1 ? "s" : ""} : récolte réduite. Repasse plus tôt la prochaine fois !`), 300);
-      Toast.success(`&#129530; Récolte : +${g.worms} vers${g.bait ? `, +${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}` : ""}${g.dust ? `, +${g.dust} &#10024;` : ""} !`);
-      if (g.bait && typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
+      const parts = [g.worms && `+${g.worms} vers`, g.bait && `+${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}`, g.dust && `+${g.dust} &#10024;`, g.catFish && `+${g.catFish} poisson${g.catFish > 1 ? "s" : ""} pour Moka`, g.bones && `+${g.bones} os pour Milo`, g.skulls && `+${g.skulls} crâne de dino`, g.parts && `+${g.parts} pièce${g.parts > 1 ? "s" : ""} détachée${g.parts > 1 ? "s" : ""}`].filter(Boolean);
+      Toast.success(`&#129530; Récolte : ${parts.join(", ") || "rien cette fois"} !`);
+      if ((g.bait || g.skulls) && typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
       if (res.levelUp) LevelUpModal.show({ icon: "&#127793;", name: "Jardin", level: res.levelUp, perks: gardenPerkTexts(res.level && res.level.perks) });
     }
     if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error({ not_enough_dust: "Pas assez de poussières.", nothing_ready: "Rien n'est prêt.", no_free_plot: "Toutes les parcelles sont occupées.", max_plots: "Ton jardin est déjà au maximum.", no_fertilizer: "Plus d'engrais : ramasse les cacas de tes dinos.", nothing_to_fertilize: "Cette parcelle a déjà son engrais ou est prête." }[e.code] || friendlyError(e));
+    Toast.error({ not_enough_dust: "Pas assez de poussières.", nothing_ready: "Rien n'est prêt.", no_free_plot: "Toutes les parcelles sont occupées.", max_plots: "Ton jardin est déjà au maximum.", no_fertilizer: "Plus d'engrais : ramasse les cacas de tes dinos.", nothing_to_fertilize: "Aucune parcelle en train de pousser sans engrais.", seed_locked: `Cette graine se débloque au niveau ${e.data && e.data.level} de jardinage.` }[e.code] || friendlyError(e));
   }
 }
 
@@ -1381,7 +1468,7 @@ async function renderExpedition(data) {
         </div>
         <div class="expe-info">
           <div class="expe-title">${escHtml(card?.name || "Ton explorateur")} est en route${d ? ` : ${d.icon} ${escHtml(d.name)}` : ""}</div>
-          <div class="expe-sub">${ex.hours} h d'expédition${d && d.bonus > 1 ? ` · <span class="expe-aff-ok">affinité +${Math.round((d.bonus - 1) * 100)} % de ressources</span>` : ""}</div>
+          <div class="expe-sub">${ex.hours} h d'expédition${d && d.bonus > 1 ? ` · <span class="expe-aff-ok">${d.unique ? "&#127775; " : ""}bonus +${Math.round((d.bonus - 1) * 100)} % de ressources</span>` : ""}</div>
           <div class="expe-progress"><div class="expe-progress-fill" id="expe-fill"></div></div>
           <div class="expe-countdown" id="expe-countdown"></div>
           <button type="button" class="btn" id="expe-claim-btn" ${ex.ready ? "" : "disabled"}>&#127873; Récupérer le butin</button>
@@ -1457,6 +1544,9 @@ async function renderExpedition(data) {
     const dest = dests.find((d) => d.key === expeditionDest);
     const m = expeMatch(c, dest);
     const lines = [b > 1 ? `Bonus de rareté : +${Math.round((b - 1) * 100)}% de poussières` : "Pas de bonus de rareté"];
+    // Carte Unique (2026-10-26, expedition2.js) : poussieres, ressources et chance de booster en plus.
+    const ub = data.uniqueBonus;
+    if (ub && c?.rarity?.key === "unique") lines.push(`<span class="expe-aff-ok">&#127775; Carte Unique : +${ub.dustPct} % de poussières, +${ub.lootPct} % de ressources${ub.boosterChance ? `, ${ub.boosterChance} % de chance d'un jeton booster en plus` : ""}</span>`);
     if (dest) lines.push(m.rarity || m.extension ? `<span class="expe-aff-ok">&#10004; Affinité ${[m.rarity && "rareté", m.extension && "extension"].filter(Boolean).join(" + ")} : +${pct * (m.rarity + m.extension)} % de ressources</span>` : `<span class="muted">Pas d'affinité avec ce lieu aujourd'hui</span>`);
     document.getElementById("expe-bonus").innerHTML = lines.join("<br>");
   };
@@ -1513,11 +1603,11 @@ async function claimExpedition() {
     await renderExpedition(res);
     const zone = document.getElementById("expedition-zone");
     const resList = (r.resources || []).map((x) => `<span class="expe-loot-chip">${expeRes(x)} +${x.n} ${escHtml(x.label)}</span>`).join("");
-    const aff = r.affinity && r.affinity.bonus > 1 ? ` <span class="expe-report-bonus">(affinité +${Math.round((r.affinity.bonus - 1) * 100)} % de ressources)</span>` : "";
+    const aff = r.affinity && r.affinity.bonus > 1 ? ` <span class="expe-report-bonus">(${r.unique ? "affinité et carte Unique" : "affinité"} +${Math.round((r.affinity.bonus - 1) * 100)} % de ressources)</span>` : "";
     zone.insertAdjacentHTML("afterbegin", `
       <div class="expe-report">
         <div class="expe-report-title">&#129517; ${escHtml(r.explorer?.name || "Ton explorateur")} ${r.destination ? `revient de ${r.destination.icon} ${escHtml(r.destination.name)} : il ` : ""}${r.story} !</div>
-        <div class="expe-report-loot">+${r.dust} poussières${r.boosters ? ` · +${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : ""}${r.bonus > 1 ? ` <span class="expe-report-bonus">(bonus rareté +${Math.round((r.bonus - 1) * 100)}%)</span>` : ""}</div>
+        <div class="expe-report-loot">+${r.dust} poussières${r.boosters ? ` · +${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : ""}${r.bonus > 1 ? ` <span class="expe-report-bonus">(bonus rareté +${Math.round((r.bonus - 1) * 100)}%)</span>` : ""}${r.unique ? ` <span class="expe-report-bonus">&#127775; carte Unique : +${r.unique.dust} poussières${r.unique.booster ? " et un jeton booster" : ""}</span>` : ""}</div>
         ${resList ? `<div class="expe-report-res">${resList}${aff}</div>` : ""}
       </div>`);
     Toast.success(`Butin : +${r.dust} poussières${r.boosters ? ` et +${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster` : ""}${(r.resources || []).length ? ", et des ressources !" : " !"}`);
@@ -1546,7 +1636,22 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
   document.getElementById("tab-garden-btn").addEventListener("click", () => setActiveTab("garden"));
   document.getElementById("tab-dino-btn").addEventListener("click", () => setActiveTab("dino"));
-  document.getElementById("garden-plots").addEventListener("click", (e) => { const b = e.target.closest("[data-fertilize]"); if (b) gardenAction("fertilize", { plot: Number(b.dataset.fertilize), ...(b.dataset.gold ? { gold: true } : {}) }); });
+  document.getElementById("garden-plots").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fertilize]");
+    if (b) { gardenAction("fertilize", { plot: Number(b.dataset.fertilize), ...(b.dataset.gold ? { gold: true } : {}) }); return; }
+    const pl = e.target.closest("[data-plant-plot]");
+    if (pl) { gardenAction("plant", { plot: Number(pl.dataset.plantPlot) }); return; }
+    // Une parcelle prete : on recolte tout.
+    if (e.target.closest(".garden-plot.ready")) gardenAction("harvest");
+  });
+  document.getElementById("garden-seeds").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-seed]");
+    if (!b || b.disabled) return;
+    gardenSeed = b.dataset.seed;
+    try { localStorage.setItem("2gatcha_garden_seed", gardenSeed); } catch (err) { /* stockage indisponible */ }
+    renderGarden(gardenState);
+  });
+  document.getElementById("garden-poop-btn")?.addEventListener("click", () => gardenAction("fertilize"));
   document.getElementById("garden-plant-btn").addEventListener("click", () => gardenAction("plant"));
   document.getElementById("garden-harvest-btn").addEventListener("click", () => gardenAction("harvest"));
   document.getElementById("garden-buyplot-btn").addEventListener("click", () => gardenAction("buyPlot"));

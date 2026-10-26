@@ -534,7 +534,7 @@ await test('jardin etendu : graines, parcelle achetee, recolte selon la graine',
   store.update('Users', 1, { GardenPlots: '[]', GardenExtraPlots: 0, StardustCount: 5000, Worms: 0 });
   let st = call('POST', 'garden', { body: { userId: 1, action: 'status' } }).json;
   assert.equal(st.plots.length, 4);
-  assert.equal(st.seeds.length, 4);
+  assert.equal(st.seeds.length, 7); // 3 graines de plus le 26 octobre (herbe a chat, arbre a os, champignon)
   st = call('POST', 'garden', { body: { userId: 1, action: 'buyPlot' } }).json;
   assert.equal(st.plots.length, 5);
   assert.equal(user(1).StardustCount, 5000 - 400);
@@ -1736,6 +1736,8 @@ await test('decouvertes : premiere ressource annoncee une seule fois, remise a z
 });
 
 await test('coffres : achat et ouverture de plusieurs coffres d un coup, bornes par les cles', () => {
+  // Sans le bonus de ressources (il peut rendre une cle).
+  call('POST', 'admin-settings', { body: { discordId: '785223211730075709', action: 'set', values: { ChestExtraLoot: [] } } });
   const st0 = call('POST', 'chests', { body: { userId: 1, action: 'status' } }).json;
   store.update('Users', 1, { ChestCount: 0, KeyCount: 3, StardustCount: st0.cost * 5 });
   let r = call('POST', 'chests', { body: { userId: 1, action: 'buy', count: 5 } }).json;

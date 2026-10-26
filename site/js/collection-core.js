@@ -74,11 +74,46 @@ const Coll = (() => {
   // Vrai prix de craft d'une carte : celui de sa rarete x la Bourse (bug
   // 2026-10-18 : le site affichait le prix de base, le serveur demandait
   // jusqu'a +60 % pour les cartes rares sur le serveur, comme les mythiques).
+  // 2026-10-26 : la Bourse peut aussi faire BAISSER le prix (coefficient < 1,
+  // le serveur rend la difference) ; le site gardait le prix de base.
+  const craftBaseOf = (card) => { const b = card && card.rarity ? Number(card.rarity.craftCost) : NaN; return Number.isFinite(b) ? b : null; };
   function craftCostOf(card) {
-    const base = card && card.rarity ? Number(card.rarity.craftCost) : NaN;
-    if (!Number.isFinite(base)) return null;
+    const base = craftBaseOf(card);
+    if (base == null) return null;
     const f = Number(state.stock && state.stock[card.cardId]) || 1;
-    return base + Math.max(0, Math.round(base * (f - 1)));
+    return base + Math.round(base * (f - 1));
+  }
+  // Solde a avoir pour lancer le craft : le serveur demande le prix de base
+  // avant d'appliquer la Bourse, donc au moins la base meme si elle baisse.
+  function craftNeedOf(card) {
+    const base = craftBaseOf(card), cost = craftCostOf(card);
+    return base == null ? null : Math.max(base, cost);
+  }
+  const canCraftNow = (card, dust = state.stardust) => { const need = craftNeedOf(card); return need != null && dust >= need; };
+  // Bon de craft (Devine la carte, api/src/native/guessgame.js) : rembourse
+  // juste apres le craft, une fois, un pourcentage du prix de base.
+  function couponOf(card) {
+    const until = card && state.coupons && state.coupons.get(card.cardId);
+    if (!until || until * 1000 < Date.now()) return null;
+    const base = craftBaseOf(card) || 0;
+    return { pct: state.couponPct, until, refund: Math.round(base * state.couponPct / 100) };
+  }
+  // Prix reellement depense pour un craft, bon deduit.
+  const craftNetOf = (card) => { const c = craftCostOf(card); const k = couponOf(card); return c == null ? null : c - (k ? k.refund : 0); };
+  // Texte du prix : "640 ✨" ou "640 → 480 ✨ avec ton bon".
+  function craftPriceHtml(card) {
+    const cost = craftCostOf(card), k = couponOf(card), base = craftBaseOf(card);
+    if (cost == null) return "";
+    const bourse = cost !== base ? ` <span class="craft-bourse ${cost > base ? "up" : "down"}" title="Bourse : prix de base ${base}">${cost > base ? "▲" : "▼"} Bourse</span>` : "";
+    return k ? `<s>${cost}</s> <strong>${cost - k.refund}</strong> poussières${bourse}` : `${cost} poussières${bourse}`;
+  }
+  // Recu d'un craft (reponse du serveur) : bon et Bourse (les talents ont
+  // deja leur propre notification "Bonus").
+  function craftReceipt(res) {
+    const bits = [];
+    if (res && res.couponRefund) bits.push(`🎫 bon de craft : +${res.couponRefund} rendues`);
+    if (res && res.stockDelta) bits.push(res.stockDelta > 0 ? `Bourse : +${res.stockDelta}` : `Bourse : ${res.stockDelta} (moins cher)`);
+    return bits.join(" · ");
   }
   function errorText(kind, e) {
     if (e && e.code === "insufficient_dust" && e.data && e.data.stockSurcharge) return `Pas assez de poussières : la Bourse ajoute ${e.data.stockSurcharge} poussières au prix de cette carte en ce moment.`;
@@ -262,16 +297,18 @@ const Coll = (() => {
   async function fetchAll() {
     const OFFLINE_CACHE_KEY = "2gatcha_offline_collection_" + Session.userId;
     try {
-      const [collection, status, catalog, wishlist, showcase, sets] = await Promise.all([
+      const [collection, status, catalog, wishlist, showcase, sets, guess] = await Promise.all([
         API.getCollection(Session.userId),
         API.getBoosterStatus(Session.userId).catch(() => ({ stardust: 0 })),
         API.getCards().catch(() => ({ cards: [] })),
         API.listWishlist(Session.userId).catch(() => ({ wishlist: [] })),
         API.listShowcase(Session.userId).catch(() => ({ showcase: [] })),
-        API.getSetRewards(Session.userId).catch(() => ({ sets: [] }))
+        API.getSetRewards(Session.userId).catch(() => ({ sets: [] })),
+        // Bons de craft gagnes a Devine la carte (lecture).
+        API.guessCard(Session.userId, "status").catch(() => null)
       ]);
       try { localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(collection)); } catch (e) {}
-      return { collection, status, catalog, wishlist, showcase, sets, offline: false };
+      return { collection, status, catalog, wishlist, showcase, sets, guess, offline: false };
     } catch (e) {
       // Reseau coupe : derniere collection connue plutot qu'un ecran vide.
       let cached = null;
@@ -281,7 +318,9 @@ const Coll = (() => {
     }
   }
 
-  function ingest({ collection, status, catalog, wishlist, showcase, sets, offline }) {
+  function ingest({ collection, status, catalog, wishlist, showcase, sets, guess, offline }) {
+    state.coupons = new Map(((guess && guess.coupons) || []).map((c) => [c.cardId, c.until]));
+    state.couponPct = Number(guess && guess.couponPct) || 0;
     const catalogById = new Map((catalog.cards || []).map((c) => [c.cardId, c]));
     state.cards = (collection.cards || []).map((c) => {
       const cat = catalogById.get(c.cardId);
@@ -526,7 +565,7 @@ const Coll = (() => {
   function renderDustReminder() {
     const el = document.getElementById("unused-dust-reminder");
     const missing = state.cards.filter((c) => c.inCatalog && !c.isPromo && !isDiscovered(c.cardId) && c.rarity?.craftCost != null);
-    const affordable = missing.filter((c) => state.stardust >= craftCostOf(c));
+    const affordable = missing.filter((c) => canCraftNow(c));
     if (!affordable.length || mode === "craft" || isLocked("craft")) { el.style.display = "none"; return; }
     const cheapest = Math.min(...affordable.map((c) => craftCostOf(c)));
     el.style.display = "flex";
@@ -816,7 +855,7 @@ const Coll = (() => {
     FINISH_ORDER, FINISH_LABELS, FINISH_LABELS_LONG, QUALITY_ORDER, QUALITY_LABELS,
     state, filters, prefs,
     get mode() { return mode; },
-    craftCostOf, registerPane, setMode, isLocked, isDiscovered, claimSet, refresh, renderActive, updateCounts, renderSummary,
+    craftCostOf, craftNeedOf, canCraftNow, couponOf, craftNetOf, craftPriceHtml, craftReceipt, registerPane, setMode, isLocked, isDiscovered, claimSet, refresh, renderActive, updateCounts, renderSummary,
     filterCards, errorText, estimateDust, buildVariants, copiesToSpend, attachTilt,
     normalize, escapeHtml, serial, finishOf, qualityOf, isPrecious, isEdition, rarityBadge,
     loadPrefs, savePrefs, loadSet, saveSet

@@ -418,6 +418,10 @@ const TabHash = {
       const tab = document.querySelector(sel);
       if (tab) tab.addEventListener("click", () => { if (location.hash !== "#" + key) history.replaceState(null, "", location.pathname + location.search + "#" + key); });
     });
+    // Sans ancre, on revient au dernier onglet ouvert sur cette page (2026-10-26).
+    const KEY = "2gatcha_tab_" + currentPage();
+    Object.entries(map).forEach(([key, sel]) => { const tab = document.querySelector(sel); if (tab) tab.addEventListener("click", () => { try { localStorage.setItem(KEY, key); } catch (e) { /* stockage indisponible */ } }); });
+    if (!location.hash) { try { const last = localStorage.getItem(KEY); if (last && map[last]) history.replaceState(null, "", location.pathname + location.search + "#" + last); } catch (e) { /* idem */ } }
     const open = () => { const sel = map[location.hash.slice(1)]; const tab = sel && document.querySelector(sel); if (tab && tab.getAttribute("aria-selected") !== "true") tab.click(); };
     window.addEventListener("hashchange", open);
     // Apres le script de la page (qui pose l'onglet par defaut).

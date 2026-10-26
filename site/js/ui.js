@@ -1249,7 +1249,7 @@ const UnlockFx = {
       const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
       const cardHtml = (c, i) => `<div class="ux-card"${c.cardId ? ` data-card-id="${c.cardId}"` : ""} style="--d:${i};--rc:${esc((c.rarity && c.rarity.colorHex) || "#a78bfa")}">
           ${c.imageId && typeof API !== "undefined" ? `<img src="${API.imageUrl(c.imageId)}" alt="" />` : `<span class="ux-card-ph">?</span>`}
-          <strong>${esc(c.name)}</strong><small>${esc((c.rarity && c.rarity.name) || "")}${c.finish && c.finish !== "normal" ? " · " + esc(c.finish) : ""}</small></div>`;
+          <strong>${esc(c.name)}</strong><small>${esc((c.rarity && c.rarity.name) || "")}${c.finish && c.finish !== "normal" ? " · " + esc(({ holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" })[c.finish] || c.finish) : ""}${c.edition && typeof EDITIONS !== "undefined" && EDITIONS[c.edition] ? " · " + esc(EDITIONS[c.edition].icon + " " + EDITIONS[c.edition].label) : ""}</small></div>`;
       ov.innerHTML = `
         <div class="ux-rays" aria-hidden="true"></div>
         <div class="ux-seal" aria-hidden="true"><span class="ux-ring"></span><span class="ux-ring ux-ring2"></span><span class="ux-core">&#10022;</span></div>

@@ -74,7 +74,7 @@
         </div>
 
         <div id="profile-showcase-zone" style="display:none;">
-          <h2 style="margin-top:24px;">&#127914; Vitrine</h2>
+          <h2 style="margin-top:24px;" class="profile-showcase-title">&#127914; Vitrine <button type="button" class="btn-ghost" id="showcase-order-btn" hidden title="Changer l'ordre des cartes de ta vitrine">↕️ Ordonner</button></h2>
           <div id="profile-showcase-grid" class="showcase-grid"></div>
         </div>
 
@@ -120,12 +120,13 @@
   <script src="js/shell.js"></script>
   <script src="js/shell-extras.js"></script>
   <script src="js/dino-art.js"></script>
+  <script src="js/card-extras.js"></script>
   <script src="js/profile-extras.js"></script>
   <script>
     // Memes echelles que collection.js/craft.js (voir docs/SCHEMA.md) : le
     // profil public doit montrer le meme traitement visuel (filtre image,
     // contour, degrade par finition/etat) qu'ailleurs, pas des vignettes nues.
-    const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+    const FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
     const QUALITY_LABELS = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
 
     const BADGE_ERRORS = {
@@ -267,20 +268,44 @@
 
         // Vitrine : les 3-6 cartes que ce joueur a choisi de mettre en avant
         // (purement cosmetique, distinct de la collection complete plus bas).
+        // 2026-10-26 : rendue comme une vraie carte (rarete, finition, etat,
+        // edition) ; la vitrine ne stocke que la carte, on prend donc son plus
+        // bel exemplaire (profil public : finition + etat ; son propre profil :
+        // aussi l'edition et l'emeraude du coffre). Clic = inspecteur (zoom).
         const showcase = res.showcase || [];
-        if (showcase.length) {
+        const bestPublic = new Map((res.cards || []).map((c) => [c.cardId, c]));
+        showcase.forEach((c) => { const b = bestPublic.get(c.cardId); if (b && !c.finish) { c.finish = b.finish; c.quality = b.quality; } });
+        const renderShowcase = () => {
+          if (!showcase.length) return;
           document.getElementById("profile-showcase-zone").style.display = "block";
-          document.getElementById("profile-showcase-grid").innerHTML = showcase.map((c) => {
+          document.getElementById("profile-showcase-grid").innerHTML = showcase.map((c, i) => {
             const color = c.rarity?.colorHex || "#9aa0b4";
             const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
+            const finish = c.finish || "normal", quality = c.quality || "good";
             return `
-              <div class="showcase-card" style="border-color:${color};">
-                <img src="${imgSrc}" alt="${c.name}" loading="lazy" />
-                <div class="showcase-card-name">${c.name}</div>
-              </div>
+              <button type="button" class="collection-card showcase-card" data-sc-i="${i}" data-card-id="${c.cardId}" data-rarity="${c.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}"${c.edition ? ` data-edition="${c.edition}"` : ""} title="Voir ${escHtml(c.name)} en grand">
+                <span class="card-art">
+                  <img src="${imgSrc}" alt="${escHtml(c.name)}" loading="lazy" decoding="async" />
+                  ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish] || finish}</span>` : ""}
+                  <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality] || ""}</span>
+                  ${c.edition && typeof editionBadge === "function" ? editionBadge(c.edition) : ""}
+                  ${c.serial === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+                </span>
+                <span class="card-info">
+                  <span class="card-name showcase-card-name">${escHtml(c.name)}</span>
+                  <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${rarityIcon(c.rarity?.key)} ${escHtml(c.rarity?.name || "Commune")}</span>
+                </span>
+              </button>
             `;
           }).join("");
-        }
+        };
+        renderShowcase();
+        document.getElementById("profile-showcase-grid").onclick = (ev) => {
+          const b = ev.target.closest("[data-sc-i]");
+          if (!b) return;
+          const c = showcase[Number(b.dataset.scI)];
+          LazyJs.load("js/lazy/card-inspector.js").then(() => CardInspector.open({ card: { cardId: c.cardId, name: c.name, imageId: c.imageId, rarity: c.rarity }, finish: c.finish || "normal", quality: c.quality || "good", edition: c.edition || "" })).catch(() => Toast.error("Inspecteur indisponible pour le moment."));
+        };
         document.getElementById("profile-stats").innerHTML = `
           <div class="stat-tile"><div class="stat-value">${res.uniqueCards}${res.totalCards ? ` / ${res.totalCards}` : ""}</div><div class="stat-label">Cartes uniques</div></div>
           <div class="stat-tile"><div class="stat-value">${res.totalPulls}</div><div class="stat-label">Tirages au total</div></div>
@@ -335,18 +360,19 @@
 
         const grid = document.getElementById("profile-grid");
         const cards = res.cards || [];
-        grid.innerHTML = cards.length ? cards.map((c) => {
+        const renderGrid = () => { grid.innerHTML = cards.length ? cards.map((c) => {
           const color = c.rarity?.colorHex || "#9aa0b4";
           const imgSrc = API.imageUrl(c.imageId) || PLACEHOLDER_IMG;
           const finish = c.finish || "normal";
           const quality = c.quality || "damaged";
           return `
-            <div class="collection-card" data-rarity="${c.rarity?.key || "commune"}" data-promo="${c.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}">
+            <div class="collection-card" data-rarity="${c.rarity?.key || "commune"}" data-promo="${c.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}"${c.edition ? ` data-edition="${c.edition}"` : ""}>
               ${c.count > 1 && !c.isPromo ? `<span class="dupe-badge" title="Doublon possible a echanger">×${c.count} dispo</span>` : ""}
               <div class="card-art">
                 <img src="${imgSrc}" alt="${c.name}" loading="lazy" />
                 ${finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}">${FINISH_LABELS[finish]}</span>` : ""}
                 ${quality ? `<span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>` : ""}
+                ${c.edition && typeof editionBadge === "function" ? editionBadge(c.edition) : ""}
               </div>
               <div class="card-info">
                 <div class="card-name">${c.name}${c.isPromo ? '<span class="promo-badge">Promo</span>' : ""}</div>
@@ -357,7 +383,8 @@
               </div>
             </div>
           `;
-        }).join("") : `<div class="empty-state">Collection vide pour l'instant.</div>`;
+        }).join("") : `<div class="empty-state">Collection vide pour l'instant.</div>`; };
+        renderGrid();
         // Comparer nos collections (js/lazy/compare.js) et image du profil a
         // partager (js/lazy/share-studio.js) : modules charges au clic.
         const own = Session.isLoggedIn() && Session.pseudo && pseudo.toLowerCase() === Session.pseudo.toLowerCase();
@@ -365,6 +392,30 @@
         actions.innerHTML = `${Session.isLoggedIn() && !own ? '<button type="button" class="btn-secondary" data-compare>&#9878;&#65039; Comparer nos collections</button>' : ""}
           <button type="button" class="btn-secondary" data-share-profile>&#128444;&#65039; ${own ? "Partager mon profil" : "Image du profil"}</button>`;
         actions.hidden = false;
+        // Son propre profil : ordre de la vitrine (js/lazy/showcase.js).
+        const orderBtn = document.getElementById("showcase-order-btn");
+        if (own && showcase.length > 1) {
+          orderBtn.hidden = false;
+          orderBtn.onclick = async () => {
+            await LazyJs.load("js/lazy/showcase.js");
+            const fresh = await ShowcaseKit.editOrder(showcase.slice());
+            if (!fresh) return;
+            const byId = new Map(showcase.map((c) => [c.cardId, c]));
+            const next = fresh.map((c) => byId.get(c.cardId) || c);
+            showcase.splice(0, showcase.length, ...next);
+            renderShowcase();
+          };
+        }
+        // Son propre profil : plus bel exemplaire de chaque carte d'apres sa
+        // collection complete (edition, emeraude et cartes du coffre compris).
+        if (own) {
+          API.getCollection(Session.userId).then((col) => {
+            const best = CardBest.of(col);
+            const apply = (c) => { const b = best.get(c.cardId); if (b) Object.assign(c, { finish: b.finish, quality: b.quality, edition: b.edition, serial: b.serial }); };
+            showcase.forEach(apply); cards.forEach(apply);
+            renderShowcase(); renderGrid();
+          }).catch(() => { /* vitrine publique deja affichee */ });
+        }
         actions.addEventListener("click", (ev) => {
           const b = ev.target.closest("button");
           if (!b) return;

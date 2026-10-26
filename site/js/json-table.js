@@ -80,7 +80,7 @@
       return `
         <div class="table-scroll"><table class="admin-table jt-table">
           <thead><tr>${cols.map((c) => `<th>${esc(c.key)}</th>`).join("")}<th aria-label="Actions"></th></tr></thead>
-          <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td data-col="${esc(c.key)}" data-t="${c.type}">${cell(r[c.key], c.type)}</td>`).join("")}
+          <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td data-col="${esc(c.key)}" data-t="${c.type}"${r && c.key in r ? ' data-had="1"' : ""}>${cell(r[c.key], c.type)}</td>`).join("")}
             <td class="jt-row-actions"><button type="button" class="jt-mini" data-jt="up" title="Monter">&uarr;</button><button type="button" class="jt-mini" data-jt="down" title="Descendre">&darr;</button><button type="button" class="jt-mini" data-jt="del" title="Supprimer la ligne">&times;</button></td></tr>`).join("")}</tbody>
         </table></div>
         <div class="jt-foot"><button type="button" class="btn-ghost" data-jt="add">+ Ligne</button><input type="text" class="jt-newcol" placeholder="nouvelle colonne" /><button type="button" class="btn-ghost" data-jt="addcol">+ Colonne</button><button type="button" class="btn-ghost jt-raw-btn" data-jt="raw">JSON brut</button></div>`;
@@ -97,6 +97,10 @@
             if (t === "kv") v = kvRead(td.querySelector(".jt-kv"));
             else if (t === "json") { const raw = td.querySelector(".jt-json").value.trim(); v = raw === "" ? undefined : JSON.parse(raw); }
             else v = primRead(td.querySelector(".jt-cell"), t);
+            // Colonne absente de cette ligne au depart (2026-10-26) : un objet
+            // vide ou une case decochee restent absents, au lieu de remplir
+            // chaque ligne de {} / false (le reglage paraissait toujours modifie).
+            if (!td.dataset.had && ((t === "kv" && v && !Object.keys(v).length) || (t === "bool" && v === false))) v = undefined;
             if (v !== undefined) o[key] = v;
           } catch (e) { throw new Error(`Ligne ${i + 1}, colonne « ${key} » : ${e.message}`); }
         });

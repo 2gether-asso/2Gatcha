@@ -8,6 +8,20 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-28', title: 'Salle des trésors', items: [
+    'Coffre-fort : nouvel onglet Présentoir, tes plus belles cartes exposées sous les projecteurs, les émeraudes en tête ; touche une carte pour la voir en grand, et partage l’image de ta salle des trésors',
+    'Une carte du coffre peut maintenant aller dans la vitrine de ton profil ; la vitrine pleine te propose de choisir laquelle remplacer, et tu peux changer l’ordre des cartes',
+    'La vitrine du profil et les images à partager montrent enfin chaque carte en entier : rareté, finition, état et édition',
+    'Nouvel effet pour la carte émeraude, taillée comme une vraie pierre',
+    'Archéologie relookée : terre en relief, couches qui apparaissent en creusant, tablettes gravées, quadrillage de fouille, curseur à la taille de l’outil, touches 1 à 5 et bouton « Bloc suivant »',
+    'Crafter : le bon de craft gagné à Devine la carte s’affiche et se déduit du prix, et les baisses de la Bourse comptent enfin',
+    'Collection : les filtres actifs en pastilles, une barre qui suit quand tu descends, et sur téléphone les filtres avancés repliés',
+    'Expéditions : une carte Unique en exploratrice rapporte plus de poussières, plus de ressources, et parfois un jeton booster',
+    'Codes événement : un même code peut maintenant donner plusieurs choses à la fois',
+    'Jardin tout neuf : sachets de graines, un vrai champ avec son épouvantail, et trois nouvelles graines à débloquer (herbe à chat pour Moka, arbre à os pour Milo, champignon lumineux)',
+    'Nouveau bouton « Mettre du caca partout » au jardin : un engrais de dino sur toutes les parcelles d’un coup',
+    'Les coffres du gatchapon sont mieux garnis : plus de poussières et des ressources en bonus (vers, os, appâts, tablettes…), encore plus dans les gros coffres'
+  ] },
   { date: '2026-10-27', title: 'Pierre gravée et maître archéologue', items: [
     'Trois sortes de tablettes : l’argile commune, la pierre gravée (rare, veines de roche dure) et la tablette dorée (légendaire, pièces fragiles mais reliques fréquentes). Plus tu fouilles profond, plus les belles sont fréquentes',
     'Nouveau niveau d’archéologue : il monte en dégageant et débloque la loupe, le pinceau fin, le burin doux, le soufflet et d’autres avantages',

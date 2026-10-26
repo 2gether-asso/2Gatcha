@@ -527,17 +527,72 @@ function settingInput(s) {
   return `<input type="number" id="${id}" data-setting="${s.key}" value="${s.value}" ${s.min != null ? `min="${s.min}"` : ""} ${s.max != null ? `max="${s.max}"` : ""} step="${s.step || "any"}" />`;
 }
 
+// Navigation (2026-10-26) : un theme a la fois, recherche dans tous les
+// reglages (nom, aide, cle), filtre « modifies », compteur des changements
+// pas encore enregistres. Theme et filtre retenus dans le navigateur.
+const SETTINGS_NAV_KEY = "2gatcha_admin_settings_nav";
+let settingsNav = (() => { try { return { group: "", modified: false, ...JSON.parse(localStorage.getItem(SETTINGS_NAV_KEY) || "{}") }; } catch (e) { return { group: "", modified: false }; } })();
+// Meme valeur, quel que soit l'ordre des cles (le tableau JSON les range autrement).
+const settingsCanon = (v) => (Array.isArray(v) ? `[${v.map(settingsCanon).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + settingsCanon(v[k])).join(",")}}` : JSON.stringify(v));
+const settingsSame = (a, b) => settingsCanon(a) === settingsCanon(b);
+const settingsNorm = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function settingsFilter() {
+  const zone = document.getElementById("settings-zone");
+  if (!zone) return;
+  const q = settingsNorm(document.getElementById("set-q")?.value.trim());
+  const groups = [...zone.querySelectorAll(".settings-group")];
+  if (!groups.some((g) => g.dataset.group === settingsNav.group)) settingsNav.group = groups[0]?.dataset.group || "";
+  let shown = 0;
+  groups.forEach((g) => {
+    let n = 0;
+    g.querySelectorAll(".setting-field").forEach((f) => {
+      const ok = (q ? f.dataset.text.includes(q) : g.dataset.group === settingsNav.group) && (!settingsNav.modified || f.classList.contains("custom"));
+      f.hidden = !ok; if (ok) n++;
+    });
+    g.hidden = !n; shown += n;
+  });
+  document.querySelectorAll("#set-groups [data-set-group]").forEach((b) => b.classList.toggle("on", !q && b.dataset.setGroup === settingsNav.group));
+  const empty = document.getElementById("set-empty");
+  if (empty) empty.hidden = !!shown;
+  try { localStorage.setItem(SETTINGS_NAV_KEY, JSON.stringify(settingsNav)); } catch (e) { /* stockage indisponible */ }
+}
+// Reglages modifies a l'ecran mais pas encore enregistres.
+function settingsPending() {
+  let n = 0;
+  document.querySelectorAll("#settings-zone [data-setting]").forEach((el) => {
+    const s = settingsCache.find((x) => x.key === el.dataset.setting);
+    if (!s) return;
+    let v;
+    try { v = s.type === "bool" ? el.checked : s.type === "json" ? (settingsJson[s.key] ? settingsJson[s.key].get() : JSON.parse(el.querySelector("[data-raw]").value)) : Number(el.value); } catch (e) { v = undefined; }
+    const changed = !settingsSame(v, s.value);
+    el.closest(".setting-field")?.classList.toggle("dirty", changed);
+    if (changed) n++;
+  });
+  const out = document.getElementById("set-pending");
+  if (out) out.textContent = n ? `${n} modification${n > 1 ? "s" : ""} pas encore enregistrée${n > 1 ? "s" : ""}` : "Tout est enregistré.";
+  document.getElementById("settings-save-btn")?.toggleAttribute("disabled", !n);
+  return n;
+}
+
 function renderSettings(list) {
   settingsCache = list;
   const groups = [];
   list.forEach((s) => { let g = groups.find((x) => x.name === s.group); if (!g) groups.push(g = { name: s.group, items: [] }); g.items.push(s); });
+  groups.sort((a, b) => a.name.localeCompare(b.name, "fr"));
   const zone = document.getElementById("settings-zone");
   zone.className = "";
-  zone.innerHTML = groups.map((g) => `
-    <div class="settings-group">
+  const custom = list.filter((s) => s.custom).length;
+  zone.innerHTML = `
+    <div class="set-nav">
+      <input type="search" id="set-q" placeholder="Chercher un réglage dans tous les thèmes (ex : vers, tablette, boutique, Unique)…" autocomplete="off" />
+      <label class="adm-check"><input type="checkbox" id="set-mod" ${settingsNav.modified ? "checked" : ""} /> Seulement ceux que j'ai changés (${custom})</label>
+    </div>
+    <div class="set-groups" id="set-groups">${groups.map((g) => { const c = g.items.filter((s) => s.custom).length; return `<button type="button" class="rw-chip" data-set-group="${settingsEscape(g.name)}">${settingsEscape(g.name)} <b>${g.items.length}</b>${c ? ` <i title="${c} modifié${c > 1 ? "s" : ""}">●</i>` : ""}</button>`; }).join("")}</div>
+    <p class="muted" id="set-empty" hidden>Aucun réglage ne correspond.</p>` + groups.map((g) => `
+    <div class="settings-group" data-group="${settingsEscape(g.name)}">
       <h3>${settingsEscape(g.name)}</h3>
       <div class="settings-grid">${g.items.map((s) => `
-        <div class="setting-field ${s.custom ? "custom" : ""}">
+        <div class="setting-field ${s.custom ? "custom" : ""}" data-text="${settingsEscape(settingsNorm(s.label + " " + (s.help || "") + " " + s.key + " " + g.name))}">
           <label for="setting-${s.key}">${settingsEscape(s.label)}</label>
           ${settingInput(s)}
           <small>${settingsEscape(s.help)}${s.unit ? (s.help ? " · " : "") + settingsEscape(s.unit) : ""} Défaut : ${settingsEscape(s.type === "json" ? "voir « Défaut »" : String(s.def))}.</small>
@@ -546,14 +601,38 @@ function renderSettings(list) {
       </div>
     </div>`).join("") + `
     <div class="settings-errors" id="settings-errors"></div>
-    <div class="settings-actions"><button type="button" class="btn" id="settings-save-btn">Enregistrer les modifications</button></div>`;
+    <div class="settings-actions set-sticky"><span id="set-pending" class="muted">Tout est enregistré.</span><button type="button" class="btn" id="settings-save-btn" disabled>Enregistrer les modifications</button></div>`;
   // Reglages JSON : tableaux editables (JSON brut en secours).
   list.filter((s) => s.type === "json").forEach((s) => {
     const el = document.getElementById("setting-" + s.key);
     if (el && typeof JsonTable !== "undefined") settingsJson[s.key] = JsonTable.mount(el, s.value, s.def);
     else if (el) el.innerHTML = `<textarea data-raw spellcheck="false">${settingsEscape(JSON.stringify(s.value, null, 2))}</textarea>`;
   });
+  document.getElementById("set-q").addEventListener("input", settingsFilter);
+  document.getElementById("set-mod").addEventListener("change", (e) => { settingsNav.modified = e.target.checked; settingsFilter(); });
+  document.getElementById("set-groups").addEventListener("click", (e) => { const b = e.target.closest("[data-set-group]"); if (!b) return; settingsNav.group = b.dataset.setGroup; document.getElementById("set-q").value = ""; settingsFilter(); zone.scrollIntoView({ behavior: "smooth", block: "start" }); });
+  let t = 0;
+  const later = () => { clearTimeout(t); t = setTimeout(settingsPending, 150); };
+  zone.addEventListener("input", later);
+  zone.addEventListener("change", later);
+  zone.addEventListener("click", (e) => { if (e.target.closest(".json-setting")) later(); });
+  settingsFilter();
+  settingsPending();
 }
+// Quitter la page avec des reglages pas enregistres : on previent.
+window.addEventListener("beforeunload", (e) => { if (document.getElementById("settings-zone") && settingsCache.length && settingsPending()) { e.preventDefault(); e.returnValue = ""; } });
+// Ouvre un reglage precis (recherche globale de l'admin).
+window.openSetting = function (key) {
+  const s = settingsCache.find((x) => x.key === key);
+  if (!s) return false;
+  settingsNav.group = s.group; settingsNav.modified = false;
+  const q = document.getElementById("set-q"); if (q) q.value = "";
+  const m = document.getElementById("set-mod"); if (m) m.checked = false;
+  settingsFilter();
+  const f = document.getElementById("setting-" + key)?.closest(".setting-field");
+  if (f) { f.scrollIntoView({ behavior: "smooth", block: "center" }); f.classList.add("flash"); setTimeout(() => f.classList.remove("flash"), 1600); }
+  return true;
+};
 
 async function loadSettings() {
   const zone = document.getElementById("settings-zone");
@@ -574,7 +653,7 @@ async function saveSettings() {
       catch (e) { errors.push(`${s.label} : ${e.message || "JSON invalide"}`); return; }
     }
     else v = Number(el.value);
-    if (JSON.stringify(v) !== JSON.stringify(s.value)) values[s.key] = v;
+    if (!settingsSame(v, s.value)) values[s.key] = v;
   });
   const errBox = document.getElementById("settings-errors");
   if (errors.length) { errBox.innerHTML = errors.map(settingsEscape).join("<br>"); return; }

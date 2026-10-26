@@ -39,7 +39,7 @@
           <div class="offer-body">
             <strong>Jeton booster</strong>
             <small>5 cartes de l'extension de ton choix. Illimité : chaque jeton acheté aujourd'hui rend le suivant ${st.growth ? `${Math.round((st.growth - 1) * 100)} % ` : ""}plus cher pour toi.</small>
-            <div class="offer-stock"><em>${st.bought ? `${st.bought} acheté${st.bought > 1 ? "s" : ""} aujourd'hui · ` : ""}${resetLabel(st.resetAt)}</em></div>
+            ${st.bought ? `<div class="offer-stock"><em>${st.bought} acheté${st.bought > 1 ? "s" : ""} aujourd'hui · ${resetLabel(st.resetAt)}</em></div>` : ""}
           </div>
           <button type="button" class="btn offer-buy" id="booster-buy" ${st.stardust >= st.price ? "" : "disabled"}>${fmt(st.price)} &#10024;${st.bought && st.basePrice ? `<small class="offer-was"> (base ${fmt(st.basePrice)})</small>` : ""}</button>
         </div>`
@@ -75,7 +75,7 @@
       <div class="thing-icon" aria-hidden="true">${iconOf(it.icon)}</div>
       <div class="thing-body"><strong>${esc(it.label)}</strong><small>${esc(it.desc)}</small></div>
       <div class="thing-foot">
-        ${it.escalate ? `<span class="thing-stock ${it.escalate.today ? "inflated" : ""}" title="Inflation personnelle : le prix est multiplié par ${String(it.escalate.growth).replace(".", ",")} à chaque achat du jour, puis revient au prix de base à minuit.">Illimité · ${it.escalate.today ? `${it.escalate.today} acheté${it.escalate.today > 1 ? "s" : ""} aujourd'hui (base ${fmt(it.basePrice)})` : "prix de base"}</span>` : it.weekly ? `<span class="thing-stock">${it.left}/${it.weekly} cette semaine</span>` : `<span class="thing-stock">Illimité</span>`}
+        ${it.escalate ? (it.escalate.today ? `<span class="thing-stock inflated" title="Inflation personnelle : le prix est multiplié par ${String(it.escalate.growth).replace(".", ",")} à chaque achat du jour, puis revient au prix de base à minuit.">▲ ${it.escalate.today} acheté${it.escalate.today > 1 ? "s" : ""} aujourd'hui · base ${fmt(it.basePrice)}</span>` : `<span class="thing-stock" aria-hidden="true"></span>`) : it.weekly ? `<span class="thing-stock">${it.left}/${it.weekly} cette semaine</span>` : `<span class="thing-stock">Illimité</span>`}
         <button type="button" class="btn${poor || out ? "-secondary" : ""} thing-buy" data-item="${esc(it.key)}" ${out || poor ? "disabled" : ""}>${out ? "Épuisé" : `${fmt(it.price)} &#10024;`}</button>
       </div>
     </article>`;

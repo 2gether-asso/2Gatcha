@@ -187,6 +187,8 @@ window.APP_CONFIG = {
     rarityPity: "/rarity-pity",         // GET ?userId=&extensionId= -> { rarities: [{ name, left }] }
     treasureHunt: "/treasure-hunt",     // GET ?userId= | POST { userId, clue, page }
     accountPrestige: "/account-prestige", // GET ?userId= -> { stars, nextLevel }
+    adminPlayer: "/admin-player",         // POST { discordId, action: 'get'|'set'|'pull', userId, fields?, tablets?, pullId?, changes?, remove? } (fiche joueur)
+    adminRewards: "/admin-rewards",       // POST { discordId, action: 'catalog'|'codes'|'createCode'|'updateCode'|'redemptions'|'gift'|'preview', ... } (Codes & dons V2)
     adminCosmetics: "/admin-cosmetics",   // POST { discordId, action: 'list'|'save'|'delete'|'grant', item?, key?, userId? } (editeur de cosmetiques)
     adminEvents: "/admin-events",       // POST { discordId, action: 'list'|'save'|'delete', event?, id? }
     push: "/push"                       // POST { userId, action: 'status'|'subscribe'|'unsubscribe'|'test', subscription? }

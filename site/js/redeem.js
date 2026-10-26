@@ -13,6 +13,7 @@ const ERROR_MESSAGES = {
   code_exhausted: "Ce code a atteint son nombre maximum d'utilisations.",
   unknown_user: "Utilisateur introuvable, reconnecte-toi.",
   code_misconfigured: "Ce code est mal configure, previens un admin.",
+  code_not_started: "Ce code n'est pas encore ouvert : reviens un peu plus tard !",
   sold_out: "Tous les exemplaires de cette carte ont déjà été distribués."
 };
 
@@ -135,7 +136,7 @@ async function redeem() {
     } else if (res.type === "reward") {
       // Code secret : cosmetiques, ressources, parfois une carte.
       document.getElementById("reward-zone").innerHTML = `<div class="reward-banner">${escHtml(res.title)} : ${res.rewards.map((r) => escHtml(r.label)).join(" · ")}${res.cards && res.cards.length ? ` · ${res.cards.length} carte${res.cards.length > 1 ? "s" : ""}` : ""}</div>`;
-      await UnlockFx.show({ title: res.title, subtitle: "Un code secret !", rewards: res.rewards, cards: res.cards || [], tone: "violet" });
+      await UnlockFx.show({ title: res.title, subtitle: res.source === "event" ? "Code événement" : "Un code secret !", rewards: res.rewards, cards: res.cards || [], tone: res.source === "event" ? "gold" : "violet" });
       refreshBoosterStat();
     } else if (res.type === "secret") {
       // Le mot des rouages : cinematique, puis la porte.

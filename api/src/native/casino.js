@@ -513,7 +513,17 @@ function grantForbiddenCard(store, user) {
   store.create('Pulls', { User: user.id, Card: card.id, SerialNumber: serial, Finish: 'normal', Quality: 'good', Edition: 'forbidden', ObtainedAt: now(), BatchId: `casino-${user.id}-${Date.now()}` });
   return { cardId: card.id, name: card.Name, rarity: rar.Name, serialNumber: serial };
 }
+// Lots reglables (CasinoLots, 2026-10-26) : nom, prix, retrait ; le contenu reste celui de LOTS.
+function lotsOf(store) {
+  const rows = setting(store, 'CasinoLots');
+  return LOTS.map((l) => {
+    const r = (Array.isArray(rows) ? rows : []).find((x) => x && x.key === l.key) || {};
+    const price = Math.round(Number(r.price));
+    return { ...l, label: String(r.label || l.label).slice(0, 60), price: Number.isFinite(price) && price >= 1 && price <= 100000 ? price : l.price, active: r.active !== false };
+  }).filter((l) => l.active);
+}
 function lots(store, user, body) {
+  const LOTS = lotsOf(store);
   const owned = new Set(store.tables.has('UserCosmetics') ? store.getAll('UserCosmetics').filter((r) => refId(r.User) === user.id).map((r) => r.Key) : []);
   const list = LOTS.map((l) => ({ key: l.key, label: l.label, icon: l.icon, price: l.price, owned: l.cosmetic ? owned.has(l.key) : false }));
   const action = body.action || 'status';

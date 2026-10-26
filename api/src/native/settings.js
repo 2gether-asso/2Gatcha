@@ -33,14 +33,34 @@ export const REGISTRY = {
   ChestCost: { ...int('Prix d’un coffre (poussières)', 100, 'Coffres', '', 1), storage: 'app' },
   ChestEveryLevels: { ...int('Un coffre offert tous les N niveaux', 5, 'Coffres', '0 = jamais.'), storage: 'app' },
   KeyEveryLevels: { ...int('Une clé offerte tous les N niveaux', 10, 'Coffres', '0 = jamais.'), storage: 'app' },
-  ChestDustMin: { ...int('Poussières minimum', 40, 'Coffres', ''), storage: 'app' },
-  ChestDustMax: { ...int('Poussières maximum', 120, 'Coffres', ''), storage: 'app' },
+  ChestDustMin: { ...int('Poussières minimum', 50, 'Coffres', ''), storage: 'app' },
+  ChestDustMax: { ...int('Poussières maximum', 150, 'Coffres', ''), storage: 'app' },
   ChestCardChance: { ...pct('Chance d’une carte', 0.7, 'Coffres', ''), storage: 'app' },
   ChestSecondCardChance: { ...pct('Chance d’une 2e carte', 0.2, 'Coffres', ''), storage: 'app' },
   ChestBoosterChance: { ...pct('Chance d’un jeton booster', 0.6, 'Coffres', ''), storage: 'app' },
   ChestDoubleBoosterChance: { ...pct('Chance de 2 jetons booster', 0.15, 'Coffres', ''), storage: 'app' },
   ChestTierWeights: { label: 'Gatchapon : poids des 8 coffres', type: 'json', group: 'Coffres', storage: 'app', help: 'Liste de 8 poids, du coffre en bois (1) au coffre mystique (8) : chance de tomber sur chaque boule.', def: [40, 25, 15, 9, 6, 3, 1.5, 0.5] },
   ChestTierMults: { label: 'Gatchapon : multiplicateur de butin des 8 coffres', type: 'json', group: 'Coffres', storage: 'app', help: 'Liste de 8 multiplicateurs (poussières, chances de jetons et de cartes, finitions ; les gros paliers penchent aussi vers les raretés hautes). Divisés par la moyenne pondérée : l’économie moyenne ne change pas.', def: [0.7, 0.9, 1.1, 1.4, 1.8, 2.5, 3.5, 5] },
+  GardenSeeds: {
+    label: 'Jardin : les graines', type: 'json', group: 'Jardin', storage: 'app',
+    help: 'Une ligne par graine (key : ne pas changer). label : nom ; cost : prix (× prix d’une plantation) ; grow : temps de pousse (× temps de base) ; level : niveau de jardinage requis ; active : false pour la retirer (le Mélange reste toujours). Ce que donne chaque graine reste celui du jeu.',
+    def: [
+      { key: 'mix', label: 'Mélange', cost: 1, grow: 1, level: 1, active: true }, { key: 'worm', label: 'Terreau à vers', cost: 1, grow: 1, level: 1, active: true },
+      { key: 'bait', label: 'Fleur dorée', cost: 3, grow: 1.5, level: 1, active: true }, { key: 'dust', label: 'Étoile filante', cost: 4, grow: 2, level: 1, active: true },
+      { key: 'catnip', label: 'Herbe à chat', cost: 2, grow: 1.2, level: 2, active: true }, { key: 'bone', label: 'Arbre à os', cost: 3, grow: 1.5, level: 4, active: true },
+      { key: 'mushroom', label: 'Champignon lumineux', cost: 4, grow: 2, level: 6, active: true }
+    ]
+  },
+  ChestExtraLoot: {
+    label: 'Gatchapon : bonus des coffres', type: 'json', group: 'Coffres', storage: 'app',
+    help: 'En plus des poussières, boosters et cartes : chaque coffre tente chaque ligne. key : ressource (worms, bait, bone, catFish, part, luck, key, chest, skull, fertilizer, goldFertilizer, tabletClay, tabletStone, tabletGold, shards, uniqueTicket, xpBoost…) ; chance : 0 à 1 ; min / max : quantité. Les gros paliers du gatchapon multiplient la chance (et un peu la quantité) comme le reste du butin.',
+    def: [
+      { key: 'worms', chance: 0.45, min: 3, max: 8 }, { key: 'catFish', chance: 0.25, min: 1, max: 3 }, { key: 'bone', chance: 0.25, min: 1, max: 2 },
+      { key: 'bait', chance: 0.18, min: 1, max: 2 }, { key: 'part', chance: 0.15, min: 1, max: 1 }, { key: 'fertilizer', chance: 0.12, min: 1, max: 2 },
+      { key: 'luck', chance: 0.08, min: 1, max: 2 }, { key: 'key', chance: 0.07, min: 1, max: 1 }, { key: 'tabletClay', chance: 0.06, min: 1, max: 1 },
+      { key: 'skull', chance: 0.03, min: 1, max: 1 }, { key: 'tabletStone', chance: 0.02, min: 1, max: 1 }
+    ]
+  },
   ChestSpecialFinishChance: { ...pct('Chance de finition spéciale (cartes du coffre)', 0.15, 'Coffres', ''), storage: 'app' },
 
   // --- Peche
@@ -51,6 +71,15 @@ export const REGISTRY = {
   FishingMaxEnergy: { ...int('Pêche : énergie max', 12, 'Pêche', '1 énergie par lancer. +1 par niveau de pêche au-dessus du 1, plus le talent Pêcheur assidu et l’arbre céleste.', 1, 200), storage: 'app' },
   CatMinutesPerFish: { ...int('Moka le chat : minutes de pêche par poisson donné', 30, 'Pêche', 'Moka pêche à ta place sans ver ni énergie.', 5, 600), storage: 'app' },
   ArcheoEnabled: { label: 'Archéologie (tablettes anciennes)', type: 'bool', def: true, group: 'Fouille', storage: 'app', help: 'Jeu de la page Jeux : des tablettes trouvées en fouille, à dégager au pinceau.' },
+  ArcheoTablets: {
+    label: 'Archéologie : les 3 sortes de tablettes', type: 'json', group: 'Fouille', storage: 'app',
+    help: 'Une ligne par sorte (key : clay, stone, gold ; ne pas changer). itemsMin / itemsMax : trouvailles par tablette ; tierBonus : paliers en plus de la profondeur ; depthMin / depthMax : épaisseur de terre ; hard : part de roche dure (0 à 0,6) ; fragile : chance qu’une pièce soit fragile ; relic : multiplicateur de la chance de relique ; energy : multiplicateur d’endurance ; perfect : multiplicateur du bonus de tablette parfaite ; xp : multiplicateur d’XP ; weight + weightPerDepth : fréquence quand on trouve une tablette (plus profond = plus de belles tablettes).',
+    def: [
+      { key: 'clay', label: 'Tablette d’argile', icon: '🟫', rarity: 'commune', hint: '3 ou 4 trouvailles, terre tendre', itemsMin: 3, itemsMax: 4, tierBonus: 0, depthMin: 0.8, depthMax: 2.2, hard: 0, fragile: 0.05, relic: 1, energy: 1, perfect: 1, xp: 1, weight: 75, weightPerDepth: 0 },
+      { key: 'stone', label: 'Pierre gravée', icon: '🪨', rarity: 'rare', hint: '4 ou 5 trouvailles, meilleurs paliers, veines de roche dure', itemsMin: 4, itemsMax: 5, tierBonus: 1, depthMin: 1, depthMax: 2.6, hard: 0.35, fragile: 0.15, relic: 2, energy: 1.25, perfect: 2, xp: 1.5, weight: 20, weightPerDepth: 4 },
+      { key: 'gold', label: 'Tablette dorée', icon: '🟨', rarity: 'legendaire', hint: '5 ou 6 trouvailles, reliques fréquentes, pièces fragiles', itemsMin: 5, itemsMax: 6, tierBonus: 2, depthMin: 1.2, depthMax: 2.8, hard: 0.38, fragile: 0.35, relic: 4, energy: 1.5, perfect: 3, xp: 2, weight: 5, weightPerDepth: 1.5 }
+    ]
+  },
   ArcheoStrokes: { ...int('Archéologie : endurance du geste par tablette', 700, 'Fouille', 'Grattage libre : chaque point du geste (environ une demi-case de déplacement) coûte 1 au pinceau et au grattoir, 3 à la pioche.', 50, 5000), storage: 'app' },
   ArcheoTabletChance: { ...pct('Archéologie : chance d’une tablette par grille de fouille terminée', 0.4, 'Fouille', 'Moitié moins par grille terminée par Milo, 8 fois moins par trésor dégagé.'), storage: 'app' },
   ArcheoMaxTablets: { ...int('Archéologie : tablettes en réserve au maximum', 20, 'Fouille', '', 1, 500), storage: 'app' },
@@ -426,6 +455,9 @@ export const REGISTRY = {
   StarterSince: { ...int('Déblocages par niveau : comptes concernés à partir de (horodatage)', 0, 'Progression', 'Posé automatiquement au premier démarrage : seuls les comptes créés après sont verrouillés. 0 = reposé au prochain démarrage.', 0, 99999999999), storage: 'app' },
   TestAccountId: { ...int('Compte test admin : id du joueur', 9, 'Administration', 'Compte sur lequel un admin bascule sans Discord (Admin > Compte test) : niveaux, ressources et difficulté propres, isolé des autres joueurs. 0 = désactivé.', 0, 1000000), storage: 'app' },
   ExpeditionDestinations: { label: 'Expédition : destinations', type: 'json', group: 'Jeux', storage: 'app', help: 'Liste { key, name, icon, level : niveau d’expédition requis, desc, loot : { ressource : quantité pour 2 h } }. Ressources : Worms, BoneCount, GoldBait, SpareParts, CatFish, KeyCount, DinoSkulls, ChestCount, minerals. ×2,5 pour 8 h, ×5 pour 24 h ; la partie décimale est une chance.', def: [{"key":"foret","name":"Forêt enchantée","icon":"🌲","level":1,"desc":"Des vers pour la pêche et quelques os pour Milo.","loot":{"Worms":3,"BoneCount":0.4}},{"key":"cote","name":"Côte sauvage","icon":"🏖️","level":1,"desc":"Du poisson pour Moka, des appâts dorés et parfois une pièce détachée.","loot":{"CatFish":2,"GoldBait":0.4,"SpareParts":0.3}},{"key":"mine","name":"Mine abandonnée","icon":"⛏️","level":2,"desc":"Des minéraux pour le comptoir (plus rares si l’expédition est longue).","loot":{"minerals":2}},{"key":"ruines","name":"Ruines antiques","icon":"🏛️","level":3,"desc":"Des clés pour le coffre-fort et des crânes pour les dinos.","loot":{"KeyCount":0.3,"DinoSkulls":0.3}},{"key":"port","name":"Port des pirates","icon":"🏴‍☠️","level":5,"desc":"Des pièces de gatchapon et des pièces détachées.","loot":{"ChestCount":0.35,"SpareParts":0.2}}] },
+  ExpeditionUniqueDustPct: { ...int('Expédition : poussières en plus avec une carte Unique (%)', 80, 'Jeux', 'Un explorateur de rareté Unique rapporte ce % de poussières en plus (les autres raretés ont leur propre bonus, de +10 % à +50 %).', 0, 500), storage: 'app' },
+  ExpeditionUniqueLootPct: { ...int('Expédition : ressources en plus avec une carte Unique (%)', 60, 'Jeux', 'Ressources de la destination (vers, os, clés, minéraux…) en plus pour un explorateur Unique ; cumulable avec l’affinité du jour.', 0, 500), storage: 'app' },
+  ExpeditionUniqueBoosterChance: { ...int('Expédition : chance d’un jeton booster en plus avec une carte Unique (%)', 25, 'Jeux', 'Au retour d’un explorateur Unique, chance d’un jeton booster en plus de ceux de l’expédition.', 0, 100), storage: 'app' },
   ExpeditionAffinityPct: { ...int('Expédition : bonus d’affinité (%)', 50, 'Jeux', 'Chaque jour, chaque destination a une rareté et une extension favorites : un explorateur qui correspond rapporte ce % de ressources en plus (cumulable : rareté + extension).', 0, 500), storage: 'app' },
   MokaHints: {
     label: 'Moka : indices sur ses amis chats (cartes secrètes)', type: 'json', group: 'Salle interdite', storage: 'app',
@@ -463,6 +495,17 @@ export const REGISTRY = {
   CasinoCashoutRate: { ...pct('Casino : part rendue quand on revend des jetons', 0.8, 'Salle interdite', '0,8 = un jeton revendu rapporte 80 % de son prix.'), storage: 'app' },
   CasinoMaxBet: { ...int('Casino : mise maximale (jetons)', 100, 'Salle interdite', 'Blackjack, Plinko, bonneteau ; la roulette accepte 5 fois plus au total.', 1, 100000), storage: 'app' },
   CasinoDailyChipsPerLevel: { ...int('Casino : jetons offerts par jour et par niveau VIP', 10, 'Salle interdite', 'Le niveau VIP monte avec les jetons misés.', 0, 10000), storage: 'app' },
+  CasinoLots: {
+    label: 'Salle interdite : lots du comptoir', type: 'json', group: 'Salle interdite', storage: 'app',
+    help: 'Une ligne par lot (key : ne pas changer). label : nom affiché ; price : prix en tickets ; active : false pour le retirer du comptoir. Le contenu de chaque lot (jeton booster, clé, tablette, carte, cosmétique…) reste celui du jeu.',
+    def: [
+      { key: 'booster', label: 'Jeton booster', price: 40, active: true }, { key: 'key', label: 'Clé de coffre', price: 25, active: true }, { key: 'bait', label: '2 appâts dorés', price: 15, active: true },
+      { key: 'part', label: 'Pièce détachée', price: 30, active: true }, { key: 'bone', label: '2 os pour Milo', price: 18, active: true }, { key: 'tablet', label: 'Pierre gravée (tablette rare)', price: 20, active: true },
+      { key: 'card', label: 'Carte Interdite (épique ou mieux)', price: 90, active: true }, { key: 'title-flambeur', label: 'Titre « Flambeur »', price: 120, active: true },
+      { key: 'title-highroller', label: 'Titre « High roller »', price: 300, active: true }, { key: 'frame-casino', label: 'Cadre « Néon du casino »', price: 220, active: true },
+      { key: 'color-casino', label: 'Pseudo « Or du casino »', price: 180, active: true }
+    ]
+  },
   CasinoFeedThreshold: { ...int('Casino : gain annoncé dans le fil à partir de (jetons)', 500, 'Salle interdite', '', 1, 1000000), storage: 'app' },
   CasinoCanCost: { ...int('Chamboule-tout : prix d’une partie (jetons)', 5, 'Salle interdite', '3 balles.', 1, 10000), storage: 'app' },
   CasinoCanDustPerPoint: { ...int('Chamboule-tout : poussières par point', 2, 'Salle interdite', 'Points : commune 1, rare 2, épique 3, légendaire 5, mythique 8 ; tout par terre = ×2. Tickets : 1 pour 4 points.', 0, 1000), storage: 'app' },
@@ -592,6 +635,7 @@ function validate(key, raw) {
     if (key === 'FishingZones' && (!v.length || v.some((z) => !z || !z.key || !['shore', 'deep'].includes(z.pool || 'shore')) || !v.some((z) => z.key === 'shore') || new Set(v.map((z) => z.key)).size !== v.length)) throw new Error(`${r.label} : chaque lieu a une key unique et un pool shore ou deep, et le rivage (shore) doit exister`);
     if (key === 'DigDepths' && (!v.length || v.length > 8 || v.some((d) => !d || !Array.isArray(d.treasures) || !d.treasures.length || d.treasures.some((t) => !['card', 'rareCard', 'booster', 'bigDust', 'smallDust', 'mineral'].includes(t.reward) || !(Number(t.cells) >= 1) || !(Number(t.n) >= 1)) || d.treasures.reduce((s, t) => s + Number(t.cells) * Number(t.n), 0) > 32))) throw new Error(`${r.label} : chaque profondeur a des trésors connus (reward, cells, n) qui tiennent dans 32 cases`);
     if (key === 'RipenStages' && (!v.length || v.some((s, i) => !s || !s.label || !(Number(s.hours) > 0) || !(Number(s.finish) >= 0) || (i > 0 && Number(s.hours) <= Number(v[i - 1].hours))))) throw new Error(`${r.label} : chaque stade a un label, des heures croissantes et des points de finition`);
+    if (key === 'ChestExtraLoot' && v.some((l) => !l || !l.key || !(Number(l.chance) >= 0 && Number(l.chance) <= 1) || !(Number(l.min) >= 1) || !(Number(l.max) >= Number(l.min)))) throw new Error(`${r.label} : chaque ligne { key, chance (0 à 1), min, max (≥ min) }`);
     if (key === 'RipenSlotLevels' && (!v.length || v.some((x) => !(Number(x) >= 1)))) throw new Error(`${r.label} : une liste de niveaux (au moins 1)`);
     if (key === 'PatchNotesExtra' && v.some((n) => !n || !/^\d{4}-\d{2}-\d{2}$/.test(String(n.date || '')) || !n.title || !Array.isArray(n.items) || !n.items.length)) throw new Error(`${r.label} : chaque entrée a une date AAAA-MM-JJ, un titre et une liste de textes`);
     if (key === 'StoryChapters' && v.some((c) => !c || !c.title || !Array.isArray(c.steps) || !c.steps.length || c.steps.some((s) => !s || !s.type || !(Number(s.target) >= 1)) || (c.reward && Object.keys(c.reward).some((k) => !['BoosterCount', 'StardustCount', 'Worms', 'KeyCount', 'BoneCount', 'GoldBait', 'SpareParts', 'ChestCount', 'XP'].includes(k))))) throw new Error(`${r.label} : chaque chapitre a un titre, des objectifs (type, target ≥ 1) et des récompenses connues`);

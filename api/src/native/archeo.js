@@ -53,6 +53,27 @@ export const TABLETS = {
   gold: { label: 'Tablette dorée', icon: '🟨', rarity: 'legendaire', items: [5, 6], tierBonus: 2, depth: [1.2, 2.8], hard: 0.38, fragile: 0.35, relic: 4, energy: 1.5, perfect: 3, xp: 2, hint: '5 ou 6 trouvailles, reliques fréquentes, pièces fragiles' }
 };
 const TABLET_KEYS = Object.keys(TABLETS);
+// Reglage ArcheoTablets (2026-10-26) : les valeurs de chaque sorte, bornees ;
+// une valeur absente ou hors limites garde celle par defaut ci-dessus.
+const WEIGHTS = { clay: [75, 0], stone: [20, 4], gold: [5, 1.5] };
+function tabletsCfg(store) {
+  const rows = setting(store, 'ArcheoTablets');
+  const out = {};
+  for (const k of TABLET_KEYS) {
+    const d = TABLETS[k];
+    const r = (Array.isArray(rows) ? rows : []).find((x) => x && x.key === k) || {};
+    const num = (v, def, lo, hi) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : def; };
+    const iMin = Math.round(num(r.itemsMin, d.items[0], 1, 8)), iMax = Math.round(num(r.itemsMax, d.items[1], 1, 8));
+    const dMin = num(r.depthMin, d.depth[0], 0.3, 3), dMax = num(r.depthMax, d.depth[1], 0.3, 3);
+    out[k] = {
+      ...d, label: String(r.label || d.label).slice(0, 40), icon: String(r.icon || d.icon).slice(0, 8), rarity: String(r.rarity || d.rarity).slice(0, 20), hint: String(r.hint || d.hint).slice(0, 120),
+      items: [Math.min(iMin, iMax), Math.max(iMin, iMax)], tierBonus: Math.round(num(r.tierBonus, d.tierBonus, 0, 4)), depth: [Math.min(dMin, dMax), Math.max(dMin, dMax)],
+      hard: num(r.hard, d.hard, 0, 0.6), fragile: num(r.fragile, d.fragile, 0, 1), relic: num(r.relic, d.relic, 0, 10), energy: num(r.energy, d.energy, 0.2, 5),
+      perfect: num(r.perfect, d.perfect, 0, 10), xp: num(r.xp, d.xp, 0, 10), weight: num(r.weight, WEIGHTS[k][0], 0, 1000), weightPerDepth: num(r.weightPerDepth, WEIGHTS[k][1], 0, 100)
+    };
+  }
+  return out;
+}
 // Niveau d'archeologue : seuils d'XP et avantages.
 const ARCH_LEVELS = [0, 25, 60, 110, 180, 270, 380, 520, 690, 900];
 export const ARCH_PERKS = {
@@ -111,8 +132,9 @@ export function addTabletsFields(user, kind, n = 1) {
 // Sorte d'une tablette trouvee : plus belle en profondeur.
 function rollKind(store, user) {
   const d = Math.max(0, currentDepth(store, user) - 1);
-  const w = { clay: 75, stone: 20 + d * 4, gold: 5 + d * 1.5 };
-  let r = Math.random() * (w.clay + w.stone + w.gold);
+  const cfg = tabletsCfg(store);
+  const w = Object.fromEntries(TABLET_KEYS.map((k) => [k, cfg[k].weight + d * cfg[k].weightPerDepth]));
+  let r = Math.random() * TABLET_KEYS.reduce((a, k) => a + w[k], 0);
   for (const k of TABLET_KEYS) { r -= w[k]; if (r <= 0) return k; }
   return 'clay';
 }
@@ -157,7 +179,7 @@ function ellipseCells(w, h, cx, cy, rx, ry, wobble = 0.25) {
 }
 
 function generate(store, user, kind = 'clay') {
-  const T = TABLETS[kind] || TABLETS.clay;
+  const T = tabletsCfg(store)[kind] || tabletsCfg(store).clay;
   const depth = smoothNoise(W, H, T.depth[0], T.depth[1]);
   // Veines de roche dure (pierre gravee ~15 % des cases, tablette doree ~20 %).
   const hardNoise = smoothNoise(W, H, 0, 1);
@@ -263,12 +285,12 @@ function view(store, user) {
   return {
     enabled: !!setting(store, 'ArcheoEnabled'),
     tablets: Number(user.Tablets) || 0, done: Number(user.ArcheoDone) || 0, freedTotal: Number(user.ArcheoFreed) || 0, maxTablets: setting(store, 'ArcheoMaxTablets'),
-    stock: TABLET_KEYS.map((k) => ({ kind: k, ...TABLETS[k], count: stock[k], maxTier: Math.min(5, maxTier(store, user) + TABLETS[k].tierBonus) })),
+    stock: TABLET_KEYS.map((k) => { const t = tabletsCfg(store)[k]; return { kind: k, ...t, count: stock[k], maxTier: Math.min(5, maxTier(store, user) + t.tierBonus) }; }),
     level: { ...lv, perks: ARCH_PERKS, max: ARCH_LEVELS.length, nextPerk: ARCH_PERKS[lv.level + 1] || null },
     finds: findsOf(user).map(upgradeFind).map(findTeaser),
     tools: toolsFor(user), bare: BARE, damageMult: perks.damage,
     tablet: s ? {
-      kind: s.kind || 'clay', label: (TABLETS[s.kind] || TABLETS.clay).label,
+      kind: s.kind || 'clay', label: (tabletsCfg(store)[s.kind] || tabletsCfg(store).clay).label,
       w: s.w, h: s.h, depth: s.depth, hard: s.hard || null, energy: s.energy, max: s.max, total: s.items.length,
       // Parties a nu des trouvailles (un bloc de pierre qui affleure) et reflets juste au-dessus (la loupe les montre plus tot).
       peek: s.items.flatMap((it) => it.cells.filter((c) => s.depth[c] <= BARE)),
@@ -289,7 +311,7 @@ function gainXp(user, n, fields = {}) {
 
 // Fin d'extraction : chaque trouvaille degagee devient un bloc brut.
 function finish(store, user, s) {
-  const T = TABLETS[s.kind] || TABLETS.clay;
+  const T = tabletsCfg(store)[s.kind] || tabletsCfg(store).clay;
   const extracted = s.items.filter((it) => isExtracted(s, it));
   const fresh = extracted.map((it) => newFind({ ...it, from: s.kind || 'clay' }));
   const kept = [...findsOf(user), ...fresh].slice(-MAX_FINDS);
@@ -329,7 +351,7 @@ function liberate(store, user, f) {
   }
   add('DigXP', 1);
   add('ArcheoFreed', 1);
-  const g = gainXp(user, ({ intact: 5, scratched: 4, cracked: 2, broken: 1 })[st] * ((TABLETS[f.from] || TABLETS.clay).xp), fields);
+  const g = gainXp(user, ({ intact: 5, scratched: 4, cracked: 2, broken: 1 })[st] * ((tabletsCfg(store)[f.from] || tabletsCfg(store).clay).xp), fields);
   return { fields: g.fields, result: { ...out, xp: g.fields.ArcheoXP - (Number(user.ArcheoXP) || 0), levelUp: g.levelUp } };
 }
 
@@ -424,7 +446,8 @@ export function afterWorkflow({ store, path, request, response }) {
   const kinds = [];
   for (let i = 0; i < n; i++) { const k = rollKind(store, u); kinds.push(k); u = store.update('Users', u.id, addTabletsFields(u, k, 1)); }
   json.tabletsFound = n;
-  json.tabletKinds = kinds.map((k) => ({ kind: k, label: TABLETS[k].label, icon: TABLETS[k].icon, rarity: TABLETS[k].rarity }));
+  const cfgK = tabletsCfg(store);
+  json.tabletKinds = kinds.map((k) => ({ kind: k, label: cfgK[k].label, icon: cfgK[k].icon, rarity: cfgK[k].rarity }));
   if (json.dogReport && dogBoards && !json.boardCleared) json.dogReport.tablets = n;
 }
 

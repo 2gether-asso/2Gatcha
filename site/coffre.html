@@ -46,6 +46,7 @@
       </p>
       <nav class="tabs coffre-switch" id="coffre-switch" role="tablist" aria-label="Coffre-fort ou musée">
         <button type="button" class="tab active" role="tab" aria-selected="true" data-coffre-view="vault">&#128274; Coffre-fort</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-coffre-view="gallery">&#128142; Présentoir</button>
         <button type="button" class="tab" role="tab" aria-selected="false" data-coffre-view="museum">&#127963;&#65039; Musée</button>
       </nav>
       <div id="pv-guest" class="error-box" style="display:none">Connecte-toi pour accéder à ton coffre-fort.</div>
@@ -92,6 +93,7 @@
         <div id="pv-rows" class="pv-rows"></div>
       </div>
       </div>
+      <div id="gallery-view" hidden><div id="pv-gallery" class="pv-gallery"></div></div>
       <div id="museum-view" hidden>
         <p class="lead" style="font-size:0.85rem;">Tout ce que tu as trouvé au moins une fois, exposé pour toujours : poissons de l'aquarium, minéraux, objets et dinos. Ce que tu n'as pas encore trouvé reste en silhouette.</p>
         <div id="museum-zone"><div class="skeleton-line">Chargement…</div></div>
@@ -105,6 +107,7 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/shell-extras.js"></script>
+  <script src="js/card-extras.js"></script>
   <script src="js/coffre.js"></script>
   <script src="js/museum.js"></script>
 </body>

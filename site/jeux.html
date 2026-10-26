@@ -120,7 +120,7 @@
 
       <div id="archeo-pane" style="display:none;">
         <h2>&#127994; Archéologie</h2>
-        <p class="lead" style="font-size:0.85rem;">Des <strong>tablettes anciennes</strong> dorment sous tes grilles de fouille (une chance à chaque grille terminée, par toi ou par Milo). Dégage la terre couche par couche : minéraux, tessons gravés, crânes de dino et, si tu as de la chance, une relique. Le <strong>pinceau</strong> est précis et sans risque ; la <strong>truelle</strong> va plus vite mais abîme ce qui est déjà à nu.</p>
+        <p class="lead" style="font-size:0.85rem;">Des <strong>tablettes anciennes</strong> (argile, pierre gravée, dorée) dorment sous tes grilles de fouille : une chance à chaque grille terminée, par toi ou par Milo. Gratte la terre pour <strong>extraire</strong> les blocs bruts, puis nettoie-les à l'<strong>atelier</strong> : minéraux, tessons gravés, crânes de dino et, avec de la chance, une relique. Le <strong>pinceau</strong> est doux et sans risque ; le <strong>grattoir</strong> et la <strong>pioche</strong> vont plus vite mais abîment ce qui est déjà à nu si la pression passe au rouge. Touches 1 à 5 : changer d'outil.</p>
         <div id="archeo-zone" class="archeo-zone"><p class="muted">Chargement…</p></div>
       </div>
       <div id="bingo-pane" style="display:none;">
@@ -204,11 +204,19 @@
         <div class="garden-meta" id="garden-meta"></div>
         <div class="skill-level" id="garden-level" hidden></div>
         <div data-shop-strip="jardin"></div>
+        <h3 class="garden-h">&#127793; Sachets de graines <small class="muted">(choisis, puis plante tout ou parcelle par parcelle)</small></h3>
         <div class="garden-seeds" id="garden-seeds" role="radiogroup" aria-label="Graine à planter"></div>
-        <div class="garden-plots" id="garden-plots"></div>
+        <div class="garden-field" id="garden-field" data-sky="day">
+          <div class="gf-sky" aria-hidden="true"><span class="gf-sun"></span><span class="gf-cloud c1"></span><span class="gf-cloud c2"></span><span class="gf-stars"></span></div>
+          <div class="gf-back" aria-hidden="true"><span class="gf-hill"></span><span class="gf-scarecrow"><i class="hat"></i><i class="head"></i><i class="arms"></i><i class="pole"></i></span><span class="gf-sunflowers">&#127803;&#127803;&#127803;</span></div>
+          <div class="gf-fence" aria-hidden="true"></div>
+          <span class="gf-bee b1" aria-hidden="true">&#128029;</span><span class="gf-bee b2" aria-hidden="true">&#129419;</span><span class="gf-snail" aria-hidden="true">&#128012;</span>
+          <div class="garden-plots" id="garden-plots"></div>
+        </div>
         <div class="garden-actions">
           <button type="button" class="btn" id="garden-plant-btn">&#127793; Tout planter</button>
           <button type="button" class="btn-secondary" id="garden-harvest-btn">&#129530; Tout récolter</button>
+          <button type="button" class="btn-secondary garden-poop-btn" id="garden-poop-btn" hidden>&#128169; Mettre du caca partout</button>
           <button type="button" class="btn-ghost" id="garden-buyplot-btn" hidden>&#10133; Parcelle</button>
         </div>
       </div>

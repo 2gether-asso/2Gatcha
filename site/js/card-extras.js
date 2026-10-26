@@ -151,6 +151,47 @@ const CardExtras = (function () {
     LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.card(o)).catch(() => Toast.error("Partage indisponible pour le moment.")).finally(() => { btn.disabled = false; });
   }
 
+  // ---------------------------------------------------------------- coffre-fort
+  // Exemplaire de la variante affichee qui a une case libre au coffre
+  // (2026-10-26) : parfait etat, case de sa finition vide, dans l'onglet de
+  // son edition. Statut du coffre relu au plus toutes les 30 s.
+  let vaultCache = null;
+  async function vaultStatus() {
+    if (vaultCache && Date.now() - vaultCache.at < 30000) return vaultCache.data;
+    const data = await API.personalVault(Session.userId, "status");
+    vaultCache = { at: Date.now(), data };
+    return data;
+  }
+  async function vaultSlot(o) {
+    if (!o.owned || o.quality !== "mint" || o.card.isPromo || typeof Session === "undefined" || !Session.isLoggedIn() || !API.personalVault) return null;
+    const mine = new Set((o.copies || []).map((c) => c.pullId));
+    try {
+      const st = await vaultStatus();
+      if (!st || !st.unlocked) return null;
+      const tab = o.edition ? (st.editions || []).find((t) => t.key === o.edition) : null;
+      const row = ((tab ? tab.rows : st.rows) || []).find((r) => r.cardId === o.card.cardId);
+      const slot = row && row.slots.find((s) => s.finish === o.finish);
+      if (!slot || slot.stored) return null;
+      return (slot.candidates || []).filter((c) => mine.has(c.pullId)).sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0))[0] || null;
+    } catch (e) { return null; }
+  }
+  async function storeInVault(btn) {
+    btn.disabled = true;
+    try {
+      const res = await API.personalVault(Session.userId, "store", Number(btn.dataset.pullId));
+      vaultCache = null;
+      btn.hidden = true;
+      Toast.success(res && res.reward ? `🔒 Rangée au coffre : la ligne est complète ! +${res.reward.boosters} boosters, +${res.reward.dust} poussières.` : "🔒 Rangée au coffre-fort : elle est protégée.");
+      // L'exemplaire quitte la collection active : on ferme la fenetre avant de recharger.
+      const x = btn.closest(".card-modal-overlay")?.querySelector(".card-modal-close");
+      if (x) x.click();
+      if (typeof Coll !== "undefined" && Coll.refresh) Coll.refresh();
+    } catch (e) {
+      Toast.error({ slot_filled: "Cette case du coffre est déjà occupée.", not_mint: "Seules les cartes en parfait état vont au coffre.", vault_locked: "Ton coffre-fort perso n'est pas encore débloqué." }[e.code] || friendlyError(e));
+      btn.disabled = false;
+    }
+  }
+
   // ---------------------------------------------------------------- branchement sur la fenetre
   function attach(modal, o) {
     if (!modal || modal._extras) return;
@@ -179,7 +220,8 @@ const CardExtras = (function () {
       <button type="button" class="btn-ghost" data-cx="verso">&#128260; Verso</button>
       ${serials.length ? '<button type="button" class="btn-ghost" data-cx="history">&#128220; Historique</button>' : ""}
       <button type="button" class="btn-ghost" data-cx="price">&#128200; Cote</button>
-      ${o.owned ? '<button type="button" class="btn-ghost" data-cx="share">&#128228; Partager</button>' : ""}`;
+      ${o.owned ? '<button type="button" class="btn-ghost" data-cx="share">&#128228; Partager</button>' : ""}
+      <button type="button" class="btn-ghost" data-cx="vault" hidden>&#128274; Ranger au coffre</button>`;
     const panel = document.createElement("div");
     panel.className = "card-extras-panel";
     panel.hidden = true;
@@ -187,10 +229,18 @@ const CardExtras = (function () {
     (badges || body.firstElementChild).after(bar);
     bar.after(panel);
     let open = null;
+    vaultSlot(o).then((slot) => {
+      const vb = bar.querySelector('[data-cx="vault"]');
+      if (!slot || !vb) return;
+      vb.hidden = false;
+      vb.title = `Ranger ${serial(slot.serialNumber)} dans la case ${FINISH[o.finish] || o.finish} du coffre-fort (il quitte ta collection active, tu peux le retirer quand tu veux)`;
+      vb.dataset.pullId = slot.pullId;
+    });
     bar.addEventListener("click", (e) => {
       const b = e.target.closest("[data-cx]");
       if (!b) return;
       const what = b.dataset.cx;
+      if (what === "vault") { storeInVault(b); return; }
       if (what === "verso") { modal.classList.toggle("show-verso"); b.classList.toggle("active", modal.classList.contains("show-verso")); return; }
       if (what === "share") { share({ ...o, serial: serials[0] || null }, b); return; }
       // Inspecteur plein ecran (js/lazy/card-inspector.js, charge au premier clic).

@@ -260,9 +260,11 @@
   const cQty = new Map();
   let hideOwned = false;
 
-  // Prix reel (Bourse comprise en mode Medium).
+  // Prix reel (Bourse comprise en mode Medium). Combien d'affilee : chaque
+  // craft demande d'avoir le prix de base en poche (Coll.craftNeedOf).
   const craftCost = (card) => Coll.craftCostOf(card) || 0;
-  const maxAffordable = (card) => (craftCost(card) > 0 ? Math.floor(state.stardust / craftCost(card)) : 1);
+  const canAfford = (card, dust = state.stardust) => Coll.canCraftNow(card, dust);
+  const maxAffordable = (card) => { const need = Coll.craftNeedOf(card) || 0, cost = craftCost(card); if (cost <= 0) return 1; return state.stardust < need ? 0 : 1 + Math.floor((state.stardust - need) / cost); };
   function craftableCards() {
     return state.cards.filter((c) => c.inCatalog && !c.isPromo && c.rarity?.craftCost != null);
   }
@@ -272,30 +274,32 @@
 
   function craftTile(card) {
     const cost = craftCost(card);
-    const canAfford = state.stardust >= cost;
+    const affordable = canAfford(card);
+    const coupon = Coll.couponOf(card);
     const owned = state.ownedMap.get(card.cardId);
     const checked = cSelected.has(card.cardId);
     const qty = craftQtyOf(card);
-    const showStepper = !cBulk && canAfford && maxAffordable(card) > 1;
+    const showStepper = !cBulk && affordable && maxAffordable(card) > 1;
     const wished = state.wishlist.has(card.cardId);
     // Carte jamais obtenue : nom visible (on la vise), image floutee comme au classeur.
     return `
-      <div class="craft-card ${canAfford ? "" : "unavailable"} ${cBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${Coll.isDiscovered(card.cardId) ? "" : "coll-missing"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
-        ${cBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-craft-bulk-id="${card.cardId}" ${checked ? "checked" : ""} ${canAfford ? "" : "disabled"} aria-label="Sélectionner ${escapeHtml(card.name)}" /></label>` : ""}
+      <div class="craft-card ${affordable ? "" : "unavailable"} ${coupon ? "has-coupon" : ""} ${cBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${Coll.isDiscovered(card.cardId) ? "" : "coll-missing"}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}">
+        ${cBulk ? `<label class="bulk-checkbox"><input type="checkbox" data-craft-bulk-id="${card.cardId}" ${checked ? "checked" : ""} ${affordable ? "" : "disabled"} aria-label="Sélectionner ${escapeHtml(card.name)}" /></label>` : ""}
         ${wished ? `<span class="coll-wish-flag" title="Dans ta liste de souhaits">&#9829;</span>` : ""}
+        ${coupon ? `<span class="craft-coupon" title="Bon de craft (Devine la carte) : ${coupon.refund} poussières rendues juste après le craft, valable jusqu'au ${new Date(coupon.until * 1000).toLocaleDateString("fr-FR")}">&#127915; −${coupon.pct} %</span>` : ""}
         <img src="${API.imageUrl(card.imageId) || PLACEHOLDER_IMG}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" />
         <div class="card-info">
           <div class="card-name">${escapeHtml(card.name)}</div>
           <div class="owned-count">${owned ? `Possédée x${owned.count}` : state.protectedMap.has(card.cardId) ? "&#128274; Au coffre-fort" : "<strong>Manquante</strong>"}</div>
-          <div class="craft-cost">${cost} poussières</div>
-          ${!canAfford ? `<div class="craft-missing">Il te manque ${cost - state.stardust} poussières</div>` : ""}
+          <div class="craft-cost">${Coll.craftPriceHtml(card)}</div>
+          ${!affordable ? `<div class="craft-missing">Il te manque ${(Coll.craftNeedOf(card) || cost) - state.stardust} poussières${coupon ? " (le bon est rendu après le craft)" : ""}</div>` : ""}
           ${showStepper ? `
             <div class="qty-stepper">
               <button type="button" class="qty-btn" data-cqty="-1" data-card-id="${card.cardId}" aria-label="Moins" ${qty <= 1 ? "disabled" : ""}>&minus;</button>
               <span class="qty-value" data-cqty-display="${card.cardId}">${qty}</span>
               <button type="button" class="qty-btn" data-cqty="1" data-card-id="${card.cardId}" aria-label="Plus" ${qty >= maxAffordable(card) ? "disabled" : ""}>+</button>
             </div>` : ""}
-          <button type="button" class="craft-btn" data-card-id="${card.cardId}" ${canAfford && !cBulk ? "" : "disabled"}>${qty > 1 ? `Crafter x${qty}` : "Crafter"}</button>
+          <button type="button" class="craft-btn" data-card-id="${card.cardId}" ${affordable && !cBulk ? "" : "disabled"}>${qty > 1 ? `Crafter x${qty}` : "Crafter"}</button>
         </div>
       </div>`;
   }
@@ -305,11 +309,12 @@
     if (hideOwned) list = list.filter((c) => !Coll.isDiscovered(c.cardId));
     // A portee d'abord, puis manquantes, puis wishlist, puis cout croissant.
     list = [...list].sort((a, b) =>
-      ((state.stardust >= craftCost(a) ? 0 : 1) - (state.stardust >= craftCost(b) ? 0 : 1)) ||
+      ((canAfford(a) ? 0 : 1) - (canAfford(b) ? 0 : 1)) ||
+      ((Coll.couponOf(b) ? 1 : 0) - (Coll.couponOf(a) ? 1 : 0)) ||
       ((Coll.isDiscovered(a.cardId) ? 1 : 0) - (Coll.isDiscovered(b.cardId) ? 1 : 0)) ||
       ((state.wishlist.has(b.cardId) ? 1 : 0) - (state.wishlist.has(a.cardId) ? 1 : 0)) ||
       (craftCost(a) - craftCost(b)) || a.name.localeCompare(b.name));
-    [...cSelected].forEach((id) => { const c = cardOf(id); if (!c || state.stardust < craftCost(c)) cSelected.delete(id); });
+    [...cSelected].forEach((id) => { const c = cardOf(id); if (!c || !canAfford(c)) cSelected.delete(id); });
     $("craft-grid").innerHTML = list.length
       ? list.map(craftTile).join("")
       : `<div class="empty-state">${hideOwned ? "Aucune carte manquante ne correspond." : "Aucune carte craftable ne correspond."}</div>`;
@@ -337,12 +342,27 @@
     const bar = $("craft-bulk-bar");
     if (!cBulk || !cSelected.size) { bar.style.display = "none"; return; }
     const cost = [...cSelected].reduce((s, id) => s + craftCost(cardOf(id) || {}), 0);
-    const ok = cost <= state.stardust;
+    const refund = [...cSelected].reduce((s, id) => s + ((Coll.couponOf(cardOf(id)) || {}).refund || 0), 0);
+    const ok = lotAffordable([...cSelected]);
     bar.style.display = "flex";
-    $("craft-bulk-summary").textContent = `${plural(cSelected.size, "carte")} · ${cost} poussières` + (ok ? ` · reste ${state.stardust - cost}` : ` (solde insuffisant : ${state.stardust})`);
+    $("craft-bulk-summary").textContent = `${plural(cSelected.size, "carte")} · ${cost} poussières` + (refund ? ` (−${refund} rendues par tes bons)` : "") + (ok ? ` · reste ${state.stardust - cost + refund}` : ` (solde insuffisant : ${state.stardust})`);
     $("craft-bulk-btn").disabled = !ok;
   }
 
+  // Le lot passe-t-il jusqu'au bout ? Simulation dans l'ordre d'envoi : chaque
+  // craft doit trouver son prix de base en poche, puis le bon est rendu.
+  function lotAffordable(ids) {
+    let dust = state.stardust;
+    const used = new Set();
+    for (const id of ids) {
+      const c = cardOf(id);
+      if (!c || !canAfford(c, dust)) return false;
+      dust -= craftCost(c);
+      const k = Coll.couponOf(c);
+      if (k && !used.has(id)) { dust += k.refund; used.add(id); }
+    }
+    return true;
+  }
   function setCraftBulk(on) {
     cBulk = on;
     cSelected.clear();
@@ -353,23 +373,25 @@
 
   async function runCraft(ids) {
     let count = 0, lastError = null, lastName = "";
+    const receipts = [];
     if (ids.length > 1) {
       // En lot (2026-10-18).
       let results = [];
       try { results = await API.batchWrite("craft", ids.map((id) => ({ userId: Session.userId, cardId: id }))); } catch (e) { lastError = e; }
       results.forEach((r) => {
-        if (r.status === 200 && r.json && !r.json.error && r.json.card) { lastName = r.json.card.name; count++; }
+        if (r.status === 200 && r.json && !r.json.error && r.json.card) { lastName = r.json.card.name; count++; receipts.push(Coll.craftReceipt(r.json)); }
         else lastError = Object.assign(new Error((r.json && r.json.error) || "error"), { code: r.json && r.json.error, status: r.status, data: r.json });
       });
     } else {
       for (const id of ids) {
-        try { const res = await API.craftCard(Session.userId, id); lastName = res.card.name; count++; }
+        try { const res = await API.craftCard(Session.userId, id); lastName = res.card.name; count++; receipts.push(Coll.craftReceipt(res)); }
         catch (e) { lastError = e; }
       }
     }
     if (!count) { Toast.error(Coll.errorText("craft", lastError)); return false; }
+    const receipt = receipts.filter(Boolean).join(" · ");
     if (typeof confetti === "function") confetti({ particleCount: 100, spread: 90, origin: { y: 0.5 } });
-    Toast.success(ids.every((x) => x === ids[0]) ? (count > 1 ? `${count}x ${lastName} craftées !` : `${lastName} craftée !`) : `${plural(count, "carte")} craftée${count > 1 ? "s" : ""}.`);
+    Toast.success((ids.every((x) => x === ids[0]) ? (count > 1 ? `${count}x ${lastName} craftées !` : `${lastName} craftée !`) : `${plural(count, "carte")} craftée${count > 1 ? "s" : ""}.`) + (receipt ? ` ${receipt}` : ""));
     if (lastError) Toast.error(Coll.errorText("craft", lastError));
     return true;
   }
@@ -379,8 +401,10 @@
     if (!card) return;
     const qty = craftQtyOf(card);
     const total = craftCost(card) * qty;
+    const coupon = Coll.couponOf(card);
+    const back = coupon ? coupon.refund : 0;
     const ok = await Confirm.show(
-      `Crafter <strong>${qty > 1 ? qty + "x " : ""}${escapeHtml(card.name)}</strong> pour <strong>${total} poussières d'étoile</strong> ? Solde : ${state.stardust} &rarr; <strong>${state.stardust - total}</strong>.`,
+      `Crafter <strong>${qty > 1 ? qty + "x " : ""}${escapeHtml(card.name)}</strong> pour <strong>${total} poussières d'étoile</strong>${back ? `, dont <strong>${back}</strong> rendues tout de suite par ton bon de craft (−${coupon.pct} %${qty > 1 ? ", sur le premier exemplaire seulement" : ""})` : ""} ? Solde : ${state.stardust} &rarr; <strong>${state.stardust - total + back}</strong>.`,
       { title: "Crafter cette carte ?", confirmText: qty > 1 ? `Crafter x${qty}` : "Crafter" });
     if (!ok) return;
     if (await runCraft(Array(qty).fill(cardId))) { cQty.delete(cardId); await Coll.refresh(); }
@@ -389,9 +413,10 @@
   async function craftSelection() {
     const ids = [...cSelected];
     const cost = ids.reduce((s, id) => s + craftCost(cardOf(id) || {}), 0);
-    if (!ids.length || cost > state.stardust) return;
+    const back = ids.reduce((s, id) => s + ((Coll.couponOf(cardOf(id)) || {}).refund || 0), 0);
+    if (!ids.length || !lotAffordable(ids)) return;
     const ok = await Confirm.show(
-      `Crafter ces <strong>${plural(ids.length, "carte")}</strong> pour <strong>${cost} poussières d'étoile</strong> au total ? Solde : ${state.stardust} &rarr; <strong>${state.stardust - cost}</strong>.`,
+      `Crafter ces <strong>${plural(ids.length, "carte")}</strong> pour <strong>${cost} poussières d'étoile</strong> au total${back ? `, dont <strong>${back}</strong> rendues par tes bons de craft` : ""} ? Solde : ${state.stardust} &rarr; <strong>${state.stardust - cost + back}</strong>.`,
       { title: "Crafter la sélection ?", confirmText: "Crafter tout" });
     if (!ok) return;
     await runCraft(ids);
@@ -740,7 +765,7 @@
   Coll.registerPane("craft", {
     render: renderCraft,
     // Cartes manquantes que le solde permet deja de crafter.
-    count: () => craftableCards().filter((c) => !Coll.isDiscovered(c.cardId) && state.stardust >= craftCost(c)).length,
+    count: () => craftableCards().filter((c) => !Coll.isDiscovered(c.cardId) && canAfford(c)).length,
     reset() { hideOwned = false; cBulk = false; cSelected.clear(); cQty.clear(); $("craft-bulk-toggle").classList.remove("active"); },
     showMissingOnly() { hideOwned = true; }
   });

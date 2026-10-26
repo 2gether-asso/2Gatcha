@@ -130,6 +130,7 @@
                 <option value="ghost">Ghost</option>
                 <option value="diamond">Diamant</option>
                 <option value="rainbow">Arc-en-ciel</option>
+                <option value="emerald">Émeraude</option>
                 </select>
                 <select id="quality-filter" aria-label="Filtrer par état">
                 <option value="">États</option>
@@ -161,6 +162,7 @@
               </div>
             </div>
             <div class="toolbar-reset">
+              <button type="button" class="btn-ghost adv-toggle" id="adv-filters-toggle" aria-expanded="false" aria-controls="shared-toolbar">&#9881;&#65039; Filtres et affichage <span class="adv-count" id="adv-count" hidden></span></button>
               <button type="button" class="btn-ghost" id="reset-filters-btn">Réinitialiser</button>
             </div>
           </div>
@@ -274,5 +276,6 @@
   <script src="js/collection-recycle.js"></script>
   <script src="js/collection-altar-smart.js"></script>
   <script src="js/collection-undo.js"></script>
+  <script src="js/collection-filterbar.js"></script>
 </body>
 </html>

@@ -169,6 +169,28 @@ const EDITIONS = {
   prank: { label: "Farceuse", icon: "🐟" }, solar: { label: "Solaire", icon: "☀️" }, cursed: { label: "Maudite", icon: "🎃" },
   snow: { label: "Enneigée", icon: "🎄" }, phantom: { label: "Fantôme", icon: "👻" }, forbidden: { label: "Interdite", icon: "⛓️" }
 };
+// Plus bel exemplaire de chaque carte d'une collection (API.getCollection,
+// coffre compris) : finition (emeraude en tete), edition, etat. Sert la ou
+// seule la carte est connue (vitrine du profil, images a partager), pour la
+// montrer avec tout ce qu'elle a. 2026-10-26.
+const CardBest = (() => {
+  const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow", "emerald"], QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
+  const score = (v) => FINISH_ORDER.indexOf(v.finish || "normal") * 100 + (v.edition ? 10 : 0) + QUALITY_ORDER.indexOf(v.quality || "damaged");
+  function of(collection) {
+    const eds = (collection && collection.editionPulls) || {};
+    const out = new Map();
+    const add = (cardId, c, quality) => {
+      const v = { finish: c.finish || "normal", quality: quality || c.quality || "damaged", edition: eds[c.pullId] || "", serial: c.serialNumber ?? null, pullId: c.pullId };
+      const cur = out.get(cardId);
+      if (!cur || score(v) > score(cur)) out.set(cardId, v);
+    };
+    ((collection && collection.owned) || []).forEach((o) => (o.copies || []).forEach((c) => add(o.cardId, c)));
+    // Le coffre ne garde que des exemplaires en parfait etat.
+    ((collection && collection.protectedCards) || []).forEach((o) => (o.copies || []).forEach((c) => add(o.cardId, c, "mint")));
+    return out;
+  }
+  return { of, score, FINISH_ORDER };
+})();
 // Calendrier des evenements saisonniers (memes dates que api/src/native/seasonal.js) :
 // calcule cote site, pour le calendrier et l'annonce du prochain evenement.
 const SeasonCalendar = (() => {

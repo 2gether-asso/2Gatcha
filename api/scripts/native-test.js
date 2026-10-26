@@ -344,6 +344,8 @@ await test('notifications : abonnement, expedition rentree annoncee une seule fo
 });
 
 await test('coffres : coffres/cles de niveau une seule fois, achat, ouverture avec cle', () => {
+  // Sans le bonus de ressources (il peut rendre une cle).
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ChestExtraLoot: [] } } });
   store.update('Users', 1, { XP: 25 * 12 * 11, ChestLevelGranted: 0, ChestCount: 0, KeyCount: 0, StardustCount: 250 });
   let r = call('POST', 'chests', { body: { userId: 1, action: 'status' } }).json;
   assert.equal(r.level, 12);

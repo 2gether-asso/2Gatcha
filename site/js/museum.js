@@ -39,13 +39,18 @@
     catch (e) { box.innerHTML = `<p class="empty-state">Musée indisponible pour le moment.</p>`; }
   }
 
+  // Trois vues (2026-10-26) : coffre-fort (rangement), presentoir (coffre.js) et musee.
   function show(view) {
     const museum = view === "museum";
-    document.getElementById("vault-view").hidden = museum;
+    document.getElementById("vault-view").hidden = view !== "vault";
     document.getElementById("museum-view").hidden = !museum;
+    const gal = document.getElementById("gallery-view");
+    if (gal) gal.hidden = view !== "gallery";
+    if (view === "gallery" && typeof window.pvRenderGallery === "function") window.pvRenderGallery();
     document.querySelectorAll("[data-coffre-view]").forEach((b) => { const on = b.dataset.coffreView === view; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
     if (museum) load();
-    try { history.replaceState(null, "", museum ? "#musee" : location.pathname); } catch (e) { /* adresse inchangee */ }
+    try { history.replaceState(null, "", museum ? "#musee" : view === "gallery" ? "#presentoir" : location.pathname); } catch (e) { /* adresse inchangee */ }
+    try { localStorage.setItem("2gatcha_coffre_view", view); } catch (e) { /* stockage indisponible */ }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -53,6 +58,10 @@
     if (!nav) return;
     if (!Session.isLoggedIn()) { nav.hidden = true; return; }
     nav.addEventListener("click", (e) => { const b = e.target.closest("[data-coffre-view]"); if (b) show(b.dataset.coffreView); });
-    if (location.hash === "#musee") show("museum");
+    // Ancre d'abord, sinon la derniere vue ouverte (2026-10-26).
+    let last = "";
+    try { last = localStorage.getItem("2gatcha_coffre_view") || ""; } catch (e) { /* idem */ }
+    if (location.hash === "#musee" || (!location.hash && last === "museum")) show("museum");
+    else if (location.hash === "#presentoir" || (!location.hash && last === "gallery")) show("gallery");
   });
 })();

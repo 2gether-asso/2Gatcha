@@ -7,9 +7,9 @@
 
 const CardInspector = (function () {
   const esc = escHtml;
-  const FINISH = { normal: "Normale", holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+  const FINISH = { normal: "Normale", holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
   const QUALITY = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
-  const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
+  const FINISH_ORDER = ["normal", "holo", "gold", "ghost", "diamond", "rainbow", "emerald"];
   const QUALITY_ORDER = ["damaged", "worn", "good", "mint"];
   const MIN = 1, MAX = 4;
 
@@ -37,6 +37,7 @@ const CardInspector = (function () {
           <output class="ci-zoom" aria-live="polite">100 %</output>
           <button type="button" class="btn-ghost" data-ci="in" aria-label="Zoomer">+</button>
           <button type="button" class="btn-ghost" data-ci="reset" aria-label="Taille normale">&#10227;</button>
+          ${(o.actions || []).map((a) => `<a class="btn-ghost ci-action" href="${esc(a.href)}">${esc(a.label)}</a>`).join("")}
           <button type="button" class="btn-ghost ci-close" data-ci="close" aria-label="Fermer l'inspecteur">&times;</button>
         </div>
       </div>

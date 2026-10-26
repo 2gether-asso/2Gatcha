@@ -10,6 +10,11 @@
 //    extension. Un explorateur de la bonne rarete ou extension rapporte
 //    +ExpeditionAffinityPct % de ressources chacun (cumulable).
 //  - Destinations debloquees par le niveau d'expedition.
+//  - 2026-10-26 : une carte UNIQUE en exploratrice rapporte
+//    +ExpeditionUniqueDustPct % de poussieres, +ExpeditionUniqueLootPct % de
+//    ressources (cumulable avec l'affinite) et a ExpeditionUniqueBoosterChance %
+//    de chance d'un jeton booster en plus (le workflow ne connait pas la rarete
+//    Unique : bonus x1 jusque-la).
 //   POST /webhook/expedition { ..., action: 'start', destination }
 //   reponses : + destinations[], expedition.destination, reward.resources[]
 
@@ -61,7 +66,9 @@ function matchOf(store, dest, cardId) {
   const rarity = !!(aff.rarity && rar && rar.Key === aff.rarity.key);
   const extension = !!(aff.extension && refId(card.Extension) === aff.extension.id);
   const pct = setting(store, 'ExpeditionAffinityPct') / 100;
-  return { rarity, extension, bonus: 1 + (rarity ? pct : 0) + (extension ? pct : 0) };
+  const unique = !!(rar && rar.Key === 'unique');
+  const uniq = unique ? setting(store, 'ExpeditionUniqueLootPct') / 100 : 0;
+  return { rarity, extension, unique, bonus: 1 + (rarity ? pct : 0) + (extension ? pct : 0) + uniq };
 }
 
 function view(store, user) {
@@ -117,7 +124,7 @@ export function afterWorkflow({ store, path, request, response }) {
   if (body.action === 'start' && json.expedition && json.expedition.active && request._expeditionDest) {
     const dest = dests.find((d) => d.key === request._expeditionDest);
     const m = matchOf(store, dest, body.cardId);
-    const trip = { dest: dest.key, bonus: m.bonus, rarity: m.rarity, extension: m.extension, at: now() };
+    const trip = { dest: dest.key, bonus: m.bonus, rarity: m.rarity, extension: m.extension, ...(m.unique ? { unique: true } : {}), at: now() };
     user = store.update('Users', user.id, { ExpeditionTrip: JSON.stringify(trip) });
   } else if (body.action === 'claim' && json.reward) {
     const trip = request._expeditionTrip;
@@ -144,8 +151,20 @@ export function afterWorkflow({ store, path, request, response }) {
           resources.push({ key: k, n, label: RESOURCES[k].label[n > 1 ? 1 : 0], img: RESOURCES[k].img, ...(RESOURCES[k].gold ? { gold: true } : {}) });
         }
       }
+      // Carte Unique : poussieres et chance de jeton booster en plus.
+      if (trip.unique) {
+        const dust = Math.round((Number(json.reward.dust) || 0) * setting(store, 'ExpeditionUniqueDustPct') / 100);
+        const booster = Math.random() * 100 < setting(store, 'ExpeditionUniqueBoosterChance') ? 1 : 0;
+        if (dust) fields.StardustCount = (Number(user.StardustCount) || 0) + dust;
+        if (booster) fields.BoosterCount = (Number(user.BoosterCount) || 0) + booster;
+        json.reward.dust = (Number(json.reward.dust) || 0) + dust;
+        json.reward.boosters = (Number(json.reward.boosters) || 0) + booster;
+        json.reward.unique = { dust, booster, lootPct: setting(store, 'ExpeditionUniqueLootPct') };
+      }
       fields.ExpeditionTrip = '';
       user = store.update('Users', user.id, fields);
+      if (json.newStardust != null) json.newStardust = Number(user.StardustCount) || 0;
+      if (json.newBoosterCount != null) json.newBoosterCount = Number(user.BoosterCount) || 0;
       json.reward.resources = resources;
       json.reward.destination = { key: dest.key, name: dest.name, icon: dest.icon || '🧭' };
       json.reward.affinity = { rarity: !!trip.rarity, extension: !!trip.extension, bonus: Number(trip.bonus) || 1 };
@@ -153,10 +172,13 @@ export function afterWorkflow({ store, path, request, response }) {
   }
   json.destinations = view(store, user);
   json.affinityPct = setting(store, 'ExpeditionAffinityPct');
+  // Bonus des cartes Unique (affichage du choix de l'explorateur).
+  json.rarityBonus = { ...(json.rarityBonus || {}), unique: 1 + setting(store, 'ExpeditionUniqueDustPct') / 100 };
+  json.uniqueBonus = { dustPct: setting(store, 'ExpeditionUniqueDustPct'), lootPct: setting(store, 'ExpeditionUniqueLootPct'), boosterChance: setting(store, 'ExpeditionUniqueBoosterChance') };
   const trip = parseJson(user.ExpeditionTrip, null);
   if (json.expedition && json.expedition.active && trip) {
     const d = dests.find((x) => x.key === trip.dest);
-    if (d) json.expedition.destination = { key: d.key, name: d.name, icon: d.icon || '🧭', bonus: Number(trip.bonus) || 1, rarity: !!trip.rarity, extension: !!trip.extension };
+    if (d) json.expedition.destination = { key: d.key, name: d.name, icon: d.icon || '🧭', bonus: Number(trip.bonus) || 1, rarity: !!trip.rarity, extension: !!trip.extension, unique: !!trip.unique };
   }
 }
 

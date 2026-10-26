@@ -1,13 +1,16 @@
 // Coffre-fort perso (coffre.html, 2026-10-02) - voir api/src/native/personal-vault.js.
 // 2026-10-25 : lignes groupees par extension ; carte emeraude (7e case) pour
 // chaque ligne complete, verrouillee dans le coffre.
+// 2026-10-26 : bouton vitrine par ligne (une carte du coffre peut aller en
+// vitrine du profil), zoom sur chaque carte rangee (inspecteur) et vue
+// "Presentoir" : toutes les cartes du coffre exposees comme des tresors.
 // Une ligne = une carte, 6 emplacements (un par finition), parfait etat
 // uniquement. Ligne complete = recompense unique (boosters + poussieres +
 // un Ticket Unique a echanger au comptoir, voir api/src/native/unique.js). Cartes promo
 // exclues (une seule finition possible).
 
 const PV_FINISHES = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
-const PV_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+const PV_FINISH_LABELS = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
 const PV_ERRORS = {
   vault_locked: "Ton coffre-fort perso n'est pas encore débloqué.",
   not_mint: "Seules les cartes en parfait état peuvent être rangées.",
@@ -16,7 +19,9 @@ const PV_ERRORS = {
   not_stored: "Cette carte n'est pas au coffre.",
   pull_not_owned: "Cet exemplaire ne t'appartient plus.",
   promo_not_storable: "Les cartes promo ne vont pas au coffre-fort (une seule finition possible).",
-  emerald_locked: "Une carte émeraude ne quitte jamais le coffre : elle atteste ta maîtrise de la carte."
+  emerald_locked: "Une carte émeraude ne quitte jamais le coffre : elle atteste ta maîtrise de la carte.",
+  showcase_full: "Ta vitrine est déjà pleine (6 cartes max) : retire-en une avant d'en ajouter une nouvelle.",
+  card_not_owned: "Cette carte n'est plus à toi."
 };
 let pvBusy = false;
 
@@ -74,7 +79,7 @@ function pvRenderExtSelect(rows) {
 // Carte emeraude : 7e case de la ligne, verrouillee dans le coffre.
 function pvEmeraldSlot(r, img, tab) {
   if (r.emerald) return `<div class="pv-emerald has" title="Carte émeraude : atteste ta maîtrise de ${escHtml(r.name)}. Elle ne quitte jamais le coffre.">
-      <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="emerald" data-quality="mint"${tab ? ` data-edition="${tab.key}"` : ""}>
+      <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="emerald" data-quality="mint"${tab ? ` data-edition="${tab.key}"` : ""} data-zoom="${r.cardId}" data-zoom-finish="emerald" role="button" tabindex="0" aria-label="Voir ${escHtml(r.name)} émeraude en grand">
         <div class="card-art"><img src="${img}" alt="${escHtml(r.name)} émeraude" loading="lazy" decoding="async" />${tab ? editionBadge(tab.key) : ""}</div>
       </div>
       <span class="pv-slot-label">💚 Émeraude ${pvSerial(r.emerald.serialNumber)}</span>
@@ -161,7 +166,7 @@ function pvRender(data) {
         // data-finish/data-quality) : on recupere les effets de finition et
         // les etiquettes existants.
         return `<div class="pv-slot filled" data-finish="${f}">
-          <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="${f}" data-quality="mint"${tab ? ` data-edition="${tab.key}"` : ""}>
+          <div class="collection-card pv-mini" data-rarity="${r.rarity?.key || "commune"}" data-finish="${f}" data-quality="mint"${tab ? ` data-edition="${tab.key}"` : ""} data-zoom="${r.cardId}" data-zoom-finish="${f}" role="button" tabindex="0" aria-label="Voir ${escHtml(r.name)} ${PV_FINISH_LABELS[f]} en grand">
             <div class="card-art">
               <img src="${img}" alt="${r.name}" loading="lazy" decoding="async" />
               ${f !== "normal" ? `<span class="finish-indicator" data-finish="${f}">${PV_FINISH_LABELS[f]}</span>` : ""}
@@ -193,12 +198,14 @@ function pvRender(data) {
         <span class="rarity-badge" style="background:${color}22;color:${rarityTextColor(color)};border:1px solid ${color};">${r.rarity?.name || ""}</span>
         <span class="pv-row-progress">${r.filled}/6 ${r.claimed ? "&#10004; récompense reçue" : ""}</span>
         <span class="pv-row-bar" aria-hidden="true"><span style="width:${Math.round((r.filled / 6) * 100)}%"></span></span>
+        ${r.filled || r.emerald ? pvShowcaseBtn(r.cardId) : ""}
         ${ready.length ? `<span class="pv-ready-badge">📥 ${ready.length} à ranger${r.filled + ready.length >= 6 && !r.claimed ? " · ligne complète !" : ""}</span>${ready.length > 1 ? `<button type="button" class="pv-store-row" data-pull-ids="${ready.join(",")}">Tout ranger</button>` : ""}` : ""}
       </div>
       ${preview}
       <div class="pv-row-body"><div class="pv-slots">${slots}</div>${pvEmeraldSlot(r, img, tab)}</div>
     </div>`;
   }).join("");
+  if (pvGalleryOpen()) pvRenderGallery();
   // Animation FLIP : chaque ligne glisse de son ancienne place vers la nouvelle.
   if (before.size && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     box.querySelectorAll(".pv-row").forEach((el) => {
@@ -430,6 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pvLastData) pvRender(pvLastData);
   });
   document.getElementById("pv-rows").addEventListener("click", (e) => {
+    if (pvCardClick(e)) return;
     const store = e.target.closest(".pv-store");
     const withdraw = e.target.closest(".pv-withdraw");
     const row = e.target.closest(".pv-store-row");
@@ -461,5 +469,201 @@ document.addEventListener("DOMContentLoaded", () => {
     const btn = e.target.closest(".pv-redeem");
     if (btn) pvRedeem(Number(btn.dataset.cardId));
   });
+  document.getElementById("pv-rows").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-zoom]")) { e.preventDefault(); pvCardClick(e); } });
+  const gal = document.getElementById("pv-gallery");
+  if (gal) {
+    gal.addEventListener("click", (e) => {
+      if (pvCardClick(e)) return;
+      const chip = e.target.closest("[data-gal-finish]");
+      if (chip) { pvGallery.finish = chip.dataset.galFinish; pvRenderGallery(); return; }
+      if (e.target.closest("[data-gal-order]")) { pvOrderShowcase(); return; }
+      const sh = e.target.closest("[data-gal-share]");
+      if (sh) { sh.disabled = true; LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.vault(pvGalleryShare())).catch(() => Toast.error("Partage indisponible pour le moment.")).finally(() => { sh.disabled = false; }); }
+    });
+    gal.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-zoom]")) { e.preventDefault(); pvCardClick(e); } });
+    gal.addEventListener("change", (e) => { if (e.target.id === "gal-sort") { pvGallery.sort = e.target.value; pvRenderGallery(); } });
+  }
+  API.listShowcase(Session.userId).then((r) => { pvShowcase = new Set((r.showcase || []).map((s) => s.cardId)); pvSyncShowcaseBtns(); }).catch(() => {});
   pvLoad("status");
 });
+
+// ------------------------------------------------------------------ vitrine du profil
+// La vitrine ne garde que la carte (pas l'exemplaire) ; le serveur compte les
+// exemplaires du coffre comme possedes, une carte rangee peut donc y aller.
+let pvShowcase = new Set();
+function pvShowcaseBtn(cardId) {
+  const on = pvShowcase.has(cardId);
+  return `<button type="button" class="pv-showcase-btn ${on ? "on" : ""}" data-showcase="${cardId}" aria-pressed="${on}" title="${on ? "Retirer de la vitrine de ton profil" : "Mettre en vitrine sur ton profil"}">&#128444;&#65039; ${on ? "En vitrine" : "Vitrine"}</button>`;
+}
+function pvSyncShowcaseBtns() {
+  document.querySelectorAll("[data-showcase]").forEach((b) => {
+    const on = pvShowcase.has(Number(b.dataset.showcase));
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on));
+    b.title = on ? "Retirer de la vitrine de ton profil" : "Mettre en vitrine sur ton profil";
+    if (!b.classList.contains("icon-only")) b.innerHTML = `&#128444;&#65039; ${on ? "En vitrine" : "Vitrine"}`;
+  });
+  const k = document.getElementById("gal-showcase-n");
+  if (k) k.textContent = pvShowcase.size;
+}
+async function pvToggleShowcase(cardId, btn) {
+  const was = pvShowcase.has(cardId);
+  btn.disabled = true;
+  try {
+    if (was) { await API.removeFromShowcase(Session.userId, cardId); pvShowcase.delete(cardId); Toast.info("Retirée de ta vitrine."); }
+    else if (pvShowcase.size >= 6) {
+      // Vitrine pleine : on choisit la carte a remplacer (js/lazy/showcase.js).
+      await LazyJs.load("js/lazy/showcase.js");
+      const row = pvCopiesOf(cardId).row;
+      const r = await ShowcaseKit.add(cardId, row && row.name);
+      if (!r) return;
+      pvShowcase = new Set(r.items.map((c) => c.cardId));
+      Toast.success("Ajoutée à ta vitrine à la place d'une autre.");
+    } else { await API.addToShowcase(Session.userId, cardId); pvShowcase.add(cardId); Toast.success(`Ajoutée à ta vitrine (${pvShowcase.size}/6) : elle s'affiche sur ton profil avec sa plus belle finition.`); }
+    pvSyncShowcaseBtns();
+  } catch (e) {
+    Toast.error(PV_ERRORS[e.code] || friendlyError(e));
+  } finally { btn.disabled = false; }
+}
+
+async function pvOrderShowcase() {
+  try {
+    await LazyJs.load("js/lazy/showcase.js");
+    const items = await ShowcaseKit.list();
+    if (items.length < 2) { Toast.info(items.length ? "Une seule carte en vitrine : rien à ordonner." : "Ta vitrine est vide : 🖼️ sur une carte pour l'y mettre."); return; }
+    const fresh = await ShowcaseKit.editOrder(items);
+    if (fresh) pvShowcase = new Set(fresh.map((c) => c.cardId));
+  } catch (e) { Toast.error(friendlyError(e)); }
+}
+// Donnees de l'image "Salle des tresors" (share-studio.js).
+function pvGalleryShare() {
+  const items = pvGalleryItems().sort((a, b) => PV_PRESTIGE.indexOf(b.finish) - PV_PRESTIGE.indexOf(a.finish) || (b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0));
+  return {
+    pseudo: Session.pseudo || "",
+    total: items.length,
+    emeralds: items.filter((it) => it.finish === "emerald").length,
+    firsts: items.filter((it) => it.serial === 1).length,
+    lines: pvLastData ? [pvLastData.rows || [], ...(pvLastData.editions || []).map((t) => t.rows || [])].flat().filter((r) => r.complete).length : 0,
+    cards: items.slice(0, 9).map((it) => ({ cardId: it.cardId, name: it.name, imageId: it.imageId, rarity: it.rarity, extension: it.extension, finish: it.finish, quality: "mint", edition: it.edition, serial: it.serial }))
+  };
+}
+
+// ------------------------------------------------------------------ zoom
+// Toutes les cartes rangees d'une carte (onglets d'edition compris).
+function pvCopiesOf(cardId) {
+  if (!pvLastData) return { row: null, list: [] };
+  let row = null;
+  const list = [];
+  const scan = (rows, edition) => (rows || []).forEach((r) => {
+    if (r.cardId !== cardId) return;
+    row = row || r;
+    r.slots.forEach((s) => { if (s.stored) list.push({ finish: s.finish, quality: "mint", edition, serial: s.stored.serialNumber, count: 1 }); });
+    if (r.emerald) list.push({ finish: "emerald", quality: "mint", edition, serial: r.emerald.serialNumber, count: 1 });
+  });
+  scan(pvLastData.rows, "");
+  (pvLastData.editions || []).forEach((t) => scan(t.rows, t.key));
+  return { row, list };
+}
+function pvCardClick(e) {
+  const sc = e.target.closest("[data-showcase]");
+  if (sc) { pvToggleShowcase(Number(sc.dataset.showcase), sc); return true; }
+  const z = e.target.closest("[data-zoom]");
+  if (!z) return false;
+  const cardId = Number(z.dataset.zoom);
+  const { row, list } = pvCopiesOf(cardId);
+  if (!row) return true;
+  LazyJs.load("js/lazy/card-inspector.js")
+    .then(() => CardInspector.open({ card: { cardId, name: row.name, imageId: row.imageId, rarity: row.rarity }, finish: z.dataset.zoomFinish || "normal", quality: "mint", edition: z.dataset.edition || "", variants: list }))
+    .catch(() => Toast.error("Inspecteur indisponible pour le moment."));
+  return true;
+}
+
+// ------------------------------------------------------------------ presentoir
+// Vue "Presentoir" : chaque carte rangee sur son socle, sous un projecteur,
+// les emeraudes (maitrises) en tete dans leur propre vitrine.
+const PV_PRESTIGE = ["normal", "holo", "gold", "ghost", "diamond", "rainbow", "emerald"];
+const pvGallery = { finish: "all", sort: "prestige" };
+const pvGalleryOpen = () => { const v = document.getElementById("gallery-view"); return !!v && !v.hidden; };
+function pvGalleryItems() {
+  if (!pvLastData) return [];
+  const items = [];
+  const scan = (rows, tab) => (rows || []).forEach((r) => {
+    const base = { cardId: r.cardId, name: r.name, imageId: r.imageId, rarity: r.rarity, extension: r.extension, edition: tab ? tab.key : "" };
+    r.slots.forEach((s) => { if (s.stored) items.push({ ...base, finish: s.finish, serial: s.stored.serialNumber }); });
+    if (r.emerald) items.push({ ...base, finish: "emerald", serial: r.emerald.serialNumber });
+  });
+  scan(pvLastData.rows, null);
+  (pvLastData.editions || []).forEach((t) => scan(t.rows, t));
+  return items;
+}
+function pvPedestal(it, big) {
+  const color = it.rarity?.colorHex || "#9aa0b4";
+  const img = API.imageUrl(it.imageId) || "";
+  const ed = it.edition && EDITIONS[it.edition];
+  const on = pvShowcase.has(it.cardId);
+  return `<figure class="gal-item ${big ? "big" : ""}" data-finish="${it.finish}" style="--r:${color}">
+    <span class="gal-spot" aria-hidden="true"></span>
+    <div class="collection-card gal-card" data-rarity="${it.rarity?.key || "commune"}" data-finish="${it.finish}" data-quality="mint"${it.edition ? ` data-edition="${it.edition}"` : ""} data-zoom="${it.cardId}" data-zoom-finish="${it.finish}" role="button" tabindex="0" aria-label="Voir ${escHtml(it.name)} ${PV_FINISH_LABELS[it.finish]} en grand">
+      <div class="card-art">
+        <img src="${img}" alt="" loading="lazy" decoding="async" />
+        ${it.finish !== "normal" ? `<span class="finish-indicator" data-finish="${it.finish}">${PV_FINISH_LABELS[it.finish]}</span>` : ""}
+        ${it.edition ? editionBadge(it.edition) : ""}
+        ${it.serial === 1 ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
+      </div>
+    </div>
+    <span class="gal-base" aria-hidden="true"></span>
+    <figcaption class="gal-plaque">
+      <strong>${escHtml(it.name)}</strong>
+      <small><span style="color:${rarityTextColor(color)}">${escHtml(it.rarity?.name || "")}</span> · ${PV_FINISH_LABELS[it.finish]} ${pvSerial(it.serial)}${ed ? ` · ${ed.icon} ${escHtml(ed.label)}` : ""}</small>
+      <button type="button" class="pv-showcase-btn icon-only ${on ? "on" : ""}" data-showcase="${it.cardId}" aria-pressed="${on}" title="${on ? "Retirer de la vitrine de ton profil" : "Mettre en vitrine sur ton profil"}">&#128444;&#65039;</button>
+    </figcaption>
+  </figure>`;
+}
+function pvRenderGallery() {
+  const box = document.getElementById("pv-gallery");
+  if (!box) return;
+  if (!pvLastData) { box.innerHTML = `<p class="muted">Chargement…</p>`; return; }
+  const all = pvGalleryItems();
+  if (!all.length) { box.innerHTML = `<div class="gal-empty"><span aria-hidden="true">&#128142;</span><p>Le présentoir est vide. Range des cartes en parfait état au coffre-fort : elles seront exposées ici.</p></div>`; return; }
+  const count = (f) => all.filter((it) => it.finish === f).length;
+  const finishes = PV_PRESTIGE.slice().reverse().filter((f) => count(f));
+  if (pvGallery.finish !== "all" && !count(pvGallery.finish)) pvGallery.finish = "all";
+  const rank = (it) => PV_PRESTIGE.indexOf(it.finish);
+  const sorters = {
+    prestige: (a, b) => rank(b) - rank(a) || (b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0) || a.name.localeCompare(b.name),
+    rarity: (a, b) => (b.rarity?.sortOrder || 0) - (a.rarity?.sortOrder || 0) || rank(b) - rank(a) || a.name.localeCompare(b.name),
+    name: (a, b) => a.name.localeCompare(b.name) || rank(b) - rank(a)
+  };
+  const list = all.filter((it) => pvGallery.finish === "all" || it.finish === pvGallery.finish).sort(sorters[pvGallery.sort] || sorters.prestige);
+  const emeralds = pvGallery.finish === "all" ? list.filter((it) => it.finish === "emerald") : [];
+  const rest = pvGallery.finish === "all" ? list.filter((it) => it.finish !== "emerald") : list;
+  const firsts = all.filter((it) => it.serial === 1).length;
+  const nEm = count("emerald");
+  box.innerHTML = `
+    <div class="gal-hall">
+      <header class="gal-head">
+        <div><h2>&#128142; Salle des trésors</h2><p class="muted">Tes cartes les plus précieuses, à l'abri derrière la vitre. Touche une carte pour l'examiner de près ; &#128444;&#65039; la met en vitrine sur ton profil.</p></div>
+        <div class="gal-kpis">
+          <span><strong>${all.length}</strong> carte${all.length > 1 ? "s" : ""}</span>
+          <span><strong>${nEm}</strong> maîtrise${nEm > 1 ? "s" : ""} &#128154;</span>
+          ${firsts ? `<span><strong>${firsts}</strong> #001</span>` : ""}
+          <button type="button" class="gal-kpi-btn" data-gal-order title="Ordonner la vitrine de ton profil"><strong id="gal-showcase-n">${pvShowcase.size}</strong>/6 en vitrine · ↕️</button>
+          <button type="button" class="gal-kpi-btn" data-gal-share title="Image de ta salle des trésors à partager">&#128228; Partager</button>
+        </div>
+      </header>
+      <div class="gal-bar">
+        <div class="gal-chips" role="group" aria-label="Finition">
+          <button type="button" class="gal-chip ${pvGallery.finish === "all" ? "on" : ""}" data-gal-finish="all" aria-pressed="${pvGallery.finish === "all"}">Tout <b>${all.length}</b></button>
+          ${finishes.map((f) => `<button type="button" class="gal-chip ${pvGallery.finish === f ? "on" : ""}" data-gal-finish="${f}" data-finish="${f}" aria-pressed="${pvGallery.finish === f}">${PV_FINISH_LABELS[f]} <b>${count(f)}</b></button>`).join("")}
+        </div>
+        <label class="gal-sort">Trier <select id="gal-sort">
+          <option value="prestige" ${pvGallery.sort === "prestige" ? "selected" : ""}>Prestige</option>
+          <option value="rarity" ${pvGallery.sort === "rarity" ? "selected" : ""}>Rareté</option>
+          <option value="name" ${pvGallery.sort === "name" ? "selected" : ""}>Nom</option>
+        </select></label>
+      </div>
+      ${emeralds.length ? `<section class="gal-case gal-emeralds" aria-label="Maîtrises"><h3>&#128154; Maîtrises <small>six finitions réunies : la preuve qu'on a dompté la carte</small></h3><div class="gal-shelf">${emeralds.map((it) => pvPedestal(it, true)).join("")}</div></section>` : ""}
+      ${rest.length ? `<section class="gal-case" aria-label="Vitrine"><div class="gal-shelf">${rest.map((it) => pvPedestal(it, false)).join("")}</div></section>` : ""}
+    </div>`;
+  if (window.CardTilt) box.querySelectorAll(".gal-card").forEach((c) => CardTilt.attach(c));
+}
+window.pvRenderGallery = pvRenderGallery;

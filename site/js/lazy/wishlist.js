@@ -16,13 +16,18 @@ const WishlistView = (function () {
     const color = (c.rarity && c.rarity.colorHex) || "#9aa0b4";
     const where = d.where.get(c.cardId) || [];
     const owned = d.owned.has(c.cardId);
-    const cost = c.rarity && c.rarity.craftCost;
-    const craftable = !owned && !c.isPromo && cost != null && d.dust >= cost;
+    // Prix reel (Bourse, bon de craft) quand la page collection est chargee.
+    const coll = typeof Coll !== "undefined" && Coll.craftCostOf ? Coll : null;
+    const gross = coll ? coll.craftCostOf(c) : c.rarity && c.rarity.craftCost;
+    const coupon = coll ? coll.couponOf(c) : null;
+    const cost = gross != null && coupon ? gross - coupon.refund : gross;
+    const need = coll ? coll.craftNeedOf(c) : gross;
+    const craftable = !owned && !c.isPromo && cost != null && d.dust >= need;
     const chips = [];
     if (owned) chips.push('<span class="wl-chip wl-ok">&#10003; Déjà dans ta collection</span>');
     where.forEach((w) => chips.push(`<a class="wl-chip wl-go" href="${esc(w.url)}">${w.kind === "player" ? "&#8644;" : w.kind === "market" ? "&#127761;" : "&#127873;"} ${esc(w.label)}</a>`));
-    if (craftable) chips.push(`<a class="wl-chip wl-go" href="collection.html#craft">&#10024; À crafter : ${cost.toLocaleString("fr-FR")} poussières</a>`);
-    else if (!owned && cost != null && !c.isPromo) chips.push(`<span class="wl-chip">&#10024; Craft : ${cost.toLocaleString("fr-FR")} poussières (il t'en manque ${(cost - d.dust).toLocaleString("fr-FR")})</span>`);
+    if (craftable) chips.push(`<a class="wl-chip wl-go" href="collection.html#crafter">&#10024; À crafter : ${cost.toLocaleString("fr-FR")} poussières${coupon ? " avec ton bon 🎫" : ""}</a>`);
+    else if (!owned && cost != null && !c.isPromo) chips.push(`<span class="wl-chip">&#10024; Craft : ${cost.toLocaleString("fr-FR")} poussières${coupon ? " avec ton bon 🎫" : ""} (il t'en manque ${(need - d.dust).toLocaleString("fr-FR")})</span>`);
     if (!owned && !where.length) chips.push('<span class="wl-chip wl-wait">&#9203; Personne ne l\'a en double pour l\'instant : tu seras prévenu</span>');
     return `<li class="wl-row ${where.length ? "wl-available" : ""}" style="--r:${esc(color)}">
       <img src="${API.imageUrl(c.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" />
