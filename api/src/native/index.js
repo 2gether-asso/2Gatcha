@@ -125,6 +125,9 @@ import * as archeo from './archeo.js';
 import * as casino from './casino.js';
 import * as rewards from './rewards.js';
 import * as playeradmin from './playeradmin.js';
+import * as discord from './discord.js';
+import * as explorer from './explorer.js';
+import * as audit from './audit.js';
 import { isTestUser } from './testuser.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
@@ -133,7 +136,7 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, starter, seasonquests, story];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
@@ -243,6 +246,8 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     // Premiere fois qu'une ressource est obtenue (discoveries.js).
     if (ctx.userId && response && response.status === 200 && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
       try { const found = discoveries.check(store, ctx.userId); if (found) response.json.discoveries = found; } catch (e) { console.error(e); captureError(e, { hook: 'discoveries' }); }
+      // Deblocages et adoptions des nouveaux comptes : meme cinematique (starter.js).
+      try { const opened = starter.checkUnlocks(store, ctx.userId); if (opened) response.json.discoveries = [...(response.json.discoveries || []), ...opened]; } catch (e) { console.error(e); captureError(e, { hook: 'unlocks' }); }
       // Musee : mineraux et objets eus au moins une fois (museum.js).
       try { museum.note(store, ctx.userId); } catch (e) { console.error(e); captureError(e, { hook: 'museum' }); }
     }
@@ -287,6 +292,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       if (userId) {
         try { seasons.ensureProgress(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'season' }); }
         try { daily.touch(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'touch' }); }
+        try { timers.anchorEnergy(store, userId); } catch (e) { console.error(e); captureError(e, { hook: 'energy' }); }
       }
       // Gains poses avant l'action (tirage de la loterie, bonus de retour...) :
       // pas de bonus d'evenement dessus (events.applyEventBonus).
@@ -312,7 +318,8 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       const closed = features.gate(store, method, path, body);
       if (closed) return closed;
       if (method === 'POST') { const iso = testaccount.denied(store, path, body) || starter.gate(store, method, path, body); if (iso) return iso; }
-      const response = routes.get(`${method} ${path}`)({ store, body, query });
+      // Ecritures de l'equipe : journal avec annulation (audit.js).
+      const response = audit.wrap(store, path, body, () => routes.get(`${method} ${path}`)({ store, body, query }));
       if (method === 'POST') observe(path, body, response);
       return response;
     },

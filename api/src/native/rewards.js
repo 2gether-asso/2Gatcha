@@ -19,10 +19,11 @@
 import { refId, now, ok, fail, userById, isAdmin, nextSerial, firstAttachment, parseJson } from './common.js';
 import { addTabletsFields } from './archeo.js';
 import { EDITIONS } from './editions.js';
-import { grantCosmetic, catalog as cosmeticCatalog } from './cosmetics.js';
+import { grantCosmetic, giftable as cosmeticCatalog } from './cosmetics.js';
 import { addShards } from './comfort.js';
+import { announce as discordAnnounce } from './discord.js';
 
-export const schema = { EventCodes: { Rewards: { type: 'Text' }, StartsAt: { type: 'Numeric' } } };
+export const schema = { EventCodes: { Rewards: { type: 'Text' }, StartsAt: { type: 'Numeric' }, Announce: { type: 'Bool' } } };
 
 // Ressources : champ de Users, libelles, plafond par ligne.
 export const RESOURCES = {
@@ -181,8 +182,16 @@ function codeView(store, row, used) {
     code: row.Code, label: row.Label || '', kind: row.RewardType === 'bundle' ? 'bundle' : row.RewardType || 'booster',
     rewards, lines: rewards.map((l) => describe(store, l)), used, maxRedemptions: Number(row.MaxRedemptions) || 0,
     startsAt: Number(row.StartsAt) || null, expiresAt: Number(row.ExpiresAt) || null, createdAt: Number(row.CreatedAt) || null, createdBy: row.CreatedBy || '',
-    active: row.Active !== false, status: statusOf(row, used)
+    active: row.Active !== false, status: statusOf(row, used), announced: !!row.Announce
   };
+}
+// « Annoncer sur le serveur » (2026-10-26) : message Discord (modele « code »
+// d'Admin > Discord) et code affiche dans le calendrier des evenements.
+const parisDate = (t) => new Date(t * 1000).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function announceCode(store, row) {
+  const lines = rewardsOf(row).map((l) => describe(store, l));
+  const dates = `${row.StartsAt && row.StartsAt > now() ? `du ${parisDate(row.StartsAt)} ` : ''}jusqu'au ${parisDate(row.ExpiresAt)}`;
+  return discordAnnounce(store, 'code', { code: row.Code, label: row.Label || 'Code événement', rewards: lines.map((l) => `${l.icon} ${l.label}`).join('\n'), dates, quota: row.MaxRedemptions ? ` · ${row.MaxRedemptions} joueurs max` : '' });
 }
 function listCodes(store) {
   const counts = new Map();
@@ -208,9 +217,10 @@ function createCode(store, body) {
   const row = store.create('EventCodes', {
     Code: code, Label: String(body.label || '').slice(0, 60), RewardType: 'bundle', Quantity: 1, CardId: 0,
     MaxRedemptions: Math.max(0, int(body.maxRedemptions)), ExpiresAt: expiresAt, StartsAt: startsAt, CreatedAt: t, CreatedBy: String(body.discordId || ''),
-    Active: true, Rewards: JSON.stringify(r.rewards)
+    Active: true, Rewards: JSON.stringify(r.rewards), Announce: !!body.announce
   });
-  return ok({ created: codeView(store, row, 0), codes: listCodes(store) });
+  const posted = body.announce ? announceCode(store, row) : false;
+  return ok({ created: codeView(store, row, 0), codes: listCodes(store), ...(body.announce ? { posted } : {}) });
 }
 function updateCode(store, body) {
   const row = codeRows(store).find((c) => norm(c.Code) === norm(body.code));
@@ -221,6 +231,8 @@ function updateCode(store, body) {
   if (body.startsAt != null) fields.StartsAt = int(body.startsAt) || 0;
   if (body.maxRedemptions != null) fields.MaxRedemptions = Math.max(0, int(body.maxRedemptions));
   if (body.label != null) fields.Label = String(body.label).slice(0, 60);
+  let posted = null;
+  if (body.announce) { fields.Announce = true; posted = announceCode(store, { ...row, ...fields }); }
   if (body.rewards != null) {
     if (row.RewardType !== 'bundle') return fail('legacy_code');
     const r = cleanRewards(store, body.rewards);
@@ -230,7 +242,7 @@ function updateCode(store, body) {
   const exp = fields.ExpiresAt ?? row.ExpiresAt, start = fields.StartsAt ?? row.StartsAt;
   if (exp && start && exp <= start) return fail('invalid_dates');
   store.update('EventCodes', row.id, fields);
-  return ok({ codes: listCodes(store) });
+  return ok({ codes: listCodes(store), ...(posted != null ? { posted } : {}) });
 }
 function redemptions(store, body) {
   const row = codeRows(store).find((c) => norm(c.Code) === norm(body.code));
@@ -276,6 +288,17 @@ function handleAdmin({ store, body }) {
   return fail('unknown_action');
 }
 export const routes = { 'POST admin-rewards': handleAdmin };
+
+// Calendrier des evenements (get-event-calendar.json) : les codes annonces y
+// montrent leur code et leurs recompenses ; les autres seulement leur nom.
+export function afterWorkflow({ store, path, response }) {
+  if (path !== 'event-calendar' || response.status !== 200 || !response.json) return;
+  const t = now();
+  response.json.events = codeRows(store).filter((c) => c.Active !== false && (!c.ExpiresAt || t < c.ExpiresAt)).map((c) => ({
+    label: c.Label || 'Evenement', startsAt: c.StartsAt || null, expiresAt: c.ExpiresAt || null, isLive: !c.StartsAt || t >= c.StartsAt,
+    ...(c.Announce ? { code: c.Code, rewards: rewardsOf(c).map((l) => describe(store, l)) } : {})
+  })).sort((a, b) => (a.startsAt || 0) - (b.startsAt || 0));
+}
 
 // ------------------------------------------------------------------ reclamation
 // Codes 'bundle' et date de debut (tous codes) : avant le workflow.

@@ -100,7 +100,7 @@
     return ch;
   }
   async function open(id) {
-    try { data = await api("get", { userId: id }); remember(id); pullQ = ""; pullLimit = 60; render(); }
+    try { data = await api("get", { targetUserId: id }); remember(id); pullQ = ""; pullLimit = 60; render(); }
     catch (e) { Toast.error(errText(e)); }
   }
   function wire() {
@@ -118,7 +118,7 @@
       if (!(await Confirm.show(`Modifier <strong>${esc(data.user.pseudo)}</strong> :<br>${ch.map((c) => `${esc(c.label)} : ${c.from.toLocaleString("fr-FR")} → <strong>${c.to.toLocaleString("fr-FR")}</strong>`).join("<br>")}`, { title: "Confirmer la correction", confirmText: "Enregistrer" }))) return;
       const fields = {}, tablets = {};
       ch.forEach((c) => { if (c.el.dataset.field) fields[c.el.dataset.field] = c.to; else tablets[c.el.dataset.tablet] = c.to; });
-      try { data = await api("set", { userId: data.user.userId, fields, ...(Object.keys(tablets).length ? { tablets } : {}) }); Toast.success("Fiche mise à jour."); render(); }
+      try { data = await api("set", { targetUserId: data.user.userId, fields, ...(Object.keys(tablets).length ? { tablets } : {}) }); Toast.success("Fiche mise à jour."); render(); }
       catch (err) { Toast.error(errText(err)); }
     };
     const pz = $("pa-pulls");
@@ -134,13 +134,13 @@
       if (e.target.closest("[data-save-pull]")) {
         const v = (k) => tr.querySelector(`[data-pf="${k}"]`);
         const changes = { finish: v("finish").value, quality: v("quality").value, edition: v("edition").value, inVault: v("inVault").checked, starred: v("starred").checked, insured: v("insured").checked };
-        try { data = await api("pull", { userId: data.user.userId, pullId, changes }); Toast.success(`${p.name} #${p.serial} mise à jour.`); pz.innerHTML = pullsHtml(); wire(); }
+        try { data = await api("pull", { targetUserId: data.user.userId, pullId, changes }); Toast.success(`${p.name} #${p.serial} mise à jour.`); pz.innerHTML = pullsHtml(); wire(); }
         catch (err) { Toast.error(errText(err)); }
         return;
       }
       if (e.target.closest("[data-del-pull]")) {
         if (!(await Confirm.show(`Supprimer définitivement <strong>${esc(p.name)} #${p.serial}</strong> (${esc(FIN[p.finish])}, ${esc(QUA[p.quality])}) de la collection de ${esc(data.user.pseudo)} ?`, { title: "Supprimer un exemplaire", confirmText: "Supprimer", dangerous: true }))) return;
-        try { data = await api("pull", { userId: data.user.userId, pullId, remove: true }); Toast.info("Exemplaire supprimé."); pz.innerHTML = pullsHtml(); wire(); }
+        try { data = await api("pull", { targetUserId: data.user.userId, pullId, remove: true }); Toast.info("Exemplaire supprimé."); pz.innerHTML = pullsHtml(); wire(); }
         catch (err) { Toast.error(errText(err)); }
       }
     };
@@ -153,7 +153,7 @@
     try { users = ((await API.listUsers()).users || []).slice().sort((a, b) => (a.pseudo || "").localeCompare(b.pseudo || "")); } catch (e) { users = []; }
     render();
     // Le serveur n'a pas encore la route : on le dit tout de suite.
-    try { if (users[0]) await api("get", { userId: users[0].userId }); }
+    try { if (users[0]) await api("get", { targetUserId: users[0].userId }); }
     catch (e) { if (e.status === 404 || e.code === "not_found") app.insertAdjacentHTML("afterbegin", `<p class="error-box">La fiche joueur demande la mise à jour du serveur (route admin-player). En attendant : page Base de données.</p>`); }
   }
   window.PlayerAdmin = { open };

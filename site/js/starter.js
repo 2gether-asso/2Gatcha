@@ -19,14 +19,14 @@
     box.hidden = false;
     const pct = Math.round((100 * v.claimedCount) / Math.max(1, v.total));
     const cur = v.steps.find((s) => s.current);
-    const next = v.unlocks.filter((u) => u.level > v.level);
-    const nextLevel = next.length ? next[0].level : null;
+    // Prochain deblocage : seulement le palier, jamais ce qu'il ouvre (surprise).
+    const nextLevel = v.nextUnlockLevel || null;
     let main;
     if (cur) {
       const action = cur.complete || !cur.target
         ? `<button type="button" class="btn" data-st-claim="${cur.key}">Récupérer</button>`
         : cur.needLevel
-          ? `<span class="st-need">&#128274; Niveau ${cur.needLevel} requis : continue à jouer pour monter de niveau.</span>`
+          ? `<span class="st-need">&#10067; Niveau ${cur.needLevel} requis : continue à jouer pour monter de niveau.</span>`
           : cur.url ? `<a class="btn" href="${esc(cur.url)}">Y aller &rarr;</a>` : "";
       main = `
         <div class="st-current">
@@ -54,8 +54,8 @@
       </div>
       <div class="st-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
       ${main}
-      <ol class="st-steps">${v.steps.map((s) => `<li class="${s.claimed ? "done" : s.current ? "current" : ""}" title="${esc(s.label)}"><span aria-hidden="true">${s.claimed ? "&#10004;" : s.icon}</span><span class="st-step-label">${esc(s.label)}</span></li>`).join("")}</ol>
-      ${nextLevel ? `<p class="st-soon">Au <strong>niveau ${nextLevel}</strong> : ${next.filter((u) => u.level === nextLevel).map((u) => `${u.icon} ${esc(u.label)}`).join(", ")}${next.some((u) => u.level > nextLevel) ? ` · ensuite : ${next.filter((u) => u.level > nextLevel).slice(0, 4).map((u) => `${u.icon} ${esc(u.label)} (niv. ${u.level})`).join(", ")}…` : ""}</p>` : ""}`;
+      <ol class="st-steps">${v.steps.map((s) => `<li class="${s.claimed ? "done" : s.current ? "current" : ""}${s.secret ? " secret" : ""}" title="${esc(s.label)}"><span aria-hidden="true">${s.claimed ? "&#10004;" : s.icon}</span><span class="st-step-label">${esc(s.label)}</span></li>`).join("")}</ol>
+      ${nextLevel ? `<p class="st-soon">&#127873; Une surprise t'attend au <strong>niveau ${nextLevel}</strong>…</p>` : ""}`;
   }
 
   async function claim(key) {

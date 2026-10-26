@@ -37,7 +37,7 @@
   }
   function go(r) {
     $("adm-search-results").hidden = true;
-    if (r.kind === "section") { AdminNav.show(r.pane); setTimeout(() => { if (r.el.tagName === "DETAILS") r.el.open = true; r.el.scrollIntoView({ behavior: "smooth", block: "start" }); r.el.classList.add("flash"); setTimeout(() => r.el.classList.remove("flash"), 1600); }, 80); }
+    if (r.kind === "section") { AdminNav.show(r.pane); setTimeout(() => { if (window.AdminSections) AdminSections.reveal(r.el); if (r.el.tagName === "DETAILS") r.el.open = true; r.el.scrollIntoView({ behavior: "smooth", block: "start" }); r.el.classList.add("flash"); setTimeout(() => r.el.classList.remove("flash"), 1600); }, 80); }
     else if (r.kind === "setting") {
       AdminNav.show("reglages");
       const tryOpen = (n) => { if (window.openSetting && window.openSetting(r.key)) return; if (n > 0) setTimeout(() => tryOpen(n - 1), 300); };

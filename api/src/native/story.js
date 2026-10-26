@@ -9,7 +9,7 @@
 import { ok, fail, userById, parseJson, now, refId, levelForXp } from './common.js';
 import { setting } from './settings.js';
 import { grantCosmetic } from './cosmetics.js';
-import { isNewcomer } from './starter.js';
+import { isNewcomer, petMask } from './starter.js';
 
 export const schema = { Users: { StoryState: { type: 'Text' } } };
 
@@ -24,11 +24,14 @@ function view(store, user) {
   const unlocked = !setting(store, 'StarterEnabled') || !isNewcomer(store, user) || !!starter.done;
   const ch = chapters[st.chapter] || null;
   const card = setting(store, 'StoryCardId') ? store.get('Cards', setting(store, 'StoryCardId')) : null;
+  // Compagnon pas encore adopte : l'histoire en parle sans le nommer.
+  const m = petMask(store, user);
   return {
     enabled: !!setting(store, 'StoryEnabled') && chapters.length > 0, unlocked, done: st.done, index: st.chapter, total: chapters.length,
-    chapters: chapters.map((c, i) => ({ index: i, title: c.title, who: c.who, icon: c.icon, done: st.done || i < st.chapter, current: !st.done && i === st.chapter })),
+    chapters: chapters.map((c, i) => ({ index: i, title: m(c.title), who: m(c.who), icon: c.icon, done: st.done || i < st.chapter, current: !st.done && i === st.chapter })),
     chapter: ch && !st.done ? {
-      ...ch, steps: (ch.steps || []).map((s, i) => { const n = Math.min(Number(s.target) || 1, Number(st.counts[i]) || 0); return { ...s, index: i, progress: n, complete: n >= (Number(s.target) || 1) }; }),
+      ...ch, title: m(ch.title), who: m(ch.who), text: m(ch.text),
+      steps: (ch.steps || []).map((s, i) => { const n = Math.min(Number(s.target) || 1, Number(st.counts[i]) || 0); return { ...s, label: m(s.label), index: i, progress: n, complete: n >= (Number(s.target) || 1) }; }),
       last: st.chapter === chapters.length - 1, finalCard: st.chapter === chapters.length - 1 && card ? { cardId: card.id, name: card.Name } : null
     } : null
   };

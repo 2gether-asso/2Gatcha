@@ -94,8 +94,14 @@ html.ci-open, html.ci-open body { overflow: hidden; }
 .games-hub[data-view="map"] #games-summary, .games-hub[data-view="list"] .wm-wrap, .games-hub[data-view="map"] .wm-toggle-back { display: none; }
 .wm-wrap { position: relative; }
 .wm-toggle-back { margin-top: 8px; font-size: 0.8rem; padding: 6px 12px; }
-.wm-map { position: relative; height: clamp(230px, 32vw, 340px); border-radius: var(--radius-lg, 18px); overflow: hidden; border: 1px solid var(--border-soft); }
-.wm-world { position: relative; width: 100%; height: 100%; }
+/* Monde etendu (2026-10-29) : panorama 1900 x 360 (nature puis village), a faire glisser partout. */
+.wm-map { position: relative; height: clamp(230px, 26vw, 320px); border-radius: var(--radius-lg, 18px); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; scroll-behavior: smooth; border: 1px solid var(--border-soft); }
+.wm-world { position: relative; width: calc(clamp(230px, 26vw, 320px) * 1900 / 360); height: 100%; }
+.wm-jumps { position: absolute; left: 8px; bottom: 8px; z-index: 3; display: flex; gap: 6px; }
+.wm-jumps .btn-ghost { padding: 4px 10px; font-size: 0.75rem; background: rgba(10, 12, 30, 0.6); }
+a.wm-pin { text-decoration: none; }
+.wm-pin.wm-town { background: rgba(40, 20, 10, 0.72); }
+.wm-on-town { margin-bottom: 14px; }
 .wm-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .wm-pin { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; min-width: 44px; padding: 6px 10px 5px; border-radius: 14px; font: inherit; color: #fff; background: rgba(10, 12, 30, 0.72); border: 1px solid rgba(255, 255, 255, 0.18); backdrop-filter: blur(4px); box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.8); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
 .wm-pin[hidden] { display: none; }
@@ -116,7 +122,7 @@ html.ci-open, html.ci-open body { overflow: hidden; }
   /* Panorama a faire glisser : le paysage garde ses proportions (1000 x 360). */
   .wm-map { height: 250px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; scroll-behavior: smooth; }
   .wm-map::-webkit-scrollbar { display: none; }
-  .wm-world { width: calc(250px * 1000 / 360); }
+  .wm-world { width: calc(250px * 1900 / 360); }
   .wm-pin { padding: 5px 6px 4px; min-width: 40px; }
   .wm-name { display: none; }
   .wm-status { font-size: 0.6rem; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
@@ -1601,3 +1607,66 @@ html[data-fx="light"] .gf-cloud, html[data-fx="light"] .gf-bee, html[data-fx="li
   .garden-seeds { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
   .garden-seeds .garden-seed { flex: 0 0 136px; scroll-snap-align: start; }
 }
+
+/* Deblocages surprises et adoptions (2026-10-29, starter.js checkUnlocks) :
+   le cadenas eclate avant que la nouveaute apparaisse. */
+.cine-unlock .discovery-card::before { content: "\1F512"; position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; font-size: clamp(3rem, 14vw, 5rem); animation: unlockBurst 1s 0.25s cubic-bezier(.3,.7,.3,1) both; pointer-events: none; }
+.cine-unlock .discovery-icon { animation: unlockReveal 0.7s 0.95s cubic-bezier(.2,.9,.3,1.4) both, discoveryFloat 2.4s 1.7s ease-in-out infinite; }
+.discovery-go { justify-self: center; margin-top: 6px; }
+.st-steps li.secret { background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.2); }
+@keyframes unlockBurst { 0% { opacity: 1; transform: scale(1); } 45% { opacity: 1; transform: scale(1.15) rotate(-14deg); } 60% { opacity: 1; transform: scale(1.05) rotate(10deg); } 100% { opacity: 0; transform: scale(2.4) rotate(24deg); filter: blur(6px); } }
+@keyframes unlockReveal { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .cine-unlock .discovery-card::before { display: none; } .cine-unlock .discovery-icon { animation: none; } }
+
+/* Sous-progressions secretes (2026-10-29) : ce qui n'est pas debloque reste un mystere. */
+.mystery-slot { display: inline-flex; align-items: center; gap: 6px; opacity: 0.6; border-style: dashed !important; cursor: default; font-style: italic; }
+.garden-seed.mystery-slot { display: grid; }
+.ar-perks li:not(.on) { opacity: 0.55; font-style: italic; }
+
+/* Bilan de session dans l'inventaire (2026-10-29) */
+.inv-session { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 10px; margin: 0 0 8px; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); font-size: 0.82rem; }
+.inv-session small { color: var(--text-dim); }
+.inv-session-bits { display: flex; flex-wrap: wrap; gap: 4px 10px; font-weight: 700; }
+.inv-session-reset { padding: 2px 8px; font-size: 0.8rem; }
+
+/* Decomptes en direct (2026-10-29, shell-extras.js Countdown) */
+[data-countdown-to] { font-variant-numeric: tabular-nums; }
+[data-countdown-to].cd-soon { color: #fbbf24; }
+.redeem-live { margin: 14px 0; padding: 12px 14px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.redeem-live h3 { margin: 0 0 8px; font-size: 0.95rem; }
+.redeem-live ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.redeem-live li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+.redeem-live-code { font-family: ui-monospace, Consolas, monospace; font-weight: 800; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 8px; border: 1px dashed var(--accent); background: rgba(0, 0, 0, 0.25); color: inherit; cursor: pointer; }
+.redeem-live-label { display: grid; font-size: 0.85rem; }
+.redeem-live-label small { color: var(--text-dim); }
+.redeem-live-left { font-size: 0.8rem; white-space: nowrap; }
+@media (max-width: 520px) { .redeem-live li { grid-template-columns: auto 1fr; } .redeem-live-left { grid-column: 1 / -1; } }
+
+/* Preferences (2026-10-29, js/lazy/prefs.js) */
+.prefs-overlay { display: grid; place-items: center; padding: 16px; }
+.prefs-box { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(640px, 100%); max-height: calc(100vh - 32px); border-radius: 18px; background: var(--bg-panel, #17192e); background: color-mix(in srgb, var(--bg-panel-2, #17192e) 35%, #14162a); border: 1px solid var(--border-soft); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+.prefs-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
+.prefs-head h2 { margin: 0; font-size: 1.1rem; }
+.prefs-body { overflow-y: auto; padding: 6px 16px 12px; display: grid; gap: 4px; }
+.prefs-body section { padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+.prefs-body section:last-child { border-bottom: 0; }
+.prefs-body h3 { margin: 4px 0 6px; font-size: 0.9rem; color: var(--text-dim); }
+.prefs-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 6px 0; }
+.prefs-label { display: grid; gap: 2px; flex: 1 1 200px; font-size: 0.9rem; }
+.prefs-label small { color: var(--text-dim); font-size: 0.76rem; }
+.prefs-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.prefs-seg button { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border-soft); background: transparent; color: inherit; font: inherit; font-size: 0.8rem; cursor: pointer; }
+.prefs-seg button.on { background: color-mix(in srgb, var(--accent) 30%, transparent); border-color: var(--accent); font-weight: 700; }
+.prefs-seg button:disabled { opacity: 0.45; cursor: not-allowed; }
+.prefs-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex: none; }
+.prefs-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.prefs-switch span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.15); transition: background 0.2s; pointer-events: none; }
+.prefs-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.prefs-switch input:checked + span { background: var(--accent); }
+.prefs-switch input:checked + span::after { transform: translateX(20px); }
+.prefs-switch input:focus-visible + span { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.prefs-note { margin: 0; padding: 8px 16px 12px; font-size: 0.75rem; color: var(--text-dim); }
+
+/* Aide sur place (2026-10-29, js/lazy/game-help.js) */
+.gh-btn { display: inline-flex; margin: 4px 0 10px auto; padding: 4px 12px; font-size: 0.8rem; float: right; }
+.gh-list { margin: 0; padding-left: 18px; text-align: left; display: grid; gap: 8px; line-height: 1.5; font-size: 0.9rem; }

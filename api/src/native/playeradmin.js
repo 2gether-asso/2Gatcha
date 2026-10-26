@@ -4,7 +4,7 @@
 // suppression). Seuls les champs de la liste blanche se modifient ici (le
 // reste : page Base de donnees) ; chaque modification passe par le journal
 // de l'economie comme les autres actions de l'equipe.
-//   POST /webhook/admin-player { discordId, action: 'get' | 'set' | 'pull', userId, fields?, tablets?, pullId?, changes?, remove? }
+//   POST /webhook/admin-player { discordId, action: 'get' | 'set' | 'pull', targetUserId, fields?, tablets?, pullId?, changes?, remove? }
 
 import { refId, ok, fail, isAdmin, levelForXp, firstAttachment } from './common.js';
 import { setting } from './settings.js';
@@ -118,7 +118,9 @@ function editPull(store, user, body) {
 
 function handle({ store, body }) {
   if (!isAdmin(body.discordId)) return fail('forbidden', 403);
-  const user = store.get('Users', Number(body.userId));
+  // Le joueur vise passe par targetUserId : userId est reserve au joueur
+  // connecte (verifie par le jeton, auth_forbidden sinon).
+  const user = store.get('Users', Number(body.targetUserId ?? body.userId));
   if (!user) return fail('unknown_user', 404);
   const action = body.action || 'get';
   if (action === 'get') return ok(sheet(store, user));

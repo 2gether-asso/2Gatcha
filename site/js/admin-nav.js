@@ -4,7 +4,7 @@
 // donnees la premiere fois qu'on l'ouvre (AdminNav.onFirstShow).
 
 const AdminNav = {
-  PANES: ["accueil", "codes", "joueurs", "economie", "modes", "visuels", "test", "evenements", "contenu", "reglages", "site", "doc"],
+  PANES: ["accueil", "codes", "joueurs", "discord", "economie", "modes", "visuels", "test", "evenements", "contenu", "tout", "reglages", "site", "doc"],
   current: null,
   firstShow: new Map(),
   shown: new Set(),
@@ -35,7 +35,7 @@ const AdminNav = {
       (this.firstShow.get(pane) || []).forEach((fn) => { try { fn(); } catch (e) { console.error(e); } });
       this.firstShow.delete(pane);
     }
-    if (focus) setTimeout(() => { const el = document.getElementById(focus); if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); el.focus({ preventScroll: true }); } }, 80);
+    if (focus) setTimeout(() => { const el = document.getElementById(focus); if (el && window.AdminSections) AdminSections.reveal(el); if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); el.focus({ preventScroll: true }); } }, 80);
     else window.scrollTo({ top: Math.min(window.scrollY, document.getElementById("admin-zone").offsetTop - 80), behavior: "smooth" });
   },
 

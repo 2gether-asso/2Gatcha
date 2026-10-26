@@ -19,6 +19,7 @@ import { happyFactor, happyHourNow } from './moderules.js';
 import { fishEnergy } from './fishing.js';
 import { digTimer } from './timers.js';
 import { parisEpoch } from './daily.js';
+import { petAdopted, petMask } from './starter.js';
 // Happy hour (mode Chill) : -30 % sur toute la boutique.
 const shopPrice = (store, base) => Math.round(indexed(store, base) * happyFactor(store));
 
@@ -70,9 +71,20 @@ function boughtThisWeek(user) {
   return user.ShopItemsWeek === weekKey() ? parse(user.ShopItemsBought, {}) : {};
 }
 
+// Compagnon pas encore adopte (nouveaux comptes, starter.js) : objets decrits sans lui.
+const PET_ITEM = {
+  BoneCount: { pet: 'milo', label: 'Os', desc: 'Un os bien rongé. Quelqu’un, quelque part, en raffole…' },
+  CatFish: { pet: 'moka', desc: 'Des sardines bien grasses : ça sent le poisson à des kilomètres…' }
+};
+function petView(store, user, it, mask) {
+  const k = Object.keys(it.give || {}).find((f) => PET_ITEM[f] && !petAdopted(store, user, PET_ITEM[f].pet));
+  if (k) return { label: PET_ITEM[k].label || mask(it.label), desc: PET_ITEM[k].desc };
+  return { label: mask(it.label), desc: mask(it.desc || '') };
+}
 function stateOf(store, user) {
   const bought = boughtThisWeek(user);
   const t = now();
+  const mask = petMask(store, user);
   return {
     stardust: dust(user),
     luckCharges: Number(user.LuckCharges) || 0,
@@ -85,7 +97,8 @@ function stateOf(store, user) {
       const today = Number(energyBuysToday(user)[it.key]) || 0;
       // Catalogue personnalise avant la refonte du gatchapon : « Coffre » = une piece.
       const legacyChest = it.key === 'chest' && /^coffre$/i.test(String(it.label || '').trim());
-      return { key: it.key, pages: pagesOf(it), group: it.group || 'resources', label: legacyChest ? 'Pièce de gatchapon' : it.label, icon: legacyChest ? '🪙' : it.icon || '🎁', desc: it.desc || '', price: itemPrice(store, user, it), basePrice: shopPrice(store, it.price), happyHour: happyHourNow(store), weekly: 0, bought: n, left: null, escalate: { today, growth: growthOf(store, it), energy: isEnergy(it) } };
+      const pv = petView(store, user, it, mask);
+      return { key: it.key, pages: pagesOf(it), group: it.group || 'resources', label: legacyChest ? 'Pièce de gatchapon' : pv.label, icon: legacyChest ? '🪙' : it.icon || '🎁', desc: pv.desc, price: itemPrice(store, user, it), basePrice: shopPrice(store, it.price), happyHour: happyHourNow(store), weekly: 0, bought: n, left: null, escalate: { today, growth: growthOf(store, it), energy: isEnergy(it) } };
     })
   };
 }

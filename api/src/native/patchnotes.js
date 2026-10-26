@@ -8,6 +8,18 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-29', title: 'Un monde, deux régions', items: [
+    'Une seule carte du monde pour tout le jeu : la nature et ses jeux (avec les ruines de l’archéologie), puis le village et la communauté. Elle s’affiche aussi en haut de la page Communauté',
+    'Menus rangés : chaque page n’apparaît plus qu’à un seul endroit ; ta progression, tes statistiques et tes cosmétiques sont dans ton menu de joueur',
+    'Nouveaux joueurs : chaque découverte se fait par surprise, avec sa cinématique… et deux compagnons attendent quelque part de t’adopter',
+    'L’onglet Coffre-fort des jeux s’appelle maintenant Cage de Pepper, et Métiers devient Classements',
+    'Corrigé : le chrono de la fouille et de la pêche qui repartait de zéro, avec une énergie qui ne remontait plus',
+    'Nouvelle fenêtre Préférences dans ton menu : thème, texte, effets, son, vibrations, cinématiques, rappels et notifications au même endroit',
+    'Bilan de ta session dans l’inventaire : ce que tu as gagné depuis ton arrivée',
+    'Un bouton « ❔ Règles » sur chaque jeu et chaque onglet de la communauté',
+    'Échanges : tes souhaits marqués d’un ♥, des filtres pour les trouver, et une contre-offre rapide en un clic',
+    'Les codes en cours s’affichent avec leur temps restant, en direct, sur la page « Réclamer un code »'
+  ] },
   { date: '2026-10-28', title: 'Salle des trésors', items: [
     'Coffre-fort : nouvel onglet Présentoir, tes plus belles cartes exposées sous les projecteurs, les émeraudes en tête ; touche une carte pour la voir en grand, et partage l’image de ta salle des trésors',
     'Une carte du coffre peut maintenant aller dans la vitrine de ton profil ; la vitrine pleine te propose de choisir laquelle remplacer, et tu peux changer l’ordre des cartes',

@@ -29,6 +29,7 @@ import { upgradeValue } from './upgrades.js';
 import { modeIs } from './modeperks.js';
 import { dinoTalent, talentUntil } from './dino.js';
 import { ruleOn } from './moderules.js';
+import { petMask } from './starter.js';
 
 export const PLOTS = 4;
 
@@ -121,7 +122,7 @@ function state(store, user) {
   const max = setting(store, 'GardenMaxPlots');
   return {
     plots, growHours: Math.round((grow / 3600) * 10) / 10, plantCost: base,
-    seeds: Object.entries(seedsOf(store)).map(([key, s]) => ({ key, label: s.label, icon: s.icon, desc: s.desc, cost: Math.round(base * s.cost), growHours: Math.round((grow * s.grow / 3600) * 10) / 10, level: s.level || 1, locked: gardenLevel(store, user).level < (s.level || 1) })),
+    seeds: Object.entries(seedsOf(store)).map(([key, s]) => ({ key, label: petMask(store, user)(s.label), icon: s.icon, desc: petMask(store, user)(s.desc), cost: Math.round(base * s.cost), growHours: Math.round((grow * s.grow / 3600) * 10) / 10, level: s.level || 1, locked: gardenLevel(store, user).level < (s.level || 1) })),
     catFish: Number(user.CatFish) || 0, bones: Number(user.BoneCount) || 0,
     extraPlot: plots.length < max ? { price: plotPrice(store, user), owned: plots.length, max } : { price: null, owned: plots.length, max },
     baitChance: Math.min(1, setting(store, 'GardenBaitChance') + gardenLevel(store, user).perks.baitBonus), level: gardenLevel(store, user), stardust: Number(user.StardustCount) || 0,

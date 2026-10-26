@@ -1088,6 +1088,10 @@ function screwPartAnimation() {
 // Decouverte d'une nouvelle ressource (2026-10-15, api/src/native/discoveries.js) :
 // mise en scene facon carte legendaire, en turquoise, avec l'objet et une
 // description enigmatique. Plusieurs decouvertes : l'une apres l'autre.
+// Deblocages et adoptions des nouveaux comptes (2026-10-29, starter.js
+// checkUnlocks) : meme scene, avec { unlock, kicker, url } : bouton « Y aller »,
+// et les masques (StarterLocks) sont relus a la fermeture. Attend la fin d'une
+// montee de niveau (LevelFx) avant de commencer.
 // ---------------------------------------------------------------------------
 const DiscoveryFx = (function () {
   const queue = [];
@@ -1095,17 +1099,18 @@ const DiscoveryFx = (function () {
   const esc = escHtml; // core.js
   function next() {
     if (busy || !queue.length) return;
+    if (document.querySelector(".lvx")) { setTimeout(next, 700); return; }
     busy = true;
     const it = queue.shift();
     const ov = document.createElement("div");
-    ov.className = "cine-overlay cine-discovery";
+    ov.className = "cine-overlay cine-discovery" + (it.unlock ? " cine-unlock" : "");
     ov.style.setProperty("--c", it.color || "#2dd4bf");
     ov.setAttribute("role", "dialog");
     ov.setAttribute("aria-label", "Nouvelle découverte : " + it.name);
     ov.innerHTML = `<div class="cine-rays" aria-hidden="true"></div><div class="cine-glow" aria-hidden="true"></div>
       <div class="discovery-stack">
         <div class="cine-spin"><div class="discovery-card"><span class="discovery-icon" aria-hidden="true">${it.icon}</span><span class="discovery-shine" aria-hidden="true"></span></div></div>
-        <div class="discovery-text"><small>Nouvelle découverte !</small><strong>${esc(it.name)}</strong><p>${esc(it.riddle)}</p></div>
+        <div class="discovery-text"><small>${esc(it.kicker || "Nouvelle découverte !")}</small><strong>${esc(it.name)}</strong><p>${esc(it.riddle)}</p>${it.url ? `<a class="btn discovery-go" href="${esc(it.url)}">Y aller &rarr;</a>` : ""}</div>
       </div>
       <div class="cine-skip">Tape pour continuer</div>`;
     document.body.appendChild(ov);
@@ -1117,9 +1122,10 @@ const DiscoveryFx = (function () {
       done = true;
       ov.classList.add("cine-out");
       setTimeout(() => { ov.remove(); busy = false; next(); }, 320);
+      if (it.unlock && typeof StarterLocks !== "undefined") StarterLocks.refresh().then(() => { if (window.StarterPath) StarterPath.load(); });
     };
     // Pas de fermeture accidentelle pendant l'entree ; ensuite un tap suffit.
-    setTimeout(() => ov.addEventListener("click", close), 700);
+    setTimeout(() => ov.addEventListener("click", (e) => { if (!e.target.closest(".discovery-go")) close(); }), 700);
     document.addEventListener("keydown", function onKey(e) { if (e.key === "Escape" || e.key === "Enter") { document.removeEventListener("keydown", onKey); close(); } });
     // Pas de fermeture automatique : la decouverte reste jusqu'au tap.
   }

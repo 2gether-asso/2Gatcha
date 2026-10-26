@@ -34,7 +34,7 @@ const Inventory = {
       { icon: resIcon("coin"), name: "Pièces de gatchapon", count: n(x.chests), desc: "Une pièce = une boule au gatchapon, avec un coffre dedans (à ouvrir avec une clé).", url: "ouverture.html", cta: "Gatchapon" },
       { icon: resIcon("worm"), name: "Vers de terre", count: n(st.worms), desc: "Un par lancer de pêche.", url: "jeux.html#peche", cta: "Pêcher" },
       { icon: resIcon("bait"), name: "Appâts dorés", count: n(x.goldBait), desc: "Aucune prise vide et prises rares ×2,5.", url: "jeux.html#peche", cta: "Pêcher" },
-      { icon: resIcon("bone"), name: "Os", count: n(x.bones), desc: "Envoient Milo, le chien, creuser pour toi.", url: "jeux.html#fouille", cta: "Chenil" },
+      { icon: resIcon("bone"), name: "Os", count: n(x.bones), desc: typeof PetText !== "undefined" ? PetText.mask("Envoient Milo, le chien, creuser pour toi.") : "Os", url: "jeux.html#fouille", cta: "Chenil" },
       { icon: resIcon("part"), name: "Pièces détachées", count: n(st.spareParts), desc: "Remplacent un exemplaire dans une fusion ou une restauration.", url: "collection.html#finitions", cta: "Atelier" },
       { icon: "&#127915;", name: "Tickets Unique", count: n(st.uniqueTickets), desc: "Une carte Unique au choix au Comptoir.", url: "coffre.html#comptoir", cta: "Comptoir" },
       { icon: "&#129514;", name: "Élixir de chance", count: n(x.luck), desc: "Boosters restants avec +5 pts de finition spéciale.", url: "ouverture.html", cta: "Ouvrir" },
@@ -47,6 +47,7 @@ const Inventory = {
     document.getElementById("inventory-panel").innerHTML = `
       <div class="inv-head"><strong>&#127890; Inventaire</strong><a href="boutique.html" class="inv-shop">&#128717;&#65039; Boutique</a></div>
       ${boost ? `<div class="inv-boost">&#128216; XP ×2 encore ${boost} min</div>` : ""}
+      ${this.sessionHtml(st)}
       ${this.timersHtml()}
       <ul class="inv-list">${shown.map((i) => `<li><a href="${i.url}"><span class="inv-icon" aria-hidden="true">${i.icon}</span><span class="inv-body"><strong>${i.name}</strong><small>${i.desc}</small></span><span class="inv-count">${fmt(i.count)}</span><span class="inv-cta">${i.cta} &#8250;</span></a></li>`).join("")}</ul>
       ${empty.length ? `<p class="inv-empty">Pas encore : ${empty.map((i) => `<span title="${i.desc}">${i.icon} ${i.name}</span>`).join(" · ")}</p>` : ""}
@@ -55,6 +56,23 @@ const Inventory = {
     // Minuteurs : decompte en direct tant que le panneau est ouvert.
     clearInterval(this.tick);
     if (this.extra && this.extra.timers) this.tick = setInterval(() => { if (!this.isOpen()) { clearInterval(this.tick); return; } const box = document.getElementById("inv-timers"); if (box) box.outerHTML = this.timersHtml(); }, 1000);
+  },
+  // Bilan de session (2026-10-29, shell.js SessionRecap) : ce que la session a rapporte.
+  sessionHtml(st) {
+    const r = typeof SessionRecap !== "undefined" ? SessionRecap.delta(st) : null;
+    if (!r) return "";
+    const fmt = (v) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toLocaleString("fr-FR")}`;
+    const bits = [
+      r.d.stardust && `${fmt(r.d.stardust)} &#10024;`,
+      r.d.pulls > 0 && `${r.d.pulls.toLocaleString("fr-FR")} carte${r.d.pulls > 1 ? "s" : ""} ouverte${r.d.pulls > 1 ? "s" : ""}`,
+      r.d.level > 0 && `+${r.d.level} niveau${r.d.level > 1 ? "x" : ""}`,
+      r.d.xp > 0 && `+${r.d.xp.toLocaleString("fr-FR")} XP`,
+      r.d.count && `${fmt(r.d.count)} jeton${Math.abs(r.d.count) > 1 ? "s" : ""}`,
+      r.d.keys && `${fmt(r.d.keys)} clé${Math.abs(r.d.keys) > 1 ? "s" : ""}`,
+      r.d.worms && `${fmt(r.d.worms)} vers`
+    ].filter(Boolean);
+    const since = new Date(r.since).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    return `<div class="inv-session"><span><strong>Cette session</strong> <small>depuis ${since}</small></span><span class="inv-session-bits">${bits.length ? bits.map((b) => `<span>${b}</span>`).join("") : '<span class="muted">rien encore : à toi de jouer !</span>'}</span><button type="button" class="btn-ghost inv-session-reset" data-session-reset title="Repartir de zéro">&#8635;</button></div>`;
   },
   // Minuteurs (2026-10-18, api/src/native/timers.js) : ce qui sera pret, et quand.
   timersHtml() {
@@ -79,6 +97,7 @@ const Inventory = {
     const btn = document.getElementById("inventory-trigger");
     if (!btn) return;
     btn.addEventListener("click", (e) => { e.stopPropagation(); this.toggle(); });
+    document.getElementById("inventory-panel")?.addEventListener("click", (e) => { if (e.target.closest("[data-session-reset]")) { e.preventDefault(); SessionRecap.reset(); this.render(); } });
     document.addEventListener("click", (e) => { if (this.isOpen() && !document.getElementById("inventory").contains(e.target)) this.toggle(false); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && this.isOpen()) { this.toggle(false); btn.focus(); } });
   }

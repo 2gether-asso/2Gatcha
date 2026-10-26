@@ -494,10 +494,10 @@
           <summary>
             <span class="ar-level-badge" title="Niveau d'archéologue">${lv.level}</span>
             <span class="ar-level-main"><strong>Archéologue niv. ${lv.level}</strong><span class="ar-bar ar-xp"><span style="width:${pct}%"></span></span>
-              <small>${lv.next ? `${lv.xp - lv.prev} / ${lv.next - lv.prev} XP${lv.nextPerk ? ` · prochain : ${esc(lv.nextPerk)}` : ""}` : "Niveau maximum !"}</small></span>
+              <small>${lv.next ? `${lv.xp - lv.prev} / ${lv.next - lv.prev} XP${lv.nextPerk ? ` · une surprise t’attend plus loin` : ""}` : "Niveau maximum !"}</small></span>
             <span class="ar-level-more" aria-hidden="true">▾</span>
           </summary>
-          <ul class="ar-perks">${Object.entries(lv.perks || {}).map(([n, txt]) => `<li class="${lv.level >= Number(n) ? "on" : ""}"><b>Nv ${n}</b> ${esc(txt)}</li>`).join("")}</ul>
+          <ul class="ar-perks">${Object.entries(lv.perks || {}).map(([n, txt]) => (lv.level >= Number(n) ? `<li class="on"><b>Nv ${n}</b> ${esc(txt)}</li>` : `<li><b>Nv ${n}</b> &#10067; À découvrir</li>`)).join("")}</ul>
           <p class="muted">XP : 3 par bloc extrait (+5 si la tablette est parfaite), puis 5 / 4 / 2 / 1 par trouvaille libérée intacte / rayée / fissurée / cassée. ×1,5 pour la pierre gravée, ×2 pour la tablette dorée.</p>
         </details>
         <div class="ar-stock" title="Tablettes en réserve">${stock.length ? stock.map((k) => `<span class="ar-stock-kind ${k.count ? "" : "none"}" style="--kc:${KIND_FX[k.kind] || "#b07a4c"}" title="${esc(k.label)}"><span class="ar-mini-tab ${k.kind}" aria-hidden="true"></span><b>${k.count}</b></span>`).join("") : `<span class="ar-stock-kind"><span class="ar-mini-tab clay" aria-hidden="true"></span><b>${st.tablets}</b></span>`}

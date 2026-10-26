@@ -24,6 +24,20 @@ export function digTimer(store, user, t = now()) {
   return { energy, max, at: energy >= max ? t : last + (max - stored) * regen };
 }
 
+// Ancre de recharge manquante (bug 2026-10-29) : une energie posee sans date
+// (compte cree avant les colonnes, reglage admin, cadeau...) etait relue avec
+// « maintenant » comme ancre a chaque appel : la jauge ne remontait jamais et
+// le chrono repartait de zero a chaque visite. On pose l'ancre une fois.
+export function anchorEnergy(store, userId, t = now()) {
+  const user = userById(store, userId);
+  if (!user) return;
+  const fields = {};
+  const set = (v) => v != null && v !== '';
+  if (set(user.DigEnergy) && !Number(user.LastDigEnergyAt)) fields.LastDigEnergyAt = t;
+  if (set(user.FishingEnergy) && !Number(user.FishingEnergyAt)) fields.FishingEnergyAt = t;
+  if (Object.keys(fields).length) store.update('Users', user.id, fields);
+}
+
 function handle({ store, query }) {
   const user = userById(store, (query || {}).userId);
   if (!user) return fail('unknown_user', 404);

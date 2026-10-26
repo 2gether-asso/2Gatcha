@@ -47,7 +47,8 @@
     const t = nowS();
     if (it.start <= t && (it.point ? false : t < it.end)) {
       const left = it.end - t;
-      return `<span class="cal-badge live">En cours · encore ${left > DAY ? Math.ceil(left / DAY) + " j" : Math.ceil(left / 3600) + " h"}</span>`;
+      // Decompte en direct (shell-extras.js Countdown) ; texte fixe en secours.
+      return `<span class="cal-badge live">${it.code ? "Code actif" : "En cours"} · encore <span data-countdown-to="${it.end}">${left > DAY ? Math.ceil(left / DAY) + " j" : Math.ceil(left / 3600) + " h"}</span></span>`;
     }
     const d = it.start - t;
     if (d <= 0) return "";
@@ -119,7 +120,10 @@
       logged && API.teams ? settle(API.teams(Session.userId)) : null
     ]);
     const out = [...seasonItems(horizon), ...tourneyItems(horizon)];
-    (cal && cal.events || []).forEach((e) => out.push({ kind: "irl", icon: "🎟️", label: e.label, start: e.startsAt || nowS(), end: e.expiresAt || (e.startsAt || nowS()) + DAY, desc: "Évènement de l'asso : le code est donné sur place ou à l'écran.", href: "redeem.html" }));
+    // Code annonce (Admin > Codes & dons, 2026-10-26) : le code et ses recompenses sont publics.
+    (cal && cal.events || []).forEach((e) => out.push(e.code
+      ? { kind: "irl", icon: "🎁", label: e.label, start: e.startsAt || nowS(), end: e.expiresAt || (e.startsAt || nowS()) + DAY, code: e.code, desc: `Code ${e.code}${(e.rewards || []).length ? " : " + e.rewards.map((r) => `${r.icon} ${r.label}`).join(" · ") : ""}. À réclamer sur la page « Réclamer un code ».`, href: `redeem.html?code=${encodeURIComponent(e.code)}` }
+      : { kind: "irl", icon: "🎟️", label: e.label, start: e.startsAt || nowS(), end: e.expiresAt || (e.startsAt || nowS()) + DAY, desc: "Évènement de l'asso : le code est donné sur place ou à l'écran.", href: "redeem.html" }));
     if (ev && ev.active && !ev.golden) {
       const perks = [ev.dustMultiplier > 1 && `poussières ×${ev.dustMultiplier}`, ev.finishMultiplier > 1 && `finitions ×${ev.finishMultiplier}`, ev.fishingRare > 1 && `pêche rare ×${ev.fishingRare}`, ev.wormsMultiplier > 1 && `vers ×${ev.wormsMultiplier}`].filter(Boolean);
       out.push({ kind: "event", icon: "🎉", label: ev.label || "Événement", start: nowS() - 60, end: ev.endsAt || nowS() + DAY, desc: perks.length ? "Bonus : " + perks.join(", ") + "." : "" });

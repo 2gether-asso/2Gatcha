@@ -27,6 +27,7 @@ import { grantCosmetic, catalog as cosmeticCatalog } from './cosmetics.js';
 import { addFeed } from './feed.js';
 import { levelOf as machineLevel, GAME_LEVEL } from './slots.js';
 import { addTabletsFields } from './archeo.js';
+import { petMask } from './starter.js';
 
 
 export const schema = {
@@ -525,7 +526,8 @@ function lotsOf(store) {
 function lots(store, user, body) {
   const LOTS = lotsOf(store);
   const owned = new Set(store.tables.has('UserCosmetics') ? store.getAll('UserCosmetics').filter((r) => refId(r.User) === user.id).map((r) => r.Key) : []);
-  const list = LOTS.map((l) => ({ key: l.key, label: l.label, icon: l.icon, price: l.price, owned: l.cosmetic ? owned.has(l.key) : false }));
+  const mask = petMask(store, user);
+  const list = LOTS.map((l) => ({ key: l.key, label: mask(l.label), icon: l.icon, price: l.price, owned: l.cosmetic ? owned.has(l.key) : false }));
   const action = body.action || 'status';
   if (action === 'status') return ok({ lots: list, ...wallet(store, user) });
   if (action !== 'buy') return fail('unknown_action');

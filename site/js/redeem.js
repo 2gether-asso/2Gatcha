@@ -235,12 +235,39 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("redeem-lock-icon").addEventListener("click", onLockClick);
   API.getBoosterStatus(Session.userId).then((s) => { playerKeys = s.keys || 0; }).catch(() => {});
 
+  loadLiveCodes();
   // Prefill depuis un QR code génère par l'admin (redeem.html?code=XXXX).
   const prefill = new URLSearchParams(window.location.search).get("code");
   if (prefill) {
     document.getElementById("code-input").value = prefill.toUpperCase();
   }
 });
+
+// Codes annonces en cours (2026-10-29, calendrier des evenements) : temps
+// restant en direct (shell-extras.js Countdown), un clic remplit le champ.
+async function loadLiveCodes() {
+  const box = document.getElementById("redeem-live");
+  if (!box) return;
+  try {
+    const cal = await API.getEventCalendar();
+    const t = Math.floor(Date.now() / 1000);
+    const live = ((cal && cal.events) || []).filter((e) => e.code && (e.startsAt || 0) <= t && (!e.expiresAt || e.expiresAt > t));
+    if (!live.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = `<h3>&#9203; Codes en cours</h3><ul>${live.map((e) => `<li>
+      <button type="button" class="redeem-live-code" data-use-code="${escHtml(e.code)}" title="Remplir le champ">${escHtml(e.code)}</button>
+      <span class="redeem-live-label">${escHtml(e.label || "")}${(e.rewards || []).length ? `<small>${e.rewards.map((r) => `${r.icon} ${escHtml(r.label)}`).join(" · ")}</small>` : ""}</span>
+      ${e.expiresAt ? `<span class="redeem-live-left">encore <strong data-countdown-to="${e.expiresAt}" data-countdown-done="expiré"></strong></span>` : ""}
+    </li>`).join("")}</ul>`;
+    box.onclick = (ev) => {
+      const b = ev.target.closest("[data-use-code]");
+      if (!b) return;
+      const input = document.getElementById("code-input");
+      input.value = b.dataset.useCode;
+      input.focus();
+    };
+  } catch (e) { box.hidden = true; }
+}
 
 // Le mot des rouages (2026-10-19) : ecran noir, grondement, dix rouages qui
 // s'eveillent, quelques mots, une faille de lumiere… puis la porte. Aucune

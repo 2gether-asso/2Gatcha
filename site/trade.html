@@ -51,6 +51,10 @@
             <label class="trade-target-picker">
               <span class="trade-field-label">Échanger avec</span>
               <select id="target-select" required></select>
+              <label class="checkbox-inline" title="Seulement les joueurs qui ont en double une carte de ta liste de souhaits">
+                <input type="checkbox" id="target-wish-only" />
+                &#9829; Ils ont mes souhaits
+              </label>
             </label>
 
             <div class="trade-compose-sides">
@@ -84,6 +88,12 @@
                   <img id="requested-card-preview" class="trade-side-thumb" alt="" />
                 </div>
                 <select id="requested-card-select"><option value="">Choisis d'abord un joueur cible</option></select>
+                <div class="trade-side-extra">
+                  <label class="checkbox-inline" title="Ne montrer que les cartes de ta liste de souhaits">
+                    <input type="checkbox" id="request-wish-only" />
+                    &#9829; Mes souhaits seulement
+                  </label>
+                </div>
               </div>
             </div>
 

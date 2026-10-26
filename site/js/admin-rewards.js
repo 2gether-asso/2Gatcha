@@ -6,6 +6,9 @@
 // cumuler plusieurs recompenses, commencer plus tard, avoir un quota ; un don
 // peut viser plusieurs joueurs. Tant que l'API n'a pas cette route (serveur
 // pas encore mis a jour), les anciens formulaires restent affiches.
+// Affichage revu (2026-10-29) : chiffres du moment en tete, nouveau code en
+// 3 etapes (recompenses, periode, annonce) avec l'apercu de ce que voit le
+// joueur, codes en cartes (statut, jauge, actions nommees).
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -112,7 +115,15 @@
   // ---------------------------------------------------------------- onglets
   function render() {
     const app = $("rw-app");
+    const live = codes.filter((c) => c.status === "active"), soon = codes.filter((c) => c.status === "scheduled");
+    const endingSoon = live.filter((c) => c.expiresAt && c.expiresAt - nowS() < 86400).length;
     app.innerHTML = `
+      <div class="rw-stats">
+        <button type="button" class="rw-stat" data-goto-list="live"><strong>${live.length}</strong><span>code${live.length > 1 ? "s" : ""} actif${live.length > 1 ? "s" : ""}</span>${endingSoon ? `<small>${endingSoon} finit dans moins de 24 h</small>` : ""}</button>
+        <button type="button" class="rw-stat" data-goto-list="live"><strong>${soon.length}</strong><span>programmé${soon.length > 1 ? "s" : ""}</span></button>
+        <button type="button" class="rw-stat" data-goto-list="all"><strong>${codes.reduce((n, c) => n + (Number(c.used) || 0), 0).toLocaleString("fr-FR")}</strong><span>réclamations au total</span></button>
+        <button type="button" class="rw-stat" data-tab-go="gift"><strong>&#127873;</strong><span>Faire un don</span></button>
+      </div>
       <nav class="adm-seg rw-tabs" role="tablist">
         <button type="button" class="btn-secondary ${tab === "code" ? "active" : ""}" data-tab="code">🎟️ Nouveau code</button>
         <button type="button" class="btn-secondary ${tab === "gift" ? "active" : ""}" data-tab="gift">🎁 Don direct</button>
@@ -120,34 +131,64 @@
       </nav>
       <div id="rw-pane"></div>`;
     app.querySelector(".rw-tabs").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) { tab = b.dataset.tab; render(); } };
+    app.querySelector(".rw-stats").onclick = (e) => {
+      const l = e.target.closest("[data-goto-list]"); if (l) { listFilter = l.dataset.gotoList; tab = "list"; render(); return; }
+      const g = e.target.closest("[data-tab-go]"); if (g) { tab = g.dataset.tabGo; render(); }
+    };
     ({ code: paneCode, gift: paneGift, list: paneList })[tab]();
   }
 
+  // Ce que le joueur verra en reclamant le code (page « Reclamer un code »).
+  function playerPreview() {
+    const d = builders.code.draft || {};
+    const lines = builders.code.lines;
+    const start = d.startsAt || 0, end = d.expiresAt || 0;
+    return `<div class="rw-player">
+      <small class="muted">Aperçu côté joueur</small>
+      <div class="rw-player-card">
+        <span class="rw-player-code">${esc((d.code || "").toUpperCase() || "CODE")}</span>
+        <strong>${esc(d.label || "Code événement")}</strong>
+        <div class="rw-player-gifts">${lines.length ? lines.map((l) => `<span class="rw-pill">${esc(describe(l))}</span>`).join("") : `<span class="muted">Ajoute une récompense…</span>`}</div>
+        <small class="muted">${start ? `À partir du ${fmtDate(start)} · ` : ""}${end ? `jusqu'au ${fmtDate(end)}` : ""}${d.maxRedemptions ? ` · ${d.maxRedemptions} joueurs max` : ""}</small>
+      </div></div>`;
+  }
   function paneCode() {
     const p = $("rw-pane");
     const t = nowS();
     p.innerHTML = `
+      <div class="rw-code-layout">
+      <div class="rw-steps">
+      <section class="rw-step"><h3><span class="rw-step-n">1</span> Ce que le joueur reçoit</h3>
+      ${builder("code")}
+      </section>
+      <section class="rw-step"><h3><span class="rw-step-n">2</span> Le code et sa période</h3>
       <div class="rw-grid">
         <label>Code <small class="muted">(vide = généré)</small><input type="text" id="rw-code" maxlength="24" placeholder="ex : SOIREE20" value="${esc(builders.code.draft.code || "")}" /></label>
-        <label>Note interne<input type="text" id="rw-label" maxlength="60" placeholder="ex : Soirée jeux du 20/11 (aussi le titre vu par le joueur)" value="${esc(builders.code.draft.label || "")}" /></label>
+        <label>Titre <small class="muted">(vu par le joueur, et note interne)</small><input type="text" id="rw-label" maxlength="60" placeholder="ex : Soirée jeux du 20/11" value="${esc(builders.code.draft.label || "")}" /></label>
         <label>Début <small class="muted">(vide = tout de suite)</small><input type="datetime-local" id="rw-start" value="${builders.code.draft.startsAt ? toLocal(builders.code.draft.startsAt) : ""}" /></label>
         <label>Fin<input type="datetime-local" id="rw-end" value="${toLocal(builders.code.draft.expiresAt || t + 4 * 3600)}" /></label>
         <div class="rw-quick"><small class="muted">Durée depuis le début :</small>${[["2 h", 2], ["4 h", 4], ["1 jour", 24], ["3 jours", 72], ["1 semaine", 168], ["1 mois", 720]].map(([l, h]) => `<button type="button" class="rw-chip" data-dur="${h}">${l}</button>`).join("")}</div>
         <label>Joueurs max <small class="muted">(0 = illimité)</small><input type="number" id="rw-max" min="0" value="${builders.code.draft.maxRedemptions || 0}" /></label>
       </div>
-      <h3>Récompenses</h3>
-      ${builder("code")}
-      <div class="rw-actions"><button type="button" class="btn" id="rw-create">Créer le code</button></div>
+      </section>
+      <section class="rw-step"><h3><span class="rw-step-n">3</span> L'annonce</h3>
+        <label class="adm-check rw-announce"><input type="checkbox" id="rw-announce" ${builders.code.draft.announce ? "checked" : ""} /> &#128227; Annoncer sur le serveur <small class="muted">(message Discord, et le code s'affiche dans le calendrier des évènements ; texte réglable dans Admin &rarr; Discord)</small></label>
+        <div class="rw-actions"><button type="button" class="btn" id="rw-create">Créer le code</button></div>
+      </section>
+      </div>
+      <aside class="rw-side" id="rw-preview">${playerPreview()}</aside>
+      </div>
       <div id="rw-created"></div>`;
     wireBuilder(p, "code");
     p.querySelector(".rw-quick").onclick = (e) => {
       const d = e.target.closest("[data-dur]"); if (!d) return;
       const start = fromLocal($("rw-start").value) || nowS();
       $("rw-end").value = toLocal(start + Number(d.dataset.dur) * 3600);
+      $("rw-end").dispatchEvent(new Event("input"));
     };
     $("rw-create").onclick = async (e) => {
       const btn = e.currentTarget;
-      const body = { code: $("rw-code").value.trim(), label: $("rw-label").value.trim(), startsAt: fromLocal($("rw-start").value), expiresAt: fromLocal($("rw-end").value), maxRedemptions: Number($("rw-max").value) || 0, rewards: clean(builders.code.lines) };
+      const body = { code: $("rw-code").value.trim(), label: $("rw-label").value.trim(), startsAt: fromLocal($("rw-start").value), expiresAt: fromLocal($("rw-end").value), maxRedemptions: Number($("rw-max").value) || 0, announce: $("rw-announce").checked, rewards: clean(builders.code.lines) };
       btn.disabled = true;
       try {
         const r = await api("createCode", body);
@@ -155,14 +196,18 @@
         const c = r.created;
         const msg = `🎁 Code ${c.code} : ${c.lines.map((l) => l.label).join(", ")}${c.startsAt ? ` · à partir du ${fmtDate(c.startsAt)}` : ""} · jusqu'au ${fmtDate(c.expiresAt)}${c.maxRedemptions ? ` · ${c.maxRedemptions} joueurs max` : ""}. À réclamer sur la page « Réclamer un code » !`;
         $("rw-created").innerHTML = `<div class="rw-created"><span class="rw-code-big">${esc(c.code)}</span><button type="button" class="btn-secondary" data-copy="${esc(c.code)}">📋 Copier le code</button><button type="button" class="btn-secondary" data-copy="${esc(msg)}">💬 Copier l'annonce</button><p class="muted">${esc(msg)}</p></div>`;
-        Toast.success(`Code ${c.code} créé.`);
+        Toast.success(`Code ${c.code} créé.${body.announce ? (r.posted ? " Annoncé sur Discord et dans le calendrier." : " Visible dans le calendrier (pas de message Discord : webhook absent ou annonce désactivée).") : ""}`);
         builders.code.lines = []; builders.code.draft = {};
         $("rw-code").value = ""; $("rw-label").value = "";
         p.querySelector(`[data-builder="code"]`).outerHTML = builder("code"); wireBuilder(p, "code");
       } catch (err) { Toast.error(errText(err)); }
       finally { btn.disabled = false; }
     };
-    ["rw-code", "rw-label", "rw-start", "rw-end", "rw-max"].forEach((id) => $(id).addEventListener("input", () => { builders.code.draft = { code: $("rw-code").value, label: $("rw-label").value, startsAt: fromLocal($("rw-start").value), expiresAt: fromLocal($("rw-end").value), maxRedemptions: Number($("rw-max").value) || 0 }; }));
+    const syncDraft = () => { builders.code.draft = { code: $("rw-code").value, label: $("rw-label").value, startsAt: fromLocal($("rw-start").value), expiresAt: fromLocal($("rw-end").value), maxRedemptions: Number($("rw-max").value) || 0, announce: $("rw-announce").checked }; $("rw-preview").innerHTML = playerPreview(); };
+    ["rw-code", "rw-label", "rw-start", "rw-end", "rw-max", "rw-announce"].forEach((id) => $(id).addEventListener(id === "rw-announce" ? "change" : "input", syncDraft));
+    // Recompenses changees (fabrique) : apercu a jour.
+    p.querySelector(".rw-steps").addEventListener("click", () => setTimeout(() => { if ($("rw-preview")) $("rw-preview").innerHTML = playerPreview(); }, 0));
+    p.querySelector(".rw-steps").addEventListener("input", () => { if ($("rw-preview")) $("rw-preview").innerHTML = playerPreview(); });
   }
 
   function paneGift() {
@@ -220,23 +265,28 @@
         <input type="search" id="rw-list-q" placeholder="Chercher un code ou une note…" value="${esc(listQuery)}" />
         <button type="button" class="btn-ghost" id="rw-refresh">↻ Actualiser</button>
       </div>
-      ${rows.length ? `<div class="table-scroll"><table class="admin-table rw-table"><thead><tr><th>Code</th><th>Récompenses</th><th>Utilisations</th><th>Période</th><th>Statut</th><th></th></tr></thead><tbody>${rows.map((c) => {
+      ${rows.length ? `<div class="rw-code-cards">${rows.map((c) => {
         const [sl, sc] = STATUS[c.status] || [c.status, "off"];
         const pct = c.maxRedemptions ? Math.min(100, Math.round((c.used / c.maxRedemptions) * 100)) : 0;
-        return `<tr>
-          <td><button type="button" class="rw-code" data-copy="${esc(c.code)}" title="Copier">${esc(c.code)}</button>${c.label ? `<br><small class="muted">${esc(c.label)}</small>` : ""}</td>
-          <td>${c.lines.map((l) => `<span class="rw-pill">${esc(l.icon + " " + l.label)}</span>`).join("")}</td>
-          <td><strong>${c.used}</strong>${c.maxRedemptions ? ` / ${c.maxRedemptions}<span class="rw-bar"><span style="width:${pct}%"></span></span>` : " <small class='muted'>(illimité)</small>"}</td>
-          <td><small>${c.startsAt ? fmtDate(c.startsAt) : "dès la création"}<br>→ ${fmtDate(c.expiresAt)}</small></td>
-          <td><span class="rw-status ${sc}">${sl}</span></td>
-          <td class="rw-row-actions">
-            <button type="button" class="btn-ghost" data-who="${esc(c.code)}" title="Qui l'a réclamé ?">👥</button>
-            <button type="button" class="btn-ghost" data-extend="${esc(c.code)}" title="Prolonger d'un jour">+1 j</button>
-            <button type="button" class="btn-ghost" data-toggle="${esc(c.code)}" data-on="${c.active ? 1 : 0}" title="${c.active ? "Désactiver" : "Réactiver"}">${c.active ? "⏸" : "▶"}</button>
-            ${c.kind === "bundle" || c.kind === "booster" || c.kind === "card" ? `<button type="button" class="btn-ghost" data-dup="${esc(c.code)}" title="Dupliquer dans un nouveau code">⧉</button>` : ""}
-          </td>
-        </tr>`;
-      }).join("")}</tbody></table></div>` : `<p class="muted">Aucun code ici.</p>`}
+        const left = c.expiresAt ? c.expiresAt - nowS() : 0;
+        // Decompte en direct (shell-extras.js Countdown).
+        const when = c.status === "scheduled" ? `Commence dans <strong data-countdown-to="${c.startsAt}" data-countdown-done="un instant"></strong> (${fmtDate(c.startsAt)})` : c.status === "active" ? (c.expiresAt ? `Finit dans <strong data-countdown-to="${c.expiresAt}" data-countdown-done="un instant"></strong>${left >= 86400 ? ` (${fmtDate(c.expiresAt)})` : ""}` : "Sans fin") : `Fini le ${fmtDate(c.expiresAt)}`;
+        const live = ["active", "scheduled"].includes(c.status);
+        return `<article class="rw-code-card ${sc}">
+          <header><button type="button" class="rw-code" data-copy="${esc(c.code)}" title="Copier le code">${esc(c.code)} <span aria-hidden="true">&#128203;</span></button><span class="rw-status ${sc}">${sl}</span>${c.announced ? ' <span class="rw-status info" title="Annoncé sur Discord et affiché dans le calendrier">&#128227; annoncé</span>' : ""}</header>
+          ${c.label ? `<p class="rw-code-label">${esc(c.label)}</p>` : ""}
+          <div class="rw-code-gifts">${c.lines.map((l) => `<span class="rw-pill">${esc(l.icon + " " + l.label)}</span>`).join("")}</div>
+          <div class="rw-code-usage"><span><strong>${c.used}</strong>${c.maxRedemptions ? ` / ${c.maxRedemptions}` : ""} joueur${c.used > 1 ? "s" : ""}${c.maxRedemptions ? "" : " · illimité"}</span>${c.maxRedemptions ? `<span class="rw-bar wide"><span style="width:${pct}%"></span></span>` : ""}</div>
+          <p class="rw-code-when muted">${when}</p>
+          <footer class="rw-code-actions">
+            <button type="button" class="btn-ghost" data-who="${esc(c.code)}">&#128101; Qui ?</button>
+            ${!c.announced && live ? `<button type="button" class="btn-ghost" data-announce="${esc(c.code)}">&#128227; Annoncer</button>` : ""}
+            <button type="button" class="btn-ghost" data-extend="${esc(c.code)}">+1 jour</button>
+            <button type="button" class="btn-ghost" data-toggle="${esc(c.code)}" data-on="${c.active ? 1 : 0}">${c.active ? "&#9208; Désactiver" : "&#9654; Réactiver"}</button>
+            ${c.kind === "bundle" || c.kind === "booster" || c.kind === "card" ? `<button type="button" class="btn-ghost" data-dup="${esc(c.code)}">&#10697; Dupliquer</button>` : ""}
+          </footer>
+        </article>`;
+      }).join("")}</div>` : `<p class="muted">Aucun code ici.</p>`}
       <div id="rw-who"></div>`;
     p.querySelector(".rw-list-bar .adm-seg").onclick = (e) => { const b = e.target.closest("[data-lf]"); if (b) { listFilter = b.dataset.lf; paneList(); } };
     $("rw-list-q").oninput = (e) => { listQuery = e.target.value; const pos = e.target.selectionStart; paneList(); const i = $("rw-list-q"); i.focus(); i.setSelectionRange(pos, pos); };
@@ -246,6 +296,12 @@
       if (who) {
         try { const r = await api("redemptions", { code: who.dataset.who }); $("rw-who").innerHTML = `<div class="rw-created"><strong>👥 ${esc(r.code)} : ${r.redemptions.length} joueur${r.redemptions.length > 1 ? "s" : ""}</strong><ul>${r.redemptions.map((x) => `<li>${esc(x.pseudo)} <small class="muted">${fmtDate(x.at)}</small></li>`).join("") || "<li class='muted'>Personne pour l'instant.</li>"}</ul></div>`; $("rw-who").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
         catch (err) { Toast.error(errText(err)); }
+        return;
+      }
+      const an = e.target.closest("[data-announce]");
+      if (an) {
+        if (!(await Confirm.show(`Annoncer le code <strong>${esc(an.dataset.announce)}</strong> sur Discord et l'afficher dans le calendrier des évènements ?`, { title: "Annoncer le code", confirmText: "Annoncer" }))) return;
+        try { const r = await api("updateCode", { code: an.dataset.announce, announce: true }); codes = r.codes; Toast.success(r.posted ? "Annoncé sur Discord et dans le calendrier." : "Affiché dans le calendrier (pas de message Discord : webhook absent ou annonce désactivée)."); paneList(); } catch (err) { Toast.error(errText(err)); }
         return;
       }
       const ext = e.target.closest("[data-extend]");

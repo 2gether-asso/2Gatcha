@@ -69,7 +69,9 @@
           <button type="button" role="tab" data-pane="test"><span aria-hidden="true">&#129514;</span> Compte test</button>
           <button type="button" role="tab" data-pane="evenements"><span aria-hidden="true">&#128197;</span> Événements</button>
           <button type="button" role="tab" data-pane="contenu"><span aria-hidden="true">&#127183;</span> Contenu</button>
+          <button type="button" role="tab" data-pane="tout"><span aria-hidden="true">&#128269;</span> Tout voir</button>
           <button type="button" role="tab" data-pane="reglages"><span aria-hidden="true">&#9881;&#65039;</span> Réglages</button>
+          <button type="button" role="tab" data-pane="discord"><span aria-hidden="true">&#128226;</span> Discord</button>
           <button type="button" role="tab" data-pane="site"><span aria-hidden="true">&#128736;&#65039;</span> Site</button>
           <button type="button" role="tab" data-pane="doc"><span aria-hidden="true">&#128214;</span> Documentation</button>
         </nav>
@@ -99,7 +101,7 @@
               <div id="rw-app"><div class="loading-row"><div class="spinner"></div></div></div>
             </section>
             <details class="adm-card codes-legacy" id="codes-legacy">
-              <summary><strong>Formulaires classiques</strong> <small class="muted">(boosters ou une carte ; anciens codes et calendrier)</small></summary>
+              <summary><h2>&#128451;&#65039; Formulaires classiques</h2> <small class="muted">(boosters ou une carte ; anciens codes et calendrier)</small></summary>
             <section class="adm-card">
               <header class="adm-card-head"><h2>&#127915; Codes événement</h2><p>Un code à distribuer pendant un événement de l'asso : boosters ou carte précise, durée et nombre de joueurs limités.</p></header>
               <form id="create-code-form" class="admin-form">
@@ -199,6 +201,26 @@
             </section>
           </section>
 
+          <!-- ============================== Tout voir ============================== -->
+          <section class="adm-pane" id="pane-tout" role="tabpanel" data-title="Tout voir" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128269; Tout voir, tout modifier</h2><p>Chaque table de la base (joueurs, cartes, exemplaires, codes, réglages, journaux…) : cherche, trie, clique une ligne pour modifier n'importe quel champ, ou suis une référence vers la ligne liée. Chaque écriture est appliquée tout de suite et inscrite au journal comme les autres outils de l'équipe.</p></header>
+              <div id="ex-app"><div class="loading-row"><div class="spinner"></div></div></div>
+            </section>
+            <section class="adm-card" id="audit-admin">
+              <header class="adm-card-head"><h2>&#128339; Journal de l'équipe</h2><p>Chaque écriture faite depuis l'admin (Tout voir, dons, codes, fiche joueur, cosmétiques, réglages), avec ce qu'elle a changé. « Annuler » la défait : une ressource donnée ou retirée est rendue par écart (ce que le joueur a gagné depuis est gardé), un champ modifié depuis par quelqu'un d'autre n'est pas touché.</p></header>
+              <div id="au-app"><div class="loading-row"><div class="spinner"></div></div></div>
+            </section>
+          </section>
+
+          <!-- ============================== Discord ============================== -->
+          <section class="adm-pane" id="pane-discord" role="tabpanel" data-title="Discord" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128226; Annonces sur Discord</h2><p>L'adresse du webhook du serveur, le texte de chaque annonce que le jeu poste (nouveau code, carte Unique, carte partagée), et un message libre à envoyer tout de suite. Aperçu en direct.</p></header>
+              <div id="dc-app"><div class="loading-row"><div class="spinner"></div></div></div>
+            </section>
+          </section>
+
           <!-- ============================== Economie ============================== -->
           <section class="adm-pane" id="pane-economie" role="tabpanel" data-title="Économie" hidden>
             <section class="adm-card" id="economy-section">
@@ -282,21 +304,22 @@
             </section>
 
             <section class="adm-card" id="cosmetics-admin">
-              <header class="adm-card-head"><h2>&#127912; Cosmétiques</h2><p>Titres, cadres d'avatar et couleurs de pseudo vendus en boutique. Un cadre ou une couleur peut avoir son propre style (couleurs, halo, animation), visible tout de suite sur le site. Supprimer un objet déjà possédé le retire seulement de la vente.</p></header>
-              <div class="cz-bets"><button type="button" class="cz-bet on active" data-cosm-filter="all">Tous</button><button type="button" class="cz-bet" data-cosm-filter="title">Titres</button><button type="button" class="cz-bet" data-cosm-filter="frame">Cadres</button><button type="button" class="cz-bet" data-cosm-filter="color">Couleurs</button><button type="button" class="btn-ghost" id="cosm-new">+ Nouveau</button></div>
+              <header class="adm-card-head"><h2>&#127912; Cosmétiques</h2><p>Titres, cadres d'avatar et couleurs de pseudo vendus en boutique. Un cadre ou une couleur peut avoir son propre style (couleurs, halo, animation), visible tout de suite sur le site. Supprimer un objet déjà possédé le retire seulement de la vente. Onglet <strong>Secrets</strong> : tout ce qui se gagne hors boutique (codes secrets, secrets du site, salle interdite, prestige, modes…) — nom, description et style modifiables, le nouveau nom s'applique aussi à ceux qui l'ont déjà.</p></header>
+              <div class="cz-bets"><button type="button" class="cz-bet on active" data-cosm-filter="all">Tous</button><button type="button" class="cz-bet" data-cosm-filter="title">Titres</button><button type="button" class="cz-bet" data-cosm-filter="frame">Cadres</button><button type="button" class="cz-bet" data-cosm-filter="color">Couleurs</button><button type="button" class="cz-bet" data-cosm-filter="secret">&#128274; Secrets</button><button type="button" class="btn-ghost" id="cosm-new">+ Nouveau</button></div>
               <div class="cosm-editor">
                 <div class="cosm-list" id="cosm-list"><p class="muted">Chargement…</p></div>
                 <form class="cosm-form" id="cosm-form">
                   <strong id="cosm-form-title">Nouveau cosmétique</strong>
                   <div class="cosm-preview" id="cosm-preview"></div>
+                  <p class="muted cosm-source" id="cosm-source" hidden></p>
                   <div class="row">
                     <label>Type <select id="cosm-type"><option value="title">Titre</option><option value="frame">Cadre d'avatar</option><option value="color">Couleur de pseudo</option></select></label>
-                    <label>Prix (✨) <input type="number" id="cosm-price" min="0" value="500" /></label>
+                    <label id="cosm-price-row">Prix (✨) <input type="number" id="cosm-price" min="0" value="500" /></label>
                   </div>
                   <label>Nom affiché <input type="text" id="cosm-label" maxlength="60" required /></label>
                   <label>Clé <input type="text" id="cosm-key" maxlength="48" placeholder="frame-aurore" required /></label>
                   <label>Description (facultatif) <input type="text" id="cosm-desc" maxlength="160" /></label>
-                  <div class="row">
+                  <div class="row" id="cosm-shop-row">
                     <label>Étiquette <select id="cosm-tag"><option value="">Aucune</option><option value="nouveau">Nouveau</option><option value="saison">Saison</option><option value="limite">Limité</option></select></label>
                     <label style="align-self:end"><span><input type="checkbox" id="cosm-hidden" /> Retiré de la vente</span></label>
                   </div>
@@ -522,13 +545,17 @@
   <script src="js/shell.js"></script>
   <script src="js/shell-extras.js"></script>
   <script src="js/admin-nav.js"></script>
+  <script src="js/admin-sections.js"></script>
   <script src="js/json-table.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
   <script src="js/admin-cosmetics.js"></script>
   <script src="js/admin-rewards.js"></script>
   <script src="js/admin-player.js"></script>
+  <script src="js/admin-explorer.js"></script>
+  <script src="js/admin-audit.js"></script>
   <script src="js/admin-search.js"></script>
+  <script src="js/admin-discord.js"></script>
   <script src="js/admin-home.js"></script>
   <script src="js/admin-bingo.js"></script>
   <script src="js/admin-modes.js"></script>

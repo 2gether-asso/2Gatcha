@@ -187,7 +187,10 @@ window.APP_CONFIG = {
     rarityPity: "/rarity-pity",         // GET ?userId=&extensionId= -> { rarities: [{ name, left }] }
     treasureHunt: "/treasure-hunt",     // GET ?userId= | POST { userId, clue, page }
     accountPrestige: "/account-prestige", // GET ?userId= -> { stars, nextLevel }
-    adminPlayer: "/admin-player",         // POST { discordId, action: 'get'|'set'|'pull', userId, fields?, tablets?, pullId?, changes?, remove? } (fiche joueur)
+    adminDiscord: "/admin-discord",       // POST { discordId, action: 'status'|'save'|'useLegacy'|'test'|'send', webhook?, templates?, message? } (annonces Discord)
+    adminAudit: "/admin-audit",           // POST { discordId, action: 'list'|'undo', id?, limit? } (journal de l'equipe, annulation)
+    adminExplorer: "/admin-explorer",     // POST { discordId, action: 'tables'|'rows'|'row'|'set'|'create'|'delete', table?, id?, q?, sort?, desc?, offset?, limit?, fields? } (Admin > Tout voir)
+    adminPlayer: "/admin-player",         // POST { discordId, action: 'get'|'set'|'pull', targetUserId, fields?, tablets?, pullId?, changes?, remove? } (fiche joueur)
     adminRewards: "/admin-rewards",       // POST { discordId, action: 'catalog'|'codes'|'createCode'|'updateCode'|'redemptions'|'gift'|'preview', ... } (Codes & dons V2)
     adminCosmetics: "/admin-cosmetics",   // POST { discordId, action: 'list'|'save'|'delete'|'grant', item?, key?, userId? } (editeur de cosmetiques)
     adminEvents: "/admin-events",       // POST { discordId, action: 'list'|'save'|'delete', event?, id? }

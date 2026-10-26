@@ -176,12 +176,16 @@ function renderGardenSeeds(st) {
   const el = document.getElementById("garden-seeds");
   if (!el || !st.seeds) return;
   if (!st.seeds.some((s) => s.key === gardenSeed && !s.locked)) gardenSeed = "mix";
-  el.innerHTML = st.seeds.map((s) => `
+  // Surprises (2026-10-29) : une graine pas encore debloquee n'est ni montree ni nommee.
+  const hidden = st.seeds.filter((s) => s.locked);
+  el.innerHTML = st.seeds.filter((s) => !s.locked).map((s) => `
     <button type="button" role="radio" aria-checked="${gardenSeed === s.key}" class="garden-seed seed-${s.key} ${gardenSeed === s.key ? "active" : ""} ${s.locked ? "locked" : ""}" data-seed="${s.key}" ${s.locked ? `disabled title="Se débloque au niveau ${s.level} de jardinage"` : ""}>
       <span class="garden-seed-icon" aria-hidden="true">${SEED_ICONS[s.key] || s.icon}</span>
       <span class="garden-seed-body"><strong>${escHtml(s.label)}</strong><small>${escHtml(s.desc)}</small>
-        <span class="garden-seed-price">${s.locked ? `&#128274; Niv. ${s.level}` : `${s.cost} &#10024; · ${s.growHours} h`}</span></span>
-    </button>`).join("");
+        <span class="garden-seed-price">${s.cost} &#10024; · ${s.growHours} h</span></span>
+    </button>`).join("") + (hidden.length ? `
+    <span class="garden-seed mystery-slot" aria-label="Graines à découvrir"><span class="garden-seed-icon" aria-hidden="true">&#10067;</span>
+      <span class="garden-seed-body"><strong>${hidden.length > 1 ? `${hidden.length} graines` : "Une graine"} à découvrir</strong><small>Continue de jardiner : elles se révéleront en montant de niveau.</small></span></span>` : "");
 }
 function gardenSky() {
   const h = new Date().getHours();
@@ -366,7 +370,10 @@ function renderDigDepths(dd) {
   if (!dd) return;
   digDepthState = dd;
   const el = document.getElementById("dig-depths");
-  el.innerHTML = dd.depths.map((d) => `<button type="button" role="radio" aria-checked="${d.depth === dd.depth}" class="dig-depth ${d.depth === dd.depth ? "active" : ""}" data-depth="${d.depth}" ${d.unlocked ? "" : "disabled"} title="${d.unlocked ? `Profondeur ${d.depth} : ${d.label}` : `Niveau ${d.level} de fouille requis`}"><span class="dig-depth-n">${d.depth}</span> ${d.icon} ${escHtml(d.label)}${d.unlocked ? "" : ` <small>&#128274; niv. ${d.level}</small>`}</button>`).join("");
+  // Surprises (2026-10-29) : seules les profondeurs atteintes sont nommees.
+  const deeper = dd.depths.filter((d) => !d.unlocked).length;
+  el.innerHTML = dd.depths.filter((d) => d.unlocked).map((d) => `<button type="button" role="radio" aria-checked="${d.depth === dd.depth}" class="dig-depth ${d.depth === dd.depth ? "active" : ""}" data-depth="${d.depth}" title="Profondeur ${d.depth} : ${escHtml(d.label)}"><span class="dig-depth-n">${d.depth}</span> ${d.icon} ${escHtml(d.label)}</button>`).join("")
+    + (deeper ? `<span class="dig-depth mystery-slot" title="Plus bas, la terre cache encore des surprises">&#10067; Plus profond…</span>` : "");
   const site = document.querySelector(".dig-site");
   const cur = dd.depths.find((d) => d.depth === dd.depth);
   if (site && cur) {
@@ -780,10 +787,10 @@ function renderFishZones(st) {
   if (zones.length < 2) { el.hidden = true; return; }
   if (!zones.some((z) => z.key === fishZone && z.unlocked)) fishZone = zones[0].key;
   el.hidden = false;
-  el.innerHTML = zones.map((z) => {
-    const need = z.prestige ? `Prestige ${z.prestige} de pêche requis` : `Niveau ${z.level} de pêche requis (ou un prestige)`;
-    return `<button type="button" role="radio" aria-checked="${fishZone === z.key}" class="fish-zone fish-zone-${z.key} ${fishZone === z.key ? "active" : ""}" data-zone="${z.key}" ${z.unlocked ? "" : "disabled"} title="${z.unlocked ? `${z.label} : ${z.cost} ver${z.cost > 1 ? "s" : ""} par lancer` : need}">${z.icon} ${escHtml(z.label)} <small>${z.unlocked ? `${z.cost} ${resIcon("worm")}` : `&#128274; ${z.prestige ? "prestige" : "niv. " + z.level}`}</small></button>`;
-  }).join("");
+  // Surprises (2026-10-29) : un lieu pas encore debloque n'est ni montre ni nomme.
+  const unknown = zones.filter((z) => !z.unlocked).length;
+  el.innerHTML = zones.filter((z) => z.unlocked).map((z) => `<button type="button" role="radio" aria-checked="${fishZone === z.key}" class="fish-zone fish-zone-${z.key} ${fishZone === z.key ? "active" : ""}" data-zone="${z.key}" title="${escHtml(z.label)} : ${z.cost} ver${z.cost > 1 ? "s" : ""} par lancer">${z.icon} ${escHtml(z.label)} <small>${z.cost} ${resIcon("worm")}</small></button>`).join("")
+    + (unknown ? `<span class="fish-zone mystery-slot" title="D'autres coins de pêche t'attendent">&#10067; ${unknown > 1 ? `${unknown} lieux` : "Un lieu"} à découvrir</span>` : "");
   el.querySelectorAll(".fish-zone:not([disabled])").forEach((b) => b.addEventListener("click", () => setFishZone(b.dataset.zone)));
 }
 let fishBusy = false;

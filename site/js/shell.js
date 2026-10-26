@@ -59,22 +59,25 @@ const CommunauteSignals = {
 // laptop. Regroupe les pages les moins consultees au quotidien sous un menu
 // "Plus" (voir renderHeader) pour degager assez de place - premiere etape
 // d'une reorganisation plus large, pas la fin de l'histoire.
+// Refonte des menus (2026-10-29) : plus aucun doublon. Le menu du haut garde
+// les lieux (Jouer, Monde = jeux + communaute sur la meme carte, Collection) ;
+// le compte (profil, progression, statistiques, cosmetiques, nouveautes) vit
+// seulement dans le menu du joueur. auth "guest" : visiteurs seulement (pas
+// de menu du joueur pour eux).
 const NAV_ITEMS = [
   { href: "index.html", label: "Accueil", icon: "&#127968;", auth: false, badgeKey: "rewards" },
   { href: "ouverture.html", label: "Ouvrir un booster", icon: "&#127873;", auth: false, badgeKey: "boosters", group: "jouer", groupLabel: "Jouer" },
-  { href: "redeem.html", label: "Réclamer un code", icon: "&#127915;", auth: true, group: "jouer" },
   { href: "mode.html", label: "Mode du moment", icon: "&#127922;", auth: true, group: "jouer" },
-  { href: "nouveautes.html", label: "Nouveautés", icon: "&#128240;", auth: false, group: "jouer" },
+  { href: "redeem.html", label: "Réclamer un code", icon: "&#127915;", auth: true, group: "jouer" },
+  { href: "nouveautes.html", label: "Nouveautés", icon: "&#128240;", auth: "guest", group: "jouer" },
+  { href: "jeux.html", label: "Jeux (la nature)", icon: "&#127918;", auth: true, badgeKey: "jeux", group: "monde", groupLabel: "Monde" },
+  { href: "communaute.html", label: "Communauté (le village)", icon: "&#127758;", auth: true, badgeKey: "communaute", group: "monde" },
   { href: "collection.html", label: "Ma collection", icon: "&#128218;", auth: false, group: "collection", groupLabel: "Collection" },
   // Craft / decraft : modes de la page collection depuis la fusion (2026-10-04).
   { href: "collection.html#decrafter", label: "Craft & décraft", icon: "&#10024;", auth: true, group: "collection" },
   { href: "coffre.html", label: "Coffre-fort perso", icon: "&#128274;", auth: true, group: "collection" },
-  { href: "boutique.html", label: "Boutique", icon: "&#128717;&#65039;", auth: true, group: "collection" },
-  { href: "progression.html", label: "Progression", icon: "&#127775;", auth: true, group: "collection" },
-  { href: "stats.html", label: "Mes statistiques", icon: "&#128202;", auth: true, group: "collection" },
-  { href: "communaute.html", label: "Communauté", icon: "&#127758;", auth: true, badgeKey: "communaute" },
-  { href: "jeux.html", label: "Jeux", icon: "&#127918;", auth: true, badgeKey: "jeux" },
-  { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade" },
+  { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade", group: "collection" },
+  { href: "boutique.html", label: "Boutique", icon: "&#128717;&#65039;", auth: true },
   { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
 ];
 
@@ -96,6 +99,7 @@ function visibleNavItems() {
   const items = extra ? [...NAV_ITEMS.slice(0, at), extra, ...NAV_ITEMS.slice(at)] : NAV_ITEMS;
   return items.filter((item) => {
     if (item.auth === "admin") return Session.isLoggedIn() && Session.isAdmin();
+    if (item.auth === "guest") return !Session.isLoggedIn();
     if (item.auth === true) return Session.isLoggedIn();
     return true;
   });
@@ -513,15 +517,7 @@ function renderHeader() {
               <div class="menu-sep"></div>
               <button id="edit-pseudo-btn" type="button"><span class="mi">&#9998;</span> Modifier le pseudo</button>
               <button id="copy-profile-link-btn" type="button"><span class="mi">&#128279;</span> Copier le lien de mon profil</button>
-              <button id="mute-toggle-btn" type="button">${Sfx.muted ? '<span class="mi">&#128264;</span> Son coupé' : '<span class="mi">&#128266;</span> Son actif'}</button>
-              <button id="theme-cycle-btn" type="button"><span class="mi">&#127763;</span> Changer de thème</button>
-              <button id="haptics-toggle-btn" type="button" title="Vibrations légères sur mobile (ferrage, trésors, belles cartes)"><span class="mi">&#128243;</span> Vibrations : <span data-haptics-label>${Haptics.on ? "activées" : "désactivées"}</span></button>
-              <button id="compact-toggle-btn" type="button" title="Sur mobile : interface resserrée et actions principales en bas de l'accueil"><span class="mi">&#128241;</span> Mode compact : <span data-compact-label>${document.documentElement.dataset.compact === "1" ? "activé" : "désactivé"}</span></button>
-              <button id="text-size-btn" type="button" title="Agrandit tout le texte du site sur cet appareil"><span class="mi">&#128269;</span> Taille du texte : <span data-text-size-label>${TextSize.LABELS[TextSize.get()]}</span></button>
-              <button id="cine-pref-btn" type="button" title="Cinématiques d'ouverture, de découverte, de niveau et de changement de mode"><span class="mi">&#127916;</span> Cinématiques : <span data-cine-label>${CinePref.LABELS[CinePref.get()].toLowerCase()}</span></button>
-              <button id="fx-level-btn" type="button" title="Allégés : fond fixe, sans flou ni brillances en boucle, pour les appareils qui saccadent"><span class="mi">&#10024;</span> Effets visuels : <span data-fx-label>${FxLevel.LABELS[FxLevel.get()]}</span></button>
-              <button id="kbd-help-btn" type="button" class="only-fine-pointer" title="Raccourcis clavier (touche ?)"><span class="mi">&#9000;</span> Raccourcis clavier</button>
-              <button id="discoveries-reset-btn" type="button" title="Rejoue l'animation de chaque ressource que tu possèdes"><span class="mi">&#128270;</span> Revoir les découvertes</button>
+              <button type="button" data-prefs-open title="Thème, texte, effets, son, vibrations, cinématiques, rappels, notifications"><span class="mi">&#9881;&#65039;</span> Préférences</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button" class="menu-danger"><span class="mi">&#10162;</span> Déconnexion</button>
             </div>
@@ -678,13 +674,13 @@ function renderHeader() {
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") searchEl.classList.remove("open");
     });
-    document.getElementById("mute-toggle-btn").addEventListener("click", (e) => {
+    document.getElementById("mute-toggle-btn")?.addEventListener("click", (e) => {
       Sfx.setMuted(!Sfx.muted);
       e.currentTarget.innerHTML = Sfx.muted ? '<span class="mi">&#128264;</span> Son coupé' : '<span class="mi">&#128266;</span> Son actif';
       if (!Sfx.muted) Sfx.click();
     });
-    document.getElementById("theme-cycle-btn").addEventListener("click", cycleTheme);
-    document.getElementById("haptics-toggle-btn").addEventListener("click", (e) => {
+    document.getElementById("theme-cycle-btn")?.addEventListener("click", cycleTheme);
+    document.getElementById("haptics-toggle-btn")?.addEventListener("click", (e) => {
       e.stopPropagation();
       const on = !Haptics.on;
       Haptics.set(on);
@@ -692,7 +688,7 @@ function renderHeader() {
       if (on) Haptics.buzz(30);
       Toast.info(on ? "📳 Vibrations activées." : "📳 Vibrations désactivées.");
     });
-    document.getElementById("compact-toggle-btn").addEventListener("click", (e) => {
+    document.getElementById("compact-toggle-btn")?.addEventListener("click", (e) => {
       e.stopPropagation();
       const on = document.documentElement.dataset.compact !== "1";
       setCompact(on);
@@ -705,25 +701,25 @@ function renderHeader() {
       const link = document.getElementById("notes-link");
       if (link && r.latest && r.latest > seen && !link.querySelector("[data-notes-dot]")) link.insertAdjacentHTML("beforeend", ' <span class="notes-dot" data-notes-dot>nouveau</span>');
     }).catch(() => {});
-    document.getElementById("kbd-help-btn").addEventListener("click", (e) => { e.stopPropagation(); Shortcuts.help(); });
-    document.getElementById("text-size-btn").addEventListener("click", (e) => {
+    document.getElementById("kbd-help-btn")?.addEventListener("click", (e) => { e.stopPropagation(); Shortcuts.help(); });
+    document.getElementById("text-size-btn")?.addEventListener("click", (e) => {
       e.stopPropagation();
       const v = TextSize.next();
       e.currentTarget.querySelector("[data-text-size-label]").textContent = TextSize.LABELS[v];
     });
-    document.getElementById("cine-pref-btn").addEventListener("click", (e) => {
+    document.getElementById("cine-pref-btn")?.addEventListener("click", (e) => {
       e.stopPropagation();
       const v = CinePref.next();
       e.currentTarget.querySelector("[data-cine-label]").textContent = CinePref.LABELS[v].toLowerCase();
       Toast.info({ always: "🎬 Cinématiques toujours affichées.", first: "🎬 Chaque cinématique ne s'affichera qu'une fois (par rareté, mode, métier…).", never: "🎬 Cinématiques désactivées : un court message les remplace." }[v]);
     });
-    document.getElementById("fx-level-btn").addEventListener("click", (e) => {
+    document.getElementById("fx-level-btn")?.addEventListener("click", (e) => {
       e.stopPropagation();
       const v = FxLevel.next();
       e.currentTarget.querySelector("[data-fx-label]").textContent = FxLevel.LABELS[v];
       Toast.info({ auto: `✨ Effets automatiques (actuellement ${FxLevel.resolve(v) === "light" ? "allégés" : "complets"}).`, full: "✨ Effets visuels complets.", light: "✨ Effets visuels allégés : fond fixe, sans flou ni brillances en boucle." }[v]);
     });
-    document.getElementById("discoveries-reset-btn").addEventListener("click", async () => {
+    document.getElementById("discoveries-reset-btn")?.addEventListener("click", async () => {
       CinePref.forget("discovery");
       const okReset = await Confirm.show("Rejouer l'animation de découverte de chaque ressource que tu possèdes ? Les nouvelles ressources seront aussi annoncées à nouveau.", { title: "Revoir les découvertes", confirmText: "Revoir" });
       if (!okReset) return;
@@ -902,12 +898,13 @@ const TextSize = {
   LABELS: { normal: "normale", large: "grande", xlarge: "très grande" },
   get() { try { const v = localStorage.getItem(this.KEY); return this.ORDER.includes(v) ? v : "normal"; } catch (e) { return "normal"; } },
   apply(v) { if (v === "normal") delete document.documentElement.dataset.textSize; else document.documentElement.dataset.textSize = v; },
-  next() {
-    const v = this.ORDER[(this.ORDER.indexOf(this.get()) + 1) % this.ORDER.length];
+  set(v) {
+    if (!this.ORDER.includes(v)) v = "normal";
     try { if (v === "normal") localStorage.removeItem(this.KEY); else localStorage.setItem(this.KEY, v); } catch (e) { /* stockage indisponible */ }
     this.apply(v);
     return v;
-  }
+  },
+  next() { return this.set(this.ORDER[(this.ORDER.indexOf(this.get()) + 1) % this.ORDER.length]); }
 };
 TextSize.apply(TextSize.get());
 // Effets visuels (2026-10-21) : html[data-fx="light"] coupe fond anime, flous
@@ -930,12 +927,13 @@ const FxLevel = {
   probed() { try { const p = JSON.parse(localStorage.getItem(this.PROBE) || "null"); return p && Date.now() - p.at < 7 * 86400000 ? p.v : null; } catch (e) { return null; } },
   resolve(v) { return v !== "auto" ? v : this.weakDevice() || this.probed() === "light" ? "light" : "full"; },
   apply(v) { if (this.resolve(v) === "light") document.documentElement.dataset.fx = "light"; else delete document.documentElement.dataset.fx; },
-  next() {
-    const v = this.ORDER[(this.ORDER.indexOf(this.get()) + 1) % this.ORDER.length];
+  set(v) {
+    if (!this.ORDER.includes(v)) v = "auto";
     try { if (v === "auto") localStorage.removeItem(this.KEY); else localStorage.setItem(this.KEY, v); } catch (e) { /* stockage indisponible */ }
     this.apply(v);
     return v;
   },
+  next() { return this.set(this.ORDER[(this.ORDER.indexOf(this.get()) + 1) % this.ORDER.length]); },
   // 90 images mesurees quand la page est au repos ; onglet cache = mesure
   // abandonnee. Seulement en « auto » : un choix du joueur n'est jamais modifie.
   probe() {
@@ -949,7 +947,7 @@ const FxLevel = {
       const avg = (times[90] - times[0]) / 90;
       const v = avg > 28 ? "light" : "full";
       try { localStorage.setItem(this.PROBE, JSON.stringify({ v, at: Date.now() })); } catch (e) { /* stockage indisponible */ }
-      if (v === "light") { this.apply("auto"); Toast.info("✨ Effets visuels allégés pour plus de fluidité (menu du compte pour changer)."); }
+      if (v === "light") { this.apply("auto"); Toast.info("✨ Effets visuels allégés pour plus de fluidité (Préférences du menu du compte pour changer)."); }
     };
     const start = () => setTimeout(() => { if (!document.hidden && this.get() === "auto") requestAnimationFrame(step); }, 2500);
     if (document.readyState === "complete") start(); else window.addEventListener("load", start, { once: true });
@@ -1309,8 +1307,7 @@ function accountLevelPerks(prevLevel, newLevel) {
   for (let l = (prevLevel || newLevel - 1) + 1; l <= newLevel; l++) {
     Object.entries(typeof FEATURE_UNLOCK_LEVEL !== "undefined" ? FEATURE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && FEATURE_LABELS[k]) perks.push(`🔓 ${FEATURE_LABELS[k]}`); });
     Object.entries(typeof SLEEVE_UNLOCK_LEVEL !== "undefined" ? SLEEVE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && k !== "default") perks.push(`🎴 Pochette ${k.charAt(0).toUpperCase() + k.slice(1)}`); });
-    // Jeux et pages debloques (nouveaux comptes, starter.js).
-    (typeof StarterLocks !== "undefined" ? StarterLocks.unlocks : []).forEach((u) => { if (u.level === l) perks.push(`🔓 ${u.icon} ${u.label}`); });
+    // Jeux et pages debloques (nouveaux comptes) : cinematique a part (starter.js checkUnlocks).
   }
   return perks;
 }
@@ -1340,6 +1337,34 @@ function celebrateLevelUpIfNeeded(newLevel) {
   try { localStorage.setItem(LEVEL_SEEN_KEY, String(newLevel)); } catch (e) {}
 }
 
+// Bilan de session (2026-10-29) : soldes du premier statut de la session
+// (une session s'arrete apres 30 min sans visite), compares au statut
+// courant dans l'inventaire (« cette session : +3 200 ✨, 12 cartes… »).
+const SessionRecap = {
+  KEY: "2gatcha_session_" + (Session.userId || ""),
+  IDLE: 30 * 60 * 1000,
+  snap: (s) => ({ count: Number(s.count) || 0, stardust: Number(s.stardust) || 0, keys: Number(s.keys) || 0, worms: Number(s.worms) || 0, xp: s.xp ? Number(s.xp.total) || 0 : 0, level: s.xp ? Number(s.xp.level) || 0 : 0, pulls: Number(s.totalPulls) || 0 }),
+  read() { try { return JSON.parse(localStorage.getItem(this.KEY) || "null"); } catch (e) { return null; } },
+  note(status) {
+    if (!status) return;
+    const t = Date.now();
+    let s = this.read();
+    if (!s || t - (s.last || 0) > this.IDLE) s = { at: t, base: this.snap(status) };
+    s.last = t;
+    try { localStorage.setItem(this.KEY, JSON.stringify(s)); } catch (e) { /* stockage indisponible */ }
+  },
+  reset() { try { localStorage.removeItem(this.KEY); } catch (e) { /* stockage indisponible */ } if (window.__hdrStatus) this.note(window.__hdrStatus); },
+  // Ecarts depuis le debut de la session (null si rien a dire).
+  delta(status) {
+    const s = this.read();
+    if (!s || !status) return null;
+    const now = this.snap(status), b = s.base;
+    const d = Object.fromEntries(Object.keys(now).map((k) => [k, now[k] - (b[k] || 0)]));
+    return { since: s.at, d, any: Object.values(d).some((v) => v !== 0) };
+  }
+};
+window.SessionRecap = SessionRecap;
+
 // Reponses de statut deja annoncees (voir loadHeaderBoosterBadge).
 const announcedStatus = new WeakSet();
 const PRESTIGE_SEEN_KEY = "2gatcha_prestige_seen";
@@ -1351,6 +1376,7 @@ async function loadHeaderBoosterBadge() {
   try {
     const status = await API.getBoosterStatus(Session.userId);
     window.__hdrStatus = status;
+    SessionRecap.note(status);
     // Annonces portees par le statut (une seule fois par reponse du serveur,
     // 2026-10-21) : la meme reponse est partagee quelques secondes entre tous
     // les appels de la page (API._shared), et chaque appel la rejouait

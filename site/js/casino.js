@@ -153,8 +153,8 @@
       <div class="cz-door-grid">${GAMES.map((g) => {
         const l = lockOf(g.key);
         return `<button type="button" class="cz-door ${l.open ? "" : "locked"}" data-room="${g.key}" ${l.open ? "" : `aria-disabled="true" title="Ouvre au niveau ${l.level} de la machine"`}>
-          <span class="cz-door-ico" aria-hidden="true">${l.open ? g.icon : "🔒"}</span>
-          <strong>${g.label}</strong>
+          <span class="cz-door-ico" aria-hidden="true">${l.open ? g.icon : "❔"}</span>
+          <strong>${l.open ? g.label : "Porte close"}</strong>
           <small>${l.open ? "Entrer" : `Machine niv. ${l.level}`}</small>
         </button>`;
       }).join("")}</div>

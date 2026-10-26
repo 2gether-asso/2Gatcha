@@ -133,12 +133,18 @@ function renderOfferedCardOptions() {
   updateOfferedPullOptions();
 }
 
+// Liste de souhaits (2026-10-29) : cartes marquees ♥ et filtres « mes souhaits ».
+let myWishIds = new Set();
+let allTargets = [];
+let targetCards = [];
 async function loadFormOptions() {
-  const [collection, cardsRes, usersRes] = await Promise.all([
+  const [collection, cardsRes, usersRes, wish] = await Promise.all([
     API.getCollection(Session.userId),
     API.getCards(),
-    API.listUsers()
+    API.listUsers(),
+    API.listWishlist(Session.userId).catch(() => null)
   ]);
+  myWishIds = new Set(((wish && wish.wishlist) || []).map((c) => c.cardId));
 
   myOwnedCountByCard = new Map((collection.owned || []).map((o) => [o.cardId, o.count]));
   // Chaque exemplaire individuel (pullId + numero de serie) possede par le
@@ -158,12 +164,37 @@ async function loadFormOptions() {
   renderOfferedCardOptions();
 
   const targetSelect = document.getElementById("target-select");
-  const users = (usersRes.users || []).filter((u) => String(u.userId) !== String(Session.userId));
-  targetSelect.innerHTML = users
-    .map((u) => `<option value="${u.pseudo}">${u.pseudo}</option>`)
-    .join("") || `<option value="">Aucun autre joueur</option>`;
+  allTargets = (usersRes.users || []).filter((u) => String(u.userId) !== String(Session.userId));
+  renderTargetOptions();
 
   await updateRequestedCardOptionsForTarget(targetSelect.value);
+}
+
+// Joueurs : ♥ N quand ils ont en double des cartes de ta liste de souhaits
+// (correspondances, matches.js), filtre « Ils ont mes souhaits ».
+function renderTargetOptions() {
+  const select = document.getElementById("target-select");
+  if (!select) return;
+  const previous = select.value;
+  const wishBy = new Map(tradeMatches.filter((m) => m.wishlistMatch).map((m) => [m.pseudo, m.theyHave.length]));
+  const only = document.getElementById("target-wish-only")?.checked;
+  const list = (only ? allTargets.filter((u) => wishBy.has(u.pseudo)) : allTargets.slice()).sort((a, b) => (wishBy.get(b.pseudo) || 0) - (wishBy.get(a.pseudo) || 0));
+  select.innerHTML = list.map((u) => `<option value="${escHtml(u.pseudo)}" ${u.pseudo === previous ? "selected" : ""}>${escHtml(u.pseudo)}${wishBy.has(u.pseudo) ? ` ♥ ${wishBy.get(u.pseudo)} souhait${wishBy.get(u.pseudo) > 1 ? "s" : ""}` : ""}</option>`).join("")
+    || `<option value="">${only ? "Personne n'a tes souhaits en double" : "Aucun autre joueur"}</option>`;
+  if (select._fancyRefresh) select._fancyRefresh();
+  if (select.value !== previous) updateRequestedCardOptionsForTarget(select.value);
+}
+function renderRequestedOptions() {
+  const select = document.getElementById("requested-card-select");
+  if (!select) return;
+  const previous = select.value;
+  const only = document.getElementById("request-wish-only")?.checked;
+  const list = (only ? targetCards.filter((c) => myWishIds.has(c.cardId)) : targetCards.slice()).sort((a, b) => myWishIds.has(b.cardId) - myWishIds.has(a.cardId));
+  select.innerHTML = `<option value="">Aucune (don)</option>` + list
+    .map((c) => `<option value="${c.cardId}" ${String(c.cardId) === previous ? "selected" : ""}>${myWishIds.has(c.cardId) ? "♥ " : ""}${c.name} (x${c.count})${myOwnedCountByCard.has(c.cardId) ? "" : " ✦ tu ne l'as pas"}</option>`)
+    .join("") + (only && !list.length ? `<option value="" disabled>Aucun de tes souhaits chez ce joueur</option>` : "");
+  if (select._fancyRefresh) select._fancyRefresh();
+  updateCardPreview("requested-card-select", "requested-card-preview");
 }
 
 // La carte demandee ne peut porter que sur ce que le joueur cible possede
@@ -185,17 +216,14 @@ async function updateRequestedCardOptionsForTarget(pseudo) {
   try {
     const profile = await API.getPublicProfile(pseudo);
     targetOwnedIds = new Set((profile.cards || []).map((c) => c.cardId));
-    const options = (profile.cards || []).filter((c) => !c.isPromo);
-    select.innerHTML = `<option value="">Aucune (don)</option>` + options
-      .map((c) => `<option value="${c.cardId}">${c.name} (x${c.count})${myOwnedCountByCard.has(c.cardId) ? "" : " ✦ tu ne l'as pas"}</option>`)
-      .join("");
+    targetCards = (profile.cards || []).filter((c) => !c.isPromo);
   } catch (e) {
     targetOwnedIds = null;
-    select.innerHTML = `<option value="">Aucune (don)</option>`;
+    targetCards = [];
   }
+  select.innerHTML = "";
+  renderRequestedOptions();
   renderOfferedCardOptions();
-  if (select._fancyRefresh) select._fancyRefresh();
-  updateCardPreview("requested-card-select", "requested-card-preview");
 }
 
 // Idem cote "carte a offrir" : une fois la carte choisie, il faut aussi
@@ -308,6 +336,7 @@ function renderTradeCard(trade) {
         ? `<button class="btn-ghost decline-btn" data-id="${trade.tradeId}" ${busy}>Refuser</button>`
         : `
         <button class="btn-secondary accept-btn" data-id="${trade.tradeId}" ${busy}>Accepter</button>
+        <button class="btn-ghost quick-counter-btn" data-id="${trade.tradeId}" ${busy} title="Un de tes doublons qu'il n'a pas, de rareté proche, contre la carte qu'il propose">&#9889; Contre-offre rapide</button>
         <button class="btn-ghost counter-btn" data-id="${trade.tradeId}" ${busy}>Contre-proposer</button>
         <button class="btn-ghost decline-btn" data-id="${trade.tradeId}" ${busy}>Refuser</button>
       `;
@@ -384,6 +413,7 @@ function renderTradeCard(trade) {
   el.querySelectorAll(".accept-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, true)));
   el.querySelectorAll(".decline-btn").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, false)));
   el.querySelectorAll(".counter-btn").forEach((b) => b.addEventListener("click", () => counterPropose(b.dataset.id)));
+  el.querySelectorAll(".quick-counter-btn").forEach((b) => b.addEventListener("click", () => quickCounter(b.dataset.id)));
   el.querySelectorAll(".cancel-btn").forEach((b) => b.addEventListener("click", () => cancel(b.dataset.id)));
   el.querySelectorAll("[data-bulk-trade-id]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
@@ -665,6 +695,39 @@ async function counterPropose(tradeId) {
   }
 }
 
+// Contre-offre rapide (2026-10-29) : on garde la carte qu'il propose et on
+// offre en retour un de tes doublons qu'il n'a pas, de rarete la plus proche
+// (sans edition limitee ni exemplaire deja propose ailleurs). Une
+// confirmation, puis envoi.
+const rankOf = (cardId) => { const c = cardById.get(cardId); return c && c.rarity ? Number(c.rarity.sortOrder ?? c.rarity.rank ?? 0) : 0; };
+async function quickCounter(tradeId) {
+  if (inFlightTrades.has(String(tradeId))) return;
+  const trade = allTradesCache.find((t) => String(t.tradeId) === String(tradeId));
+  if (!trade || !trade.offeredCard) return;
+  let theirs = null;
+  try { theirs = new Set(((await API.getPublicProfile(trade.fromPseudo)).cards || []).map((c) => c.cardId)); } catch (e) { theirs = null; }
+  const committed = committedPullIds();
+  const want = rankOf(trade.offeredCard.id);
+  const pick = myOwnedCards
+    .filter((c) => (myOwnedCountByCard.get(c.cardId) || 0) >= 2 && (!theirs || !theirs.has(c.cardId)))
+    .map((c) => ({ c, copy: (ownedCopiesByCard.get(c.cardId) || []).find((p) => !committed.has(p.pullId) && !editionByPull[p.pullId]) }))
+    .filter((x) => x.copy)
+    .sort((a, b) => Math.abs(rankOf(a.c.cardId) - want) - Math.abs(rankOf(b.c.cardId) - want) || (myWishIds.has(a.c.cardId) - myWishIds.has(b.c.cardId)))[0];
+  if (!pick) { Toast.info("Aucun doublon qu'il n'a pas : utilise « Contre-proposer » pour choisir toi-même."); return; }
+  const ok = await Confirm.show(`Proposer à <strong>${escHtml(trade.fromPseudo)}</strong> ton doublon <strong>${escHtml(pick.c.name)}</strong> (${escHtml(copyLabel(pick.copy))}) contre sa carte <strong>${escHtml(trade.offeredCard.name)}</strong> ?`, { title: "Contre-offre rapide", confirmText: "Envoyer" });
+  if (!ok) return;
+  setTradeBusy(tradeId, true);
+  try {
+    await API.counterTrade(Session.userId, Number(tradeId), pick.c.cardId, pick.copy.pullId, trade.offeredCard.id);
+    Toast.success("Contre-offre envoyée !");
+    setTradeBusy(tradeId, false);
+    await refreshAfterMutation();
+  } catch (e) {
+    setTradeBusy(tradeId, false);
+    handleTradeError(e);
+  }
+}
+
 async function cancel(tradeId) {
   if (inFlightTrades.has(String(tradeId))) return;
   setTradeBusy(tradeId, true);
@@ -719,6 +782,7 @@ async function loadTradeSuggestions() {
   try {
     const res = await API.getTradeMatches(Session.userId);
     tradeMatches = res.matches || [];
+    renderTargetOptions();
     if (!tradeMatches.length) {
       zone.style.display = res.wishlistSize ? "none" : "block";
       document.getElementById("trade-suggestions-list").innerHTML = res.wishlistSize ? "" : `<p class="lead" style="font-size:0.85rem;margin:0;">Ajoute des cartes à ta wishlist (étoile sur une carte manquante de ta collection) : on te dira qui les a en double.</p>`;
@@ -856,6 +920,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   document.getElementById("offer-duplicates-only").addEventListener("change", renderOfferedCardOptions);
   document.getElementById("offer-missing-only").addEventListener("change", renderOfferedCardOptions);
+  document.getElementById("target-wish-only").addEventListener("change", renderTargetOptions);
+  document.getElementById("request-wish-only").addEventListener("change", renderRequestedOptions);
   enhanceSelect(document.getElementById("offered-card-select"));
   enhanceSelect(document.getElementById("offered-pull-select"));
   enhanceSelect(document.getElementById("requested-card-select"));

@@ -22,6 +22,7 @@
 // - Les cartes promo ne vont plus au coffre-fort (une seule finition
 //   possible) : celles qui y etaient rangees retournent dans la collection.
 
+import { announce as discordAnnounce } from './discord.js';
 import { refId, now, ok, fail, userById, cardSummary } from './common.js';
 
 const UNIQUE_KEY = 'unique';
@@ -183,24 +184,14 @@ function handleCounter({ store, body }) {
   if (store.getAll('Pulls').some((p) => refId(p.User) === user.id && refId(p.Card) === card.id)) return fail('already_owned');
   store.update('Users', user.id, { UniqueTickets: (Number(user.UniqueTickets) || 0) - 1 });
   const granted = giveUniqueCard(store, user, card);
-  announce(user, granted);
+  announce(store, user, granted);
   return ok({ redeemed: true, card: granted, ...counterState(store, store.get('Users', user.id)) });
 }
 
 // Annonce Discord (hors verrou, sans attendre : un echec ne bloque rien).
-function announce(user, card) {
-  const url = process.env.DISCORD_WEBHOOK_URL;
-  if (!url || typeof fetch !== 'function') return;
-  const body = {
-    embeds: [{
-      title: '🍀 Carte Unique obtenue !',
-      description: `**${user.Pseudo || 'Un joueur'}** a échangé un Ticket Unique contre **${card.name}** (#${String(card.serialNumber).padStart(3, '0')})${card.isFirstEver ? ' : premier exemplaire du serveur !' : '.'}`,
-      color: 0x22c55e
-    }]
-  };
-  setTimeout(() => {
-    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
-  }, 0);
+// Modele reglable dans Admin > Discord (discord.js, 2026-10-26).
+function announce(store, user, card) {
+  discordAnnounce(store, 'unique', { pseudo: user.Pseudo || 'Un joueur', card: card.name, serial: String(card.serialNumber).padStart(3, '0'), first: card.isFirstEver ? ' : premier exemplaire du serveur !' : '.' });
 }
 
 export const routes = {
@@ -226,4 +217,6 @@ export function afterWorkflow({ store, path, request, response }) {
   if (path !== 'booster-status' || response.status !== 200 || !response.json) return;
   const user = store.get('Users', Number((request.query || {}).userId));
   if (user) response.json.uniqueTickets = Number(user.UniqueTickets) || 0;
+  // Bilan de session du site (inventaire, 2026-10-29) : cartes ouvertes au total.
+  if (user) response.json.totalPulls = Number(user.TotalPulls) || 0;
 }

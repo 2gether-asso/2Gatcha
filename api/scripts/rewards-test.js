@@ -274,6 +274,73 @@ await test('jardin : nouvelles graines debloquees par niveau, recoltes, engrais 
   assert.ok(st.seeds.some((s) => s.key === 'mix'));
 });
 
+await test('outils admin : les requetes passent le controle du jeton (joueur vise en targetUserId)', async () => {
+  const { issueToken, authorize } = await import('../src/native/auth.js');
+  const me = store.getAll('Users').find((u) => String(u.DiscordId) === ADMIN);
+  const other = store.getAll('Users').find((u) => u.id !== me.id);
+  const token = issueToken(store, me);
+  const pass = (body) => authorize({ token, body, query: {} });
+  // Ce que le site envoie (admin-player.js, admin-cosmetics.js, admin-rewards.js).
+  assert.equal(pass({ discordId: ADMIN, action: 'get', targetUserId: other.id }), null);
+  assert.equal(pass({ discordId: ADMIN, action: 'grant', key: 'x', targetUserId: other.id }), null);
+  assert.equal(pass({ discordId: ADMIN, action: 'gift', userIds: [other.id, me.id], rewards: [] }), null);
+  // L'ancienne forme (userId d'un autre joueur) est bien refusee : d'ou l'erreur auth_forbidden.
+  assert.equal(pass({ discordId: ADMIN, action: 'get', userId: other.id }).json.error, 'auth_forbidden');
+  // Et la route lit bien targetUserId.
+  const r = post('admin-player', { discordId: ADMIN, action: 'get', targetUserId: other.id });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.user.userId, other.id);
+});
+
+await test('discord : adresse et modeles reglables, code annonce sur le serveur et dans le calendrier', async () => {
+  // Faux Discord : on capture ce qui partirait.
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { sent.push({ url, body: JSON.parse(opts.body) }); return { ok: true, status: 204 }; };
+  const flush = () => new Promise((r) => setTimeout(r, 10));
+  try {
+    const d = (body) => post('admin-discord', { discordId: ADMIN, ...body });
+    assert.equal(post('admin-discord', { discordId: '1' }).status, 403);
+    assert.equal(d({ action: 'save', webhook: 'https://exemple.com/x' }).json.error, 'invalid_webhook');
+    const hook = 'https://discord.com/api/webhooks/123456/abcDEF_-x';
+    let st = d({ action: 'save', webhook: hook, templates: { code: { title: '📣 {code} pour {label}', text: '{rewards}', color: '#123456' } } }).json;
+    assert.equal(st.webhook.source, 'admin');
+    assert.ok(!st.webhook.masked.includes('abcDEF'), 'adresse masquee');
+    assert.equal(st.templates.find((t) => t.key === 'code').title, '📣 {code} pour {label}');
+    const t = now();
+    const c = admin({ action: 'createCode', code: 'ANNONCE1', label: 'Soirée', announce: true, expiresAt: t + 3600, rewards: [{ type: 'resource', key: 'booster', n: 2 }] });
+    assert.equal(c.status, 200);
+    assert.equal(c.json.created.announced, true);
+    await flush();
+    const msg = sent.find((x) => x.url === hook);
+    assert.ok(msg, 'message parti vers le webhook');
+    assert.equal(msg.body.embeds[0].title, '📣 ANNONCE1 pour Soirée');
+    assert.match(msg.body.embeds[0].description, /\+2 jetons booster/);
+    assert.equal(msg.body.embeds[0].color, 0x123456);
+    // Calendrier : le code annonce apparait avec son code, un autre sans.
+    admin({ action: 'createCode', code: 'SECRET1', label: 'Discret', expiresAt: t + 3600, rewards: [{ type: 'resource', key: 'key', n: 1 }] });
+    const res = { status: 200, json: { events: [] } };
+    native.afterWorkflow('event-calendar', { body: {}, query: {} }, res);
+    const ev = res.json.events.find((e) => e.label === 'Soirée'), hidden = res.json.events.find((e) => e.label === 'Discret');
+    assert.equal(ev.code, 'ANNONCE1');
+    assert.match(ev.rewards[0].label, /jetons booster/);
+    assert.equal(hidden.code, undefined);
+    // Annoncer apres coup, modele desactive : rien ne part mais le code est public.
+    d({ action: 'save', templates: { code: { enabled: false } } });
+    sent.length = 0;
+    const u = admin({ action: 'updateCode', code: 'SECRET1', announce: true });
+    assert.equal(u.json.posted, false);
+    await flush();
+    assert.equal(sent.length, 0);
+    assert.equal(u.json.codes.find((x) => x.code === 'SECRET1').announced, true);
+    // Message libre.
+    d({ action: 'send', message: { title: 'Coucou', text: 'Soirée ce soir', color: '#ff0000' } });
+    await flush();
+    assert.equal(sent.at(-1).body.embeds[0].title, 'Coucou');
+    assert.equal(d({ action: 'send', message: {} }).json.error, 'empty_message');
+  } finally { globalThis.fetch = realFetch; }
+});
+
 console.log(`\n${passed} tests passes`);
 store.db.close();
 clean();

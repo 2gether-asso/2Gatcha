@@ -16,6 +16,7 @@
 //   GET  /webhook/card-price ?cardId=
 //   POST /webhook/share-card { userId, cardId, finish?, quality?, edition?, serial?, image }
 
+import { webhookUrl, render as renderDiscord } from './discord.js';
 import { refId, now, ok, fail, userById, parseJson, cardSummary, nextSerial } from './common.js';
 import { setting } from './settings.js';
 import { currentContext } from './context.js';
@@ -206,13 +207,16 @@ function handleShare({ store, body }) {
   if (wait > 0) return fail('share_cooldown', 429, { wait });
   const m = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
   if (!m || m[2].length > 4 * 1024 * 1024) return fail('invalid_image');
-  const url = process.env.DISCORD_WEBHOOK_URL;
+  // Adresse et message reglables dans Admin > Discord (discord.js, 2026-10-26).
+  const url = webhookUrl(store);
   if (!url) return fail('discord_unavailable', 503);
   store.update('Users', user.id, { LastShareAt: now() });
   const rarity = store.get('Rarities', refId(card.Rarity)) || {};
   const bits = [rarity.Name, FINISH_LABEL[body.finish] || '', QUALITY_LABEL[body.quality] || '', body.edition ? `édition ${String(body.edition)}` : '', body.serial ? `#${String(body.serial).padStart(3, '0')}` : ''].filter(Boolean);
   const color = parseInt(String(rarity.ColorHex || '#8b5cf6').replace('#', ''), 16) || 0x8b5cf6;
-  const payload = { embeds: [{ title: `🎴 ${card.Name}`, description: `**${user.Pseudo || 'Un joueur'}** partage sa carte : ${bits.join(' · ')}`, color, image: { url: `attachment://carte.${m[1] === 'png' ? 'png' : 'jpg'}` } }] };
+  const msg = renderDiscord(store, 'cardShare', { pseudo: user.Pseudo || 'Un joueur', card: card.Name, details: bits.join(' · ') });
+  if (!msg) return fail('discord_unavailable', 503);
+  const payload = { embeds: [{ ...msg, color, image: { url: `attachment://carte.${m[1] === 'png' ? 'png' : 'jpg'}` } }] };
   const buffer = Buffer.from(m[2], 'base64');
   setTimeout(async () => {
     try {

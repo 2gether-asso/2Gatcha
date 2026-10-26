@@ -23,6 +23,7 @@ import { prestigeStars } from './account-prestige.js';
 import { aquariumOf } from './aquarium.js';
 import { progressOf } from './museum.js';
 import { levelForXp } from './common.js';
+import { petAdopted } from './starter.js';
 
 export const schema = {
   Users: { DogGiftDay: { type: 'Text' }, DogGiftCount: { type: 'Numeric' }, SundayBought: { type: 'Text' }, GiftSentDay: { type: 'Text' } },
@@ -48,7 +49,8 @@ function handleDogGift({ store, body }) {
   const today = parisDay(0);
   const taken = user.DogGiftDay === today ? Math.max(1, Number(user.DogGiftCount) || 1) : 0;
   const perDay = ruleOn(store, 'cool.dogTwice') ? 2 : 1;
-  const available = !!setting(store, 'DogGiftEnabled') && taken < perDay;
+  // Pas de trouvaille tant que Milo n'est pas adopte (nouveaux comptes, starter.js).
+  const available = !!setting(store, 'DogGiftEnabled') && taken < perDay && petAdopted(store, user, 'milo');
   if ((body.action || 'status') === 'status') return ok({ available });
   if (body.action !== 'claim') return fail('unknown_action');
   if (!available) return fail('already_claimed');

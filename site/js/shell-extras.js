@@ -151,40 +151,39 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Deblocages par niveau des nouveaux comptes (2026-10-18, api/src/native/
-// starter.js) : onglets et liens verrouilles gardes visibles avec un cadenas
-// (clic -> message), widgets masques, page verrouillee remplacee par un
-// message ; accueil simplifie tant que le parcours du debutant n'est pas fini.
+// starter.js). Surprises (2026-10-29) : ce qui n'est pas encore debloque est
+// entierement masque (onglets, liens, widgets, compagnons) et jamais nomme ;
+// une page encore fermee affiche un message neutre. Le deblocage arrive avec
+// une cinematique (ui.js DiscoveryFx, items « unlock » renvoyes par l'API).
+// Accueil simplifie tant que le parcours du debutant n'est pas fini.
 const StarterLocks = {
   KEY: "2gatcha_starter_" + (Session.userId || ""),
   locks: [],
   unlocks: [],
-  // Onglets, liens et modes de collection : cadenas. Le reste (panneaux) : masque.
-  isTeaser: (sel) => /^(#tab-|a\[|\.coll-mode)/.test(sel),
+  pets: {},
   apply(view) {
     const locks = (view && view.locks) || [];
     this.locks = locks;
     if (view && view.unlocks) this.unlocks = view.unlocks;
+    if (view && view.pets) { this.pets = view.pets; if (window.PetText) window.PetText.apply(); }
     document.documentElement.classList.toggle("starter-simple", !!(view && view.active));
     let style = document.getElementById("starter-locks-style");
     if (!style) { style = document.createElement("style"); style.id = "starter-locks-style"; document.head.appendChild(style); }
-    style.textContent = locks.map((l) => {
-      const teaser = (l.hide || []).filter(this.isTeaser), hidden = (l.hide || []).filter((s) => !this.isTeaser(s));
-      return (teaser.length ? `${teaser.join(",")} { opacity: 0.5; filter: grayscale(0.7); }\n${teaser.map((s) => s + "::after").join(",")} { content: " \\1F512 ${l.level}"; font-size: 0.72em; margin-left: 4px; white-space: nowrap; }\n` : "") +
-        (hidden.length ? `${hidden.join(",")} { display: none !important; }\n` : "");
-    }).join("");
+    const hidden = locks.flatMap((l) => l.hide || []);
+    style.textContent = hidden.length ? `${hidden.join(",")} { display: none !important; }\n` : "";
     const run = () => {
       const page = (location.pathname.split("/").pop() || "index.html").toLowerCase();
       const lock = locks.find((l) => l.page && l.page === page);
       const main = document.querySelector("main");
       if (lock && main && !main.querySelector(".feature-closed")) {
         [...main.children].forEach((el) => { el.hidden = true; });
-        main.insertAdjacentHTML("afterbegin", `<section class="feature-closed"><span class="feature-closed-icon" aria-hidden="true">${lock.icon}</span>
-          <h1>${escHtml(lock.label)}</h1>
-          <p>Se débloque au <strong>niveau ${lock.level}</strong>. Continue le parcours du débutant et joue un peu : chaque booster ouvert et chaque jeu rapportent de l'XP.</p>
+        main.insertAdjacentHTML("afterbegin", `<section class="feature-closed"><span class="feature-closed-icon" aria-hidden="true">&#10067;</span>
+          <h1>Pas encore découvert</h1>
+          <p>Ce lieu n'est pas encore ouvert pour toi. Continue le parcours du débutant et joue un peu : chaque niveau gagné réserve une surprise.</p>
           <a class="btn" href="index.html">Retour à l'accueil</a></section>`);
       }
-      // Onglet verrouille ouvert par un lien #ancre ou un script de page
-      // (meme plus tard) : on repart sur le premier onglet ouvert.
+      // Onglet masque ouvert par un lien #ancre ou un script de page
+      // (meme plus tard) : on repart sur le premier onglet visible.
       document.querySelectorAll('[role="tab"][aria-selected="true"]').forEach((t) => this.leave(t));
       if (!this.observer) {
         this.observer = new MutationObserver((list) => list.forEach((m) => { if (m.target.getAttribute("aria-selected") === "true") this.leave(m.target); }));
@@ -194,7 +193,7 @@ const StarterLocks = {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(run, 0)); else run();
   },
   lockOf(el) {
-    return this.locks.find((l) => (l.hide || []).some((s) => this.isTeaser(s) && el.closest(s)));
+    return this.locks.find((l) => (l.hide || []).some((s) => { try { return el.closest(s); } catch (e) { return false; } }));
   },
   leave(tab) {
     if (tab.getAttribute("role") !== "tab" || !tab.parentElement || !this.lockOf(tab)) return;
@@ -205,23 +204,74 @@ const StarterLocks = {
     if (typeof Session === "undefined" || !Session.isLoggedIn()) return null;
     try {
       const v = await API.post("starter", { userId: Session.userId, action: "status" });
-      try { localStorage.setItem(this.KEY, JSON.stringify({ locks: v.locks, active: v.active, unlocks: v.unlocks })); } catch (e) { /* stockage indisponible */ }
+      try { localStorage.setItem(this.KEY, JSON.stringify({ locks: v.locks, active: v.active, unlocks: v.unlocks, pets: v.pets })); } catch (e) { /* stockage indisponible */ }
       this.apply(v);
       return v;
     } catch (e) { return null; }
   }
 };
-// Clic sur un element verrouille : message au lieu de l'action.
-document.addEventListener("click", (e) => {
-  if (!StarterLocks.locks.length || !(e.target instanceof Element)) return;
-  const l = StarterLocks.lockOf(e.target);
-  if (!l) return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  if (typeof Toast !== "undefined") Toast.info(`${l.icon} ${escHtml(l.label)} se débloque au niveau ${l.level}.`);
-}, true);
 try { const c = JSON.parse(localStorage.getItem(StarterLocks.KEY) || "null"); if (c && Session.isLoggedIn()) StarterLocks.apply(c); } catch (e) { /* stockage indisponible */ }
 document.addEventListener("DOMContentLoaded", () => StarterLocks.refresh());
+
+// Comptes a rebours en direct (2026-10-29) : tout element
+// [data-countdown-to="<epoch s>"] affiche le temps restant (« 2 j 4 h »,
+// « 3 h 12 min », « 4 min 10 s »), mis a jour chaque seconde ; a zero, il
+// prend data-countdown-done (« terminé » par defaut).
+const Countdown = {
+  fmt(sec) {
+    if (sec <= 0) return null;
+    const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (d) return `${d} j ${h} h`;
+    if (h) return `${h} h ${String(m).padStart(2, "0")} min`;
+    return `${m} min ${String(s).padStart(2, "0")} s`;
+  },
+  tick() {
+    const t = Math.floor(Date.now() / 1000);
+    document.querySelectorAll("[data-countdown-to]").forEach((el) => {
+      const txt = Countdown.fmt(Number(el.dataset.countdownTo) - t);
+      const v = txt || el.dataset.countdownDone || "terminé";
+      if (el.textContent !== v) el.textContent = v;
+      el.classList.toggle("cd-soon", !!txt && Number(el.dataset.countdownTo) - t < 3600);
+    });
+  }
+};
+window.Countdown = Countdown;
+setInterval(() => { if (!document.hidden) Countdown.tick(); }, 1000);
+// Nouveaux decomptes ajoutes a la page : remplis tout de suite (une fois par image).
+let cdQueued = false;
+new MutationObserver(() => { if (cdQueued) return; cdQueued = true; requestAnimationFrame(() => { cdQueued = false; Countdown.tick(); }); }).observe(document.documentElement, { childList: true, subtree: true });
+
+// Compagnon pas encore adopte (StarterLocks.pets, 2026-10-29) : le site n'en
+// dit pas le nom (meme regle que starter.js petMask cote API).
+const PetText = {
+  WORD: { milo: ["Milo", "chien"], moka: ["Moka", "chat"] },
+  mask(s) {
+    if (typeof s !== "string" || !s) return s;
+    let out = s;
+    Object.entries(this.WORD).forEach(([key, [n, w]]) => {
+      if (StarterLocks.pets[key] !== false) return;
+      out = out.replace(new RegExp(`\s+pour ${n}( le ${w})?\b`, "g"), "")
+        .replace(new RegExp(`\b${n},? le ${w},?`, "g"), n)
+        .replace(new RegExp(`\bde ${n}\b`, "g"), `du ${w}`)
+        .replace(new RegExp(`\b${n}\b`, "g"), (m, at, str) => (!str.slice(0, at).trim() || /[.!?…:;]\s*$/.test(str.slice(0, at)) ? `Le ${w}` : `le ${w}`));
+    });
+    return out;
+  },
+  // Textes fixes des pages marques [data-pet-text] : nom retire sur place.
+  apply() {
+    const run = () => document.querySelectorAll("[data-pet-text]").forEach((el) => {
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) { const v = this.mask(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
+    });
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run); else run();
+  }
+};
+window.PetText = PetText;
+PetText.apply();
+function resInfoMasked(kind) {
+  const i = RES_INFO[kind];
+  return i ? { name: PetText.mask(i.name), use: PetText.mask(i.use), where: PetText.mask(i.where) } : null;
+}
 
 // Infobulles des ressources (2026-10-18) : survol (ordinateur) ou appui
 // (mobile) sur une icone de ressource : a quoi elle sert, ou en trouver.
@@ -229,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => StarterLocks.refresh());
 document.addEventListener("mouseover", (e) => {
   const img = e.target instanceof Element ? e.target.closest("img.ico-token") : null;
   if (!img || img.title || typeof resKindOf !== "function") return;
-  const info = RES_INFO[resKindOf(img)];
+  const info = resInfoMasked(resKindOf(img));
   if (info) img.title = info.name + " : " + info.use + " Où en trouver : " + info.where;
 });
 document.addEventListener("click", (e) => {
@@ -237,7 +287,7 @@ document.addEventListener("click", (e) => {
   const old = document.querySelector(".res-pop");
   if (old && !(e.target instanceof Element && e.target.closest(".res-pop"))) old.remove();
   if (!img || img.closest("button, a, label, select, .inv-icon, [data-shop-buy]") || typeof resKindOf !== "function") return;
-  const info = RES_INFO[resKindOf(img)];
+  const info = resInfoMasked(resKindOf(img));
   if (!info) return;
   const pop = document.createElement("div");
   pop.className = "res-pop";
@@ -574,6 +624,35 @@ if (document.readyState === "loading") document.addEventListener("DOMContentLoad
     load().then(() => { Reminders.start(); Reminders.openSettings(); }).catch(() => Toast.error("Rappels indisponibles pour le moment."));
   });
 })();
+
+// Aide sur place (2026-10-29, js/lazy/game-help.js) : bouton « ❔ Règles » a
+// cote des onglets de Jeux et de Communaute, pour l'onglet ouvert.
+document.addEventListener("DOMContentLoaded", () => {
+  const page = (location.pathname.split("/").pop() || "").toLowerCase();
+  if (!["jeux.html", "communaute.html"].includes(page)) return;
+  const tabs = document.querySelector('main .tabs[role="tablist"]');
+  if (!tabs) return;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn-ghost gh-btn";
+  b.innerHTML = "&#10067; Règles";
+  b.title = "Les règles de l'onglet ouvert";
+  tabs.insertAdjacentElement("afterend", b);
+  b.addEventListener("click", () => {
+    const cur = document.querySelector('main [role="tab"][aria-selected="true"]');
+    const key = cur ? cur.id.replace(/^tab-|-btn$/g, "") : "";
+    LazyJs.load("js/lazy/game-help.js").then(() => GameHelp.open(key)).catch(() => Toast.error("Aide indisponible pour le moment."));
+  });
+});
+
+// Preferences (2026-10-29, js/lazy/prefs.js) : tout bouton [data-prefs-open] l'ouvre.
+document.addEventListener("click", (e) => {
+  const b = e.target instanceof Element ? e.target.closest("[data-prefs-open]") : null;
+  if (!b) return;
+  e.preventDefault();
+  document.getElementById("user-menu")?.classList.remove("open");
+  LazyJs.load("js/lazy/prefs.js").then(() => Prefs.open()).catch(() => Toast.error("Préférences indisponibles pour le moment."));
+});
 
 // Session rapide (2026-10-20, js/lazy/quick-session.js) : tout bouton
 // [data-quick-session] (menu du compte, accueil, carte des jeux) l'ouvre.
