@@ -145,7 +145,9 @@ function rollExtras(store, n, k = 1) {
   const got = new Map();
   for (let i = 0; i < n; i++) {
     for (const l of rows) {
-      if (Math.random() >= Math.min(0.95, (Number(l.chance) || 0) * k)) continue;
+      // Chance 1 = toujours ; sinon multipliee par le palier, plafonnee a 95 %.
+      const c = Number(l.chance) || 0;
+      if (c < 1 && Math.random() >= Math.min(0.95, c * k)) continue;
       const lo = Math.max(1, Math.round(Number(l.min) || 1)), hi = Math.max(lo, Math.round(Number(l.max) || lo));
       const q = Math.round((lo + Math.floor(Math.random() * (hi - lo + 1))) * Math.max(1, Math.sqrt(k)));
       got.set(l.key, (got.get(l.key) || 0) + q);
