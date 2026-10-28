@@ -81,6 +81,8 @@ export const REGISTRY = {
     ]
   },
   ArcheoStrokes: { ...int('Archéologie : endurance du geste par tablette', 450, 'Fouille', 'Grattage libre : chaque point du geste (environ une demi-case de déplacement) coûte 1 au pinceau et au grattoir, 3 à la pioche.', 50, 5000), storage: 'app' },
+  ArcheoBreakLimit: { ...num('Archéologie : pression qui abîme une trouvaille', 1.4, 'Fouille', 'Pression = dureté de l’outil × vitesse du geste. Au-dessus, une trouvaille déjà à nu s’abîme. 1,1 avant le 28 octobre (trop sensible, surtout sur téléphone).', 0.5, 3), storage: 'app' },
+  ArcheoFragileLimit: { ...num('Archéologie : pression qui abîme une pièce fragile', 0.9, 'Fouille', 'Même règle pour les pièces fragiles (et les blocs fragiles au nettoyage). 0,7 avant le 28 octobre.', 0.3, 3), storage: 'app' },
   ArcheoTabletChance: { ...pct('Archéologie : chance d’une tablette par grille de fouille terminée', 0.4, 'Fouille', 'Moitié moins par grille terminée par Milo, 8 fois moins par trésor dégagé.'), storage: 'app' },
   ArcheoMaxTablets: { ...int('Archéologie : tablettes en réserve au maximum', 20, 'Fouille', '', 1, 500), storage: 'app' },
   ArcheoRelicChance: { ...pct('Archéologie : chance qu’une trouvaille soit une relique', 0.05, 'Fouille', 'Relique = 1 jeton booster ou 1 clé (poussières si elle est fissurée).'), storage: 'app' },

@@ -38,7 +38,7 @@
   let TOOLS = { brush: { r: 1.5, dig: 0.3, hard: 0.35, cost: 1 }, scraper: { r: 0.85, dig: 0.7, hard: 1, cost: 1 }, pick: { r: 2.1, dig: 1.25, hard: 2.4, cost: 3 } };
   let BARE = 0.05;
   // Seuils de casse envoyes par le serveur (st.limits).
-  let LIM = { normal: 1.1, fragile: 0.7 };
+  let LIM = { normal: 1.4, fragile: 0.9 };
 
   // ------------------------------------------------------------------ moteur de grattage
   const eng = { w: 0, h: 0, depth: null, hard: null, fragile: new Set(), fragileAll: false, energy: Infinity, max: 0, peek: new Set(), glints: [], mask: null, art: null, queue: [], timer: null, sending: false, down: false, last: null, hover: null, pressure: 0, raf: 0, send: null, after: null, cv: null, ctx: null, parts: [], lastT: 0, kind: "clay" };
@@ -438,7 +438,7 @@
     canvas.onpointerdown = (e) => {
       if (e.button !== 0 || (e.pointerType === "mouse" && !(e.buttons & 1))) return;
       e.preventDefault(); canvas.setPointerCapture(e.pointerId);
-      eng.down = true; eng.pointer = e.pointerId; eng.last = pos(e); eng.hover = eng.last; emit(eng.last, 0.5);
+      eng.down = true; eng.pointer = e.pointerId; eng.last = pos(e); eng.hover = eng.last; eng.speed = null; emit(eng.last, 0.5);
     };
     canvas.onpointermove = (e) => {
       if (eng.down && (e.pointerId !== eng.pointer || (e.pointerType === "mouse" && !(e.buttons & 1)))) { up(e); return; }
@@ -448,7 +448,14 @@
       const l = eng.last;
       const dx = (p.x - l.x) * eng.w, dy = (p.y - l.y) * eng.h, dist = Math.hypot(dx, dy);
       if (dist < 0.5) return;
-      const speed = dist / Math.max(8, p.t - l.t) * 100;
+      // Vitesse lissee (2026-10-28) : un a-coup d'un evenement ne fait plus
+      // flamber la jauge ; mesuree a l'ecran (une case de reference = 26 px,
+      // celle d'une tablette sur ordinateur), le meme geste du doigt ne va plus
+      // deux fois plus vite sur une petite tablette de telephone.
+      const cellPx = canvas.getBoundingClientRect().width / eng.w;
+      const raw = (dist * Math.min(1, cellPx / 26)) / Math.max(16, p.t - l.t) * 100;
+      eng.speed = eng.speed == null ? raw : eng.speed * 0.6 + raw * 0.4;
+      const speed = eng.speed;
       const n = Math.min(12, Math.floor(dist / 0.5));
       for (let i = 1; i <= n; i++) emit({ x: l.x + (p.x - l.x) * (i / n), y: l.y + (p.y - l.y) * (i / n) }, speed);
       eng.last = p;

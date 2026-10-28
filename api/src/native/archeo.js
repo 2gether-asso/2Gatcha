@@ -159,7 +159,9 @@ const RELICS = [
 // joueur efficace sur argile : ~180 -> ~285 d'endurance (ArcheoStrokes 450).
 const CRACKED = 4, BROKEN = 8;
 const EXTRACT_SHARE = 0.9, FREE_SHARE = 0.9;
-export const BREAK_LIMIT = 1.1, FRAGILE_LIMIT = 0.7;
+export const BREAK_LIMIT = 1.4, FRAGILE_LIMIT = 0.9;
+// Seuils de casse du moment (reglages de l'admin).
+const limitsOf = (store) => ({ normal: setting(store, 'ArcheoBreakLimit'), fragile: setting(store, 'ArcheoFragileLimit') });
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -231,7 +233,7 @@ function generate(store, user, kind = 'clay') {
 
 // Applique les points d'un geste a une carte de profondeur. itemAt(c) : la
 // trouvaille sous la case (ou null). Renvoie l'endurance depensee et les chocs.
-export function scrapeGrid(depth, w, h, pts, itemAt, budget = Infinity, { tools = TOOLS, hard = null, damageMult = 1 } = {}) {
+export function scrapeGrid(depth, w, h, pts, itemAt, budget = Infinity, { tools = TOOLS, hard = null, damageMult = 1, limits = { normal: BREAK_LIMIT, fragile: FRAGILE_LIMIT } } = {}) {
   let spent = 0, hurt = 0;
   for (const p of pts) {
     const tool = tools[p.t] || tools.brush;
@@ -250,10 +252,11 @@ export function scrapeGrid(depth, w, h, pts, itemAt, budget = Infinity, { tools 
         const k = hard && hard[c] ? tool.rock : 1;
         depth[c] = r2(Math.max(0, before - tool.dig * f * k));
         // Trop brusque sur une partie deja a nu : la trouvaille s'abime.
-        // Seuil 1,1 (0,7 pour une piece fragile) : le pinceau (1,05 au plus) ne casse jamais.
+        // Seuils reglables (ArcheoBreakLimit / ArcheoFragileLimit, 1,4 et 0,9) :
+        // le pinceau (1,05 au plus) ne casse jamais une piece ordinaire.
         if (before <= BARE) {
           const it = itemAt(c);
-          const limit = it && it.fragile ? FRAGILE_LIMIT : BREAK_LIMIT;
+          const limit = it && it.fragile ? limits.fragile : limits.normal;
           if (it && pressure > limit) { const dmg = (pressure - limit) * f * 0.4 * (it.fragile ? 1.5 : 1) * damageMult; it.damage = r2((it.damage || 0) + dmg); hurt += dmg; }
         }
       }
@@ -303,7 +306,7 @@ function view(store, user) {
     stock: TABLET_KEYS.map((k) => { const t = tabletsCfg(store)[k]; return { kind: k, ...t, count: stock[k], maxTier: Math.min(5, maxTier(store, user) + t.tierBonus) }; }),
     level: { ...lv, perks: ARCH_PERKS, max: ARCH_LEVELS.length, nextPerk: ARCH_PERKS[lv.level + 1] || null },
     finds: findsOf(user).map(upgradeFind).map(findTeaser),
-    tools: toolsFor(user), bare: BARE, limits: { normal: BREAK_LIMIT, fragile: FRAGILE_LIMIT }, damageMult: perks.damage,
+    tools: toolsFor(user), bare: BARE, limits: limitsOf(store), damageMult: perks.damage,
     mole: moleView(store, user), boosted: archeoBuff(store, user) > 1,
     tablet: s ? {
       kind: s.kind || 'clay', label: (tabletsCfg(store)[s.kind] || tabletsCfg(store).clay).label,
@@ -487,7 +490,7 @@ function handle({ store, body }) {
     const pts = cleanPts(body.pts, tools);
     if (!pts.length) return fail('no_points');
     const mask = new Set(f.mask);
-    const r = scrapeGrid(f.depth, f.g, f.g, pts, (c) => (mask.has(c) ? f : null), Infinity, { tools, damageMult: perksOf(user).damage });
+    const r = scrapeGrid(f.depth, f.g, f.g, pts, (c) => (mask.has(c) ? f : null), Infinity, { tools, damageMult: perksOf(user).damage, limits: limitsOf(store) });
     if (exposedShare(f.depth, f.mask) >= FREE_SHARE) {
       const lib = liberate(store, user, f);
       user = store.update('Users', user.id, { ...lib.fields, ArcheoFinds: JSON.stringify(finds.filter((x) => x !== f)) });
@@ -516,7 +519,7 @@ function handle({ store, body }) {
     const before = new Set(s.items.filter((it) => isExtracted(s, it)));
     const cellItem = new Map();
     s.items.forEach((it) => it.cells.forEach((c) => cellItem.set(c, it)));
-    const r = scrapeGrid(s.depth, W, H, pts, (c) => cellItem.get(c) || null, s.energy, { tools, hard: s.hard, damageMult: perksOf(user).damage });
+    const r = scrapeGrid(s.depth, W, H, pts, (c) => cellItem.get(c) || null, s.energy, { tools, hard: s.hard, damageMult: perksOf(user).damage, limits: limitsOf(store) });
     s.energy = Math.max(0, s.energy - r.spent);
     const fresh = s.items.filter((it) => isExtracted(s, it) && !before.has(it)).length;
     if (s.energy <= 0 || s.items.every((it) => isExtracted(s, it))) {
