@@ -912,6 +912,8 @@ body.forbidden-page .fm-side .fm-panel h3 { color: var(--fx-brass-2); }
 .cl-machine { max-width: 520px; margin: 0 auto; padding: 12px; border-radius: 24px 24px 14px 14px; background: linear-gradient(180deg, #db2777, #9d174d 60%, #500724); box-shadow: inset 0 0 0 3px rgba(255,255,255,0.2), 0 20px 40px -20px rgba(0,0,0,0.8); }
 .cl-marquee { text-align: center; font: 1rem/1.6 Bungee, sans-serif; color: #fff5fb; letter-spacing: 0.2em; text-shadow: 0 0 8px #fff, 0 0 18px var(--fx-neon); }
 .cl-table .cl-glass { position: relative; height: 320px; border-radius: 12px; overflow: hidden; cursor: crosshair; background: linear-gradient(180deg, rgba(186, 230, 253, 0.18), rgba(167, 139, 250, 0.12) 55%, rgba(244, 114, 182, 0.18)), #1a0610; border: 4px solid #fbcfe8; box-shadow: inset 0 0 40px rgba(0,0,0,0.5); outline: none; }
+/* Mobile (2026-10-28) : promener la pince au doigt ne fait ni defiler ni recharger la salle. */
+.cl-glass { touch-action: none; user-select: none; }
 .cl-table .cl-glass:focus-visible { box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 0 0 3px var(--fx-neon-2); }
 .cl-table .cl-glass::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, rgba(255,255,255,0.14) 0 18%, transparent 30%); pointer-events: none; }
 .cl-rail { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: linear-gradient(#9ca3af, #4b5563); z-index: 3; }

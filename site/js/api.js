@@ -289,7 +289,9 @@ const API = {
     if (Array.isArray(data.discoveries) && data.discoveries.length && typeof DiscoveryFx !== "undefined") DiscoveryFx.show(data.discoveries);
     if (data.repairSurcharge) Toast.info(`&#129520; Restauration répétée cette semaine : +${data.repairSurcharge} poussières.`);
     if (!Array.isArray(data.notices)) return;
-    data.notices.forEach((n, i) => setTimeout(() => {
+    // Seulement les annonces du serveur (label) ; celles d'un jeu (text, machine
+    // a sous de la salle interdite) sont affichees par sa page.
+    data.notices.filter((n) => n && n.label).forEach((n, i) => setTimeout(() => {
       Toast.success(`${n.icon || "&#11088;"} ${n.label}`);
       if (n.kind === "achievement" && typeof confetti === "function") confetti({ particleCount: 70, spread: 80, origin: { y: 0.3 } });
     }, 400 + i * 900));

@@ -311,9 +311,14 @@ document.addEventListener("click", (e) => {
 (function () {
   if (!("ontouchstart" in window)) return;
   let startY = null, dy = 0, ind = null;
-  const blocked = (el) => !!(el && el.closest && el.closest(".card-modal-overlay, .ta-modal, .season-cine, .cine-overlay, .user-menu-dropdown.open, .inventory-panel, .fish-scene, .dig-board, input, textarea, select, [data-no-ptr]"));
+  // Jamais non plus sur une surface de jeu (on y glisse le doigt : grattage,
+  // lance-pierre, pince, tablettes...), ni dans la salle interdite (2026-10-28 :
+  // ses salles plein ecran defilent a l'interieur, la page restait « en haut »).
+  const blocked = (el) => !!(el && el.closest && el.closest(".card-modal-overlay, .ta-modal, .season-cine, .cine-overlay, .user-menu-dropdown.open, .inventory-panel, .fish-scene, .dig-board, .cz-room, .fm-cabinet, .ar-slab, .ar-stone, .ar-canvas, .ci-stage, .cn-stage, .sc-foil, canvas, input, textarea, select, [data-no-ptr]"));
+  // Un conteneur qui defile (et n'est pas tout en haut) garde le geste pour lui.
+  const scrolledInside = (el) => { for (let n = el; n && n !== document.body && n.nodeType === 1; n = n.parentElement) { if (n.scrollTop > 0) return true; const oy = getComputedStyle(n).overflowY; if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 1 && getComputedStyle(n).position === "fixed") return true; } return false; };
   document.addEventListener("touchstart", (e) => {
-    if (window.scrollY > 0 || e.touches.length !== 1 || blocked(e.target) || document.querySelector(".card-modal-overlay:not([hidden]), .ta-modal, .season-cine")) { startY = null; return; }
+    if (window.scrollY > 0 || e.touches.length !== 1 || document.body.classList.contains("forbidden-page") || blocked(e.target) || scrolledInside(e.target) || document.querySelector(".card-modal-overlay:not([hidden]), .ta-modal, .season-cine, .cz-room:not([hidden])")) { startY = null; return; }
     startY = e.touches[0].clientY; dy = 0;
   }, { passive: true });
   document.addEventListener("touchmove", (e) => {

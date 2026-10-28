@@ -156,6 +156,29 @@ await test('carte etoile : 3 arc-en-ciel parfait etat -> 1 exemplaire etoile, de
   assert.ok(!store.get('Pulls', keep).InVault);
 });
 
+await test('carte Interdite : decraft a ForbiddenDecraftMult, bonus compris', () => {
+  const card = cards()[1];
+  const id = mk(1, card.id, 'normal', 'good');
+  store.update('Pulls', id, { Edition: 'forbidden' });
+  const req = { body: { userId: 1, cardId: card.id, pullId: id, confirmEdition: true } };
+  assert.equal(native.beforeWorkflow('disenchant', req), null);
+  const resp = { status: 200, json: { disenchanted: true, dustGained: 100 } };
+  native.afterWorkflow('disenchant', req, resp);
+  const line = resp.json.bonuses.find((b) => b.label.includes('Interdite'));
+  assert.ok(line && line.dust < 0, 'ligne de reduction');
+  const others = resp.json.bonuses.filter((b) => b !== line).reduce((s, b) => s + b.dust, 0);
+  assert.equal(resp.json.dustGained, 100 + others + line.dust);
+  assert.ok(Math.abs(resp.json.dustGained - Math.round((100 + others) * 0.25)) <= 1, 'un quart du total');
+  // Les autres editions gardent leur valeur.
+  const id2 = mk(1, card.id, 'normal', 'good');
+  store.update('Pulls', id2, { Edition: 'frost' });
+  const req2 = { body: { userId: 1, cardId: card.id, pullId: id2, confirmEdition: true } };
+  native.beforeWorkflow('disenchant', req2);
+  const resp2 = { status: 200, json: { disenchanted: true, dustGained: 100 } };
+  native.afterWorkflow('disenchant', req2, resp2);
+  assert.ok(!(resp2.json.bonuses || []).some((b) => b.label.includes('Interdite')));
+});
+
 await test('assurance : payee, bloque le decraft explicite, mise de cote sinon, retiree gratuitement', () => {
   const card = cards()[2];
   const pid = mk(1, card.id, 'gold', 'good');
@@ -2836,6 +2859,22 @@ await test('salle des machines interdites : engrenages, forge, porte, machine a 
   assert.equal(r.nudge.tier, 'triple');
   assert.deepEqual(r.nudge.changed, [2]);
   assert.equal(fb({ action: 'nudge' }).error, 'cannot_nudge');
+  // Jetons (equilibrage 2026-10-28) : triple 🃏 = 2 jetons x mise, plafond du jour, surplus en poussieres.
+  store.update('Users', 1, { ForbiddenXP: 0, ForbiddenDaily: '', ForbiddenFreeSpins: 0, ForbiddenBonus: 0, ForbiddenHeat: 0, ForbiddenRisk: 0, StardustCount: 100000, BoosterCount: 0 });
+  Math.random = () => 91 / 110; // niveau 1 : toujours 🃏 ; cascades comprises, bien plus que le plafond
+  try { r = fb({ action: 'spin', bet: 5 }); } finally { Math.random = rnd; }
+  assert.equal(r.results[0].key, 'jeton');
+  assert.equal(r.results[0].tier, 'triple');
+  const cap = r.machine.boosterCap;
+  assert.equal(cap, 15);
+  assert.equal(user(1).BoosterCount, cap, 'plafond du jour atteint, pas au-dela');
+  assert.equal(r.machine.boostersToday, cap);
+  assert.ok([r.results[0], ...r.results[0].cascades].some((x) => x.capped && x.dust > 0), 'surplus paye en poussieres');
+  Math.random = () => 91 / 110;
+  try { r = fb({ action: 'spin', bet: 1 }); } finally { Math.random = rnd; }
+  assert.equal(user(1).BoosterCount, cap, 'plus aucun jeton une fois le plafond atteint');
+  assert.equal(r.results[0].boosters, 0);
+  assert.ok(r.results[0].dust > 0);
   // Carnet : le dernier triple de base manquant donne le cadre « Joueur interdit ».
   store.update('Users', 1, { ForbiddenCombos: JSON.stringify(['commune', 'rare', 'epique', 'legendaire', 'finition', 'jeton']), ForbiddenFreeSpins: 1 });
   Math.random = () => 0.95;

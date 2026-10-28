@@ -670,6 +670,18 @@
     chips.innerHTML = levels.length > 1 ? `<button type="button" class="fusion-chip ${fusionFrom[kind] ? "" : "active"}" data-from-filter="">Tout <small>${all.length}</small></button>` + levels.map((l) => `<button type="button" class="fusion-chip ${fusionFrom[kind] === l ? "active" : ""}" data-from-filter="${l}"><span class="${tag}-tag" data-${tag}="${l}">${labels[l]}</span> <small>${all.filter((u) => u.from === l).length}</small></button>`).join("") : "";
     chips.onclick = (e) => { const b = e.target.closest("[data-from-filter]"); if (b) { fusionFrom[kind] = b.dataset.fromFilter; renderFusions(kind); } };
     const list = fusionFrom[kind] ? all.filter((u) => u.from === fusionFrom[kind]) : all;
+    // Tout en rapide : visible des qu'au moins une fusion rapide est possible.
+    let bar = el.parentNode.querySelector(":scope > .fusion-all-bar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.className = "fusion-all-bar";
+      bar.innerHTML = `<button type="button" class="btn" data-fuse-all="${kind}" title="Toutes les ${kind === "finish" ? "fusions" : "restaurations"} rapides d'un coup, avec un aperçu">&#9889; Tout en rapide…</button>`;
+      bar.addEventListener("click", (e) => { if (e.target.closest("[data-fuse-all]")) openQuickAll(kind); });
+      el.parentNode.insertBefore(bar, chips);
+    }
+    const quickCount = quickPlan(kind, null).length;
+    bar.hidden = !quickCount;
+    bar.querySelector("button").innerHTML = `&#9889; Tout en rapide <small>${quickCount}</small>`;
     if (!list.length) {
       el.innerHTML = `<div class="empty-state">${kind === "finish"
         ? "Aucune fusion possible pour l'instant : il te faut 5 exemplaires identiques (même carte, même finition) d'un coup."
@@ -733,6 +745,147 @@
     const ok = await Confirm.show(`${isFinish ? "Fusionner" : "Restaurer"} <strong>${sel.pullIds.length} exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> (${[...sel.picked].sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0)).map((c) => serial(c.serialNumber)).join(", ")}) en un exemplaire <strong>${labels[to]}</strong> qui garde le numéro <strong>${serial(sel.keepSerial)}</strong> ?`, { title: isFinish ? "Fusion rapide" : "Restauration rapide", confirmText: isFinish ? "Fusionner" : "Restaurer" });
     if (!ok) return;
     await runFuse(kind, cardId, from, { pullIds: sel.pullIds, keepPullId: sel.keepPullId, parts: 0, dustCopies: 0 });
+  }
+
+  // Tout en rapide (2026-10-28) : toutes les fusions rapides possibles d'un
+  // coup, avec les memes regles que le bouton Rapide (jamais de #001,
+  // d'arc-en-ciel, de parfait etat, d'edition, de ★, d'assure ni de coffre),
+  // filtrables par niveau de depart ; option « enchainer » : les exemplaires
+  // obtenus refusionnent au niveau suivant tant que c'est possible. Envoi par
+  // paquets (/webhook/batch-write), arretable entre deux paquets.
+  const QUICK_PREF_KEY = "2gatcha_fuse_all_prefs";
+  function quickPlan(kind, levels) {
+    const isFinish = kind === "finish";
+    const need = isFinish ? 5 : 3;
+    const levelOf = (c) => (isFinish ? Coll.finishOf(c) : Coll.qualityOf(c));
+    const otherRank = (c) => (isFinish ? FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c)) : FUSION_FINISH_RANK.indexOf(Coll.finishOf(c)));
+    const order = isFinish ? FINISH_ORDER : QUALITY_ORDER;
+    const out = [];
+    state.ownedMap.forEach((owned, cardId) => {
+      const card = cardOf(cardId);
+      if (!card || card.isPromo) return;
+      for (let i = 0; i < order.length - 1; i++) {
+        const from = order[i];
+        if (levels && !levels.includes(from)) continue;
+        const copies = (owned.copies || [])
+          .filter((c) => levelOf(c) === from && !Coll.isPrecious(c) && !(state.insured && state.insured.has(c.pullId)) && !c.inVault)
+          .sort((a, b) => otherRank(a) - otherRank(b) || (b.serialNumber || 0) - (a.serialNumber || 0));
+        for (let k = 0; k + need <= copies.length; k += need) {
+          const picked = copies.slice(k, k + need);
+          const keep = [...picked].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999))[0];
+          out.push({ card, from, to: order[i + 1], pullIds: picked.map((c) => c.pullId), keepPullId: keep.pullId });
+        }
+      }
+    });
+    return out.sort((a, b) => a.card.name.localeCompare(b.card.name) || order.indexOf(a.from) - order.indexOf(b.from));
+  }
+
+  function openQuickAll(kind) {
+    const isFinish = kind === "finish";
+    const labels = isFinish ? FINISH_LABELS_LONG : QUALITY_LABELS;
+    const order = isFinish ? FINISH_ORDER : QUALITY_ORDER;
+    const tag = isFinish ? "finish" : "quality";
+    const verb = isFinish ? "Fusionner" : "Restaurer";
+    let prefs = { cascade: false, skip: [] };
+    try { prefs = { ...prefs, ...(JSON.parse(localStorage.getItem(QUICK_PREF_KEY) || "{}")[kind] || {}) }; } catch (e) { /* stockage indisponible */ }
+    const savePrefs = () => { try { const all = JSON.parse(localStorage.getItem(QUICK_PREF_KEY) || "{}"); all[kind] = prefs; localStorage.setItem(QUICK_PREF_KEY, JSON.stringify(all)); } catch (e) { /* stockage indisponible */ } };
+    const present = [...new Set(quickPlan(kind, null).map((u) => u.from))];
+    const levels = () => present.filter((l) => !prefs.skip.includes(l));
+    let running = null;
+    const overlay = document.createElement("div");
+    overlay.className = "card-modal-overlay recycle-overlay";
+    overlay.innerHTML = `
+      <div class="recycle-modal" role="dialog" aria-modal="true" aria-labelledby="fuse-all-title">
+        <header class="contract-modal-head">
+          <div><span aria-hidden="true">&#9889;</span> <strong id="fuse-all-title">${isFinish ? "Fusions" : "Restaurations"} rapides en lot</strong><small>Toutes les ${isFinish ? "fusions" : "restaurations"} rapides d'un coup, avec tes exemplaires les moins précieux.</small></div>
+          <button type="button" class="card-modal-close" data-close aria-label="Fermer">&times;</button>
+        </header>
+        <div class="recycle-body">
+          <fieldset class="recycle-group"><legend>Niveaux de départ</legend>
+            <div class="recycle-chips">${present.map((l) => `<label class="recycle-chip"><input type="checkbox" data-level="${l}" ${prefs.skip.includes(l) ? "" : "checked"} /> <span class="${tag}-tag" data-${tag}="${l}">${labels[l]}</span></label>`).join("")}</div>
+          </fieldset>
+          <fieldset class="recycle-group"><legend>Options</legend>
+            <label class="recycle-check"><input type="checkbox" data-pref="cascade" ${prefs.cascade ? "checked" : ""} /> Enchaîner : refusionner les nouveaux exemplaires au niveau suivant tant que c'est possible</label>
+            <p class="recycle-note">Jamais touchés : #001, arc-en-ciel, parfait état, éditions limitées, cartes ★, exemplaires assurés ou au coffre. Aucune pièce détachée utilisée${isFinish ? "" : " ; le supplément de poussières des restaurations répétées dans la semaine s'applique comme à l'unité"}.</p>
+          </fieldset>
+          <div class="recycle-preview" id="fuse-all-preview" aria-live="polite"></div>
+        </div>
+        <footer class="contract-modal-foot">
+          <span class="contract-count" id="fuse-all-count"></span>
+          <button type="button" class="btn-ghost" data-close>Fermer</button>
+          <button type="button" class="btn" id="fuse-all-go">${verb}</button>
+        </footer>
+      </div>`;
+    document.body.appendChild(overlay);
+    syncScrollLock();
+    const close = () => { if (running) running.stop = true; overlay.remove(); syncScrollLock(); };
+    const draw = () => {
+      const list = quickPlan(kind, levels());
+      // Une ligne par carte et niveau de depart (×n fusions).
+      const groups = [];
+      list.forEach((u) => { const g = groups[groups.length - 1]; if (g && g.card === u.card && g.from === u.from) g.n++; else groups.push({ card: u.card, from: u.from, to: u.to, n: 1 }); });
+      $("fuse-all-preview").innerHTML = list.length
+        ? `<p><strong>${list.length}</strong> ${isFinish ? "fusion" : "restauration"}${list.length > 1 ? "s" : ""} sur ${groups.length} ligne${groups.length > 1 ? "s" : ""}${prefs.cascade ? ", puis les niveaux suivants si possible" : ""}</p>
+           <ul class="recycle-list">${groups.slice(0, 40).map((g) => `<li><span>${escapeHtml(g.card.name)}</span><small><span class="${tag}-tag" data-${tag}="${g.from}">${labels[g.from]}</span> &#8594; <span class="${tag}-tag" data-${tag}="${g.to}">${labels[g.to]}</span></small><b>×${g.n}</b></li>`).join("")}${groups.length > 40 ? `<li class="recycle-more">… et ${groups.length - 40} autre${groups.length - 40 > 1 ? "s" : ""}</li>` : ""}</ul>`
+        : `<p class="recycle-empty">Aucune ${isFinish ? "fusion" : "restauration"} rapide avec ces réglages.</p>`;
+      $("fuse-all-go").disabled = !list.length;
+      $("fuse-all-go").textContent = list.length ? `${verb} (${list.length})` : verb;
+    };
+    draw();
+    overlay.addEventListener("change", (e) => {
+      const t = e.target;
+      if (t.dataset.level) prefs.skip = present.filter((l) => !overlay.querySelector(`[data-level="${l}"]`).checked);
+      else if (t.dataset.pref) prefs[t.dataset.pref] = t.checked;
+      savePrefs();
+      if (!running) draw();
+    });
+    overlay.addEventListener("click", async (e) => {
+      if (e.target === overlay || e.target.closest("[data-close]")) { close(); return; }
+      if (!e.target.closest("#fuse-all-go")) return;
+      if (running && !running.done) { running.stop = true; return; }
+      let list = quickPlan(kind, levels());
+      if (!list.length) return;
+      const go = $("fuse-all-go");
+      go.disabled = true;
+      if (!(await Confirm.show(`${verb} en lot : <strong>${list.length} ${isFinish ? "fusion" : "restauration"}${list.length > 1 ? "s" : ""}</strong>${prefs.cascade ? ", puis les niveaux suivants" : ""} ? Les exemplaires consommés disparaissent.`, { title: `${isFinish ? "Fusions" : "Restaurations"} rapides`, confirmText: verb }))) { go.disabled = false; return; }
+      running = { stop: false, done: false };
+      overlay.querySelectorAll("input").forEach((i) => { i.disabled = true; });
+      go.disabled = false;
+      go.textContent = "Arrêter";
+      let ok = 0, failed = 0, done = 0, broke = false;
+      const reached = {};
+      const path = isFinish ? "foil-upgrade" : "card-quality-repair";
+      try {
+        // Un passage par niveau atteint (enchainer), au plus un par niveau.
+        for (let round = 0; round < order.length && list.length && !running.stop; round++) {
+          const bodies = list.map((u) => isFinish
+            ? { userId: Session.userId, cardId: u.card.cardId, fromFinish: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: 0, dustCopies: 0 }
+            : { userId: Session.userId, cardId: u.card.cardId, fromQuality: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: 0, dustCopies: 0 });
+          const results = await API.batchWrite(path, bodies, {
+            chunk: 25, shouldStop: () => running.stop,
+            onChunk: (n) => { $("fuse-all-count").innerHTML = `${done + n} ${isFinish ? "fusion" : "restauration"}${done + n > 1 ? "s" : ""}`; }
+          });
+          results.forEach((r, i) => {
+            if (r.status === 200 && r.json && !r.json.error) { ok++; const to = (isFinish ? r.json.toFinish : r.json.toQuality) || list[i].to; reached[to] = (reached[to] || 0) + 1; } else { failed++; if (r.json && /dust/.test(r.json.error || "")) broke = true; }
+          });
+          done += results.length;
+          await Coll.refresh();
+          if (!prefs.cascade) break;
+          // Niveau suivant (sauf les niveaux decoches) : les nouveaux exemplaires s'ajoutent aux autres.
+          const next = [...new Set(list.map((u) => u.to))].filter((l) => order.indexOf(l) < order.length - 1 && !prefs.skip.includes(l));
+          list = quickPlan(kind, next);
+        }
+      } catch (err) {
+        Toast.error(friendlyError(err));
+      }
+      running.done = true;
+      const recap = Object.entries(reached).sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([l, n]) => `${n} ${labels[l]}`).join(", ");
+      if (ok) {
+        Toast.success(`&#9889; ${ok} ${isFinish ? "fusion" : "restauration"}${ok > 1 ? "s" : ""} : ${recap}${failed ? ` (${failed} ignorée${failed > 1 ? "s" : ""}${broke ? " : plus assez de poussières pour le supplément" : ""})` : ""}.`);
+        if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.5 } });
+      } else Toast.info(broke ? "Plus assez de poussières pour le supplément de restauration." : "Aucune fusion n'a pu se faire.");
+      close();
+    });
   }
 
   async function runFuse(kind, cardId, from, selection) {

@@ -166,14 +166,15 @@
           <details class="fm-panel fm-help">
             <summary>Comment ça marche ?</summary>
             <ul>
-              <li><strong>La ligne du milieu paie.</strong> Paire : une carte de la rareté (de commune à &#128160; mythique), une finition spéciale, un fantôme, un jeton ou une clé. Triple : plusieurs cartes, 5 jetons, des clés… Trois &#128128; : un vrai crâne de dino.</li>
+              <li><strong>La ligne du milieu paie.</strong> Paire : une carte de la rareté (de commune à &#128160; mythique), une finition spéciale, un fantôme, des poussières (&#127183;) ou une clé. Triple : plusieurs cartes, 2 jetons booster, des clés… Trois &#128128; : un vrai crâne de dino.</li>
+              <li><strong>Jetons booster</strong> : la machine en donne un nombre limité par jour ; ensuite, un triple &#127183; paie en poussières.</li>
               <li><strong>Cascade</strong> : après un triple, la ligne retombe ; chaque nouvelle combinaison paie ×2, ×3, ×4.</li>
               <li><strong>Mise ×3 ou ×5</strong> : tout est multiplié, et le jackpot n'est complet qu'à ×5.</li>
               <li><strong>3 &#127920; visibles n'importe où</strong> : 5 tours bonus à gains doublés.</li>
               <li><strong>Surchauffe</strong> : à fond, triple garanti. <strong>Paire</strong> : relance le rouleau intrus.</li>
               <li><strong>Quitte ou double</strong> : remets les jetons gagnés en jeu ; le tour suivant gagnant les double.</li>
               <li>La machine prend des niveaux : nouveaux symboles, puis un 4e rouleau. Une heure par semaine, elle s'emballe et paie double.</li>
-              <li>Toutes les cartes gagnées ici sont en édition <strong>&#9939;&#65039; Interdite</strong>.</li>
+              <li>Toutes les cartes gagnées ici sont en édition <strong>&#9939;&#65039; Interdite</strong> : elles se décraftent pour une petite part de leur valeur.</li>
             </ul>
           </details>
         </aside>
@@ -211,7 +212,7 @@
     banner.hidden = !(m.frenzy || m.bonusSpins);
     banner.innerHTML = m.frenzy ? "&#127744; Heure de folie : gains doublés !" : m.bonusSpins ? `&#127920; Tours bonus : ${m.bonusSpins} restant${m.bonusSpins > 1 ? "s" : ""}, gains ×2` : "";
     banner.className = "fm-banner" + (m.frenzy ? " frenzy" : " bonus");
-    $("fm-daily").innerHTML = m.daily.map((d) => `<div class="fm-ch ${d.done ? "done" : ""}"><span>${d.done ? "&#10004;" : "&#9675;"} ${esc(d.label)}</span><div class="fm-ch-bar"><div style="width:${Math.round((d.progress / d.target) * 100)}%"></div></div><small>${d.progress}/${d.target} · +${d.reward} &#127903;&#65039;</small></div>`).join("");
+    $("fm-daily").innerHTML = (m.boosterCap != null ? `<div class="fm-ch ${m.boostersToday >= m.boosterCap ? "done" : ""}"><span>&#127183; Jetons booster du jour</span><div class="fm-ch-bar"><div style="width:${m.boosterCap ? Math.min(100, Math.round((m.boostersToday / m.boosterCap) * 100)) : 100}%"></div></div><small>${m.boostersToday}/${m.boosterCap}${m.boostersToday >= m.boosterCap ? " · ensuite en poussières" : ""}</small></div>` : "") + m.daily.map((d) => `<div class="fm-ch ${d.done ? "done" : ""}"><span>${d.done ? "&#10004;" : "&#9675;"} ${esc(d.label)}</span><div class="fm-ch-bar"><div style="width:${Math.round((d.progress / d.target) * 100)}%"></div></div><small>${d.progress}/${d.target} · +${d.reward} &#127903;&#65039;</small></div>`).join("");
     $("fm-combos").innerHTML = `<div class="fm-combo-grid">${m.combos.map((c) => `<span class="fm-combo ${c.done ? "done" : ""} ${c.locked ? "locked" : ""} ${c.base ? "" : "bonus"}" title="${c.locked ? "À découvrir à un niveau supérieur" : esc(c.label)}">${c.locked ? "&#128274;" : c.icon}</span>`).join("")}</div><p class="fm-combo-reward ${m.combosReward.done ? "done" : ""}">${m.combosReward.done ? "&#10004; " : ""}Un triple de chaque symbole de base : ${esc(m.combosReward.label)}</p>`;
     const w = m.week;
     $("fm-week").innerHTML = (w.top.length ? `<ol class="fm-top5">${w.top.map((t) => `<li><strong>${esc(t.pseudo)}</strong> <span>${esc(t.label)}</span> <small>${t.cards ? `${t.cards} carte${t.cards > 1 ? "s" : ""}` : ""}${t.dust ? ` · ${fmt(t.dust)} &#10024;` : ""}</small></li>`).join("")}</ol>` : `<p class="fm-empty">Personne encore cette semaine.</p>`)
@@ -350,7 +351,8 @@
         $("fm-result").insertAdjacentHTML("beforeend", `<div class="fm-ledger ${net == null ? "" : net > 0 ? "up" : net < 0 ? "down" : ""}">Payé <b>${paidTxt}</b> → gagné <b>${fmt(won)} &#10024;</b>${net != null ? ` <strong>= ${net > 0 ? "+" : net < 0 ? "−" : "±"}${fmt(Math.abs(net))} &#10024;</strong>` : ""}</div>`);
       }
       if (res.riskResult) Toast[res.riskResult.won ? "success" : "info"](res.riskResult.won ? `Quitte ou double : gagné ! +${res.riskResult.amount} jetons` : `Quitte ou double : perdu (${res.riskResult.staked} jeton${res.riskResult.staked > 1 ? "s" : ""})`);
-      (res.notices || []).forEach((n, i) => setTimeout(() => Toast.success(`${n.icon} ${esc(n.text)}`), 400 + i * 700));
+      // Annonces de la machine (text) ; celles du serveur (label) passent par api.js.
+      (res.notices || []).filter((n) => n && n.text).forEach((n, i) => setTimeout(() => Toast.success(`${n.icon || "&#127920;"} ${esc(n.text)}`), 400 + i * 700));
       refresh();
       // Jetons depenses, niveau de la machine (jeux du casino debloques) : le casino se met a jour.
       document.dispatchEvent(new CustomEvent("casino:refresh"));
@@ -435,7 +437,7 @@
       } else {
         out.insertAdjacentHTML("beforeend", `<div class="fm-miss">Raté, de si peu…</div>`);
       }
-      (res.notices || []).forEach((x, i) => setTimeout(() => Toast.success(`${x.icon} ${esc(x.text)}`), 300 + i * 700));
+      (res.notices || []).filter((x) => x && x.text).forEach((x, i) => setTimeout(() => Toast.success(`${x.icon || "&#127920;"} ${esc(x.text)}`), 300 + i * 700));
       refresh();
       if (typeof refreshStatus === "function") refreshStatus();
     } catch (e) { Toast.error(errText(e)); } finally { busy = false; }

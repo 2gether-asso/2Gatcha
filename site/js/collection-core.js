@@ -162,10 +162,12 @@ const Coll = (() => {
 
   // Montant de decraft reel : valeur de base de la rarete x multiplicateur
   // de finition x multiplicateur de qualite (meme calcul que disenchant.json).
-  function estimateDust(baseValue, finish, quality) {
+  // edition : une carte Interdite se decrafte moins (editionDecraft, 2026-10-28).
+  function estimateDust(baseValue, finish, quality, edition) {
     const fm = state.finishMultipliers[finish] != null ? state.finishMultipliers[finish] : 1;
     const qm = state.qualityMultipliers[quality] != null ? state.qualityMultipliers[quality] : 1;
-    return Math.round((baseValue || 0) * fm * qm);
+    const em = edition && state.editionDecraft[edition] != null ? state.editionDecraft[edition] : 1;
+    return Math.round((baseValue || 0) * fm * qm * em);
   }
 
   // Exemplaires d'une carte regroupes par VARIANTE EXACTE (finition +
@@ -248,6 +250,7 @@ const Coll = (() => {
     stardust: 0,
     level: 1,
     finishMultipliers: {},
+    editionDecraft: {},
     qualityMultipliers: {},
     wishlist: new Set(),
     showcase: new Set(),
@@ -353,6 +356,7 @@ const Coll = (() => {
     state.forged = new Set(collection.forgedPullIds || []);
     state.mastered = new Set(collection.masteredCards || []);
     state.editions = new Map(Object.entries(collection.editionPulls || {}).map(([k, v]) => [Number(k), v]));
+    state.editionDecraft = collection.editionDecraft || {};
     // Edition de chaque exemplaire (choix d'exemplaires, fusions...).
     state.ownedMap.forEach((o) => (o.copies || []).forEach((c) => { c.edition = state.editions.get(c.pullId) || ""; }));
     state.insured = new Set(collection.insuredPullIds || []);
@@ -458,11 +462,11 @@ const Coll = (() => {
   // coffre-fort compris ; un point par jour garde en local pour l'evolution.
   function computeValue() {
     let value = 0;
-    const add = (card, finish, quality) => {
+    const add = (card, finish, quality, edition) => {
       if (!card || card.isPromo || card.rarity?.disenchantValue == null) return;
-      value += estimateDust(card.rarity.disenchantValue, finish, quality);
+      value += estimateDust(card.rarity.disenchantValue, finish, quality, edition);
     };
-    state.ownedMap.forEach((o, id) => (o.copies || []).forEach((c) => add(state.byId.get(id), finishOf(c), qualityOf(c))));
+    state.ownedMap.forEach((o, id) => (o.copies || []).forEach((c) => add(state.byId.get(id), finishOf(c), qualityOf(c), c.edition)));
     state.protectedMap.forEach((copies, id) => copies.forEach((c) => add(state.byId.get(id), finishOf(c), "mint")));
     return value;
   }

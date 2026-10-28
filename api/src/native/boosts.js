@@ -82,6 +82,11 @@ export function afterWorkflow({ store, path, request, response }) {
       { k: face === 4 ? 0.25 : 0, label: '🎲 Dé du jour' },
       { k: lucky, label: luckyLabel }
     ]);
+    // Edition Interdite (2026-10-28) : ForbiddenDecraftMult du total, bonus compris.
+    if (request._forbidden) {
+      const gross = json.dustGained + (json.bonuses || []).reduce((s, b) => s + b.dust, 0);
+      applyDust(store, userId, json, gross, [{ k: setting(store, 'ForbiddenDecraftMult') - 1, label: '⛓️ Carte Interdite' }]);
+    }
     json.dustGained += (json.bonuses || []).reduce((s, b) => s + b.dust, 0);
   } else if (path === 'dig' && body.action === 'dig' && json.dug && json.dustGained > 0) {
     const added = applyDust(store, userId, json, json.dustGained, [

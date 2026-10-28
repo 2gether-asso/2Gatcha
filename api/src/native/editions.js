@@ -114,5 +114,7 @@ export function afterWorkflow({ store, path, request, response }) {
     const map = {};
     store.getAll('Pulls').forEach((p) => { if (p.Edition && refId(p.User) === userId) map[p.id] = p.Edition; });
     json.editionPulls = map;
+    // Valeur de decraft par edition (estimations du site) : seule l'Interdite est reduite.
+    json.editionDecraft = { forbidden: setting(store, 'ForbiddenDecraftMult') };
   }
 }

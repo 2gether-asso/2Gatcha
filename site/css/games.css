@@ -1121,6 +1121,9 @@ html[data-game-mode="chaos"]:not([data-theme]) button:not(.btn-secondary):not(.b
 
 /* Finitions et Qualite (2026-10-18) : filtres par niveau, fusion rapide, nouvelle fenetre de fusion. */
 .fusion-from-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.fusion-all-bar { display: flex; justify-content: flex-end; margin: 10px 0 0; }
+.fusion-all-bar[hidden] { display: none; }
+.fusion-all-bar small { opacity: 0.75; margin-left: 4px; }
 .fusion-from-chips:empty { display: none; }
 .fusion-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-pill); border: 1px solid var(--border-soft); background: var(--bg-panel-2); color: var(--text); cursor: pointer; font-size: 0.82rem; }
 .fusion-chip.active { border-color: var(--accent-2); box-shadow: 0 0 10px -4px var(--accent-2); }

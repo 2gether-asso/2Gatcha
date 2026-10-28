@@ -16,6 +16,9 @@
 //    (Users.ForbiddenFreeSpins), en plus du tour gratuit quotidien.
 //  - Carnet des combinaisons (Users.ForbiddenCombos) : un triple de chacun des
 //    7 symboles de base = cadre « Joueur interdit » (frame-forbidden).
+//  - Jetons 🃏 (2026-10-28, equilibrage) : la paire paie 30 poussieres (indice),
+//    le triple 2 jetons booster ; au plus ForbiddenBoosterDailyCap jetons par
+//    jour (Users.ForbiddenDaily.boosters), le surplus est paye en poussieres.
 //  - Quitte ou double : les jetons du dernier tour remis en jeu
 //    (Users.ForbiddenRisk) ; le tour suivant gagnant les double, sinon perdus.
 //  - Jackpot commun vivant (annonce dans le fil a chaque palier), tableau des
@@ -80,6 +83,8 @@ const CHALLENGES = [
 const BETS = [1, 3, 5];
 const JACKPOT_STEPS = [10000, 25000, 50000, 100000, 250000];
 const MAX_CARDS_PER_PAYOUT = 30;
+const JETON_PAIR_DUST = 30;
+const JETON_TRIPLE_BOOSTERS = 2;
 
 const pick = (list, weightOf) => {
   const total = list.reduce((s, x) => s + Math.max(0, weightOf(x)), 0);
@@ -114,7 +119,7 @@ const symbolsFor = (level) => SYMBOLS.filter((s) => s.level <= level);
 const reelsFor = (level) => (level >= 10 ? 4 : 3);
 function dailyOf(user) {
   const v = parseJson(user.ForbiddenDaily, null);
-  return v && v.day === parisDay(0) ? v : { day: parisDay(0), pairs: 0, triples: 0, spins: 0, claimed: [] };
+  return v && v.day === parisDay(0) ? v : { day: parisDay(0), pairs: 0, triples: 0, spins: 0, boosters: 0, claimed: [] };
 }
 const combosOf = (user) => parseJson(user.ForbiddenCombos, []) || [];
 
@@ -170,7 +175,8 @@ const tierOf = (n) => (n >= 4 ? 'quad' : n === 3 ? 'triple' : n === 2 ? 'pair' :
 
 // Gains d'une ligne. mult : mise x bonus x folie x cascade. Ecrit les cartes
 // et le jackpot ; renvoie les ressources a crediter.
-function payout(store, user, line, batchId, { mult = 1, bet = 1, onlyTriple = false } = {}) {
+// jar : jetons booster encore permis aujourd'hui ({ left }), partage par les lignes d'un appel.
+function payout(store, user, line, batchId, { mult = 1, bet = 1, onlyTriple = false, jar = { left: Infinity } } = {}) {
   const { key, n } = combo(line);
   const tier = tierOf(n);
   const out = { tier, key, cards: [], dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, jackpot: 0, label: '' };
@@ -194,8 +200,15 @@ function payout(store, user, line, batchId, { mult = 1, bet = 1, onlyTriple = fa
     cards((big ? 2 : 1) * k, { finishKey: 'ghost' });
     out.label = `${word} fantôme`;
   } else if (key === 'jeton') {
-    out.boosters = (big ? 5 : 1) * k;
-    out.label = `${word} de jetons`;
+    if (big) {
+      const want = JETON_TRIPLE_BOOSTERS * k;
+      const give = Math.max(0, Math.min(want, jar.left));
+      jar.left -= give;
+      out.boosters = give;
+      // Plafond du jour : chaque jeton en trop vaut une paire de jetons.
+      if (want > give) { out.dust = Math.round(JETON_PAIR_DUST * pm(store) * (want - give)); out.capped = true; }
+    } else out.dust = Math.round(JETON_PAIR_DUST * pm(store) * k);
+    out.label = `${word} de jetons${out.capped ? ' (plafond du jour : en poussières)' : ''}`;
   } else if (key === 'clef') {
     out.keys = (big ? 3 : 1) * k;
     out.coins = big ? k : 0;
@@ -246,6 +259,7 @@ export function machineView(store, user) {
     reels: reelsFor(lv.level),
     bets: BETS,
     spinCost: cost(store, 'ForbiddenSpinCost'), nudgeCost: cost(store, 'ForbiddenNudgeCost'),
+    boosterCap: setting(store, 'ForbiddenBoosterDailyCap'), boostersToday: daily.boosters || 0,
     spinCostChips: Math.ceil(cost(store, 'ForbiddenSpinCost') / chipPrice(store)), chips: Number(user.CasinoChips) || 0,
     freeSpin: user.ForbiddenFreeDay !== parisDay(0),
     freeSpins: Number(user.ForbiddenFreeSpins) || 0,
@@ -313,6 +327,8 @@ export function spin(store, user, body) {
   const stats = statsOf(user);
   const acc = { daily: dailyOf(user), combos: combosOf(user) };
   const notices = [];
+  const jar = { left: Math.max(0, setting(store, 'ForbiddenBoosterDailyCap') - (acc.daily.boosters || 0)) };
+  const jarStart = jar.left;
   let heat = Number(user.ForbiddenHeat) || 0;
   let dust = useChips ? 0 : -total, boosters = 0, keys = 0, coins = 0, skulls = 0, xp = 0;
   let risk = Number(user.ForbiddenRisk) || 0;
@@ -341,14 +357,14 @@ export function spin(store, user, body) {
     const line = window.map((col) => col[1]);
     const mult = bet * (kind === 'bonus' ? 2 : 1) * (fr.active ? 2 : 1);
     const batchId = `forbidden-${user.id}-${Date.now()}-${i}`;
-    const p = payout(store, user, line, batchId, { mult, bet });
+    const p = payout(store, user, line, batchId, { mult, bet, jar });
     track(store, user, acc, p, notices);
     // Cascade : la ligne retombe tant qu'elle gagne (x2, x3, x4).
     const cascades = [];
     if (p.tier === 'triple' || p.tier === 'quad') {
       for (let c = 0; c < 3; c++) {
         const cl = rollWindow(lv.level, reels).map((col) => col[1]);
-        const cp = payout(store, user, cl, `${batchId}-c${c}`, { mult: mult * (c + 2), bet });
+        const cp = payout(store, user, cl, `${batchId}-c${c}`, { mult: mult * (c + 2), bet, jar });
         if (cp.tier === 'none') break;
         track(store, user, acc, cp, notices);
         cascades.push({ line: cl, mult: c + 2, ...cp });
@@ -386,6 +402,7 @@ export function spin(store, user, body) {
     results.push({ window, line, forced, kind, bet, mult, ...p, cascades, bonusAwarded, nudgeable: count === 1 && p.tier === 'pair' && p.key !== 'crane' });
   }
   if (boardChanged) appSet(store, 'ForbiddenWeek', board);
+  acc.daily.boosters = (acc.daily.boosters || 0) + (jarStart - jar.left);
   // Defis du jour : tours gratuits automatiquement mis en reserve.
   for (const c of CHALLENGES) {
     if (!acc.daily.claimed.includes(c.key) && (acc.daily[c.key] || 0) >= c.target) {
@@ -427,8 +444,10 @@ export function nudge(store, user) {
   const { key } = combo(last.line);
   const line = last.line.map((k) => (k === key ? k : pick(syms, (s) => s.weight).key));
   const changed = last.line.map((k, i) => (k !== key ? i : -1)).filter((i) => i >= 0);
-  const p = payout(store, user, line, `forbidden-${user.id}-${Date.now()}-n`, { mult: last.mult || 1, bet: last.bet || 1, onlyTriple: true });
   const acc = { daily: dailyOf(user), combos: combosOf(user) };
+  const jar = { left: Math.max(0, setting(store, 'ForbiddenBoosterDailyCap') - (acc.daily.boosters || 0)) };
+  const p = payout(store, user, line, `forbidden-${user.id}-${Date.now()}-n`, { mult: last.mult || 1, bet: last.bet || 1, onlyTriple: true, jar });
+  acc.daily.boosters = (acc.daily.boosters || 0) + p.boosters;
   const notices = [];
   track(store, user, acc, p, notices);
   const stats = statsOf(user);

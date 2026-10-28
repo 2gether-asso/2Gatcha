@@ -564,7 +564,7 @@
             </details>` : ""}
             <div class="card-modal-actions">
               ${owned && finish === "normal" && !card.isPromo && card.rarity?.key !== "unique" && copies.some((c) => !state.insured.has(c.pullId)) ? `<button type="button" class="btn-ghost" data-modal-act="reroll" title="Payer des poussières pour retenter une finition spéciale sur un de tes exemplaires">&#127922; Relancer la finition</button>` : ""}
-              ${disenchantable ? `<button type="button" class="btn-ghost" data-modal-act="disenchant">&#9851; Décrafter (${card.isSecret ? "+1 booster" : "+" + Coll.estimateDust(card.rarity.disenchantValue, finish, quality)})</button>` : ""}
+              ${disenchantable ? `<button type="button" class="btn-ghost" data-modal-act="disenchant">&#9851; Décrafter (${card.isSecret ? "+1 booster" : "+" + Coll.estimateDust(card.rarity.disenchantValue, finish, quality, copies && copies.length && copies.every((c) => state.editions.get(c.pullId) === "forbidden") ? "forbidden" : "")})</button>` : ""}
               ${owned && !card.isPromo ? `<button type="button" class="btn-secondary" data-modal-act="trade">&#8644; Échanger</button>` : ""}
               ${up.finish ? `<button type="button" class="btn-secondary" data-modal-act="finish">&#10024; Fusionner en ${FINISH_LABELS[up.nextFinish]}</button>` : ""}
               ${up.quality ? `<button type="button" class="btn-secondary" data-modal-act="quality">&#128295; Restaurer en ${QUALITY_LABELS[up.nextQuality]}</button>` : ""}

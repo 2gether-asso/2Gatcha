@@ -325,12 +325,13 @@ async function handleBatch(req, res, url) {
 // --------------------------------------------------------------- batch-write
 // POST /webhook/batch-write { path, calls: [body, ...] } (2026-10-18) :
 // plusieurs ECRITURES du meme type en une seule requete HTTP (recyclage et
-// sacrifice intelligents), au lieu d'un appel par carte espace d'une seconde.
+// sacrifice intelligents, fusions et restaurations rapides en lot), au lieu
+// d'un appel par carte espace d'une seconde.
 // Seulement les chemins de BATCH_WRITE_PATHS ; chaque appel passe les memes
 // controles (identite du joueur, regles natives) et donne la meme reponse
 // qu'en individuel ; le lot compte pour une seule ecriture dans la limite de
 // debit. Un echec n'arrete pas le lot (chaque resultat a son statut).
-const BATCH_WRITE_PATHS = new Set(['disenchant', 'altar-sacrifice', 'craft']);
+const BATCH_WRITE_PATHS = new Set(['disenchant', 'altar-sacrifice', 'craft', 'foil-upgrade', 'card-quality-repair']);
 const BATCH_WRITE_MAX = 50;
 async function handleBatchWrite(req, res, url) {
   const { path: rawPath, calls } = await readBody(req);
