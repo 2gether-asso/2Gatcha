@@ -872,6 +872,9 @@ const API = {
   skyTree(userId, action = "status", key) { return this.post("skyTree", { userId, action, key }); },
   pets(userId, action = "status", pet) { return this.post("pets", { userId, action, pet }); },
   archeo(userId, action = "status", extra = {}) { return this.post("archeo", { userId, action, ...extra }); },
+  // Promenade des compagnons et cuisine du village (2026-10-30).
+  walk(userId, action = "status", extra = {}) { return this.post("walk", { userId, action, ...extra }); },
+  cook(userId, action = "status", extra = {}) { return this.post("cook", { userId, action, ...extra }); },
   chaosVote(userId, action = "status", rule) { return this.post("chaosVote", { userId, action, rule }); },
   dogGift(userId, action = "status") { return this.post("dogGift", { userId, action }); },
   sundayMarket(userId, action = "status", cardId) { return this.post("sundayMarket", { userId, action, cardId }); },
@@ -886,8 +889,8 @@ const API = {
   getAccountPrestige(userId) { return this.get("accountPrestige", { userId }); },
   adminEvents(discordId, action = "list", params = {}) { return this.post("adminEvents", { discordId, action, ...params }); },
   adminCosmetics(discordId, action = "list", params = {}) { return this.post("adminCosmetics", { discordId, action, ...params }); },
-  chests(userId, action, count, tier) {
-    return this.post("chests", { userId, action, ...(count ? { count } : {}), ...(tier ? { tier } : {}) });
+  chests(userId, action, count, tier, all) {
+    return this.post("chests", { userId, action, ...(count ? { count } : {}), ...(tier ? { tier } : {}), ...(all ? { all: true } : {}) });
   },
   pushAction(userId, action, subscription) {
     return this.post("push", { userId, action, subscription });

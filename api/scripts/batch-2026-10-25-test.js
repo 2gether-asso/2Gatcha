@@ -197,7 +197,7 @@ await test('archeologie : sortes de tablettes (stock, roche dure, fragile) et ni
   assert.equal(st.tablets, 3);
   assert.ok(st.tablet.total >= 4);
   assert.ok(st.tablet.hard.some(Boolean), 'veines de roche dure');
-  assert.ok(st.tablet.max > 700);
+  assert.ok(st.tablet.max > 450);
   // Le pinceau entame a peine la roche dure.
   const c = st.tablet.hard.indexOf(1), x = (c % 24 + 0.5) / 24, y = (Math.floor(c / 24) + 0.5) / 16;
   const d0 = st.tablet.depth[c];

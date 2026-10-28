@@ -501,3 +501,11 @@
 .au-when { font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .au-entry details summary { cursor: pointer; font-size: 0.78rem; color: var(--text-dim); }
 .au-changes { margin: 6px 0 0; padding-left: 18px; font-size: 0.78rem; display: grid; gap: 2px; }
+
+/* Admin - Artistes (2026-10-30, js/admin-artists.js) */
+.ac-ext-imgs .aa-av { width: 48px; height: 48px; border-radius: 50%; }
+.ac-visual .aa-banner img, .aa-banner .ac-noimg { width: 260px; height: 130px; }
+.aa-wide { display: grid; gap: 4px; margin: 10px 0; font-size: 0.82rem; color: var(--text-dim); }
+.aa-wide textarea { width: 100%; padding: 8px 10px; font: inherit; color: var(--text); resize: vertical; }
+#aa-edit .ac-form-grid select, #aa-edit .ac-form-grid input:not([type="checkbox"]) { width: 100%; min-width: 0; box-sizing: border-box; }
+#aa-edit input[type="color"] { height: 38px; padding: 2px; }

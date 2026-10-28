@@ -53,6 +53,7 @@ import { catchSpecies, aquariumView } from './aquarium.js';
 import { addFeed } from './feed.js';
 import { settleCat, catView } from './cat.js';
 import { rollScroll } from './forbidden.js';
+import { fishBuff } from './cooking.js';
 
 export const schema = {
   Users: { FishingDay: { type: 'Text' }, FishingCasts: { type: 'Numeric' }, FishingEnergy: { type: 'Numeric' }, FishingEnergyAt: { type: 'Numeric' }, BoneCount: { type: 'Numeric' }, ChestCount: { type: 'Numeric' }, SpareParts: { type: 'Numeric' }, FishingRecords: { type: 'Text' }, Worms: { type: 'Numeric' },
@@ -250,10 +251,12 @@ function statusOf(store, user) {
   const en = fishEnergy(store, user, level);
   const weather = weatherFor(user);
   const ev = eventState(store);
-  const eventRare = ev.active ? ev.fishingRare : 1;
+  // Poisson grille aux herbes (cooking.js) : prises rares en plus.
+  const eventRare = (ev.active ? ev.fishingRare : 1) * fishBuff(store, user);
   const tk = tourneyKey();
   const fullDaily = setting(store, 'FishingFullRewardsPerDay');
   return {
+    cooked: fishBuff(store, user) > 1,
     weather: { key: weather.key, label: weather.label, icon: weather.icon, effect: weather.effect, personal: user.WeatherDay === today },
     event: ev.active && (ev.fishingRare > 1 || ev.wormsMultiplier > 1) ? { label: ev.label, fishingRare: ev.fishingRare, wormsMultiplier: ev.wormsMultiplier } : null,
     goldBait: Number(user.GoldBait) || 0,
@@ -281,7 +284,7 @@ const MAX_CASTS = 50;
 export function catLoot(store, user) {
   const weather = weatherFor(user);
   const ev = eventState(store);
-  return { table: lootTable(store, fishingLevel(store, user).perks, weather, { eventRare: ev.active ? ev.fishingRare : 1 }), field: FIELD, weather };
+  return { table: lootTable(store, fishingLevel(store, user).perks, weather, { eventRare: (ev.active ? ev.fishingRare : 1) * fishBuff(store, user) }), field: FIELD, weather };
 }
 
 function handleFishing({ store, body }) {
@@ -304,7 +307,7 @@ function handleFishing({ store, body }) {
   if (useBait && st.goldBait < count) return fail('not_enough_bait', 400, st);
   const weather = weatherFor(user);
   const ev = eventState(store);
-  const eventRare = ev.active ? ev.fishingRare : 1;
+  const eventRare = (ev.active ? ev.fishingRare : 1) * fishBuff(store, user);
   const table = lootTable(store, st.level.perks, weather, { bait: useBait, eventRare, deep, zone });
   const fullDaily = setting(store, 'FishingFullRewardsPerDay');
   const tk = tourneyKey();

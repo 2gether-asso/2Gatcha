@@ -35,6 +35,10 @@ let ownedCountMap = new Map();
 let extProgressByExt = new Map();
 let catalogCache = [];
 let lastOpenedExtension = null;
+// Plan d'ouverture (2026-10-30, panier « Ouvrir tout ») : l'extension de chaque
+// booster de la prochaine ouverture, pour en ouvrir plusieurs d'un coup.
+// null = tous de l'extension choisie. Remis a zero a chaque fenetre ouverte.
+let openPlan = null;
 // Niveau de maitrise par extension (api/src/native/progression.js).
 let masteryByExt = new Map();
 // Pity par rarete (api/src/native/pity.js) et booster mystere (2026-10-09).
@@ -467,7 +471,7 @@ function onAllRevealed() {
   if (openAnotherBtn && lastOpenMode === "chest") {
     const can = chestAvail() > 0;
     const again = Math.min(chestOpenCount, chestAvail());
-    const left = chestTier ? (tierInfo(chestTier)?.balls || 0) : chestState.chests;
+    const left = chestAll ? chestState.balls || 0 : chestTier ? (tierInfo(chestTier)?.balls || 0) : chestState.chests;
     const label = chestTier ? escHtml(tierInfo(chestTier)?.name || "coffre") : "coffre";
     openAnotherBtn.innerHTML = can ? (again > 1 ? `&#129520; Ouvrir encore ×${again} (${left} restant${left > 1 ? "s" : ""})` : `&#129520; Ouvrir un autre ${label} (${left} restant${left > 1 ? "s" : ""})`) : "";
     openAnotherBtn.style.display = can ? "inline-flex" : "none";
@@ -885,6 +889,7 @@ function openModalFor(extensionId) {
   if (isBusy || usableBoosters() < 1) return;
   const ext = extensionById(extensionId);
   if (!ext) return;
+  openPlan = null;
   lastOpenMode = simMode ? "sim" : "pack";
   renderPackTags([]);
   lastPackTags = [];
@@ -1166,15 +1171,18 @@ async function startOpening(ext) {
     // deja ouvert : ces boosters sont reveles, le reste reste dans la selection.
     const fetched = [];
     let fetchError = null, nextIdx = 0, doneCount = 0;
+    const plan = !sim && openPlan ? openPlan.slice(0, quantity) : null;
+    const extAt = (i) => (plan && extensionById(plan[i])) || ext;
     const fetchOne = async () => {
       while (!fetchError && nextIdx < quantity) {
         const i = nextIdx++;
-        const simExt = ext.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : ext;
+        const pe = extAt(i);
+        const simExt = pe.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : pe;
         try {
           const res = sim
             ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
-            : await API.openPack(Session.userId, ext.id, !!ext.mystery, modeOptions());
-          fetched[i] = { res, simExt };
+            : await API.openPack(Session.userId, pe.id, !!pe.mystery, modeOptions());
+          fetched[i] = { res, simExt, pe };
           if (res && res.error === "no_boosters") fetchError = fetchError || { code: "no_boosters" };
         } catch (err) { fetchError = fetchError || err; }
         doneCount++;
@@ -1186,8 +1194,8 @@ async function startOpening(ext) {
     let opened = 0;
     for (let i = 0; i < quantity; i++) {
       if (!fetched[i]) break;
-      const { res, simExt } = fetched[i];
-      if (ext.mystery) {
+      const { res, simExt, pe } = fetched[i];
+      if (pe.mystery) {
         const real = extensionById(res.mystery ? res.mystery.extensionId : simExt.id);
         if (real) { mysteryNames.push(real.name); backImageId = backImageId || real.cardBackImageId; }
       }
@@ -1349,7 +1357,14 @@ async function startOpening(ext) {
 
     lastRevealedCards = allCards;
     sessionBatchIds = batchIds;
-    if (window.BoosterCart && !sim) BoosterCart.consumed(ext.id, opened);
+    if (window.BoosterCart && !sim) {
+      if (plan) {
+        const used = new Map();
+        for (let i = 0; i < opened; i++) used.set(plan[i], (used.get(plan[i]) || 0) + 1);
+        BoosterCart.consumedMany(used);
+      } else BoosterCart.consumed(ext.id, opened);
+    }
+    openPlan = null;
     if (grid) grid.classList.toggle("big-lot", allCards.length > BIG_LOT);
     stackIndex = 0;
     stackCardEls = allCards.map((card, i) => {
@@ -1394,9 +1409,14 @@ let chestOpenCount = 1;
 const CHEST_MAX_BATCH = 20;
 // Gatchapon (2026-10-18) : palier du coffre en cours d'ouverture (boule du bac).
 let chestTier = null;
+// « Ouvrir tous les coffres » (2026-10-30) : toutes les boules du bac en une
+// seule ouverture (paliers les plus beaux d'abord si les cles manquent).
+let chestAll = false;
+const CHEST_ALL_MAX = 50;
+const chestAllAvail = () => (chestState ? Math.min(chestState.balls || 0, chestState.keys, CHEST_ALL_MAX) : 0);
 const CHEST_ART = (t) => `assets/Coffres/${t === 4 ? "4.png" : t + ".PNG"}`;
 const tierInfo = (t) => (chestState && chestState.tiers ? chestState.tiers.find((x) => x.tier === t) : null);
-const chestAvail = () => (chestState ? Math.min(chestTier ? (tierInfo(chestTier)?.balls || 0) : chestState.chests, chestState.keys, CHEST_MAX_BATCH) : 0);
+const chestAvail = () => (chestAll ? chestAllAvail() : chestState ? Math.min(chestTier ? (tierInfo(chestTier)?.balls || 0) : chestState.chests, chestState.keys, CHEST_MAX_BATCH) : 0);
 const CHEST_ERRORS = { not_enough_dust: "Pas assez de poussières.", no_chest: "Plus de pièce de gatchapon : achètes-en ou gagne des coffres en jouant.", no_ball: "Plus de boule de ce coffre.", no_key: "Il te faut une clé pour ouvrir un coffre." };
 
 function renderChests() {
@@ -1419,7 +1439,7 @@ function renderChests() {
   // Bac : boules gagnees, par palier.
   const owned = tiers.filter((t) => t.balls > 0).sort((a, b) => b.tier - a.tier);
   document.getElementById("gatcha-tray").innerHTML = owned.length
-    ? `<h3>Tes boules <small>${st.balls} coffre${st.balls > 1 ? "s" : ""} à ouvrir</small></h3><div class="gatcha-tray-grid">${owned.map((t) => {
+    ? `<h3>Tes boules <small>${st.balls} coffre${st.balls > 1 ? "s" : ""} à ouvrir</small></h3>${owned.length > 1 && chestAllAvail() > 1 ? `<button type="button" class="btn gatcha-open-all" data-open-all>&#129689; Ouvrir tous les coffres (×${chestAllAvail()}${chestAllAvail() < st.balls ? ` sur ${st.balls}` : ""})</button>` : ""}<div class="gatcha-tray-grid">${owned.map((t) => {
         const n = Math.min(t.balls, st.keys, CHEST_MAX_BATCH);
         return `<div class="gatcha-tier" style="--c:${t.color}">
           <img src="${CHEST_ART(t.tier)}" alt="" />
@@ -1504,8 +1524,9 @@ async function buyChest(btn, n = 1) {
 }
 
 // Meme modale que les boosters, avec un coffre a la place du pack.
-function openChestModal(count = 1, tier = chestTier) {
-  chestTier = tier || null;
+function openChestModal(count = 1, tier = chestTier, all = false) {
+  chestAll = !!all;
+  chestTier = chestAll ? null : tier || null;
   if (isBusy || !chestState || chestAvail() < 1) return;
   chestOpenCount = Math.max(1, Math.min(count, chestAvail()));
   lastOpenMode = "chest";
@@ -1573,7 +1594,7 @@ async function startChestOpening() {
   const hint = document.getElementById("booster-hint");
   pack.classList.add("charging");
   try {
-    const res = await API.chests(Session.userId, "open", chestOpenCount, chestTier);
+    const res = await API.chests(Session.userId, "open", chestOpenCount, chestTier, chestAll);
     chestState = res;
     const cards = chestItemsToCards(res.items || []);
     const realCards = cards.filter((c) => !c.lootType);
@@ -1638,7 +1659,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("chest-buy-btn").addEventListener("click", (e) => buyChest(e.currentTarget));
   document.getElementById("gatcha-spin-btn").addEventListener("click", () => spinGatcha(1));
   document.getElementById("gatcha-spin5-btn").addEventListener("click", () => spinGatcha(5));
-  document.getElementById("gatcha-tray").addEventListener("click", (e) => { const b = e.target.closest("[data-open-tier]"); if (b) openChestModal(Number(b.dataset.n) || 1, Number(b.dataset.openTier)); });
+  document.getElementById("gatcha-tray").addEventListener("click", (e) => { const b = e.target.closest("[data-open-tier]"); if (b) openChestModal(Number(b.dataset.n) || 1, Number(b.dataset.openTier)); else if (e.target.closest("[data-open-all]")) openChestModal(chestAllAvail(), null, true); });
   document.getElementById("chest-buy5-btn").addEventListener("click", (e) => buyChest(e.currentTarget, 5));
 
   const overlay = document.getElementById("pack-modal-overlay");
@@ -1665,7 +1686,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (lastOpenMode === "chest") {
         if (isBusy) return;
         Sfx.click();
-        openChestModal(chestOpenCount);
+        openChestModal(chestAll ? chestAllAvail() : chestOpenCount, chestTier, chestAll);
         startChestOpening();
         return;
       }

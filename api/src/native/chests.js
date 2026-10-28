@@ -14,6 +14,8 @@
 // une clef ; le butin est multiplie par ChestTierMults (divise par la moyenne
 // ponderee : a nombre de coffres egal, l'economie ne change pas), et les
 // raretes de cartes penchent vers le haut sur les gros paliers.
+// action 'open' + all (2026-10-30) : toutes les boules d'un coup (paliers les
+// plus beaux d'abord si les clefs manquent, au plus ALL_MAX), une seule ouverture.
 // action 'open' sans tier : ancienne ouverture directe (garde pour compat).
 
 import { refId, now, ok, fail, userById, levelForXp, firstAttachment } from './common.js';
@@ -30,6 +32,7 @@ export const schema = {
 const chestCost = (store) => indexed(store, setting(store, 'ChestCost'));
 const every = (n, level) => (n > 0 ? Math.floor(level / n) : 0);
 const MAX_BATCH = 20;
+const ALL_MAX = 50; // « Ouvrir tous les coffres » : une ouverture, au plus 50 boules
 const countOf = (body) => Math.min(MAX_BATCH, Math.max(1, Math.floor(Number(body.count) || 1)));
 
 // Coffres / clefs dus pour les niveaux atteints depuis le dernier passage.
@@ -186,41 +189,61 @@ function handleChests({ store, body }) {
     return ok(statusOf(store, user, { ...extra, spun: n, drawn: drawn.map((t) => tierView(store, CHEST_TIERS[t - 1])) }));
   }
 
-  if (body.action === 'open' && body.tier != null) {
-    const tier = Math.floor(Number(body.tier));
+  // Une boule d'un palier (tier), ou toutes les boules d'un coup (all,
+  // 2026-10-30 : « Ouvrir tous les coffres », une seule ouverture, les plus
+  // beaux paliers d'abord si les clefs manquent ; au plus ALL_MAX).
+  if (body.action === 'open' && (body.tier != null || body.all)) {
     const balls = ballsOf(user);
-    const mine = balls.filter((b) => b === tier).length;
-    if (!(tier >= 1 && tier <= 8) || !mine) return fail('no_ball', 400, statusOf(store, user, extra));
-    if ((Number(user.KeyCount) || 0) < 1) return fail('no_key', 400, statusOf(store, user, extra));
-    const n = Math.min(countOf(body), mine, Number(user.KeyCount) || 0);
-    const { k, mult } = tierFactor(store, tier);
+    const keys = Number(user.KeyCount) || 0;
+    const plan = [];
+    if (body.all) {
+      if (!balls.length) return fail('no_ball', 400, statusOf(store, user, extra));
+      if (keys < 1) return fail('no_key', 400, statusOf(store, user, extra));
+      let left = Math.min(keys, ALL_MAX);
+      for (let t = 8; t >= 1 && left > 0; t--) { const n = Math.min(left, balls.filter((b) => b === t).length); if (n) { plan.push([t, n]); left -= n; } }
+    } else {
+      const tier = Math.floor(Number(body.tier));
+      const mine = balls.filter((b) => b === tier).length;
+      if (!(tier >= 1 && tier <= 8) || !mine) return fail('no_ball', 400, statusOf(store, user, extra));
+      if (keys < 1) return fail('no_key', 400, statusOf(store, user, extra));
+      plan.push([tier, Math.min(countOf(body), mine, keys)]);
+    }
     const batchId = `lootchest-${user.id}-${Date.now()}`;
     const dMin = setting(store, 'ChestDustMin'), dMax = Math.max(dMin, setting(store, 'ChestDustMax'));
-    const p = (key) => Math.min(1, setting(store, key) * k);
-    let dust = 0, boosters = 0;
-    const cards = [];
-    for (let i = 0; i < n; i++) {
-      dust += Math.round((dMin + Math.floor(Math.random() * (dMax - dMin + 1))) * k);
-      boosters += Math.random() < Math.min(0.9, p('ChestDoubleBoosterChance')) ? 2 : Math.random() < p('ChestBoosterChance') ? 1 : 0;
-      const opts = { tilt: mult, finishK: Math.max(1, k) };
-      if (Math.random() < p('ChestCardChance')) { const c = drawCard(store, user.id, batchId, opts); if (c) cards.push(c); }
-      if (Math.random() < p('ChestSecondCardChance')) { const c = drawCard(store, user.id, batchId, opts); if (c) cards.push(c); }
+    let dust = 0, boosters = 0, opened = 0;
+    const cards = [], extraLines = [];
+    const rest = [...balls];
+    for (const [tier, n] of plan) {
+      const { k, mult } = tierFactor(store, tier);
+      const p = (key) => Math.min(1, setting(store, key) * k);
+      for (let i = 0; i < n; i++) {
+        dust += Math.round((dMin + Math.floor(Math.random() * (dMax - dMin + 1))) * k);
+        boosters += Math.random() < Math.min(0.9, p('ChestDoubleBoosterChance')) ? 2 : Math.random() < p('ChestBoosterChance') ? 1 : 0;
+        const opts = { tilt: mult, finishK: Math.max(1, k) };
+        if (Math.random() < p('ChestCardChance')) { const c = drawCard(store, user.id, batchId, opts); if (c) cards.push(c); }
+        if (Math.random() < p('ChestSecondCardChance')) { const c = drawCard(store, user.id, batchId, opts); if (c) cards.push(c); }
+        rest.splice(rest.indexOf(tier), 1);
+      }
+      extraLines.push(...rollExtras(store, n, k));
+      opened += n;
     }
-    let left = n;
-    const rest = balls.filter((b) => (b === tier && left > 0 ? (left--, false) : true));
     user = store.update('Users', user.id, {
       ChestBalls: JSON.stringify(rest),
-      KeyCount: (Number(user.KeyCount) || 0) - n,
+      KeyCount: keys - opened,
       StardustCount: (Number(user.StardustCount) || 0) + dust,
       BoosterCount: (Number(user.BoosterCount) || 0) + boosters
     });
-    const bonus = giveExtras(store, user.id, rollExtras(store, n, k), batchId);
+    // Bonus de plusieurs paliers : une ligne par ressource.
+    const merged = new Map();
+    for (const l of extraLines) merged.set(l.key, Math.min(RESOURCES[l.key].max * plan.length, (merged.get(l.key) || 0) + l.n));
+    const bonus = giveExtras(store, user.id, [...merged].map(([key, n]) => ({ type: 'resource', key, n })), batchId);
     user = store.get('Users', user.id);
     const items = [{ type: 'dust', amount: dust }];
     if (boosters) items.push({ type: 'booster', count: boosters });
     items.push(...bonus);
     cards.sort((a, b) => a.rarity.sortOrder - b.rarity.sortOrder).forEach((card) => items.push({ type: 'card', card }));
-    return ok(statusOf(store, user, { ...extra, opened: n, tier: tierView(store, CHEST_TIERS[tier - 1]), batchId, items, dust, boosters, extras: bonus, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
+    const tiers = plan.map(([t, n]) => ({ ...tierView(store, CHEST_TIERS[t - 1]), opened: n }));
+    return ok(statusOf(store, user, { ...extra, opened, tier: body.all ? null : tierView(store, CHEST_TIERS[plan[0][0] - 1]), ...(body.all ? { openedTiers: tiers } : {}), batchId, items, dust, boosters, extras: bonus, cardCount: cards.length, newBoosterCount: user.BoosterCount, newStardust: user.StardustCount }));
   }
 
   if (body.action === 'open') {

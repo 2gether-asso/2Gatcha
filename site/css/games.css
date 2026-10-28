@@ -1041,6 +1041,7 @@ html[data-game-mode="chaos"]:not([data-theme]) button:not(.btn-secondary):not(.b
 .gatcha-tray h3 { margin: 4px 0 8px; font-size: 1rem; }
 .gatcha-tray h3 small { color: var(--text-dim); font-weight: 400; margin-left: 6px; }
 .gatcha-tray-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 10px; }
+.gatcha-open-all { display: flex; width: 100%; justify-content: center; margin: 0 0 10px; }
 .gatcha-tier { display: grid; justify-items: center; gap: 4px; padding: 10px; border-radius: 14px; text-align: center; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 22%, var(--bg-panel-2)), var(--bg-panel-2)); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); }
 .gatcha-tier img { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5)); }
 .gatcha-tier small { color: var(--text-dim); }
@@ -1062,6 +1063,8 @@ html[data-game-mode="chaos"]:not([data-theme]) button:not(.btn-secondary):not(.b
 .vend-cart-qty button { width: 22px; height: 22px; border-radius: 6px; border: 1px solid #fca5a5; background: #3f0a0a; color: #fde68a; cursor: pointer; line-height: 1; }
 .vend-cart-qty b { min-width: 1.4em; text-align: center; color: #fde68a; font-variant-numeric: tabular-nums; }
 .vend-cart-go { width: 100%; }
+.vend-cart-go small { font-weight: 600; opacity: 0.85; }
+.vend-cart-one { width: 100%; margin-top: 6px; }
 .vend-cart-clear { width: 100%; font-size: 0.78rem; }
 .vend-cart-empty { margin: 0; font-size: 0.75rem; color: #fca5a5; text-align: center; }
 .vend-qty { position: absolute; top: 6px; right: 6px; z-index: 2; min-width: 28px; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 800; font-size: 0.8rem; color: #1c0505; background: #fde68a; box-shadow: 0 0 12px -2px #fde68a; text-align: center; }

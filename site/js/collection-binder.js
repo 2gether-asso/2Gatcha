@@ -541,7 +541,7 @@
           </div>
           <div class="card-modal-body">
             <div class="card-modal-name">${escapeHtml(card.name)}${card.isPromo && card.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}</div>
-            <div class="card-modal-artist">${escapeHtml(card.artist || "")}${card.extension ? " &middot; " + escapeHtml(card.extension.name) : ""}</div>
+            <div class="card-modal-artist">${card.artist ? `<a class="artist-link" href="${artistHref(card.artist)}" title="Voir la page de l'artiste">&#127912; ${escapeHtml(card.artist)}</a>` : ""}${card.extension ? " &middot; " + escapeHtml(card.extension.name) : ""}</div>
             <div class="card-modal-badges">
               ${Coll.rarityBadge(card)}
               ${owned && finish !== "normal" ? `<span class="finish-indicator" data-finish="${finish}" style="position:static;">${FINISH_LABELS[finish]}</span>` : ""}

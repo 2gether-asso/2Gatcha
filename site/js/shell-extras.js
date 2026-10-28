@@ -244,16 +244,20 @@ new MutationObserver(() => { if (cdQueued) return; cdQueued = true; requestAnima
 // Compagnon pas encore adopte (StarterLocks.pets, 2026-10-29) : le site n'en
 // dit pas le nom (meme regle que starter.js petMask cote API).
 const PetText = {
-  WORD: { milo: ["Milo", "chien"], moka: ["Moka", "chat"] },
+  // Nom, nom commun, article (2026-10-30 : Noisette et Pistache ; echappements
+  // des expressions corriges, \b et \s etaient perdus dans les gabarits).
+  WORD: { milo: ["Milo", "chien", "le"], moka: ["Moka", "chat", "le"], noisette: ["Noisette", "lapine", "la"], pistache: ["Pistache", "hérisson", "le"] },
   mask(s) {
     if (typeof s !== "string" || !s) return s;
     let out = s;
-    Object.entries(this.WORD).forEach(([key, [n, w]]) => {
+    Object.entries(this.WORD).forEach(([key, [n, w, art]]) => {
       if (StarterLocks.pets[key] !== false) return;
-      out = out.replace(new RegExp(`\s+pour ${n}( le ${w})?\b`, "g"), "")
-        .replace(new RegExp(`\b${n},? le ${w},?`, "g"), n)
-        .replace(new RegExp(`\bde ${n}\b`, "g"), `du ${w}`)
-        .replace(new RegExp(`\b${n}\b`, "g"), (m, at, str) => (!str.slice(0, at).trim() || /[.!?…:;]\s*$/.test(str.slice(0, at)) ? `Le ${w}` : `le ${w}`));
+      const fem = art === "la";
+      out = out.replace(new RegExp(`\\s+pour ${n}( ${art} ${w})?\\b`, "g"), "")
+        .replace(new RegExp(`\\b${n},? ${art} ${w},?`, "g"), n)
+        .replace(new RegExp(`\\bde ${n}\\b`, "g"), fem ? `de la ${w}` : `du ${w}`)
+        .replace(new RegExp(`(^|[\\s(«])à ${n}\\b`, "g"), fem ? `$1à la ${w}` : `$1au ${w}`)
+        .replace(new RegExp(`\\b${n}\\b`, "g"), (m, at, str) => (!str.slice(0, at).trim() || /[.!?…:;]\s*$/.test(str.slice(0, at)) ? `${fem ? "La" : "Le"} ${w}` : `${art} ${w}`));
     });
     return out;
   },

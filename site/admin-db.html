@@ -56,6 +56,7 @@
       <div id="adb-zone" style="display:none;">
         <div class="tabs" role="tablist">
           <button type="button" class="tab" id="adb-tab-content" role="tab" aria-selected="false">&#129513; Extensions &amp; cartes</button>
+          <button type="button" class="tab" id="adb-tab-artists" role="tab" aria-selected="false">&#127912; Artistes</button>
           <button type="button" class="tab active" id="adb-tab-images" role="tab" aria-selected="true">&#128444; Images</button>
           <button type="button" class="tab" id="adb-tab-tables" role="tab" aria-selected="false">&#128202; Tables</button>
           <button type="button" class="tab" id="adb-tab-backups" role="tab" aria-selected="false">&#9729; Sauvegardes</button>
@@ -128,6 +129,35 @@
             <p class="adb-help">Chaque modification est enregistrée dès que tu quittes le champ. Clique sur une image pour la remplacer. <strong>Ordre</strong> : fais glisser une carte (poignée &#10303;) ou utilise les flèches pour la placer où tu veux ; c'est l'ordre et la numérotation (#001, #002…) de l'extension dans la collection des joueurs. Les nouvelles cartes s'ajoutent à la fin.</p>
             <div class="ac-cards" id="ac-cards"></div>
           </section>
+        </section>
+
+        <section id="adb-artists-pane" style="display:none;">
+          <p class="adb-help">Une fiche par artiste pour la page publique <a href="artistes.html" target="_blank" rel="noopener">Les artistes</a> : photo, bannière, présentation, réseaux sociaux. Ses cartes sont rattachées toutes seules par le champ <strong>Artiste</strong> des cartes (même nom que la fiche, ou un de ses « autres noms »). Un nom présent sur des cartes sans fiche a déjà sa page, sans présentation : « Créer la fiche » pour la compléter.</p>
+          <div class="ac-ext-list" id="aa-list"></div>
+          <div class="adb-card" id="aa-edit" hidden>
+            <h2>&#127912; <span id="aa-title"></span> <a class="adb-help" id="aa-view" href="#" target="_blank" rel="noopener">voir la page &#8599;</a></h2>
+            <div class="ac-form-grid">
+              <label>Nom affiché <input type="text" id="aa-name" maxlength="60" required /></label>
+              <label>Autres noms (sur les cartes, séparés par des virgules) <input type="text" id="aa-aliases" maxlength="200" placeholder="ex. Léa M., LeaDraws" /></label>
+              <label>Phrase d'accroche <input type="text" id="aa-tagline" maxlength="120" placeholder="ex. Illustratrice, fan de chats et d'aquarelle" /></label>
+              <label>Adresse de la page (slug) <input type="text" id="aa-slug" maxlength="40" placeholder="auto depuis le nom" /></label>
+              <label>Couleur de sa page <input type="color" id="aa-color" value="#8b5cf6" /></label>
+              <label class="ac-inline ac-inline-tall"><input type="checkbox" id="aa-color-on" /> Utiliser cette couleur</label>
+              <label>Ordre d'affichage <input type="number" id="aa-order" step="1" /></label>
+              <label>Carte phare <select id="aa-featured"></select></label>
+              <label class="ac-inline ac-inline-tall"><input type="checkbox" id="aa-active" /> Visible par les joueurs</label>
+            </div>
+            <label class="aa-wide">Présentation (une ligne vide = nouveau paragraphe)<textarea id="aa-bio" rows="6" maxlength="3000"></textarea></label>
+            <label class="aa-wide">Réseaux sociaux : une adresse par ligne, ou « Libellé | adresse » (Instagram, X, Bluesky, TikTok, YouTube, Twitch, ArtStation, Ko-fi… sont reconnus tout seuls)<textarea id="aa-links" rows="4" maxlength="2000" placeholder="https://instagram.com/pseudo&#10;Mon portfolio | https://exemple.fr"></textarea></label>
+            <div class="ac-visuals">
+              <label class="ac-visual" title="Changer la photo"><span id="aa-avatar-preview"></span><small>Photo / avatar &#128247;</small><input type="file" id="aa-avatar" accept="image/*" hidden /></label>
+              <label class="ac-visual aa-banner" title="Changer la bannière"><span id="aa-banner-preview"></span><small>Bannière (sinon : la carte phare) &#128247;</small><input type="file" id="aa-banner" accept="image/*" hidden /></label>
+            </div>
+            <div class="adb-row adb-row-between">
+              <button type="button" class="btn" id="aa-save">Enregistrer</button>
+              <button type="button" class="btn-ghost" id="aa-delete">Supprimer la fiche</button>
+            </div>
+          </div>
         </section>
 
         <section id="adb-images-pane">
@@ -253,5 +283,6 @@
   <script src="js/shell-extras.js"></script>
   <script src="js/admin-db.js"></script>
   <script src="js/admin-content.js"></script>
+  <script src="js/admin-artists.js"></script>
 </body>
 </html>

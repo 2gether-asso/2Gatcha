@@ -28,7 +28,7 @@ export const schema = {
 };
 
 // Colonnes qu'un objet peut crediter (liste blanche).
-const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges', 'CatFish'];
+const GIVE_FIELDS = ['Worms', 'GoldBait', 'BoneCount', 'ChestCount', 'KeyCount', 'SpareParts', 'LuckCharges', 'CatFish', 'Carrots', 'Grubs'];
 const EFFECTS = ['xpBoost', 'digEnergy', 'fishEnergy', 'gardenRipe', 'expeditionNow', 'umbrella'];
 
 const dust = (u) => Number(u.StardustCount) || 0;
@@ -36,6 +36,8 @@ const dust = (u) => Number(u.StardustCount) || 0;
 // Objets ajoutes par le code, meme si le catalogue a ete personnalise dans l'admin.
 const BUILTIN = (store) => [
   { key: 'sardines', group: 'resources', label: 'Boîte de sardines', icon: '🥫', desc: '3 poissons pour Moka le chat, qui pêche à ta place.', price: 150, weekly: 3, give: { CatFish: 3 } },
+  { key: 'carrots', group: 'resources', label: 'Botte de carottes', icon: '🥕', desc: '3 carottes pour Noisette la lapine, qui récolte et replante le jardin à ta place.', price: 150, weekly: 3, give: { Carrots: 3 } },
+  { key: 'grubs', group: 'resources', label: 'Bocal de vers blancs', icon: '🐛', desc: '3 vers blancs pour Pistache le hérisson, qui gratte tes tablettes à ta place.', price: 150, weekly: 3, give: { Grubs: 3 } },
   { key: 'thermos', group: 'boosts', label: 'Thermos du pêcheur', icon: '🫖', desc: 'Recharge complète de ton énergie de pêche.', price: 200, weekly: 3, effect: 'fishEnergy' },
   { key: 'umbrella', group: 'boosts', icon: '☂️', label: 'Parapluie', desc: `Protège tes cartes de l’usure du mode Hard pendant ${setting(store, 'UmbrellaDays')} jours.`, price: setting(store, 'UmbrellaPrice'), weekly: 1, effect: 'umbrella' }
 ];
@@ -46,7 +48,7 @@ function catalog(store) {
 
 // Pages ou l'objet s'affiche aussi (boutique eclatee, js/shop-strip.js) :
 // colonne « pages » du catalogue, sinon selon l'objet (catalogue deja personnalise).
-const DEFAULT_PAGES = { worms10: ['peche'], bait: ['peche'], thermos: ['peche'], bone: ['fouille'], coffee: ['fouille'], chest: ['ouverture'], key: ['ouverture'], luck5: ['ouverture'], part: ['collection'], fertilizer: ['jardin'], compass: ['expedition'], xp1h: ['fouille', 'peche', 'expedition', 'jardin'] };
+const DEFAULT_PAGES = { worms10: ['peche'], bait: ['peche'], thermos: ['peche'], bone: ['fouille'], coffee: ['fouille'], chest: ['ouverture'], key: ['ouverture'], luck5: ['ouverture'], part: ['collection'], fertilizer: ['jardin'], carrots: ['jardin'], grubs: ['archeo'], compass: ['expedition'], xp1h: ['fouille', 'peche', 'expedition', 'jardin'] };
 const pagesOf = (it) => (Array.isArray(it.pages) ? it.pages : DEFAULT_PAGES[it.key] || []);
 
 // Inflation personnelle du jour (Users.EnergyBuys = { day, counts }) :
@@ -74,7 +76,9 @@ function boughtThisWeek(user) {
 // Compagnon pas encore adopte (nouveaux comptes, starter.js) : objets decrits sans lui.
 const PET_ITEM = {
   BoneCount: { pet: 'milo', label: 'Os', desc: 'Un os bien rongé. Quelqu’un, quelque part, en raffole…' },
-  CatFish: { pet: 'moka', desc: 'Des sardines bien grasses : ça sent le poisson à des kilomètres…' }
+  CatFish: { pet: 'moka', desc: 'Des sardines bien grasses : ça sent le poisson à des kilomètres…' },
+  Carrots: { pet: 'noisette', label: 'Botte de carottes', desc: 'Des carottes croquantes. Un petit museau frémit quelque part dans le potager…' },
+  Grubs: { pet: 'pistache', label: 'Bocal de vers blancs', desc: 'Des vers blancs bien dodus. Un petit nez pointu les renifle déjà…' }
 };
 function petView(store, user, it, mask) {
   const k = Object.keys(it.give || {}).find((f) => PET_ITEM[f] && !petAdopted(store, user, PET_ITEM[f].pet));

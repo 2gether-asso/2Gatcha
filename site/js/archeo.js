@@ -37,11 +37,13 @@
   let st = null, mode = "dig", tool = (() => { try { return localStorage.getItem(TOOL_KEY) || "brush"; } catch (e) { return "brush"; } })(), work = null;
   let TOOLS = { brush: { r: 1.5, dig: 0.3, hard: 0.35, cost: 1 }, scraper: { r: 0.85, dig: 0.7, hard: 1, cost: 1 }, pick: { r: 2.1, dig: 1.25, hard: 2.4, cost: 3 } };
   let BARE = 0.05;
+  // Seuils de casse envoyes par le serveur (st.limits).
+  let LIM = { normal: 1.1, fragile: 0.7 };
 
   // ------------------------------------------------------------------ moteur de grattage
   const eng = { w: 0, h: 0, depth: null, hard: null, fragile: new Set(), fragileAll: false, energy: Infinity, max: 0, peek: new Set(), glints: [], mask: null, art: null, queue: [], timer: null, sending: false, down: false, last: null, hover: null, pressure: 0, raf: 0, send: null, after: null, cv: null, ctx: null, parts: [], lastT: 0, kind: "clay" };
-  // Seuil de casse : 0,8 sur une piece fragile, 1,3 sinon.
-  const limitAt = (c) => (eng.fragileAll || eng.fragile.has(c) ? 0.8 : 1.3);
+  // Seuil de casse : plus bas sur une piece fragile.
+  const limitAt = (c) => (eng.fragileAll || eng.fragile.has(c) ? LIM.fragile : LIM.normal);
   function scrapeLocal(p) {
     const t = TOOLS[p.t];
     const cx = p.x * eng.w, cy = p.y * eng.h, r = t.r;
@@ -372,7 +374,7 @@
     // Curseur : taille de l'outil, couleur de la pression.
     if (eng.hover && TOOLS[tool]) {
       const x = eng.hover.x * W, y = eng.hover.y * H, r = TOOLS[tool].r * cw;
-      const lim = eng.fragileAll ? 0.8 : 1.3;
+      const lim = eng.fragileAll ? LIM.fragile : LIM.normal;
       const c = !eng.down ? "rgba(255,255,255,0.75)" : eng.pressure > lim ? "#ef4444" : eng.pressure > lim * 0.7 ? "#f59e0b" : "#4ade80";
       ctx.save();
       ctx.lineWidth = Math.max(1.5, W / 400);
@@ -426,8 +428,20 @@
       if (!eng.timer) eng.timer = setTimeout(flush, 1500);
       if (eng.queue.length >= 200) flush();
     };
-    canvas.onpointerdown = (e) => { e.preventDefault(); canvas.setPointerCapture(e.pointerId); eng.down = true; eng.last = pos(e); eng.hover = eng.last; emit(eng.last, 0.5); };
+    // Creusage tout seul (corrige le 30/10) : le geste restait "appuye" apres un
+    // clic droit (le menu contextuel avalait le lacher), un lacher hors de la
+    // fenetre, une capture perdue ou une surface remplacee en plein geste.
+    // Seul le bouton principal creuse, et un mouvement sans bouton enfonce
+    // termine le geste.
+    eng.down = false; eng.pressure = 0; eng.pointer = null;
+    canvas.oncontextmenu = (e) => e.preventDefault();
+    canvas.onpointerdown = (e) => {
+      if (e.button !== 0 || (e.pointerType === "mouse" && !(e.buttons & 1))) return;
+      e.preventDefault(); canvas.setPointerCapture(e.pointerId);
+      eng.down = true; eng.pointer = e.pointerId; eng.last = pos(e); eng.hover = eng.last; emit(eng.last, 0.5);
+    };
     canvas.onpointermove = (e) => {
+      if (eng.down && (e.pointerId !== eng.pointer || (e.pointerType === "mouse" && !(e.buttons & 1)))) { up(e); return; }
       const p = pos(e);
       if (e.pointerType === "mouse" || eng.down) eng.hover = p;
       if (!eng.down) { if (reduced()) draw(); return; }
@@ -439,8 +453,9 @@
       for (let i = 1; i <= n; i++) emit({ x: l.x + (p.x - l.x) * (i / n), y: l.y + (p.y - l.y) * (i / n) }, speed);
       eng.last = p;
     };
-    const up = (e) => { if (e && e.pointerType !== "mouse") eng.hover = null; if (!eng.down) return; eng.down = false; eng.pressure = 0; gauges(); flush(); };
-    canvas.onpointerup = up; canvas.onpointercancel = up;
+    function up(e) { if (e && e.pointerType !== "mouse") eng.hover = null; if (!eng.down) return; eng.down = false; eng.pointer = null; eng.pressure = 0; gauges(); flush(); }
+    canvas.onpointerup = up; canvas.onpointercancel = up; canvas.onlostpointercapture = up;
+    if (!eng.blurHooked) { eng.blurHooked = true; window.addEventListener("blur", () => { if (eng.down) { eng.down = false; eng.pointer = null; eng.pressure = 0; gauges(); flush(); } }); }
     canvas.onpointerleave = () => { if (!eng.down) eng.hover = null; };
   }
   let crackAt = 0;
@@ -457,7 +472,7 @@
   }
   function gauges() {
     const g = $("ar-pressure");
-    if (g) { const v = Math.min(2, eng.pressure) / 2; g.querySelector("span").style.width = `${Math.round(v * 100)}%`; const lim = eng.fragileAll ? 0.8 : 1.3; g.classList.toggle("red", eng.pressure > lim); g.classList.toggle("amber", eng.pressure > lim * 0.7 && eng.pressure <= lim); }
+    if (g) { const v = Math.min(2, eng.pressure) / 2; g.querySelector("span").style.width = `${Math.round(v * 100)}%`; const lim = eng.fragileAll ? LIM.fragile : LIM.normal; g.classList.toggle("red", eng.pressure > lim); g.classList.toggle("amber", eng.pressure > lim * 0.7 && eng.pressure <= lim); }
     const e = $("ar-energy");
     if (e && Number.isFinite(eng.energy)) {
       const pct = Math.round((eng.energy / eng.max) * 100);
@@ -482,6 +497,8 @@
   function render() {
     const box = $("archeo-zone");
     if (!box || !st) return;
+    // Pistache le herisson et son rapport (companions.js).
+    if (window.Companions) Companions.archeo(st);
     stop();
     if (!st.enabled) { box.innerHTML = '<p class="empty-state">L\'archéologie est fermée pour le moment.</p>'; return; }
     const nFinds = (st.finds || []).length;
@@ -514,7 +531,7 @@
     const keys = Object.keys(TOOL_UI).filter((k) => TOOLS[k]);
     return `<div class="ar-toolbar">
       <div class="ar-tools-dock" role="radiogroup" aria-label="Outil">${keys.map((k, i) => { const t = TOOL_UI[k]; return `<button type="button" role="radio" class="ar-tool-btn ${tool === k ? "on" : ""}" data-tool="${k}" aria-checked="${tool === k}" title="${t.sub} (touche ${i + 1})"><span class="ar-tool-ico" aria-hidden="true">${t.icon}</span><span class="ar-tool-txt"><b>${t.label}</b><small>${t.sub.split(" · ")[0]}</small></span><kbd>${i + 1}</kbd></button>`; }).join("")}</div>
-      <div class="ar-gauge" title="Pression : dureté de l'outil × vitesse du geste. Dans le rouge sur une trouvaille à nu, elle s'abîme. Le cercle du curseur prend la même couleur."><small>Pression</small><div class="ar-bar ar-pressure" id="ar-pressure"><span></span><i class="ar-mark" style="left:${(fragileAll ? 0.8 : 1.3) / 2 * 100}%"></i></div></div>
+      <div class="ar-gauge" title="Pression : dureté de l'outil × vitesse du geste. Dans le rouge sur une trouvaille à nu, elle s'abîme. Le cercle du curseur prend la même couleur."><small>Pression</small><div class="ar-bar ar-pressure" id="ar-pressure"><span></span><i class="ar-mark" style="left:${(fragileAll ? LIM.fragile : LIM.normal) / 2 * 100}%"></i></div></div>
     </div>`;
   }
   const kindOf = (k) => (st.stock || []).find((x) => x.kind === k);
@@ -655,10 +672,11 @@
   }
 
   async function load() {
-    try { st = await API.archeo(Session.userId); } catch (e) { st = null; $("archeo-zone").innerHTML = `<p class="error-box">${esc(friendlyError(e))}</p>`; return; }
+    try { st = await API.archeo(Session.userId, "status", { takeReport: true }); } catch (e) { st = null; $("archeo-zone").innerHTML = `<p class="error-box">${esc(friendlyError(e))}</p>`; return; }
     if (st.tools) TOOLS = st.tools;
     if (!TOOLS[tool]) tool = "brush";
     if (st.bare != null) BARE = st.bare;
+    if (st.limits) LIM = st.limits;
     if (work && !(st.finds || []).some((f) => f.id === work.id)) work = null;
     render();
   }

@@ -80,7 +80,7 @@ export const REGISTRY = {
       { key: 'gold', label: 'Tablette dorée', icon: '🟨', rarity: 'legendaire', hint: '5 ou 6 trouvailles, reliques fréquentes, pièces fragiles', itemsMin: 5, itemsMax: 6, tierBonus: 2, depthMin: 1.2, depthMax: 2.8, hard: 0.38, fragile: 0.35, relic: 4, energy: 1.5, perfect: 3, xp: 2, weight: 5, weightPerDepth: 1.5 }
     ]
   },
-  ArcheoStrokes: { ...int('Archéologie : endurance du geste par tablette', 700, 'Fouille', 'Grattage libre : chaque point du geste (environ une demi-case de déplacement) coûte 1 au pinceau et au grattoir, 3 à la pioche.', 50, 5000), storage: 'app' },
+  ArcheoStrokes: { ...int('Archéologie : endurance du geste par tablette', 450, 'Fouille', 'Grattage libre : chaque point du geste (environ une demi-case de déplacement) coûte 1 au pinceau et au grattoir, 3 à la pioche.', 50, 5000), storage: 'app' },
   ArcheoTabletChance: { ...pct('Archéologie : chance d’une tablette par grille de fouille terminée', 0.4, 'Fouille', 'Moitié moins par grille terminée par Milo, 8 fois moins par trésor dégagé.'), storage: 'app' },
   ArcheoMaxTablets: { ...int('Archéologie : tablettes en réserve au maximum', 20, 'Fouille', '', 1, 500), storage: 'app' },
   ArcheoRelicChance: { ...pct('Archéologie : chance qu’une trouvaille soit une relique', 0.05, 'Fouille', 'Relique = 1 jeton booster ou 1 clé (poussières si elle est fissurée).'), storage: 'app' },
@@ -101,6 +101,36 @@ export const REGISTRY = {
   PetMaxSpeedPct: { ...int('Tendresse : temps gagné à 100 d’affection (%)', 30, 'Animaux', 'Milo creuse et Moka lance plus souvent : jusqu’à ce pourcentage de temps en moins entre deux actions.', 0, 80), storage: 'app' },
   PetMaxLootPct: { ...int('Tendresse : poussières en plus à 100 d’affection (%)', 40, 'Animaux', 'Sur les poussières rapportées par Milo et Moka.', 0, 300), storage: 'app' },
   PetGiftChance: { ...pct('Tendresse : chance d’un petit cadeau (80 d’affection et plus)', 0.15, 'Animaux', 'Par retour de Milo (rapport du chien) et par passage de Moka : os, vers, clé / poisson, appât doré, pièce détachée.'), storage: 'app' },
+  // --- Noisette (jardin) et Pistache (archeologie), 2026-10-30
+  BunnyMinutesPerCarrot: { ...int('Noisette la lapine : minutes de travail par carotte', 180, 'Animaux', 'Elle récolte les parcelles prêtes du jardin et replante la même graine (payée en poussières).', 10, 1440), storage: 'app' },
+  BunnyMaxMinutes: { ...int('Noisette la lapine : minutes de travail au maximum devant elle', 1440, 'Animaux', '', 30, 4320), storage: 'app' },
+  MoleMinutesPerGrub: { ...int('Pistache le hérisson : minutes de travail par ver blanc', 60, 'Animaux', '', 5, 1440), storage: 'app' },
+  MoleMaxMinutes: { ...int('Pistache le hérisson : minutes de travail au maximum devant lui', 480, 'Animaux', '', 10, 2880), storage: 'app' },
+  MoleJobMinutes: { ...int('Pistache le hérisson : minutes par tâche', 40, 'Animaux', 'Une tâche = nettoyer un bloc brut de l’atelier, sinon gratter une tablette de ta réserve. La tendresse rend les tâches plus courtes.', 5, 600), storage: 'app' },
+  MoleExtractChance: { ...pct('Pistache le hérisson : chance d’extraire chaque trouvaille d’une tablette', 0.6, 'Animaux', 'Ce qu’il rate reste dans la terre (perdu). La tendresse ajoute jusqu’à 25 points.'), storage: 'app' },
+  CarrotDigChance: { ...pct('Carottes sauvages : chance par trésor dégagé à la fouille', 0.06, 'Animaux', 'Une grille terminée en donne une à coup sûr. Aussi en promenade (prairie) et à la boutique.'), storage: 'app' },
+  GrubGardenChance: { ...pct('Vers blancs : chance par parcelle récoltée', 0.25, 'Animaux', 'Doublée avec le terreau à vers. Aussi en promenade (ruines) et à la boutique.'), storage: 'app' },
+  WalkEnabled: { label: 'Promenade des compagnons', type: 'bool', def: true, group: 'Animaux', storage: 'app', help: 'Une balade par jour et par compagnon adopté, dans un lieu au choix : une trouvaille selon le lieu et de l’affection.' },
+  WalkLove: { ...int('Promenade : affection gagnée', 12, 'Animaux', '×1,5 dans son lieu préféré.', 0, 100), storage: 'app' },
+  WalkFavMult: { ...num('Promenade : trouvailles dans le lieu préféré (×)', 2, 'Animaux', '', 1, 5), storage: 'app' },
+  WalkNightStart: { ...int('Promenade : la clairière aux lucioles ouvre à (heure)', 21, 'Animaux', 'Heure de Paris. Elle ne se visite que la nuit.', 0, 23), storage: 'app' },
+  WalkNightEnd: { ...int('Promenade : la clairière aux lucioles ferme à (heure)', 6, 'Animaux', '', 0, 23), storage: 'app' },
+  CookEnabled: { label: 'Cuisine du village', type: 'bool', def: true, group: 'Cuisine', storage: 'app', help: 'Des plats à base d’ingrédients (jardin, promenade, pêche) qui donnent un bonus temporaire.' },
+  CookGardenPct: { ...int('Cuisine : pousse du jardin plus rapide (%)', 25, 'Cuisine', 'Effet « garden ».', 0, 80), storage: 'app' },
+  CookFishPct: { ...int('Cuisine : prises rares de la pêche en plus (%)', 30, 'Cuisine', 'Effet « fish » (Moka compris).', 0, 300), storage: 'app' },
+  CookArcheoPct: { ...int('Cuisine : endurance d’archéologie en plus (%)', 25, 'Cuisine', 'Effet « archeo », sur les tablettes ouvertes pendant le bonus.', 0, 300), storage: 'app' },
+  CookMaxHours: { ...int('Cuisine : heures de bonus au maximum devant soi', 12, 'Cuisine', 'Recuisiner un plat prolonge son bonus, jusqu’à ce plafond.', 1, 72), storage: 'app' },
+  CookRecipes: {
+    label: 'Cuisine : les recettes', type: 'json', group: 'Cuisine', storage: 'app',
+    help: 'Liste : key (unique), label, icon, desc, effect (garden, fish, archeo, pets ou all), hours (durée du bonus), needs { veg, herb, berry, mush, honey, fish, carrot : quantité }, active (false = retirée).',
+    def: [
+      { key: 'soupe', label: 'Soupe du potager', icon: '🍲', desc: 'Une grande marmite qui sent bon le jardin.', effect: 'garden', hours: 4, needs: { veg: 3, herb: 1 } },
+      { key: 'grillade', label: 'Poisson grillé aux herbes', icon: '🐟', desc: 'Grillé au feu de bois, sur le ponton.', effect: 'fish', hours: 3, needs: { fish: 2, herb: 1 } },
+      { key: 'ragout', label: 'Ragoût du fouilleur', icon: '🥘', desc: 'De quoi tenir toute une journée sous la terre.', effect: 'archeo', hours: 4, needs: { veg: 2, mush: 2, carrot: 1 } },
+      { key: 'tarte', label: 'Tarte aux baies', icon: '🥧', desc: 'Tes compagnons en raffolent.', effect: 'pets', hours: 6, needs: { berry: 3, honey: 1 } },
+      { key: 'festin', label: 'Festin du village', icon: '🎉', desc: 'Un peu de tout, pour tout le monde.', effect: 'all', hours: 3, needs: { veg: 2, herb: 1, berry: 2, mush: 1, honey: 1, fish: 1 } }
+    ]
+  },
   CatCastMinutes: { ...int('Moka le chat : minutes entre deux lancers', 10, 'Pêche', 'Table du rivage avec tes bonus, jamais de booster (remplacé par des poussières).', 1, 120), storage: 'app' },
   CatMaxMinutes: { ...int('Moka le chat : minutes de pêche au maximum devant lui', 240, 'Pêche', '', 10, 1440), storage: 'app' },
   CatDailyFish: { ...int('Moka le chat : poissons par jour (plus utilisé)', 8, 'Pêche', 'Ignoré depuis le 26/10/2026 : la fatigue (Animaux) remplace la limite par jour.', 0, 100), storage: 'app' },
@@ -227,7 +257,7 @@ export const REGISTRY = {
   // --- Boutique d'objets (2026-10-07)
   ShopCatalog: {
     label: 'Boutique : objets et bonus', type: 'json', group: 'Boutique', storage: 'app',
-    help: 'Liste d’objets : key (unique), group (resources ou boosts), pages (liste des pages où l’objet s’affiche aussi : fouille, peche, jardin, expedition, ouverture, collection ; vide = seulement la boutique), label, icon, desc, price (poussières), weekly (achats max par semaine, 0 = illimité) et soit give { Worms, GoldBait, BoneCount, ChestCount, KeyCount, SpareParts, LuckCharges, CatFish: quantité }, soit effect (xpBoost avec hours, digEnergy, fishEnergy, gardenRipe, expeditionNow).',
+    help: 'Liste d’objets : key (unique), group (resources ou boosts), pages (liste des pages où l’objet s’affiche aussi : fouille, peche, jardin, archeo, expedition, ouverture, collection ; vide = seulement la boutique), label, icon, desc, price (poussières), weekly (achats max par semaine, 0 = illimité) et soit give { Worms, GoldBait, BoneCount, ChestCount, KeyCount, SpareParts, LuckCharges, CatFish, Carrots, Grubs: quantité }, soit effect (xpBoost avec hours, digEnergy, fishEnergy, gardenRipe, expeditionNow).',
     def: [
       { key: 'worms10', group: 'resources', label: 'Sac de 10 vers', icon: '🪱', desc: 'De quoi lancer ta ligne 10 fois.', price: 60, weekly: 5, give: { Worms: 10 } },
       { key: 'bait', group: 'resources', label: 'Appât doré', icon: '🪝', desc: 'Aucune prise vide et prises rares ×2,5 pour un lancer.', price: 150, weekly: 5, give: { GoldBait: 1 } },

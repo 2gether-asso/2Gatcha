@@ -691,6 +691,8 @@
 .card-modal .card-modal-body { padding: 18px 20px 22px; }
 .card-modal .card-modal-name { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; }
 .card-modal .card-modal-artist { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px; }
+.card-modal .artist-link, .verso-artist .artist-link { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
+.card-modal .artist-link:hover, .verso-artist .artist-link:hover { color: var(--text); text-decoration-style: solid; }
 .card-modal-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .card-modal-stats {
   display: flex;

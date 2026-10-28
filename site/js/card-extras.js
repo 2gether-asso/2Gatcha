@@ -207,7 +207,7 @@ const CardExtras = (function () {
     verso.innerHTML = `<div class="verso-sheet">
       <strong>${esc(o.card.name)}</strong>
       <small>${o.number ? "N° " + esc(String(o.number)) + " · " : ""}${esc(o.card.extension?.name || "")}</small>
-      ${o.card.artist ? `<p class="verso-artist">Illustration : ${esc(o.card.artist)}</p>` : ""}
+      ${o.card.artist ? `<p class="verso-artist">Illustration : <a class="artist-link" href="${artistHref(o.card.artist)}">${esc(o.card.artist)}</a></p>` : ""}
       ${o.card.description ? `<p class="verso-lore">« ${esc(o.card.description)} »</p>` : '<p class="verso-lore muted">Aucun texte d\'ambiance pour cette carte.</p>'}
       ${o.owned ? `<p class="verso-meta">${[FINISH[o.finish], QUALITY[o.quality], o.edition && EDITIONS[o.edition] ? "Édition " + EDITIONS[o.edition].label : ""].filter(Boolean).join(" · ")}${serials.length ? `<br>${serials.slice(0, 8).map(serial).join(", ")}${serials.length > 8 ? "…" : ""}` : ""}</p>` : ""}
     </div>`;

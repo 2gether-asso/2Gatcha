@@ -13,7 +13,7 @@
 // Outils : pinceau (large, doux), grattoir (fin, precis), pioche (gros
 // eclats, coute 3). PRESSION = durete de l'outil x vitesse du geste : au-dela
 // de 1 sur une partie deja a nu d'une trouvaille, elle s'abime (rayee, puis
-// fissuree a 6, cassee a 12 ; seuil de pression 1,3). La pioche sert a degrossir.
+// fissuree a 4, cassee a 8 ; seuil de pression 1,1, 0,7 si fragile). La pioche sert a degrossir.
 // Trouvailles : mineraux de la fouille (Users.Minerals), tessons
 // (poussieres), crane de dino, relique (jeton booster ou cle).
 // 2026-10-27 : TROIS SORTES DE TABLETTES (Users.TabletStock, Users.Tablets =
@@ -24,15 +24,25 @@
 // frequentes. NIVEAU D'ARCHEOLOGUE (Users.ArcheoXP, 10 niveaux) : endurance,
 // loupe, pinceau fin, oeil exerce (pieces fragiles reperees), burin doux,
 // moins de casse, soufflet, bonus de maitre ; voir ARCH_PERKS.
-//   POST /webhook/archeo { userId, action: 'status' | 'start' | 'scrape' | 'finish' | 'clean' | 'cleanStatus', pts?: [{ x, y, t, s }], findId? }
+// 2026-10-30 : PISTACHE LE HERISSON travaille a ta place contre des vers
+// blancs (Users.Grubs, MoleMinutesPerGrub minutes chacun) : une tache toutes
+// les MoleJobMinutes (plus courtes avec la tendresse). Il nettoie d'abord un
+// bloc brut de l'atelier (jamais celui que tu as commence), sinon gratte une
+// tablette de ta reserve (chaque trouvaille extraite avec MoleExtractChance).
+// Etat d'un bloc qu'il libere : tire au sort, meilleur avec la tendresse.
+// Rapport cumule (Users.MoleReport) remis a la visite (takeReport).
+// Ragout du fouilleur (cooking.js) : endurance en plus sur les tablettes ouvertes.
+//   POST /webhook/archeo { userId, action: 'status' | 'start' | 'scrape' | 'finish' | 'clean' | 'cleanStatus' | 'moleFeed', pts?: [{ x, y, t, s }], findId?, count?, takeReport? }
 // Users.ArcheoState = { v: 3, w, h, depth[], items[{ kind, key?, tier?, cells[], damage }], energy, max, at }
 // Users.ArcheoFinds = [{ id, kind, key?, tier?, size, damage, g, depth[], mask[] }]
 
 import { ok, fail, userById, now, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { MINERALS, mineralsOf, currentDepth } from './digdepth.js';
+import { petBoost, petGift } from './pets.js';
+import { archeoBuff } from './cooking.js';
 
-export const schema = { Users: { Tablets: { type: 'Numeric' }, TabletStock: { type: 'Text' }, ArcheoXP: { type: 'Numeric' }, ArcheoState: { type: 'Text' }, ArcheoDone: { type: 'Numeric' }, ArcheoStarter: { type: 'Bool' }, ArcheoFinds: { type: 'Text' }, ArcheoFreed: { type: 'Numeric' } } };
+export const schema = { Users: { Tablets: { type: 'Numeric' }, TabletStock: { type: 'Text' }, ArcheoXP: { type: 'Numeric' }, ArcheoState: { type: 'Text' }, ArcheoDone: { type: 'Numeric' }, ArcheoStarter: { type: 'Bool' }, ArcheoFinds: { type: 'Text' }, ArcheoFreed: { type: 'Numeric' }, Grubs: { type: 'Numeric' }, MoleState: { type: 'Text' }, MoleReport: { type: 'Text' } } };
 
 const W = 24, H = 16; // carte de la tablette
 const G = 16; // carte de la gangue d'un bloc
@@ -143,8 +153,13 @@ const RELICS = [
   { key: 'key', label: 'Relique : clé de bronze', icon: '🗝️', field: 'KeyCount', n: 1, reward: '1 clé' }
 ];
 // 2026-10-26 (2) : seuils doubles, extraction a 75 %, nettoyage a 80 % du coeur.
-const CRACKED = 6, BROKEN = 12;
-const EXTRACT_SHARE = 0.75, FREE_SHARE = 0.8;
+// 2026-10-30 (reequilibrage, jeu juge trop facile) : extraction a 90 %,
+// nettoyage a 90 % du coeur, trouvailles plus enfouies (1,6 a 2,2), casse des
+// 1,1 de pression (0,7 fragile), fissure a 4, casse a 8. Simulation d'un
+// joueur efficace sur argile : ~180 -> ~285 d'endurance (ArcheoStrokes 450).
+const CRACKED = 4, BROKEN = 8;
+const EXTRACT_SHARE = 0.9, FREE_SHARE = 0.9;
+export const BREAK_LIMIT = 1.1, FRAGILE_LIMIT = 0.7;
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -207,10 +222,10 @@ function generate(store, user, kind = 'clay') {
       item = { kind: 'mineral', key: pick(MINERALS.filter((m) => m.tier === tier)).key, tier };
     }
     // Plus enfouie au milieu : la trouvaille ne sort pas d'un seul coup de pinceau.
-    cells.forEach((c) => { depth[c] = r2(Math.max(depth[c], 1.2 + Math.random() * 0.6)); });
+    cells.forEach((c) => { depth[c] = r2(Math.max(depth[c], 1.6 + Math.random() * 0.6)); });
     items.push({ ...item, cells, damage: 0, ...(Math.random() < T.fragile ? { fragile: true } : {}) });
   }
-  const max = Math.round(setting(store, 'ArcheoStrokes') * T.energy * perksOf(user).energy);
+  const max = Math.round(setting(store, 'ArcheoStrokes') * T.energy * perksOf(user).energy * archeoBuff(store, user));
   return { v: 3, kind, w: W, h: H, depth, hard, items, energy: max, max, at: now() };
 }
 
@@ -235,10 +250,10 @@ export function scrapeGrid(depth, w, h, pts, itemAt, budget = Infinity, { tools 
         const k = hard && hard[c] ? tool.rock : 1;
         depth[c] = r2(Math.max(0, before - tool.dig * f * k));
         // Trop brusque sur une partie deja a nu : la trouvaille s'abime.
-        // Seuil 1,3 (0,8 pour une piece fragile) : le pinceau ne casse jamais.
+        // Seuil 1,1 (0,7 pour une piece fragile) : le pinceau (1,05 au plus) ne casse jamais.
         if (before <= BARE) {
           const it = itemAt(c);
-          const limit = it && it.fragile ? 0.8 : 1.3;
+          const limit = it && it.fragile ? FRAGILE_LIMIT : BREAK_LIMIT;
           if (it && pressure > limit) { const dmg = (pressure - limit) * f * 0.4 * (it.fragile ? 1.5 : 1) * damageMult; it.damage = r2((it.damage || 0) + dmg); hurt += dmg; }
         }
       }
@@ -288,7 +303,8 @@ function view(store, user) {
     stock: TABLET_KEYS.map((k) => { const t = tabletsCfg(store)[k]; return { kind: k, ...t, count: stock[k], maxTier: Math.min(5, maxTier(store, user) + t.tierBonus) }; }),
     level: { ...lv, perks: ARCH_PERKS, max: ARCH_LEVELS.length, nextPerk: ARCH_PERKS[lv.level + 1] || null },
     finds: findsOf(user).map(upgradeFind).map(findTeaser),
-    tools: toolsFor(user), bare: BARE, damageMult: perks.damage,
+    tools: toolsFor(user), bare: BARE, limits: { normal: BREAK_LIMIT, fragile: FRAGILE_LIMIT }, damageMult: perks.damage,
+    mole: moleView(store, user), boosted: archeoBuff(store, user) > 1,
     tablet: s ? {
       kind: s.kind || 'clay', label: (tabletsCfg(store)[s.kind] || tabletsCfg(store).clay).label,
       w: s.w, h: s.h, depth: s.depth, hard: s.hard || null, energy: s.energy, max: s.max, total: s.items.length,
@@ -355,6 +371,82 @@ function liberate(store, user, f) {
   return { fields: g.fields, result: { ...out, xp: g.fields.ArcheoXP - (Number(user.ArcheoXP) || 0), levelUp: g.levelUp } };
 }
 
+// ------------------------------------------------------------- Pistache
+const moleStateOf = (user) => { const s = parseJson(user && user.MoleState, null); return s && s.start && s.until ? s : null; };
+const moleJobSeconds = (store, user) => Math.max(60, Math.round(setting(store, 'MoleJobMinutes') * 60 * (1 - petBoost(store, user, 'pistache').speed)));
+function moleView(store, user) {
+  const s = moleStateOf(user);
+  const t = now();
+  return { grubs: Number(user.Grubs) || 0, secondsLeft: s ? Math.max(0, s.until - t) : 0, minutesPerGrub: setting(store, 'MoleMinutesPerGrub'), maxMinutes: setting(store, 'MoleMaxMinutes'), jobMinutes: Math.round(moleJobSeconds(store, user) / 60), pending: !!parseJson(user.MoleReport, null) };
+}
+// Etat d'un bloc libere par Pistache : chocs equivalents.
+const MOLE_DAMAGE = { intact: 0, scratched: 2, cracked: 5, broken: 9 };
+// Taches de Pistache depuis le dernier passage : champs a ecrire (ou null).
+export function settleMole(store, user) {
+  const s = moleStateOf(user);
+  if (!s) return null;
+  const t = now();
+  const love = petBoost(store, user, 'pistache');
+  const jobSec = moleJobSeconds(store, user);
+  const total = Math.floor((Math.min(t, s.until) - s.start) / jobSec);
+  const n = Math.max(0, total - (Number(s.done) || 0));
+  const finished = t >= s.until;
+  if (!n) return finished ? { MoleState: '' } : null;
+  const u = { ...user };
+  const fields = {};
+  const set = (f) => { Object.assign(fields, f); Object.assign(u, f); };
+  let finds = findsOf(u).map(upgradeFind);
+  const stock = stockOf(u);
+  const cfg = tabletsCfg(store);
+  const k = love.love / 100;
+  const freed = [], dug = [];
+  let idle = 0;
+  for (let i = 0; i < n; i++) {
+    // Un bloc brut pas encore commence : il le nettoie.
+    const fi = finds.findIndex((f) => exposedShare(f.depth, f.mask) === 0 && (Number(f.openAt) || 0) < t - 1800);
+    if (fi >= 0) {
+      const f = finds[fi];
+      const r = Math.random(), pI = 0.35 + 0.25 * k, pS = 0.35, pC = 0.2 - 0.12 * k;
+      const st = r < pI ? 'intact' : r < pI + pS ? 'scratched' : r < pI + pS + pC ? 'cracked' : 'broken';
+      const lib = liberate(store, u, { ...f, damage: Math.max(Number(f.damage) || 0, MOLE_DAMAGE[st]) });
+      finds.splice(fi, 1);
+      set({ ...lib.fields, ArcheoFinds: JSON.stringify(finds) });
+      const x = lib.result;
+      freed.push({ name: x.name, icon: x.icon || null, img: x.img || null, state: x.state, amount: x.amount || 0, dust: x.dust || 0 });
+      continue;
+    }
+    // Sinon une tablette de la reserve (les plus communes d'abord).
+    const kind = TABLET_KEYS.find((x) => stock[x] > 0);
+    if (kind) {
+      stock[kind]--;
+      const g = generate(store, u, kind);
+      const chance = Math.min(0.95, setting(store, 'MoleExtractChance') + 0.25 * k);
+      const got = g.items.filter(() => Math.random() < chance).map((it) => newFind({ ...it, damage: 0, from: kind }));
+      finds = [...finds, ...got].slice(-MAX_FINDS);
+      dug.push({ kind, label: cfg[kind].label, icon: cfg[kind].icon, found: got.length, total: g.items.length });
+      set(gainXp(u, got.length * 2 * cfg[kind].xp, { ...stockFields(stock), ArcheoFinds: JSON.stringify(finds), ArcheoDone: (Number(u.ArcheoDone) || 0) + 1 }).fields);
+      continue;
+    }
+    idle++;
+  }
+  set({ MoleState: finished ? '' : JSON.stringify({ ...s, done: total }) });
+  const gift = freed.length || dug.length ? petGift(store, u, 'pistache') : null;
+  if (gift) set(gift.fields);
+  const prev = parseJson(user.MoleReport, null) || {};
+  fields.MoleReport = JSON.stringify({
+    jobs: (prev.jobs || 0) + n, idle: (prev.idle || 0) + idle, done: finished,
+    freed: [...(prev.freed || []), ...freed].slice(-40), dug: [...(prev.dug || []), ...dug].slice(-20),
+    ...(gift ? { loveGift: gift.gift } : prev.loveGift ? { loveGift: prev.loveGift } : {})
+  });
+  return fields;
+}
+function takeMoleReport(store, user, take) {
+  const rep = parseJson(user.MoleReport, null);
+  if (!take || !rep) return {};
+  store.update('Users', user.id, { MoleReport: '' });
+  return { moleReport: rep };
+}
+
 function handle({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
@@ -363,16 +455,34 @@ function handle({ store, body }) {
   // Tablette ouverte avec l'ancienne version (cases) : rendue.
   const old = parseJson(user.ArcheoState, null);
   if (old && old.v !== 3) user = store.update('Users', user.id, { ArcheoState: '', ...addTabletsFields(user, 'clay', 1) });
+  // Pistache : ses taches depuis le dernier passage.
+  const worked = settleMole(store, user);
+  if (worked) user = store.update('Users', user.id, worked);
+  const report = takeMoleReport(store, user, body.takeReport === true || body.takeReport === 'true');
+  if (report.moleReport) user = store.get('Users', user.id);
   const action = body.action || 'status';
-  if (action === 'status') return ok(view(store, user));
+  if (action === 'status') return ok({ ...view(store, user), ...report });
   if (!setting(store, 'ArcheoEnabled')) return fail('archeo_closed');
+
+  if (action === 'moleFeed') {
+    const count = Math.max(1, Math.floor(Number(body.count) || 1));
+    const v = moleView(store, user);
+    if (v.grubs < count) return fail('no_grub', 400, { mole: v });
+    const t = now();
+    const s = moleStateOf(user);
+    const until = (s && s.until > t ? s.until : t) + count * v.minutesPerGrub * 60;
+    if (until - t > v.maxMinutes * 60) return fail('mole_max_time', 400, { mole: v });
+    user = store.update('Users', user.id, { Grubs: v.grubs - count, MoleState: JSON.stringify(s && s.until > t ? { ...s, until } : { start: t, until, done: 0 }) });
+    return ok({ ...view(store, user), fed: count, ...report });
+  }
 
   // ---------------------------------------------------------- nettoyage
   if (action === 'clean' || action === 'cleanStatus') {
     const finds = findsOf(user).map(upgradeFind);
     const f = finds.find((x) => x.id === String(body.findId || ''));
     if (!f) return fail('no_find', 404, view(store, user));
-    if (action === 'cleanStatus') { user = store.update('Users', user.id, { ArcheoFinds: JSON.stringify(finds) }); return ok({ ...view(store, user), work: findWork(f) }); }
+    // Bloc ouvert a l'atelier : Pistache n'y touche pas pendant 30 min.
+    if (action === 'cleanStatus') { f.openAt = now(); user = store.update('Users', user.id, { ArcheoFinds: JSON.stringify(finds) }); return ok({ ...view(store, user), work: findWork(f) }); }
     const tools = toolsFor(user);
     const pts = cleanPts(body.pts, tools);
     if (!pts.length) return fail('no_points');
@@ -449,6 +559,18 @@ export function afterWorkflow({ store, path, request, response }) {
   const cfgK = tabletsCfg(store);
   json.tabletKinds = kinds.map((k) => ({ kind: k, label: cfgK[k].label, icon: cfgK[k].icon, rarity: cfgK[k].rarity }));
   if (json.dogReport && dogBoards && !json.boardCleared) json.dogReport.tablets = n;
+}
+
+// Reequilibrage 2026-10-30 (migration unique) : une endurance personnalisee
+// au-dessus de 450 y est ramenee ; l'ancienne valeur reste dans AppSettings.
+const MIGRATION = 'balance-archeo-2026-10-30';
+export function init({ store }) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === MIGRATION)) return;
+  const row = store.getAll('AppSettings').find((r) => r.Key === 'setting:ArcheoStrokes');
+  let from = null;
+  try { from = row ? JSON.parse(row.Value) : null; } catch (e) { from = null; }
+  if (row && typeof from === 'number' && from > 450) store.update('AppSettings', row.id, { Value: JSON.stringify(450) });
+  store.create('AppSettings', { Key: MIGRATION, Value: JSON.stringify({ at: now(), ArcheoStrokes: from }) });
 }
 
 export const routes = { 'POST archeo': handle };

@@ -8,6 +8,23 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-30', title: 'Balades, cuisine et nouveaux compagnons', items: [
+    'Deux nouveaux compagnons à adopter : Noisette la lapine récolte et replante ton jardin contre des carottes, Pistache le hérisson gratte tes tablettes et nettoie tes blocs contre des vers blancs',
+    'Nouvel onglet Promenade : chaque jour, emmène chacun de tes compagnons en balade dans la forêt, au bord du lac, dans la prairie ou dans les ruines… et la nuit, dans la clairière aux lucioles',
+    'Nouvel onglet Cuisine : légumes, herbes, baies, champignons, miel et poissons se cuisinent en plats qui boostent ton jardin, ta pêche, ton archéologie ou tes compagnons',
+    'Nouvelle graine Potager au jardin, des carottes sauvages en fouillant et des vers blancs à la récolte',
+    'La carte du monde vit au rythme de ta journée : aube, plein jour, crépuscule et nuit étoilée, avec les fenêtres et les réverbères qui s’allument le soir',
+    'Carte plus lisible : chaque lieu est un repère posé au-dessus de son bâtiment, et les boutons ne cachent plus aucun lieu'
+  ] },
+  { date: '2026-10-30', title: 'Les artistes à l’honneur', items: [
+    'Nouvelle page « Les artistes » (menu Collection) : chaque artiste de l’asso a sa page, avec sa présentation, ses réseaux sociaux à suivre et toutes ses cartes du jeu',
+    'Sur la page d’un artiste, retrouve les cartes que tu as déjà et celles qui te manquent, et ouvre chaque illustration en grand',
+    'Dans la fenêtre d’une carte, le nom de l’artiste mène maintenant à sa page',
+    'Archéologie plus exigeante : les blocs doivent être dégagés presque entièrement, les trouvailles sont plus enfouies, l’endurance est plus courte et les gestes brusques abîment plus vite',
+    'Corrigé : en archéologie, le grattage continuait parfois tout seul sans cliquer',
+    'Nouveau bouton « Ouvrir tous les coffres » : toutes tes boules du gatchapon en une seule ouverture, les plus beaux coffres d’abord s’il te manque des clés',
+    'Boosters de plusieurs extensions : choisis « Tout ouvrir d’un coup » pour tout révéler en une fois, ou « Une extension à la fois » comme avant'
+  ] },
   { date: '2026-10-29', title: 'Un monde, deux régions', items: [
     'Une seule carte du monde pour tout le jeu : la nature et ses jeux (avec les ruines de l’archéologie), puis le village et la communauté. Elle s’affiche aussi en haut de la page Communauté',
     'Menus rangés : chaque page n’apparaît plus qu’à un seul endroit ; ta progression, tes statistiques et tes cosmétiques sont dans ton menu de joueur',

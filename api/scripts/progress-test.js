@@ -534,7 +534,7 @@ await test('jardin etendu : graines, parcelle achetee, recolte selon la graine',
   store.update('Users', 1, { GardenPlots: '[]', GardenExtraPlots: 0, StardustCount: 5000, Worms: 0 });
   let st = call('POST', 'garden', { body: { userId: 1, action: 'status' } }).json;
   assert.equal(st.plots.length, 4);
-  assert.equal(st.seeds.length, 7); // 3 graines de plus le 26 octobre (herbe a chat, arbre a os, champignon)
+  assert.equal(st.seeds.length, 8); // 3 graines de plus le 26 octobre (herbe a chat, arbre a os, champignon), le potager le 30
   st = call('POST', 'garden', { body: { userId: 1, action: 'buyPlot' } }).json;
   assert.equal(st.plots.length, 5);
   assert.equal(user(1).StardustCount, 5000 - 400);

@@ -1,0 +1,75 @@
+/* Carte du monde (js/jeux-summary.js) : panorama 1900 x 360 (nature puis
+   village), un repere par lieu pose au-dessus de son batiment, et le cycle
+   jour / nuit (2026-10-30). Charge sur jeux.html et communaute.html. */
+
+.wm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
+.wm-jumps { display: flex; gap: 6px; }
+.wm-bar .btn-ghost { padding: 5px 12px; font-size: 0.78rem; }
+.wm-bar-end { display: flex; gap: 6px; margin-left: auto; }
+.wm-clock { font-size: 0.78rem; font-weight: 700; color: var(--text-dim, #a1a1aa); }
+
+.wm-map {
+  --wm-s1: #38bdf8; --wm-s2: #bae6fd; --wm-stars: 0; --wm-clouds: 0.9; --wm-shade: 0; --wm-lights: 0;
+  position: relative; height: clamp(240px, 26vw, 330px); border-radius: var(--radius-lg, 18px);
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; scroll-behavior: smooth;
+  border: 1px solid var(--border-soft); background: #0b1230;
+}
+.wm-map[data-phase="dawn"] { --wm-s1: #f472b6; --wm-s2: #fed7aa; --wm-stars: 0.25; --wm-clouds: 0.7; --wm-shade: 0.14; --wm-lights: 0.35; }
+.wm-map[data-phase="dusk"] { --wm-s1: #4c1d95; --wm-s2: #fb923c; --wm-stars: 0.45; --wm-clouds: 0.45; --wm-shade: 0.3; --wm-lights: 0.8; }
+.wm-map[data-phase="night"] { --wm-s1: #0f0c2e; --wm-s2: #3b2f7a; --wm-stars: 0.9; --wm-clouds: 0; --wm-shade: 0.5; --wm-lights: 1; }
+.wm-world { position: relative; width: calc(clamp(240px, 26vw, 330px) * 1900 / 360); height: 100%; }
+.wm-on-town { margin-bottom: 14px; }
+.wm-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wm-stars { opacity: var(--wm-stars); transition: opacity 1s ease; }
+.wm-clouds { opacity: var(--wm-clouds); }
+.wm-cloud { animation: wmCloud 70s linear infinite alternate; }
+.wm-cloud.c2 { animation-duration: 90s; animation-delay: -30s; }
+.wm-cloud.c3 { animation-duration: 80s; animation-delay: -50s; }
+.wm-shade { opacity: var(--wm-shade); mix-blend-mode: multiply; pointer-events: none; }
+.wm-lights { opacity: var(--wm-lights); mix-blend-mode: screen; }
+.wm-flies { display: none; }
+.wm-map[data-phase="night"] .wm-flies { display: inline; }
+.wm-fly { animation: wmFly 3.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.wm-smoke { animation: wmSmoke 6s ease-in-out infinite; }
+@keyframes wmCloud { from { transform: translateX(-40px); } to { transform: translateX(60px); } }
+@keyframes wmFly { 0%, 100% { transform: translate(0, 0); opacity: 0.25; } 50% { transform: translate(6px, -8px); opacity: 1; } }
+@keyframes wmSmoke { 0%, 100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(-4px); opacity: 0.3; } }
+
+/* Repere : pastille ronde (icone) et etiquette, pointe vers le batiment. */
+.wm-pin {
+  position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, calc(-100% - 6px));
+  display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px;
+  font: inherit; color: #fff; text-align: left; background: rgba(10, 12, 30, 0.78); border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(4px); box-shadow: 0 8px 16px -8px rgba(0, 0, 0, 0.85); cursor: pointer; z-index: 1;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+a.wm-pin { text-decoration: none; }
+.wm-tail { position: absolute; left: 50%; bottom: -7px; width: 10px; height: 10px; transform: translateX(-50%) rotate(45deg); background: inherit; pointer-events: none; border-right: 1px solid rgba(255, 255, 255, 0.22); border-bottom: 1px solid rgba(255, 255, 255, 0.22); }
+.wm-pin[hidden] { display: none; }
+.wm-pin.wm-town { background: rgba(48, 24, 10, 0.8); }
+.wm-pin.wm-night { background: rgba(30, 27, 75, 0.85); border-color: #c4b5fd88; box-shadow: 0 0 18px -4px #bef26488; }
+/* Survol : seulement la bordure, le repere ne bouge pas (malgre les effets de survol generiques des boutons). */
+.wm-map .wm-pin:hover, .wm-map .wm-pin:focus-visible, .wm-map .wm-pin:active { transform: translate(-50%, calc(-100% - 6px)); filter: none; border-color: var(--accent-2); z-index: 3; }
+.wm-pin.active { background: color-mix(in srgb, var(--accent) 75%, rgba(10, 12, 30, 0.85)); border-color: #fff; z-index: 2; }
+.wm-pin.hot::after { content: ""; position: absolute; inset: -4px; border-radius: 999px; border: 2px solid var(--success); animation: wmPulse 1.8s ease-out infinite; pointer-events: none; }
+.wm-ico { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 1.05rem; line-height: 1; background: rgba(255, 255, 255, 0.12); flex: none; }
+.wm-txt { display: grid; line-height: 1.15; }
+.wm-name { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.01em; white-space: nowrap; }
+.wm-status { font-size: 0.64rem; font-weight: 600; color: #cbd5e1; white-space: nowrap; }
+.wm-status:empty { display: none; }
+.wm-pin.hot .wm-status { color: #86efac; }
+@keyframes wmPulse { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .wm-pin.hot::after, .wm-cloud, .wm-fly, .wm-smoke { animation: none; } }
+
+/* Mobile : icone + etat, le nom passe en infobulle (aria-label). */
+@media (max-width: 640px) {
+  .wm-map { height: 250px; scrollbar-width: none; }
+  .wm-map::-webkit-scrollbar { display: none; }
+  .wm-world { width: calc(250px * 1900 / 360); }
+  .wm-pin { padding: 2px; gap: 4px; }
+  .wm-pin:has(.wm-status:not(:empty)) { padding-right: 8px; }
+  .wm-ico { width: 28px; height: 28px; font-size: 0.95rem; }
+  .wm-name { display: none; }
+  .wm-status { font-size: 0.6rem; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+  .wm-clock { order: 3; width: 100%; }
+}

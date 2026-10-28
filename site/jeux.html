@@ -30,6 +30,8 @@
   <link rel="stylesheet" href="css/games.css" />
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
+  <link rel="stylesheet" href="css/worldmap.css" />
+  <link rel="stylesheet" href="css/companions.css" />
 </head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -48,6 +50,8 @@
         <button type="button" class="tab" id="tab-expedition-btn" role="tab" aria-selected="false">&#129517; Expédition</button>
         <button type="button" class="tab" id="tab-fish-btn" role="tab" aria-selected="false">&#127907; Pêche</button>
         <button type="button" class="tab" id="tab-garden-btn" role="tab" aria-selected="false">&#127793; Jardin</button>
+        <button type="button" class="tab" id="tab-walk-btn" role="tab" aria-selected="false">&#128062; Promenade</button>
+        <button type="button" class="tab" id="tab-cook-btn" role="tab" aria-selected="false">&#127858; Cuisine</button>
         <button type="button" class="tab" id="tab-dino-btn" role="tab" aria-selected="false" style="display:none;">&#129430; Dinos</button>
         <button type="button" class="tab" id="tab-bingo-btn" role="tab" aria-selected="false">&#127922; Bingo</button>
         <button type="button" class="tab" id="tab-vault-btn" role="tab" aria-selected="false" style="display:none;">&#128274; Cage de Pepper</button>
@@ -121,6 +125,19 @@
       <div id="archeo-pane" style="display:none;">
         <h2>&#127994; Archéologie</h2>
         <p class="lead" style="font-size:0.85rem;">Des <strong>tablettes anciennes</strong> (argile, pierre gravée, dorée) dorment sous tes grilles de fouille : une chance à chaque grille terminée, par toi ou par Milo. Gratte la terre pour <strong>extraire</strong> les blocs bruts, puis nettoie-les à l'<strong>atelier</strong> : minéraux, tessons gravés, crânes de dino et, avec de la chance, une relique. Le <strong>pinceau</strong> est doux et sans risque ; le <strong>grattoir</strong> et la <strong>pioche</strong> vont plus vite mais abîment ce qui est déjà à nu si la pression passe au rouge. Touches 1 à 5 : changer d'outil.</p>
+        <div data-shop-strip="archeo"></div>
+        <div id="archeo-mole" class="dig-kennel pet-corner pet-mole" hidden>
+          <span class="dig-kennel-dog-wrap pet-medal" id="archeo-mole-wrap" aria-hidden="true"><span class="pet-corner-pic">&#129428;</span><span class="dig-dog-badge"></span></span>
+          <div class="dig-kennel-body">
+            <div class="dig-kennel-title">Pistache le hérisson &#127994; <span class="dig-kennel-bones" data-pc-count></span><span class="pet-chip" data-pet-chip="pistache" hidden></span></div>
+            <div class="dig-kennel-text" data-pc-text></div>
+          </div>
+          <div class="dig-kennel-actions">
+            <button type="button" class="btn" data-pc-feed="1">&#128027; Donner 1 ver blanc</button>
+            <button type="button" class="btn-secondary" data-pc-feedmax hidden></button>
+            <div class="pet-acts" data-pet-acts="pistache" hidden></div>
+          </div>
+        </div>
         <div id="archeo-zone" class="archeo-zone"><p class="muted">Chargement…</p></div>
       </div>
       <div id="bingo-pane" style="display:none;">
@@ -204,6 +221,18 @@
         <div class="garden-meta" id="garden-meta"></div>
         <div class="skill-level" id="garden-level" hidden></div>
         <div data-shop-strip="jardin"></div>
+        <div id="garden-bunny" class="dig-kennel pet-corner pet-bunny" hidden>
+          <span class="dig-kennel-dog-wrap pet-medal" id="garden-bunny-wrap" aria-hidden="true"><span class="pet-corner-pic">&#128007;</span><span class="dig-dog-badge"></span></span>
+          <div class="dig-kennel-body">
+            <div class="dig-kennel-title">Noisette la lapine &#127793; <span class="dig-kennel-bones" data-pc-count></span><span class="pet-chip" data-pet-chip="noisette" hidden></span></div>
+            <div class="dig-kennel-text" data-pc-text></div>
+          </div>
+          <div class="dig-kennel-actions">
+            <button type="button" class="btn" data-pc-feed="1">&#129365; Donner 1 carotte</button>
+            <button type="button" class="btn-secondary" data-pc-feedmax hidden></button>
+            <div class="pet-acts" data-pet-acts="noisette" hidden></div>
+          </div>
+        </div>
         <h3 class="garden-h">&#127793; Sachets de graines <small class="muted">(choisis, puis plante tout ou parcelle par parcelle)</small></h3>
         <div class="garden-seeds" id="garden-seeds" role="radiogroup" aria-label="Graine à planter"></div>
         <div class="garden-field" id="garden-field" data-sky="day">
@@ -219,6 +248,16 @@
           <button type="button" class="btn-secondary garden-poop-btn" id="garden-poop-btn" hidden>&#128169; Mettre du caca partout</button>
           <button type="button" class="btn-ghost" id="garden-buyplot-btn" hidden>&#10133; Parcelle</button>
         </div>
+      </div>
+
+      <div id="walk-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Chaque jour, emmène chacun de tes compagnons en <strong>promenade</strong> : choisis un lieu, il en revient avec une trouvaille (ingrédients pour la cuisine, carottes, vers blancs, poissons…) et un peu plus d'affection. Chaque compagnon a son lieu préféré, où il trouve deux fois plus. La clairière aux lucioles ne s'ouvre que la nuit.</p>
+        <div id="walk-zone"><p class="muted">Chargement…</p></div>
+      </div>
+
+      <div id="cook-pane" style="display:none;">
+        <p class="lead" style="font-size:0.85rem;">Les fourneaux de l'auberge du village : combine les ingrédients du garde-manger (jardin, promenade, pêche) en plats qui donnent un <strong>bonus temporaire</strong>. Recuisiner un plat prolonge son bonus.</p>
+        <div id="cook-zone"><p class="muted">Chargement…</p></div>
       </div>
 
       <div id="dino-pane" style="display:none;">
@@ -265,6 +304,7 @@
   <script src="js/shop-strip.js"></script>
   <script src="js/jeux.js"></script>
   <script src="js/pets.js"></script>
+  <script src="js/companions.js"></script>
   <script src="js/archeo.js"></script>
   <script src="js/jeux-summary.js"></script>
   <script src="js/jeux-duo.js"></script>

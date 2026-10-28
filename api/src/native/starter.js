@@ -33,7 +33,14 @@ export const PET_UNLOCKS = [
     text: 'Un chien errant a flairé ton os… et ne te quitte plus d’une semelle. Il s’appelle Milo : donne-lui un os et il creuse la fouille à ta place.' },
   { key: 'moka', icon: '🐈', label: 'Moka', url: 'jeux.html#peche', hide: ['#fish-cat'],
     had: (u) => Number(u.CatFish) > 0 || !!u.CatState,
-    text: 'Une odeur de poisson frais… Un chat curieux s’installe sur ton ponton. C’est Moka : nourris-le de poisson et il pêche pour toi.' }
+    text: 'Une odeur de poisson frais… Un chat curieux s’installe sur ton ponton. C’est Moka : nourris-le de poisson et il pêche pour toi.' },
+  // 2026-10-30 : jardin et archeologie.
+  { key: 'noisette', icon: '🐇', label: 'Noisette', url: 'jeux.html#jardin', hide: ['#garden-bunny'],
+    had: (u) => Number(u.Carrots) > 0 || !!u.BunnyState,
+    text: 'Une petite lapine a suivi l’odeur de ta carotte jusqu’au potager… Elle s’appelle Noisette : donne-lui des carottes et elle récolte et replante le jardin à ta place.' },
+  { key: 'pistache', icon: '🦔', label: 'Pistache', url: 'jeux.html#archeologie', hide: ['#archeo-mole'],
+    had: (u) => Number(u.Grubs) > 0 || !!u.MoleState,
+    text: 'Un hérisson renifle tes vers blancs et refuse de partir. C’est Pistache : nourris-le et il gratte tes tablettes et nettoie tes blocs bruts pour toi.' }
 ];
 // Phrase d'accroche de la cinematique de deblocage.
 const PITCH = {
@@ -82,7 +89,8 @@ export function petAdopted(store, user, pet) {
 // Textes qui nomment un compagnon pas encore adopte (boutique, histoire,
 // lots...) : le nom disparait. « Os pour Milo » -> « Os », « Le flair de
 // Milo » -> « Le flair du chien », « Moka te fixe » -> « Le chat te fixe ».
-const PET_WORD = { milo: 'chien', moka: 'chat' };
+// Nom commun et article de chaque compagnon (« la lapine » : de la, à la).
+const PET_WORD = { milo: ['chien', 'le'], moka: ['chat', 'le'], noisette: ['lapine', 'la'], pistache: ['hérisson', 'le'] };
 export function petMask(store, user) {
   const hide = PET_UNLOCKS.filter((p) => !petAdopted(store, user, p.key));
   if (!hide.length) return (s) => s;
@@ -90,13 +98,15 @@ export function petMask(store, user) {
     if (typeof s !== 'string' || !s) return s;
     let out = s;
     for (const p of hide) {
-      const n = p.label, w = PET_WORD[p.key];
+      const n = p.label, [w, art] = PET_WORD[p.key];
+      const fem = art === 'la';
       out = out
-        .replace(new RegExp(`\\s+pour ${n}( le ${w})?\\b`, 'g'), '')
-        .replace(new RegExp(`\\b${n},? le ${w},?`, 'g'), n)
-        .replace(new RegExp(`\\bde ${n}\\b`, 'g'), `du ${w}`)
-        .replace(new RegExp(`\\bà ${n}\\b`, 'g'), `au ${w}`)
-        .replace(new RegExp(`\\b${n}\\b`, 'g'), (m, at, str) => (!str.slice(0, at).trim() || /[.!?…:«]\s*$/.test(str.slice(0, at)) ? `Le ${w}` : `le ${w}`));
+        .replace(new RegExp(`\\s+pour ${n}( ${art} ${w})?\\b`, 'g'), '')
+        .replace(new RegExp(`\\b${n},? ${art} ${w},?`, 'g'), n)
+        .replace(new RegExp(`\\bde ${n}\\b`, 'g'), fem ? `de la ${w}` : `du ${w}`)
+        // « à » n'est pas une lettre pour \b : on regarde le caractere d'avant.
+        .replace(new RegExp(`(^|[\\s(«])à ${n}\\b`, 'g'), fem ? `$1à la ${w}` : `$1au ${w}`)
+        .replace(new RegExp(`\\b${n}\\b`, 'g'), (m, at, str) => (!str.slice(0, at).trim() || /[.!?…:«]\s*$/.test(str.slice(0, at)) ? `${fem ? 'La' : 'Le'} ${w}` : `${art} ${w}`));
     }
     return out;
   };
@@ -256,7 +266,8 @@ export function gate(store, method, path, body = {}) {
   const user = store.get('Users', uid);
   // Compagnon pas encore adopte : ni gestes, ni travail.
   const act = String(body.action || '');
-  const pet = path === 'pets' ? String(body.pet || '') : path === 'cat' ? 'moka' : path === 'dog-gift' ? 'milo' : path === 'dig' && ['useBone', 'frenzy'].includes(act) ? 'milo' : '';
+  const pet = path === 'pets' || path === 'walk' ? String(body.pet || '') : path === 'cat' ? 'moka' : path === 'dog-gift' ? 'milo' : path === 'dig' && ['useBone', 'frenzy'].includes(act) ? 'milo'
+    : path === 'garden' && act === 'bunnyFeed' ? 'noisette' : path === 'archeo' && act === 'moleFeed' ? 'pistache' : '';
   if (pet && PET_UNLOCKS.some((p) => p.key === pet) && !petAdopted(store, user, pet)) return fail('pet_not_adopted', 403, { pet, message: 'Tu n’as pas encore de compagnon ici.' });
   const lock = lockedFor(store, user).find((l) => l.feature.paths.includes(path));
   if (!lock) return null;

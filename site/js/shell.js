@@ -77,6 +77,8 @@ const NAV_ITEMS = [
   { href: "collection.html#decrafter", label: "Craft & décraft", icon: "&#10024;", auth: true, group: "collection" },
   { href: "coffre.html", label: "Coffre-fort perso", icon: "&#128274;", auth: true, group: "collection" },
   { href: "trade.html", label: "Échanges", icon: "&#128260;", auth: true, badgeKey: "trade", group: "collection" },
+  // Artistes a l'honneur (2026-10-30) : ouvert a tous, meme sans compte.
+  { href: "artistes.html", label: "Les artistes", icon: "&#127912;", auth: false, group: "collection" },
   { href: "boutique.html", label: "Boutique", icon: "&#128717;&#65039;", auth: true },
   { href: "admin.html", label: "Admin", icon: "&#128736;", auth: "admin" }
 ];

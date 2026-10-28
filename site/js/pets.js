@@ -12,9 +12,10 @@
   // Affichage discret (2026-10-26) : une pastille dans le titre (details au
   // survol), un anneau d'affection autour de l'avatar, trois petits boutons
   // ronds avec les actions de l'animal.
-  const AVATAR = { milo: "dig-kennel-dog-wrap", moka: "fish-cat-wrap" };
+  const AVATAR = { milo: "dig-kennel-dog-wrap", moka: "fish-cat-wrap", noisette: "garden-bunny-wrap", pistache: "archeo-mole-wrap" };
+  const HAPPY = { milo: "remue la queue", moka: "ronronne de plaisir", noisette: "remue le bout du nez", pistache: "se roule en boule de bonheur" };
   function chipHtml(p) {
-    const tip = `${p.label} : ${p.love}/100 d'affection (${p.mood.label}). ${p.love ? `${p.speedPct} % plus rapide, +${p.lootPct} % de poussières${p.giftChance ? `, ${Math.round(p.giftChance * 100)} % de chance d'un cadeau` : ""}.` : `Jusqu'à ${p.maxSpeedPct} % plus rapide et +${p.maxLootPct} % de poussières quand ${p.pet === "moka" ? "elle" : "il"} t'adore.`} Baisse de ${String(p.decayPerHour).replace(".", ",")} par heure.`;
+    const tip = `${p.label} : ${p.love}/100 d'affection (${p.mood.label}). ${p.love ? `${p.speedPct} % plus rapide, +${p.lootPct} % de poussières${p.giftChance ? `, ${Math.round(p.giftChance * 100)} % de chance d'un cadeau` : ""}.` : `Jusqu'à ${p.maxSpeedPct} % plus rapide et +${p.maxLootPct} % de poussières quand ${p.fem ? "elle" : "il"} t'adore.`} Baisse de ${String(p.decayPerHour).replace(".", ",")} par heure.${p.cooked ? " Tarte aux baies : travaille comme à 100 d'affection." : ""}`;
     return `<span class="pet-chip-heart" aria-hidden="true">${p.love >= 80 ? "💖" : p.love >= 40 ? "❤️" : p.love > 0 ? "🩷" : "🤍"}</span>${p.love}${p.love ? `<small>+${p.speedPct} %</small>` : ""}<span class="sr-only">${esc(tip)}</span>`;
   }
   function actsHtml(p) {
@@ -30,7 +31,7 @@
 
   function render() {
     const enabled = state && state.enabled;
-    ["milo", "moka"].forEach((pet) => {
+    Object.keys(AVATAR).forEach((pet) => {
       const p = enabled ? state.pets.find((x) => x.pet === pet) : null;
       const chip = document.querySelector(`[data-pet-chip="${pet}"]`);
       const acts = document.querySelector(`[data-pet-acts="${pet}"]`);
@@ -83,7 +84,7 @@
       state = res;
       hearts(b);
       const p = res.pets.find((x) => x.pet === res.pet);
-      Toast.success(`${p.icon} ${esc(p.label)} ${res.gesture === "cuddle" ? "ronronne de plaisir" : res.gesture === "play" ? "s'amuse comme un fou" : "se régale"} ! +${res.gained} d'affection`.replace("ronronne de plaisir", p.pet === "milo" ? "remue la queue" : "ronronne de plaisir"));
+      Toast.success(`${p.icon} ${esc(p.label)} ${res.gesture === "cuddle" ? HAPPY[p.pet] || "est ravi" : res.gesture === "play" ? `s'amuse comme ${p.fem ? "une folle" : "un fou"}` : "se régale"} ! +${res.gained} d'affection`);
       render();
       if (res.gesture === "treat" && typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     } catch (err) {

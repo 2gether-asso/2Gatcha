@@ -49,13 +49,13 @@ await test('rien de verrouille n est nomme', () => {
 
 await test('pas d animaux au depart, refus des gestes', () => {
   const v = status(fresh.id);
-  assert.deepEqual(v.pets, { milo: false, moka: false });
+  assert.deepEqual(v.pets, { milo: false, moka: false, noisette: false, pistache: false });
   assert.ok(v.locks.some((l) => l.pet && l.key === 'milo'));
   assert.equal(post('pets', { userId: fresh.id, action: 'cuddle', pet: 'milo' }).json.error, 'pet_not_adopted');
   assert.equal(post('cat', { userId: fresh.id, action: 'feed', count: 1 }).json.error, 'pet_not_adopted');
   assert.equal(post('dog-gift', { userId: fresh.id, action: 'status' }).json.available, false);
   // Les anciens comptes gardent leurs animaux.
-  assert.deepEqual(status(old.id).pets, { milo: true, moka: true });
+  assert.deepEqual(status(old.id).pets, { milo: true, moka: true, noisette: true, pistache: true });
 });
 
 await test('premier os : Milo adopte, avec cinematique', () => {

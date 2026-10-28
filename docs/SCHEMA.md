@@ -237,6 +237,28 @@ son propre compteur de pity.
 | FirstObtainedAt | DateTime           | date du premier obtention (epoch secondes) |
 | MaxSerial   | Numeric               | **vestige, plus lu par aucun workflow (2026-09-28)** - servait a plafonner le nombre d'exemplaires "dans la nature" par carte ; retire suite a la demande "plus de quota, juste qu'un numero deja tire ne peut plus etre obtenu". Peut etre supprimee sans impact (bouton Structure d'admin-db.html). Voir "Numeros de serie - plus de quota" plus bas |
 
+### Artists (2026-10-30, creee au demarrage par `api/src/native/artists.js`)
+
+Fiches de la page publique `artistes.html` (onglet Artistes d'admin-db.html).
+Pas de reference depuis Cards : une carte appartient a la fiche dont `Name`
+ou un des `Aliases` est egal a `Cards.Artist` (sans majuscules, accents ni
+espaces en trop). Un nom present sur des cartes sans fiche a quand meme sa page.
+
+| Colonne      | Type              | Notes |
+|--------------|-------------------|-------|
+| Name         | Text              | nom affiche |
+| Slug         | Text              | adresse `artistes.html?a=<slug>` ; vide = tire du nom |
+| Aliases      | Text              | autres noms ecrits sur les cartes, separes par des virgules |
+| Tagline      | Text              | phrase d'accroche |
+| Bio          | Text              | presentation (ligne vide = paragraphe) |
+| Avatar       | Attachments       | photo |
+| Banner       | Attachments       | banniere (sinon la carte phare) |
+| Links        | Text              | une adresse par ligne ou `Libelle \| adresse` ; reseau reconnu par le domaine, http(s) seulement, 12 max |
+| FeaturedCard | Reference -> Cards | carte phare ; vide = sa carte la plus rare |
+| Color        | Text              | `#rrggbb`, couleur de sa page |
+| SortOrder    | Numeric           | ordre dans la liste |
+| Active       | Bool              | `false` = artiste masque : ni fiche, ni page automatique, ses cartes ne sont plus listees sur la page Artistes |
+
 ## 4. Users
 
 | Colonne             | Type      | Notes                                   |
@@ -294,6 +316,25 @@ reste par extension, voir `BoosterInventory`.
 **Connexion** : geree par `discord-login.json`. Le compte est identifie par
 `DiscordId` ; `Pseudo` reste un champ libre que l'utilisateur peut modifier
 ensuite via `update-pseudo.json`, il ne sert plus a la connexion.
+
+**Compagnons, promenade et cuisine (2026-10-30)**, colonnes creees au demarrage :
+
+| Colonne | Type | Module | Notes |
+|---------|------|--------|-------|
+| Carrots | Numeric | garden.js | carottes, nourriture de Noisette la lapine |
+| BunnyState | Text | garden.js | `{ start, until }` (secondes) : heures de travail de Noisette |
+| BunnyReport | Text | garden.js | rapport cumule de Noisette, remis (et vide) a la visite du jardin |
+| Grubs | Numeric | garden.js / archeo.js | vers blancs, nourriture de Pistache le herisson |
+| MoleState | Text | archeo.js | `{ start, until, done }` : travail de Pistache (`done` = taches deja faites) |
+| MoleReport | Text | archeo.js | rapport cumule de Pistache |
+| Pantry | Text | cooking.js | garde-manger `{ veg, herb, berry, mush, honey }` |
+| Buffs | Text | cooking.js | bonus de cuisine `{ garden, fish, archeo, pets : fin en secondes }` |
+| CookCount | Numeric | cooking.js | plats cuisines |
+| WalkDay | Text | walk.js | `{ day, done: { milo: 'foret', ... } }` : balades du jour |
+| WalkCount | Numeric | walk.js | balades faites |
+
+`GardenPlots[i].fast` : multiplicateur de pousse fixe a la plantation (soupe du potager).
+`ArcheoFinds[i].openAt` : bloc ouvert a l'atelier (Pistache n'y touche pas pendant 30 min).
 
 ## 5. Pulls
 

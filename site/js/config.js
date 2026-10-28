@@ -96,6 +96,8 @@ window.APP_CONFIG = {
     patchNotes: "/patch-notes",        // GET -> { notes, latest } (notes de mise a jour)
     adminSurprise: "/admin-surprise",  // POST { discordId, action: 'status'|'start'|'stop', key? } (evenements surprises)
     museum: "/museum",                 // POST/GET { userId } (musee du coffre-fort, 2026-10-18)
+    artists: "/artists",               // GET [?userId] -> { artists } (artistes a l'honneur, 2026-10-30)
+    artist: "/artist",                 // GET ?slug= [&userId] -> { artist, cards, extensions, stats }
     starter: "/starter",               // POST/GET { userId, action: 'status'|'claim', key? } (parcours du debutant, 2026-10-18)
     adminTestAccount: "/admin-test-account", // POST { discordId, action: 'status'|'login'|'set'|'reset'|'cards', levels?, resources?, mode? } (compte test, 2026-10-18)
     adminVisuals: "/admin-visuals",     // POST { discordId, action: 'list'|'set'|'reset'|'upload', key, label?, data?, mime? }
@@ -174,7 +176,9 @@ window.APP_CONFIG = {
     draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }
     casino: "/casino",                   // POST { userId, game, action, ... } (casino de la salle interdite)
     archeo: "/archeo",                   // POST { userId, action: 'status'|'start'|'brush'|'finish', ops? } (tablettes anciennes)
-    pets: "/pets",                       // POST { userId, action: 'status'|'cuddle'|'play'|'treat', pet: 'milo'|'moka' } (tendresse)
+    pets: "/pets",                       // POST { userId, action: 'status'|'cuddle'|'play'|'treat', pet: 'milo'|'moka'|'noisette'|'pistache' } (tendresse)
+    walk: "/walk",                       // POST { userId, action: 'status'|'go', pet?, place? } (promenade, 2026-10-30)
+    cook: "/cook",                       // POST { userId, action: 'status'|'cook', recipe? } (cuisine du village, 2026-10-30)
     skyTree: "/sky-tree",               // POST { userId, action: 'status'|'light'|'reset', key? } (arbre celeste)
     chaosVote: "/chaos-vote",           // POST { userId, action: 'status'|'vote', rule? }
     dogGift: "/dog-gift",               // POST { userId, action: 'status'|'claim' } -> trouvaille de Milo (le chien)
@@ -220,7 +224,7 @@ window.APP_CONFIG = {
 // inversement ("back") ; retour arriere du navigateur = "back". Pose sur la
 // page quittee (pageswap) et sur la page qui arrive (pagereveal).
 (function viewTransitionDirection() {
-  var ORDER = ["index.html", "ouverture.html", "collection.html", "jeux.html", "communaute.html", "trade.html", "boutique.html", "progression.html", "coffre.html", "mode.html", "profile.html", "stats.html", "nouveautes.html"];
+  var ORDER = ["index.html", "ouverture.html", "collection.html", "jeux.html", "communaute.html", "trade.html", "artistes.html", "boutique.html", "progression.html", "coffre.html", "mode.html", "profile.html", "stats.html", "nouveautes.html"];
   var pos = function (url) {
     try { var p = new URL(url, location.href).pathname.split("/").pop() || "index.html"; return ORDER.indexOf(p); } catch (e) { return -1; }
   };

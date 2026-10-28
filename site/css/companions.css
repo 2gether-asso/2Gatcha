@@ -1,0 +1,100 @@
+/* Compagnons du jardin et de l'archeologie, promenade et cuisine (2026-10-30, js/companions.js). */
+
+/* --- Coins de Noisette (jardin) et Pistache (archeologie) : meme gabarit que Moka. */
+.pet-corner { margin: 10px 0 14px; }
+.dig-kennel-dog-wrap .pet-corner-pic { position: relative; z-index: 1; font-size: 2.1rem; line-height: 1; display: inline-block; }
+.pet-corner[data-working="1"] .pet-corner-pic { animation: pcHop 1.6s ease-in-out infinite; transform-origin: bottom center; }
+.pet-mole[data-working="1"] .pet-corner-pic { animation-name: pcSniff; animation-duration: 1.1s; }
+.pet-bunny { background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(250, 204, 21, 0.06)); }
+.pet-mole { background: linear-gradient(135deg, rgba(180, 83, 9, 0.14), rgba(120, 113, 108, 0.08)); }
+@keyframes pcHop { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-7px) rotate(-4deg); } 55% { transform: translateY(0); } }
+@keyframes pcSniff { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-2px) rotate(-6deg); } 75% { transform: translateX(2px) rotate(5deg); } }
+
+/* --- Promenade */
+.walk-sky { position: relative; height: 54px; margin: 4px 0 8px; border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, #7dd3fc, #e0f2fe); border: 1px solid var(--border-soft); }
+.walk-sky.night { background: linear-gradient(180deg, #0f172a, #312e81); }
+.walk-orb { position: absolute; top: 10px; right: 26px; width: 30px; height: 30px; border-radius: 50%; background: #fde047; box-shadow: 0 0 24px 6px rgba(253, 224, 71, 0.55); }
+.walk-sky.night .walk-orb { background: #e2e8f0; box-shadow: 0 0 18px 2px rgba(226, 232, 240, 0.35), inset -8px -3px 0 0 #cbd5e1; }
+.walk-sky.night i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fef08a; box-shadow: 0 0 8px 3px rgba(254, 240, 138, 0.7); animation: wkFly 4s ease-in-out infinite; }
+.walk-sky.night i:nth-child(2) { left: 12%; top: 60%; } .walk-sky.night i:nth-child(3) { left: 30%; top: 30%; animation-delay: -1s; }
+.walk-sky.night i:nth-child(4) { left: 52%; top: 55%; animation-delay: -2s; } .walk-sky.night i:nth-child(5) { left: 70%; top: 25%; animation-delay: -3s; }
+.walk-sky.night i:nth-child(6) { left: 86%; top: 65%; animation-delay: -1.5s; }
+@keyframes wkFly { 0%, 100% { transform: translate(0, 0); opacity: 0.4; } 50% { transform: translate(10px, -8px); opacity: 1; } }
+.walk-h { margin: 14px 0 8px; font-size: 1rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.walk-h small { font-weight: 500; font-size: 0.8rem; }
+.walk-pets { display: flex; flex-wrap: wrap; gap: 8px; }
+.walk-pet { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; border-radius: 14px; border: 1px solid var(--border-soft); background: var(--surface-2, rgba(255, 255, 255, 0.04)); color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.walk-pet.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.walk-pet.done { opacity: 0.6; }
+.walk-pet-ico { font-size: 1.8rem; line-height: 1; }
+.walk-pet-body { display: grid; gap: 1px; }
+.walk-pet-body small { font-size: 0.72rem; color: var(--text-muted, #a1a1aa); }
+.walk-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.walk-place { position: relative; display: grid; gap: 6px; align-content: start; padding: 14px; border-radius: 16px; border: 1px solid var(--border-soft); background: var(--surface-2, rgba(255, 255, 255, 0.04)); }
+.walk-place .btn, .walk-place .btn-secondary { margin-top: 4px; justify-self: start; }
+.walk-place small { color: var(--text-muted, #a1a1aa); font-size: 0.78rem; }
+.walk-place-ico { font-size: 1.9rem; line-height: 1; }
+.walk-place.fav { border-color: #facc15aa; box-shadow: 0 0 18px -8px #facc15; }
+.walk-place.closed { opacity: 0.55; }
+.place-foret { background: linear-gradient(160deg, rgba(22, 101, 52, 0.25), transparent 70%); }
+.place-lac { background: linear-gradient(160deg, rgba(14, 116, 144, 0.25), transparent 70%); }
+.place-prairie { background: linear-gradient(160deg, rgba(234, 179, 8, 0.18), transparent 70%); }
+.place-ruines { background: linear-gradient(160deg, rgba(120, 113, 108, 0.28), transparent 70%); }
+.place-clairiere { background: linear-gradient(160deg, rgba(49, 46, 129, 0.45), transparent 75%); }
+.walk-fav, .walk-night { font-size: 0.72rem; font-weight: 700; }
+.walk-fav { color: #facc15; }
+.walk-night { color: #c4b5fd; }
+.walk-result { margin: 12px 0 4px; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent); border: 1px solid color-mix(in srgb, var(--success, #22c55e) 45%, transparent); display: grid; gap: 8px; animation: modalPopIn 0.35s ease both; }
+.walk-result-title { font-weight: 700; }
+.walk-result-loot { display: flex; flex-wrap: wrap; gap: 6px; }
+.walk-loot { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); font-size: 0.85rem; font-weight: 600; }
+.walk-trip { position: relative; height: 64px; margin-bottom: 8px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border-soft); }
+.walk-trip-pet { position: absolute; bottom: 8px; left: 4%; font-size: 2rem; animation: wkTrip 1.7s ease-in-out forwards; }
+.walk-trip-place { position: absolute; bottom: 8px; right: 6%; font-size: 2.2rem; }
+@keyframes wkTrip { 0% { left: 4%; transform: translateY(0); } 20% { transform: translateY(-6px); } 40% { transform: translateY(0); } 60% { transform: translateY(-6px); } 100% { left: 78%; transform: translateY(0); } }
+
+/* --- Cuisine */
+.cook-pantry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2, rgba(255, 255, 255, 0.04)); border: 1px solid var(--border-soft); }
+.cook-h { margin-right: 6px; }
+.cook-ing { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); font-size: 0.85rem; }
+.cook-ing small { color: var(--text-muted, #a1a1aa); }
+.cook-ing.empty { opacity: 0.5; }
+.cook-buffs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; font-size: 0.85rem; }
+.cook-buff { padding: 5px 12px; border-radius: 999px; font-weight: 600; background: color-mix(in srgb, var(--success, #22c55e) 18%, transparent); border: 1px solid color-mix(in srgb, var(--success, #22c55e) 50%, transparent); }
+.cook-stove { position: relative; height: 70px; display: grid; place-items: center; margin: 6px 0 10px; }
+.cook-pot { font-size: 2.6rem; line-height: 1; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45)); }
+.cook-steam { position: absolute; top: 0; left: 50%; width: 40px; height: 30px; transform: translateX(-50%); }
+.cook-steam i { position: absolute; bottom: 0; width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); opacity: 0; }
+.cook-steam i:nth-child(1) { left: 4px; } .cook-steam i:nth-child(2) { left: 16px; animation-delay: 0.3s !important; } .cook-steam i:nth-child(3) { left: 28px; animation-delay: 0.6s !important; }
+.cook-stove.cooking .cook-steam i { animation: ckSteam 1s ease-out infinite; }
+.cook-stove.cooking .cook-pot { animation: ckShake 0.25s ease-in-out infinite; }
+.cook-drop { position: absolute; top: -10px; left: calc(50% + var(--dx, 0px)); font-size: 1.3rem; animation: ckDrop 0.7s ease-in both; }
+@keyframes ckSteam { 0% { transform: translateY(0) scale(0.6); opacity: 0.7; } 100% { transform: translateY(-26px) scale(1.4); opacity: 0; } }
+@keyframes ckShake { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes ckDrop { 0% { transform: translate(-50%, -20px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(calc(-50% - var(--dx, 0px)), 40px) scale(0.5); opacity: 0; } }
+.cook-recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.cook-recipe { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: start; padding: 14px; border-radius: 16px; border: 1px solid var(--border-soft); background: var(--surface-2, rgba(255, 255, 255, 0.04)); }
+.cook-recipe.can { border-color: color-mix(in srgb, var(--success, #22c55e) 55%, transparent); }
+.cook-recipe > .btn, .cook-recipe > .btn-secondary { grid-column: 2; justify-self: start; }
+.cook-recipe-ico { font-size: 2rem; line-height: 1; grid-row: span 2; }
+.cook-recipe-body { display: grid; gap: 4px; }
+.cook-recipe-body small { color: var(--text-muted, #a1a1aa); font-size: 0.78rem; }
+.cook-effect { font-size: 0.8rem; font-weight: 700; color: var(--accent-2, #22d3ee); }
+.cook-needs { display: flex; flex-wrap: wrap; gap: 4px; }
+.cook-need { padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; background: rgba(255, 255, 255, 0.06); }
+.cook-need.ok { color: #86efac; }
+.cook-need.miss { color: #fca5a5; }
+.cook-foot { font-size: 0.78rem; margin-top: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-corner[data-working="1"] .pet-corner-pic, .walk-sky.night i, .walk-trip-pet, .cook-stove.cooking .cook-steam i, .cook-stove.cooking .cook-pot { animation: none; }
+}
+/* 8 graines depuis le potager : elles tiennent sur une ligne en grand ecran. */
+@media (min-width: 900px) { .garden-seeds { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); } }
+@media (max-width: 560px) {
+  .walk-places { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .walk-place { padding: 10px; }
+  .walk-place .btn, .walk-place .btn-secondary { justify-self: stretch; padding-inline: 8px; font-size: 0.8rem; }
+  .cook-recipes { grid-template-columns: 1fr; }
+  .walk-pet { flex: 1 1 calc(50% - 8px); }
+}

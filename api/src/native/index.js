@@ -32,6 +32,9 @@
 //   boosts.js   bonus personnels appliques apres les workflows
 //   insights.js que faire maintenant, statistiques perso, carte de joueur
 //   shop.js     boutique d'objets et de bonus (poussieres)
+//   artists.js  artistes a l'honneur (fiche, reseaux, cartes de chacun)
+//   cooking.js  cuisine du village (plats a bonus temporaires)
+//   walk.js     promenade quotidienne des compagnons
 // Chaque module expose `routes` ({ 'METHODE chemin': handler }) et, au
 // besoin, `schema` (tables/colonnes creees au demarrage) et `afterWorkflow`.
 // Un handler recoit { store, body, query } et renvoie { status, json }.
@@ -128,6 +131,9 @@ import * as playeradmin from './playeradmin.js';
 import * as discord from './discord.js';
 import * as explorer from './explorer.js';
 import * as audit from './audit.js';
+import * as artists from './artists.js';
+import * as cooking from './cooking.js';
+import * as walk from './walk.js';
 import { isTestUser } from './testuser.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
@@ -136,7 +142,7 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, starter, seasonquests, story];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
@@ -168,6 +174,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   presets.init({ store });
   secrets.init({ store });
   garden.init({ store });
+  archeo.init({ store });
   Object.assign(currentContext(), { source: null, actor: null });
 
   // Contexte de la requete en cours (propre a chaque requete, voir

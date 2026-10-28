@@ -15,17 +15,24 @@
 // PetRestMinutes (jusqu'a 50 % plus courte avec la tendresse). Le rythme moyen
 // en tient compte : dig.json lit Users.MiloRest (intervalle x (travail+pause)/travail),
 // cat.js aussi pour Moka. La jauge affichee suit le cycle en cours.
-//   POST /webhook/pets { userId, action: 'status' | 'cuddle' | 'play' | 'treat', pet: 'milo' | 'moka' }
+// 2026-10-30 : Noisette la lapine (jardin) et Pistache le herisson
+// (archeologie) ont la meme jauge ; la tarte aux baies (cooking.js) la
+// compte pleine le temps de son bonus.
+//   POST /webhook/pets { userId, action: 'status' | 'cuddle' | 'play' | 'treat', pet: 'milo' | 'moka' | 'noisette' | 'pistache' }
 // Users.PetLove = { milo: { v, at, cuddle, play, treats, treatDay }, moka: {...} }
 
 import { ok, fail, userById, now, parisDay, parseJson } from './common.js';
 import { setting } from './settings.js';
+import { buffOn } from './cooking.js';
 
 export const schema = { Users: { PetLove: { type: 'Text' }, MiloSpeed: { type: 'Numeric' }, MiloRest: { type: 'Numeric' } } };
 
 export const PETS = {
   milo: { label: 'Milo', icon: '🐕', gifts: [{ field: 'BoneCount', label: 'un os', icon: '🦴' }, { field: 'Worms', label: '2 vers', icon: '🪱', n: 2 }, { field: 'KeyCount', label: 'une clé', icon: '🔑', rare: true }] },
-  moka: { label: 'Moka', icon: '🐈', gifts: [{ field: 'CatFish', label: 'un poisson', icon: '🐟' }, { field: 'GoldBait', label: 'un appât doré', icon: '✨' }, { field: 'SpareParts', label: 'une pièce détachée', icon: '🔩', rare: true }] }
+  moka: { label: 'Moka', icon: '🐈', fem: true, gifts: [{ field: 'CatFish', label: 'un poisson', icon: '🐟' }, { field: 'GoldBait', label: 'un appât doré', icon: '✨' }, { field: 'SpareParts', label: 'une pièce détachée', icon: '🔩', rare: true }] },
+  // 2026-10-30 : Noisette (jardin, garden.js) et Pistache (archeologie, archeo.js).
+  noisette: { label: 'Noisette', icon: '🐇', fem: true, gifts: [{ field: 'Worms', label: '3 vers', icon: '🪱', n: 3 }, { field: 'GoldBait', label: 'un appât doré', icon: '✨' }, { field: 'SpareParts', label: 'une pièce détachée', icon: '🔩', rare: true }] },
+  pistache: { label: 'Pistache', icon: '🦔', gifts: [{ field: 'Worms', label: '2 vers', icon: '🪱', n: 2 }, { field: 'Tablets', label: 'une tablette d’argile', icon: '🟫' }, { field: 'KeyCount', label: 'une clé', icon: '🔑', rare: true }] }
 };
 const GESTURES = {
   cuddle: { label: 'Caresse', icon: '🤲', love: 'PetCuddleLove' },
@@ -47,7 +54,8 @@ export function loveOf(store, user, pet, t = now()) {
 // Bonus de l'animal : fractions (0,25 = 25 %).
 export function petBoost(store, user, pet) {
   if (!setting(store, 'PetLoveEnabled')) return { love: 0, speed: 0, loot: 0, giftChance: 0 };
-  const love = loveOf(store, user, pet);
+  // Tarte aux baies (cooking.js) : ils travaillent comme s'ils t'adoraient.
+  const love = buffOn(user, 'pets') ? 100 : loveOf(store, user, pet);
   const k = love / 100;
   return {
     love,
@@ -62,7 +70,7 @@ export function petRhythm(store, user, pet, t = now()) {
   const love = loveOf(store, user, pet, t);
   const rest = Math.max(0, setting(store, 'PetRestMinutes') * (1 - (love / 100) * 0.5));
   const cycle = work + rest;
-  const phase = ((t / 60) + (Number(user.id) || 0) * 7 + (pet === 'moka' ? 23 : 0)) % cycle;
+  const phase = ((t / 60) + (Number(user.id) || 0) * 7 + ({ moka: 23, noisette: 11, pistache: 37 }[pet] || 0)) % cycle;
   const resting = phase >= work;
   return {
     workMinutes: work, restMinutes: Math.round(rest), factor: rest > 0 ? cycle / work : 1, resting,
@@ -90,9 +98,9 @@ function petView(store, user, pet, t = now()) {
   const treats = p.treatDay === parisDay(0) ? Number(p.treats) || 0 : 0;
   const next = (k) => Math.max(0, (Number(p[k]) || 0) + cd[k] - t);
   const mood = b.love >= 80 ? { key: 'adore', label: 'Il t’adore', icon: '😻' } : b.love >= 50 ? { key: 'happy', label: 'Heureux', icon: '😊' } : b.love >= 20 ? { key: 'ok', label: 'Ça va', icon: '🙂' } : { key: 'lonely', label: 'Il s’ennuie de toi', icon: '🥺' };
-  if (pet === 'moka') mood.label = mood.label.replace('Il ', 'Elle ').replace('Heureux', 'Heureuse');
+  if (PETS[pet].fem) mood.label = mood.label.replace('Il ', 'Elle ').replace('Heureux', 'Heureuse');
   return {
-    pet, label: PETS[pet].label, icon: PETS[pet].icon, love: Math.round(b.love), mood,
+    pet, label: PETS[pet].label, icon: PETS[pet].icon, fem: !!PETS[pet].fem, love: Math.round(b.love), mood, cooked: buffOn(user, 'pets'),
     speedPct: Math.round(b.speed * 100), lootPct: Math.round(b.loot * 100), giftChance: b.giftChance,
     gestures: {
       cuddle: { ...GESTURES.cuddle, gain: setting(store, 'PetCuddleLove'), wait: next('cuddle') },
@@ -124,16 +132,22 @@ function handle({ store, body }) {
     if ((Number(user.StardustCount) || 0) < g.price) return fail('not_enough_dust', 400, stateOf(store, user));
     fields.StardustCount = (Number(user.StardustCount) || 0) - g.price;
   }
-  const all = allLove(user);
-  const p = { ...(all[pet] || {}) };
   const love = Math.min(100, loveOf(store, user, pet, t) + g.gain);
-  p.v = love;
-  p.at = t;
-  if (action === 'treat') { p.treats = (p.treatDay === parisDay(0) ? Number(p.treats) || 0 : 0) + 1; p.treatDay = parisDay(0); } else p[action] = t;
-  all[pet] = p;
-  fields.PetLove = JSON.stringify(all);
+  fields.PetLove = loveFields(store, user, pet, g.gain, (p) => { if (action === 'treat') { p.treats = (p.treatDay === parisDay(0) ? Number(p.treats) || 0 : 0) + 1; p.treatDay = parisDay(0); } else p[action] = t; });
   user = store.update('Users', user.id, fields);
   return ok({ ...stateOf(store, user), pet, gesture: action, gained: Math.round(love - view.love) });
+}
+
+// Affection en plus (gestes, promenade) : nouvelle valeur de Users.PetLove.
+export function loveFields(store, user, pet, gain, tweak = null) {
+  const t = now();
+  const all = allLove(user);
+  const p = { ...(all[pet] || {}) };
+  p.v = Math.min(100, loveOf(store, user, pet, t) + gain);
+  p.at = t;
+  if (tweak) tweak(p);
+  all[pet] = p;
+  return JSON.stringify(all);
 }
 
 // Juste avant la fouille : vitesse de Milo lue par dig.json (Users.MiloSpeed).

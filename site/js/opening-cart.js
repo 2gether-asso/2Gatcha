@@ -3,7 +3,10 @@
 // jetons). Le monnayeur liste la selection ; "Ouvrir la selection" lance la
 // fenetre d'ouverture avec une barre de toute la selection : on ouvre une
 // extension a la fois (ses N boosters d'un coup) et on enchaine avec "Suivant".
-// S'appuie sur opening.js (openModalFor, startOpening, openQuantity...).
+// 2026-10-30 : avec plusieurs extensions, le choix entre « Tout ouvrir d'un
+// coup » (une seule ouverture, toutes les extensions melangees : openPlan) et
+// « Une extension a la fois » (comme avant).
+// S'appuie sur opening.js (openModalFor, startOpening, openQuantity, openPlan...).
 // Murissoir (2026-10-18, js/ripen.js) : « Laisser murir » au lieu d'ouvrir,
 // avec le choix de la duree ; un lot mur revient remplir le panier (fill).
 
@@ -66,7 +69,10 @@
          <span class="vend-cart-gauge" aria-hidden="true"><span style="width:${max ? Math.min(100, (n / max) * 100) : 0}%"></span></span>
          <ul class="vend-cart-list">${[...items].map(([id, q]) => `<li>${thumb(id)}<span class="vend-cart-name">${escHtml(nameOf(id))}</span><span class="vend-cart-qty"><button type="button" data-cart-dec="${id}" aria-label="Retirer un booster ${escHtml(nameOf(id))}">−</button><b>${q}</b><button type="button" data-cart-inc="${id}" aria-label="Ajouter un booster ${escHtml(nameOf(id))}" ${n >= max ? "disabled" : ""}>+</button></span></li>`).join("")}</ul>
          ${eachBtn}
-         <button type="button" class="btn vend-cart-go" data-cart-open>&#127183; Ouvrir ${n > 1 ? `les ${n} boosters` : "le booster"}</button>
+         ${items.size > 1
+           ? `<button type="button" class="btn vend-cart-go" data-cart-open-all>&#127183; Tout ouvrir d'un coup <small>(${Math.min(n, OPEN_ALL_MAX)} boosters${n > OPEN_ALL_MAX ? ` sur ${n}` : ""})</small></button>
+              <button type="button" class="btn-ghost vend-cart-one" data-cart-open>Une extension à la fois</button>`
+           : `<button type="button" class="btn vend-cart-go" data-cart-open>&#127183; Ouvrir ${n > 1 ? `les ${n} boosters` : "le booster"}</button>`}
          ${ripenHtml()}`
       : `<div class="vend-cart-empty"><strong>Choisis tes boosters</strong><span>Touche une case : 1 jeton = 1 booster de cette extension. Touche encore pour en ajouter.</span>${eachBtn}</div>`;
     // Selecteur -/+ sur chaque case choisie.
@@ -96,7 +102,7 @@
       bar.className = "vend-mbar";
       document.body.appendChild(bar);
     }
-    bar.innerHTML = `<button type="button" class="vend-mbar-info" data-cart-scroll><span><strong>${n}</strong> booster${n > 1 ? "s" : ""} choisi${n > 1 ? "s" : ""}</span><small>Voir la sélection</small></button><button type="button" class="btn" data-cart-open>&#127183; Ouvrir</button>`;
+    bar.innerHTML = `<button type="button" class="vend-mbar-info" data-cart-scroll><span><strong>${n}</strong> booster${n > 1 ? "s" : ""} choisi${n > 1 ? "s" : ""}</span><small>Voir la sélection</small></button>${items.size > 1 ? '<button type="button" class="btn" data-cart-open-all>&#127183; Tout</button><button type="button" class="btn-ghost" data-cart-open>Une à une</button>' : '<button type="button" class="btn" data-cart-open>&#127183; Ouvrir</button>'}`;
   }
 
   // Laisser murir : choix de la duree (stades du murissoir).
@@ -114,7 +120,7 @@
     if (!bar) return;
     if (!current || !total()) { bar.hidden = true; bar.innerHTML = ""; return; }
     bar.hidden = false;
-    bar.innerHTML = `<span class="cart-bar-label">Ta sélection :</span>${[...items].map(([id, q]) => `<button type="button" class="cart-chip ${id === current ? "active" : ""}" data-cart-pick="${id}">${escHtml(nameOf(id))} <b>×${q}</b></button>`).join("")}`;
+    bar.innerHTML = `<span class="cart-bar-label">Ta sélection :</span>${items.size > 1 ? `<button type="button" class="cart-chip ${current === "all" ? "active" : ""}" data-cart-pick-all>Tout <b>×${total()}</b></button>` : ""}${[...items].map(([id, q]) => `<button type="button" class="cart-chip ${id === current ? "active" : ""}" data-cart-pick="${id}">${escHtml(nameOf(id))} <b>×${q}</b></button>`).join("")}`;
   }
 
   function openFrom(id) {
@@ -129,6 +135,31 @@
     const hint = document.getElementById("booster-hint");
     if (hint && q > 1) hint.textContent = `${q} boosters ${nameOf(k)} : choisis ton booster, ils s'ouvrent tous d'un coup`;
     renderBar();
+  }
+
+  // Tout d'un coup : un plan avec l'extension de chaque booster, dans l'ordre
+  // du panier (au plus OPEN_ALL_MAX ; le reste attend dans la selection).
+  function openAll() {
+    const plan = [];
+    for (const [k, q] of items) for (let i = 0; i < q; i++) plan.push(k);
+    const n = Math.min(plan.length, usableBoosters(), OPEN_ALL_MAX);
+    if (n < 1) return;
+    openModalFor(plan[0]);
+    current = "all";
+    openPlan = plan.slice(0, n);
+    openQuantity = n;
+    const qty = document.getElementById("quantity-picker");
+    if (qty) qty.style.display = "none";
+    const hint = document.getElementById("booster-hint");
+    const exts = new Set(openPlan).size;
+    if (hint) hint.textContent = `${n} boosters de ${exts} extensions : choisis ton booster, ils s'ouvrent tous d'un coup`;
+    renderBar();
+  }
+  // Apres une ouverture « tout d'un coup » : boosters ouverts par extension.
+  function consumedMany(used) {
+    for (const [k, n] of used) { const left = (items.get(k) || 0) - n; if (left > 0) items.set(k, left); else items.delete(k); }
+    save();
+    render();
   }
 
   // Appele par opening.js apres une ouverture reussie.
@@ -161,9 +192,11 @@
       b.disabled = true;
       Ripen.store(Object.fromEntries([...items].map(([k, n]) => [String(k), n])), Number(b.dataset.cartRipenStage)).then((done) => { if (done) { items.clear(); ripenPick = false; save(); } render(); });
     }
+    else if (t.closest("[data-cart-open-all]")) openAll();
+    else if (t.closest("[data-cart-pick-all]") && typeof isBusy !== "undefined" && !isBusy) openAll();
     else if (t.closest("[data-cart-open]")) { const id = [...items.keys()][0]; if (id != null) openFrom(id); }
     else if (t.closest("[data-cart-pick]") && typeof isBusy !== "undefined" && !isBusy) openFrom(t.closest("[data-cart-pick]").dataset.cartPick);
   });
 
-  window.BoosterCart = { add, render, consumed, next, openNext, close, fill, openFirst, get active() { return current != null; }, nameOf };
+  window.BoosterCart = { add, render, consumed, consumedMany, openAll, next, openNext, close, fill, openFirst, get active() { return current != null; }, nameOf };
 })();

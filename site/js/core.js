@@ -156,6 +156,13 @@ const fmtSerial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
 // Texte en minuscules sans accents (recherches).
 const normText = (str) => String(str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+// Page d'un artiste (artistes.html, 2026-10-30) a partir du champ Artiste
+// d'une carte : meme slug que l'API (api/src/native/artists.js slugOf).
+function artistHref(name) {
+  const slug = String(name || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase().replace(/\s+/g, " ").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+  return slug ? "artistes.html?a=" + encodeURIComponent(slug) : "artistes.html";
+}
+
 function escHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }

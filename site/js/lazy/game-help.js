@@ -20,8 +20,22 @@ const GameHelp = {
       "Les tablettes anciennes se trouvent en terminant des grilles de fouille.",
       "Choisis une tablette puis gratte la terre à la souris ou au doigt avec l'outil choisi (touches 1 à 5) : le cercle du curseur montre sa taille, sa couleur la pression.",
       "Gratter trop fort ou trop vite abîme les pièces : une pièce fissurée vaut moins, une pièce cassée est perdue.",
-      "Dégage chaque bloc jusqu'à pouvoir l'extraire, puis nettoie-le pour libérer la trouvaille.",
-      "Ton niveau d'archéologue monte en dégageant des pièces et débloque des avantages."
+      "Dégage chaque bloc presque entièrement (90 %) pour l'extraire, puis nettoie-le de la même façon pour libérer la trouvaille. L'endurance est comptée : vise les reflets ✨.",
+      "Ton niveau d'archéologue monte en dégageant des pièces et débloque des avantages.",
+      "Pistache, le hérisson, travaille à ta place contre des vers blancs : il nettoie tes blocs bruts (jamais ceux que tu as commencés), sinon gratte une tablette de ta réserve. Il est moins soigneux que toi : certaines pièces sortent rayées ou cassées, et il en laisse dans la terre.",
+      "Le ragoût du fouilleur (cuisine) donne plus d'endurance aux tablettes ouvertes pendant son bonus."
+    ] },
+    walk: { icon: "🐾", title: "Promenade", items: [
+      "Une balade par jour et par compagnon adopté : choisis qui vient et où aller.",
+      "Chaque lieu a ses trouvailles : la forêt (baies, champignons, os), le bord du lac (poissons, vers), la prairie (carottes, herbes, légumes, miel), les ruines (vers blancs, minéraux, tablettes).",
+      "Dans son lieu préféré, un compagnon trouve deux fois plus et gagne plus d'affection.",
+      "La clairière aux lucioles ne s'ouvre que la nuit, avec des trouvailles plus rares."
+    ] },
+    cook: { icon: "🍲", title: "Cuisine", items: [
+      "Les ingrédients du garde-manger viennent du jardin (graine Potager, champignon lumineux), des promenades et de la pêche (poissons, carottes).",
+      "Chaque plat donne un bonus temporaire : jardin plus rapide, prises rares à la pêche, endurance d'archéologie, ou compagnons qui travaillent comme s'ils t'adoraient. Le festin donne tout à la fois.",
+      "Recuisiner un plat prolonge son bonus, dans une limite d'heures devant toi.",
+      "La soupe accélère les plantations faites pendant son bonus (pas celles déjà en terre)."
     ] },
     guess: { icon: "❓", title: "Devine la carte", items: [
       "Chaque jour, les mêmes cartes zoomées pour tout le monde, à reconnaître parmi plusieurs propositions.",
@@ -46,7 +60,9 @@ const GameHelp = {
       "Plante une graine sur une parcelle libre (elle coûte des poussières), attends qu'elle pousse, puis récolte.",
       "Chaque graine a sa durée et ses récoltes : vers, appâts dorés, poussières… Ton niveau de jardinage en fait découvrir d'autres.",
       "L'engrais des dinos fait pousser plus vite ; « Mettre du caca partout » en met sur toutes les parcelles d'un coup.",
-      "Une plante oubliée trop longtemps peut faner."
+      "Une plante oubliée trop longtemps peut faner.",
+      "Noisette, la lapine, travaille à ta place contre des carottes : elle récolte chaque parcelle dès qu'elle est prête et replante la même graine (payée avec tes poussières).",
+      "Les récoltes donnent parfois des vers blancs, la nourriture de Pistache le hérisson ; la graine Potager donne des légumes et des herbes pour la cuisine."
     ] },
     dino: { icon: "🦖", title: "Dinos", items: [
       "Un crâne de dinosaure et assez d'os ramènent un dino à la vie.",
@@ -114,7 +130,8 @@ const GameHelp = {
     if (!r) { Toast.info("Pas encore de règles pour cet onglet."); return; }
     const mask = (s) => (typeof PetText !== "undefined" ? PetText.mask(s) : s);
     // Paragraphe sur un compagnon pas encore adopte : retire (surprise).
-    const items = r.items.filter((t) => !(typeof StarterLocks !== "undefined" && ((/Milo/.test(t) && StarterLocks.pets.milo === false) || (/Moka/.test(t) && StarterLocks.pets.moka === false))));
+    const PETS = { milo: /Milo/, moka: /Moka/, noisette: /Noisette/, pistache: /Pistache/ };
+    const items = r.items.filter((t) => !(typeof StarterLocks !== "undefined" && Object.entries(PETS).some(([k, re]) => re.test(t) && StarterLocks.pets[k] === false)));
     Confirm.show(`<ul class="gh-list">${items.map((t) => `<li>${escHtml(mask(t))}</li>`).join("")}</ul>`, { title: `${r.icon} ${r.title} : les règles`, confirmText: "Compris", cancelText: "Fermer" });
   }
 };

@@ -7,7 +7,7 @@
 // de son temps sur "Coffre-fort".
 const LAST_TAB_KEY = "2gatcha_last_tab_jeux";
 // Ancre d'URL de chaque onglet (2026-10-05) : jeux.html#peche, #jardin...
-const TAB_HASH = { dig: "fouille", archeo: "archeologie", guess: "devine", expedition: "expedition", fish: "peche", garden: "jardin", dino: "dinos", bingo: "bingo", vault: "coffre-fort" };
+const TAB_HASH = { dig: "fouille", archeo: "archeologie", guess: "devine", expedition: "expedition", fish: "peche", garden: "jardin", walk: "promenade", cook: "cuisine", dino: "dinos", bingo: "bingo", vault: "coffre-fort" };
 const HASH_TAB = Object.fromEntries(Object.entries(TAB_HASH).map(([k, v]) => [v, k]));
 function getInitialTab() {
   const fromHash = HASH_TAB[location.hash.slice(1)];
@@ -16,7 +16,7 @@ function getInitialTab() {
 }
 
 function setActiveTab(tab) {
-  ["dig", "archeo", "guess", "expedition", "fish", "garden", "dino", "bingo", "vault"].forEach((key) => {
+  ["dig", "archeo", "guess", "expedition", "fish", "garden", "walk", "cook", "dino", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
     document.getElementById(`tab-${key}-btn`).setAttribute("aria-selected", String(tab === key));
     document.getElementById(`${key}-pane`).style.display = tab === key ? "block" : "none";
@@ -24,6 +24,8 @@ function setActiveTab(tab) {
   try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) {}
   if (TAB_HASH[tab] && location.hash !== "#" + TAB_HASH[tab]) history.replaceState(null, "", "#" + TAB_HASH[tab]);
   if (tab === "garden") loadGarden();
+  if (tab === "walk" && window.Companions) Companions.loadWalk();
+  if (tab === "cook" && window.Companions) Companions.loadCook();
   if (tab === "dino" && window.loadDinos) window.loadDinos();
   if (tab === "dig") loadDig();
   if (tab === "archeo" && window.loadArcheo) window.loadArcheo();
@@ -165,10 +167,10 @@ let gardenState = null;
 // Refonte du 26 octobre : sachets de graines, champ (ciel jour / nuit,
 // cloture, tournesols, abeilles, epouvantail), sillons, anneau de pousse,
 // plantation parcelle par parcelle, « caca partout », gains qui s'envolent.
-const SEED_ICONS = { mix: "&#127793;", worm: resIcon("worm"), bait: resIcon("bait"), dust: "&#127776;", catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;" };
+const SEED_ICONS = { mix: "&#127793;", worm: resIcon("worm"), bait: resIcon("bait"), dust: "&#127776;", catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;", veggie: "&#129388;" };
 // Culture prete : selon la graine (melange : legume different selon la parcelle).
 const CROP_ART = { worm: "Jardin/Champi.PNG", bait: "Jardin/Blé.png", dust: "Jardin/Gingembre.PNG" };
-const CROP_EMOJI = { catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;" };
+const CROP_EMOJI = { catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;", veggie: "&#129388;" };
 const MIX_ART = ["Jardin/Carotte.png", "Jardin/Brocoli.png", "Jardin/Poivron.png"];
 const gardenCrop = (p, i) => (CROP_EMOJI[p.seed] ? `<span class="gp-emoji">${CROP_EMOJI[p.seed]}</span>` : artImg(CROP_ART[p.seed] || MIX_ART[i % MIX_ART.length]));
 const gardenLeft = (s) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.ceil((s % 3600) / 60)).padStart(2, "0")}` : `${Math.max(1, Math.ceil(s / 60))} min`);
@@ -247,6 +249,8 @@ function renderGarden(st) {
     poop.title = !st.fertilizer ? "Plus d'engrais : ramasse les cacas de tes dinos" : !poopable ? "Aucune parcelle en train de pousser sans engrais" : "Un caca de dino sur chaque parcelle qui pousse : plus rapide, récolte doublée";
   }
   if (st.level) renderSkillLevel("garden-level", "&#127793;", "Jardin", st.level, gardenPerkTexts(st.level.perks));
+  // Noisette la lapine et son rapport (companions.js).
+  if (window.Companions) Companions.garden(st);
   document.getElementById("garden-harvest-btn").disabled = !st.readyCount;
   document.getElementById("garden-harvest-btn").innerHTML = `&#129530; Tout récolter${st.readyCount ? ` (${st.readyCount})` : ""}`;
   clearInterval(gardenTimer);
@@ -254,7 +258,7 @@ function renderGarden(st) {
 }
 
 async function loadGarden() {
-  try { renderGarden(await API.garden(Session.userId)); }
+  try { renderGarden(await API.garden(Session.userId, "status", { takeReport: true })); }
   catch (e) { document.getElementById("garden-meta").textContent = "Impossible de charger le jardin."; }
 }
 
@@ -289,7 +293,7 @@ function gardenFloat(items) {
   (items || []).forEach((it, k) => {
     const el = document.querySelector(`#garden-plots [data-plot="${it.plot}"]`);
     if (!el) return;
-    const bits = [it.worms && `+${it.worms} ${resIcon("worm")}`, it.bait && `+${it.bait} ${resIcon("bait")}`, it.dust && `+${it.dust} &#10024;`, it.catFish && `+${it.catFish} &#128031;`, it.bones && `+${it.bones} &#129460;`, it.skulls && `+${it.skulls} &#128128;`, it.parts && `+${it.parts} &#128297;`].filter(Boolean);
+    const bits = [it.worms && `+${it.worms} ${resIcon("worm")}`, it.bait && `+${it.bait} ${resIcon("bait")}`, it.dust && `+${it.dust} &#10024;`, it.catFish && `+${it.catFish} &#128031;`, it.bones && `+${it.bones} &#129460;`, it.skulls && `+${it.skulls} &#128128;`, it.parts && `+${it.parts} &#128297;`, it.veg && `+${it.veg} &#129388;`, it.herb && `+${it.herb} &#127807;`, it.mush && `+${it.mush} &#127812;`, it.grubs && `+${it.grubs} &#128027;`].filter(Boolean);
     if (!bits.length) return;
     const r = el.getBoundingClientRect();
     const f = document.createElement("span");
@@ -319,7 +323,7 @@ async function gardenAction(action, extra = {}) {
       const g = res.gained;
       if (g.rare) setTimeout(() => Toast.success(`&#127775; Récolte rare : ${g.rare.icon} ${g.rare.label} !`), 600);
       if (g.wilted) setTimeout(() => Toast.info(`&#129344; ${g.wilted} plante${g.wilted > 1 ? "s" : ""} fanée${g.wilted > 1 ? "s" : ""} : récolte réduite. Repasse plus tôt la prochaine fois !`), 300);
-      const parts = [g.worms && `+${g.worms} vers`, g.bait && `+${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}`, g.dust && `+${g.dust} &#10024;`, g.catFish && `+${g.catFish} poisson${g.catFish > 1 ? "s" : ""} pour Moka`, g.bones && `+${g.bones} os pour Milo`, g.skulls && `+${g.skulls} crâne de dino`, g.parts && `+${g.parts} pièce${g.parts > 1 ? "s" : ""} détachée${g.parts > 1 ? "s" : ""}`].filter(Boolean);
+      const parts = [g.worms && `+${g.worms} vers`, g.bait && `+${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}`, g.dust && `+${g.dust} &#10024;`, g.catFish && `+${g.catFish} poisson${g.catFish > 1 ? "s" : ""} pour Moka`, g.bones && `+${g.bones} os pour Milo`, g.skulls && `+${g.skulls} crâne de dino`, g.parts && `+${g.parts} pièce${g.parts > 1 ? "s" : ""} détachée${g.parts > 1 ? "s" : ""}`, g.veg && `+${g.veg} légume${g.veg > 1 ? "s" : ""}`, g.herb && `+${g.herb} herbe${g.herb > 1 ? "s" : ""}`, g.mush && `+${g.mush} champignon${g.mush > 1 ? "s" : ""}`, g.grubs && PetText.mask(`+${g.grubs} ver${g.grubs > 1 ? "s" : ""} blanc${g.grubs > 1 ? "s" : ""} pour Pistache`)].filter(Boolean);
       Toast.success(`&#129530; Récolte : ${parts.join(", ") || "rien cette fois"} !`);
       if ((g.bait || g.skulls) && typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
       if (res.levelUp) LevelUpModal.show({ icon: "&#127793;", name: "Jardin", level: res.levelUp, perks: gardenPerkTexts(res.level && res.level.perks) });
@@ -732,6 +736,7 @@ async function doDig(tileIndex, tileEl) {
 
     if (res.reducedRewards) resultEl.insertAdjacentHTML("beforeend", `<div class="dig-reduced">Rendement réduit : plus de poussières à plein tarif aujourd'hui (reviens demain).</div>`);
     // Tablette ancienne (api/src/native/archeo.js) : a degager dans l'onglet Archeologie.
+    if (res.carrotsFound) resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">&#129365; ${res.carrotsFound > 1 ? `${res.carrotsFound} carottes sauvages` : "Une carotte sauvage"} ${PetText.mask("pour Noisette")} !</div>`);
     if (res.tabletsFound) {
       resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms">${res.tabletKinds && res.tabletKinds.length ? res.tabletKinds.map((k) => `${k.icon} <strong>${escHtml(k.label)}</strong>${k.rarity !== "commune" ? ` (${escHtml(k.rarity)})` : ""}`).join(", ") : `🏺 ${res.tabletsFound > 1 ? res.tabletsFound + " tablettes anciennes" : "Une tablette ancienne"}`} sous la terre ! <a href="jeux.html#archeologie">Va la dégager</a></div>`);
       Toast.success(`🏺 Tablette ancienne trouvée ! Onglet Archéologie.`);
@@ -1642,6 +1647,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Lien de l'en-tete vers la peche alors qu'on est deja sur la page.
   window.addEventListener("hashchange", () => { const t = HASH_TAB[location.hash.slice(1)]; if (t) setActiveTab(t); });
   document.getElementById("tab-garden-btn").addEventListener("click", () => setActiveTab("garden"));
+  document.getElementById("tab-walk-btn").addEventListener("click", () => setActiveTab("walk"));
+  document.getElementById("tab-cook-btn").addEventListener("click", () => setActiveTab("cook"));
   document.getElementById("tab-dino-btn").addEventListener("click", () => setActiveTab("dino"));
   document.getElementById("garden-plots").addEventListener("click", (e) => {
     const b = e.target.closest("[data-fertilize]");

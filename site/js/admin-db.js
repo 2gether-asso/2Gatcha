@@ -128,7 +128,7 @@ function logout() {
 }
 
 function setTab(tab) {
-  ["content", "images", "tables", "backups"].forEach((t) => {
+  ["content", "artists", "images", "tables", "backups"].forEach((t) => {
     const btn = document.getElementById(`adb-tab-${t}`);
     btn.classList.toggle("active", t === tab);
     btn.setAttribute("aria-selected", String(t === tab));

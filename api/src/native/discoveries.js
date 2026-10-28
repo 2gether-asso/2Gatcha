@@ -34,6 +34,8 @@ export const RESOURCES = [
   { key: 'egg', icon: '🥚', name: 'Œuf', has: len('DinoEggs'), riddle: 'Il est tiède. Et parfois, il bouge.' },
   { key: 'poop', icon: '💩', name: 'Engrais', has: num('DinoPoop'), riddle: 'Ça sent… fort. Mais ce qui pousse dessus pousse étonnamment vite.' },
   { key: 'goldpoop', icon: '✨', name: 'Engrais doré', has: num('DinoGoldPoop'), riddle: 'Un trésor que personne n’ose toucher. La terre, elle, ne fera pas la difficile.' },
+  { key: 'carrot', icon: '🥕', name: 'Carotte', has: num('Carrots'), riddle: 'Croquante et orange. Quelque part près du potager, deux grandes oreilles se dressent déjà…' },
+  { key: 'grub', icon: '🐛', name: 'Ver blanc', has: num('Grubs'), riddle: 'Dodu, tout pâle. Pas très appétissant pour toi… mais un petit nez pointu ne pense qu’à ça.' },
   { key: 'fragment', icon: '👻', name: 'Fragment fantôme', has: len('PhantomFragments'), riddle: 'Un morceau de carte translucide. Il en manque d’autres, éparpillés là où tu passes tes journées.' }
 ];
 

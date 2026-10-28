@@ -94,39 +94,7 @@ html.ci-open, html.ci-open body { overflow: hidden; }
 .games-hub[data-view="map"] #games-summary, .games-hub[data-view="list"] .wm-wrap, .games-hub[data-view="map"] .wm-toggle-back { display: none; }
 .wm-wrap { position: relative; }
 .wm-toggle-back { margin-top: 8px; font-size: 0.8rem; padding: 6px 12px; }
-/* Monde etendu (2026-10-29) : panorama 1900 x 360 (nature puis village), a faire glisser partout. */
-.wm-map { position: relative; height: clamp(230px, 26vw, 320px); border-radius: var(--radius-lg, 18px); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; scroll-behavior: smooth; border: 1px solid var(--border-soft); }
-.wm-world { position: relative; width: calc(clamp(230px, 26vw, 320px) * 1900 / 360); height: 100%; }
-.wm-jumps { position: absolute; left: 8px; bottom: 8px; z-index: 3; display: flex; gap: 6px; }
-.wm-jumps .btn-ghost { padding: 4px 10px; font-size: 0.75rem; background: rgba(10, 12, 30, 0.6); }
-a.wm-pin { text-decoration: none; }
-.wm-pin.wm-town { background: rgba(40, 20, 10, 0.72); }
-.wm-on-town { margin-bottom: 14px; }
-.wm-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.wm-pin { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; min-width: 44px; padding: 6px 10px 5px; border-radius: 14px; font: inherit; color: #fff; background: rgba(10, 12, 30, 0.72); border: 1px solid rgba(255, 255, 255, 0.18); backdrop-filter: blur(4px); box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.8); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
-.wm-pin[hidden] { display: none; }
-/* Survol : seulement la bordure, la tuile ne bouge pas (y compris face aux effets de survol generiques des boutons). */
-.wm-map .wm-pin:hover, .wm-map .wm-pin:focus-visible, .wm-map .wm-pin:active { transform: translate(-50%, -50%); filter: none; border-color: var(--accent-2); z-index: 2; }
-.wm-pin.active { background: color-mix(in srgb, var(--accent) 70%, rgba(10, 12, 30, 0.8)); border-color: #fff; z-index: 1; }
-.wm-pin.hot::after { content: ""; position: absolute; inset: -4px; border-radius: 17px; border: 2px solid var(--success); animation: wmPulse 1.8s ease-out infinite; pointer-events: none; }
-.wm-ico { font-size: 1.35rem; line-height: 1; }
-.wm-name { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.01em; white-space: nowrap; }
-.wm-status { font-size: 0.66rem; font-weight: 600; color: #cbd5e1; white-space: nowrap; }
-.wm-status:empty { display: none; }
-.wm-pin.hot .wm-status { color: #86efac; }
-.wm-toggle { position: absolute; right: 8px; top: 8px; z-index: 3; padding: 4px 10px; font-size: 0.75rem; background: rgba(10, 12, 30, 0.6); }
-@keyframes wmPulse { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.25); } }
-@media (prefers-reduced-motion: reduce) { .wm-pin.hot::after { animation: none; } }
-/* Mobile : icone + etat, le nom passe en infobulle (aria-label). */
-@media (max-width: 640px) {
-  /* Panorama a faire glisser : le paysage garde ses proportions (1000 x 360). */
-  .wm-map { height: 250px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; scroll-behavior: smooth; }
-  .wm-map::-webkit-scrollbar { display: none; }
-  .wm-world { width: calc(250px * 1900 / 360); }
-  .wm-pin { padding: 5px 6px 4px; min-width: 40px; }
-  .wm-name { display: none; }
-  .wm-status { font-size: 0.6rem; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
-}
+/* Panorama, reperes, jour et nuit : css/worldmap.css (2026-10-30). */
 
 /* --- Session rapide (js/lazy/quick-session.js) --- */
 .rc-head-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; }
@@ -143,7 +111,6 @@ a.wm-pin { text-decoration: none; }
 .qs-step.done .qs-state { color: var(--success); }
 .qs-step.failed .qs-state { color: var(--danger); }
 .qs-spin { display: inline-block; width: 12px; height: 12px; border-width: 2px; vertical-align: -2px; margin: 0; }
-.wm-quick { position: absolute; left: 8px; top: 8px; z-index: 3; padding: 4px 10px; font-size: 0.75rem; background: rgba(10, 12, 30, 0.6); }
 
 /* --- Rappels (js/lazy/reminders.js) --- */
 .rm-modal { width: min(520px, 100%); grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
