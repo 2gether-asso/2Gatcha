@@ -141,37 +141,6 @@ function renderNotifDot() {
   dot.classList.toggle("has-count", NotificationHistory.todo > 0);
 }
 
-function renderNotifDropdown() {
-  const el = document.getElementById("notif-bell-dropdown");
-  if (!el) return;
-  const items = NotificationHistory.getAll();
-  const icons = { success: "&#10003;", error: "&#9888;", info: "&#10024;" };
-  const header = items.length
-    ? `<div class="notif-bell-header"><span>Notifications</span><button type="button" class="notif-clear-btn" id="notif-clear-btn">Tout effacer</button></div>`
-    : "";
-  el.innerHTML = header + (items.length
-    ? items.map((n) => `
-        <div class="notif-item notif-item-${n.type}">
-          <span class="notif-item-icon">${icons[n.type] || icons.info}</span>
-          <span class="notif-item-body">
-            <span class="notif-item-msg">${n.message}</span>
-            <span class="notif-item-time">${relativeTime(n.ts)}</span>
-          </span>
-        </div>
-      `).join("")
-    : `<div class="notif-empty">Rien de nouveau pour l'instant.</div>`) + `<div id="push-toggle-row"></div>`;
-  if (typeof PushNotifs !== "undefined") PushNotifs.renderRow(document.getElementById("push-toggle-row"));
-  const clearBtn = document.getElementById("notif-clear-btn");
-  if (clearBtn) {
-    clearBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      NotificationHistory.clear();
-      renderNotifDropdown();
-      renderNotifDot();
-    });
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Ouverture de la fenetre de carte (2026-10-21, refonte.css) : un fondu
 // court et sobre en CSS. L'envol de la vignette (View Transitions, 20 oct.)
@@ -889,8 +858,10 @@ document.addEventListener("keydown", (e) => {
 // mémorise le scroll courant, on fixe le body a cette position, puis on
 // restaure exactement la meme position au deverrouillage.
 let _scrollLockY = 0;
+// Cinematiques comprises (2026-10-30) : elles laissaient la page defiler dessous.
+const SCROLL_LOCK_SEL = ".card-modal-overlay, .mfx, .lvx, .cine-overlay";
 function syncScrollLock() {
-  const cardModalOpen = !!document.querySelector(".card-modal-overlay, .mfx, .lvx");
+  const cardModalOpen = !!document.querySelector(SCROLL_LOCK_SEL);
   const packModal = document.getElementById("pack-modal-overlay");
   const packModalOpen = !!(packModal && !packModal.hidden);
   const shouldLock = cardModalOpen || packModalOpen;
@@ -898,14 +869,28 @@ function syncScrollLock() {
 
   if (shouldLock && !isLocked) {
     _scrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.documentElement.classList.add("scroll-locked");
     document.body.classList.add("scroll-locked");
     document.body.style.top = `-${_scrollLockY}px`;
   } else if (!shouldLock && isLocked) {
+    document.documentElement.classList.remove("scroll-locked");
     document.body.classList.remove("scroll-locked");
     document.body.style.top = "";
-    window.scrollTo(0, _scrollLockY);
+    // "instant" : html a scroll-behavior: smooth, la page defilait sinon
+    // en animation depuis le haut a chaque fermeture.
+    window.scrollTo({ top: _scrollLockY, left: 0, behavior: "instant" });
   }
 }
+// Toute fenetre ajoutee ou retiree directement sous <body> resynchronise le
+// verrou, meme celles qui n'appellent pas syncScrollLock (cinematiques...).
+(function watchOverlays() {
+  const start = () => new MutationObserver((muts) => {
+    for (const m of muts) for (const n of [...m.addedNodes, ...m.removedNodes]) {
+      if (n.nodeType === 1 && n.matches(SCROLL_LOCK_SEL)) { syncScrollLock(); return; }
+    }
+  }).observe(document.body, { childList: true });
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+})();
 
 // Anime un changement de valeur numerique (badge boosters, stats...) avec un
 // petit "bump" au lieu d'un saut sec.
@@ -913,16 +898,25 @@ function syncScrollLock() {
 // 2026-09-30), en plus du compteur qui defile deja plus bas. Position:fixed
 // + append direct sur <body> (comme getParticleLayer) pour ne pas dependre
 // du contexte de positionnement du badge appelant.
+// Position lue a l'image suivante (2026-10-30) : lue tout de suite, elle
+// forcait une mise en page complete au milieu du rendu (jusqu'a 500 ms sur un
+// telephone au chargement).
 function spawnFloatingGain(el, delta) {
-  const rect = el.getBoundingClientRect();
-  const span = document.createElement("span");
-  span.className = "count-gain-float";
-  span.textContent = "+" + delta;
-  span.style.left = (rect.left + rect.width / 2) + "px";
-  span.style.top = rect.top + "px";
-  document.body.appendChild(span);
-  setTimeout(() => span.remove(), 900);
+  requestAnimationFrame(() => {
+    if (!el.isConnected) return;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width) return; // compteur masque (ressources repliees...)
+    const span = document.createElement("span");
+    span.className = "count-gain-float";
+    span.textContent = "+" + delta;
+    span.style.left = (rect.left + rect.width / 2) + "px";
+    span.style.top = rect.top + "px";
+    document.body.appendChild(span);
+    setTimeout(() => span.remove(), 900);
+  });
 }
+// Premier remplissage de l'en-tete apres le chargement : pas un gain, pas d'animation.
+const BUMP_QUIET_UNTIL = performance.now() + 2500;
 
 function bumpNumber(el, newValue) {
   const prevRaw = el.textContent.trim();
@@ -930,7 +924,7 @@ function bumpNumber(el, newValue) {
   const nextNum = Number(newValue);
   const canAnimate = prevRaw !== "" && prevRaw !== "..." && Number.isFinite(prevNum) && Number.isFinite(nextNum) && prevNum !== nextNum;
 
-  if (!canAnimate) {
+  if (!canAnimate || performance.now() < BUMP_QUIET_UNTIL) {
     el.textContent = newValue;
     return;
   }
@@ -938,10 +932,10 @@ function bumpNumber(el, newValue) {
   if (nextNum > prevNum) spawnFloatingGain(el, nextNum - prevNum);
 
   // Petit effet "compteur qui defile" plutot qu'un saut sec au nouveau
-  // chiffre : interpole la valeur affichee sur ~450ms.
+  // chiffre : interpole la valeur affichee sur ~450ms. Animation relancee a
+  // l'image suivante plutot que par un reflow force (offsetWidth).
   el.classList.remove("count-bump");
-  void el.offsetWidth;
-  el.classList.add("count-bump");
+  requestAnimationFrame(() => el.classList.add("count-bump"));
 
   const duration = 450;
   const start = performance.now();

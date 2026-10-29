@@ -751,13 +751,12 @@ async function bulkCancel() {
     dangerous: true
   });
   if (!ok) return;
+  // Un seul appel HTTP pour toute la selection ; un echec n'arrete pas les suivants.
   let successCount = 0;
-  for (const id of ids) {
-    try {
-      await API.cancelTrade(Session.userId, id);
-      successCount++;
-    } catch (e) { /* on continue avec les suivants */ }
-  }
+  try {
+    const results = await API.batchWrite("trade", ids.map((tradeId) => ({ userId: Session.userId, action: "cancel", tradeId })));
+    successCount = results.filter((r) => r.status === 200 && r.json && !r.json.error).length;
+  } catch (e) { Toast.error(friendlyError(e)); }
   Toast.info(`${successCount} échange${successCount > 1 ? "s" : ""} annulé${successCount > 1 ? "s" : ""}.`);
   bulkCancelSelected.clear();
   bulkCancelMode = false;
@@ -890,7 +889,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const level = await fetchMyLevel();
-  if (level < FEATURE_UNLOCK_LEVEL.trade) {
+  if (featureNeed("trade", level)) {
     const zone = document.getElementById("trade-zone");
     zone.style.display = "block";
     renderFeatureLockedMessage(zone, "trade", level);

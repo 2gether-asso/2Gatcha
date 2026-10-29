@@ -278,7 +278,7 @@ const Coll = (() => {
 
   function isLocked(m) {
     const lock = MODES[m] && MODES[m].lock;
-    return !!lock && state.level < FEATURE_UNLOCK_LEVEL[lock];
+    return !!lock && !!featureNeed(lock, state.level);
   }
 
   // Cartes passant les filtres partages. ownedOnlySearch : dans le classeur,
@@ -604,12 +604,15 @@ const Coll = (() => {
   }
 
   // ---------------------------------------------------------------- modes
+  // Verrous des decouvertes (StarterLocks) arrives apres le rendu : onglets relus.
+  document.addEventListener("starter:locks", () => { if (state.level != null) applyLocks(); });
   function applyLocks() {
     document.querySelectorAll(".coll-mode").forEach((btn) => {
       const m = btn.dataset.mode;
       const locked = isLocked(m);
       btn.classList.toggle("locked", locked);
-      btn.title = locked ? `Débloqué au niveau ${FEATURE_UNLOCK_LEVEL[MODES[m].lock]}` : "";
+      const need = locked ? featureNeed(MODES[m].lock, state.level) : 0;
+      btn.title = need > 0 ? `Débloqué au niveau ${need}` : "";
     });
   }
 
@@ -638,12 +641,14 @@ const Coll = (() => {
       btn.tabIndex = on ? 0 : -1;
       // Onglets defilants sur mobile : l'onglet actif reste visible.
       // (defilement horizontal de la barre seule : jamais de saut de page).
-      if (on) {
+      // A l'image suivante : lu tout de suite, ca forcait une mise en page
+      // avant meme l'affichage du volet.
+      if (on) requestAnimationFrame(() => {
         const nav = btn.parentElement;
         const b = btn.getBoundingClientRect(), n = nav.getBoundingClientRect();
         if (b.left < n.left) nav.scrollLeft -= n.left - b.left + 8;
         else if (b.right > n.right) nav.scrollLeft += b.right - n.right + 8;
-      }
+      });
     });
     document.querySelectorAll(".coll-pane").forEach((p) => { p.style.display = p.id === "pane-" + m ? "" : "none"; });
     document.getElementById("shared-toolbar").style.display = GRID_MODES.includes(m) ? "" : "none";
@@ -662,7 +667,8 @@ const Coll = (() => {
     if (!MODES[m]) m = "binder";
     if (isLocked(m)) {
       const lock = MODES[m].lock;
-      Toast.info(`${FEATURE_LABELS[lock] || MODES[m].label} se débloque au niveau ${FEATURE_UNLOCK_LEVEL[lock]} (tu es niveau ${state.level}).`);
+      const need = featureNeed(lock, state.level);
+      Toast.info(need < 0 ? "Pas encore découvert : continue à jouer." : `${FEATURE_LABELS[lock] || MODES[m].label} se débloque au niveau ${need} (tu es niveau ${state.level}).`);
       if (fromHash) m = "binder"; else return;
     }
     try { localStorage.setItem(LAST_MODE_KEY, m); } catch (e) {}

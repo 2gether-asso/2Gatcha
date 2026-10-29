@@ -37,23 +37,12 @@ const CardTilt = (function () {
       el.addEventListener("mouseleave", () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } reset(el); });
     } else if (gyro) focus(el);
   }
+  // Gyroscope lisse et partage (Gyro, core.js) : la carte au premier plan.
   function focus(el) {
     gyroTarget = el;
     if (gyroAsked) return;
     gyroAsked = true;
-    const start = () => window.addEventListener("deviceorientation", (e) => {
-      if (!gyroTarget || !document.body.contains(gyroTarget) || e.gamma == null) return;
-      const px = Math.max(0, Math.min(1, 0.5 + e.gamma / 50));
-      const py = Math.max(0, Math.min(1, 0.5 + (e.beta - 45) / 50));
-      set(gyroTarget, px, py);
-    });
-    // iOS : autorisation demandee au premier geste.
-    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
-      document.addEventListener("click", function ask() {
-        document.removeEventListener("click", ask);
-        DeviceOrientationEvent.requestPermission().then((s) => { if (s === "granted") start(); }).catch(() => {});
-      });
-    } else start();
+    Gyro.on((x, y) => { if (gyroTarget && gyroTarget.isConnected) set(gyroTarget, 0.5 + x / 2, 0.5 + y / 2); });
   }
   return { attach, focus, reset };
 })();
@@ -148,7 +137,7 @@ const CardExtras = (function () {
   // en trois formats, partage, telechargement, copie et publication Discord.
   function share(o, btn) {
     btn.disabled = true;
-    LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.card(o)).catch(() => Toast.error("Partage indisponible pour le moment.")).finally(() => { btn.disabled = false; });
+    LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.card(o)).catch(LazyJs.fail("Partage indisponible pour le moment.")).finally(() => { btn.disabled = false; });
   }
 
   // ---------------------------------------------------------------- coffre-fort
@@ -246,7 +235,7 @@ const CardExtras = (function () {
       // Inspecteur plein ecran (js/lazy/card-inspector.js, charge au premier clic).
       if (what === "inspect") {
         b.disabled = true;
-        LazyJs.load("js/lazy/card-inspector.js").then(() => CardInspector.open(o)).catch(() => Toast.error("Inspecteur indisponible pour le moment.")).finally(() => { b.disabled = false; });
+        LazyJs.load("js/lazy/card-inspector.js").then(() => CardInspector.open(o)).catch(LazyJs.fail("Inspecteur indisponible pour le moment.")).finally(() => { b.disabled = false; });
         return;
       }
       bar.querySelectorAll("[data-cx]").forEach((x) => { if (x.dataset.cx !== "verso") x.classList.remove("active"); });

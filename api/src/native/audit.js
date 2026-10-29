@@ -10,6 +10,7 @@
 //   POST /webhook/admin-audit { discordId, action: 'list' | 'undo', id?, limit? }
 
 import { ok, fail, isAdmin, now } from './common.js';
+import { captureError } from '../monitoring.js';
 
 export const schema = {
   AdminAudit: { At: { type: 'Numeric' }, Actor: { type: 'Text' }, Route: { type: 'Text' }, Action: { type: 'Text' }, Summary: { type: 'Text' }, Ops: { type: 'Text' }, UndoneAt: { type: 'Numeric' }, UndoneBy: { type: 'Text' }, UndoNote: { type: 'Text' } }
@@ -70,7 +71,7 @@ export function wrap(store, path, body, fn) {
       store.create('AdminAudit', { At: now(), Actor: String(body.discordId), Route: path, Action: action, Summary: summarize(store, path, action, body, ops), Ops: JSON.stringify(ops) });
       const rows = store.getAll('AdminAudit');
       if (rows.length > KEEP) rows.sort((x, y) => x.id - y.id).slice(0, rows.length - KEEP).forEach((r) => store.delete('AdminAudit', r.id));
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); captureError(e, { hook: 'audit' }); }
   }
   return res;
 }

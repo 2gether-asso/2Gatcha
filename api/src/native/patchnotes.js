@@ -8,6 +8,21 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-30', title: 'Plus rapide, et à ton écoute', items: [
+    'Nouveau bouton « Donner un avis » dans ton menu de joueur : une idée, un bug, un coup de cœur ? Écris-le, il arrive directement à l’équipe',
+    'Les pages se chargent plus vite : tout ce qu’elles affichent arrive maintenant d’un seul coup',
+    'Ranger plusieurs cartes au coffre, annuler plusieurs échanges ou réordonner ta vitrine se fait d’une traite',
+    'Corrigé : le menu des notifications affichait un instant une ancienne version avant de se mettre en forme',
+    'Corrigé : sur la page Communauté, tous les onglets apparaissaient un instant avant d’être rangés par rubrique',
+    'Sur téléphone : la page ne saute plus quand une carte ou une cinématique s’ouvre ou se ferme',
+    'Chamboule-tout : le viseur suit enfin ton doigt sans trembler, et la balle part bien d’où tu la lâches',
+    'Blackjack : les cartes ne sautent plus à chaque carte tirée, et la table ne change plus de taille',
+    'Plinko : touche le haut du plateau pour viser au doigt',
+    'Le pack et les cartes révélées s’inclinent en douceur avec ton téléphone',
+    'Accueil : une fois l’histoire terminée ou les défis de saison récupérés, une croix permet de masquer le bloc jusqu’à la prochaine nouveauté',
+    'Nouveaux joueurs : chaque activité se découvre en jouant (un premier ver ouvre la pêche, un premier crâne les dinos, une première carte brillante le coffre-fort…), au lieu d’attendre un niveau',
+    'Des coins du monde restent à découvrir : continue d’explorer…'
+  ] },
   { date: '2026-10-30', title: 'Balades, cuisine et nouveaux compagnons', items: [
     'Deux nouveaux compagnons à adopter : Noisette la lapine récolte et replante ton jardin contre des carottes, Pistache le hérisson gratte tes tablettes et nettoie tes blocs contre des vers blancs',
     'Nouvel onglet Promenade : chaque jour, emmène chacun de tes compagnons en balade dans la forêt, au bord du lac, dans la prairie ou dans les ruines… et la nuit, dans la clairière aux lucioles',

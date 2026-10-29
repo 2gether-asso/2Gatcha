@@ -161,9 +161,11 @@ const StarterLocks = {
   locks: [],
   unlocks: [],
   pets: {},
+  newcomer: false,
   apply(view) {
     const locks = (view && view.locks) || [];
     this.locks = locks;
+    this.newcomer = !!(view && view.newcomer);
     if (view && view.unlocks) this.unlocks = view.unlocks;
     if (view && view.pets) { this.pets = view.pets; if (window.PetText) window.PetText.apply(); }
     document.documentElement.classList.toggle("starter-simple", !!(view && view.active));
@@ -171,6 +173,8 @@ const StarterLocks = {
     if (!style) { style = document.createElement("style"); style.id = "starter-locks-style"; document.head.appendChild(style); }
     const hidden = locks.flatMap((l) => l.hide || []);
     style.textContent = hidden.length ? `${hidden.join(",")} { display: none !important; }\n` : "";
+    // Ce qui depend des verrous (lieux de la carte du monde...) se recalcule.
+    document.dispatchEvent(new CustomEvent("starter:locks"));
     const run = () => {
       const page = (location.pathname.split("/").pop() || "index.html").toLowerCase();
       const lock = locks.find((l) => l.page && l.page === page);
@@ -204,7 +208,7 @@ const StarterLocks = {
     if (typeof Session === "undefined" || !Session.isLoggedIn()) return null;
     try {
       const v = await API.post("starter", { userId: Session.userId, action: "status" });
-      try { localStorage.setItem(this.KEY, JSON.stringify({ locks: v.locks, active: v.active, unlocks: v.unlocks, pets: v.pets })); } catch (e) { /* stockage indisponible */ }
+      try { localStorage.setItem(this.KEY, JSON.stringify({ locks: v.locks, active: v.active, unlocks: v.unlocks, pets: v.pets, newcomer: v.newcomer })); } catch (e) { /* stockage indisponible */ }
       this.apply(v);
       return v;
     } catch (e) { return null; }
@@ -650,7 +654,7 @@ document.addEventListener("DOMContentLoaded", () => {
   b.addEventListener("click", () => {
     const cur = document.querySelector('main [role="tab"][aria-selected="true"]');
     const key = cur ? cur.id.replace(/^tab-|-btn$/g, "") : "";
-    LazyJs.load("js/lazy/game-help.js").then(() => GameHelp.open(key)).catch(() => Toast.error("Aide indisponible pour le moment."));
+    LazyJs.load("js/lazy/game-help.js").then(() => GameHelp.open(key)).catch(LazyJs.fail("Aide indisponible pour le moment."));
   });
 });
 
@@ -660,7 +664,16 @@ document.addEventListener("click", (e) => {
   if (!b) return;
   e.preventDefault();
   document.getElementById("user-menu")?.classList.remove("open");
-  LazyJs.load("js/lazy/prefs.js").then(() => Prefs.open()).catch(() => Toast.error("Préférences indisponibles pour le moment."));
+  LazyJs.load("js/lazy/prefs.js").then(() => Prefs.open()).catch(LazyJs.fail("Préférences indisponibles pour le moment."));
+});
+
+// Donner un avis (2026-10-29, js/lazy/feedback.js) : tout bouton [data-feedback-open].
+document.addEventListener("click", (e) => {
+  const b = e.target instanceof Element ? e.target.closest("[data-feedback-open]") : null;
+  if (!b) return;
+  e.preventDefault();
+  document.getElementById("user-menu")?.classList.remove("open");
+  LazyJs.load("js/lazy/feedback.js").then(() => Feedback.open(b.dataset.feedbackOpen || "")).catch(LazyJs.fail("Avis indisponible pour le moment."));
 });
 
 // Session rapide (2026-10-20, js/lazy/quick-session.js) : tout bouton
@@ -670,7 +683,7 @@ document.addEventListener("click", (e) => {
   if (!b) return;
   e.preventDefault();
   document.getElementById("user-menu")?.classList.remove("open");
-  LazyJs.load("js/lazy/quick-session.js").then(() => QuickSession.open()).catch(() => Toast.error("Session rapide indisponible pour le moment."));
+  LazyJs.load("js/lazy/quick-session.js").then(() => QuickSession.open()).catch(LazyJs.fail("Session rapide indisponible pour le moment."));
 });
 
 // Souhaits exauces (2026-10-21) : une carte obtenue sort toute seule de la
@@ -715,9 +728,13 @@ const WishlistSync = {
     const hits = [...(owned instanceof Map ? owned.keys() : owned)].filter((id) => wished.has(id));
     if (!hits.length) return [];
     const done = [];
-    for (const id of hits) {
-      try { await API.removeFromWishlist(Session.userId, id); done.push(id); document.dispatchEvent(new CustomEvent("wishlist:change", { detail: { cardId: id, on: false } })); } catch (e) { /* reessaye a la prochaine visite */ }
-    }
+    let results = [];
+    try { results = await API.batchWrite("wishlist", hits.map((cardId) => ({ userId: Session.userId, action: "remove", cardId }))); } catch (e) { /* reessaye a la prochaine visite */ }
+    results.forEach((r, i) => {
+      if (r.status !== 200 || !r.json || r.json.error) return;
+      done.push(hits[i]);
+      document.dispatchEvent(new CustomEvent("wishlist:change", { detail: { cardId: hits[i], on: false } }));
+    });
     this.forget();
     if (done.length) {
       const names = done.map((id) => (owned instanceof Map && owned.get(id)) || "").filter(Boolean);
@@ -735,7 +752,7 @@ document.addEventListener("click", (e) => {
   if (!b) return;
   e.preventDefault();
   document.getElementById("user-menu")?.classList.remove("open");
-  LazyJs.load("js/lazy/wishlist.js").then(() => WishlistView.open()).catch(() => Toast.error("Liste de souhaits indisponible pour le moment."));
+  LazyJs.load("js/lazy/wishlist.js").then(() => WishlistView.open()).catch(LazyJs.fail("Liste de souhaits indisponible pour le moment."));
 });
 
 // ---------------------------------------------------------------------------
@@ -901,19 +918,26 @@ const SecretFx = {
   },
   // Element « carte » : celui qui porte data-card-id (collection, coffre,
   // fenetre de carte, machine, cinematiques).
+  // Deux passes (2026-10-30) : toutes les lectures (position calculee) puis
+  // toutes les ecritures. Alterner les deux carte par carte forcait une mise
+  // en page complete par carte (collection, coffre).
   apply() {
     if (!this.selector) return;
+    const todo = [];
     document.querySelectorAll(this.selector).forEach((card) => {
       if (card.dataset.sfx) return;
       const effect = this.byId.get(card.dataset.cardId);
       if (!effect) return;
+      // Le glitch reste dans l'illustration.
+      const img = effect === "glitch" ? card.querySelector("img") : null;
+      const host = effect === "glitch" ? (img ? img.parentElement : null) : card;
+      if (!host) return;
+      todo.push({ card, effect, img, host, place: getComputedStyle(host).position === "static" });
+    });
+    todo.forEach(({ card, effect, img, host, place }) => {
       card.dataset.sfx = effect;
+      if (place) host.style.position = "relative";
       if (effect === "glitch") {
-        // Le glitch reste dans l'illustration.
-        const img = card.querySelector("img");
-        const host = img ? img.parentElement : null;
-        if (!host) return;
-        if (getComputedStyle(host).position === "static") host.style.position = "relative";
         host.classList.add("gl404-host");
         img.dataset.gl404 = "1";  // active le decalage de l'image (gl404Shift)
         const fx = document.createElement("div");
@@ -924,7 +948,6 @@ const SecretFx = {
         this.glitchHosts.add(host);
         return;
       }
-      if (getComputedStyle(card).position === "static") card.style.position = "relative";
       const ring = document.createElement("i");
       ring.className = "sfx-ring";
       ring.setAttribute("aria-hidden", "true");

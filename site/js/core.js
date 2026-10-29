@@ -24,6 +24,64 @@ const LazyJs = {
       }));
     }
     return this.pending.get(path);
+  },
+  // .catch d'un LazyJs.load(...).then(() => Module.open()) : un bug du module
+  // (pas un simple echec de chargement) part dans GlitchTip, puis le toast.
+  fail(message) {
+    return (e) => {
+      if (typeof Monitor !== "undefined" && Monitor.isBug(e)) Monitor.capture(e, { via: "lazy" });
+      if (message) Toast.error(message);
+    };
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Gyroscope partage (2026-10-30) : inclinaison du telephone LISSEE (filtre
+// passe-bas, une mise a jour par image) et relative a la facon dont le joueur
+// tient son telephone (position de depart = neutre). Avant, pack et cartes
+// recevaient chaque mesure brute (60/s, tremblement de la main compris) : ca
+// tressautait, et chaque nouveau pack ajoutait un ecouteur jamais retire.
+// Gyro.on(fn) : fn(x, y) avec x, y entre -1 et 1 ; renvoie de quoi se desabonner.
+// ---------------------------------------------------------------------------
+const Gyro = {
+  subs: new Set(), started: false, asked: false, raf: 0,
+  base: null, x: 0, y: 0, tx: 0, ty: 0,
+  on(fn) {
+    this.subs.add(fn);
+    this.start();
+    return () => this.subs.delete(fn);
+  },
+  start() {
+    if (this.started || typeof DeviceOrientationEvent === "undefined") return;
+    const listen = () => {
+      if (this.started) return;
+      this.started = true;
+      window.addEventListener("deviceorientation", (e) => this.read(e));
+    };
+    // iOS : autorisation au premier geste du joueur.
+    if (typeof DeviceOrientationEvent.requestPermission === "function") {
+      if (this.asked) return;
+      this.asked = true;
+      const ask = () => { document.removeEventListener("click", ask, true); DeviceOrientationEvent.requestPermission().then((s) => { if (s === "granted") listen(); }).catch(() => {}); };
+      document.addEventListener("click", ask, true);
+    } else listen();
+  },
+  read(e) {
+    if (e.beta == null || e.gamma == null || !this.subs.size) return;
+    if (!this.base) this.base = { b: e.beta, g: e.gamma };
+    // La position "neutre" suit lentement la tenue du telephone.
+    this.base.b += (e.beta - this.base.b) * 0.01;
+    this.base.g += (e.gamma - this.base.g) * 0.01;
+    this.tx = Math.max(-1, Math.min(1, (e.gamma - this.base.g) / 25));
+    this.ty = Math.max(-1, Math.min(1, (e.beta - this.base.b) / 25));
+    if (!this.raf) this.raf = requestAnimationFrame(() => this.tick());
+  },
+  tick() {
+    this.raf = 0;
+    this.x += (this.tx - this.x) * 0.18;
+    this.y += (this.ty - this.y) * 0.18;
+    this.subs.forEach((fn) => fn(this.x, this.y));
+    if (Math.abs(this.tx - this.x) > 0.002 || Math.abs(this.ty - this.y) > 0.002) this.raf = requestAnimationFrame(() => this.tick());
   }
 };
 
@@ -90,6 +148,8 @@ const COMMON_ERRORS = {
   maintenance: "Le jeu est en maintenance : reviens dans un instant."
 };
 function friendlyError(e) {
+  // Bug de code attrape par un catch (pas un refus de l'API) : GlitchTip.
+  if (typeof Monitor !== "undefined" && Monitor.isBug(e)) Monitor.capture(e, { via: "friendlyError" });
   const code = e && (e.code || (e.data && e.data.error));
   if (e && e.data && (e.data.error === "feature_disabled" || e.data.error === "level_locked") && e.data.message) return e.data.message;
   if (code && COMMON_ERRORS[code]) return COMMON_ERRORS[code];
@@ -151,7 +211,10 @@ const iconOf = (emoji) => (EMOJI_RES[emoji] ? resIcon(EMOJI_RES[emoji]) : emoji 
 
 // Petits formats partages (2026-10-18) : avant, recopies a l'identique dans
 // une dizaine de fichiers.
-const fmtNum = (n) => Number(n || 0).toLocaleString("fr-FR");
+// Un seul formateur (2026-10-30) : toLocaleString en recreait un a chaque
+// appel, couteux sur telephone (en-tete, listes).
+const FR_NUM = new Intl.NumberFormat("fr-FR");
+const fmtNum = (n) => FR_NUM.format(Number(n || 0));
 const fmtSerial = (n) => (n != null ? "#" + String(n).padStart(3, "0") : "");
 // Texte en minuscules sans accents (recherches).
 const normText = (str) => String(str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -322,11 +385,27 @@ async function fetchMyLevel() {
   return knownProfileLevel;
 }
 
+// Niveau qui manque pour une fonctionnalite (0 = ouverte). Nouveaux comptes
+// (2026-10-30) : echanges, autel, restauration et finitions s'ouvrent par une
+// decouverte cote serveur (starter.js FEATURE_FINDS) ; on suit alors les
+// verrous de StarterLocks, sans jamais annoncer de niveau (-1 = pas encore
+// decouvert, l'element est de toute facon masque).
+const DISCOVERED_FEATURES = ["craft", "trade", "altar", "quality", "finish"];
+function featureNeed(key, level) {
+  if (DISCOVERED_FEATURES.includes(key) && typeof StarterLocks !== "undefined" && StarterLocks.newcomer) return StarterLocks.locks.some((l) => l.key === key) ? -1 : 0;
+  const req = FEATURE_UNLOCK_LEVEL[key] || 1;
+  return level < req ? req : 0;
+}
+
 // Message plein-panneau reutilisable pour une page/section entiere
 // verrouillee (contrairement a un simple toast, pour un onglet individuel -
 // voir craft.js/collection.js).
 function renderFeatureLockedMessage(container, featureKey, level) {
   const required = FEATURE_UNLOCK_LEVEL[featureKey] || 1;
+  if (featureNeed(featureKey, level) < 0) {
+    container.innerHTML = `<div class="empty-state feature-locked">&#10067; <strong>Pas encore découvert.</strong> Continue à jouer : ce lieu s'ouvrira de lui-même.</div>`;
+    return;
+  }
   container.innerHTML = `
     <div class="empty-state feature-locked">
       &#128274; <strong>${FEATURE_LABELS[featureKey] || "Cette fonctionnalité"}</strong> se débloque au niveau ${required}.
@@ -523,7 +602,10 @@ const Visuals = {
       new MutationObserver((muts) => { if (!Object.keys(this.o).length) return; muts.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) this.apply(n); })); }).observe(document.body, { childList: true, subtree: true });
     };
     if (document.body) watch(); else document.addEventListener("DOMContentLoaded", watch);
-    if (typeof API !== "undefined" && API.visuals) API.visuals().then((r) => this.set(r.overrides)).catch(() => {});
+    // Apres l'analyse du HTML : la lecture rejoint alors le lot de shell.js
+    // (prefetchShellData) au lieu de partir seule juste avant lui.
+    const fetchOverrides = () => { if (typeof API !== "undefined" && API.visuals) API.visuals().then((r) => this.set(r.overrides)).catch(() => {}); };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fetchOverrides); else fetchOverrides();
   }
 };
 Visuals.init();

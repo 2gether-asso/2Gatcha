@@ -52,7 +52,10 @@ const API = {
   // pastilles du menu, page elle-meme) ne part qu'une fois, et son resultat
   // reste valable quelques secondes. Toute ECRITURE vide ce cache : on ne
   // relit jamais un solde perime apres une action.
-  READ_ACTIONS: ["status", "list", "get"],
+  // + lectures de l'admin (simulateur, codes, "Tout voir"...) : prises pour
+  // des ecritures, elles vidaient tout le cache de la page a chaque appel.
+  // (La route /batch du serveur, elle, n'accepte que status/list/get.)
+  READ_ACTIONS: ["status", "list", "get", "config", "stats", "overrides", "adminList", "catalog", "codes", "redemptions", "preview", "tables", "rows", "row"],
   MEMO_MS: 5000,
   _memo: new Map(),
   _stable(v) {
@@ -92,10 +95,10 @@ const API = {
   // Plusieurs lectures en UNE requete HTTP (route /webhook/batch de l'API).
   // calls : [{ name, query } | { name, body }]. Chaque resultat alimente le
   // cache ci-dessus : les appels individuels identiques faits ensuite par la
-  // page repondent instantanement. Ancienne API sans /batch : appels
-  // individuels, en parallele.
-  _batchSupported: true,
-  BATCH_MAX: 24, // = BATCH_MAX de api/src/server.js : au-dela, plusieurs lots en parallele.
+  // page repondent instantanement. Lot en echec : appels individuels.
+  // = BATCH_MAX de api/src/server.js : au-dela, plusieurs lots en parallele.
+  // Serveur pas encore a jour (limite 24, refus 400) : on redescend a 24.
+  BATCH_MAX: 64,
   async batch(calls) {
     if (calls.length > this.BATCH_MAX) {
       const parts = [];
@@ -107,11 +110,16 @@ const API = {
       return { ...c, method, key: this._readKey(method, c.name, method === "GET" ? c.query : c.body) };
     });
     const individual = (c) => (c.method === "GET" ? this.get(c.name, c.query) : this.post(c.name, c.body));
+    // Promesse de chaque lecture, gardee ici et non relue dans le cache : une
+    // ecriture lancee pendant le lot (API.invalidate) videait le cache et
+    // toutes les lectures repartaient une par une (70 requetes sur ouverture.html).
+    const own = new Map();
     const todo = list.filter((c) => {
       const hit = this._memo.get(c.key);
-      return !(hit && (hit.pending || Date.now() - hit.ts < this.MEMO_MS));
+      if (hit && (hit.pending || Date.now() - hit.ts < this.MEMO_MS)) { own.set(c.key, hit.promise); return false; }
+      return true;
     });
-    if (todo.length && this._batchSupported) {
+    if (todo.length) {
       // Entrees "en cours" posees tout de suite : un appel individuel lance
       // pendant le batch attend son resultat au lieu de repartir.
       const resolvers = new Map();
@@ -121,6 +129,7 @@ const API = {
         promise.catch(() => {});
         const entry = { pending: true, ts: Date.now(), promise };
         this._memo.set(c.key, entry);
+        own.set(c.key, promise);
         resolvers.set(c.key, { entry, resolve, reject });
       });
       try {
@@ -129,14 +138,14 @@ const API = {
           headers: this._headers({ "Content-Type": "application/json" }),
           body: JSON.stringify({ calls: todo.map((c) => ({ path: window.APP_CONFIG.endpoints[c.name].replace(/^\//, ""), method: c.method, query: c.query, body: c.body })) })
         });
-        if (res.status === 404) throw Object.assign(new Error("batch_unsupported"), { unsupported: true });
+        if (res.status === 400 && todo.length > 24) throw Object.assign(new Error("batch_too_big"), { tooBig: true });
         if (res.status === 429) {
           this._onRejected(res, await res.json().catch(() => ({})));
           // Trop de requetes : surtout ne pas relancer chaque lecture une par
           // une (20 a 30 appels de plus, tous refuses a leur tour).
           throw Object.assign(new Error("rate_limited"), { rateLimited: true });
         }
-        if (!res.ok) throw new Error("batch_failed");
+        if (!res.ok) { this._report(res.status, "batch", {}); throw new Error("batch_failed"); }
         const { results } = await res.json();
         todo.forEach((c, i) => {
           const r = results[i] || { status: 500, json: {} };
@@ -148,31 +157,45 @@ const API = {
             resolve(r.json);
           } else {
             if (r.status === 401) this._onRejected({ status: 401 }, r.json || {});
+            this._report(r.status, c.name, r.json || {});
             const err = new Error((r.json && r.json.error) || `Erreur API (${c.name}): ${r.status}`);
             err.code = r.json && r.json.error;
-            this._memo.delete(c.key);
+            err.data = r.json;
+            if (this._memo.get(c.key) === entry) this._memo.delete(c.key);
             reject(err);
           }
         });
       } catch (e) {
-        if (e.unsupported) this._batchSupported = false;
         if (e.rateLimited) {
           todo.forEach((c) => {
-            const { reject } = resolvers.get(c.key);
-            this._memo.delete(c.key);
+            const { entry, reject } = resolvers.get(c.key);
+            if (this._memo.get(c.key) === entry) this._memo.delete(c.key);
             reject(Object.assign(new Error("rate_limited"), { code: "rate_limited" }));
           });
           return Promise.all(list.map(() => null));
         }
+        if (e.tooBig) {
+          // Relance en lots de 24 : ils posent leurs entrees dans le cache
+          // avant leur premier await, on s'y raccroche.
+          this.BATCH_MAX = 24;
+          todo.forEach((c) => { const { entry } = resolvers.get(c.key); if (this._memo.get(c.key) === entry) this._memo.delete(c.key); });
+          this.batch(todo.map(({ name, query, body }) => (body ? { name, body } : { name, query })));
+          todo.forEach((c) => {
+            const { resolve, reject } = resolvers.get(c.key);
+            const hit = this._memo.get(c.key);
+            (hit ? hit.promise : individual(c)).then(resolve, reject);
+          });
+          return Promise.all(list.map((c) => own.get(c.key).catch(() => null)));
+        }
         // Repli : chaque lecture repart en individuel.
         todo.forEach((c) => {
-          const { resolve, reject } = resolvers.get(c.key);
-          this._memo.delete(c.key);
+          const { entry, resolve, reject } = resolvers.get(c.key);
+          if (this._memo.get(c.key) === entry) this._memo.delete(c.key);
           individual(c).then(resolve, reject);
         });
       }
     }
-    return Promise.all(list.map((c) => individual(c).catch(() => null)));
+    return Promise.all(list.map((c) => own.get(c.key).catch(() => null)));
   },
 
   async post(name, body) {
@@ -231,6 +254,13 @@ const API = {
     return h;
   },
 
+  // Panne cote serveur (5xx) : signalee dans GlitchTip depuis le navigateur
+  // aussi (le serveur ne voit pas un proxy ou un conteneur tombe).
+  _report(status, name, data) {
+    if (status < 500 || typeof Monitor === "undefined") return;
+    Monitor.capture(new Error(`API ${name} : ${status}${data && data.error ? " (" + data.error + ")" : ""}`), { endpoint: name, status, code: data && data.error });
+  },
+
   // Reponse refusee : session invalide (on deconnecte et on propose de se
   // reconnecter) ou trop de requetes (message, une fois par minute).
   _onRejected(res, data) {
@@ -254,6 +284,7 @@ const API = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         this._onRejected(res, data);
+        this._report(res.status, name, data);
         const err = new Error((data.error === "feature_disabled" && data.message) || data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
         err.data = data;
@@ -313,6 +344,7 @@ const API = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         this._onRejected(res, data);
+        this._report(res.status, name, data);
         const err = new Error((data.error === "feature_disabled" && data.message) || data.error || `Erreur API (${name}): ${res.status}`);
         err.code = data.error;
         err.data = data;
@@ -634,12 +666,28 @@ const API = {
   // Ecritures en lot (2026-10-18) : un seul appel HTTP pour plusieurs
   // decrafts / sacrifices / crafts. Renvoie les resultats dans l'ordre
   // ({ status, json }), par paquets de 50 ; onChunk(fait, total) apres chaque paquet.
+  // API pas encore a jour pour ce chemin (lot refuse : invalid_batch) : un
+  // appel par corps, memes resultats ({ status, json }).
   async batchWrite(path, bodies, { chunk = 50, onChunk, shouldStop } = {}) {
     const out = [];
     for (let i = 0; i < bodies.length; i += chunk) {
       if (shouldStop && shouldStop()) break;
-      const res = await this.post("batchWrite", { path, calls: bodies.slice(i, i + chunk) });
-      out.push(...(res.results || []));
+      const part = bodies.slice(i, i + chunk);
+      try {
+        const res = await this.post("batchWrite", { path, calls: part });
+        out.push(...(res.results || []));
+      } catch (e) {
+        if (e.code !== "invalid_batch") throw e;
+        const name = Object.keys(window.APP_CONFIG.endpoints).find((k) => window.APP_CONFIG.endpoints[k] === "/" + path);
+        if (!name) throw e;
+        for (const body of part) {
+          if (shouldStop && shouldStop()) break;
+          try { out.push({ status: 200, json: await this.post(name, body) }); }
+          catch (err) { out.push({ status: err.status || 400, json: { ...(err.data || {}), error: err.code || "error" } }); }
+          if (onChunk) onChunk(out.length, bodies.length);
+        }
+        continue;
+      }
       if (onChunk) onChunk(out.length, bodies.length);
     }
     return out;
@@ -732,9 +780,6 @@ const API = {
   visuals() { return this.get("visuals"); },
   adminVisuals(discordId, action = "list", extra = {}) { return this.post("adminVisuals", { discordId, action, ...extra }); },
   guildWorks(userId, action = "status", extra = {}) { return this.post("guildWorks", { userId, action, ...extra }); },
-  communityDig(userId, action = "status", tile) {
-    return this.post("communityDig", { userId, action, tile });
-  },
   prestige(userId, skill) {
     return this.post("prestige", { userId, skill });
   },
@@ -894,6 +939,8 @@ const API = {
   chests(userId, action, count, tier, all) {
     return this.post("chests", { userId, action, ...(count ? { count } : {}), ...(tier ? { tier } : {}), ...(all ? { all: true } : {}) });
   },
+  // Avis d'un joueur (bouton « Donner un avis », js/lazy/feedback.js).
+  sendFeedback(params) { return this.post("feedback", { ...(Session.isLoggedIn() ? { userId: Session.userId } : {}), ...params }); },
   pushAction(userId, action, subscription) {
     return this.post("push", { userId, action, subscription });
   }

@@ -24,6 +24,8 @@ const NotifCenter = (function () {
   async function load() {
     const uid = Session.userId;
     const settle = (p) => p.then((v) => v, () => null);
+    // Toutes les lectures ci-dessous en une requete (gabarit de shell.js + minuteurs).
+    await API.batch([...shellReads(false), { name: "timers", query: { userId: uid } }]);
     const [trades, rewards, timers, wish, notes] = await Promise.all([
       settle(API.listTrades(uid)),
       settle(RewardsCenter.collect()),

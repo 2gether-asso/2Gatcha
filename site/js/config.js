@@ -74,7 +74,6 @@ window.APP_CONFIG = {
     challenges: "/challenges",          // POST { userId, action: 'status'|'pick'|'claim', keys? }
     communityGoal: "/community-goal",   // POST { userId, action: 'status'|'claim' }
     themes: "/themes",                  // POST { userId, action: 'status'|'claim', key? }
-    hiddenAchievements: "/achievements-hidden", // GET ?userId=
     cosmetics: "/cosmetics",            // POST { userId, action: 'status'|'buy'|'equip', key?, type? }
     reroll: "/reroll",                  // POST { userId, kind: 'weather'|'expedition' }
     economyRules: "/economy-rules",     // GET ?userId= -> prix des relances, taxe, os
@@ -102,7 +101,6 @@ window.APP_CONFIG = {
     adminTestAccount: "/admin-test-account", // POST { discordId, action: 'status'|'login'|'set'|'reset'|'cards', levels?, resources?, mode? } (compte test, 2026-10-18)
     adminVisuals: "/admin-visuals",     // POST { discordId, action: 'list'|'set'|'reset'|'upload', key, label?, data?, mime? }
     guildWorks: "/guild-works",         // POST { userId, action: 'status'|'give', resource?, amount? } -> Grand Chantier de la semaine
-    communityDig: "/community-dig",     // POST { userId, action: 'status'|'dig', tile? }
     prestige: "/prestige",              // POST { userId, skill: 'fishing'|'dig'|'expedition'|'garden' }
     // Progression longue, quotidien, marche (2026-10-07)
     talents: "/talents",                // POST { userId, action: 'status'|'learn'|'reset', key? }
@@ -198,6 +196,7 @@ window.APP_CONFIG = {
     adminRewards: "/admin-rewards",       // POST { discordId, action: 'catalog'|'codes'|'createCode'|'updateCode'|'redemptions'|'gift'|'preview', ... } (Codes & dons V2)
     adminCosmetics: "/admin-cosmetics",   // POST { discordId, action: 'list'|'save'|'delete'|'grant', item?, key?, userId? } (editeur de cosmetiques)
     adminEvents: "/admin-events",       // POST { discordId, action: 'list'|'save'|'delete', event?, id? }
+    feedback: "/feedback",              // POST { userId?, kind: 'idea'|'bug'|'other', message, page?, mood?, context? } (avis -> GlitchTip, niveau Information)
     push: "/push"                       // POST { userId, action: 'status'|'subscribe'|'unsubscribe'|'test', subscription? }
   }
 };
@@ -246,13 +245,51 @@ window.APP_CONFIG = {
   });
 })();
 
+// Remontee des erreurs (2026-10-29) : Monitor.capture(err, tags) pour celles
+// que le code attrape lui-meme (toast d'erreur, repli silencieux...), qui
+// n'arrivaient jamais dans GlitchTip. Avant le chargement du SDK, tout est mis
+// en file (erreurs de chargement de la page comprises) puis envoye d'un coup.
+var Monitor = {
+  queue: [],
+  seen: typeof WeakSet === "function" ? new WeakSet() : null,
+  ready: false,
+  capture: function (err, tags) {
+    if (!err) return;
+    if (typeof err === "object" && this.seen) { if (this.seen.has(err)) return; this.seen.add(err); }
+    var e = err instanceof Error ? err : new Error(typeof err === "string" ? err : (err && err.message) || String(err));
+    if (!this.ready) { if (this.queue.length < 30) this.queue.push([e, tags]); return; }
+    this.send(e, tags);
+  },
+  send: function (e, tags) {
+    window.Sentry.withScope(function (scope) {
+      if (tags) Object.keys(tags).forEach(function (k) { if (tags[k] != null) scope.setTag(k, String(tags[k]).slice(0, 200)); });
+      window.Sentry.captureException(e);
+    });
+  },
+  // Erreur de code (TypeError, ReferenceError...) et non refus de l'API :
+  // un bug a corriger, meme quand la page s'en remet.
+  isBug: function (err) {
+    return !!err && err instanceof Error && !err.code && /^(TypeError|ReferenceError|RangeError|SyntaxError|URIError|EvalError)$/.test(err.name) && !/Failed to fetch|NetworkError|Load failed|fetch/i.test(err.message);
+  }
+};
+(function earlyErrors() {
+  window.addEventListener("error", function (e) { if (!Monitor.ready && e.error) Monitor.capture(e.error, { phase: "avant-sdk" }); });
+  window.addEventListener("unhandledrejection", function (e) { if (!Monitor.ready && e.reason instanceof Error) Monitor.capture(e.reason, { phase: "avant-sdk" }); });
+  // console.error(err) du code (catch qui se contentent de journaliser).
+  var orig = console.error;
+  console.error = function () {
+    for (var i = 0; i < arguments.length; i++) if (arguments[i] instanceof Error) { Monitor.capture(arguments[i], { via: "console.error" }); break; }
+    return orig.apply(console, arguments);
+  };
+})();
+
 // Suivi des erreurs (GlitchTip, compatible Sentry) : SDK navigateur officiel
 // charge en asynchrone (ne bloque pas l'affichage), empreinte SRI verifiee.
 // config.js est le premier script de chaque page : c'est le point le plus tot.
 (function initErrorTracking() {
   var dsn = window.APP_CONFIG.glitchtipDsn;
   // Un DSN sans cle publique (https://<cle>@...) serait refuse par le SDK.
-  if (!dsn || dsn.indexOf("@") === -1 || /^(localhost|127\.)/.test(window.location.hostname)) return;
+  if (!dsn || dsn.indexOf("@") === -1 || /^(localhost|127\.)/.test(window.location.hostname)) { Monitor.queue = []; Monitor.capture = function () {}; return; }
   var s = document.createElement("script");
   s.src = "https://browser.sentry-cdn.com/11.4.0/bundle.tracing.min.js";
   s.integrity = "sha384-leCZtyH0v+/d38CQgHkDf/buaYk8uIH2vrAwzlLXVLKTcrvUWEUGan36c9ooM12N";
@@ -275,6 +312,12 @@ window.APP_CONFIG = {
       var userId = localStorage.getItem("2gatcha_userId");
       if (userId) window.Sentry.setUser({ id: userId, username: localStorage.getItem("2gatcha_pseudo") || undefined });
     } catch (e) { /* stockage bloque : erreurs anonymes */ }
+    Monitor.ready = true;
+    var q = Monitor.queue;
+    Monitor.queue = [];
+    q.forEach(function (x) { Monitor.send(x[0], x[1]); });
   };
+  // SDK bloque (bloqueur de pub, reseau) : plus de file qui grossit.
+  s.onerror = function () { Monitor.queue = []; Monitor.capture = function () {}; };
   document.head.appendChild(s);
 })();

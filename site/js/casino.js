@@ -280,9 +280,9 @@
           <div class="bj-hand">${bj ? bj.player.map((c, i) => cardHtml(c, i, i >= bjShown.player)).join("") : ""}</div>
         </div>
       </div>
-      ${live ? `<div class="cz-actions"><button type="button" class="btn" data-bj="hit">🂠 Tirer <kbd>T</kbd></button><button type="button" class="btn-secondary" data-bj="stand">✋ Rester <kbd>R</kbd></button>${bj.canDouble ? `<button type="button" class="btn-ghost" data-bj="double">×2 Doubler (+${bj.bet} 🪙) <kbd>D</kbd></button>` : ""}</div>`
+      <div class="bj-controls">${live ? `<div class="cz-actions"><button type="button" class="btn" data-bj="hit">🂠 Tirer <kbd>T</kbd></button><button type="button" class="btn-secondary" data-bj="stand">✋ Rester <kbd>R</kbd></button>${bj.canDouble ? `<button type="button" class="btn-ghost" data-bj="double">×2 Doubler (+${bj.bet} 🪙) <kbd>D</kbd></button>` : ""}</div>`
         : `${betBar("bj-bets")}<div class="cz-actions"><button type="button" class="btn" data-bj="deal">🃏 Distribuer</button></div>`}
-      ${bjHistory.length ? `<p class="cz-history">Dernières mains : ${bjHistory.map((h) => `<span class="${h}">${{ win: "G", lose: "P", push: "=" }[h]}</span>`).join("")}</p>` : ""}`;
+      <p class="cz-history" ${bjHistory.length ? "" : 'style="visibility:hidden"'}>Dernières mains : ${bjHistory.map((h) => `<span class="${h}">${{ win: "G", lose: "P", push: "=" }[h]}</span>`).join("") || "<span>=</span>"}</p></div>`;
     bindBets(box);
     box.querySelectorAll("[data-bj]").forEach((b) => b.addEventListener("click", () => bjAct(b.dataset.bj)));
     bjShown = { player: bj ? bj.player.length : 0, dealer: dealer.length };
@@ -474,14 +474,17 @@
       </div>`;
     if (!live) { $("cn-start").onclick = () => run(async () => { const r = takeWallet(await call("cans", "start")); tone(520, 0.06); cans(r); }); return; }
     const stage = $("cn-stage"), ball = $("cn-ball"), aim = $("cn-aim"), line = $("cn-line"), pow = $("cn-power");
-    let drag = null;
+    let drag = null, origin = null;
+    // Geometrie mesuree UNE fois, au debut du geste, balle au repos : la
+    // remesurer a chaque mouvement prenait la balle deja deplacee pour son
+    // point de depart, et le viseur sautait d'avant en arriere (2026-10-30).
     const geo = () => {
       const sr = stage.getBoundingClientRect(), br = ball.getBoundingClientRect(), pr = $("cn-pyr").getBoundingClientRect();
       return { sr, bx: br.left + br.width / 2, by: br.top + br.height / 2, pr };
     };
     // Visee a partir du tir : x (0 a 1 sur la largeur de la pyramide) et p (force).
     const shot = (e) => {
-      const g = geo();
+      const g = origin;
       const dx = g.bx - e.clientX, dy = g.by - e.clientY; // vecteur de tir (oppose a la traction)
       const len = Math.min(g.sr.height * 0.55, Math.hypot(dx, dy));
       const p = Math.max(0, Math.min(1, len / (g.sr.height * 0.5)));
@@ -505,9 +508,24 @@
       pow.firstElementChild.style.width = `${Math.round(sh.p * 100)}%`;
       pow.classList.toggle("over", sh.p > 0.97);
     };
-    ball.addEventListener("pointerdown", (e) => { if (busy) return; e.preventDefault(); ball.setPointerCapture(e.pointerId); drag = true; ball.classList.add("held"); tone(300, 0.03); });
-    ball.addEventListener("pointermove", (e) => { if (!drag) return; drag = shot(e); show(drag); });
+    let frame = 0, lastMove = null;
+    ball.addEventListener("pointerdown", (e) => { if (busy || drag) return; e.preventDefault(); ball.style.transform = ""; origin = geo(); ball.setPointerCapture(e.pointerId); drag = true; ball.classList.add("held"); tone(300, 0.03); });
+    // Un dessin par image (le doigt envoie souvent plus d'evenements que l'ecran n'affiche).
+    ball.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      lastMove = { clientX: e.clientX, clientY: e.clientY };
+      if (frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; if (drag && lastMove) { drag = shot(lastMove); show(drag); } });
+    });
+    // Geste repris par le navigateur (appel, notification, defilement) : la balle revient.
+    ball.addEventListener("pointercancel", () => {
+      if (!drag) return;
+      cancelAnimationFrame(frame); frame = 0;
+      drag = null; ball.classList.remove("held"); ball.style.transform = ""; aim.hidden = true; pow.hidden = true;
+      line.setAttribute("x2", line.getAttribute("x1")); line.setAttribute("y2", line.getAttribute("y1"));
+    });
     ball.addEventListener("pointerup", () => {
+      if (frame) { cancelAnimationFrame(frame); frame = 0; if (drag && lastMove) drag = shot(lastMove); }
       const sh = drag;
       drag = null;
       ball.classList.remove("held");
@@ -516,7 +534,13 @@
       if (!sh || sh === true || sh.p < 0.05) { ball.style.transform = ""; aim.hidden = true; return; }
       run(async () => {
         const r = takeWallet(await call("cans", "throw", { x: sh.x, p: sh.p }));
+        // Mesure balle au repos (meme image, rien n'est peint entre les deux),
+        // puis vol depuis le point de traction : plus de saut au lacher.
+        const held = ball.style.transform;
+        ball.style.transform = "";
         const g = geo();
+        ball.style.transform = held;
+        const sx = sh.pull.x - sh.g.bx, sy = sh.pull.y - sh.g.by;
         const row = r.shot.row;
         const rowEl = row == null ? null : $("cn-pyr").querySelector(`.cn-row[style*="--r:${row}"]`);
         const tx = g.pr.left + r.shot.wx * g.pr.width;
@@ -529,7 +553,7 @@
           const t0 = performance.now(), dur = 520, dx = tx - g.bx, dy = ty - g.by, peak = Math.max(40, g.sr.height * 0.25);
           const frame = (t) => {
             const k = Math.min(1, (t - t0) / dur);
-            ball.style.transform = `translate(${dx * k}px, ${dy * k - Math.sin(k * Math.PI) * peak}px) scale(${1 - 0.5 * k}) rotate(${k * 540}deg)`;
+            ball.style.transform = `translate(${sx + (dx - sx) * k}px, ${sy + (dy - sy) * k - Math.sin(k * Math.PI) * peak}px) scale(${1 - 0.5 * k}) rotate(${k * 540}deg)`;
             if (k < 1) requestAnimationFrame(frame); else res();
           };
           requestAnimationFrame(frame);
@@ -659,7 +683,11 @@
       ${plHistory.length ? `<p class="cz-history">Derniers bacs : ${plHistory.map((m) => `<span style="background:${binColor(m)}">${String(m).replace(".", ",")}</span>`).join("")}</p>` : ""}`;
     bindBets(box);
     const board = $("pk-board"), drop = $("pk-drop");
-    drop.addEventListener("pointermove", (e) => { const r = board.getBoundingClientRect(); plDropX = Math.max(0.2, Math.min(0.8, (e.clientX - r.left) / r.width)); $("pk-aim").style.left = `${plDropX * 100}%`; });
+    // Au doigt (2026-10-30) : toucher place aussi la visee (pointermove seul ne
+    // bougeait qu'en glissant, et le glisser faisait defiler la salle).
+    const aimAt = (e) => { const r = board.getBoundingClientRect(); plDropX = Math.max(0.2, Math.min(0.8, (e.clientX - r.left) / r.width)); $("pk-aim").style.left = `${plDropX * 100}%`; };
+    drop.addEventListener("pointermove", aimAt);
+    drop.addEventListener("pointerdown", aimAt);
     const one = async () => {
       const r = takeWallet(await call("plinko", "drop", { bet, x: plDropX }));
       await plAnimate(board, r.plinko);
@@ -869,6 +897,7 @@
     cv.addEventListener("pointerdown", (e) => { down = true; last = null; cv.setPointerCapture(e.pointerId); scrape(e); });
     cv.addEventListener("pointermove", (e) => { if (down) scrape(e); });
     cv.addEventListener("pointerup", () => { down = false; last = null; check(); });
+    cv.addEventListener("pointercancel", () => { down = false; last = null; });
   }
 
   // ------------------------------------------------------------------ comptoir des lots

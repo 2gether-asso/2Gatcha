@@ -295,7 +295,8 @@ function sendGate(res, req, denied) {
 // LECTURES en une seule requete HTTP (pastilles du menu, en-tete...). Chaque
 // appel donne exactement la meme reponse qu'en individuel. Ecritures
 // refusees : GET, ou POST dont l'action est une lecture.
-const BATCH_MAX = 24;
+// 64 (2026-10-29, 24 avant) : tout le gabarit + la page en un seul lot.
+const BATCH_MAX = 64;
 async function handleBatch(req, res, url) {
   const { calls } = await readBody(req);
   if (!Array.isArray(calls) || !calls.length || calls.length > BATCH_MAX) return sendJson(res, req, 400, { error: 'invalid_batch' });
@@ -315,9 +316,18 @@ async function handleBatch(req, res, url) {
     const query = c.query && typeof c.query === 'object' ? Object.fromEntries(Object.entries(c.query).map(([k, v]) => [k, String(v)])) : {};
     const denied = native.gate({ token, body, query, rate: false });
     if (denied) { results.push({ status: denied.status, json: denied.json }); continue; }
-    if (isNative) { results.push(await runNative(method, hookPath, body, query)); continue; }
-    const resp = await runWorkflow(route, { headers: req.headers, params: {}, query, body, webhookUrl: `${url.origin}/webhook/${hookPath}`, executionMode: 'production' }, hookPath);
-    results.push({ status: resp.status, json: resp.raw ? null : resp.json });
+    // Une lecture qui plante ne fait plus echouer tout le lot (le front
+    // relancait alors chaque lecture une par une) ; elle part dans GlitchTip.
+    // native.scrub comme en individuel (compte test retire des listes).
+    try {
+      if (isNative) { const r = await runNative(method, hookPath, body, query); results.push({ status: r.status, json: native.scrub(r.json, body, query) }); continue; }
+      const resp = await runWorkflow(route, { headers: req.headers, params: {}, query, body, webhookUrl: `${url.origin}/webhook/${hookPath}`, executionMode: 'production' }, hookPath);
+      results.push({ status: resp.status, json: resp.raw ? null : native.scrub(resp.json, body, query) });
+    } catch (e) {
+      console.error(e);
+      captureError(e, { hook: 'batch:' + hookPath });
+      results.push({ status: 500, json: { error: 'internal_error' } });
+    }
   }
   return sendJson(res, req, 200, { results });
 }
@@ -331,7 +341,8 @@ async function handleBatch(req, res, url) {
 // controles (identite du joueur, regles natives) et donne la meme reponse
 // qu'en individuel ; le lot compte pour une seule ecriture dans la limite de
 // debit. Un echec n'arrete pas le lot (chaque resultat a son statut).
-const BATCH_WRITE_PATHS = new Set(['disenchant', 'altar-sacrifice', 'craft', 'foil-upgrade', 'card-quality-repair']);
+// 2026-10-29 : + rangement au coffre, souhaits, annulation d'echanges, vitrine.
+const BATCH_WRITE_PATHS = new Set(['disenchant', 'altar-sacrifice', 'craft', 'foil-upgrade', 'card-quality-repair', 'personal-vault', 'wishlist', 'trade', 'showcase']);
 const BATCH_WRITE_MAX = 50;
 async function handleBatchWrite(req, res, url) {
   const { path: rawPath, calls } = await readBody(req);

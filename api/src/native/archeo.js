@@ -41,6 +41,8 @@ import { setting } from './settings.js';
 import { MINERALS, mineralsOf, currentDepth } from './digdepth.js';
 import { petBoost, petGift } from './pets.js';
 import { archeoBuff } from './cooking.js';
+import { found } from './starter.js';
+const foundArcheo = (store, user) => found(store, user, 'archeo');
 
 export const schema = { Users: { Tablets: { type: 'Numeric' }, TabletStock: { type: 'Text' }, ArcheoXP: { type: 'Numeric' }, ArcheoState: { type: 'Text' }, ArcheoDone: { type: 'Numeric' }, ArcheoStarter: { type: 'Bool' }, ArcheoFinds: { type: 'Text' }, ArcheoFreed: { type: 'Numeric' }, Grubs: { type: 'Numeric' }, MoleState: { type: 'Text' }, MoleReport: { type: 'Text' } } };
 
@@ -454,7 +456,9 @@ function handle({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
   // Decouverte du jeu : tablettes offertes une fois.
-  if (!user.ArcheoStarter && setting(store, 'ArcheoEnabled')) user = store.update('Users', user.id, { ArcheoStarter: true, ...addTabletsFields(user, 'clay', setting(store, 'ArcheoStarterTablets')) });
+  // Tablettes offertes : un nouveau compte doit d'abord trouver sa premiere
+  // tablette en fouillant (decouverte, starter.js) ; le cadeau suit.
+  if (!user.ArcheoStarter && setting(store, 'ArcheoEnabled') && foundArcheo(store, user)) user = store.update('Users', user.id, { ArcheoStarter: true, ...addTabletsFields(user, 'clay', setting(store, 'ArcheoStarterTablets')) });
   // Tablette ouverte avec l'ancienne version (cases) : rendue.
   const old = parseJson(user.ArcheoState, null);
   if (old && old.v !== 3) user = store.update('Users', user.id, { ArcheoState: '', ...addTabletsFields(user, 'clay', 1) });

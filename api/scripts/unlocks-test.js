@@ -78,7 +78,9 @@ await test('premier poisson : Moka adopte', () => {
 
 await test('niveau atteint : cinematique de deblocage, une fois', () => {
   status(fresh.id);
-  store.update('Users', fresh.id, { XP: xpForLevel(2) });
+  // Niveau « au plus tard » de la peche (reglage StarterUnlocks), sans ver trouve avant.
+  const fishLevel = Number(status(fresh.id).locks.find((l) => l.key === 'fishing').level);
+  store.update('Users', fresh.id, { XP: xpForLevel(fishLevel) });
   const items = post('starter', { userId: fresh.id, action: 'status' }).json.discoveries || [];
   const fishing = items.find((d) => d.key === 'unlock-fishing');
   assert.ok(fishing, JSON.stringify(items));
@@ -193,6 +195,74 @@ await test('journal admin : don et edition annules, gains du joueur gardes', () 
   const n = aud({ action: 'list' }).json.entries.length;
   post('admin-explorer', { discordId: ADMIN, action: 'rows', table: 'Users' });
   assert.equal(aud({ action: 'list' }).json.entries.length, n);
+});
+
+await test('decouvertes : archeologie, promenade, cuisine, aquarium, musee caches jusqu a la premiere trouvaille', () => {
+  const u = store.create('Users', { Pseudo: 'Explorateur', DiscordId: '990003', BoosterCount: 0, StardustCount: 0, XP: 0, CreatedAt: since + 20 });
+  const keys = ['archeo', 'walk', 'cook', 'aquarium', 'museum'];
+  let v = status(u.id);
+  for (const k of keys) {
+    assert.equal(v.found[k], false, k);
+    assert.ok(v.locks.some((l) => l.find && l.key === k && l.hide.length), 'masque : ' + k);
+  }
+  // Pas de tablettes offertes avant la decouverte, ecritures refusees.
+  post('archeo', { userId: u.id, action: 'status' });
+  assert.equal(Number(user(u.id).Tablets) || 0, 0);
+  assert.equal(post('archeo', { userId: u.id, action: 'open', kind: 'clay' }).json.error, 'not_discovered');
+  assert.equal(post('cook', { userId: u.id, action: 'cook', dish: 'soup' }).json.error, 'not_discovered');
+  // Premiere tablette (fouille) : cinematique, puis le cadeau de depart.
+  store.update('Users', u.id, { Tablets: 1, TabletStock: JSON.stringify({ clay: 1 }) });
+  const items = post('starter', { userId: u.id, action: 'status' }).json.discoveries || [];
+  const a = items.find((d) => d.key === 'find-archeo');
+  assert.ok(a && a.unlock && a.kicker === 'Nouvelle découverte !' && a.url);
+  assert.ok(!items.some((d) => d.key === 'find-walk'), 'pas de promenade sans compagnon');
+  v = status(u.id);
+  assert.equal(v.found.archeo, true);
+  assert.ok(!v.locks.some((l) => l.key === 'archeo'));
+  post('archeo', { userId: u.id, action: 'status' });
+  assert.ok(Number(user(u.id).Tablets) > 1, 'tablettes offertes apres la decouverte');
+  assert.ok(!(post('starter', { userId: u.id, action: 'status' }).json.discoveries || []).some((d) => d.key === 'find-archeo'), 'une seule fois');
+  // Premier compagnon : adoption ET promenade dans la meme reponse.
+  store.update('Users', u.id, { BoneCount: 1 });
+  const both = (post('starter', { userId: u.id, action: 'status' }).json.discoveries || []).map((d) => d.key);
+  assert.ok(both.includes('adopt-milo') && both.includes('find-walk'), both.join(','));
+  // Ingredient, poisson rare, piece de musee.
+  store.update('Users', u.id, { Pantry: JSON.stringify({ veg: 2 }), Aquarium: JSON.stringify({ fish: { carp: 1 } }), MuseumSeen: JSON.stringify({ minerals: ['quartz'], items: [] }) });
+  const rest = (post('starter', { userId: u.id, action: 'status' }).json.discoveries || []).map((d) => d.key);
+  for (const k of ['find-cook', 'find-aquarium', 'find-museum']) assert.ok(rest.includes(k), k + ' dans ' + rest.join(','));
+  v = status(u.id);
+  for (const k of keys) assert.equal(v.found[k], true, k);
+  assert.ok(!v.locks.some((l) => l.find));
+  assert.notEqual(post('cook', { userId: u.id, action: 'cook', dish: 'soup' }).json.error, 'not_discovered');
+  // Ancien compte : jamais rien de cache.
+  const o = status(old.id);
+  for (const k of keys) assert.equal(o.found[k], true, 'ancien ' + k);
+});
+
+await test('activites en decouverte : premier ver -> peche, crane -> dinos, carte brillante -> coffre-fort, avant leur niveau', () => {
+  const u = store.create('Users', { Pseudo: 'Curieux', DiscordId: '990004', BoosterCount: 0, StardustCount: 0, XP: 0, CreatedAt: since + 30 });
+  let v = status(u.id);
+  for (const k of ['fishing', 'dinos', 'vault', 'shop', 'expedition']) assert.ok(v.locks.some((l) => l.key === k && !l.find), 'verrouille : ' + k);
+  assert.equal(post('fishing', { userId: u.id, action: 'cast' }).json.error, 'level_locked');
+  store.update('Users', u.id, { Worms: 3, DinoSkulls: 1, PullStats: JSON.stringify({ cards: 5, finish: { normal: 4, holo: 1 } }) });
+  const items = post('starter', { userId: u.id, action: 'status' }).json.discoveries || [];
+  for (const k of ['fishing', 'dinos', 'vault']) {
+    const d = items.find((x) => x.key === 'unlock-' + k);
+    assert.ok(d && d.kicker === 'Nouvelle découverte !' && d.riddle, k + ' : ' + JSON.stringify(items.map((x) => x.key)));
+  }
+  assert.ok(!items.some((x) => x.key === 'unlock-shop'), 'la boutique attend sa trouvaille');
+  v = status(u.id);
+  assert.equal(v.level, 1);
+  for (const k of ['fishing', 'dinos', 'vault']) { assert.ok(!v.locks.some((l) => l.key === k), 'ouvert : ' + k); assert.ok(v.unlocks.some((x) => x.key === k)); }
+  assert.ok(v.locks.some((l) => l.key === 'shop'));
+  assert.notEqual(post('fishing', { userId: u.id, action: 'cast' }).json.error, 'level_locked');
+  // Une seule cinematique par activite.
+  assert.ok(!(post('starter', { userId: u.id, action: 'status' }).json.discoveries || []).some((x) => x.key === 'unlock-fishing'));
+  // Filet de securite : le niveau ouvre le reste, avec la cinematique classique.
+  const shopLevel = Number(v.locks.find((l) => l.key === 'shop').level);
+  store.update('Users', u.id, { XP: xpForLevel(shopLevel) });
+  const lvl = (post('starter', { userId: u.id, action: 'status' }).json.discoveries || []).find((x) => x.key === 'unlock-shop');
+  assert.ok(lvl && lvl.kicker === 'Nouveau : débloqué !');
 });
 
 store.db.close();

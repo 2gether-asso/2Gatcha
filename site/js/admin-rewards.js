@@ -334,8 +334,8 @@
     builders.gift = { lines: [], users: new Set(), q: "" };
     try { cat = await api("catalog"); }
     catch (e) {
-      // Serveur pas encore a jour : les anciens formulaires prennent le relais.
-      app.innerHTML = `<p class="error-box">La nouvelle version des codes et dons demande la mise à jour du serveur (route admin-rewards). En attendant, les formulaires classiques ci-dessous restent utilisables.</p>`;
+      // Serveur injoignable : les formulaires classiques restent utilisables.
+      app.innerHTML = `<p class="error-box">Codes et dons indisponibles pour l'instant (${escHtml(friendlyError(e))}). Les formulaires classiques ci-dessous restent utilisables.</p>`;
       const legacy = $("codes-legacy"); if (legacy) legacy.open = true;
       return;
     }

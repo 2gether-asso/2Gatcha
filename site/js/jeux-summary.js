@@ -230,6 +230,9 @@
     });
     // Onglets affiches ou masques plus tard (deblocages, jeux.js), verrous relus.
     document.querySelectorAll('.tabs [role="tab"]').forEach((t) => new MutationObserver(() => sync(map)).observe(t, { attributes: true, attributeFilter: ["style", "aria-selected", "class"] }));
+    // Verrous du debutant poses (ou leves) apres l'affichage de la carte : la
+    // feuille de style de StarterLocks arrive apres la lecture de l'API.
+    document.addEventListener("starter:locks", () => sync(map));
     ["starter-locks-style", "mode-features-style"].forEach((id) => { const st = document.getElementById(id); if (st) new MutationObserver(() => sync(map)).observe(st, { childList: true, characterData: true, subtree: true }); });
     return map;
   }

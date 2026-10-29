@@ -44,7 +44,8 @@ export const FEATURES = [
   { key: 'wanted', group: 'Communauté', icon: '📜', label: 'Avis de recherche', paths: ['wanted'], hide: ['#board-wanted'], off: [] },
   { key: 'duo', group: 'Jeux', icon: '👯', label: 'Expédition en duo', paths: ['duo-expedition'], hide: ['#duo-expedition'], off: [] },
   { key: 'seasonal', group: 'Quotidien', icon: '🎃', label: 'Cadeau saisonnier du jour', paths: ['seasonal'], hide: ['#seasonal-treat'], off: [] },
-  // Collection
+  // Collection (craft : 2026-10-30, pour les decouvertes des nouveaux comptes)
+  { key: 'craft', group: 'Collection', icon: '✨', label: 'Craft de cartes', paths: ['craft'], hide: ['.coll-mode[data-mode="craft"]'], off: [] },
   { key: 'altar', group: 'Collection', icon: '🔥', label: 'Autel des sacrifices', paths: ['altar-sacrifice'], hide: ['.coll-mode[data-mode="altar"]'], off: [] },
   { key: 'finish', group: 'Collection', icon: '🌈', label: 'Finitions (amélioration, relance)', paths: ['foil-upgrade', 'finish-reroll'], hide: ['.coll-mode[data-mode="finish"]'], off: [] },
   { key: 'quality', group: 'Collection', icon: '🧽', label: 'Restauration de qualité', paths: ['card-quality-repair'], hide: ['.coll-mode[data-mode="quality"]'], off: [] },

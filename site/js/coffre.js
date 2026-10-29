@@ -225,10 +225,14 @@ async function pvStoreMany(pullIds) {
   let data = null, stored = 0;
   const rewards = [];
   try {
-    for (const id of pullIds) {
-      try { data = await API.personalVault(Session.userId, "store", id); stored++; if (data.reward) rewards.push(data.reward); }
-      catch (e) { if (!["pull_not_owned", "slot_filled", "already_stored", "not_mint"].includes(e.code)) throw e; }
-    }
+    // Un seul appel HTTP pour tous les exemplaires (2026-10-29).
+    const results = await API.batchWrite("personal-vault", pullIds.map((pullId) => ({ userId: Session.userId, action: "store", pullId })));
+    let failure = null;
+    results.forEach((r) => {
+      if (r.status === 200 && r.json && !r.json.error) { data = r.json; stored++; if (data.reward) rewards.push(data.reward); }
+      else if (!["pull_not_owned", "slot_filled", "already_stored", "not_mint"].includes(r.json && r.json.error)) failure = failure || r.json || {};
+    });
+    if (failure) Toast.error(PV_ERRORS[failure.error] || friendlyError(Object.assign(new Error(failure.error || "error"), { code: failure.error, data: failure })));
   } catch (e) {
     Toast.error(PV_ERRORS[e.code] || friendlyError(e));
   } finally {
@@ -478,7 +482,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (chip) { pvGallery.finish = chip.dataset.galFinish; pvRenderGallery(); return; }
       if (e.target.closest("[data-gal-order]")) { pvOrderShowcase(); return; }
       const sh = e.target.closest("[data-gal-share]");
-      if (sh) { sh.disabled = true; LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.vault(pvGalleryShare())).catch(() => Toast.error("Partage indisponible pour le moment.")).finally(() => { sh.disabled = false; }); }
+      if (sh) { sh.disabled = true; LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.vault(pvGalleryShare())).catch(LazyJs.fail("Partage indisponible pour le moment.")).finally(() => { sh.disabled = false; }); }
     });
     gal.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-zoom]")) { e.preventDefault(); pvCardClick(e); } });
     gal.addEventListener("change", (e) => { if (e.target.id === "gal-sort") { pvGallery.sort = e.target.value; pvRenderGallery(); } });

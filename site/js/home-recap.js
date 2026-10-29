@@ -45,7 +45,7 @@
   // studio de partage js/lazy/share-studio.js : trois formats, eventail des
   // plus belles prises, couleurs du theme).
   function share(r, from) {
-    LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.recap(r, from)).catch(() => Toast.error("Partage indisponible pour le moment."));
+    LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.recap(r, from)).catch(LazyJs.fail("Partage indisponible pour le moment."));
   }
 
   document.addEventListener("DOMContentLoaded", () => {

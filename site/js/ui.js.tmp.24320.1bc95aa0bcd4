@@ -1,0 +1,1288 @@
+// Composants d'interface reutilisables (ex-main.js, decoupe 2026-10-04).
+// Toast, historique des notifications, Confirm, FusionPicker, menus
+// deroulants (enhanceSelect), sons (Sfx), barre de chargement, couleurs de
+// rarete, particules, verrou de defilement, compteurs animes.
+// Ordre de chargement dans chaque page : config.js, api.js, core.js, ui.js,
+// shell.js, puis le script de la page.
+
+// ---------------------------------------------------------------------------
+// Toasts : notifications courtes non-bloquantes (succes / erreur / info).
+// ---------------------------------------------------------------------------
+const Toast = {
+  _stack() {
+    let el = document.querySelector(".toast-stack");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "toast-stack";
+      // Annonce aux lecteurs d'ecran (2026-10-20) ; les erreurs passent en role="alert".
+      el.setAttribute("role", "status");
+      el.setAttribute("aria-live", "polite");
+      document.body.appendChild(el);
+    }
+    return el;
+  },
+  show(message, type = "info", duration = 3800) {
+    const icons = { success: "&#10003;", error: "&#9888;", info: "&#10024;" };
+    const stack = this._stack();
+    const el = document.createElement("div");
+    el.className = `toast toast-${type}`;
+    if (type === "error") el.setAttribute("role", "alert");
+    el.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${message}</span>`;
+    stack.appendChild(el);
+    setTimeout(() => {
+      el.classList.add("hide");
+      setTimeout(() => {
+        el.remove();
+        this._updateClearAll();
+      }, 250);
+    }, duration);
+    this._updateClearAll();
+  },
+  // Plusieurs actions rapides peuvent empiler pas mal de toasts d'un coup
+  // (ex: reveal d'un x5) : un bouton pour tout balayer plutot que d'attendre.
+  _updateClearAll() {
+    const stack = this._stack();
+    let clearBtn = stack.querySelector(".toast-clear-all");
+    const count = stack.querySelectorAll(".toast:not(.hide)").length;
+    if (count >= 3) {
+      if (!clearBtn) {
+        clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "toast-clear-all";
+        clearBtn.textContent = "Tout effacer";
+        clearBtn.addEventListener("click", () => {
+          stack.querySelectorAll(".toast").forEach((t) => t.remove());
+          clearBtn.remove();
+        });
+        stack.prepend(clearBtn);
+      }
+    } else if (clearBtn) {
+      clearBtn.remove();
+    }
+  },
+  success(msg) { this.show(msg, "success"); NotificationHistory.add("success", msg); },
+  error(msg) {
+    // Erreur "deja recupere" juste renvoyee par l'API (voir API.BENIGN_ERRORS) :
+    // message doux + rafraichissement des pastilles, plutot qu'une erreur brute.
+    const b = typeof API !== "undefined" && API._lastBenign;
+    if (b && Date.now() - b.at < 3000) {
+      API._lastBenign = null;
+      this.info(API.BENIGN_ERRORS[b.code]);
+      if (typeof loadNavBadges === "function") loadNavBadges();
+      window.dispatchEvent(new CustomEvent("api:claimed", { detail: { benign: true } }));
+      return;
+    }
+    this.show(msg, "error"); NotificationHistory.add("error", msg);
+  },
+  info(msg) { this.show(msg, "info"); NotificationHistory.add("info", msg); }
+};
+
+// ---------------------------------------------------------------------------
+// Historique de notifications (embellissement/QoL 2026-09-30) : ce site est
+// multi-pages (chaque navigation recharge completement le JS), donc un Toast
+// manque en changeant de page est perdu pour toujours - la petite cloche
+// dans le header garde une trace recente consultable a tout moment.
+// Centre de notifications (2026-10-21, js/lazy/notif-center.js) : la trace
+// est gardee 3 jours sur l'appareil (localStorage, 50 au plus) et chaque
+// entree garde son etat lu / non lu ; la cloche affiche aussi les choses a
+// faire (echanges, recompenses : NotificationHistory.todo, pose par shell.js).
+// ---------------------------------------------------------------------------
+const NotificationHistory = {
+  KEY: "2gatcha_notif_history",
+  LAST_SEEN_KEY: "2gatcha_notif_last_seen",
+  MAX: 50,
+  TTL: 3 * 86400000,
+  todo: 0,
+  getAll() {
+    try {
+      const old = Date.now() - this.TTL;
+      return (JSON.parse(localStorage.getItem(this.KEY) || "[]") || []).filter((n) => n.ts > old);
+    } catch (e) { return []; }
+  },
+  add(type, message) {
+    if (!message) return;
+    try {
+      const list = this.getAll();
+      list.unshift({ type, message, ts: Date.now() });
+      localStorage.setItem(this.KEY, JSON.stringify(list.slice(0, this.MAX)));
+    } catch (e) {}
+  },
+  lastSeen() {
+    try { return Number(localStorage.getItem(this.LAST_SEEN_KEY) || 0); } catch (e) { return 0; }
+  },
+  unreadCount() {
+    const lastSeen = this.lastSeen();
+    return this.getAll().filter((n) => n.ts > lastSeen).length;
+  },
+  markAllSeen() {
+    try { localStorage.setItem(this.LAST_SEEN_KEY, String(Date.now())); } catch (e) {}
+  },
+  clear() {
+    try { localStorage.removeItem(this.KEY); } catch (e) {}
+  }
+};
+
+function relativeTime(ts) {
+  const diff = Math.max(0, Date.now() - ts);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `il y a ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  return `il y a ${Math.floor(hours / 24)} j`;
+}
+
+function renderNotifDot() {
+  const dot = document.getElementById("notif-bell-dot");
+  if (!dot) return;
+  const count = NotificationHistory.unreadCount() + NotificationHistory.todo;
+  dot.style.display = count > 0 ? "" : "none";
+  dot.textContent = NotificationHistory.todo > 0 ? (NotificationHistory.todo > 9 ? "9+" : String(NotificationHistory.todo)) : "";
+  dot.classList.toggle("has-count", NotificationHistory.todo > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Ouverture de la fenetre de carte (2026-10-21, refonte.css) : un fondu
+// court et sobre en CSS. L'envol de la vignette (View Transitions, 20 oct.)
+// capturait toute la page a chaque clic : lourd et parfois saccade.
+// run(from, update, target) garde sa signature ; close(overlay) retire la
+// fenetre apres un fondu de sortie.
+// ---------------------------------------------------------------------------
+const CardFly = {
+  run(from, update) { update(); },
+  close(overlay, done) {
+    if (!overlay || !overlay.isConnected) { if (done) done(); return; }
+    overlay.classList.add("is-closing");
+    setTimeout(() => { overlay.remove(); if (done) done(); }, 130);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Confirmation stylisee (remplace window.confirm, qui casse totalement le
+// ton "jeu premium" du reste du site avec sa popup navigateur brute) -
+// utilisee pour toute action destructive/irreversible (decraft, revocation
+// de code...).
+// ---------------------------------------------------------------------------
+const Confirm = {
+  show(message, { title = "Confirmer", confirmText = "Confirmer", cancelText = "Annuler", dangerous = false } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "card-modal-overlay confirm-overlay";
+      overlay.innerHTML = `
+        <div class="confirm-box">
+          <div class="confirm-title">${title}</div>
+          <div class="confirm-message">${message}</div>
+          <div class="confirm-actions">
+            <button type="button" class="btn-ghost confirm-cancel">${cancelText}</button>
+            <button type="button" class="${dangerous ? "btn-danger" : ""} confirm-ok">${confirmText}</button>
+          </div>
+        </div>
+      `;
+      const finish = (result) => {
+        overlay.remove();
+        syncScrollLock();
+        resolve(result);
+      };
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(false); });
+      overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(false));
+      overlay.querySelector(".confirm-ok").addEventListener("click", () => finish(true));
+      document.addEventListener("keydown", function onKey(e) {
+        if (e.key === "Escape") { document.removeEventListener("keydown", onKey); finish(false); }
+      });
+      document.body.appendChild(overlay);
+      syncScrollLock();
+    });
+  }
+};
+
+// Saisie d'un texte dans une fenetre du site (2026-10-19, remplace
+// window.prompt, sans style et bloque dans certaines applis). Resout le texte,
+// ou null si annule.
+const Prompt = {
+  show(message, { title = "Saisir", value = "", placeholder = "", maxLength = 80, confirmText = "Valider", cancelText = "Annuler" } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "card-modal-overlay confirm-overlay";
+      overlay.innerHTML = `
+        <form class="confirm-box prompt-box">
+          <div class="confirm-title">${title}</div>
+          <div class="confirm-message">${message}</div>
+          <input type="text" class="prompt-input" maxlength="${maxLength}" autocomplete="off" />
+          <div class="confirm-actions">
+            <button type="button" class="btn-ghost confirm-cancel">${cancelText}</button>
+            <button type="submit" class="confirm-ok">${confirmText}</button>
+          </div>
+        </form>`;
+      const input = overlay.querySelector(".prompt-input");
+      input.value = value;
+      input.placeholder = placeholder;
+      const onKey = (e) => { if (e.key === "Escape") finish(null); };
+      const finish = (result) => {
+        document.removeEventListener("keydown", onKey);
+        overlay.remove();
+        syncScrollLock();
+        resolve(result);
+      };
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
+      overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
+      overlay.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(input.value); });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(overlay);
+      syncScrollLock();
+      input.focus();
+      input.select();
+    });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Choix des exemplaires d'une fusion (finition / restauration d'etat,
+// 2026-10-02) : le joueur coche EXACTEMENT les exemplaires sacrifies et
+// choisit le numero de serie conserve sur le nouvel exemplaire - plus jamais
+// de #001 ou d'arc-en-ciel consomme par accident. Preselection identique au
+// defaut serveur (foil-upgrade.json / card-quality-repair.json) : d'abord les
+// moins precieux sur l'autre axe, puis les numeros les plus hauts.
+// copies : [{ pullId, serialNumber, finish, quality }] (deja filtrees sur la
+// finition/qualite source). otherRank(copy) : valeur de l'autre axe.
+// Resout { pullIds, keepPullId } ou null si annule.
+// ---------------------------------------------------------------------------
+const FusionPicker = {
+  // parts : pieces detachees disponibles (pechees) ; cochee, une piece
+  // remplace un des exemplaires requis.
+  // dustPerCopy / stardust : exemplaires manquants payes en poussieres
+  // (restauration de qualite uniquement).
+  // Ergonomie (2026-10-18) : resume de la selection en haut (puces
+  // retirables), apercu du resultat, actions rapides, ligne entiere
+  // cliquable, numero garde en un clic (etoile), defilement jusqu'a la
+  // premiere copie choisie.
+  open({ title, intro, copies, required: baseRequired, otherRank, confirmText = "Fusionner", parts = 0, dustPerCopy = 0, stardust = 0, resultLabel = null }) {
+    return new Promise((resolve) => {
+      const maxDust = dustPerCopy > 0 ? Math.min(baseRequired - 1, Math.floor(stardust / dustPerCopy)) : 0;
+      // Piece cochee d'office seulement si les poussieres ne suffisent pas a combler.
+      let usePart = parts > 0 && copies.length + maxDust < baseRequired;
+      const partForced = parts > 0 && copies.length + maxDust < baseRequired;
+      let dustCopies = Math.max(0, Math.min(maxDust, baseRequired - (usePart ? 1 : 0) - copies.length));
+      let required = baseRequired - (usePart ? 1 : 0) - dustCopies;
+      const FIN = { normal: "Normal", holo: "Holo", gold: "Doré", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel" };
+      const QUA = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
+      const sorted = [...copies].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999));
+      // Editions limitees : jamais cochees d'office.
+      const isEd = (c) => !!c.edition;
+      const precious = (c) => c.serialNumber === 1 || c.finish === "rainbow" || c.quality === "mint" || isEd(c);
+      const byDefault = [...copies].sort((a, b) => (isEd(a) - isEd(b)) || (precious(a) - precious(b)) || (otherRank(a) - otherRank(b)) || ((b.serialNumber || 0) - (a.serialNumber || 0)));
+      const selected = new Set(byDefault.slice(0, required).map((c) => c.pullId));
+      const lowestSelected = () => sorted.find((c) => selected.has(c.pullId)) || null;
+      let keep = lowestSelected()?.pullId ?? null;
+      const serial = (c) => (c.serialNumber != null ? "#" + String(c.serialNumber).padStart(3, "0") : "#?");
+      const edLabel = (c) => (isEd(c) && typeof EDITIONS !== "undefined" && EDITIONS[c.edition] ? `${EDITIONS[c.edition].icon} ${EDITIONS[c.edition].label}` : "");
+      const byId = new Map(copies.map((c) => [c.pullId, c]));
+
+      const overlay = document.createElement("div");
+      overlay.className = "card-modal-overlay confirm-overlay";
+      overlay.innerHTML = `
+        <div class="confirm-box fusion-picker">
+          <div class="confirm-title">${title}</div>
+          <div class="confirm-message">${intro}</div>
+          <div class="fp-summary">
+            <div class="fp-progress"><span class="fp-progress-fill"></span></div>
+            <div class="fp-chips" aria-live="polite"></div>
+            <div class="fp-result"></div>
+          </div>
+          <div class="fp-tools">
+            <button type="button" class="btn-ghost fp-auto">&#10024; Les moins précieux</button>
+            <button type="button" class="btn-ghost fp-none">Tout décocher</button>
+            <span class="fp-hint">Clique une ligne pour la cocher, &#9733; pour garder son numéro.</span>
+          </div>
+          <div class="fusion-picker-list">
+            ${sorted.map((c) => `
+              <div class="fusion-row" data-pull="${c.pullId}" role="checkbox" tabindex="0">
+                <input type="checkbox" class="fp-check" data-pick="${c.pullId}" tabindex="-1" aria-hidden="true" />
+                <span class="fp-serial">${serial(c)}</span>
+                <span class="fp-meta">${FIN[c.finish || "normal"]} · ${QUA[c.quality || "damaged"]}${isEd(c) ? ` <span class="fusion-edition">${edLabel(c)}</span>` : precious(c) ? ' <span class="fusion-precious">précieux</span>' : ""}</span>
+                <button type="button" class="fp-keep" data-keep="${c.pullId}" title="Le nouvel exemplaire portera ce numéro" aria-label="Garder le numéro ${serial(c)}">&#9733;</button>
+              </div>`).join("")}
+          </div>
+          ${parts > 0 ? `<label class="fusion-part"><input type="checkbox" data-use-part ${usePart ? "checked" : ""} ${partForced ? "disabled" : ""} /> <span>${resIcon("part")} Utiliser une <strong>pièce détachée</strong> à la place d'un exemplaire <span class="muted">(il t'en reste ${parts})</span></span></label>` : ""}
+          ${maxDust > 0 ? `<label class="fusion-part fusion-dust"><span>&#10024; Payer en poussières</span> <select data-dust-copies>${Array.from({ length: maxDust + 1 }, (_, n) => `<option value="${n}" ${n === dustCopies ? "selected" : ""}>${n} exemplaire${n > 1 ? "s" : ""}${n ? ` (${n * dustPerCopy} ✨)` : ""}</option>`).join("")}</select> <span class="muted">(${dustPerCopy} ✨ chacun, tu as ${stardust} ✨)</span></label>` : ""}
+          <div class="fusion-picker-count"></div>
+          <div class="confirm-actions">
+            <button type="button" class="btn-ghost confirm-cancel">Annuler</button>
+            <button type="button" class="btn-danger confirm-ok">${confirmText}</button>
+          </div>
+        </div>
+      `;
+      const okBtn = overlay.querySelector(".confirm-ok");
+      const refresh = () => {
+        if (!selected.has(keep)) keep = lowestSelected()?.pullId ?? null;
+        overlay.querySelectorAll(".fusion-row").forEach((row) => {
+          const id = Number(row.dataset.pull);
+          const on = selected.has(id);
+          row.classList.toggle("selected", on);
+          row.setAttribute("aria-checked", String(on));
+          row.querySelector("[data-pick]").checked = on;
+          const star = row.querySelector("[data-keep]");
+          star.disabled = !on;
+          star.classList.toggle("on", on && id === keep);
+        });
+        const picked = [...selected].map((id) => byId.get(id)).filter(Boolean);
+        const keptCopy = picked.find((c) => c.pullId === keep && isEd(c)) || picked.find(isEd) || null;
+        const lost = picked.filter((c) => c.pullId !== keep && precious(c) && c !== keptCopy);
+        overlay.querySelector(".fp-progress-fill").style.width = `${Math.min(100, (selected.size / Math.max(1, required)) * 100)}%`;
+        overlay.querySelector(".fp-progress").classList.toggle("done", selected.size === required);
+        overlay.querySelector(".fp-chips").innerHTML = picked.length
+          ? [...picked].sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0)).map((c) => `<button type="button" class="fp-chip ${c.pullId === keep ? "kept" : ""} ${precious(c) ? "precious" : ""}" data-unpick="${c.pullId}" title="Retirer de la sélection">${c.pullId === keep ? "&#9733; " : ""}${serial(c)} <span aria-hidden="true">&times;</span></button>`).join("")
+          : `<span class="muted">Aucun exemplaire choisi.</span>`;
+        const keptRef = byId.get(keep);
+        overlay.querySelector(".fp-result").innerHTML = keptRef && resultLabel ? `Résultat : <strong>${serial(keptRef)}</strong> · ${resultLabel(picked)}` : "";
+        overlay.querySelector(".fusion-picker-count").innerHTML =
+          `${selected.size} / ${required} sélectionné${required > 1 ? "s" : ""}` +
+          (keptCopy ? ` · <span class="fusion-edition">le nouvel exemplaire garde l'édition ${edLabel(keptCopy)}</span>` : "") +
+          (lost.length ? ` · <span class="fusion-warning">&#9888; tu sacrifies ${lost.map((c) => serial(c) + (isEd(c) ? " " + edLabel(c) : "")).join(", ")} (précieux)</span>` : "");
+        okBtn.disabled = selected.size !== required;
+      };
+      const trimSelection = () => {
+        while (selected.size > required) {
+          const drop = [...byDefault].reverse().find((c) => selected.has(c.pullId));
+          selected.delete(drop.pullId);
+        }
+      };
+      const toggle = (id) => {
+        if (selected.has(id)) selected.delete(id);
+        else {
+          // Deja complet : on remplace le moins utile par celui-ci.
+          if (selected.size >= required) { const drop = [...byDefault].reverse().find((c) => selected.has(c.pullId) && c.pullId !== keep) || [...byDefault].reverse().find((c) => selected.has(c.pullId)); if (drop) selected.delete(drop.pullId); }
+          selected.add(id);
+        }
+        refresh();
+      };
+      const dustSel = overlay.querySelector("[data-dust-copies]");
+      if (dustSel) dustSel.addEventListener("change", () => {
+        dustCopies = Number(dustSel.value) || 0;
+        required = Math.max(1, baseRequired - (usePart ? 1 : 0) - dustCopies);
+        trimSelection();
+        refresh();
+      });
+      const partBox = overlay.querySelector("[data-use-part]");
+      if (partBox) partBox.addEventListener("change", () => {
+        usePart = partBox.checked;
+        required = Math.max(1, baseRequired - (usePart ? 1 : 0) - dustCopies);
+        trimSelection();
+        refresh();
+      });
+      overlay.querySelector(".fusion-picker-list").addEventListener("click", (e) => {
+        const star = e.target.closest("[data-keep]");
+        if (star) { if (!star.disabled) { keep = Number(star.dataset.keep); refresh(); } return; }
+        const row = e.target.closest(".fusion-row");
+        if (row) toggle(Number(row.dataset.pull));
+      });
+      overlay.querySelector(".fusion-picker-list").addEventListener("keydown", (e) => {
+        const row = e.target.closest(".fusion-row");
+        if (row && (e.key === " " || e.key === "Enter")) { e.preventDefault(); toggle(Number(row.dataset.pull)); }
+      });
+      overlay.querySelector(".fp-chips").addEventListener("click", (e) => { const c = e.target.closest("[data-unpick]"); if (c) { selected.delete(Number(c.dataset.unpick)); refresh(); } });
+      overlay.querySelector(".fp-auto").addEventListener("click", () => { selected.clear(); byDefault.slice(0, required).forEach((c) => selected.add(c.pullId)); keep = lowestSelected()?.pullId ?? null; refresh(); });
+      overlay.querySelector(".fp-none").addEventListener("click", () => { selected.clear(); refresh(); });
+      const finish = (result) => { overlay.remove(); syncScrollLock(); resolve(result); };
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) finish(null); });
+      overlay.querySelector(".confirm-cancel").addEventListener("click", () => finish(null));
+      okBtn.addEventListener("click", () => finish({ pullIds: [...selected], keepPullId: keep, parts: usePart ? 1 : 0, dustCopies }));
+      document.body.appendChild(overlay);
+      syncScrollLock();
+      refresh();
+      // La premiere copie choisie bien visible dans la liste.
+      const first = overlay.querySelector(".fusion-row.selected");
+      if (first) first.parentElement.scrollTop = Math.max(0, first.offsetTop - first.parentElement.offsetTop - 8);
+    });
+  }
+};
+const FUSION_QUALITY_RANK = ["damaged", "worn", "good", "mint"];
+const FUSION_FINISH_RANK = ["normal", "holo", "gold", "ghost", "diamond", "rainbow"];
+
+// ---------------------------------------------------------------------------
+// Menu deroulant stylise a la place du <select> natif du navigateur (moche
+// et non personnalisable). Le <select> d'origine reste dans le DOM comme
+// source de verite (garde .value, continue a emettre "change") : tout code
+// appelant qui lisait deja filterEl.value / ecoutait "change" continue de
+// marcher sans modification. On le masque visuellement et on construit une
+// interface custom par-dessus, synchronisee avec lui.
+// ---------------------------------------------------------------------------
+function enhanceSelect(selectEl) {
+  if (!selectEl || selectEl._fancyEnhanced) return;
+  selectEl._fancyEnhanced = true;
+
+  const wrap = document.createElement("div");
+  wrap.className = "fancy-select";
+  // Le wrapper reprend les styles inline du select d'origine (margin,
+  // display:none initial le temps qu'il soit pertinent...) : c'est lui qui
+  // pilote desormais la mise en page a la place du select, devenu invisible.
+  wrap.style.cssText = selectEl.style.cssText;
+  selectEl.removeAttribute("style");
+  selectEl.parentNode.insertBefore(wrap, selectEl);
+  wrap.appendChild(selectEl);
+  selectEl.classList.add("fancy-select-native");
+  selectEl.setAttribute("tabindex", "-1");
+  selectEl.setAttribute("aria-hidden", "true");
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "fancy-select-trigger";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.innerHTML = `<span class="fancy-select-label"></span><span class="fancy-select-arrow" aria-hidden="true">&#9662;</span>`;
+  wrap.appendChild(trigger);
+
+  const menu = document.createElement("div");
+  menu.className = "fancy-select-menu";
+  menu.hidden = true;
+  wrap.appendChild(menu);
+
+  // Barre de recherche en tete du menu (position:sticky, reste visible
+  // pendant que la liste en-dessous defile) : indispensable des qu'une liste
+  // depasse une vingtaine d'options (cartes, joueurs...) - filtre par
+  // sous-chaine insensible a la casse/aux accents sur le texte affiche.
+  const search = document.createElement("input");
+  search.type = "text";
+  search.className = "fancy-select-search";
+  search.placeholder = "Rechercher...";
+  search.autocomplete = "off";
+  menu.appendChild(search);
+
+  const optionsList = document.createElement("div");
+  optionsList.className = "fancy-select-options";
+  optionsList.setAttribute("role", "listbox");
+  menu.appendChild(optionsList);
+
+  const label = trigger.querySelector(".fancy-select-label");
+  let highlighted = -1;
+
+  function renderLabel() {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    label.textContent = opt ? opt.textContent : "";
+  }
+
+  function normalize(str) {
+    return normText(str); // core.js
+  }
+
+  function renderOptions() {
+    optionsList.innerHTML = "";
+    highlighted = selectEl.selectedIndex;
+    const query = normalize(search.value);
+    [...selectEl.options].forEach((opt, i) => {
+      if (query && !normalize(opt.textContent).includes(query)) return;
+      const item = document.createElement("div");
+      item.className = "fancy-select-option";
+      item.setAttribute("role", "option");
+      item.dataset.index = String(i);
+      item.textContent = opt.textContent;
+      if (i === selectEl.selectedIndex) item.setAttribute("aria-selected", "true");
+      item.addEventListener("mouseenter", () => setHighlighted(i));
+      item.addEventListener("click", () => choose(i));
+      optionsList.appendChild(item);
+    });
+    if (!optionsList.children.length) {
+      const empty = document.createElement("div");
+      empty.className = "fancy-select-empty";
+      empty.textContent = "Aucun résultat.";
+      optionsList.appendChild(empty);
+    }
+  }
+
+  // "highlighted" est une POSITION dans menu.children (la liste FILTREE
+  // affichee), pas l'index d'origine dans selectEl.options - les deux
+  // divergent des qu'une recherche masque des options. On ne revient a
+  // l'index d'origine (via item.dataset.index) qu'au moment de choisir.
+  function setHighlighted(pos) {
+    highlighted = pos;
+    [...optionsList.children].forEach((el, idx) => el.classList.toggle("highlighted", idx === pos));
+  }
+
+  function choose(i) {
+    if (selectEl.selectedIndex !== i) {
+      selectEl.selectedIndex = i;
+      selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    renderLabel();
+    closeMenu();
+  }
+
+  function chooseHighlighted() {
+    const el = optionsList.children[highlighted];
+    if (el && el.dataset.index != null) choose(Number(el.dataset.index));
+  }
+
+  function openMenu() {
+    search.value = "";
+    renderOptions();
+    menu.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+    wrap.classList.add("open");
+    const selectedPos = [...optionsList.children].findIndex((el) => Number(el.dataset.index) === selectEl.selectedIndex);
+    setHighlighted(selectedPos >= 0 ? selectedPos : 0);
+    document.addEventListener("click", onOutsideClick);
+    search.focus();
+  }
+  function closeMenu() {
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    wrap.classList.remove("open");
+    document.removeEventListener("click", onOutsideClick);
+  }
+  function onOutsideClick(e) {
+    if (!wrap.contains(e.target)) closeMenu();
+  }
+
+  search.addEventListener("input", () => {
+    renderOptions();
+    setHighlighted(optionsList.children.length && optionsList.children[0].dataset.index != null ? 0 : -1);
+  });
+  search.addEventListener("click", (e) => e.stopPropagation());
+  search.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeMenu(); trigger.focus(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const count = optionsList.children.length;
+      if (!count) return;
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      setHighlighted((highlighted + dir + count) % count);
+      return;
+    }
+    if (e.key === "Enter") { e.preventDefault(); chooseHighlighted(); }
+  });
+
+  trigger.addEventListener("click", () => {
+    if (menu.hidden) openMenu(); else closeMenu();
+  });
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeMenu(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (menu.hidden) { openMenu(); return; }
+      const count = optionsList.children.length;
+      if (!count) return;
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      setHighlighted((highlighted + dir + count) % count);
+      return;
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (menu.hidden) openMenu();
+      else if (highlighted >= 0) chooseHighlighted();
+    }
+  });
+
+  // Si le code appelant ajoute des <option> apres coup (liste peuplee de
+  // maniere asynchrone), il suffit d'appeler selectEl._fancyRefresh().
+  selectEl._fancyRefresh = renderLabel;
+  renderLabel();
+}
+
+// ---------------------------------------------------------------------------
+// SFX minimalistes generes en WebAudio (pas de fichiers audio a heberger) :
+// un tic au flip d'une carte, un carillon dont la richesse suit la rarete.
+// Un jeu totalement silencieux se sent inacheve - ce n'est pas un habillage
+// cosmetique de plus, c'est le retour manquant sur l'action principale.
+// ---------------------------------------------------------------------------
+const Sfx = {
+  _ctx: null,
+  // Coupe par defaut (2026-10-15) : actif seulement si le joueur l'a allume.
+  _muted: (() => { try { return localStorage.getItem("2gatcha_muted") !== "0"; } catch (e) { return true; } })(),
+  get ctx() {
+    if (!this._ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this._ctx = new AudioCtx();
+    }
+    return this._ctx;
+  },
+  get muted() { return this._muted; },
+  setMuted(m) {
+    this._muted = m;
+    localStorage.setItem("2gatcha_muted", m ? "1" : "0");
+  },
+  _tone(freq, start, duration, type, gain) {
+    if (this._muted) return;
+    const ctx = this.ctx;
+    if (!ctx) return;
+    try {
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const t0 = ctx.currentTime + start;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + duration + 0.05);
+    } catch (e) { /* AudioContext indisponible ou bloque : silence, pas grave */ }
+  },
+  flip() {
+    this._tone(320, 0, 0.09, "triangle", 0.12);
+  },
+  reveal(rarityKey) {
+    const chords = {
+      commune: [392],
+      rare: [392, 523.25],
+      epique: [392, 523.25, 659.25],
+      legendaire: [392, 523.25, 659.25, 783.99, 987.77],
+      // Bug reel corrige ici (2026-09-30) : manquait completement, donc tout
+      // VRAI tirage mythique (craft/redeem/opening.js/etc.) retombait sur
+      // l'accord le plus fade (commune) au lieu du plus impressionnant.
+      mythique: [392, 523.25, 659.25, 783.99, 987.77, 1244.51],
+      unique: [440, 554.37, 659.25, 880, 1108.73, 1318.51]
+    };
+    const notes = chords[rarityKey] || chords.commune;
+    notes.forEach((freq, i) => this._tone(freq, i * 0.055, 0.55, "sine", 0.085));
+  },
+  click() {
+    this._tone(500, 0, 0.05, "square", 0.05);
+  }
+};
+
+// Petite icone distinctive par rareté (en plus de la couleur, pour ne pas
+// reposer uniquement sur la teinte).
+const RARITY_ICONS = { commune: "&#9679;", rare: "&#9670;", epique: "&#9733;", legendaire: "&#128081;", mythique: "&#128293;", unique: "&#127808;" };
+function rarityIcon(key) {
+  return RARITY_ICONS[key] || RARITY_ICONS.commune;
+}
+
+// ---------------------------------------------------------------------------
+// Barre de chargement fine en haut de page, pilotee par API.get/post.
+// ---------------------------------------------------------------------------
+const TopLoadingBar = {
+  _count: 0,
+  _el() {
+    let el = document.querySelector(".top-loading-bar");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "top-loading-bar";
+      document.body.appendChild(el);
+    }
+    return el;
+  },
+  start() {
+    this._count++;
+    const el = this._el();
+    el.classList.remove("done");
+    requestAnimationFrame(() => { el.style.width = "75%"; });
+  },
+  stop() {
+    this._count = Math.max(0, this._count - 1);
+    if (this._count > 0) return;
+    const el = this._el();
+    el.classList.add("done");
+    setTimeout(() => { el.style.width = "0%"; }, 250);
+  }
+};
+
+// Note : un halo qui suit le curseur et un calque de grain permanents ont
+// ete retires - dans une passe de sobriete generale (trop d'effets
+// decoratifs simultanes = rendu "demo CSS" plutot que site pro), ce sont
+// les deux qui n'ajoutaient rien de fonctionnel (aucun lien avec une
+// action du joueur, juste du mouvement en continu).
+
+// ---------------------------------------------------------------------------
+// Effets de particules/energie a la revelation d'une carte, intensite
+// proportionnelle a la rareté, couleur = celle de la rareté. Le calque dedie
+// a un z-index superieur au modal plein écran d'ouverture (400) et a son
+// flash legendaire (410) : les effets doivent toujours passer PAR-DESSUS.
+// ---------------------------------------------------------------------------
+const RARITY_PARTICLE_COUNTS = { commune: 5, rare: 12, epique: 24, legendaire: 42, mythique: 64, unique: 64 };
+const RARITY_CONFETTI = {
+  commune: { particleCount: 0, spread: 0 },
+  rare: { particleCount: 45, spread: 65 },
+  epique: { particleCount: 80, spread: 90 },
+  legendaire: { particleCount: 150, spread: 120 },
+  mythique: { particleCount: 220, spread: 140 },
+  unique: { particleCount: 220, spread: 140 }
+};
+
+// Melange une couleur hex avec du blanc (0 = couleur intacte, 1 = blanc
+// pur) : sert a obtenir une teinte plus claire de la meme couleur plutot
+// que de retomber sur un blanc plat pour le 2e ton des confettis.
+function lightenColor(hex, amount) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return hex;
+  const num = parseInt(m[1], 16);
+  const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+// Utilise par celebrateRarity (opening.js/redeem.js) pour poser --flash-color
+// depuis la VRAIE couleur de la rarete (jamais figee sur l'orange legendaire).
+function hexToRgba(hex, alpha) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return `rgba(245,165,36,${alpha})`;
+  const num = parseInt(m[1], 16);
+  const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Ratio de contraste WCAG entre deux couleurs hex (formule standard sRGB).
+function contrastRatio(hex1, hex2) {
+  function lum(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return 1;
+    const num = parseInt(m[1], 16);
+    const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  }
+  const l1 = lum(hex1), l2 = lum(hex2);
+  const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// Les couleurs de rareté viennent de la base (admin) et ne sont pas garanties d'avoir
+// un contraste suffisant utilisees comme TEXTE sur fond sombre (le bleu
+// "rare" par defaut, par exemple, echoue de justesse le seuil WCAG AA).
+// Eclaircit progressivement jusqu'au seuil (4.5:1) sans jamais toucher a la
+// couleur d'origine utilisee pour les fonds/bordures, purement decoratifs.
+function rarityTextColor(hex, bg = "#1c1f42") {
+  let color = hex || "#9aa0b4";
+  let amount = 0;
+  while (contrastRatio(color, bg) < 4.5 && amount < 0.9) {
+    amount += 0.08;
+    color = lightenColor(hex, amount);
+  }
+  return color;
+}
+
+function getParticleLayer() {
+  let el = document.querySelector(".rarity-particle-layer");
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "rarity-particle-layer";
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function spawnRarityBurst(key, colorHex, originEl) {
+  const rarityKey = key || "commune";
+  const color = colorHex || "#9aa0b4";
+  const count = RARITY_PARTICLE_COUNTS[rarityKey] ?? RARITY_PARTICLE_COUNTS.commune;
+  const rect = originEl ? originEl.getBoundingClientRect() : null;
+  const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+  const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+  const maxSize = rarityKey === "mythique" ? 28 : rarityKey === "legendaire" ? 22 : rarityKey === "epique" ? 16 : rarityKey === "rare" ? 12 : 8;
+  const maxDist = 70 + count * 2.2;
+
+  const layer = getParticleLayer();
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement("span");
+    p.className = "rarity-particle";
+    p.textContent = Math.random() > 0.5 ? "✦" : "✧";
+    const angle = Math.random() * Math.PI * 2;
+    const dist = maxDist * (0.5 + Math.random() * 0.5);
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    const size = 8 + Math.random() * maxSize;
+    p.style.left = cx + "px";
+    p.style.top = cy + "px";
+    p.style.color = color;
+    p.style.fontSize = size + "px";
+    p.style.setProperty("--dx", dx + "px");
+    p.style.setProperty("--dy", dy + "px");
+    p.style.animationDuration = (0.6 + Math.random() * 0.5) + "s";
+    p.style.animationDelay = (Math.random() * 0.15) + "s";
+    layer.appendChild(p);
+    setTimeout(() => p.remove(), 1400);
+  }
+
+  const conf = RARITY_CONFETTI[rarityKey] || RARITY_CONFETTI.commune;
+  if (conf.particleCount && typeof confetti === "function") {
+    const origin = { x: cx / window.innerWidth, y: cy / window.innerHeight };
+    // zIndex par defaut de canvas-confetti = 100, largement en dessous du
+    // modal plein écran d'ouverture (400) : sans le forcer ici, tous les
+    // confettis se retrouvent invisibles derriere la modale.
+    // Dégradé de la couleur de rareté (au lieu de couleur + blanc plat)
+    // pour un rendu plus riche, coherent avec le badge/le halo de la carte.
+    const tint = lightenColor(color, 0.55);
+    confetti({ particleCount: conf.particleCount, spread: conf.spread, origin, colors: [color, tint], zIndex: 420 });
+    if (rarityKey === "legendaire") {
+      setTimeout(() => confetti({ particleCount: 90, spread: 140, origin: { x: origin.x, y: Math.max(0, origin.y - 0.1) }, colors: [color, "#ffd166", tint], zIndex: 420 }), 220);
+    }
+  }
+}
+
+// Dissolution "poussiere d'etoile" a la destruction d'une carte (decraft) :
+// reutilise le meme systeme de particules que les reveals (spawnRarityBurst,
+// teinte poussiere plutot que couleur de rarete), plus une brève animation
+// de la vignette elle-meme (retrecit + se floute) avant que la grille ne se
+// rafraichisse. Attend la fin de l'animation pour laisser le temps au joueur
+// de la voir avant que reload() ne remplace le DOM.
+function playDustDissolve(el) {
+  return new Promise((resolve) => {
+    if (!el) { resolve(); return; }
+    spawnRarityBurst("rare", "#c9b8ff", el);
+    el.classList.add("dust-dissolve");
+    setTimeout(resolve, 380);
+  });
+}
+
+// Echap ferme la modal la plus recente ouverte (zoom carte, ouverture de
+// booster si elle n'est pas en train de jouer une animation bloquante).
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  // La plus recente (derniere dans la page), pas la premiere ouverte.
+  const overlays = document.querySelectorAll(".card-modal-overlay");
+  const cardModal = overlays[overlays.length - 1];
+  if (cardModal) { cardModal.remove(); syncScrollLock(); return; }
+  const packModal = document.getElementById("pack-modal-overlay");
+  // `isBusy` est une variable globale declaree dans opening.js (script
+  // classique, pas un module : partage le meme scope global). `typeof` sur
+  // un identifiant jamais declare ne plante pas, contrairement a `isBusy`
+  // en accès direct sur une page qui ne charge pas opening.js.
+  if (packModal && !packModal.hidden && typeof isBusy !== "undefined" && !isBusy) {
+    packModal.hidden = true;
+    syncScrollLock();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Verrouillage du scroll de la page pendant qu'une modale plein écran est
+// ouverte (zoom de carte, ouverture de booster) : sans ca, la page derriere
+// continue de defiler sous la modale, ce qui est deroutant. On resynchronise
+// a chaque ouverture/fermeture plutot que de compter un simple booleen, pour
+// rester correct meme si une modale est fermee par un autre chemin (Echap,
+// clic sur l'overlay, fin d'animation...).
+//
+// Technique "figer body en position:fixed" plutot qu'un simple
+// overflow:hidden : cette dernière ne bloque pas fiablement le scroll
+// tactile sur mobile et peut faire "sauter" la page a la fermeture. On
+// mémorise le scroll courant, on fixe le body a cette position, puis on
+// restaure exactement la meme position au deverrouillage.
+// Corrige le 30 octobre : la regle CSS body.scroll-locked (position:fixed)
+// avait disparu, il ne restait que le decalage top:-Y sur un body en
+// position:relative. Toute la page sautait vers le haut derriere chaque
+// fenetre ou cinematique (sans etre bloquee), puis le retour defilait en
+// douceur (html { scroll-behavior: smooth }). Les cinematiques (.cine-overlay)
+// sont aussi verrouillees, et un observateur resynchronise tout seul quand un
+// overlay est ajoute ou retire du body.
+let _scrollLockY = 0;
+const SCROLL_LOCK_SEL = ".card-modal-overlay, .mfx, .lvx, .cine-overlay";
+function syncScrollLock() {
+  const cardModalOpen = !!document.querySelector(SCROLL_LOCK_SEL);
+  const packModal = document.getElementById("pack-modal-overlay");
+  const packModalOpen = !!(packModal && !packModal.hidden);
+  const shouldLock = cardModalOpen || packModalOpen;
+  const isLocked = document.body.classList.contains("scroll-locked");
+
+  if (shouldLock && !isLocked) {
+    _scrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.top = `-${_scrollLockY}px`;
+    document.documentElement.classList.add("scroll-locked");
+    document.body.classList.add("scroll-locked");
+  } else if (!shouldLock && isLocked) {
+    document.documentElement.classList.remove("scroll-locked");
+    document.body.classList.remove("scroll-locked");
+    document.body.style.top = "";
+    window.scrollTo({ top: _scrollLockY, left: 0, behavior: "instant" });
+  }
+}
+document.addEventListener("DOMContentLoaded", () => {
+  let queued = false;
+  new MutationObserver((muts) => {
+    if (queued) return;
+    const hit = (nodes) => [...nodes].some((n) => n.nodeType === 1 && n.matches(SCROLL_LOCK_SEL));
+    if (!muts.some((m) => hit(m.addedNodes) || hit(m.removedNodes))) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; syncScrollLock(); });
+  }).observe(document.body, { childList: true });
+});
+
+// Anime un changement de valeur numerique (badge boosters, stats...) avec un
+// petit "bump" au lieu d'un saut sec.
+// Petit "+N" qui s'envole depuis un badge de monnaie (embellissement
+// 2026-09-30), en plus du compteur qui defile deja plus bas. Position:fixed
+// + append direct sur <body> (comme getParticleLayer) pour ne pas dependre
+// du contexte de positionnement du badge appelant.
+function spawnFloatingGain(el, delta) {
+  const rect = el.getBoundingClientRect();
+  const span = document.createElement("span");
+  span.className = "count-gain-float";
+  span.textContent = "+" + delta;
+  span.style.left = (rect.left + rect.width / 2) + "px";
+  span.style.top = rect.top + "px";
+  document.body.appendChild(span);
+  setTimeout(() => span.remove(), 900);
+}
+
+function bumpNumber(el, newValue) {
+  const prevRaw = el.textContent.trim();
+  const prevNum = Number(prevRaw);
+  const nextNum = Number(newValue);
+  const canAnimate = prevRaw !== "" && prevRaw !== "..." && Number.isFinite(prevNum) && Number.isFinite(nextNum) && prevNum !== nextNum;
+
+  if (!canAnimate) {
+    el.textContent = newValue;
+    return;
+  }
+
+  if (nextNum > prevNum) spawnFloatingGain(el, nextNum - prevNum);
+
+  // Petit effet "compteur qui defile" plutot qu'un saut sec au nouveau
+  // chiffre : interpole la valeur affichee sur ~450ms.
+  el.classList.remove("count-bump");
+  void el.offsetWidth;
+  el.classList.add("count-bump");
+
+  const duration = 450;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const value = Math.round(prevNum + (nextNum - prevNum) * eased);
+    el.textContent = value;
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = newValue;
+  }
+  requestAnimationFrame(step);
+}
+
+// ---------------------------------------------------------------------------
+// Montees de niveau (refonte 2026-10-16) : compte, metiers (peche, fouille,
+// jardin, expedition) et prestige. Onde de choc, rayons, gerbe d'etincelles,
+// embleme, compteur qui defile, jauge qui se remplit, recompenses en cascade.
+// Couleurs : celles du skin en cours pour le compte, celles du metier sinon.
+// Un clic accelere l'intro, un second ferme ; jamais de fermeture automatique.
+// Preference des cinematiques (core.js CinePref) : sinon un simple message.
+//   LevelFx.show({ kind: 'account' | 'skill' | 'prestige', icon, name, level, from?, perks?, tool?, force? })
+// LevelUpModal.show (ancien nom, utilise par les jeux) passe par ici.
+// ---------------------------------------------------------------------------
+const LevelFx = (() => {
+  const SKILL_COLORS = {
+    "Pêche": ["#38bdf8", "#818cf8"], "Fouille": ["#f59e0b", "#b45309"], "Jardin": ["#4ade80", "#15803d"],
+    "Expédition": ["#fb923c", "#e11d48"], "Dinos": ["#a3e635", "#0d9488"]
+  };
+  let busy = null;
+  const queue = [];
+
+  function show(opts) {
+    const o = { kind: "skill", perks: [], ...opts };
+    if (!o.force && typeof CinePref !== "undefined") {
+      const key = o.kind === "account" ? "account" : `${o.kind}-${o.name || ""}`;
+      if (!CinePref.allow("level", key)) {
+        const what = o.kind === "account" ? `Niveau ${o.level} atteint !` : o.kind === "prestige" ? `${o.name} : ${o.level} !` : `${o.name} : niveau ${o.level} !`;
+        if (typeof Toast !== "undefined") Toast.success(`${o.icon || "⭐"} ${what}`);
+        return Promise.resolve();
+      }
+    }
+    return new Promise((resolve) => { queue.push({ o, resolve }); next(); });
+  }
+
+  function next() {
+    if (busy || !queue.length) return;
+    const { o, resolve } = queue.shift();
+    busy = o;
+    const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+    const isNum = typeof o.level === "number";
+    const from = isNum && Number(o.from) > 0 && Number(o.from) < o.level ? Number(o.from) : isNum ? o.level - 1 : null;
+    const [c1, c2] = o.kind === "prestige" ? ["#fde047", "#f59e0b"] : o.kind === "account" ? ["var(--accent)", "var(--accent-2)"] : SKILL_COLORS[o.name] || ["#a78bfa", "#22d3ee"];
+    const gained = isNum && from != null ? o.level - from : 1;
+    const ov = document.createElement("div");
+    ov.className = `lvx lvx-${o.kind}`;
+    ov.style.setProperty("--c1", c1);
+    ov.style.setProperty("--c2", c2);
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.setAttribute("aria-label", o.kind === "account" ? `Niveau ${o.level}` : `${o.name} ${isNum ? "niveau " + o.level : o.level}`);
+    const sparks = Array.from({ length: 28 }, (_, i) => `<i style="--a:${Math.round((360 / 28) * i + (i % 3) * 4)}deg;--r:${120 + (i * 53) % 140}px;--d:${(0.35 + (i % 5) * 0.05).toFixed(2)}s"></i>`).join("");
+    const perks = (o.perks || []).filter(Boolean);
+    const kicker = o.kind === "prestige" ? "Prestige" : gained > 1 ? `+${gained} niveaux` : "Niveau supérieur";
+    ov.innerHTML = `
+      <div class="lvx-bg" aria-hidden="true"></div>
+      <div class="lvx-rays" aria-hidden="true"></div>
+      <div class="lvx-shock" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="lvx-sparks" aria-hidden="true">${sparks}</div>
+      <div class="lvx-card">
+        <div class="lvx-emblem" aria-hidden="true">
+          <div class="lvx-emblem-ring"></div>
+          ${o.kind === "account" && isNum ? `<span class="lvx-emblem-num" data-from="${from}" data-to="${o.level}">${from}</span>` : `<span class="lvx-emblem-icon">${o.icon || "⭐"}</span>`}
+        </div>
+        <p class="lvx-kicker">${esc(kicker)}</p>
+        <h2 class="lvx-title">${o.kind === "account" ? "Niveau de compte" : esc(o.name || "")}</h2>
+        <p class="lvx-level">${isNum ? `Niveau <strong class="lvx-to" data-from="${from}" data-to="${o.level}">${o.level}</strong>` : esc(String(o.level))}</p>
+        <div class="lvx-bar" aria-hidden="true"><span></span></div>
+        ${o.tool ? `<p class="lvx-tool">🛠️ Nouvel outil : <strong>${o.tool}</strong></p>` : ""}
+        ${perks.length ? `<ul class="lvx-perks">${perks.map((p, i) => `<li style="--i:${i}">${p}</li>`).join("")}</ul>` : ""}
+        <button type="button" class="btn lvx-close">Super !</button>
+      </div>`;
+    document.body.appendChild(ov);
+    if (typeof syncScrollLock === "function") syncScrollLock();
+    try { if (typeof Sfx !== "undefined" && Sfx.reveal) setTimeout(() => Sfx.reveal(o.kind === "skill" ? "epique" : "legendaire"), 250); } catch (e) { /* son indisponible */ }
+    // Compteur qui defile (compte : ancien -> nouveau niveau).
+    const counters = [...ov.querySelectorAll("[data-from][data-to]")];
+    const t0 = performance.now() + 600;
+    const tick = (t) => {
+      const k = Math.max(0, Math.min(1, (t - t0) / 800));
+      counters.forEach((el) => { const a = Number(el.dataset.from), b = Number(el.dataset.to); el.textContent = String(Math.round(a + (b - a) * (1 - Math.pow(1 - k, 3)))); });
+      if (k < 1 && document.body.contains(ov)) requestAnimationFrame(tick);
+    };
+    if (counters.length && isNum) { counters.forEach((el) => { el.textContent = el.dataset.from; }); requestAnimationFrame(tick); }
+    if ((o.kind === "account" || o.kind === "prestige") && typeof confetti === "function") setTimeout(() => confetti({ particleCount: 140, spread: 110, startVelocity: 42, origin: { y: 0.45 }, colors: o.kind === "prestige" ? ["#fde047", "#f59e0b", "#fff7cc"] : undefined }), 450);
+    let done = false;
+    const readyTimer = setTimeout(() => ov.classList.add("lvx-ready"), 2300);
+    const finishCounters = () => counters.forEach((el) => { el.textContent = el.dataset.to; });
+    const close = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(readyTimer);
+      document.removeEventListener("keydown", onKey);
+      ov.classList.add("lvx-closing");
+      setTimeout(() => { ov.remove(); if (typeof syncScrollLock === "function") syncScrollLock(); busy = null; resolve(); next(); }, 320);
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    ov.addEventListener("click", (e) => {
+      if (e.target.closest(".lvx-close")) { close(); return; }
+      if (!ov.classList.contains("lvx-ready") && !ov.classList.contains("lvx-skip")) { ov.classList.add("lvx-skip"); finishCounters(); return; }
+      if (!e.target.closest(".lvx-perks, .lvx-title")) close();
+    });
+    setTimeout(() => ov.querySelector(".lvx-close")?.focus({ preventScroll: true }), 2100);
+  }
+  return { show, SKILL_COLORS };
+})();
+window.LevelFx = LevelFx;
+
+const LevelUpModal = {
+  show({ icon, name, level, perks = [], tool = "", force = false }) {
+    const prestige = typeof level === "string" && /^prestige/i.test(level);
+    return LevelFx.show({ kind: prestige ? "prestige" : "skill", icon, name, level, perks, tool, force });
+  }
+};
+
+// Piece detachee qui vient se visser a la place d'un exemplaire (atelier).
+function screwPartAnimation() {
+  return new Promise((resolve) => {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { resolve(); return; }
+    const overlay = document.createElement("div");
+    overlay.className = "part-screw-overlay";
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.innerHTML = `<div class="part-screw-slot"><span class="part-screw">&#128297;</span></div>`;
+    document.body.appendChild(overlay);
+    if (typeof Sfx !== "undefined" && Sfx.click) { Sfx.click(); setTimeout(() => Sfx.click(), 350); setTimeout(() => Sfx.click(), 650); }
+    setTimeout(() => { overlay.remove(); resolve(); }, 1100);
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Decouverte d'une nouvelle ressource (2026-10-15, api/src/native/discoveries.js) :
+// mise en scene facon carte legendaire, en turquoise, avec l'objet et une
+// description enigmatique. Plusieurs decouvertes : l'une apres l'autre.
+// Deblocages et adoptions des nouveaux comptes (2026-10-29, starter.js
+// checkUnlocks) : meme scene, avec { unlock, kicker, url } : bouton « Y aller »,
+// et les masques (StarterLocks) sont relus a la fermeture. Attend la fin d'une
+// montee de niveau (LevelFx) avant de commencer.
+// ---------------------------------------------------------------------------
+const DiscoveryFx = (function () {
+  const queue = [];
+  let busy = false;
+  const esc = escHtml; // core.js
+  function next() {
+    if (busy || !queue.length) return;
+    if (document.querySelector(".lvx")) { setTimeout(next, 700); return; }
+    busy = true;
+    const it = queue.shift();
+    const ov = document.createElement("div");
+    ov.className = "cine-overlay cine-discovery" + (it.unlock ? " cine-unlock" : "");
+    ov.style.setProperty("--c", it.color || "#2dd4bf");
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-label", "Nouvelle découverte : " + it.name);
+    ov.innerHTML = `<div class="cine-rays" aria-hidden="true"></div><div class="cine-glow" aria-hidden="true"></div>
+      <div class="discovery-stack">
+        <div class="cine-spin"><div class="discovery-card"><span class="discovery-icon" aria-hidden="true">${it.icon}</span><span class="discovery-shine" aria-hidden="true"></span></div></div>
+        <div class="discovery-text"><small>${esc(it.kicker || "Nouvelle découverte !")}</small><strong>${esc(it.name)}</strong><p>${esc(it.riddle)}</p>${it.url ? `<a class="btn discovery-go" href="${esc(it.url)}">Y aller &rarr;</a>` : ""}</div>
+      </div>
+      <div class="cine-skip">Tape pour continuer</div>`;
+    document.body.appendChild(ov);
+    if (typeof Sfx !== "undefined") { if (Sfx.whoosh) Sfx.whoosh(); setTimeout(() => { if (Sfx.fanfare) Sfx.fanfare(); else if (Sfx.click) Sfx.click(); }, 900); }
+    if (typeof Haptics !== "undefined") Haptics.buzz([30, 60, 30, 60, 90]);
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      ov.classList.add("cine-out");
+      setTimeout(() => { ov.remove(); busy = false; next(); }, 320);
+      if (it.unlock && typeof StarterLocks !== "undefined") StarterLocks.refresh().then(() => { if (window.StarterPath) StarterPath.load(); });
+    };
+    // Pas de fermeture accidentelle pendant l'entree ; ensuite un tap suffit.
+    setTimeout(() => ov.addEventListener("click", (e) => { if (!e.target.closest(".discovery-go")) close(); }), 700);
+    document.addEventListener("keydown", function onKey(e) { if (e.key === "Escape" || e.key === "Enter") { document.removeEventListener("keydown", onKey); close(); } });
+    // Pas de fermeture automatique : la decouverte reste jusqu'au tap.
+  }
+  // Laisse d'abord l'action se jouer (prise de peche, tuile creusee...).
+  function show(list, delay = 1200, { force = false } = {}) {
+    (Array.isArray(list) ? list : [list]).forEach((x) => {
+      if (!x) return;
+      if (force || typeof CinePref === "undefined" || CinePref.allow("discovery", x.key || x.name)) queue.push(x);
+      else if (typeof Toast !== "undefined") Toast.info(`🔎 Découverte : ${x.icon || ""} <strong>${esc(x.name || "")}</strong>`);
+    });
+    setTimeout(next, delay);
+  }
+  return { show };
+})();
+window.DiscoveryFx = DiscoveryFx;
+
+// ---------------------------------------------------------------------------
+// Cinematique de changement de mode (2026-10-16) : a la premiere visite apres
+// un changement de difficulte, l'ecran part de la couleur de l'ancien mode,
+// le nouveau skin s'ouvre en cercle (particules du mode), puis le nom du mode
+// s'ecrit lettre par lettre dans sa police et ses couleurs, avec un bref
+// resume de ce qui change. Un clic accelere l'intro, un second ferme ; jamais
+// de fermeture automatique. preview : bascule temporairement le skin de la
+// page (page de test des animations).
+// mode : { key, label, perks: [texte], card?: { name } }.
+// ---------------------------------------------------------------------------
+const ModeFx = (() => {
+  const META = {
+    cool: { icon: "😎", label: "Cool", tag: "Détente totale : tout devient plus facile, aucune frustration." },
+    chill: { icon: "🌴", label: "Chill", tag: "Généreux : plus de boosters, des prix et des taxes plus doux." },
+    medium: { icon: "⚖️", label: "Medium", tag: "Équilibré : chaque carte se gagne, la collection prend des mois." },
+    hard: { icon: "🔥", label: "Hard", tag: "Serré : peu de boosters, des prix élevés, chaque tirage compte." },
+    chaos: { icon: "👾", label: "Chaos", tag: "Imprévisible : une règle surprise change le jeu chaque jour." }
+  };
+  const MAX_PERKS = 6;
+  let current = null;
+
+  function play(mode, { from = null, preview = false } = {}) {
+    if (!mode || !META[mode.key]) return Promise.resolve();
+    if (!preview && typeof CinePref !== "undefined" && !CinePref.allow("mode", mode.key)) {
+      if (typeof Toast !== "undefined") Toast.info(`${META[mode.key].icon} Le jeu passe en mode <strong>${mode.label || META[mode.key].label}</strong>. <a href="mode.html">Voir ce qui change</a>`);
+      return Promise.resolve();
+    }
+    if (current) current.close(true);
+    const m = META[mode.key];
+    const prevMode = document.documentElement.dataset.gameMode;
+    if (preview) document.documentElement.dataset.gameMode = mode.key;
+    const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+    const label = mode.label || m.label;
+    const perks = (mode.perks || []).slice(0, MAX_PERKS);
+    const more = Math.max(0, (mode.perks || []).length - perks.length);
+    const letters = [...label].map((ch, i) => `<span style="--i:${i}">${ch === " " ? "&nbsp;" : esc(ch)}</span>`).join("");
+    const overlay = document.createElement("div");
+    overlay.className = `mfx mfx-${mode.key}`;
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", `Le jeu passe en mode ${label}`);
+    overlay.innerHTML = `
+      <div class="mfx-old mfx-bg-${META[from] ? from : "medium"}" aria-hidden="true"></div>
+      <div class="mfx-new" aria-hidden="true"><div class="mfx-particles">${Array.from({ length: 26 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${((i * 0.29) % 3).toFixed(2)}s;--s:${0.6 + ((i * 7) % 10) / 10}"></i>`).join("")}</div></div>
+      <div class="mfx-content">
+        <div class="mfx-icon" aria-hidden="true">${m.icon}</div>
+        <p class="mfx-kicker">Le jeu passe en mode</p>
+        <h2 class="mfx-title">${letters}</h2>
+        <p class="mfx-tag">${esc(m.tag)}</p>
+        ${perks.length ? `<ul class="mfx-perks">${perks.map((p, i) => `<li style="--i:${i}">${esc(p)}</li>`).join("")}</ul>` : ""}
+        ${more ? `<p class="mfx-more">+ ${more} autre${more > 1 ? "s" : ""} règle${more > 1 ? "s" : ""} à découvrir</p>` : ""}
+        ${mode.card ? `<p class="mfx-card">🃏 Carte exclusive du mode : <strong>${esc(mode.card.name)}</strong></p>` : ""}
+        <div class="mfx-actions">
+          <a class="btn-secondary" href="mode.html">Voir le mode du moment</a>
+          <button type="button" class="btn" data-close>C'est parti !</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    if (typeof syncScrollLock === "function") syncScrollLock();
+    try { if (typeof Sfx !== "undefined" && Sfx.reveal) setTimeout(() => Sfx.reveal(mode.key === "hard" || mode.key === "chaos" ? "mythique" : "legendaire"), 350); } catch (e) { /* son indisponible */ }
+    return new Promise((resolve) => {
+      let done = false;
+      const ready = () => overlay.classList.contains("mfx-skip") || overlay.classList.contains("mfx-ready");
+      const readyTimer = setTimeout(() => overlay.classList.add("mfx-ready"), 2900);
+      const close = (instant = false) => {
+        if (done) return;
+        done = true;
+        clearTimeout(readyTimer);
+        document.removeEventListener("keydown", onKey);
+        overlay.classList.add("mfx-closing");
+        setTimeout(() => {
+          overlay.remove();
+          if (preview) { if (prevMode) document.documentElement.dataset.gameMode = prevMode; else delete document.documentElement.dataset.gameMode; }
+          if (typeof syncScrollLock === "function") syncScrollLock();
+          current = null;
+          resolve();
+        }, instant ? 0 : 380);
+      };
+      const onKey = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKey);
+      overlay.addEventListener("click", (e) => {
+        if (e.target.closest("a")) return;
+        if (e.target.closest("[data-close]")) { close(); return; }
+        // Premier clic pendant l'intro : on saute a la fin ; ensuite, un clic ferme.
+        if (!ready()) { overlay.classList.add("mfx-skip"); return; }
+        if (!e.target.closest(".mfx-perks, .mfx-tag, .mfx-title")) close();
+      });
+      current = { close };
+      setTimeout(() => overlay.querySelector("[data-close]")?.focus({ preventScroll: true }), 2700);
+    });
+  }
+  return { play, META };
+})();
+window.ModeFx = ModeFx;
+
+// ---------------------------------------------------------------------------
+// Cinematique de deblocage (2026-10-19) : tout ce qui se debloque par un code
+// (et les secrets). Un sceau lumineux pulse, eclate, puis les gains arrivent
+// un a un. UnlockFx.show({ title, subtitle?, rewards: [{ icon, label }],
+// cards: [{ name, imageId, rarity, finish }] }) -> Promise (a la fermeture).
+// ---------------------------------------------------------------------------
+const UnlockFx = {
+  show({ title = "Débloqué !", subtitle = "", rewards = [], cards = [], tone = "gold" } = {}) {
+    return new Promise((resolve) => {
+      const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const ov = document.createElement("div");
+      ov.className = `ux-overlay ux-${tone}`;
+      ov.setAttribute("role", "dialog");
+      ov.setAttribute("aria-modal", "true");
+      ov.setAttribute("aria-label", title);
+      const esc = typeof escHtml === "function" ? escHtml : (s) => String(s);
+      const cardHtml = (c, i) => `<div class="ux-card"${c.cardId ? ` data-card-id="${c.cardId}"` : ""} style="--d:${i};--rc:${esc((c.rarity && c.rarity.colorHex) || "#a78bfa")}">
+          ${c.imageId && typeof API !== "undefined" ? `<img src="${API.imageUrl(c.imageId)}" alt="" />` : `<span class="ux-card-ph">?</span>`}
+          <strong>${esc(c.name)}</strong><small>${esc((c.rarity && c.rarity.name) || "")}${c.finish && c.finish !== "normal" ? " · " + esc(({ holo: "Holo", gold: "Dorée", ghost: "Ghost", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" })[c.finish] || c.finish) : ""}${c.edition && typeof EDITIONS !== "undefined" && EDITIONS[c.edition] ? " · " + esc(EDITIONS[c.edition].icon + " " + EDITIONS[c.edition].label) : ""}</small></div>`;
+      ov.innerHTML = `
+        <div class="ux-rays" aria-hidden="true"></div>
+        <div class="ux-seal" aria-hidden="true"><span class="ux-ring"></span><span class="ux-ring ux-ring2"></span><span class="ux-core">&#10022;</span></div>
+        <div class="ux-content">
+          <h2 class="ux-title">${esc(title)}</h2>
+          ${subtitle ? `<p class="ux-sub">${esc(subtitle)}</p>` : ""}
+          ${cards.length ? `<div class="ux-cards">${cards.map(cardHtml).join("")}</div>` : ""}
+          ${rewards.length ? `<ul class="ux-rewards">${rewards.map((r, i) => `<li style="--d:${i + cards.length}"><span class="ux-ico">${iconOfSafe(r.icon)}</span><span>${esc(r.label)}</span></li>`).join("")}</ul>` : ""}
+          <button type="button" class="btn ux-close">Récupérer</button>
+        </div>`;
+      function iconOfSafe(ic) { return typeof iconOf === "function" ? iconOf(ic) : esc(ic || "✨"); }
+      document.body.appendChild(ov);
+      if (typeof syncScrollLock === "function") syncScrollLock();
+      const t = (f, d, dur, type = "sine", v = 0.05) => { if (typeof Sfx !== "undefined" && Sfx._tone) Sfx._tone(f, d, dur, type, v); };
+      t(196, 0, 0.6, "sine", 0.05); t(294, 0.25, 0.6, "sine", 0.04);
+      if (typeof Haptics !== "undefined") Haptics.buzz([30, 60, 30]);
+      requestAnimationFrame(() => ov.classList.add("ux-in"));
+      let opened = false;
+      const burst = () => {
+        if (opened) return;
+        opened = true;
+        ov.classList.add("ux-burst");
+        t(523, 0, 0.3, "triangle", 0.06); t(659, 0.08, 0.3, "triangle", 0.06); t(784, 0.16, 0.5, "triangle", 0.06);
+        if (typeof Haptics !== "undefined") Haptics.buzz([60, 40, 120]);
+        if (typeof confetti === "function") setTimeout(() => confetti({ particleCount: 120, spread: 100, origin: { y: 0.45 }, zIndex: 6000 }), reduced ? 0 : 350);
+        setTimeout(() => ov.querySelector(".ux-close").focus({ preventScroll: true }), reduced ? 0 : 900);
+      };
+      const timer = setTimeout(burst, reduced ? 50 : 1500);
+      const close = () => {
+        clearTimeout(timer);
+        document.removeEventListener("keydown", onKey);
+        ov.classList.add("ux-out");
+        setTimeout(() => { ov.remove(); if (typeof syncScrollLock === "function") syncScrollLock(); resolve(); }, reduced ? 30 : 400);
+      };
+      const onKey = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKey);
+      ov.querySelector(".ux-seal").addEventListener("click", burst);
+      ov.querySelector(".ux-close").addEventListener("click", close);
+    });
+  }
+};

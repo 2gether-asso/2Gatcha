@@ -5,6 +5,7 @@
 // reponse (`notices`) pour que le site les annonce.
 
 import { refId, parisHour } from './common.js';
+import { captureError } from '../monitoring.js';
 
 const RARE_TIERS = new Set(['epique', 'legendaire', 'mythique']);
 
@@ -134,7 +135,7 @@ export function dispatch(store, subscribers, events) {
   const notices = [];
   if (!events.length) return notices;
   for (const sub of subscribers) {
-    try { notices.push(...(sub.onEvents(store, events) || [])); } catch (e) { console.error(e); }
+    try { notices.push(...(sub.onEvents(store, events) || [])); } catch (e) { console.error(e); captureError(e, { hook: 'activity-events' }); }
   }
   return notices;
 }

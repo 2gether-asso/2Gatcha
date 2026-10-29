@@ -861,10 +861,9 @@
           const bodies = list.map((u) => isFinish
             ? { userId: Session.userId, cardId: u.card.cardId, fromFinish: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: 0, dustCopies: 0 }
             : { userId: Session.userId, cardId: u.card.cardId, fromQuality: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: 0, dustCopies: 0 });
-          const results = await API.batchWrite(path, bodies, {
-            chunk: 25, shouldStop: () => running.stop,
-            onChunk: (n) => { $("fuse-all-count").innerHTML = `${done + n} ${isFinish ? "fusion" : "restauration"}${done + n > 1 ? "s" : ""}`; }
-          });
+          const progress = (n) => { $("fuse-all-count").innerHTML = `${done + n} ${isFinish ? "fusion" : "restauration"}${done + n > 1 ? "s" : ""}`; };
+          // API pas encore a jour : API.batchWrite repasse seul par un appel par fusion.
+          const results = await API.batchWrite(path, bodies, { chunk: 25, shouldStop: () => running.stop, onChunk: progress });
           results.forEach((r, i) => {
             if (r.status === 200 && r.json && !r.json.error) { ok++; const to = (isFinish ? r.json.toFinish : r.json.toQuality) || list[i].to; reached[to] = (reached[to] || 0) + 1; } else { failed++; if (r.json && /dust/.test(r.json.error || "")) broke = true; }
           });

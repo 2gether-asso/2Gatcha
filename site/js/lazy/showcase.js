@@ -65,8 +65,8 @@ const ShowcaseKit = (function () {
     let k = 0;
     while (k < next.length && current[k] === next[k]) k++;
     const tail = next.slice(k);
-    for (const id of tail) await API.removeFromShowcase(Session.userId, id);
-    for (const id of tail) await API.addToShowcase(Session.userId, id);
+    // Retraits puis ajouts dans l'ordre, en un seul appel HTTP (2026-10-29).
+    if (tail.length) await API.batchWrite("showcase", [...tail.map((cardId) => ({ userId: Session.userId, action: "remove", cardId })), ...tail.map((cardId) => ({ userId: Session.userId, action: "add", cardId }))]);
     return list();
   }
 

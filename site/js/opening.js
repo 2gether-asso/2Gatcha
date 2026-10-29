@@ -663,30 +663,15 @@ function attachPackTilt(pack) {
   attachPackGyroTilt(pack);
 }
 
+// Gyroscope lisse et partage (Gyro, core.js) ; desabonne des que le pack
+// quitte la page (avant, chaque pack laissait son ecouteur actif).
 function attachPackGyroTilt(pack) {
-  if (typeof DeviceOrientationEvent === "undefined") return;
-
-  function onOrientation(e) {
+  const off = Gyro.on((x, y) => {
+    if (!pack.isConnected) { off(); return; }
     if (pack.classList.contains("charging") || pack.classList.contains("tearing")) return;
-    const beta = Math.max(-30, Math.min(30, e.beta || 0));
-    const gamma = Math.max(-30, Math.min(30, e.gamma || 0));
-    pack.style.setProperty("--pack-ry", `${(gamma / 30) * 14}deg`);
-    pack.style.setProperty("--pack-rx", `${(-beta / 30) * 14}deg`);
-  }
-
-  // iOS 13+ exige une autorisation explicite qui ne peut etre demandee que
-  // suite a un geste utilisateur direct - on la demande donc au premier
-  // toucher du pack plutot qu'au chargement de la page.
-  if (typeof DeviceOrientationEvent.requestPermission === "function") {
-    pack.addEventListener("touchstart", function requestOnce() {
-      pack.removeEventListener("touchstart", requestOnce);
-      DeviceOrientationEvent.requestPermission().then((state) => {
-        if (state === "granted") window.addEventListener("deviceorientation", onOrientation);
-      }).catch(() => {});
-    }, { once: true, passive: true });
-  } else {
-    window.addEventListener("deviceorientation", onOrientation);
-  }
+    pack.style.setProperty("--pack-ry", `${x * 14}deg`);
+    pack.style.setProperty("--pack-rx", `${-y * 14}deg`);
+  });
 }
 
 // Poussière ambiante flottante dans la modale d'ouverture (distincte de la

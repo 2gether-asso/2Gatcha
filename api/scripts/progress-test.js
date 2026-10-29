@@ -2533,10 +2533,12 @@ await test('nouveau joueur : parcours dans l ordre, progression par evenements, 
   assert.equal(st(veteran.id).active, false);
   let s = st(novice.id);
   assert.equal(s.active, true);
-  assert.ok(s.locks.some((l) => l.key === 'fishing' && l.level === 2));
+  // Niveau « au plus tard » de la peche (reglage), sinon decouverte au premier ver.
+  const fishLevel = Number(setting(store, 'StarterUnlocks').fishing);
+  assert.ok(s.locks.some((l) => l.key === 'fishing' && l.level === fishLevel));
   const locked = call('POST', 'fishing', { body: { userId: novice.id, action: 'cast' } });
   assert.equal(locked.json.error, 'level_locked');
-  assert.equal(locked.json.level, 2);
+  assert.equal(locked.json.level, fishLevel);
   assert.notEqual(call('POST', 'fishing', { body: { userId: novice.id, action: 'status' } }).json.error, 'level_locked', 'lecture permise');
   // Etape 1 : kit de depart (immediat). Etape 3 pas encore la sienne.
   const claim = (key) => call('POST', 'starter', { body: { userId: novice.id, action: 'claim', key } }).json;
@@ -2553,8 +2555,9 @@ await test('nouveau joueur : parcours dans l ordre, progression par evenements, 
   // Progression en avance : la fouille compte meme avant son tour.
   starter.onEvents(store, [{ userId: novice.id, type: 'dig', n: 5, meta: {} }]);
   assert.equal(st(novice.id).steps.find((x) => x.key === 'dig').complete, true);
-  // Niveau 2 atteint : la peche se debloque.
-  store.update('Users', novice.id, { XP: 60 });
+  // Premier ver (2026-10-30) : la peche se decouvre avant son niveau.
+  store.update('Users', novice.id, { Worms: 1 });
+  starter.checkUnlocks(store, novice.id);
   assert.ok(!st(novice.id).locks.some((l) => l.key === 'fishing'));
   // Tout le parcours puis le bonus final, une seule fois.
   const steps = st(novice.id).steps;

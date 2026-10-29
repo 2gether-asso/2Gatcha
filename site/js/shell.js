@@ -173,14 +173,17 @@ function compactNumber(n) {
   if (n < 1000000) return (n / 1000).toFixed(n < 100000 ? 1 : 0).replace(".", ",") + "k";
   return (n / 1000000).toFixed(1).replace(".", ",") + "M";
 }
+const NARROW_HEADER = window.matchMedia("(max-width: 1099.98px)");
 function setCount(el, n) {
   if (!el) return;
   const chip = el.closest(".stat-chip");
   if (chip) {
     if (!chip.dataset.label) chip.dataset.label = chip.title || "";
-    chip.title = `${chip.dataset.label} : ${Number(n || 0).toLocaleString("fr-FR")}`;
+    chip.title = `${chip.dataset.label} : ${fmtNum(n)}`;
   }
-  const v = window.innerWidth < 1100 ? compactNumber(n) : Number(n) || 0;
+  // matchMedia et non innerWidth (2026-10-30) : lire innerWidth force une mise
+  // en page, une fois par compteur de l'en-tete (600 ms sur telephone au chargement).
+  const v = NARROW_HEADER.matches ? compactNumber(n) : Number(n) || 0;
   if (typeof v === "number") bumpNumber(el, v); else el.textContent = v;
 }
 
@@ -307,8 +310,10 @@ const TabTitle = {
 // quand au moins un échange entrant est en attente de reponse.
 async function loadNavBadges() {
   if (!Session.isLoggedIn()) return;
-  // Toutes les lectures ci-dessous partent en une seule requete
-  // (prefetchShellData) : plus de cascade d'appels a chaque page.
+  // Toutes les lectures ci-dessous partent en une seule requete : au
+  // chargement, celle de prefetchShellData ; apres une action (cache vide),
+  // ce lot-ci, au lieu d'une vingtaine d'appels un par un.
+  await API.batch(shellReads(false));
   let pendingCount = 0;
   {
     try {
@@ -520,6 +525,7 @@ function renderHeader() {
               <button id="edit-pseudo-btn" type="button"><span class="mi">&#9998;</span> Modifier le pseudo</button>
               <button id="copy-profile-link-btn" type="button"><span class="mi">&#128279;</span> Copier le lien de mon profil</button>
               <button type="button" data-prefs-open title="Thème, texte, effets, son, vibrations, cinématiques, rappels, notifications"><span class="mi">&#9881;&#65039;</span> Préférences</button>
+              <button type="button" data-feedback-open title="Une idée, un bug, un avis : envoyé directement à l'équipe"><span class="mi">&#128172;</span> Donner un avis</button>
               <div class="menu-sep"></div>
               <button id="logout-btn" type="button" class="menu-danger"><span class="mi">&#10162;</span> Déconnexion</button>
             </div>
@@ -542,11 +548,17 @@ function renderHeader() {
       const opening = !notifBell.classList.contains("open");
       notifBell.classList.toggle("open", opening);
       if (opening) {
-        // Historique tout de suite, puis le centre de notifications complet
-        // (js/lazy/notif-center.js : a faire, echanges, minuteurs, filtres).
+        // Centre de notifications (js/lazy/notif-center.js : a faire,
+        // echanges, minuteurs, filtres). Le premier coup, un simple
+        // "Chargement" a sa forme : l'ancien menu (historique seul) ne
+        // s'affiche plus un instant avant lui.
         const lastSeen = NotificationHistory.lastSeen();
-        renderNotifDropdown();
-        LazyJs.load("js/lazy/notif-center.js").then(() => NotifCenter.open(document.getElementById("notif-bell-dropdown"), lastSeen)).catch(() => {});
+        const dropdown = document.getElementById("notif-bell-dropdown");
+        if (!dropdown.classList.contains("nc-root")) {
+          dropdown.classList.add("nc-root");
+          dropdown.innerHTML = `<div class="notif-bell-header nc-head"><span>Notifications</span></div><div class="notif-empty">Chargement…</div>`;
+        }
+        LazyJs.load("js/lazy/notif-center.js").then(() => NotifCenter.open(dropdown, lastSeen)).catch(LazyJs.fail());
         NotificationHistory.markAllSeen();
         renderNotifDot();
       }
@@ -1307,7 +1319,8 @@ function accountLevelPerks(prevLevel, newLevel) {
   const gained = Math.max(1, newLevel - (prevLevel || newLevel - 1));
   const perks = [`🎁 +${gained} jeton${gained > 1 ? "s" : ""} booster bonus`, `🌳 +${gained} point${gained > 1 ? "s" : ""} de talent`];
   for (let l = (prevLevel || newLevel - 1) + 1; l <= newLevel; l++) {
-    Object.entries(typeof FEATURE_UNLOCK_LEVEL !== "undefined" ? FEATURE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && FEATURE_LABELS[k]) perks.push(`🔓 ${FEATURE_LABELS[k]}`); });
+    // Activites a decouvrir (nouveaux comptes) : jamais annoncees par le niveau.
+    Object.entries(typeof FEATURE_UNLOCK_LEVEL !== "undefined" ? FEATURE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && FEATURE_LABELS[k] && !(typeof StarterLocks !== "undefined" && StarterLocks.newcomer && DISCOVERED_FEATURES.includes(k))) perks.push(`🔓 ${FEATURE_LABELS[k]}`); });
     Object.entries(typeof SLEEVE_UNLOCK_LEVEL !== "undefined" ? SLEEVE_UNLOCK_LEVEL : {}).forEach(([k, lvl]) => { if (lvl === l && k !== "default") perks.push(`🎴 Pochette ${k.charAt(0).toUpperCase() + k.slice(1)}`); });
     // Jeux et pages debloques (nouveaux comptes) : cinematique a part (starter.js checkUnlocks).
   }
@@ -1529,16 +1542,28 @@ async function loadHeaderBoosterBadge() {
 // via la variable CSS --header-h. Mesuree au chargement/redimensionnement
 // seulement, jamais au scroll (sinon on retombe dans le glitch qu'on evite :
 // re-mesurer/reflow le contenu a chaque frame de scroll).
+// Lecture groupee a l'image suivante, et ecriture seulement si la hauteur
+// change (2026-10-30) : poser --header-h sur <html> recalcule le style de
+// toute la page, et la lecture forcait une mise en page en plein chargement.
+let headerSyncRaf = 0, headerH = -1;
 function syncHeaderOffset() {
-  const header = document.getElementById("site-header");
-  if (!header) return;
-  document.documentElement.style.setProperty("--header-h", `${header.offsetHeight}px`);
+  if (headerSyncRaf) return;
+  headerSyncRaf = requestAnimationFrame(() => {
+    headerSyncRaf = 0;
+    const header = document.getElementById("site-header");
+    if (!header) return;
+    const h = header.offsetHeight;
+    if (h === headerH) return;
+    headerH = h;
+    document.documentElement.style.setProperty("--header-h", `${h}px`);
+  });
 }
 
 function initHeaderShrink() {
   const header = document.getElementById("site-header");
   if (!header) return;
-  let lastY = window.scrollY;
+  // Lue au premier defilement, pas au chargement (lecture = mise en page forcee).
+  let lastY = null;
   let ticking = false;
   // Le defilement (surtout au trackpad/mobile, avec inertie) n'est pas
   // strictement monotone : de minuscules sursauts dans l'autre sens
@@ -1550,6 +1575,7 @@ function initHeaderShrink() {
     ticking = true;
     requestAnimationFrame(() => {
       const y = Math.max(0, window.scrollY);
+      if (lastY == null) lastY = y;
       const delta = y - lastY;
       if (Math.abs(delta) > 10) {
         header.classList.toggle("shrunk", y > 60 && delta > 0);
@@ -1632,8 +1658,11 @@ async function prefetchAllCardImages() {
 // avant la refonte du 2026-10-04, chaque page en lancait une vingtaine, en
 // cascade et souvent en double. Les fonctions qui en ont besoin (en-tete,
 // loadNavBadges...) gardent leurs appels habituels, servis par ce prefetch.
-function prefetchShellData() {
+// withPage = false (2026-10-29) : seulement le gabarit, pour relire pastilles
+// et cloche apres une action ou toutes les minutes, sans la collection & co.
+function shellReads(withPage = true) {
   const calls = [{ name: "siteBanner" }, { name: "unlockConfig" }, { name: "eventStatus" }];
+  const page = (location.pathname.split("/").pop() || "index.html").replace(/\.html$/, "") || "index";
   if (Session.isLoggedIn()) {
     const userId = Session.userId;
     const read = (name, action = "status") => ({ name, body: { userId, action } });
@@ -1650,26 +1679,59 @@ function prefetchShellData() {
       read("dailyBox"), read("dailyDice"), read("dailyWheel"), read("dogGift"), read("playerGift"), read("weeklyGoal"),
       read("starter"), read("forbidden"), { name: "today", query: { userId } }, { name: "treasureHunt", query: { userId } }
     );
-    // Lectures propres a la page, servies par le meme lot (memes corps que
-    // les appels de la page, sinon elles repartent simplement en individuel).
-    const page = (location.pathname.split("/").pop() || "index.html").replace(/\.html$/, "") || "index";
-    const coll = { name: "collection", query: { userId } };
-    const PAGE_READS = {
-      index: [read("story"), read("seasonQuests"), read("seasonal"), { name: "weeklyRecap", query: { userId } }, { name: "whatNow", query: { userId } }],
-      jeux: [read("shop"), read("dig"), read("dino"), read("garden"), read("duoExpedition"), coll],
-      ouverture: [read("shop"), read("ripen"), read("chests"), read("mastery"), coll, { name: "rarityPity", query: { userId } }],
-      boutique: [read("cosmetics"), read("shop"), read("boosterShop"), read("upgrades"), read("sundayMarket"), read("contracts"), { name: "economyState" }],
-      communaute: [read("machineRoom"), read("lottery"), read("teams")],
-      progression: [read("mastery"), read("constellations"), read("skyTree"), read("talents"), read("achievementTiers"), { name: "exchangeRates" }, { name: "accountPrestige", query: { userId } }],
-      mode: [read("modeExtra"), read("draft")],
-      coffre: [read("personalVault"), read("uniqueCounter")],
-      collection: [read("shop"), coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("showcase", "list"), { name: "exchangeRates" }, read("decraftUndo", "list")],
-      trade: [coll, { name: "economyRules", query: { userId } }]
-    };
-    calls.push(...(PAGE_READS[page] || []));
+    if (withPage) {
+      // Lectures propres a la page, servies par le meme lot (memes corps que
+      // les appels de la page, sinon elles repartent simplement en individuel).
+      const coll = { name: "collection", query: { userId } };
+      const PAGE_READS = {
+        index: [read("story"), read("seasonQuests"), read("seasonal"), { name: "weeklyRecap", query: { userId } }, { name: "whatNow", query: { userId } }],
+        jeux: [read("shop"), read("dig"), read("dino"), read("garden"), read("duoExpedition"), coll],
+        ouverture: [read("shop"), read("ripen"), read("chests"), read("mastery"), coll, { name: "rarityPity", query: { userId } }],
+        boutique: [read("cosmetics"), read("shop"), read("boosterShop"), read("upgrades"), read("sundayMarket"), read("contracts"), { name: "economyState" }],
+        communaute: [read("machineRoom"), read("lottery"), read("teams")],
+        progression: [read("mastery"), read("constellations"), read("skyTree"), read("talents"), read("achievementTiers"), { name: "exchangeRates" }, { name: "accountPrestige", query: { userId } }],
+        mode: [read("modeExtra"), read("draft")],
+        coffre: [read("personalVault"), read("uniqueCounter")],
+        collection: [read("shop"), coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("showcase", "list"), { name: "exchangeRates" }, read("decraftUndo", "list")],
+        trade: [coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("tradeMatches", "list")],
+        // 2026-10-29 : dernieres lectures de page qui partaient seules.
+        coffre: [read("personalVault"), read("uniqueCounter"), read("showcase", "list")],
+        stats: [{ name: "myStats", query: { userId } }],
+        "pull-log": [{ name: "pullLog", query: { userId } }],
+        artistes: [{ name: "artists", query: { userId } }],
+        salamandre: [{ name: "casino", body: { userId, game: "cashier", action: "status" } }]
+      };
+      PAGE_READS.jeux.push(read("pets"), { name: "fishing", body: { userId, action: "status", bait: false, zone: "shore" } }, read("walk"), read("cook"));
+      PAGE_READS.index.push({ name: "serverFeed", query: { since: 0 } }, { name: "recentPulls" }, { name: "leaderboard" }, { name: "achievements", query: { userId } });
+      PAGE_READS.progression.push(read("upgrades"));
+      // Profil (profile.html) : fiche publique + sets ; son propre profil, badges et collection.
+      const profilePseudo = new URLSearchParams(location.search).get("pseudo") || Session.pseudo;
+      if (page === "profile" && profilePseudo) {
+        PAGE_READS.profile = [{ name: "publicProfile", query: { pseudo: profilePseudo } }, { name: "setCompletions", query: { pseudo: profilePseudo } }];
+        if (Session.pseudo && profilePseudo.toLowerCase() === Session.pseudo.toLowerCase()) PAGE_READS.profile.push(read("badges", "list"), coll);
+      }
+      calls.push(...(PAGE_READS[page] || []));
+      // Pseudo absent du stockage (Session.ensurePseudo) : liste des joueurs.
+      if (!Session.pseudo && !API._cacheGet("2gatcha_cache_users", 60 * 1000)) calls.push({ name: "users" });
+      // Catalogue (cache d'onglet de 5 min, API.getCards/getExtensions) : pages qui le lisent au chargement.
+      if (["index", "ouverture", "collection", "craft", "trade"].includes(page)) {
+        if (!API._cacheGet("2gatcha_cache_cards", 5 * 60 * 1000)) calls.push({ name: "cards" });
+        if (!API._cacheGet("2gatcha_cache_extensions", 5 * 60 * 1000)) calls.push({ name: "extensions" });
+      }
+    }
   }
-  calls.push({ name: "patchNotes" }, { name: "visuals" });
-  return API.batch(calls);
+  calls.push({ name: "patchNotes" });
+  if (!withPage) return calls;
+  if (page === "mode") calls.push({ name: "modeRules" });
+  // Effets des cartes secretes (SecretFx, shell-extras.js) : cache d'onglet de 10 min.
+  let secretCached = false;
+  try { const c = JSON.parse(sessionStorage.getItem("2gatcha_secretfx") || "null"); secretCached = !!(c && Date.now() - c.at < 10 * 60000); } catch (e) { /* stockage indisponible */ }
+  if (!secretCached) calls.push({ name: "secretCard" });
+  calls.push({ name: "visuals" });
+  return calls;
+}
+function prefetchShellData() {
+  return API.batch(shellReads());
 }
 
 // Des le chargement de shell.js (avant DOMContentLoaded) : les scripts de page
@@ -1708,7 +1770,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(async () => {
       if (document.visibilityState !== "visible") return;
       API.invalidate();
-      await prefetchShellData();
+      // Gabarit seul (pas la collection ni les lectures de la page) ; les
+      // deux fonctions suivantes sont servies par ce lot.
+      API.batch(shellReads(false));
       loadHeaderBoosterBadge();
       loadNavBadges();
     }, 60000);

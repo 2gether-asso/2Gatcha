@@ -16,14 +16,25 @@
 //    dans « discoveries » de la reponse, comme une decouverte).
 //  - Milo et Moka (2026-10-29) : un nouveau compte n'a pas d'animaux ; Milo
 //    l'adopte au premier os, Moka au premier poisson (Users.PetsAdopted).
+//  - Decouvertes (2026-10-30) : meme principe pour des pans entiers du site
+//    (FIND_UNLOCKS : archeologie, promenade, cuisine, aquarium, musee). Rien
+//    n'est montre avant la premiere trouvaille (tablette, compagnon,
+//    ingredient...), puis cinematique « Nouvelle découverte ! » et le bout du
+//    site apparait (Users.StarterFound). Ecritures refusees avant (not_discovered).
+//  - Activites en decouverte (2026-10-30, demande explicite) : les
+//    fonctionnalites de StarterUnlocks s'ouvrent elles aussi par une
+//    trouvaille (FEATURE_FINDS : premier ver -> peche, premier crane -> dinos,
+//    premiere carte brillante -> coffre-fort...). Le niveau de StarterUnlocks
+//    n'est plus qu'un filet de securite : « au plus tard » a ce niveau.
 //   GET  /webhook/starter?userId=
 //   POST /webhook/starter { userId, action: 'status' | 'claim', key? }
 
 import { ok, fail, userById, levelForXp, parseJson, now } from './common.js';
 import { setting, rawSetting, setSettings } from './settings.js';
 import { FEATURES } from './features.js';
+import { captureError } from '../monitoring.js';
 
-export const schema = { Users: { StarterState: { type: 'Text' }, StarterSeen: { type: 'Text' }, PetsAdopted: { type: 'Text' } } };
+export const schema = { Users: { StarterState: { type: 'Text' }, StarterSeen: { type: 'Text' }, PetsAdopted: { type: 'Text' }, StarterFound: { type: 'Text' } } };
 
 // Compagnons a adopter : premiere fois que le joueur a la ressource (ou deja
 // utilise l'animal avant cette regle). hide : ce que le site masque avant.
@@ -42,6 +53,71 @@ export const PET_UNLOCKS = [
     had: (u) => Number(u.Grubs) > 0 || !!u.MoleState,
     text: 'Un hérisson renifle tes vers blancs et refuse de partir. C’est Pistache : nourris-le et il gratte tes tablettes et nettoie tes blocs bruts pour toi.' }
 ];
+// Pans du site a decouvrir (nouveaux comptes) : had(user, adopted) = la
+// premiere trouvaille est faite. Chaque declencheur vient d'une activite deja
+// visible (la fouille donne les tablettes, la peche les poissons...).
+// paths : routes dont les ecritures sont refusees avant la decouverte.
+const json = (v) => { const o = parseJson(v, null); return o && typeof o === 'object' ? o : {}; };
+const anyPositive = (o) => Object.values(o || {}).some((n) => Number(n) > 0);
+export const FIND_UNLOCKS = [
+  { key: 'archeo', icon: '🏺', label: 'Archéologie', url: 'jeux.html#archeologie', hide: ['#tab-archeo-btn'], paths: ['archeo'],
+    had: (u) => Number(u.Tablets) > 0 || Number(u.ArcheoXP) > 0 || Number(u.ArcheoDone) > 0 || !!u.ArcheoStarter,
+    text: 'Ta pioche a heurté une plaque d’argile gravée… Une tablette ancienne ! Dans les ruines, dégage-la grain de terre après grain de terre.' },
+  { key: 'walk', icon: '🐾', label: 'Promenade', url: 'jeux.html#promenade', hide: ['#tab-walk-btn'], paths: ['walk'],
+    had: (u, adopted) => Object.keys(adopted).length > 0 || Number(u.WalkCount) > 0,
+    text: 'Ton compagnon tire sur sa laisse : il veut sortir ! Chaque jour, emmène-le se promener et rapporter ce qu’il trouve.' },
+  { key: 'cook', icon: '🍲', label: 'Cuisine', url: 'jeux.html#cuisine', hide: ['#tab-cook-btn'], paths: ['cook'],
+    had: (u) => anyPositive(json(u.Pantry)) || Number(u.CookCount) > 0,
+    text: 'Un premier ingrédient dans ton garde-manger… et une bonne odeur qui vient du village. La cuisine t’ouvre ses fourneaux.' },
+  { key: 'aquarium', icon: '🐠', label: 'Aquarium', url: 'jeux.html#peche', hide: ['#fish-aquarium-wrap'], paths: ['aquarium'],
+    had: (u) => anyPositive(json(u.Aquarium).fish),
+    text: 'Ce poisson-là, tu ne l’avais jamais vu ! Il rejoint ton aquarium : à toi de compléter la collection.' },
+  { key: 'museum', icon: '🏛️', label: 'Musée', url: 'coffre.html', hide: ['[data-coffre-view="museum"]'], paths: [],
+    had: (u) => { const m = json(u.MuseumSeen); return (m.minerals || []).length > 0 || (m.items || []).length > 0; },
+    text: 'Ta première pièce rare ! Elle est exposée pour toujours dans ton musée, au coffre-fort.' }
+];
+const foundOf = (user) => json(user && user.StarterFound);
+// Pan du site decouvert (toujours vrai pour les anciens comptes).
+export function found(store, user, key) {
+  if (!isNewcomer(store, user)) return true;
+  return !!foundOf(user)[key];
+}
+
+// Activites de StarterUnlocks ouvertes par une trouvaille (sinon au plus tard
+// a leur niveau). had(user) lit l'etat du joueur : compteurs d'activite
+// (ActivityCounts), statistiques de tirage (PullStats), ressources. Chaque
+// declencheur vient d'une activite deja ouverte (boosters, fouille, devinette,
+// roue, quetes) ou d'une activite decouverte avant elle.
+const act = (u) => json(u.ActivityCounts);
+const pulls = (u) => json(u.PullStats);
+const shiny = (u) => Object.entries(pulls(u).finish || {}).some(([k, n]) => k !== 'normal' && Number(n) > 0);
+const total = (u) => Object.values(act(u)).reduce((s, n) => s + (Number(n) || 0), 0);
+export const FEATURE_FINDS = {
+  fishing: { had: (u) => Number(u.Worms) > 0 || Number(act(u).fish) > 0, text: 'Un ver de terre se tortille au bout de ta pelle… Juste ce qu’il faut pour amorcer une ligne : le lac t’attend.' },
+  shop: { had: (u) => Number(act(u).disenchant) > 0 || Number(act(u).craft) > 0 || Number(u.StardustCount) >= 300, text: 'Tes poches tintent de poussières d’étoile. Une échoppe vient d’ouvrir ses volets : ressources et bonus contre tes poussières.' },
+  expedition: { had: (u) => Number(act(u).boosterOpened) >= 4 || Number(act(u).expedition) > 0, text: 'Tes cartes s’agitent dans le classeur : elles veulent voir du pays ! Envoie-les explorer et rapporter un butin.' },
+  garden: { had: (u) => Number(act(u).board) >= 3 || Number(act(u).harvest) > 0, text: 'Au fond de ta dernière grille, une petite graine. Il lui faut un lopin de terre… le tien.' },
+  trade: { had: (u) => Number(pulls(u).cards) >= 30 || Number(act(u).cardsPulled) >= 30, text: 'Tes doublons s’empilent. D’autres joueurs les cherchent peut-être : les échanges s’ouvrent à toi.' },
+  vault: { had: (u) => shiny(u), text: 'Une carte qui brille de mille feux ! Elle mérite un coffre-fort rien qu’à toi, à l’abri de tout.' },
+  dinos: { had: (u) => Number(u.DinoSkulls) > 0 || Object.keys(json(u.Dinos)).length > 0, text: 'Un crâne immense, vieux de millions d’années… Avec assez d’os, qui sait ce qui pourrait revenir à la vie ?' },
+  bingo: { had: (u) => Number(act(u).cardsPulled) >= 60, text: 'Ta collection prend forme. Une grille de cartes à réunir t’attend pour tout le mois.' },
+  boss: { had: (u) => Number(act(u).boosterOpened) >= 15, text: 'Un grondement fait trembler le village : un boss menace la guilde, et chaque carte compte pour l’abattre.' },
+  wanted: { had: (u) => Number(act(u).cardsPulled) >= 45, text: 'Des avis de recherche sont placardés au village : certaines de tes cartes sont demandées.' },
+  evening: { had: (u) => total(u) >= 60, text: 'Le soleil se couche sur 2Gatcha… et de nouvelles missions apparaissent chaque soir.' },
+  guildChest: { had: (u) => Number(act(u).cardsPulled) >= 90 || Number(act(u).disenchant) >= 10, text: 'Tant de doublons… Le coffre de la guilde accepte les dons, et chacun peut y piocher.' },
+  teams: { had: (u) => total(u) >= 150, text: 'Deux bannières flottent sur la place du village. Choisis ton camp : la guerre des équipes commence.' },
+  lottery: { had: (u) => Number(u.LotteryTickets) > 0 || total(u) >= 200, text: 'Un ticket froissé au fond de ta poche… Chaque dimanche, un tirage.' },
+  duo: { had: (u) => Number(act(u).expedition) >= 3, text: 'Les expéditions, c’est encore mieux à deux. Pars à l’aventure avec un ami.' },
+  blackMarket: { had: (u) => Number(act(u).chestOpened) >= 5 || Number(u.KeyCount) >= 10, text: 'Psst… Quelqu’un t’a vu ouvrir des coffres. Un marchand de l’ombre a des offres pour toi.' },
+  machine: { had: (u) => Number(u.SpareParts) > 0 || Number(act(u).fusion) > 0, text: 'Un rouage oublié brille au creux de ta main. Il vient de la salle des machines, qui tourne pour toute la communauté.' },
+  auctions: { had: (u) => Number(act(u).cardsPulled) >= 200 || Number((pulls(u).rarity || {}).legendaire) > 0, text: 'Une carte légendaire attire tous les regards. La salle des enchères ouvre : surenchéris !' },
+  // Ateliers de la collection (avant : niveaux fixes de FEATURE_UNLOCK_LEVEL cote site).
+  craft: { had: (u) => Number(act(u).disenchant) > 0 || Number(act(u).craft) > 0, text: 'Tes doublons recyclés ont laissé de la poussière d’étoile… Assez pour fabriquer la carte qui te manque !' },
+  altar: { had: (u) => Number(act(u).cardsPulled) >= 25, text: 'Trois doublons de trop… Un autel ancien s’allume : sacrifie-les pour une carte plus rare.' },
+  quality: { had: (u) => Number(act(u).cardsPulled) >= 35 || Number(act(u).repair) > 0, text: 'Cette carte a souffert. Avec un peu de soin et quelques doublons, elle peut retrouver son éclat.' },
+  finish: { had: (u) => Number(act(u).fusion) > 0 || (shiny(u) && Number(act(u).cardsPulled) >= 40), text: 'Cinq exemplaires identiques qui se mettent à briller ensemble… Fusionne-les en une finition supérieure.' }
+};
+
 // Phrase d'accroche de la cinematique de deblocage.
 const PITCH = {
   shop: 'La boutique ouvre ses portes : ressources et bonus contre tes poussières.',
@@ -121,7 +197,8 @@ export function lockedFor(store, user) {
   if (!isNewcomer(store, user)) return [];
   const level = levelForXp(Number(user.XP) || 0);
   const unlocks = setting(store, 'StarterUnlocks') || {};
-  return FEATURES.filter((f) => Number(unlocks[f.key]) > level).map((f) => ({ feature: f, level: Number(unlocks[f.key]) }));
+  const foundMap = foundOf(user);
+  return FEATURES.filter((f) => Number(unlocks[f.key]) > level && !foundMap[f.key]).map((f) => ({ feature: f, level: Number(unlocks[f.key]) }));
 }
 
 function view(store, user) {
@@ -130,33 +207,39 @@ function view(store, user) {
   const level = levelForXp(Number(user.XP) || 0);
   const unlocks = setting(store, 'StarterUnlocks') || {};
   const newcomer = isNewcomer(store, user);
+  const lockedKeys = new Set(lockedFor(store, user).map((l) => l.feature.key));
   const list = steps.map((s, i) => {
     const target = Number(s.target) || 0;
     const progress = target ? Math.min(target, Number(st.counts[s.key]) || 0) : 0;
     // Niveau requis : deblocage de la fonctionnalite (nouveaux comptes) ou niveau propre de l'etape (craft...).
-    const featLevel = newcomer && s.feature ? Number(unlocks[s.feature]) || 0 : 0;
+    // Fonctionnalite deja decouverte : son niveau « au plus tard » ne compte plus.
+    const featLevel = newcomer && s.feature && lockedKeys.has(s.feature) ? Number(unlocks[s.feature]) || 0 : 0;
     const req = Math.max(featLevel, Number(s.level) || 0);
     const needLevel = req > level ? req : 0;
     // Etape vers une fonctionnalite pas encore debloquee : rien n'est devoile.
-    const secret = featLevel > level;
+    const secret = !!s.feature && lockedKeys.has(s.feature);
     return { key: s.key, label: secret ? 'Étape mystère' : s.label, icon: secret ? '❔' : s.icon || '⭐', url: secret ? null : s.url || null, hint: secret ? 'Elle se révélera en montant de niveau.' : s.hint || '', secret, target, progress, complete: progress >= target, claimed: st.claimed.includes(s.key), current: false, needLevel, reward: s.reward || {} };
   });
   const cur = list.find((s) => !s.claimed);
   if (cur) cur.current = true;
   const finished = st.done || !list.length || list.every((s) => s.claimed);
-  const future = newcomer ? FEATURES.map((f) => Number(unlocks[f.key])).filter((l) => l > level) : [];
+  const future = newcomer ? FEATURES.filter((f) => lockedKeys.has(f.key)).map((f) => Number(unlocks[f.key])) : [];
   const adopted = adoptedOf(user);
   return {
     enabled: !!setting(store, 'StarterEnabled'), active: !!setting(store, 'StarterEnabled') && newcomer && !st.done,
+    // Compte soumis aux decouvertes : le site s'en remet a ces verrous (core.js featureNeed).
+    newcomer,
     steps: list, claimedCount: list.filter((s) => s.claimed).length, total: list.length, finished, done: st.done,
     finalReward: setting(store, 'StarterFinalReward'), level,
     // Seulement ce qui est deja ouvert (les surprises restent secretes) et le prochain palier.
-    unlocks: newcomer ? FEATURES.filter((f) => Number(unlocks[f.key]) > 1 && Number(unlocks[f.key]) <= level).map((f) => ({ key: f.key, label: f.label.replace(/\s*\(.*\)$/, ''), icon: f.icon, level: Number(unlocks[f.key]) })).sort((a, b) => a.level - b.level) : [],
+    unlocks: newcomer ? FEATURES.filter((f) => Number(unlocks[f.key]) > 1 && !lockedKeys.has(f.key)).map((f) => ({ key: f.key, label: f.label.replace(/\s*\(.*\)$/, ''), icon: f.icon, level: Number(unlocks[f.key]) })).sort((a, b) => a.level - b.level) : [],
     nextUnlockLevel: future.length ? Math.min(...future) : null,
     pets: Object.fromEntries(PET_UNLOCKS.map((p) => [p.key, !newcomer || !!adopted[p.key]])),
+    found: Object.fromEntries(FIND_UNLOCKS.map((f) => [f.key, !newcomer || !!foundOf(user)[f.key]])),
     locks: [
       ...lockedFor(store, user).map(({ feature: f, level: l }) => ({ key: f.key, level: l, page: f.page || null, hide: f.hide })),
-      ...(newcomer ? PET_UNLOCKS.filter((p) => !adopted[p.key]).map((p) => ({ key: p.key, pet: true, level: null, page: null, hide: p.hide })) : [])
+      ...(newcomer ? PET_UNLOCKS.filter((p) => !adopted[p.key]).map((p) => ({ key: p.key, pet: true, level: null, page: null, hide: p.hide })) : []),
+      ...(newcomer ? FIND_UNLOCKS.filter((f) => !foundOf(user)[f.key]).map((f) => ({ key: f.key, find: true, level: null, page: null, hide: f.hide })) : [])
     ]
   };
 }
@@ -171,20 +254,32 @@ export function checkUnlocks(store, userId) {
   const t = now();
   const fresh = PET_UNLOCKS.filter((p) => !adopted[p.key] && p.had(user));
   fresh.forEach((p) => { adopted[p.key] = t; });
+  // Decouvertes (apres les adoptions : un premier compagnon ouvre la promenade).
+  const foundMap = foundOf(user);
+  const finds = FIND_UNLOCKS.filter((f) => !foundMap[f.key] && f.had(user, adopted));
+  finds.forEach((f) => { foundMap[f.key] = t; });
   const level = levelForXp(Number(user.XP) || 0);
   const unlocks = setting(store, 'StarterUnlocks') || {};
-  const open = FEATURES.filter((f) => Number(unlocks[f.key]) > 1 && Number(unlocks[f.key]) <= level);
+  // Activites trouvees avant leur niveau « au plus tard » (FEATURE_FINDS).
+  const featFinds = FEATURES.filter((f) => FEATURE_FINDS[f.key] && Number(unlocks[f.key]) > level && !foundMap[f.key] && FEATURE_FINDS[f.key].had(user));
+  featFinds.forEach((f) => { foundMap[f.key] = t; });
+  const viaFind = new Set(featFinds.map((f) => f.key));
+  const open = FEATURES.filter((f) => Number(unlocks[f.key]) > 1 && (Number(unlocks[f.key]) <= level || foundMap[f.key]));
   const seenRaw = parseJson(user.StarterSeen, null);
   const seen = Array.isArray(seenRaw) ? seenRaw : open.map((f) => f.key);
   const newFeatures = open.filter((f) => !seen.includes(f.key));
-  if (!fresh.length && !newFeatures.length && Array.isArray(seenRaw)) return null;
+  if (!fresh.length && !finds.length && !featFinds.length && !newFeatures.length && Array.isArray(seenRaw)) return null;
   user = store.update('Users', user.id, {
     ...(fresh.length ? { PetsAdopted: JSON.stringify(adopted) } : {}),
+    ...(finds.length || featFinds.length ? { StarterFound: JSON.stringify(foundMap) } : {}),
     StarterSeen: JSON.stringify([...seen, ...newFeatures.map((f) => f.key)])
   });
   const items = [
-    ...newFeatures.map((f) => ({ key: 'unlock-' + f.key, unlock: true, kicker: 'Nouveau : débloqué !', icon: f.icon, name: f.label.replace(/\s*\(.*\)$/, ''), riddle: PITCH[f.key] || 'Une nouvelle activité s’ouvre à toi.', url: (f.urls || [])[0] || f.page || null, color: '#facc15' })),
-    ...fresh.map((p) => ({ key: 'adopt-' + p.key, unlock: true, kicker: 'Nouveau compagnon !', icon: p.icon, name: p.label, riddle: p.text, url: p.url, color: '#f472b6' }))
+    ...newFeatures.map((f) => (viaFind.has(f.key)
+      ? { key: 'unlock-' + f.key, unlock: true, kicker: 'Nouvelle découverte !', icon: f.icon, name: f.label.replace(/\s*\(.*\)$/, ''), riddle: FEATURE_FINDS[f.key].text, url: (f.urls || [])[0] || f.page || null, color: '#38bdf8' }
+      : { key: 'unlock-' + f.key, unlock: true, kicker: 'Nouveau : débloqué !', icon: f.icon, name: f.label.replace(/\s*\(.*\)$/, ''), riddle: PITCH[f.key] || 'Une nouvelle activité s’ouvre à toi.', url: (f.urls || [])[0] || f.page || null, color: '#facc15' })),
+    ...fresh.map((p) => ({ key: 'adopt-' + p.key, unlock: true, kicker: 'Nouveau compagnon !', icon: p.icon, name: p.label, riddle: p.text, url: p.url, color: '#f472b6' })),
+    ...finds.map((f) => ({ key: 'find-' + f.key, unlock: true, kicker: 'Nouvelle découverte !', icon: f.icon, name: f.label, riddle: f.text, url: f.url, color: '#38bdf8' }))
   ];
   return items.length ? items : null;
 }
@@ -269,6 +364,8 @@ export function gate(store, method, path, body = {}) {
   const pet = path === 'pets' || path === 'walk' ? String(body.pet || '') : path === 'cat' ? 'moka' : path === 'dog-gift' ? 'milo' : path === 'dig' && ['useBone', 'frenzy'].includes(act) ? 'milo'
     : path === 'garden' && act === 'bunnyFeed' ? 'noisette' : path === 'archeo' && act === 'moleFeed' ? 'pistache' : '';
   if (pet && PET_UNLOCKS.some((p) => p.key === pet) && !petAdopted(store, user, pet)) return fail('pet_not_adopted', 403, { pet, message: 'Tu n’as pas encore de compagnon ici.' });
+  const hidden = FIND_UNLOCKS.find((f) => f.paths.includes(path) && !found(store, user, f.key));
+  if (hidden) return fail('not_discovered', 403, { find: hidden.key, message: 'Pas encore découvert.' });
   const lock = lockedFor(store, user).find((l) => l.feature.paths.includes(path));
   if (!lock) return null;
   const label = lock.feature.label.replace(/\s*\(.*\)$/, '');
@@ -278,7 +375,7 @@ export function beforeWorkflow({ store, path, request }) { return gate(store, 'P
 
 // Date de mise en ligne : les comptes plus anciens ne sont jamais verrouilles.
 export function init({ store }) {
-  try { if (!(Number(rawSetting(store, 'StarterSince')) > 0)) setSettings(store, { StarterSince: now() }); } catch (e) { console.error(e); }
+  try { if (!(Number(rawSetting(store, 'StarterSince')) > 0)) setSettings(store, { StarterSince: now() }); } catch (e) { console.error(e); captureError(e, { hook: 'starter-since' }); }
 }
 
 export const routes = { 'GET starter': handle, 'POST starter': handle };

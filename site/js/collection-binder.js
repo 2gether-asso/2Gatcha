@@ -48,8 +48,8 @@
     const nextQuality = QUALITY_ORDER[QUALITY_ORDER.indexOf(quality) + 1];
     return {
       nextFinish, nextQuality,
-      finish: canAct && !!nextFinish && state.level >= FEATURE_UNLOCK_LEVEL.finish && (owned.finishCounts?.[finish] || 0) >= 5,
-      quality: canAct && !!nextQuality && state.level >= FEATURE_UNLOCK_LEVEL.quality && (owned.qualityCounts?.[quality] || 0) >= 3
+      finish: canAct && !!nextFinish && !featureNeed("finish", state.level) && (owned.finishCounts?.[finish] || 0) >= 5,
+      quality: canAct && !!nextQuality && !featureNeed("quality", state.level) && (owned.qualityCounts?.[quality] || 0) >= 3
     };
   }
   const variantFilterActive = () => !!(finishFilter || qualityFilter || editionFilter || firstOnly);
@@ -796,8 +796,9 @@
   async function openQuickTrade(cardId) {
     const card = cardOf(cardId);
     if (!card) return;
-    if (state.level < FEATURE_UNLOCK_LEVEL.trade) {
-      Toast.info(`${FEATURE_LABELS.trade || "L'échange"} se débloque au niveau ${FEATURE_UNLOCK_LEVEL.trade} (tu es niveau ${state.level}).`);
+    const tradeNeed = featureNeed("trade", state.level);
+    if (tradeNeed) {
+      Toast.info(tradeNeed < 0 ? "Pas encore découvert : continue à jouer." : `${FEATURE_LABELS.trade || "L'échange"} se débloque au niveau ${tradeNeed} (tu es niveau ${state.level}).`);
       return;
     }
     let usersRes;

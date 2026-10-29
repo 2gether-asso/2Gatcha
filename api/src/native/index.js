@@ -35,6 +35,7 @@
 //   artists.js  artistes a l'honneur (fiche, reseaux, cartes de chacun)
 //   cooking.js  cuisine du village (plats a bonus temporaires)
 //   walk.js     promenade quotidienne des compagnons
+//   feedback.js avis des joueurs envoyes a GlitchTip (niveau Information)
 // Chaque module expose `routes` ({ 'METHODE chemin': handler }) et, au
 // besoin, `schema` (tables/colonnes creees au demarrage) et `afterWorkflow`.
 // Un handler recoit { store, body, query } et renvoie { status, json }.
@@ -92,6 +93,7 @@ import * as phantom from './phantom.js';
 import * as lottery from './lottery.js';
 import * as wanted from './wanted.js';
 import * as halloffame from './halloffame.js';
+import * as feedback from './feedback.js';
 import * as teams from './teams.js';
 import * as duo from './duo.js';
 import * as bingo from './bingo.js';
@@ -142,7 +144,7 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, starter, seasonquests, story];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
@@ -258,7 +260,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       // Musee : mineraux et objets eus au moins une fois (museum.js).
       try { museum.note(store, ctx.userId); } catch (e) { console.error(e); captureError(e, { hook: 'museum' }); }
     }
-    try { const won = lottery.winNotice(store, ctx.userId); if (won) ctx.notices.push(won); } catch (e) { console.error(e); }
+    try { const won = lottery.winNotice(store, ctx.userId); if (won) ctx.notices.push(won); } catch (e) { console.error(e); captureError(e, { hook: 'lottery-notice' }); }
     const mine = ctx.notices.filter((n) => n && n.userId === ctx.userId);
     if (mine.length && response && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) {
       response.json.notices = [...(response.json.notices || []), ...mine.map(({ kind, icon, label }) => ({ kind, icon, label }))];
@@ -271,7 +273,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     // Compte test admin retire des listes vues par les autres (pas pour un admin).
     scrub(json, body = {}, query = {}) {
       if (body.discordId || query.discordId) return json;
-      try { return testaccount.scrub(store, json, body.userId || query.userId); } catch (e) { console.error(e); return json; }
+      try { return testaccount.scrub(store, json, body.userId || query.userId); } catch (e) { console.error(e); captureError(e, { hook: 'scrub' }); return json; }
     },
     // Authentification + limite de debit, avant toute execution. null = OK,
     // sinon { status, json, headers? } a renvoyer tel quel.
@@ -316,7 +318,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       return null;
     },
     // Remet en place les exemplaires assures si le workflow a echoue.
-    restore(request) { try { market.restoreHidden(store, request); } catch (e) { console.error(e); } },
+    restore(request) { try { market.restoreHidden(store, request); } catch (e) { console.error(e); captureError(e, { hook: 'restore' }); } },
     // Fin de la requete : le journal n'attribue plus rien a cette source.
     endRequest() { Object.assign(currentContext(), { source: null, action: null, userId: 0, actor: null, detail: null, notices: [], balances: null }); },
     // A appeler sous le verrou.

@@ -336,15 +336,8 @@
     }
 
     if (Session.isLoggedIn()) {
-      // Lectures propres a l'accueil, groupees en une requete (le gabarit
-      // commun - solde, quetes, paliers - est deja parti avec shell.js).
-      API.batch([
-        { name: "recentPulls" }, { name: "leaderboard" },
-        { name: "achievements", query: { userId: Session.userId } },
-        { name: "dailyWheel", body: { userId: Session.userId, action: "status" } },
-        { name: "loginStreak", body: { userId: Session.userId, action: "status" } },
-        { name: "season", body: { userId: Session.userId, action: "status" } }
-      ]);
+      // Lectures propres a l'accueil : parties dans le lot du gabarit
+      // (PAGE_READS.index de prefetchShellData, shell.js).
       prefetchAllCardImages();
 
       // Pass de combat (free) : barre de progression vers le prochain
@@ -496,8 +489,8 @@
       };
       // Quetes encore verrouillees par le niveau (FEATURE_UNLOCK_LEVEL) : grisees avec le niveau.
       const QUEST_LOCK = { craft: "craft", trade: "trade" };
-      const questLockLevel = (key, lvl) => { const f = QUEST_LOCK[key]; const need = f && typeof FEATURE_UNLOCK_LEVEL !== "undefined" ? FEATURE_UNLOCK_LEVEL[f] || 1 : 1; return lvl < need ? need : 0; };
-      const questLockTag = (need) => (need ? ` <span class="quest-lock">&#128274; niveau ${need}</span>` : "");
+      const questLockLevel = (key, lvl) => (QUEST_LOCK[key] ? featureNeed(QUEST_LOCK[key], lvl) : 0);
+      const questLockTag = (need) => (need > 0 ? ` <span class="quest-lock">&#128274; niveau ${need}</span>` : need < 0 ? ` <span class="quest-lock">&#10067; à découvrir</span>` : "");
       // Le gain n'est plus accorde automatiquement a la simple consultation :
       // un bouton "Réclamer" apparait sous les quêtes une fois le seuil
       // atteint (res.canClaim), et l'utilisateur doit cliquer pour toucher

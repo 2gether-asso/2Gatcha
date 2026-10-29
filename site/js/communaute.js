@@ -783,6 +783,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // N'affiche que les onglets qui ont quelque chose d'actif (pas de boss en
   // cours = pas d'onglet Boss, etc.). Hors connexion, on garde l'affichage
   // complet (les panneaux expliquent qu'il faut se connecter).
+  // Rubriques posees tout de suite (onglet probable) : les dix onglets ne
+  // s'affichent plus tous un instant avant d'etre ranges (2026-10-29).
+  activeTab = getInitialTab();
+  renderGroups();
   if (Session.isLoggedIn()) {
     try { communauteSignals = await CommunauteSignals.fetch(); } catch (e) { communauteSignals = null; }
   }

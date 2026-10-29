@@ -628,21 +628,18 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 @media (max-width: 640px) { .ar-strokes { margin-left: 0; width: 100%; } .ar-slab { padding: 8px; } .ar-art { inset: 8px; } }
 
 /* Casino de la salle interdite, 25 octobre */
+/* Casino de la salle interdite, 25 octobre */
+/* Premiere version (25 octobre), completee plus bas par les finitions du 26 :
+   regles des classes disparues retirees le 30 octobre, et l'animation qui
+   rejouait toutes les cartes du blackjack a chaque rendu. */
 .cz { margin-top: 28px; padding-top: 20px; border-top: 1px dashed color-mix(in srgb, #fbbf24 40%, transparent); }
-.cz-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end; }
-.cz-head h2 { margin: 0; }
 .cz-wallet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.cz-chip, .cz-vip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); font-size: 0.9rem; }
-.cz-vip { font-weight: 800; color: #fbbf24; }
 .cz-vip-bar { width: 60px; height: 6px; border-radius: 99px; background: rgba(255,255,255,0.12); overflow: hidden; }
 .cz-vip-bar > span { display: block; height: 100%; background: #fbbf24; }
 .cz-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
 .cz-cashier { margin: 12px 0; padding: 12px; border-radius: 14px; background: var(--bg-panel-2); border: 1px solid #fbbf2455; display: grid; gap: 8px; }
 .cz-cash-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .cz-cash-row small { color: var(--text-dim); }
-.cz-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
-.cz-tab { padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-panel-2); color: var(--text); cursor: pointer; font-weight: 700; }
-.cz-tab.active { background: linear-gradient(135deg, #7c2d12, #b45309); border-color: #fbbf24; color: #fff; }
 .cz-game { min-height: 260px; }
 .cz-bets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; font-size: 0.85rem; }
 .cz-bet { padding: 5px 10px; border-radius: 99px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
@@ -653,15 +650,11 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 .bj-table { padding: 18px; border-radius: 24px; background: radial-gradient(ellipse at 50% 30%, #166534, #052e16); border: 6px solid #78350f; display: grid; gap: 14px; text-align: center; color: #ecfccb; }
 .bj-row small { display: block; margin-bottom: 6px; opacity: 0.85; }
 .bj-hand { display: flex; justify-content: center; gap: 6px; min-height: 84px; }
-.bj-card { width: 58px; height: 82px; border-radius: 8px; background: #fff; color: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.4); animation: bjDeal 0.35s ease-out backwards; animation-delay: calc(var(--i) * 90ms); }
+.bj-card { width: 58px; height: 82px; border-radius: 8px; background: #fff; color: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.4); animation-delay: calc(var(--i) * 90ms); }
 .bj-card b { font-size: 1.2rem; }
 .bj-card i { font-style: normal; font-size: 1.4rem; }
 .bj-card.red { color: #dc2626; }
 .bj-card.back { background: repeating-linear-gradient(45deg, #7c2d12 0 6px, #b45309 6px 12px); border: 3px solid #fff; }
-@keyframes bjDeal { from { transform: translateY(-30px) rotate(-8deg); opacity: 0; } }
-.bj-msg { font-weight: 800; min-height: 1.4em; }
-.bj-msg.win { color: #fde047; }
-.bj-msg.lose { color: #fca5a5; }
 /* Roulette */
 .rl-layout { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 16px; align-items: start; }
 .rl-wheel-wrap { position: relative; aspect-ratio: 1; }
@@ -676,7 +669,6 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 .rl-spot small { display: block; opacity: 0.7; font-weight: 500; }
 .rl-spot.red { background: #7f1d1d; color: #fff; }
 .rl-spot.black { background: #111827; color: #fff; }
-.rl-numbers { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 3px; margin-top: 6px; }
 .rl-num { padding: 6px 0; border: 0; border-radius: 6px; color: #fff; font-weight: 700; cursor: pointer; }
 .rl-num.red { background: #b91c1c; }
 .rl-num.black { background: #1f2937; }
@@ -691,14 +683,9 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 .cn-can.down { opacity: 0.18; transform: translateY(40px) rotate(70deg); }
 .cn-can.hit { opacity: 0; }
 .cn-ball { position: absolute; left: 50%; bottom: 4%; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #e5e7eb 40%, #9ca3af); }
-.cn-ball.fly { animation: cnFly 0.5s ease-in forwards; }
-@keyframes cnFly { to { left: var(--tx); bottom: calc(100% - var(--ty)); transform: scale(0.6); } }
 .cn-legend, .cl-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; font-size: 0.78rem; margin: 8px 0; }
 .cn-legend i, .cl-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--c); margin-right: 4px; }
 .cn-aim { display: grid; gap: 8px; justify-items: center; }
-.cn-meter { position: relative; width: min(100%, 360px); height: 16px; border-radius: 99px; background: rgba(255,255,255,0.1); overflow: hidden; }
-.cn-meter > span { position: absolute; top: 0; bottom: 0; width: 6px; margin-left: -3px; background: #fbbf24; }
-.cn-meter.power > span { left: 0; width: 0; margin: 0; background: linear-gradient(90deg, #22c55e, #fbbf24 60%, #ef4444); }
 /* Pinces */
 .cl-glass { position: relative; height: 280px; border-radius: 16px; background: linear-gradient(180deg, rgba(56,189,248,0.12), rgba(168,85,247,0.15)); border: 6px solid #db2777; overflow: hidden; }
 .cl-cap { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: linear-gradient(180deg, var(--c) 0 50%, rgba(255,255,255,0.85) 50%); box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.35); display: grid; place-items: center; font-size: 1rem; transition: top 0.8s, opacity 0.5s; }
@@ -716,7 +703,6 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 .pk-bins { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; padding: 2px; }
 .pk-bin { text-align: center; font-size: 0.7rem; font-weight: 800; padding: 6px 0; border-radius: 6px; background: #4338ca; color: #fff; }
 .pk-bin.hot { background: #b45309; }
-.pk-bin.cold { background: #374151; }
 .pk-bin.lit { animation: pkLit 0.9s; }
 @keyframes pkLit { 50% { transform: translateY(-6px); filter: brightness(1.6); } }
 /* Bonneteau */
@@ -914,6 +900,7 @@ body.forbidden-page .fm-side .fm-panel h3 { color: var(--fx-brass-2); }
 .cl-table .cl-glass { position: relative; height: 320px; border-radius: 12px; overflow: hidden; cursor: crosshair; background: linear-gradient(180deg, rgba(186, 230, 253, 0.18), rgba(167, 139, 250, 0.12) 55%, rgba(244, 114, 182, 0.18)), #1a0610; border: 4px solid #fbcfe8; box-shadow: inset 0 0 40px rgba(0,0,0,0.5); outline: none; }
 /* Mobile (2026-10-28) : promener la pince au doigt ne fait ni defiler ni recharger la salle. */
 .cl-glass { touch-action: none; user-select: none; }
+.pk-drop, .cn-table .cn-ball { touch-action: none; user-select: none; -webkit-user-select: none; }
 .cl-table .cl-glass:focus-visible { box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 0 0 3px var(--fx-neon-2); }
 .cl-table .cl-glass::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, rgba(255,255,255,0.14) 0 18%, transparent 30%); pointer-events: none; }
 .cl-rail { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: linear-gradient(#9ca3af, #4b5563); z-index: 3; }
@@ -1043,6 +1030,11 @@ html.cz-room-open, html.cz-room-open body { overflow: hidden; }
 .bj-total.best { background: #ca8a04; color: #1c1206; }
 .bj-total.bust { background: #b91c1c; }
 .bj-center { display: flex; align-items: center; justify-content: center; gap: 18px; min-height: 64px; }
+/* Hauteur fixe sous la table (2026-10-30) : mise + Distribuer, boutons de la
+   main et historique n'ont pas la meme hauteur ; la salle defilait d'un coup a
+   chaque etat sur telephone. */
+.bj-controls { min-height: 168px; display: grid; align-content: start; }
+@media (max-width: 640px) { .bj-controls { min-height: 196px; } }
 .bj-turn { font-weight: 800; color: #fde68a; }
 .bj-banner { padding: 8px 18px; border-radius: 12px; font: 1.05rem/1.2 Bungee, sans-serif; letter-spacing: 0.04em; animation: bjPop 0.4s cubic-bezier(.2,1.6,.4,1); }
 .bj-banner small { display: block; font: 700 0.85rem/1.3 var(--font-body, sans-serif); }
@@ -1635,7 +1627,22 @@ html[data-fx="light"] .gf-cloud, html[data-fx="light"] .gf-bee, html[data-fx="li
 .prefs-switch input:checked + span::after { transform: translateX(20px); }
 .prefs-switch input:focus-visible + span { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .prefs-note { margin: 0; padding: 8px 16px 12px; font-size: 0.75rem; color: var(--text-dim); }
+/* Donner un avis (2026-10-29, js/lazy/feedback.js) : meme boite que les preferences. */
+.feedback-box { width: min(520px, 100%); }
+.feedback-box .prefs-body { gap: 8px; padding-top: 12px; }
+.feedback-label { font-size: 0.85rem; color: var(--text-dim); }
+.feedback-box textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 120px; padding: 10px; border-radius: 10px; border: 1px solid var(--border-soft); background: rgba(0, 0, 0, 0.2); color: var(--text); font: inherit; }
+.feedback-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.feedback-moods { display: inline-flex; gap: 4px; }
+.feedback-moods button { width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid var(--border-soft); background: transparent; font-size: 1.2rem; cursor: pointer; opacity: 0.6; }
+.feedback-moods button.on { opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.feedback-count { color: var(--text-dim); }
+.feedback-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* Aide sur place (2026-10-29, js/lazy/game-help.js) */
 .gh-btn { display: inline-flex; margin: 4px 0 10px auto; padding: 4px 12px; font-size: 0.8rem; float: right; }
 .gh-list { margin: 0; padding-left: 18px; text-align: left; display: grid; gap: 8px; line-height: 1.5; font-size: 0.9rem; }
+
+/* Bloc termine a masquer (2026-10-30, home-more.js) : petite croix discrete dans le titre. */
+.done-hide { margin-left: auto; padding: 2px 8px; font-size: 0.8rem; line-height: 1; opacity: 0.6; }
+.done-hide:hover, .done-hide:focus-visible { opacity: 1; }

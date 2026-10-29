@@ -206,36 +206,6 @@ body.cinema-mode .panel { background: rgba(6,7,15,0.7); border: none; box-shadow
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.notif-clear-btn {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  color: var(--accent-2);
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.78rem;
-  text-transform: none;
-  letter-spacing: normal;
-  padding: 2px 4px;
-  cursor: pointer;
-}
-.notif-clear-btn:hover { color: var(--text); text-decoration: underline; }
-.notif-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
-.notif-item + .notif-item { border-top: 1px solid var(--border-soft); }
-.notif-item-icon { flex-shrink: 0; margin-top: 1px; }
-.notif-item-success .notif-item-icon { color: var(--success); }
-.notif-item-error .notif-item-icon { color: var(--danger); }
-.notif-item-info .notif-item-icon { color: var(--accent-2); }
-.notif-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.notif-item-msg { color: var(--text); line-height: 1.35; word-wrap: break-word; }
-.notif-item-time { color: var(--text-dim); font-size: 0.72rem; }
 .notif-empty { color: var(--text-dim); text-align: center; padding: 20px 10px; font-size: 0.85rem; }
 
 /* Recherche globale (QoL 2026-09-30, demande explicite : les profils sont

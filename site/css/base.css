@@ -14,6 +14,12 @@ html { scroll-behavior: smooth; }
    animation d'entree) pendant qu'une modale plein ecran est ouverte : evite
    que la page derriere continue de defiler sous la modale. */
 html.scroll-locked, html.scroll-locked body { overflow: hidden; height: 100%; }
+/* 2026-10-30 : syncScrollLock (ui.js) pose la classe sur <html> ET <body> et
+   fige le body a sa position (top = -scroll). Seule cette technique bloque
+   le defilement tactile ; sans elle, body (position: relative) etait decale
+   de toute la hauteur defilee : la page sautait sous chaque carte et chaque
+   cinematique, puis revenait a la fermeture. */
+body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; }
 
 :focus-visible {
   outline: 2px solid var(--accent-2);

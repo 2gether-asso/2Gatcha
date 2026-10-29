@@ -7,6 +7,27 @@
   const REWARD = { BoosterCount: ["jeton booster", "jetons booster", "token"], StardustCount: ["poussière", "poussières", null, "&#10024;"], Worms: ["ver", "vers", "worm"], KeyCount: ["clé", "clés", "key"], BoneCount: ["os", "os", "bone"], GoldBait: ["appât doré", "appâts dorés", "bait"], SpareParts: ["pièce détachée", "pièces détachées", "part"], ChestCount: ["pièce de gatchapon", "pièces de gatchapon", "coin"], XP: ["XP", "XP", null, "&#11088;"] };
   const chips = (r) => Object.entries(r || {}).filter(([k, v]) => REWARD[k] && v > 0).map(([k, v]) => `<span class="st-chip">${REWARD[k][2] ? resIcon(REWARD[k][2]) : REWARD[k][3]} +${v} ${REWARD[k][v > 1 ? 1 : 0]}</span>`).join("");
 
+  // ------------------------------------------------------------ blocs termines
+  // (2026-10-30) Un bloc qui n'a plus rien a faire (histoire finie, defis de la
+  // semaine tous recuperes) prend de la place pour rien : bouton « Masquer ».
+  // Le choix est garde avec une signature (semaine, chapitre...) : le bloc
+  // revient tout seul quand il y a du nouveau.
+  const DONE_KEY = "2gatcha_done_blocks_" + Session.userId;
+  const doneMap = () => { try { return JSON.parse(localStorage.getItem(DONE_KEY) || "{}") || {}; } catch (e) { return {}; } };
+  // true = bloc masque (deja ecarte pour cette signature).
+  function doneBlock(box, key, sig) {
+    if (doneMap()[key] === sig) { box.hidden = true; return true; }
+    const head = box.querySelector(".story-head, h2, h3");
+    if (head && !box.querySelector("[data-done-hide]")) head.insertAdjacentHTML("beforeend", ` <button type="button" class="btn-ghost done-hide" data-done-hide title="Masquer ce bloc terminé (il reviendra s'il y a du nouveau)" aria-label="Masquer ce bloc terminé">&#10005;</button>`);
+    box.querySelector("[data-done-hide]").onclick = () => {
+      const m = doneMap(); m[key] = sig;
+      try { localStorage.setItem(DONE_KEY, JSON.stringify(m)); } catch (e) { /* stockage indisponible */ }
+      box.hidden = true;
+      Toast.info("Bloc masqué : il reviendra s'il y a du nouveau.");
+    };
+    return false;
+  }
+
   // ------------------------------------------------------------ histoire
   function renderStory(v) {
     const box = document.getElementById("story-panel");
@@ -15,6 +36,8 @@
     box.hidden = false;
     if (v.done) {
       box.innerHTML = `<div class="story-head"><h2>&#128214; Histoire</h2><span class="st-count">${v.total} / ${v.total}</span></div><p class="muted">Tu as terminé l'histoire de 2Gatcha. Bravo, héros !</p>`;
+      // Signature = nombre de chapitres : un nouveau chapitre fait revenir le bloc.
+      doneBlock(box, "story", "fin-" + v.total);
       return;
     }
     const c = v.chapter;
@@ -41,6 +64,8 @@
       <ul class="sq-list">${v.quests.map((q) => `<li class="${q.claimed ? "done" : q.complete ? "ready" : ""}"><span aria-hidden="true">${q.icon}</span><span class="sq-label">${esc(q.label)} <small>${q.progress} / ${q.target}</small></span>
         ${q.claimed ? `<span class="sq-ok">&#10004; +${q.xp} XP</span>` : `<button type="button" class="btn-secondary" data-sq-claim="${q.key}" ${q.complete ? "" : "disabled"}>+${q.xp} XP de saison</button>`}</li>`).join("")}</ul>
       ${v.allBonus ? `<p class="muted sq-bonus">Les 3 défis réussis : +${v.allBonus} XP de saison en plus${v.allClaimed ? " (obtenu)" : ""}.</p>` : ""}`;
+    // Tout recupere cette semaine : masquable jusqu'aux defis de la semaine suivante.
+    if (v.quests.length && v.quests.every((q) => q.claimed) && (!v.allBonus || v.allClaimed)) doneBlock(box, "season-quests", String(v.week || v.quests.map((q) => q.key).join(",")));
   }
   async function loadQuests() { try { renderQuests(await API.post("seasonQuests", { userId: Session.userId, action: "status" })); } catch (e) { /* defis indisponibles */ } }
 
