@@ -1093,7 +1093,7 @@ await test('carte exclusive du mode : donnee une fois avec l objectif commun', (
 });
 
 await test('salle des machines : 5 sacrifices, vote, mode applique a la fin du vote', () => {
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachineVoteDay: 28, MachineRoomCosts: { keys: 2, dust: 10, worms: 1, parts: 1, bait: 1, boosters: 1, cards: 1 } } } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MachineVoteDay: 0, MachineRoomCosts: { keys: 2, dust: 10, worms: 1, parts: 1, bait: 1, boosters: 1, cards: 1 } } } });
   store.update('Users', 1, { MachineMonth: '', MachineStage: 0, MachineVote: '', KeyCount: 1, StardustCount: 100, Worms: 5, SpareParts: 2, GoldBait: 2, BoosterCount: 2 });
   let st = call('POST', 'machine-room', { body: { userId: 1 } }).json;
   assert.equal(st.stages.length, 6);
@@ -2760,7 +2760,7 @@ await test('devine la carte v2 : 5 manches, 3 essais avec zoom qui recule, gains
 await test('salle des machines interdites : engrenages, forge, porte, machine a sous, surchauffe, relance, edition Interdite', async () => {
   const { MINERALS } = await import('../src/native/digdepth.js');
   const fb = (body) => call('POST', 'forbidden', { body: { userId: 1, ...body } }).json;
-  store.update('Users', 1, { ArgGears: '', SpecialKeys: 0, DoorKeys: 0, ForbiddenUnlocked: 0, ForbiddenAccess: 0, ForbiddenSpin: '', ForbiddenHeat: 0, ForbiddenFreeDay: '', ForbiddenStats: '', KeyCount: 0, Minerals: '{}', StardustCount: 100000 });
+  store.update('Users', 1, { ArgGears: '', ArgScroll: 0, SpecialKeys: 0, DoorKeys: 0, ForbiddenUnlocked: 0, ForbiddenAccess: 0, ForbiddenSpin: '', ForbiddenHeat: 0, ForbiddenFreeDay: '', ForbiddenStats: '', KeyCount: 0, Minerals: '{}', StardustCount: 100000 });
   // Sans acces : la page ne recoit rien (que les rouages), tout est refuse.
   let st = fb({});
   assert.equal(st.access, false);
