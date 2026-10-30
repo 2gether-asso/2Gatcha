@@ -56,9 +56,10 @@ la main et les corrections du runner, mais leur durée sur une grosse base n'a p
 
 ## Tests
 
-- `npm test` : toutes les suites passent sauf `progress-test.js`, qui a 2 échecs (« dinos » et « mode Chill »). Les
-  mêmes 2 échecs apparaissent sur une copie propre de `HEAD`, lancée vers minuit : le premier vient d'un dino endormi
-  (`sleeping` au lieu de `play_cooldown`). `npm test` s'arrête à cette suite, les suivantes ont été lancées à part.
+- `progress-test.js` échouait la nuit (23 h à 7 h à Paris), sur la CI aussi : « dinos » faisait jouer un dino endormi,
+  et « mode Chill » calculait l'heure avec `Number("01 h")`, qui vaut `NaN`, donc croyait toujours qu'il faisait jour.
+  Ces deux tests tournent maintenant à midi via `atParisHour`, et le refus de nuit de la balade est testé à 3 h.
+  Vérifié avec une horloge simulée à 1 h 30, 11 h 30, 21 h 30 et 22 h 30 UTC : 110 tests passent à chaque fois.
 - `batch-feedback-test.js` : ajout de la limite à 2000, du refus identique à l'unité, de « Tout fouiller », des index
   du store et de l'envoi GlitchTip.
 - Navigateur (Chromium, serveur local) : bouton et bilan de fouille, 1 requête pour 4 coups, 120 décrafts en 1 requête,

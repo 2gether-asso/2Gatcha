@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Store } from '../src/store.js';
 import { createNative } from '../src/native/index.js';
 import * as daily from '../src/native/daily.js';
-import { parisDay, now } from '../src/native/common.js';
+import { parisDay, parisHour, now } from '../src/native/common.js';
 import { weekKey } from '../src/native/levels.js';
 import * as inflation from '../src/native/inflation.js';
 import { cluesOf } from '../src/native/treasure.js';
@@ -62,6 +62,15 @@ let passed = 0;
 async function test(name, fn) {
   try { await fn(); passed++; console.log(' ok  ' + name); } catch (e) { console.log('FAIL ' + name + '\n     ' + (e.stack || e.message).split('\n').slice(0, 10).join('\n     ')); process.exitCode = 1; }
 }
+
+// Execute fn a une heure de Paris donnee, le meme jour : les dinos dorment de
+// 23 h a 7 h, les tests qui les font jouer ne doivent pas dependre de l'heure du lancement.
+const atParisHour = (hour, fn) => {
+  const realNow = Date.now;
+  const shift = (hour - parisHour()) * 3600000;
+  Date.now = () => realNow() + shift;
+  try { return fn(); } finally { Date.now = realNow; }
+};
 
 await test('talents : points par niveau, rangs, talent ultime verrouille, remise a zero payante', () => {
   store.update('Users', 1, { XP: 0, Talents: '{}', StardustCount: 1000 });
@@ -1555,7 +1564,7 @@ await test('partage sur Discord', () => {
   assert.equal(call('POST', 'share-card', { body: { userId: 1, cardId: c.id, image: 'pas une image' } }).json.error, 'invalid_image');
 });
 
-await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardin, nourriture a la peche', () => {
+await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardin, nourriture a la peche', () => atParisHour(12, () => {
   store.update('Users', 1, { DinoSkulls: 0, Dinos: '[]', DinoFood: '{}', DinoPoop: 0, BoneCount: 20, Worms: 50, GardenPlots: '[]', StardustCount: 5000 });
   // Fouille : crane (chance forcee a 100 %).
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { DinoSkullChance: 0.1 } } });
@@ -1648,7 +1657,7 @@ await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardi
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoMax' } });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoSkullChance' } });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'DinoFoodChance' } });
-});
+}));
 
 await test('dinos (2) : mort et tas d os, fouille auto, oeufs, plat prefere, Dinodex, boutique, vedette, livre d or, engrais dore, talents', () => {
   const base = { at: now(), food: 90, happy: 90, xp: 0, digest: 0, poops: [], goldPoops: [], playAt: 0, petAt: 0, breedAt: 0, pattern: 'plain', hue: 120, bornAt: now() };
@@ -2005,7 +2014,7 @@ await test('mode Cool : boite a souhaits garantie en 10 boosters, atelier gratui
   assert.equal(call('POST', 'dino', { body: { userId: 1 } }).json.dinos[0].food, food, 'fin des vacances : on repart de la');
 });
 
-await test('mode Chill : happy hour sur les prix, jardin partage (arrosage, recolte partagee), balade du dino', () => {
+await test('mode Chill : happy hour sur les prix, jardin partage (arrosage, recolte partagee), balade du dino', () => atParisHour(12, () => {
   applyMode('chill');
   assert.equal(moderules.happyFactor(store), moderules.happyHourNow(store) ? 0.7 : 1);
   // Jardin partage.
@@ -2025,9 +2034,8 @@ await test('mode Chill : happy hour sur les prix, jardin partage (arrosage, reco
   // Balade du dino.
   const t0 = now();
   store.update('Users', 1, { Dinos: JSON.stringify([{ id: 1, name: 'Rex', species: 'rex', xp: 500, bornAt: t0, at: t0, food: 90, happy: 50, poops: [], goldPoops: [] }]) });
-  const sleeping = (() => { const hh = Number(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', hour12: false }).format(new Date())); return hh >= 23 || hh < 7; })();
+  atParisHour(3, () => assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'walk', dino: 1 } }).json.error, 'sleeping'));
   const w = call('POST', 'dino', { body: { userId: 1, action: 'walk', dino: 1 } }).json;
-  if (sleeping) { assert.equal(w.error, 'sleeping'); return; }
   assert.equal(w.walking, 1);
   assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'walk-back', dino: 1 } }).json.error, 'still_walking');
   const d = JSON.parse(user(1).Dinos)[0];
@@ -2037,7 +2045,7 @@ await test('mode Chill : happy hour sur les prix, jardin partage (arrosage, reco
   assert.ok(back.walked.dust >= 20);
   assert.equal(user(1).StardustCount, dust + back.walked.dust);
   assert.equal(call('POST', 'dino', { body: { userId: 1, action: 'walk', dino: 1 } }).json.error, 'walked_today');
-});
+}));
 
 await test('mode Medium : bourse des cartes (decraft et craft), quete en chaine, draft a deux', () => {
   applyMode('medium');
