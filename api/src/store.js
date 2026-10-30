@@ -61,6 +61,20 @@ export function coerce(type, value) {
   }
 }
 
+// Index de colonne (Store.rowsBy) : une reference ["R", 12] se range sous 12.
+const indexKey = (v) => (Array.isArray(v) ? v[1] : v);
+function addToIndex(index, key, id) {
+  const ids = index.get(key);
+  if (ids) ids.add(id);
+  else index.set(key, new Set([id]));
+}
+function removeFromIndex(index, key, id) {
+  const ids = index.get(key);
+  if (!ids) return;
+  ids.delete(id);
+  if (!ids.size) index.delete(key);
+}
+
 export class Store {
   // lenient : colonnes inconnues acceptees (creees a la volee) - reserve aux
   // tests sur une base d'essai, jamais en production.
@@ -140,6 +154,46 @@ export class Store {
     return raw ? JSON.parse(raw) : null;
   }
 
+  // Lignes dont une colonne (ou une reference) vaut value, sans relire toute
+  // la table : un getAll de Pulls coute des dizaines de ms, a chaque appel des
+  // que la table vient de changer. Index construit a la premiere demande, tenu
+  // a jour par write et delete. Objets neufs, par id croissant comme getAll.
+  rowsBy(name, col, value) {
+    const t = this.table(name);
+    const ids = this.columnIndex(t, col).get(value);
+    return ids ? [...ids].sort((a, b) => a - b).map((id) => JSON.parse(t.rows.get(id))) : [];
+  }
+
+  countBy(name, col, value) {
+    const ids = this.columnIndex(this.table(name), col).get(value);
+    return ids ? ids.size : 0;
+  }
+
+  columnIndex(t, col) {
+    if (!t.indexes) t.indexes = new Map();
+    let index = t.indexes.get(col);
+    if (!index) {
+      index = new Map();
+      for (const [id, raw] of t.rows) addToIndex(index, indexKey(JSON.parse(raw)[col]), id);
+      t.indexes.set(col, index);
+    }
+    return index;
+  }
+
+  // A appeler AVANT de modifier t.rows. row : nouvelle ligne, null = suppression.
+  updateIndexes(t, id, row) {
+    if (!t.indexes) return;
+    const raw = t.rows.get(id);
+    const old = raw ? JSON.parse(raw) : null;
+    for (const [col, index] of t.indexes) {
+      const before = old ? indexKey(old[col]) : undefined;
+      const after = row ? indexKey(row[col]) : undefined;
+      if (old && row && before === after) continue;
+      if (old) removeFromIndex(index, before, id);
+      if (row) addToIndex(index, after, id);
+    }
+  }
+
   // Colonnes inconnues et colonnes formules refusees :
   // comportement ici, pour reperer tout de suite une colonne manquante.
   prepareFields(t, fields) {
@@ -165,6 +219,7 @@ export class Store {
 
   write(t, id, row) {
     const json = JSON.stringify(row);
+    this.updateIndexes(t, id, row);
     t.rows.set(id, json);
     t.snapshot = null;
     this.stmt.upsertRow.run(t.name, id, json);
@@ -203,6 +258,7 @@ export class Store {
     const t = this.table(name);
     id = Number(id);
     if (!t.rows.has(id)) return false;
+    this.updateIndexes(t, id, null);
     t.rows.delete(id);
     t.snapshot = null;
     this.stmt.deleteRow.run(name, id);
@@ -214,8 +270,10 @@ export class Store {
   defineTable(name, columns) {
     this.stmt.upsertTable.run(name, JSON.stringify(columns));
     const existing = this.tables.get(name);
-    if (existing) existing.columns = columns;
-    else this.tables.set(name, { name, columns, rows: new Map(), maxId: 0, snapshot: null });
+    if (existing) {
+      existing.columns = columns;
+      existing.indexes = null; // colonne renommee, retypee ou retiree : index reconstruits a la demande
+    } else this.tables.set(name, { name, columns, rows: new Map(), maxId: 0, snapshot: null });
   }
 
   addColumn(name, colId, type) {

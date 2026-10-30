@@ -665,20 +665,25 @@ const API = {
   digSetDepth(userId, depth) { return this.post("dig", { userId, action: "setDepth", depth }); },
   // Ecritures en lot (2026-10-18) : un seul appel HTTP pour plusieurs
   // decrafts / sacrifices / crafts. Renvoie les resultats dans l'ordre
-  // ({ status, json }), par paquets de 50 ; onChunk(fait, total) apres chaque paquet.
-  // API pas encore a jour pour ce chemin (lot refuse : invalid_batch) : un
-  // appel par corps, memes resultats ({ status, json }).
-  async batchWrite(path, bodies, { chunk = 50, onChunk, shouldStop } = {}) {
+  // ({ status, json }). Tout part en une requete, sauf au-dela de
+  // BATCH_WRITE_MAX (= api/src/server.js) ; onChunk(fait, total) apres chaque requete.
+  // Serveur pas encore a jour (limite 50, refus 400) : on redescend a 50.
+  // Chemin inconnu du serveur (lot refuse : invalid_batch) : un appel par
+  // corps, memes resultats ({ status, json }).
+  BATCH_WRITE_MAX: 2000,
+  async batchWrite(path, bodies, { onChunk, shouldStop } = {}) {
     const out = [];
-    for (let i = 0; i < bodies.length; i += chunk) {
+    const name = Object.keys(window.APP_CONFIG.endpoints).find((k) => window.APP_CONFIG.endpoints[k] === "/" + path);
+    for (let i = 0; i < bodies.length;) {
       if (shouldStop && shouldStop()) break;
-      const part = bodies.slice(i, i + chunk);
+      const part = bodies.slice(i, i + this.BATCH_WRITE_MAX);
       try {
         const res = await this.post("batchWrite", { path, calls: part });
         out.push(...(res.results || []));
+        this._announceBatch(res.results || [], name, part[0]);
       } catch (e) {
         if (e.code !== "invalid_batch") throw e;
-        const name = Object.keys(window.APP_CONFIG.endpoints).find((k) => window.APP_CONFIG.endpoints[k] === "/" + path);
+        if (part.length > 50) { this.BATCH_WRITE_MAX = 50; continue; }
         if (!name) throw e;
         for (const body of part) {
           if (shouldStop && shouldStop()) break;
@@ -686,11 +691,29 @@ const API = {
           catch (err) { out.push({ status: err.status || 400, json: { ...(err.data || {}), error: err.code || "error" } }); }
           if (onChunk) onChunk(out.length, bodies.length);
         }
+        i += part.length;
         continue;
       }
+      i += part.length;
       if (onChunk) onChunk(out.length, bodies.length);
     }
     return out;
+  },
+  // Ce que _post fait pour un appel seul, sur tout le lot : bonus cumules par
+  // libelle, decouvertes et annonces sans doublon, souhaits obtenus retires.
+  _announceBatch(results, name, body) {
+    const done = results.map((r) => r && r.json).filter((j) => j && typeof j === "object" && !j.error);
+    if (!done.length) return;
+    const bonuses = new Map(), discoveries = new Map(), notices = new Map();
+    let repairSurcharge = 0;
+    done.forEach((j) => {
+      (Array.isArray(j.bonuses) ? j.bonuses : []).forEach((b) => bonuses.set(b.label, (bonuses.get(b.label) || 0) + (b.dust || 0)));
+      (Array.isArray(j.discoveries) ? j.discoveries : []).forEach((d) => discoveries.set(d.key, d));
+      (Array.isArray(j.notices) ? j.notices : []).forEach((n) => { if (n) notices.set(n.label || n.text, n); });
+      repairSurcharge += Number(j.repairSurcharge) || 0;
+    });
+    this._announce({ bonuses: [...bonuses].map(([label, dust]) => ({ label, dust })), discoveries: [...discoveries.values()], notices: [...notices.values()], repairSurcharge });
+    if (name && typeof WishlistSync !== "undefined") { try { WishlistSync.fromResponse(name, body, { results: done }); } catch (e) { /* sans consequence */ } }
   },
   minerals(userId, action = "status", extra = {}) { return this.post("minerals", { userId, action, ...extra }); },
   // Chenil (2026-10-02) : acheter un os contre des poussieres / lancer le chien.

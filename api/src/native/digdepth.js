@@ -9,6 +9,9 @@
 //  - Mineraux : 23, en 5 paliers (images site/assets/Fouille). Comptoir du
 //    marche noir : revente en poussieres (MineralValues) ou echanges contre
 //    des ressources (MineralTrades).
+//  - Tout fouiller (2026-10-31) : tileIndex 'auto' = le serveur tire une tuile
+//    non creusee de la grille du moment, y compris une grille neuve apparue
+//    au coup precedent du meme lot. Memes regles et meme cout qu'un coup a la main.
 //   POST /webhook/dig { action: 'setDepth', depth }      (court-circuite le workflow)
 //   POST /webhook/minerals { userId, action: 'status' | 'sell' | 'trade', key?, count?, index? }
 
@@ -77,12 +80,21 @@ function depthState(store, user) {
   return { depth, depths: depthsOf(store, user), minerals: Object.values(owned).reduce((s, n) => s + (Number(n) || 0), 0) };
 }
 
+// Grille absente ou d'une autre profondeur : le workflow en genere une neuve,
+// toute tuile convient (32 = BOARD_SIZE de dig.json).
+function autoTile(user) {
+  const tiles = parseJson(user.DigBoardState, {}).tiles;
+  const free = (Array.isArray(tiles) ? tiles : []).flatMap((t, i) => (t && !t.d ? [i] : []));
+  return free.length ? free[Math.floor(Math.random() * free.length)] : Math.floor(Math.random() * 32);
+}
+
 export function beforeWorkflow({ store, path, request }) {
   labelStore = store;
   if (path !== 'dig') return null;
   const body = request.body || {};
   const user = store.get('Users', Number(body.userId));
   if (!user) return null;
+  if (body.action === 'dig' && body.tileIndex === 'auto') request.body = { ...body, tileIndex: autoTile(user) };
   if (body.action === 'setDepth') {
     const want = Math.floor(Number(body.depth));
     const d = depthsOf(store, user).find((x) => x.depth === want);

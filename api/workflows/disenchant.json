@@ -25,7 +25,7 @@
     },
     { "parameters": { "mode": "runOnceForAllItems", "jsCode": "return [{ json: {} }];" }, "id": "barrier-2", "name": "Sync Get Rarities -> Get Pulls", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-540, 300] },
     {
-      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "returnAll": true, "additionalOptions": {} },
+      "parameters": { "operation": "getAll", "docId": "={{ $('Set Config').first().json.docId }}", "tableId": "Pulls", "rowHint": "={{ $('Set Config').first().json.pullId }}", "returnAll": true, "additionalOptions": {} },
       "id": "get-pulls", "name": "Get Pulls", "type": "n8n-nodes-base.grist", "typeVersion": 1, "position": [-400, 300],
       "alwaysOutputData": true, "credentials": { "gristApi": { "id": "Yoc8FS9lCXpWBRrk", "name": "Grist account" } }
     },

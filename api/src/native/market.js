@@ -154,7 +154,7 @@ export function beforeWorkflow({ store, path, request }) {
     const tr = store.get('Trades', Number(body.tradeId));
     if (tr) owners.add(refId(tr.FromUser));
   }
-  const mine = store.getAll('Pulls').filter((p) => owners.has(refId(p.User)) && !p.InVault);
+  const mine = [...owners].flatMap((id) => store.rowsBy('Pulls', 'User', id)).filter((p) => !p.InVault);
   if (mine.some((p) => p.Insured && explicit.has(p.id))) return { status: 400, json: { error: 'insured_copy' } };
   if (path === 'disenchant' && Number(body.pullId)) {
     const p = store.get('Pulls', Number(body.pullId));
@@ -170,7 +170,10 @@ export function beforeWorkflow({ store, path, request }) {
     if (denied) return denied;
     request._editionCarry = carried ? carried.Edition : null;
   }
-  const hide = mine.filter((p) => p.Insured || ((p.Starred || p.Edition) && !explicit.has(p.id)));
+  // Decraft d'un exemplaire precis : le workflow ne lit que lui (rowHint), rien
+  // a cacher ; sinon un joueur aux nombreuses ★ reecrit ces lignes a chaque appel.
+  const targeted = path === 'disenchant' && Number(body.pullId) && store.get('Pulls', Number(body.pullId));
+  const hide = targeted ? [] : mine.filter((p) => p.Insured || ((p.Starred || p.Edition) && !explicit.has(p.id)));
   hide.forEach((p) => store.update('Pulls', p.id, { InVault: true }));
   request._hidden = hide.map((p) => p.id);
   return null;

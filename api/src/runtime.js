@@ -110,6 +110,8 @@ class NodeOutput {
   }
 }
 
+const isSyncNode = (node) => node.type === 'n8n-nodes-base.code' && node.parameters.mode === 'runOnceForAllItems' && String(node.parameters.jsCode || '').trim() === 'return [{ json: {} }];';
+
 function itemsAccessor(items) {
   return {
     first: () => items[0],
@@ -227,7 +229,10 @@ class Execution {
       return pa[1] - pb[1] || pa[0] - pb[0];
     });
     for (const n of next) {
-      const items = jsonText != null && n.index === 0 ? this.runData.get(name).items(0) : structuredClone(n.items);
+      // Noeud "Sync" apres une lecture de table : il ignore ses entrees, inutile de reparser la table.
+      const items = jsonText != null && n.index === 0
+        ? (isSyncNode(this.nodes.get(n.target)) ? [{ json: {} }] : this.runData.get(name).items(0))
+        : structuredClone(n.items);
       await this.execNode(n.target, items);
     }
   }
@@ -310,6 +315,12 @@ class Execution {
       const ctx = this.context(items, item, cache);
       const table = evaluate(p.tableId, ctx);
       if (op === 'getAll') {
+        // rowHint : la seule ligne dont le workflow a besoin, si elle existe
+        // (exemplaire precis du decraft) ; sinon lecture complete, pour que le
+        // workflow donne le meme refus qu'avant.
+        const hint = p.rowHint && items.length === 1 ? Number(evaluate(p.rowHint, ctx)) : 0;
+        const row = hint ? this.store.get(table, hint) : null;
+        if (row) { out.push({ json: row }); break; }
         // Un getAll par item (les workflows s'assurent d'un seul
         // item en entree grace aux noeuds "Sync").
         if (items.length === 1) { jsonText = this.store.getAllJson(table); break; }
@@ -328,7 +339,9 @@ class Execution {
       } else throw new Error(`Unsupported table operation ${op}`);
     }
     if (jsonText != null) {
-      return { outputs: [JSON.parse(jsonText).map((json) => ({ json }))], jsonText };
+      // Pas de JSON.parse ici : NodeOutput.items le fait a la demande. Le
+      // contenu de outputs ne sert qu'a savoir si la table est vide.
+      return { outputs: [jsonText === '[]' ? [] : [{ json: {} }]], jsonText };
     }
     return { outputs: [out] };
   }

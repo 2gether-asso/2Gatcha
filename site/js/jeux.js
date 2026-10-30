@@ -445,6 +445,11 @@ async function loadDig() {
 let digCountdownTimer = null;
 function renderDigEnergy(energy, maxEnergy, secondsUntilNext) {
   if (digCountdownTimer) { clearInterval(digCountdownTimer); clearTimeout(digCountdownTimer); digCountdownTimer = null; }
+  // Tout fouiller : autant de tuiles que l'energie le permet.
+  const allBtn = document.getElementById("dig-all-btn");
+  allBtn.hidden = energy < 2;
+  allBtn.disabled = digBusy;
+  allBtn.innerHTML = `&#9935;&#65039; Tout fouiller (×${energy})`;
   document.getElementById("dig-energy-bar").innerHTML = Array.from({ length: maxEnergy }, (_, i) => `
     <span class="dig-pip ${i < energy ? "filled" : ""}"></span>
   `).join("");
@@ -679,6 +684,61 @@ async function kennelAction(kind, btn) {
     btn.disabled = false;
     const msg = { not_enough_dust: "Pas assez de poussières.", no_bone: "Il te faut un os.", dog_already_active: "Milo creuse déjà !", dog_max_time: "Milo a déjà assez de travail pour le moment.", dog_daily_limit: "Milo a assez creusé aujourd'hui : reviens demain !" };
     Toast.error(msg[e.code] || friendlyError(e));
+  }
+}
+
+// Tout fouiller (2026-10-31) : toute l'energie en une requete, le serveur tire
+// les tuiles (tileIndex "auto", api/src/native/digdepth.js) et les grilles
+// terminees s'enchainent. Memes regles qu'a la main ; bilan unique a la fin.
+async function digAll(btn) {
+  const n = digEnergy;
+  if (digBusy || n < 2) return;
+  digBusy = true;
+  btn.disabled = true;
+  const resultEl = document.getElementById("dig-result");
+  try {
+    const results = await API.batchWrite("dig", Array.from({ length: n }, () => ({ userId: Session.userId, action: "dig", tileIndex: "auto" })));
+    const dug = results.filter((r) => r.status === 200 && r.json && r.json.dug).map((r) => r.json);
+    if (!dug.length) { Toast.error(results[0]?.json?.error === "no_energy" ? "Plus assez d'énergie." : "La fouille n'a pas pu se faire."); return; }
+    const sum = (key) => dug.reduce((s, d) => s + (Number(d[key]) || 0), 0);
+    const cards = dug.filter((d) => d.outcome === "card" && d.card).map((d) => d.card);
+    const minerals = dug.filter((d) => d.outcome === "mineral" && d.mineral).map((d) => d.mineral);
+    const boosters = dug.filter((d) => d.boosterGranted).length;
+    const keys = dug.filter((d) => d.foundKey).length;
+    const skull = dug.filter((d) => d.dinoSkull).pop()?.dinoSkull;
+    const grids = dug.filter((d) => d.boardCleared).length;
+    const kinds = dug.flatMap((d) => d.tabletKinds || []);
+    const parts = [];
+    if (sum("dustGained")) parts.push(`+${sum("dustGained")} poussières`);
+    if (boosters) parts.push(`+${boosters} jeton${boosters > 1 ? "s" : ""} booster`);
+    if (keys) parts.push(`+${keys} ${resIcon("key")}`);
+    if (sum("wormsFound")) parts.push(`+${sum("wormsFound")} ${resIcon("worm")}`);
+    if (sum("carrotsFound")) parts.push(`+${sum("carrotsFound")} &#129365;`);
+    if (sum("tabletsFound")) parts.push(`&#127994; ${sum("tabletsFound")} tablette${sum("tabletsFound") > 1 ? "s" : ""}`);
+    const lines = [
+      ...cards.map((c) => `<li>&#127183; <strong>${escHtml(c.name)}</strong>${c.rarity ? ` (${escHtml(c.rarity.name)})` : ""}</li>`),
+      ...minerals.map((m) => `<li><img class="ico-art" src="assets/${encodeURI(m.img)}" alt="" /> ${escHtml(m.name)} <span class="mineral-tier tier-${m.tier}">palier ${m.tier}</span></li>`),
+      ...kinds.map((k) => `<li>${k.icon} ${escHtml(k.label)}</li>`)
+    ];
+    resultEl.style.display = "block";
+    resultEl.innerHTML = `&#9935;&#65039; <strong>${dug.length} tuile${dug.length > 1 ? "s" : ""} creusée${dug.length > 1 ? "s" : ""}</strong>${grids ? `, ${grids} grille${grids > 1 ? "s" : ""} terminée${grids > 1 ? "s" : ""}` : ""} : ${parts.join(" · ") || "rien trouvé cette fois"}.${lines.length ? `<ul>${lines.join("")}</ul>` : ""}`;
+    if (skull) {
+      document.getElementById("tab-dino-btn").style.display = "";
+      resultEl.insertAdjacentHTML("beforeend", `<div class="dig-skull"><img class="ico-art" src="assets/CraneDeDino.png" alt="" /> <strong>Incroyable : un crâne de dinosaure !</strong> Avec ${skull.hatchBones} os, ramène-le à la vie dans l'onglet <a href="jeux.html#dinos">Dinos</a>.</div>`);
+      Toast.success("&#128128; Tu as déterré un CRÂNE DE DINOSAURE !");
+    }
+    if (dug.some((d) => d.reducedRewards)) resultEl.insertAdjacentHTML("beforeend", `<div class="dig-reduced">Rendement réduit : plus de poussières à plein tarif aujourd'hui (reviens demain).</div>`);
+    if (kinds.length || sum("tabletsFound")) resultEl.insertAdjacentHTML("beforeend", `<div class="dig-worms"><a href="jeux.html#archeologie">Va dégager tes tablettes</a></div>`);
+    const up = dug.filter((d) => d.levelUp).pop();
+    if (up) announceLevelUp(toolFor(DIG_TOOLS, up.levelUp).icon, "Fouille", up.levelUp, up.digLevel);
+    announceDogReport(dug.find((d) => d.dogReport && d.dogReport.tiles > 0)?.dogReport);
+    if ((skull || cards.length) && typeof confetti === "function") confetti({ particleCount: skull ? 250 : 150, spread: skull ? 140 : 100, origin: { y: 0.5 } });
+    if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+  } catch (e) {
+    Toast.error(friendlyError(e));
+  } finally {
+    digBusy = false;
+    await loadDig();
   }
 }
 
@@ -1717,6 +1777,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("dig-use-bone-btn").addEventListener("click", (e) => kennelAction("use", e.currentTarget));
   document.getElementById("dig-frenzy-btn").addEventListener("click", (e) => dogFrenzy(e.currentTarget));
+  document.getElementById("dig-all-btn").addEventListener("click", (e) => digAll(e.currentTarget));
   // Onglet Coffre-fort cache tant que le joueur n'a jamais eu de clef : les
   // clefs et leurs usages se decouvrent en explorant, pas dans un menu.
   const initial = getInitialTab();

@@ -6,8 +6,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import zlib from 'node:zlib';
 import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { Store } from '../src/store.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-batchfb-${process.pid}.sqlite`);
@@ -80,6 +83,51 @@ try {
     assert.equal((await post('batch-write', { path: 'open-pack', calls: [{ userId: uid }] })).status, 400);
   });
 
+  await test("lot d'ecritures : limite a 2000, decraft refuse comme a l'unite si l'exemplaire n'existe plus", async () => {
+    assert.equal((await post('batch-write', { path: 'disenchant', calls: Array(2001).fill({ userId: uid }) })).status, 400);
+    const r = await post('batch-write', { path: 'disenchant', calls: Array(60).fill({ userId: uid, cardId: 1, finish: 'normal', quality: 'mint', pullId: 999999 }) });
+    assert.equal(r.json.results.length, 60);
+    assert.ok(r.json.results.every((x) => x.json.error === 'variant_not_owned'));
+  });
+
+  await test('tout fouiller : tuiles tirees par le serveur, energie debitee, autres actions refusees', async () => {
+    const before = (await post('dig', { userId: uid, action: 'status' })).json;
+    assert.ok(before.energy >= 3, 'energie ' + before.energy);
+    const r = await post('batch-write', { path: 'dig', calls: Array(3).fill({ userId: uid, action: 'dig', tileIndex: 'auto' }) });
+    assert.equal(r.status, 200);
+    assert.ok(r.json.results.every((x) => x.status === 200 && x.json.dug), JSON.stringify(r.json.results[0]).slice(0, 200));
+    assert.equal(r.json.results[2].json.newEnergy, before.energy - 3);
+    const other = await post('batch-write', { path: 'dig', calls: [{ userId: uid, action: 'frenzy' }] });
+    assert.equal(other.json.results[0].json.error, 'invalid_batch');
+    assert.equal((await post('dig', { userId: uid, action: 'dig', tileIndex: 99 })).json.error, 'invalid_tile');
+  });
+
+  await test('index du store : suit creations, modifications, suppressions et annulations', () => {
+    const file = tmp + '.index';
+    const s = new Store(file, { lenient: true });
+    try {
+      const a = s.create('T', { User: ['R', 1], N: 1 });
+      const b = s.create('T', { User: 1, N: 2 });
+      assert.deepEqual(s.rowsBy('T', 'User', 1).map((x) => x.id), [a.id, b.id]);
+      const c = s.create('T', { User: 1, N: 3 });
+      assert.equal(s.countBy('T', 'User', 1), 3);
+      s.update('T', b.id, { User: 2 });
+      assert.deepEqual(s.rowsBy('T', 'User', 1).map((x) => x.id), [a.id, c.id]);
+      assert.deepEqual(s.rowsBy('T', 'User', 2).map((x) => x.N), [2]);
+      s.delete('T', a.id);
+      assert.equal(s.countBy('T', 'User', 1), 1);
+      assert.throws(() => s.transaction(() => { s.delete('T', c.id); throw new Error('annule'); }));
+      assert.equal(s.countBy('T', 'User', 1), 1);
+      s.rowsBy('T', 'User', 1)[0].N = 99;
+      assert.equal(s.get('T', c.id).N, 3);
+      s.updateColumn('T', 'N', { id: 'M' });
+      assert.equal(s.rowsBy('T', 'M', 3).length, 1);
+    } finally {
+      s.db.close();
+      for (const sfx of ['', '-wal', '-shm']) fs.rmSync(file + sfx, { force: true });
+    }
+  });
+
   await test('avis : validation, envoi, quota horaire', async () => {
     assert.equal((await post('feedback', { userId: uid, message: 'ab' })).json.error, 'message_too_short');
     assert.equal((await post('feedback', { userId: uid, message: 'x'.repeat(2001) })).json.error, 'message_too_long');
@@ -91,6 +139,36 @@ try {
     const limited = await post('feedback', { userId: uid, message: 'Un message de trop' });
     assert.equal(limited.status, 429);
     assert.equal(limited.json.error, 'feedback_rate_limited');
+  });
+
+  await test('avis : envoye a GlitchTip comme un message titre, sans pile', async () => {
+    const bodies = [];
+    const fake = http.createServer((req, res) => {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        bodies.push((req.headers['content-encoding'] === 'gzip' ? zlib.gunzipSync(buf) : buf).toString('utf8'));
+        res.end('{}');
+      });
+    });
+    await new Promise((r) => fake.listen(0, '127.0.0.1', r));
+    try {
+      const mon = await import('../src/monitoring.js');
+      assert.equal(await mon.initMonitoring({ dsn: `http://abc@127.0.0.1:${fake.address().port}/2`, environment: 'test', release: 'test' }), true);
+      const title = '[Avis · Idée] Une vraie idee';
+      assert.equal(mon.captureMessage(title, 'info', { feedback: 'idea', userId: 1, pseudo: 'Test' }, { message: 'Une vraie idee' }), true);
+      await mon.flushMonitoring(3000);
+      const event = bodies.join('\n').split('\n').map((l) => { try { return JSON.parse(l); } catch { return null; } }).find((j) => j && j.message);
+      assert.ok(event, 'evenement recu');
+      assert.equal(event.message, title);
+      assert.equal(event.level, 'info');
+      assert.equal(event.exception, undefined); // sinon GlitchTip titre « ? »
+      assert.equal(event.tags.feedback, 'idea');
+      assert.equal(event.extra.message, 'Une vraie idee');
+    } finally {
+      fake.close();
+    }
   });
 } finally {
   server.kill();

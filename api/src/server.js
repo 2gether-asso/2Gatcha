@@ -306,6 +306,7 @@ async function handleBatch(req, res, url) {
   if (limited) return sendGate(res, req, limited);
   const results = [];
   for (const c of calls) {
+    await new Promise(setImmediate); // ne gele pas l'API pendant le lot (voir batch-write)
     const method = String(c && c.method || 'GET').toUpperCase();
     const hookPath = String(c && c.path || '').replace(/^\/+|\/+$/g, '');
     const route = routes.get(`${method} ${hookPath}`);
@@ -342,8 +343,12 @@ async function handleBatch(req, res, url) {
 // qu'en individuel ; le lot compte pour une seule ecriture dans la limite de
 // debit. Un echec n'arrete pas le lot (chaque resultat a son statut).
 // 2026-10-29 : + rangement au coffre, souhaits, annulation d'echanges, vitrine.
-const BATCH_WRITE_PATHS = new Set(['disenchant', 'altar-sacrifice', 'craft', 'foil-upgrade', 'card-quality-repair', 'personal-vault', 'wishlist', 'trade', 'showcase']);
-const BATCH_WRITE_MAX = 50;
+// 2026-10-31 : + fouille (« Tout fouiller », seulement l'action dig). Limite
+// portee de 50 a 2000 : « tout decrafter » tient en une requete (16 ms par
+// decraft a la taille de la prod), le site decoupe seul au-dela.
+const BATCH_WRITE_PATHS = new Set(['disenchant', 'altar-sacrifice', 'craft', 'foil-upgrade', 'card-quality-repair', 'personal-vault', 'wishlist', 'trade', 'showcase', 'dig']);
+const BATCH_WRITE_ACTIONS = { dig: new Set(['dig']) };
+const BATCH_WRITE_MAX = 2000;
 async function handleBatchWrite(req, res, url) {
   const { path: rawPath, calls } = await readBody(req);
   const hookPath = String(rawPath || '').replace(/^\/+|\/+$/g, '');
@@ -356,7 +361,11 @@ async function handleBatchWrite(req, res, url) {
   if (!isNative && !route) return sendJson(res, req, 404, { error: 'not_found' });
   const results = [];
   for (const c of calls) {
+    // Rend la main entre deux appels : sans cela, le lot gele l'API pour tous
+    // les joueurs jusqu'a sa fin (les appels ne font pas d'attente reelle).
+    await new Promise(setImmediate);
     const body = c && typeof c === 'object' ? c : {};
+    if (BATCH_WRITE_ACTIONS[hookPath] && !BATCH_WRITE_ACTIONS[hookPath].has(body.action)) { results.push({ status: 400, json: { error: 'invalid_batch' } }); continue; }
     const denied = native.gate({ token, body, query: {}, rate: false });
     if (denied) { results.push({ status: denied.status, json: denied.json }); continue; }
     try {

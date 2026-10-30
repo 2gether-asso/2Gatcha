@@ -170,8 +170,12 @@
     hatch.innerHTML = `<img class="ico-art" src="assets/CraneDeDino.png" alt="" /> Ramener un dino à la vie (1 crâne + ${st.hatchBones} os)`;
     const collect = $("dino-collect-btn");
     collect.hidden = !finds;
+    // Ces boutons survivent a render() et restaient desactives par le clic
+    // precedent quand de nouvelles trouvailles arrivaient pendant la visite.
+    collect.disabled = false;
     collect.innerHTML = `⛏️ Récupérer les trouvailles de tes dinos (${finds})`;
     $("dino-clean-all-btn").hidden = st.dinos.reduce((s, d) => s + d.poops + d.goldPoops, 0) < 2;
+    $("dino-clean-all-btn").disabled = false;
     $("dino-scene-box").innerHTML = st.dinos.length ? scene(st) : "";
     $("dino-eggs").innerHTML = eggsHtml(st);
     $("dino-list").innerHTML = st.dinos.length

@@ -78,7 +78,7 @@ export function afterWorkflow({ store, path, request, response }) {
       { k: isTight(store) ? -0.1 : 0, label: '🏦 Mode anti-inflation' },
       { k: starMult, label: '⭐ Carte ★' },
       { k: talentValue(user, 'patron'), label: '💰 Talent Mécène' },
-      { k: card && store.getAll('Pulls').filter((p) => refId(p.Card) === card.id).length < setting(store, 'RareOnServerCopies') ? setting(store, 'RareOnServerDecraftBonus') : 0, label: '💎 Carte rare sur le serveur' },
+      { k: card && store.countBy('Pulls', 'Card', card.id) < setting(store, 'RareOnServerCopies') ? setting(store, 'RareOnServerDecraftBonus') : 0, label: '💎 Carte rare sur le serveur' },
       { k: face === 4 ? 0.25 : 0, label: '🎲 Dé du jour' },
       { k: lucky, label: luckyLabel }
     ]);

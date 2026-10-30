@@ -751,8 +751,8 @@
   // coup, avec les memes regles que le bouton Rapide (jamais de #001,
   // d'arc-en-ciel, de parfait etat, d'edition, de ★, d'assure ni de coffre),
   // filtrables par niveau de depart ; option « enchainer » : les exemplaires
-  // obtenus refusionnent au niveau suivant tant que c'est possible. Envoi par
-  // paquets (/webhook/batch-write), arretable entre deux paquets.
+  // obtenus refusionnent au niveau suivant tant que c'est possible. Une requete
+  // par niveau atteint (/webhook/batch-write) : le suivant depend du resultat.
   const QUICK_PREF_KEY = "2gatcha_fuse_all_prefs";
   function quickPlan(kind, levels) {
     const isFinish = kind === "finish";
@@ -850,8 +850,7 @@
       if (!(await Confirm.show(`${verb} en lot : <strong>${list.length} ${isFinish ? "fusion" : "restauration"}${list.length > 1 ? "s" : ""}</strong>${prefs.cascade ? ", puis les niveaux suivants" : ""} ? Les exemplaires consommés disparaissent.`, { title: `${isFinish ? "Fusions" : "Restaurations"} rapides`, confirmText: verb }))) { go.disabled = false; return; }
       running = { stop: false, done: false };
       overlay.querySelectorAll("input").forEach((i) => { i.disabled = true; });
-      go.disabled = false;
-      go.textContent = "Arrêter";
+      go.textContent = "En cours…";
       let ok = 0, failed = 0, done = 0, broke = false;
       const reached = {};
       const path = isFinish ? "foil-upgrade" : "card-quality-repair";
@@ -863,7 +862,7 @@
             : { userId: Session.userId, cardId: u.card.cardId, fromQuality: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: 0, dustCopies: 0 });
           const progress = (n) => { $("fuse-all-count").innerHTML = `${done + n} ${isFinish ? "fusion" : "restauration"}${done + n > 1 ? "s" : ""}`; };
           // API pas encore a jour : API.batchWrite repasse seul par un appel par fusion.
-          const results = await API.batchWrite(path, bodies, { chunk: 25, shouldStop: () => running.stop, onChunk: progress });
+          const results = await API.batchWrite(path, bodies, { shouldStop: () => running.stop, onChunk: progress });
           results.forEach((r, i) => {
             if (r.status === 200 && r.json && !r.json.error) { ok++; const to = (isFinish ? r.json.toFinish : r.json.toQuality) || list[i].to; reached[to] = (reached[to] || 0) + 1; } else { failed++; if (r.json && /dust/.test(r.json.error || "")) broke = true; }
           });

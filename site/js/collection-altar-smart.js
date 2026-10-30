@@ -2,8 +2,8 @@
 // les doublons par groupes de 3 de meme rarete, selon des regles simples
 // (raretes, exemplaires a garder, finitions / etats / wishlist a proteger),
 // avec un apercu avant de lancer. Jamais touches : exemplaires assures, ★,
-// numeros #1, editions limitees, cartes du coffre. Les sacrifices partent par
-// paquets de 10 (/webhook/batch-write, 2026-10-18), arretables entre deux paquets.
+// numeros #1, editions limitees, cartes du coffre. Tous les sacrifices partent
+// en une requete (/webhook/batch-write, 2026-10-31).
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -130,15 +130,11 @@
       if (!(await Confirm.show(`Lancer <strong>${groups.length} sacrifice${groups.length > 1 ? "s" : ""}</strong> (${groups.length * 3} exemplaires) ? Chaque sacrifice a 50 % de chances de donner une carte de la rareté supérieure ; en cas d'échec, les 3 cartes sont perdues contre un os. C'est irréversible.`, { title: "Sacrifice intelligent ?", confirmText: "Sacrifier", dangerous: true }))) { go.disabled = false; return; }
       running = { stop: false, done: false };
       overlay.querySelectorAll("input").forEach((i) => { i.disabled = true; });
-      go.disabled = false;
-      go.textContent = "Arrêter";
+      go.textContent = "Sacrifice…";
       const won = [];
       let lost = 0, failed = 0;
       try {
-        const results = await API.batchWrite("altar-sacrifice", groups.map((g) => ({ userId: Session.userId, pullIds: g.items.map((x) => x.copy.pullId) })), {
-          chunk: 10, shouldStop: () => running.stop,
-          onChunk: (done, total) => { $("altar-smart-count").innerHTML = `${done} / ${total}`; }
-        });
+        const results = await API.batchWrite("altar-sacrifice", groups.map((g) => ({ userId: Session.userId, pullIds: g.items.map((x) => x.copy.pullId) })));
         results.forEach((r) => { if (r.status === 200 && r.json && !r.json.error) { if (r.json.success && r.json.card) won.push(r.json.card); else lost++; } else failed++; });
       } catch (err) {
         Toast.error(friendlyError(err));

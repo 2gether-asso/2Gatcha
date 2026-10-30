@@ -1,9 +1,8 @@
 // Recyclage intelligent (collection, mode Décrafter, 2026-10-09) : decrafte
 // en lot les doublons selon des regles simples (raretes, exemplaires a
 // garder, finitions et etats a proteger), avec un apercu avant de lancer.
-// Les exemplaires assures, ★ et les numeros #1 ne sont jamais touches. Les
-// decrafts partent par paquets (une requete pour 25 exemplaires,
-// /webhook/batch-write, 2026-10-18) et le lot peut etre arrete entre deux paquets.
+// Les exemplaires assures, ★ et les numeros #1 ne sont jamais touches. Tous les
+// decrafts partent en une requete (/webhook/batch-write, 2026-10-31).
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -122,15 +121,11 @@
       if (!(await Confirm.show(`Recycler <strong>${list.length} exemplaires</strong> pour environ <strong>+${total.toLocaleString("fr-FR")} poussières</strong> ? C'est irréversible.`, { title: "Recycler ces doublons ?", confirmText: "Recycler", dangerous: true }))) { go.disabled = false; return; }
       running = { stop: false, done: false };
       overlay.querySelectorAll("input").forEach((i) => { i.disabled = true; });
-      go.disabled = false;
-      go.textContent = "Arrêter";
+      go.textContent = "Recyclage…";
       let ok = 0, dust = 0, failed = 0;
-      $("recycle-count").innerHTML = `0 / ${list.length}`;
+      $("recycle-count").innerHTML = `${list.length} exemplaires`;
       try {
-        const results = await API.batchWrite("disenchant", list.map((x) => ({ userId: Session.userId, cardId: x.card.cardId, finish: x.finish, quality: x.quality, pullId: x.copy.pullId })), {
-          chunk: 25, shouldStop: () => running.stop,
-          onChunk: (done, total) => { $("recycle-count").innerHTML = `${done} / ${total}`; }
-        });
+        const results = await API.batchWrite("disenchant", list.map((x) => ({ userId: Session.userId, cardId: x.card.cardId, finish: x.finish, quality: x.quality, pullId: x.copy.pullId })));
         results.forEach((r) => { if (r.status === 200 && r.json && !r.json.error) { ok++; dust += r.json.dustGained || 0; } else failed++; });
       } catch (err) {
         Toast.error(friendlyError(err));

@@ -828,6 +828,7 @@ select option { background: var(--bg-panel-solid); color: var(--text); }
 #dig-pane > .dig-shop { margin: 0 0 10px; }
 .dig-ground { margin-top: 14px; }
 .dig-ground > .dig-bag { margin: 10px 0 12px; }
+.dig-ground > .dig-all-btn { margin: 0 0 12px; }
 
 /* ===================================================================== */
 /* Salle interdite, refonte du 26 octobre : velours, laiton et neon.       */

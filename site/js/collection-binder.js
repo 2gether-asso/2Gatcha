@@ -939,14 +939,21 @@
     const btn = $("bulk-disenchant-btn");
     btn.disabled = true;
     let successCount = 0, dust = 0;
-    for (const key of keys) {
+    const items = keys.map((key) => {
       const { cardId, finish, quality } = parseNavKey(key);
       const copy = Coll.copiesToSpend(variantCopies(state.ownedMap.get(cardId), finish, quality), 1)[0];
-      try {
-        const res = await API.disenchantCard(Session.userId, cardId, finish, quality, copy?.pullId);
-        dust += res.dustGained || 0;
-        successCount++;
-      } catch (e) { /* on continue avec les suivantes */ }
+      return { userId: Session.userId, cardId, finish, quality, pullId: copy?.pullId };
+    });
+    const tally = (res) => { dust += res.dustGained || 0; successCount++; };
+    let results = [];
+    try { results = await API.batchWrite("disenchant", items); } catch (e) { /* bilan a 0 ci-dessous */ }
+    for (const [i, r] of results.entries()) {
+      if (r.status === 200 && r.json && !r.json.error) { tally(r.json); continue; }
+      // Edition limitee : l'appel seul demande confirmation au joueur.
+      if (r.json && r.json.error === "edition_copy") {
+        const { cardId, finish, quality, pullId } = items[i];
+        try { tally(await API.disenchantCard(Session.userId, cardId, finish, quality, pullId)); } catch (e) { /* on continue avec les suivantes */ }
+      }
     }
     btn.disabled = false;
     Toast.success(`${successCount} carte${successCount > 1 ? "s" : ""} décraftée${successCount > 1 ? "s" : ""} (+${dust} poussières).`);

@@ -8,6 +8,12 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-10-31', title: 'D’un seul coup', items: [
+    'Fouille : nouveau bouton « Tout fouiller » pour dépenser toute ton énergie d’un coup, avec le bilan de tes trouvailles (merci pour l’idée !)',
+    'Recycler, sacrifier, décrafter ou fusionner beaucoup de cartes se fait maintenant d’une traite, et bien plus vite',
+    'Les succès, découvertes et bonus gagnés pendant une action en lot s’affichent enfin',
+    'Dinos : le bouton « Récupérer les trouvailles » restait bloqué quand de nouvelles trouvailles arrivaient pendant ta visite (merci pour le signalement !)'
+  ] },
   { date: '2026-10-30', title: 'Plus rapide, et à ton écoute', items: [
     'Nouveau bouton « Donner un avis » dans ton menu de joueur : une idée, un bug, un coup de cœur ? Écris-le, il arrive directement à l’équipe',
     'Les pages se chargent plus vite : tout ce qu’elles affichent arrive maintenant d’un seul coup',
