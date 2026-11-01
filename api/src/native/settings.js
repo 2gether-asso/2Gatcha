@@ -185,7 +185,8 @@ export const REGISTRY = {
   // --- Saison
   SeasonEnabled: { label: 'Saisons activées', type: 'bool', def: true, group: 'Saison', storage: 'app', help: '' },
   SeasonTiers: { ...int('Nombre de paliers', 10, 'Saison', '', 1, 50), storage: 'app' },
-  SeasonXpPerTier: { ...int('XP par palier', 120, 'Saison', 'XP gagnée pendant le mois.', 1), storage: 'app' },
+  SeasonXpPerTier: { ...int('XP par palier', 700, 'Saison', 'XP gagnée pendant le mois.', 1), storage: 'app' },
+  SeasonXpPerDay: { ...int('XP de saison comptée par jour', 250, 'Saison', 'Au plus cette XP par jour écoulé du mois ; le surplus reste en réserve et se libère les jours suivants. Avec 10 paliers de 700 XP : pass fini au plus tôt le 28. 0 = pas de limite.', 0), storage: 'app' },
   SeasonRewards: {
     label: 'Récompenses des paliers', type: 'json', group: 'Saison', storage: 'app',
     help: 'Un objet par palier (dans l’ordre) : dust, boosters, chests, keys. Le dernier palier donne aussi la carte de la saison si elle est choisie.',
@@ -388,9 +389,9 @@ export const REGISTRY = {
   TreasureHuntEnabled: { label: 'Course aux trésors hebdo', type: 'bool', def: true, group: 'Progression', storage: 'app', help: '5 indices cachés chaque semaine sur 5 pages du site.' },
   TreasureClueDust: { ...int('Course aux trésors : poussières par indice', 25, 'Progression', ''), storage: 'app' },
   TreasureHuntBonus: { label: 'Course aux trésors : bonus des 5 indices', type: 'json', group: 'Progression', storage: 'app', help: 'Objet : boosters, keys, dust.', def: { boosters: 1, keys: 1, dust: 0 } },
-  SeasonChestDustPerXp: { ...num('Coffre de saison : poussières par XP de saison', 0.2, 'Saison', '', 0, 10), storage: 'app' },
+  SeasonChestDustPerXp: { ...num('Coffre de saison : poussières par XP de saison', 0.06, 'Saison', '', 0, 10), storage: 'app' },
   SeasonChestMaxDust: { ...int('Coffre de saison : poussières max', 400, 'Saison', ''), storage: 'app' },
-  SeasonChestXpPerBooster: { ...int('Coffre de saison : XP par jeton booster', 600, 'Saison', 'Une clé tous les 2 × cette XP (2 max).', 1), storage: 'app' },
+  SeasonChestXpPerBooster: { ...int('Coffre de saison : XP par jeton booster', 2300, 'Saison', 'Une clé tous les 2 × cette XP (2 max).', 1), storage: 'app' },
   SeasonChestMaxBoosters: { ...int('Coffre de saison : jetons booster max', 3, 'Saison', '', 0, 20), storage: 'app' },
   AccountPrestigeLevel: { ...int('Prestige du compte : niveau de la 1re étoile', 31, 'Progression', 'Niveau où tous les talents sont débloqués.', 2, 500), storage: 'app' },
   AccountPrestigeStep: { ...int('Prestige du compte : niveaux par étoile suivante', 5, 'Progression', 'Chaque étoile : +1 point de talent de prestige, un titre et les récompenses ci-dessous.', 1, 100), storage: 'app' },

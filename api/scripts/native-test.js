@@ -273,7 +273,7 @@ await test('limite de debit : actions et lectures comptees a part', () => {
 
 await test('saison : XP du mois, paliers reclames une fois, carte exclusive au dernier', () => {
   const card = store.getAll('Cards').find((c) => c.Active);
-  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SeasonTiers: 3, SeasonXpPerTier: 100, SeasonRewards: [{ dust: 10 }, { boosters: 1 }, { chests: 1, keys: 1 }] } } });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SeasonXpPerDay: 0, SeasonTiers: 3, SeasonXpPerTier: 100, SeasonRewards: [{ dust: 10 }, { boosters: 1 }, { chests: 1, keys: 1 }] } } });
   assert.equal(call('POST', 'admin-season', { body: { discordId: ADMIN, action: 'setCard', cardId: card.id } }).json.seasons[0].card.cardId, card.id);
   store.update('Users', 1, { XP: 1000 });
   native.beforeRequest({ userId: 1 }, {});

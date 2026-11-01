@@ -58,7 +58,7 @@ const refIdOf = (v) => (Array.isArray(v) ? v[1] : v);
 const cards = () => store.getAll('Cards').filter((c) => c.Active && !c.IsPromo && refIdOf(c.Extension));
 const mk = (userId, cardId, finish = 'normal', quality = 'good') => store.create('Pulls', { User: userId, Card: cardId, SerialNumber: 5000 + store.getAll('Pulls').length, Finish: finish, Quality: quality, ObtainedAt: now(), BatchId: `${userId}-${Date.now()}` }).id;
 // Pas de variation aleatoire du cours du decraft pendant les tests.
-call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ExchangeRateSwing: 0, PriceIndexEnabled: false, FishingMaxEnergy: 200, StarterEnabled: false, SurpriseEnabled: false } } }); // energie de peche large : les tests lancent beaucoup
+call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SeasonXpPerDay: 0, ExchangeRateSwing: 0, PriceIndexEnabled: false, FishingMaxEnergy: 200, StarterEnabled: false, SurpriseEnabled: false } } }); // energie de peche large : les tests lancent beaucoup
 
 let passed = 0;
 async function test(name, fn) {
@@ -435,6 +435,42 @@ await test('boutique d objets : achat illimite a inflation personnelle, effets, 
   store.update('Users', 1, { XpBoostUntil: 0 });
 });
 
+await test('saison : le pass dure le mois, le surplus reste en reserve, un palier recupere reste acquis', () => {
+  const season = (body = {}) => call('POST', 'season', { body: { userId: 1, ...body } }).json;
+  const s0 = season();
+  const row = store.getAll('SeasonProgress').find((r) => refIdOf(r.User) === 1 && r.Season === s0.season);
+  const saved = { ClaimedTier: row.ClaimedTier, BonusClaimed: row.BonusClaimed, BonusXP: row.BonusXP };
+  const savedXp = user(1).XP;
+  store.update('SeasonProgress', row.id, { ClaimedTier: 0, BonusClaimed: 0, BonusXP: 0 });
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SeasonXpPerDay' } });
+  const day = Number(parisDay(0).slice(8, 10));
+  assert.equal(s0.tiers.length * 700, 7000, 'pass a 7 000 XP par defaut');
+  // Un gros stock ouvert d'un coup : pas plus que l'allocation du jour.
+  store.update('Users', 1, { XP: (Number(row.StartXP) || 0) + 50000 });
+  let st = season();
+  assert.equal(st.xp, 250 * day);
+  assert.equal(st.xpReserve, 50000 - 250 * day);
+  assert.equal(st.xpPerDay, 250);
+  assert.equal(st.reached, Math.min(10, Math.floor((250 * day) / 700)));
+  // Fin au plus tot le 28 : avant, le dernier palier est hors d'atteinte.
+  assert.ok(Math.floor((250 * 27) / 700) < 10);
+  assert.ok(Math.floor((250 * 28) / 700) >= 10);
+  // Un palier deja recupere n'est ni perdu ni repaye.
+  store.update('SeasonProgress', row.id, { ClaimedTier: 10 });
+  st = season();
+  assert.equal(st.reached, 10);
+  assert.equal(st.tierClaimable, 0);
+  // Peu d'XP : tout compte, rien en reserve.
+  store.update('SeasonProgress', row.id, { ClaimedTier: 0 });
+  store.update('Users', 1, { XP: (Number(row.StartXP) || 0) + 100 });
+  st = season();
+  assert.equal(st.xp, 100);
+  assert.equal(st.xpReserve, 0);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { SeasonXpPerDay: 0 } } });
+  store.update('SeasonProgress', row.id, saved);
+  store.update('Users', 1, { XP: savedXp });
+});
+
 await test('saison : bonus de fin de saison compte a part, ignore a 0 poussiere', () => {
   const s = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
   if (!s.enabled) return;
@@ -588,13 +624,13 @@ await test('coffre de saison : rempli par l XP, ouvert une fois la saison passee
   const cur = store.getAll('SeasonProgress').find((r) => refIdOf(r.User) === 1 && r.Season === call('POST', 'season', { body: { userId: 1 } }).json.season);
   const prev = previousSeason(cur.Season);
   store.getAll('SeasonProgress').filter((r) => refIdOf(r.User) === 1 && r.Season === prev).forEach((r) => store.delete('SeasonProgress', r.id));
-  store.create('SeasonProgress', { User: 1, Season: prev, StartXP: (Number(cur.StartXP) || 0) - 1200, ClaimedTier: 0 });
+  store.create('SeasonProgress', { User: 1, Season: prev, StartXP: (Number(cur.StartXP) || 0) - 7000, ClaimedTier: 0 });
   let st = call('POST', 'season', { body: { userId: 1, action: 'status' } }).json;
-  assert.deepEqual(st.chest.previous.contents, { dust: 240, boosters: 2, keys: 1 });
+  assert.deepEqual(st.chest.previous.contents, { dust: 400, boosters: 3, keys: 1 });
   store.update('Users', 1, { StardustCount: 0, BoosterCount: 0 });
   st = call('POST', 'season', { body: { userId: 1, action: 'claimChest' } }).json;
   assert.equal(st.chestOpened, true);
-  assert.equal(user(1).StardustCount, 240);
+  assert.equal(user(1).StardustCount, 400);
   assert.equal(call('POST', 'season', { body: { userId: 1, action: 'claimChest' } }).json.error, 'nothing_to_claim');
 });
 

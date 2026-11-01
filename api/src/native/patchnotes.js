@@ -8,6 +8,10 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-01', title: 'Un pass pour tout le mois', items: [
+    'Le pass de saison se joue maintenant sur tout le mois : plus de paliers à gravir, et ce que tu gagnes en plus d’un jour reste en réserve pour les jours suivants',
+    'Un jour sans jouer se rattrape : rien n’est perdu'
+  ] },
   { date: '2026-11-01', title: 'Vacances en mode Chill', items: [
     'Sieste au hamac : ne fais rien pendant 2 h et réveille-toi avec des vers et des poussières',
     'Coucher de soleil : chaque soir vers 21 h, le ciel se réchauffe un quart d’heure, avec un cadeau à la clé',

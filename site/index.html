@@ -667,10 +667,12 @@
         const days = Math.floor(left / 86400), hours = Math.floor((left % 86400) / 3600);
         document.getElementById("season-ends").textContent = days ? `fin dans ${days} j ${hours} h` : `fin dans ${hours} h`;
         const total = st.tiers.length * st.xpPerTier;
-        document.getElementById("season-progress-fill").style.width = Math.min(100, (st.xp / total) * 100) + "%";
+        document.getElementById("season-progress-fill").style.width = Math.min(100, (Math.max(st.xp, st.reached * st.xpPerTier) / total) * 100) + "%";
         const next = st.tiers.find((t) => !t.reached);
+        // XP gagnee au-dela de l'allocation du jour : elle n'est pas perdue (seasons.js).
+        const reserve = st.xpReserve > 0 ? ` <span class="season-bonus-note">&#128274; ${st.xpReserve} XP en réserve : elle se libère au rythme de ${st.xpPerDay} XP par jour.</span>` : "";
         document.getElementById("season-xp").innerHTML = next
-          ? `<strong>${st.xp} XP</strong> ce mois-ci · palier ${next.tier} à ${next.xp} XP (encore ${next.xp - st.xp})`
+          ? `<strong>${st.xp} XP</strong> ce mois-ci · palier ${next.tier} à ${next.xp} XP (encore ${next.xp - st.xp})${reserve}`
           : `<span class="season-done">&#10004; Saison terminée : les ${st.tiers.length} paliers sont atteints</span> <strong>${st.xp} XP</strong> ce mois-ci.${st.bonus && st.bonus.dustPerTier > 0 ? ` <span class="season-bonus-note">Bonus de fin de saison : continue à jouer, chaque tranche de ${st.xpPerTier} XP rapporte encore <strong>+${st.bonus.dustPerTier} &#10024;</strong> (prochaine à ${st.bonus.nextXp} XP${st.bonus.claimed ? `, ${st.bonus.claimed} déjà récupérée${st.bonus.claimed > 1 ? "s" : ""}` : ""}).</span>` : ""}`;
         document.getElementById("season-tiers").innerHTML = st.tiers.map((t) => `
           <li class="season-tier ${t.claimed ? "claimed" : t.reached ? "reached" : ""}${t.card ? " season-tier-card" : ""}" title="Palier ${t.tier} (${t.xp} XP) : ${seasonRewardLabel(t.reward)}${t.card ? " + la carte " + t.card.name : ""}">

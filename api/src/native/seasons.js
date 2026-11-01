@@ -10,7 +10,7 @@
 //   POST /webhook/season        { userId, action: 'status' | 'claim' | 'claimChest' }
 //   POST /webhook/admin-season  { discordId, action: 'get' | 'setCard', season?, cardId? }
 
-import { refId, now, ok, fail, userById, isAdmin, firstAttachment, cardSummary } from './common.js';
+import { refId, now, ok, fail, userById, isAdmin, firstAttachment, cardSummary, parisDay } from './common.js';
 import { uniqueRarity } from './unique.js';
 import { grantCosmetic } from './cosmetics.js';
 import { setting } from './settings.js';
@@ -62,6 +62,15 @@ function seasonCard(store, season) {
   return card ? cardSummary(store, card) : null;
 }
 
+// Rythme du pass (2026-11-01) : un stock de boosters ouvert d'un coup finissait le
+// pass en une heure. L'XP compte au plus SeasonXpPerDay par jour ecoule du mois ;
+// le surplus reste en reserve et se libere les jours suivants. Rien n'est perdu pour
+// qui joue moins un jour. 0 = pas de limite.
+export function seasonAllowance(store, day = parisDay(0)) {
+  const perDay = setting(store, 'SeasonXpPerDay');
+  return perDay > 0 ? perDay * Number(day.slice(8, 10)) : Infinity;
+}
+
 // Contenu du coffre pour une XP de saison donnee.
 function chestContents(store, xp) {
   const x = Math.max(0, Number(xp) || 0);
@@ -107,9 +116,11 @@ function statusOf(store, user) {
   const rewards = setting(store, 'SeasonRewards');
   const row = progressRow(store, user.id, season);
   // XP de saison = XP du compte gagnee ce mois + XP des defis de saison (seasonquests.js).
-  const xp = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0) + (Number(row.BonusXP) || 0)) : 0;
+  const earned = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0) + (Number(row.BonusXP) || 0)) : 0;
+  const xp = Math.min(earned, seasonAllowance(store));
   const claimed = row ? Number(row.ClaimedTier) || 0 : 0;
-  const reached = Math.min(tiersCount, Math.floor(xp / perTier));
+  // Un palier deja recupere reste acquis, meme si la reserve ne le couvre pas encore.
+  const reached = Math.max(Math.min(claimed, tiersCount), Math.min(tiersCount, Math.floor(xp / perTier)));
   const card = seasonCard(store, season);
   // Paliers bonus (2026-10-05) : au-dela du dernier palier, chaque tranche de
   // SeasonXpPerTier XP rapporte SeasonBonusTierDust poussieres.
@@ -130,7 +141,7 @@ function statusOf(store, user) {
   bonus.claimable = bonusClaimable;
   const tierClaimable = Math.max(0, reached - claimed);
   const chest = chestOf(store, user, season, row);
-  return { enabled, season, chest, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpPerTier: perTier, reached, claimed, tierClaimable, claimable: tierClaimable + bonusClaimable, complete: reached === tiersCount, tiers, card, bonus };
+  return { enabled, season, chest, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpReserve: earned - xp, xpPerDay: setting(store, 'SeasonXpPerDay'), xpPerTier: perTier, reached, claimed, tierClaimable, claimable: tierClaimable + bonusClaimable, complete: reached === tiersCount, tiers, card, bonus };
 }
 
 function grant(store, user, reward) {

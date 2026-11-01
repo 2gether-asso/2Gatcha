@@ -42,6 +42,7 @@ export function init({ store }) {
   migrateInflationBase(store);
   migrateBoosterTarget(store);
   migrateBalance30(store);
+  migrateSeasonPass(store);
   if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === MIGRATION)) return;
   const changes = [];
   const appRow = (key) => store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key);
@@ -83,6 +84,22 @@ export function init({ store }) {
 // Inflation (2026-10-15) : on estime qu'un joueur ouvre au moins ~30 boosters
 // par jour. Un seuil d'alerte enregistre plus bas (ancienne base ~3) est
 // releve une seule fois a 45 ; l'ancienne valeur reste dans l'historique.
+// Pass de saison sur tout le mois (2026-11-01) : un reglage enregistre garde sinon
+// l'ancienne valeur. Anciennes valeurs dans AppSettings 'season-pass-2026-11-01'.
+const SEASON_MIGRATION = 'season-pass-2026-11-01';
+const SEASON_VALUES = { SeasonXpPerTier: 700, SeasonChestDustPerXp: 0.06, SeasonChestXpPerBooster: 2300 };
+function migrateSeasonPass(store) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === SEASON_MIGRATION)) return;
+  const changes = [];
+  for (const [key, to] of Object.entries(SEASON_VALUES)) {
+    const row = store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key);
+    if (!row) continue;
+    changes.push({ key, from: row.Value, to });
+    store.update('AppSettings', row.id, { Value: JSON.stringify(to) });
+  }
+  store.create('AppSettings', { Key: SEASON_MIGRATION, Value: JSON.stringify({ at: now(), changes }) });
+}
+
 const INFLATION_MIGRATION = 'inflation-2026-10-15';
 export function migrateInflationBase(store) {
   if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === INFLATION_MIGRATION)) return;
