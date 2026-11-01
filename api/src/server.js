@@ -20,6 +20,7 @@ import { initMonitoring, captureError, flushMonitoring } from './monitoring.js';
 import { createNative } from './native/index.js';
 import { requestContext, freshContext } from './native/context.js';
 import { isInvalidGrant } from './native/auth.js';
+import { webhookUrl, discordFetch } from './native/discord.js';
 
 // Suivi des erreurs (GlitchTip) le plus tot possible.
 await initMonitoring(config.monitoring);
@@ -36,7 +37,8 @@ process.on('unhandledRejection', (err) => {
 
 const store = new Store(config.dbPath);
 // Code OAuth Discord deja utilise : cas normal (voir auth.js), pas une erreur a suivre.
-const runner = new WorkflowRunner({ store, overrides: config.overrides, onError: (err, ctx) => { if (!isInvalidGrant(err && err.message)) captureError(err, ctx); } });
+// Webhook : la meme adresse que les annonces natives (Admin > Discord, sinon DISCORD_WEBHOOK_URL).
+const runner = new WorkflowRunner({ store, overrides: { ...config.overrides, get discordWebhookUrl() { return webhookUrl(store); } }, fetchImpl: (url, options) => discordFetch(url, options, store), onError: (err, ctx) => { if (!isInvalidGrant(err && err.message)) captureError(err, ctx); } });
 
 // --------------------------------------------------------------- workflows
 function loadWorkflows(dir) {
@@ -382,7 +384,10 @@ async function handleBatchWrite(req, res, url) {
 
 // Page d'admin de la base : ses modifications sont journalisees comme telles.
 const adminLock = (fn) => withLock(() => { Object.assign(requestContext.getStore(), { source: 'admin-db', actor: 'Page admin de la base' }); return fn(); });
-const handleAdmin = createAdmin({ store, withLock: adminLock, token: config.adminToken, sendJson, backups, workflowsDir: config.workflowsDir });
+// Apres l'import d'une sauvegarde : le conteneur redemarre (restart: unless-stopped) et
+// repart de zero (caches des modules, colonnes manquantes). Le verrou reste pris jusque-la.
+const restartAfterImport = () => { setTimeout(() => process.exit(0), 300); return new Promise(() => {}); };
+const handleAdmin = createAdmin({ store, withLock: adminLock, token: config.adminToken, sendJson, corsHeaders, dbPath: config.dbPath, restart: restartAfterImport, backups, workflowsDir: config.workflowsDir });
 
 const server = http.createServer(async (req, res) => {
   const started = Date.now();

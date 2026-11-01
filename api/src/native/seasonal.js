@@ -39,7 +39,7 @@ export const SEASONS = [
     drop: { icon: '🐟', name: 'un poisson en papier' }, treat: 'La farce du jour' },
   { key: 'summer', label: 'Fête de la musique', icon: '🎶', edition: 'solar', windows: () => [['06-19', '06-23']],
     drop: { icon: '🎵', name: 'une note de musique' }, treat: 'Le concert du jour' },
-  { key: 'halloween', label: 'Halloween', icon: '🎃', edition: 'cursed', windows: () => [['10-24', '11-01']], trick: 0.2,
+  { key: 'halloween', label: 'Halloween', icon: '🎃', edition: 'cursed', windows: () => [['10-24', '10-31']], trick: 0.2,
     drop: { icon: '🎃', name: 'une citrouille' }, treat: 'Un bonbon ou un sort ?',
     boss: { name: 'Le Roi Citrouille 🎃', hp: 600, reward: 2 } },
   { key: 'christmas', label: 'Noël', icon: '🎄', edition: 'snow', windows: () => [['12-18', '12-30']],

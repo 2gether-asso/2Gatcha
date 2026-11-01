@@ -155,6 +155,7 @@ window.APP_CONFIG = {
     machineRoom: "/machine-room",
     cardHistory: "/card-history",            // GET ?cardId=&serial= (historique d'un exemplaire)
     cardPrice: "/card-price",                // GET ?cardId= (cote : ventes aux encheres)
+    discordImage: "/discord-image",          // POST { id, image, userId | discordId } (annonce Discord en image, reponse discordPending)
     shareCard: "/share-card",                // POST { userId, cardId, image, ... } (partage Discord)
     adminModeSchedule: "/admin-mode-schedule", // POST { discordId, action: 'status'|'set'|'clear', preset?, at? }
     hardLeaderboard: "/hard-leaderboard",    // GET ?userId=

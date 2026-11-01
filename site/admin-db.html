@@ -198,6 +198,20 @@
 
         <section id="adb-backups-pane" style="display:none;">
           <div class="adb-card">
+            <h2>Fichier de sauvegarde (JSON)</h2>
+            <p class="adb-help">Télécharge toute la base dans un fichier, ou remets le jeu dans l'état d'un fichier. <strong>Ce fichier contient les comptes des joueurs et les secrets du serveur : ne le partage pas.</strong></p>
+            <div class="adb-row">
+              <button type="button" class="btn" id="adb-save-download">&#11015;&#65039; Télécharger la sauvegarde</button>
+              <label><input type="checkbox" id="adb-save-images" checked /> Inclure les images (fichier bien plus lourd)</label>
+            </div>
+            <div class="adb-row">
+              <label for="adb-save-file">Importer un fichier :</label>
+              <input type="file" id="adb-save-file" accept=".json,application/json" />
+            </div>
+            <div id="adb-save-summary"></div>
+            <p id="adb-save-progress" class="adb-help" role="status"></p>
+          </div>
+          <div class="adb-card">
             <div class="adb-row adb-row-between">
               <h2>Sauvegardes Azure Blob</h2>
               <button type="button" class="btn" id="adb-backup-now">&#9729; Sauvegarder maintenant</button>

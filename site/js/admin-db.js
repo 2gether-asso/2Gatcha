@@ -775,6 +775,108 @@ async function backupNow(e) {
   }
 }
 
+// ------------------------------------------------------------- sauvegarde JSON
+const SAVE_IMAGE_BATCH = 32 * 1024 * 1024; // paquets d'images : limite d'envoi du proxy
+let pendingSave = null;
+const saveProgress = (text) => { document.getElementById("adb-save-progress").textContent = text; };
+
+async function downloadSave(e) {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  saveProgress("Préparation du fichier…");
+  try {
+    const images = document.getElementById("adb-save-images").checked ? 1 : 0;
+    const res = await fetch(`${adb.apiUrl.replace(/\/$/, "")}/admin/api/export?images=${images}`, { headers: { Authorization: `Bearer ${adb.token}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `2gatcha-sauvegarde-${new Date().toISOString().slice(0, 16).replace(/:/g, "-")}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    saveProgress(`Fichier téléchargé (${formatBytes(blob.size)}).`);
+  } catch (err) {
+    saveProgress("");
+    Toast.error(`Échec du téléchargement : ${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function pickSave(e) {
+  const box = document.getElementById("adb-save-summary");
+  const file = e.target.files[0];
+  pendingSave = null;
+  box.innerHTML = "";
+  if (!file) return;
+  saveProgress("Lecture du fichier…");
+  try {
+    const save = JSON.parse(await file.text());
+    if (save.format !== "2gatcha-save" || !save.tables || !save.tables.Users) throw new Error("ce n'est pas une sauvegarde 2Gatcha");
+    pendingSave = save;
+    const count = (t) => (save.tables[t] ? save.tables[t].rows.length : 0);
+    const images = (save.images || []).length;
+    box.innerHTML = `<div class="error-box"><p><strong>${escapeHtml(file.name)}</strong> : sauvegarde du ${new Date(save.exportedAt).toLocaleString("fr-FR")}, ${Object.keys(save.tables).length} tables, ${count("Users")} joueurs, ${count("Cards")} cartes, ${count("Pulls")} exemplaires, ${images} images${images ? "" : " (les images actuelles restent en place)"}.</p>
+      <p>Tout ce qui s'est passé depuis cette date sera perdu pour tous les joueurs. Une copie de la base actuelle est gardée à côté d'elle sur le serveur, puis l'API redémarre.</p>
+      <div class="adb-row"><label for="adb-save-word">Écris IMPORTER pour confirmer :</label><input type="text" id="adb-save-word" autocomplete="off" /><button type="button" class="btn" id="adb-save-import" disabled>Importer cette sauvegarde</button></div></div>`;
+    document.getElementById("adb-save-word").addEventListener("input", (ev) => { document.getElementById("adb-save-import").disabled = ev.target.value !== "IMPORTER"; });
+    document.getElementById("adb-save-import").addEventListener("click", importSave);
+    saveProgress("");
+  } catch (err) {
+    saveProgress("");
+    Toast.error(`Fichier refusé : ${err.message}`);
+    e.target.value = "";
+  }
+}
+
+const postSave = (part, body, type = "application/json") => adbFetch(`/admin/api/import/${part}`, { method: "POST", headers: { "Content-Type": type }, body });
+
+async function importSave(e) {
+  const save = pendingSave;
+  if (!save) return;
+  e.currentTarget.disabled = true;
+  try {
+    saveProgress("Copie de sécurité de la base actuelle…");
+    const { safety } = await postSave("begin", "{}");
+    // Images d'abord : l'import des tables redemarre l'API.
+    const images = save.images || [];
+    let batch = [], size = 0, done = 0;
+    const flush = async () => {
+      if (!batch.length) return;
+      await postSave("images", JSON.stringify({ images: batch }));
+      done += batch.length;
+      saveProgress(`Images : ${done}/${images.length}…`);
+      batch = []; size = 0;
+    };
+    for (const img of images) {
+      if (size + img.data.length > SAVE_IMAGE_BATCH) await flush();
+      batch.push(img);
+      size += img.data.length;
+    }
+    await flush();
+    saveProgress("Import des tables…");
+    const payload = new Blob([JSON.stringify({ format: save.format, version: save.version, tables: save.tables, confirm: "IMPORTER" })]);
+    const gz = await new Response(payload.stream().pipeThrough(new CompressionStream("gzip"))).blob();
+    await postSave("commit", gz, "application/gzip");
+    pendingSave = null;
+    saveProgress("Sauvegarde importée, redémarrage de l'API…");
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const up = await fetch(`${adb.apiUrl.replace(/\/$/, "")}/health`).then((r) => r.ok).catch(() => false);
+      if (up && i > 0) {
+        Toast.success("Sauvegarde importée.");
+        saveProgress(`Terminé. Copie de la base d'avant l'import : ${safety}`);
+        document.getElementById("adb-save-summary").innerHTML = "";
+        return;
+      }
+    }
+    saveProgress(`Importée, mais l'API n'est pas revenue en 1 minute : relance-la à la main. Copie de la base d'avant l'import : ${safety}`);
+  } catch (err) {
+    saveProgress("");
+    Toast.error(`Échec de l'import : ${err.message}`);
+  }
+}
+
 // ------------------------------------------------------------- init
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adb-api-url").value = adbLoad(ADB_URL_KEY) || defaultApiUrl();
@@ -785,6 +887,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adb-tab-tables").addEventListener("click", () => setTab("tables"));
   document.getElementById("adb-tab-backups").addEventListener("click", () => setTab("backups"));
   document.getElementById("adb-backup-now").addEventListener("click", backupNow);
+  document.getElementById("adb-save-download").addEventListener("click", downloadSave);
+  document.getElementById("adb-save-file").addEventListener("change", pickSave);
 
   const quality = document.getElementById("adb-quality");
   quality.addEventListener("input", () => { document.getElementById("adb-quality-label").textContent = quality.value; });

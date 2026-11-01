@@ -118,6 +118,16 @@ la base actuelle (renommée en `2gatcha.sqlite.avant-restauration-<date>`).
 L'onglet **Sauvegardes** de `admin-db.html` liste les sauvegardes et en lance
 une à la main ; `/health` indique la date de la dernière.
 
+### Fichier de sauvegarde JSON
+
+Le même onglet télécharge toute la base dans un fichier JSON (images en option)
+et peut en importer un, sans Azure ni accès au serveur. L'import remplace toutes
+les tables d'un coup, garde une copie de la base d'avant
+(`2gatcha.sqlite.avant-import-<date>`, les 3 dernières), puis l'API s'arrête pour
+redémarrer : il faut donc `restart: unless-stopped` (déjà dans `docker-compose.yml`).
+Un fichier sans images laisse les images actuelles en place. Le fichier contient
+les comptes et les secrets du serveur (table `AppSettings`) : à garder privé.
+
 ## Schéma créé automatiquement
 
 Au démarrage, l'API crée ce qui manque, sans rien supprimer :
@@ -307,7 +317,8 @@ maintenance.
   ajouter, renommer, changer le type (valeurs reconverties) et supprimer des
   colonnes ; créer, renommer et supprimer des tables. Avant un renommage ou
   une suppression, la page liste les workflows qui mentionnent ce nom.
-- **Sauvegardes** : liste et sauvegarde immédiate.
+- **Sauvegardes** : fichier JSON à télécharger ou à importer (voir ci-dessus),
+  liste des sauvegardes Azure et sauvegarde immédiate.
 
 ## Configuration (`.env`)
 

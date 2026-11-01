@@ -416,7 +416,7 @@ const ShareStudio = (function () {
     if (o.finish && o.finish !== "normal") bits.push([FINISH[o.finish] || o.finish, o.finish === "gold" ? "#fbbf24" : o.finish === "emerald" ? "#34d399" : pal.a2]);
     if (o.quality) bits.push([QUALITY[o.quality] || o.quality, "#94a3b8"]);
     if (o.edition && EDITIONS[o.edition]) bits.push([`Édition ${EDITIONS[o.edition].label}`, editionColor(o.edition)]);
-    const owner = Session.pseudo ? `Dans la collection de ${Session.pseudo}` : "";
+    const owner = o.owner != null ? o.owner : Session.pseudo ? `Dans la collection de ${Session.pseudo}` : "";
     if (fmt === "square") {
       const cw = 470;
       rays(g, 330, 560, 640, col, 20, tier >= 3 ? 0.22 : 0.12);
@@ -683,6 +683,79 @@ const ShareStudio = (function () {
   }
 
   // ------------------------------------------------------------ studio
+  // Annonce Discord sans carte (nouveau code, message de l'admin) : titre et texte.
+  function wrapText(g, text, maxW) {
+    const out = [];
+    for (const para of String(text).split("\n")) {
+      let line = "";
+      for (const word of para.split(" ")) {
+        const next = line ? line + " " + word : word;
+        if (line && g.measureText(next).width > maxW) { out.push(line); line = word; } else line = next;
+      }
+      out.push(line);
+    }
+    return out;
+  }
+  async function renderAnnounce(fmt, a, pal) {
+    const { w: W, h: H } = FORMATS[fmt];
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    const col = a.color || pal.a1;
+    const plain = (t) => String(t || "").replace(/\*\*/g, "");
+    const picture = a.picture ? await tryImg(a.picture) : null;
+    background(g, W, H, pal, col, "announce" + a.id);
+    rays(g, W / 2, H * 0.5, W, col, 22, 0.1);
+    brand(g, W / 2 + 20, 130, 66, pal);
+    const R = rng("sp" + a.id);
+    for (let i = 0; i < 10; i++) sparkle(g, 60 + R() * (W - 120), 190 + R() * (H - 300), 8 + R() * 16, i % 2 ? "#fde68a" : "#ffffff", 0.7);
+    const px = 90, py = 210, pw = W - 180, ph = H - 330;
+    g.save();
+    rr(g, px, py, pw, ph, 36);
+    g.fillStyle = alpha(pal.panel, 0.82);
+    g.fill();
+    g.lineWidth = 4;
+    g.strokeStyle = alpha(col, 0.8);
+    g.stroke();
+    g.restore();
+    const inner = pw - 100;
+    let y = py + 90;
+    g.save();
+    g.textAlign = "center";
+    g.fillStyle = "#fff";
+    const titleSize = fitText(g, plain(a.title), inner, 66, 800, SANS);
+    if (a.title) { g.fillText(plain(a.title), W / 2, y); y += titleSize * 0.6; }
+    if (picture) {
+      const ih = Math.min(280, inner * picture.height / picture.width);
+      const iw = ih * picture.width / picture.height;
+      g.drawImage(picture, W / 2 - iw / 2, y, iw, ih);
+      y += ih + 20;
+    }
+    let size = 42, lines = [];
+    const room = py + ph - y - 40;
+    for (; size >= 22; size -= 2) {
+      g.font = `600 ${size}px ${SANS}`;
+      lines = wrapText(g, plain(a.text), inner);
+      if (lines.length * size * 1.35 <= room) break;
+    }
+    g.fillStyle = "#e5e7eb";
+    const block = lines.length * size * 1.35;
+    let ty = y + Math.max(size, (room - block) / 2 + size);
+    lines.forEach((l) => { g.fillText(l, W / 2, ty); ty += size * 1.35; });
+    g.restore();
+    footer(g, W, H, pal);
+    return cv;
+  }
+  // Image d'une annonce Discord (reponse discordPending, api.js) : un JPEG en data URL.
+  async function announceImage(a) {
+    await fontsReady();
+    const pal = palette();
+    const cv = a.card
+      ? await renderCard("post", { card: a.card, finish: a.finish, quality: a.quality, edition: a.edition, serial: a.serial, owner: String(a.headline || a.title || "").replace(/\*\*/g, "") }, pal)
+      : await renderAnnounce("square", a, pal);
+    return cv.toDataURL("image/jpeg", 0.9);
+  }
+
   async function fontsReady() {
     try { await Promise.all([document.fonts.load(`400 60px ${BRAND}`), document.fonts.load(`800 40px ${SANS}`), document.fonts.load(`600 30px ${SANS}`)]); } catch (e) { /* polices systeme */ }
   }
@@ -774,7 +847,7 @@ const ShareStudio = (function () {
 
   return {
     FORMATS,
-    renderCard, renderRecap, renderPlayer, renderVault,
+    renderCard, renderRecap, renderPlayer, renderVault, renderAnnounce, announceImage,
     // o : { card, finish, quality, edition, serial, number, owned } (card-extras.js)
     card(o) {
       return open({

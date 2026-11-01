@@ -268,7 +268,7 @@ class Execution {
     // injectes dans la sortie des noeuds "Set Config" (voir config.js).
     if (node.name === 'Set Config') {
       const ov = this.runner.overrides;
-      for (const it of out) for (const k of Object.keys(ov)) if (k in it.json && ov[k] !== '') it.json[k] = ov[k];
+      for (const it of out) for (const k of Object.keys(ov)) if (k in it.json && ov[k] != null && ov[k] !== '') it.json[k] = ov[k];
     }
     return { outputs: [out] };
   }

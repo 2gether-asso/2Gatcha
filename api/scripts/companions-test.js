@@ -66,6 +66,27 @@ await test('Noisette : recolte et replante a ta place', () => {
   assert.equal(post('garden', { userId: user.id, action: 'bunnyFeed', count: 50 }).json.error, 'no_carrot');
 });
 
+await test('Noisette : on choisit la graine qu elle replante, y compris pendant son travail', () => {
+  assert.equal(post('garden', { userId: user.id, action: 'bunnySeed', seed: 'inconnue' }).json.error, 'unknown_seed');
+  store.update('Users', user.id, { GardenXP: 0 });
+  const locked = post('garden', { userId: user.id }).json.seeds.find((s) => s.locked);
+  if (locked) assert.equal(post('garden', { userId: user.id, action: 'bunnySeed', seed: locked.key }).json.error, 'seed_locked');
+  assert.equal(post('garden', { userId: user.id, action: 'bunnySeed', seed: 'mix' }).json.bunny.seed, 'mix');
+  // Noisette travaille encore (test precedent) : les plantes en terre ne bougent pas...
+  const old = t() - 10 * 3600;
+  store.update('Users', user.id, { BunnyState: JSON.stringify({ start: t() - 60, until: t() + 3600 }), GardenPlots: JSON.stringify([{ plantedAt: old, seed: 'worm' }, { plantedAt: t(), seed: 'worm' }, null, null]) });
+  post('garden', { userId: user.id });
+  const plots = JSON.parse(get().GardenPlots);
+  assert.equal(plots[0].seed, undefined, '...mais la prochaine replantation suit le choix');
+  assert.equal(plots[1].seed, 'worm', 'une plante qui pousse n est pas arrachee');
+  // Retour a « la meme graine ».
+  assert.equal(post('garden', { userId: user.id, action: 'bunnySeed', seed: '' }).json.bunny.seed, '');
+  store.update('Users', user.id, { GardenPlots: JSON.stringify([{ plantedAt: old, seed: 'worm' }, null, null, null]) });
+  post('garden', { userId: user.id });
+  assert.equal(JSON.parse(get().GardenPlots)[0].seed, 'worm');
+  store.update('Users', user.id, { BunnyState: '', BunnyReport: '', GardenPlots: '[]' });
+});
+
 await test('Pistache : gratte une tablette puis nettoie les blocs', () => {
   store.update('Users', user.id, { Grubs: 3, Tablets: 1, TabletStock: JSON.stringify({ clay: 1, stone: 0, gold: 0 }), ArcheoFinds: '[]', ArcheoStarter: true });
   const r = post('archeo', { userId: user.id, action: 'moleFeed', count: 2 });

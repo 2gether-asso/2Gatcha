@@ -6,6 +6,8 @@
 .pet-corner[data-working="1"] .pet-corner-pic { animation: pcHop 1.6s ease-in-out infinite; transform-origin: bottom center; }
 .pet-mole[data-working="1"] .pet-corner-pic { animation-name: pcSniff; animation-duration: 1.1s; }
 .pet-bunny { background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(250, 204, 21, 0.06)); }
+.pet-seed { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.85rem; }
+.pet-seed select { max-width: 100%; }
 .pet-mole { background: linear-gradient(135deg, rgba(180, 83, 9, 0.14), rgba(120, 113, 108, 0.08)); }
 @keyframes pcHop { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-7px) rotate(-4deg); } 55% { transform: translateY(0); } }
 @keyframes pcSniff { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-2px) rotate(-6deg); } 75% { transform: translateX(2px) rotate(5deg); } }

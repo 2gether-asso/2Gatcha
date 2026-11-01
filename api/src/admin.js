@@ -11,6 +11,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
+import { promisify } from 'node:util';
 import { issueToken } from './native/auth.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -60,7 +62,65 @@ function workflowUsage(dir, ident) {
   }
 }
 
-export function createAdmin({ store, withLock, token, sendJson, backups = null, workflowsDir = null }) {
+// Sauvegarde JSON (2026-11-01) : un corps d'import peut arriver compresse par le navigateur.
+const gunzip = promisify(zlib.gunzip);
+const SAVE_FORMAT = '2gatcha-save';
+const SAVE_REQUIRED = ['Users', 'Cards', 'AppSettings'];
+async function readSaveBody(req, limit) {
+  const raw = await readRaw(req, limit);
+  const gz = String(req.headers['content-type'] || '').startsWith('application/gzip');
+  try {
+    return JSON.parse((gz ? await gunzip(raw, { maxOutputLength: 500 * 1024 * 1024 }) : raw).toString('utf8'));
+  } catch (e) { throw Object.assign(new Error('invalid_json'), { status: 400 }); }
+}
+function saveError(save) {
+  if (!save || save.format !== SAVE_FORMAT || !save.tables || typeof save.tables !== 'object') return 'not_a_save';
+  for (const name of SAVE_REQUIRED) if (!save.tables[name]) return `table_manquante:${name}`;
+  for (const [name, t] of Object.entries(save.tables)) {
+    if (!t || !t.columns || typeof t.columns !== 'object' || !Array.isArray(t.rows)) return `table_invalide:${name}`;
+    if (t.rows.some((r) => !r || !Number.isInteger(r.id) || r.id < 1)) return `ligne_invalide:${name}`;
+  }
+  return null;
+}
+// Copie de securite avant import, a cote de la base (les 3 dernieres).
+function safetyCopy(store, dbPath) {
+  const dir = path.dirname(path.resolve(dbPath));
+  const prefix = `${path.basename(dbPath)}.avant-import-`;
+  const name = prefix + new Date().toISOString().replace(/[:.]/g, '-');
+  store.snapshotTo(path.join(dir, name));
+  fs.readdirSync(dir).filter((f) => f.startsWith(prefix)).sort().slice(0, -3).forEach((f) => fs.rmSync(path.join(dir, f), { force: true }));
+  return name;
+}
+// Telechargement : ecrit au fil de l'eau, les images ne tiennent pas en une seule chaine.
+async function streamSave(req, res, { store, withLock, corsHeaders, withImages }) {
+  // Lecture des tables sous verrou : une copie coherente, sans bloquer l'envoi.
+  const tables = await withLock(() => [...store.tables.values()].map((t) => [t.name, JSON.stringify(t.columns), store.getAllJson(t.name)]));
+  const gz = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
+  res.writeHead(200, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...(gz ? { 'Content-Encoding': 'gzip' } : {}) });
+  const out = gz ? zlib.createGzip({ level: 6 }) : res;
+  if (gz) out.pipe(res);
+  const write = async (text) => { if (!out.write(text)) await new Promise((r) => { out.once('drain', r); res.once('close', r); }); };
+  await write(`{"format":${JSON.stringify(SAVE_FORMAT)},"version":1,"exportedAt":${JSON.stringify(new Date().toISOString())},"tables":{`);
+  for (let i = 0; i < tables.length; i++) {
+    const [name, columns, rows] = tables[i];
+    await write(`${i ? ',' : ''}${JSON.stringify(name)}:{"columns":${columns},"rows":${rows}}`);
+  }
+  await write('},"images":[');
+  const ids = withImages ? store.listAttachments().filter((a) => !a.missing).map((a) => a.id) : [];
+  let first = true;
+  for (const id of ids) {
+    if (res.destroyed) break;
+    const a = store.getAttachment(id);
+    if (!a) continue;
+    await write((first ? '' : ',') + JSON.stringify({ id, fileName: a.file_name, mime: a.mime, data: Buffer.from(a.data).toString('base64') }));
+    first = false;
+  }
+  await write(`],"withImages":${withImages}}`);
+  out.end();
+}
+
+export function createAdmin({ store, withLock, token, sendJson, corsHeaders = () => ({}), dbPath = '', restart = async () => {}, backups = null, workflowsDir = null }) {
+  let importSafety = null; // copie de securite de l'import en cours
   return async function handleAdmin(req, res, url) {
     if (!token) return sendJson(res, req, 503, { error: 'admin_disabled', message: 'ADMIN_TOKEN non configure sur le serveur.' });
     const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -229,6 +289,40 @@ export function createAdmin({ store, withLock, token, sendJson, backups = null, 
         return { id };
       });
       return sendJson(res, req, 200, { ...result, size: data.length, mime });
+    }
+
+    // GET /admin/api/export?images=0|1 : sauvegarde JSON complete, a telecharger.
+    if (section === 'export' && method === 'GET') {
+      return streamSave(req, res, { store, withLock, corsHeaders, withImages: url.searchParams.get('images') !== '0' });
+    }
+    // Import d'une sauvegarde JSON, en 3 temps :
+    //   POST /admin/api/import/begin                        copie de securite de la base
+    //   POST /admin/api/import/images { images: [...] }     par paquets (limite d'envoi du proxy)
+    //   POST /admin/api/import/commit { ...sauvegarde, confirm: 'IMPORTER' }  puis redemarrage
+    if (section === 'import' && method === 'POST') {
+      if (a === 'begin') {
+        importSafety = await withLock(() => safetyCopy(store, dbPath));
+        return sendJson(res, req, 200, { safety: importSafety });
+      }
+      if (!importSafety) return sendJson(res, req, 409, { error: 'begin_required' });
+      if (a === 'images') {
+        const { images } = await readSaveBody(req, 64 * 1024 * 1024);
+        if (!Array.isArray(images) || images.some((i) => !i || !Number.isInteger(i.id) || i.id < 1 || typeof i.data !== 'string' || !/^image\//.test(String(i.mime)))) return sendJson(res, req, 400, { error: 'invalid_images' });
+        await withLock(() => images.forEach((i) => store.putAttachment(i.id, String(i.fileName || 'image').slice(0, 120), i.mime, Buffer.from(i.data, 'base64'))));
+        return sendJson(res, req, 200, { imported: images.length });
+      }
+      if (a === 'commit') {
+        const save = await readSaveBody(req, 200 * 1024 * 1024);
+        if (save.confirm !== 'IMPORTER') return sendJson(res, req, 400, { error: 'confirm_required' });
+        const error = saveError(save);
+        if (error) return sendJson(res, req, 400, { error });
+        return withLock(async () => {
+          store.replaceAll(save.tables);
+          sendJson(res, req, 200, { imported: true, safety: importSafety, tables: Object.keys(save.tables).length, restarting: true });
+          importSafety = null;
+          await restart();
+        });
+      }
     }
 
     // GET /admin/api/backups : liste + etat ; POST : sauvegarder maintenant.

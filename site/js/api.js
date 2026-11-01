@@ -215,12 +215,22 @@ const API = {
       // Ecritures en lot : bonus cumules sur tout le paquet.
       const bonus = data && data.eventBonus ? data.eventBonus : data && Array.isArray(data.results) ? this._sumEventBonus(data.results) : null;
       if (bonus) this._toastEventBonus(bonus);
+      if (data && data.discordPending) this._discordImages(data.discordPending, body);
       return data;
     } finally {
       // Une ecriture peut avoir change n'importe quelle lecture faite pendant
       // qu'elle tournait.
       this.invalidate();
     }
+  },
+
+  // Annonces Discord en attente de leur image (api/src/native/discord.js) : dessinees
+  // par le studio de partage. En cas d'echec, le serveur les envoie en texte.
+  _discordImages(list, body) {
+    const owner = { userId: body && body.userId, discordId: body && body.discordId };
+    LazyJs.load("js/lazy/share-studio.js").then(async () => {
+      for (const a of list) await this._post("discordImage", { ...owner, id: a.id, image: await ShareStudio.announceImage(a) });
+    }).catch(() => {});
   },
 
   _sumEventBonus(results) {

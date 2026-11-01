@@ -421,6 +421,21 @@ export class Store {
     }
   }
 
+  // Remplace toutes les tables (import d'une sauvegarde JSON, admin.js) : tout
+  // ou rien. Les images ne sont pas touchees.
+  replaceAll(tables) {
+    for (const name of Object.keys(tables)) assertId(name, 'table');
+    this.transaction(() => {
+      this.db.exec('DELETE FROM rows; DELETE FROM meta_tables;');
+      for (const [name, t] of Object.entries(tables)) {
+        this.stmt.upsertTable.run(name, JSON.stringify(t.columns));
+        for (const row of t.rows) this.stmt.upsertRow.run(name, row.id, JSON.stringify(row));
+      }
+    });
+    this.load();
+    this.changes++;
+  }
+
   // Copie coherente de la base dans un fichier (SQLite VACUUM INTO) : sure
   // meme pendant que l'API tourne.
   snapshotTo(file) {

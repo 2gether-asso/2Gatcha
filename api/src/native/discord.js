@@ -7,12 +7,16 @@
 //  - Modeles : un par annonce (nouveau code, carte Unique, carte partagee),
 //    activables, avec titre, texte, couleur et variables {pseudo}, {code}...
 //  - Message libre : envoye tout de suite depuis l'admin (apercu, test).
-//   POST /webhook/admin-discord { discordId, action: 'status' | 'save' | 'useLegacy' | 'test' | 'send', webhook?, templates?, message? }
+//  - Images : toutes les annonces partent en image du studio de partage (2026-11-01).
+//   POST /webhook/discord-image { id, image, userId | discordId }
+//   POST /webhook/admin-discord { discordId, action: 'status' | 'delivery' | 'save' | 'useLegacy' | 'test' | 'send', webhook?, templates?, message? }
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok, fail, isAdmin } from './common.js';
+import { ok, fail, isAdmin, refId, firstAttachment, cardSummary } from './common.js';
+import { currentContext } from './context.js';
+import { captureError } from '../monitoring.js';
 
 // Annonces et variables disponibles (l'admin modifie les textes, pas la liste).
 export const TEMPLATES = {
@@ -71,17 +75,124 @@ export function render(store, kind, vars = {}) {
   if (!t || t.enabled === false) return null;
   return { title: fill(t.title, vars).slice(0, 256), description: fill(t.text, vars).slice(0, 4000), color: colorInt(t.color) };
 }
+// Suivi des envois (2026-11-01) : tout passe par discordFetch, workflows compris
+// (server.js). Un refus de Discord ou une panne reseau ne bloque pas le jeu, mais
+// se voit : Admin > Discord, journaux du serveur et GlitchTip.
+const isDiscordUrl = (u) => /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//.test(String(u));
+const delivery = { count: 0, last: null };
+function noteDelivery(result) {
+  delivery.count++;
+  delivery.last = { at: new Date().toISOString(), ...result };
+  if (result.ok) return;
+  const text = `Discord : envoi refuse (${result.status || 'reseau'}) ${result.detail}`.trim();
+  console.error('[discord] ' + text);
+  captureError(new Error(text), { hook: 'discord' });
+}
+// Annonces en image (2026-11-01) : le serveur ne sait pas dessiner, le studio de
+// partage tourne dans le navigateur. Une annonce attend donc l'image du navigateur
+// a l'origine de l'action (reponse : discordPending -> POST discord-image), et part
+// en texte au bout de IMAGE_WAIT si elle n'arrive pas (page fermee, dessin en echec).
+const pending = new Map();
+let IMAGE_WAIT = 20000;
+export const _setImageWait = (ms) => { IMAGE_WAIT = ms; };
+const hexOf = (n) => '#' + (Number(n) || 0x8b5cf6).toString(16).padStart(6, '0');
+function cardOfEmbed(store, embed, cardId) {
+  if (!store.tables.has('Cards')) return null;
+  const imageId = Number((/[?&]id=(\d+)/.exec((embed.image && embed.image.url) || '') || [])[1]) || 0;
+  const card = cardId ? store.get('Cards', cardId) : imageId ? store.getAll('Cards').find((c) => firstAttachment(c.Image) === imageId) : null;
+  if (!card) return null;
+  // Le dernier exemplaire du joueur : l'image montre sa finition, son etat, son numero.
+  const userId = currentContext().userId;
+  const pull = userId && store.tables.has('Pulls') ? store.rowsBy('Pulls', 'User', userId).filter((p) => refId(p.Card) === card.id).pop() : null;
+  return { card: cardSummary(store, card), finish: (pull && pull.Finish) || 'normal', quality: (pull && pull.Quality) || null, edition: (pull && pull.Edition) || null, serial: (pull && pull.SerialNumber) || null };
+}
+function jsonPost(url, payload) {
+  return deliver(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+}
+// Hors requete d'un navigateur : envoi direct, en texte.
+function queueAnnounce(store, url, payload, { cardId = 0 } = {}) {
+  const ctx = currentContext();
+  const embed = payload.embeds && payload.embeds[0];
+  if (!embed || !ctx.actor) { setTimeout(() => { jsonPost(url, payload).catch(() => {}); }, 0); return; }
+  const id = crypto.randomUUID();
+  const timer = setTimeout(() => { pending.delete(id); jsonPost(url, payload).catch(() => {}); }, IMAGE_WAIT);
+  if (timer.unref) timer.unref();
+  pending.set(id, { url, payload, owner: ctx.actor, timer, cardId });
+  const pseudoOf = (discordId) => (store.getAll('Users').find((u) => String(u.DiscordId) === discordId) || {}).Pseudo || 'Un joueur';
+  const headline = String(payload.content || '').replace(/<@!?(\d+)>/g, (m, d) => pseudoOf(d));
+  (ctx.discordPending = ctx.discordPending || []).push({ id, headline, title: embed.title || '', text: embed.description || '', color: hexOf(embed.color), picture: (embed.image && embed.image.url) || '', ...cardOfEmbed(store, embed, cardId) });
+}
+// Reponse d'une action : les annonces qui attendent leur image.
+export function attachPending(response) {
+  const ctx = currentContext();
+  if (!ctx.discordPending || !ctx.discordPending.length) return;
+  if (response && response.json && typeof response.json === 'object' && !Array.isArray(response.json)) response.json.discordPending = ctx.discordPending;
+  ctx.discordPending = null;
+}
+function handleImage({ body }) {
+  const p = pending.get(String(body.id));
+  if (!p) return fail('announce_expired', 410);
+  if (p.owner !== currentContext().actor) return fail('forbidden', 403);
+  const m = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+  if (!m || m[2].length > 8 * 1024 * 1024) return fail('invalid_image');
+  clearTimeout(p.timer);
+  pending.delete(String(body.id));
+  const name = `annonce.${m[1] === 'png' ? 'png' : 'jpg'}`;
+  const [first, ...others] = p.payload.embeds;
+  // L'image porte le texte : l'embed garde le titre (code a copier, noms des cartes).
+  const main = { ...(first.title ? { title: first.title } : {}), color: first.color, image: { url: `attachment://${name}` } };
+  // Image libre de l'admin hors studio : gardee a part.
+  const extra = first.image && !p.cardId && !/[?&]id=\d+/.test(first.image.url || '') ? [{ color: first.color, image: first.image }] : [];
+  const form = new FormData();
+  form.append('payload_json', JSON.stringify({ ...p.payload, embeds: [main, ...extra, ...others] }));
+  form.append('files[0]', new Blob([Buffer.from(m[2], 'base64')], { type: `image/${m[1]}` }), name);
+  setTimeout(() => { deliver(p.url, { method: 'POST', body: form }).catch(() => {}); }, 0);
+  return ok({ posted: true });
+}
+
+// Pour les workflows (store fourni, server.js) : leurs annonces (tirages, codes)
+// attendent l'image comme les autres.
+export async function discordFetch(url, options = {}, store = null) {
+  if (store && isDiscordUrl(url) && typeof options.body === 'string' && currentContext().actor) {
+    let payload = null;
+    try { payload = JSON.parse(options.body); } catch (e) { payload = null; }
+    if (payload && Array.isArray(payload.embeds) && payload.embeds.length) {
+      queueAnnounce(store, url, payload);
+      return new Response(null, { status: 204 });
+    }
+  }
+  return deliver(url, options);
+}
+async function deliver(url, options = {}) {
+  if (!isDiscordUrl(url)) return fetch(url, options);
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000), ...options });
+    const detail = res.ok ? '' : (await res.clone().text().catch(() => '')).slice(0, 200);
+    noteDelivery({ ok: res.ok, status: res.status, detail });
+    return res;
+  } catch (e) {
+    noteDelivery({ ok: false, status: null, detail: String((e.cause && e.cause.code) || e.name || 'erreur') });
+    throw e;
+  }
+}
 // Envoi sans attendre (un echec ne bloque jamais le jeu). Renvoie true si parti.
 export function postEmbed(store, embed, { url = webhookUrl(store), extra = {} } = {}) {
   if (!url || !embed || typeof fetch !== 'function') return false;
-  setTimeout(() => { fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [embed], ...extra }) }).catch(() => {}); }, 0);
+  setTimeout(() => { jsonPost(url, { embeds: [embed], ...extra }).catch(() => {}); }, 0);
   return true;
 }
-export const announce = (store, kind, vars) => postEmbed(store, render(store, kind, vars));
+// Annonce en image (studio de partage du navigateur), en texte a defaut.
+export function announce(store, kind, vars, { cardId = 0 } = {}) {
+  const url = webhookUrl(store);
+  const embed = render(store, kind, vars);
+  if (!url || !embed) return false;
+  queueAnnounce(store, url, { embeds: [embed] }, { cardId });
+  return true;
+}
 
 function status(store) {
   const url = webhookUrl(store);
-  return { webhook: { configured: !!url, masked: mask(url), source: urlSource(store), legacy: workflowUrl() ? mask(workflowUrl()) : null }, templates: Object.entries(TEMPLATES).map(([k, t]) => ({ key: k, label: t.label, when: t.when, vars: t.vars, def: t.def, ...templatesOf(store)[k] })) };
+  return { webhook: { configured: !!url, masked: mask(url), source: urlSource(store), legacy: workflowUrl() ? mask(workflowUrl()) : null, delivery }, templates: Object.entries(TEMPLATES).map(([k, t]) => ({ key: k, label: t.label, when: t.when, vars: t.vars, def: t.def, ...templatesOf(store)[k] })) };
 }
 function clean(t, def) {
   return {
@@ -93,6 +204,8 @@ function handle({ store, body }) {
   if (!isAdmin(body.discordId)) return fail('forbidden', 403);
   const action = body.action || 'status';
   if (action === 'status') return ok(status(store));
+  // Resultat du dernier envoi (la page attend la reponse de Discord apres un test).
+  if (action === 'delivery') return ok({ delivery });
   if (action === 'save') {
     if (body.webhook != null) {
       const w = String(body.webhook).trim();
@@ -121,11 +234,13 @@ function handle({ store, body }) {
     if (action === 'send' && !embed.title && !embed.description) return fail('empty_message');
     // Envoi sans attendre : les routes tournent sous le verrou du serveur,
     // on ne bloque pas les autres joueurs le temps que Discord reponde.
-    postEmbed(store, embed, { url });
+    // Le test reste en texte : il verifie le webhook, pas le dessin.
+    if (action === 'send') queueAnnounce(store, url, { embeds: [embed] });
+    else postEmbed(store, embed, { url });
     return ok({ sent: true, ...status(store) });
   }
   return fail('unknown_action');
 }
 
-export const routes = { 'POST admin-discord': handle };
+export const routes = { 'POST admin-discord': handle, 'POST discord-image': handleImage };
 export const _legacyUrl = workflowUrl;

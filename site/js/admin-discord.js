@@ -21,12 +21,40 @@
   const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
   const embed = (title, text, color, image) => `<div class="dc-embed" style="--c:${esc(color || "#8b5cf6")}"><div class="dc-head"><span class="dc-bot">2G</span><b>2Gatcha</b><small>BOT</small></div>${title ? `<strong class="dc-title">${md(title)}</strong>` : ""}${text ? `<div class="dc-text">${md(text)}</div>` : ""}${image ? `<img src="${esc(image)}" alt="" />` : ""}</div>`;
 
+  // Reponse de Discord au dernier envoi (api/src/native/discord.js).
+  function deliveryText(d) {
+    if (d.ok) return `Discord a accepté le message (HTTP ${d.status}).`;
+    if (d.status === 404) return "Discord ne connaît plus ce webhook (HTTP 404) : il a été supprimé. Crée-en un nouveau et enregistre son adresse.";
+    if (d.status === 401 || d.status === 403) return `Discord refuse cette adresse (HTTP ${d.status}) : recopie l'adresse du webhook.`;
+    if (d.status === 429) return "Discord limite les envois (HTTP 429) : réessaie dans quelques minutes.";
+    if (d.status) return `Discord a refusé le message (HTTP ${d.status}) : ${d.detail || "sans détail"}`;
+    return `Le serveur n'arrive pas à joindre Discord (${d.detail || "réseau"}) : vérifie le réseau et le DNS du conteneur.`;
+  }
+  // Le serveur envoie sans attendre : la page guette le resultat.
+  async function awaitDelivery(before) {
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const { delivery } = await api("delivery");
+      if (delivery.count > before) { st.webhook.delivery = delivery; render(); return delivery.last; }
+    }
+    return null;
+  }
+  async function sendAndReport(action, params, okText) {
+    const before = st.webhook.delivery.count;
+    await api(action, params);
+    const last = await awaitDelivery(before);
+    if (!last) return Toast.error("Discord n'a pas répondu à temps.");
+    if (last.ok) Toast.success(okText); else Toast.error(deliveryText(last));
+  }
+
   function render() {
     const w = st.webhook;
+    const last = w.delivery && w.delivery.last;
     $("dc-app").innerHTML = `
       <section class="dc-block">
         <h3>🔗 Webhook du serveur</h3>
         <p class="muted">${w.configured ? `Annonces envoyées à <code>${esc(w.masked)}</code> (${w.source === "admin" ? "réglée ici" : "variable DISCORD_WEBHOOK_URL du serveur"}).` : "Aucune adresse : rien n'est annoncé sur Discord pour l'instant."}</p>
+        <p class="${last && !last.ok ? "error-box" : "muted"}">${last ? `Dernier envoi (${esc(new Date(last.at).toLocaleString("fr-FR"))}) : ${esc(deliveryText(last))}` : "Aucun envoi depuis le dernier démarrage du serveur."}</p>
         <div class="dc-row"><input type="url" id="dc-hook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" /><button type="button" class="btn-secondary" id="dc-hook-save">Enregistrer l'adresse</button>
           ${w.legacy && w.source !== "admin" ? `<button type="button" class="btn-ghost" id="dc-legacy" title="${esc(w.legacy)}">Reprendre l'adresse des anciens workflows</button>` : ""}
           <button type="button" class="btn-ghost" id="dc-test" ${w.configured ? "" : "disabled"}>✅ Envoyer un test</button></div>
@@ -96,14 +124,13 @@
       try {
         if (id === "dc-hook-save") { const w = $("dc-hook").value.trim(); if (!w && !(await Confirm.show("Effacer l'adresse réglée ici ? Le serveur reprendra sa variable DISCORD_WEBHOOK_URL si elle existe.", { title: "Effacer le webhook", confirmText: "Effacer" }))) return; st = await api("save", { webhook: w }); Toast.success(w ? "Adresse enregistrée." : "Adresse effacée."); render(); }
         else if (id === "dc-legacy") { st = await api("useLegacy"); Toast.success("Adresse des anciens workflows reprise."); render(); }
-        else if (id === "dc-test") { await api("test"); Toast.success("Test envoyé : regarde le salon Discord."); }
+        else if (id === "dc-test") await sendAndReport("test", {}, "Test accepté par Discord : regarde le salon.");
         else if (id === "dc-save") { const templates = Object.fromEntries(st.templates.map((t) => [t.key, tplValues(t.key)])); st = await api("save", { templates }); Toast.success("Annonces enregistrées."); render(); }
         else if (id === "dc-send") {
           const message = { title: $("dc-m-title").value.trim(), text: $("dc-m-text").value.trim(), color: $("dc-m-color").value, image: $("dc-m-image").value.trim() };
           if (!message.title && !message.text) return Toast.info(ERR.empty_message);
           if (!(await Confirm.show(`Envoyer ce message sur le serveur Discord ?${embed(message.title, message.text, message.color)}`, { title: "Annoncer sur Discord", confirmText: "Envoyer" }))) return;
-          await api("send", { message });
-          Toast.success("Message envoyé sur Discord.");
+          await sendAndReport("send", { message }, "Message envoyé sur Discord.");
           ["dc-m-title", "dc-m-text", "dc-m-image"].forEach((x) => { $(x).value = ""; });
           previewFree();
         }

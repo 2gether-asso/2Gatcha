@@ -84,8 +84,8 @@
   const CORNERS = {
     noisette: {
       box: "garden-bunny", food: "&#129365;", one: "carotte", many: "carottes", count: "carrots", per: "minutesPerCarrot",
-      busy: "récolte tes parcelles prêtes et replante la même graine (payée en poussières)",
-      idle: "1 carotte = {m} de travail : elle récolte tes parcelles dès qu'elles sont prêtes, et replante la même graine si tu as les poussières pour les graines.",
+      busy: "récolte tes parcelles prêtes et les replante (graines payées en poussières)",
+      idle: "1 carotte = {m} de travail : elle récolte tes parcelles dès qu'elles sont prêtes, et les replante si tu as les poussières pour les graines.",
       none: "Noisette travaille contre des carottes : carottes sauvages de la fouille, promenade dans la prairie, ou botte de carottes à la boutique.",
       feed: (n) => API.garden(uid(), "bunnyFeed", { count: n }),
       after: (res) => { if (typeof renderGarden === "function") renderGarden(res); },
@@ -151,6 +151,29 @@
     } catch (err) {
       b.disabled = false;
       Toast.error(c.err[err.code] || friendlyError(err));
+    }
+  });
+
+  // Graine que Noisette replante (la meme par defaut) : vaut aussi pendant qu'elle travaille.
+  function renderBunnySeed(st) {
+    const sel = document.querySelector("[data-bunny-seed]");
+    if (!sel || !st.seeds || document.activeElement === sel) return;
+    sel.innerHTML = `<option value="">La même graine</option>${st.seeds.filter((s) => !s.locked).map((s) => `<option value="${esc(s.key)}">${esc(s.label)} (${s.cost} ✨)</option>`).join("")}`;
+    sel.value = st.bunny.seed || "";
+    if (sel.selectedIndex < 0) sel.value = "";
+    sel.dataset.saved = sel.value;
+  }
+  document.addEventListener("change", async (e) => {
+    const sel = e.target.closest("[data-bunny-seed]");
+    if (!sel) return;
+    try {
+      const res = await API.garden(uid(), "bunnySeed", { seed: sel.value });
+      sel.blur();
+      Toast.success(PetText.mask("Noisette replantera cette graine à ses prochaines récoltes."));
+      CORNERS.noisette.after(res);
+    } catch (err) {
+      sel.value = sel.dataset.saved || "";
+      Toast.error(friendlyError(err));
     }
   });
 
@@ -309,7 +332,7 @@
   window.Companions = {
     garden(st) {
       if (!st) return;
-      if (st.bunny) renderCorner("noisette", st.bunny);
+      if (st.bunny) { renderCorner("noisette", st.bunny); renderBunnySeed(st); }
       if (st.bunnyReport && st.bunnyReport !== lastBunny) { lastBunny = st.bunnyReport; bunnyPostcard(st.bunnyReport); }
     },
     archeo(st) {

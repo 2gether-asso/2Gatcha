@@ -298,6 +298,8 @@ await test('discord : adresse et modeles reglables, code annonce sur le serveur 
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, opts) => { sent.push({ url, body: JSON.parse(opts.body) }); return { ok: true, status: 204 }; };
   const flush = () => new Promise((r) => setTimeout(r, 10));
+  // Personne ne dessine l'image ici : l'annonce part en texte apres l'attente.
+  (await import('../src/native/discord.js'))._setImageWait(1);
   try {
     const d = (body) => post('admin-discord', { discordId: ADMIN, ...body });
     assert.equal(post('admin-discord', { discordId: '1' }).status, 403);

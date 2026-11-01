@@ -20,6 +20,7 @@ import * as ledger from '../src/native/ledger.js';
 import { goldenWindow } from '../src/native/comfort.js';
 import * as modeperks from '../src/native/modeperks.js';
 import * as machine from '../src/native/machine.js';
+import * as discordMod from '../src/native/discord.js';
 import * as modeextras from '../src/native/modeextras.js';
 import * as seasonal from '../src/native/seasonal.js';
 import * as editions from '../src/native/editions.js';
@@ -253,7 +254,7 @@ await test('heures de chance : une fenetre par jour (deux le week-end), entre 11
 });
 
 await test('missions du soir : 3 missions differentes par jour, recompense', () => {
-  const m = daily.eveningMissions(parisDay(0));
+  const m = daily.eveningMissions(parisDay(0), store);
   assert.equal(new Set(m.map((x) => x.key)).size, 3);
   store.update('Users', 1, { EveningDay: parisDay(0), EveningProgress: JSON.stringify(Object.fromEntries(m.map((x) => [x.key, x.target]))), EveningClaimed: '[]' });
   const d0 = user(1).StardustCount;
@@ -1143,6 +1144,18 @@ await test('salle des machines : 5 sacrifices, vote, mode applique a la fin du v
   assert.equal(modeperks.modeKey(store), 'hard');
   assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.lastResult.winner, 'hard');
   assert.equal(call('POST', 'machine-room', { body: { userId: 1 } }).json.stage, 0, 'nouveau mois : on repart de zero');
+  // Mois ferme trop tot, sans vote (MachineVoteDay change en cours de mois) : le vote s'applique quand meme.
+  const closed = store.getAll('AppSettings').find((x) => x.Key === 'machineRoom');
+  store.update('AppSettings', closed.id, { Value: JSON.stringify({ month: prev, at: 1, votes: {}, voters: 0, winner: null }) });
+  store.update('Users', 1, { MachineMonth: prev, MachineStage: 5, MachineVote: 'chill' });
+  machine._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(modeperks.modeKey(store), 'chill');
+  // Une fois ferme, le meme vote ne s'applique pas une seconde fois.
+  call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'hard' } });
+  machine._reset();
+  native.beforeRequest({}, {}, 'x'); native.endRequest();
+  assert.equal(modeperks.modeKey(store), 'hard');
   call('POST', 'admin-preset', { body: { discordId: ADMIN, action: 'apply', preset: 'medium' } });
 });
 
@@ -1250,6 +1263,7 @@ await test('editions limitees : posees a l ouverture, listees dans la collection
 
 await test('evenements saisonniers : calendrier (Halloween, Noel, Paques, nouvel an), edition de l evenement', () => {
   assert.equal(seasonal.currentSeason(store, '2026-10-31').key, 'halloween');
+  assert.equal(seasonal.currentSeason(store, '2026-11-01'), null, 'Halloween finit le 31 octobre au soir');
   assert.equal(seasonal.currentSeason(store, '2026-12-24').key, 'christmas');
   assert.equal(seasonal.currentSeason(store, '2027-01-02').key, 'newyear');
   assert.equal(seasonal.currentSeason(store, '2027-03-27').key, 'easter', 'Paques 2027 : 28 mars');
@@ -1562,6 +1576,90 @@ await test('partage sur Discord', () => {
   delete process.env.DISCORD_WEBHOOK_URL;
   assert.equal(call('POST', 'share-card', { body: { userId: 1, cardId: c.id, image: img } }).json.error, 'discord_unavailable');
   assert.equal(call('POST', 'share-card', { body: { userId: 1, cardId: c.id, image: 'pas une image' } }).json.error, 'invalid_image');
+});
+
+await test('Discord : le refus d\'un webhook se voit dans l\'admin', async () => {
+  const realFetch = globalThis.fetch;
+  const realError = console.error;
+  const wait = () => new Promise((r) => setTimeout(r, 20));
+  const admin = (action, more = {}) => call('POST', 'admin-discord', { body: { discordId: ADMIN, action, ...more } }).json;
+  assert.equal(admin('save', { webhook: 'https://discord.com/api/webhooks/1/abc' }).webhook.source, 'admin');
+  try {
+    console.error = () => {};
+    globalThis.fetch = async () => new Response('{"message":"Unknown Webhook","code":10015}', { status: 404 });
+    admin('test'); await wait();
+    let d = admin('delivery').delivery;
+    assert.equal(d.last.ok, false);
+    assert.equal(d.last.status, 404);
+    assert.match(d.last.detail, /Unknown Webhook/);
+    const count = d.count;
+    globalThis.fetch = async () => { throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND' } }); };
+    admin('test'); await wait();
+    d = admin('delivery').delivery;
+    assert.equal(d.count, count + 1);
+    assert.equal(d.last.status, null);
+    assert.equal(d.last.detail, 'ENOTFOUND');
+    globalThis.fetch = async () => new Response('', { status: 200 });
+    admin('test'); await wait();
+    assert.equal(admin('delivery').delivery.last.ok, true);
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = realError;
+    admin('save', { webhook: '' });
+  }
+});
+
+await test('Discord : annonce en image, sinon en texte apres l\'attente', async () => {
+  const realFetch = globalThis.fetch;
+  const sent = [];
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  const admin = (action, more = {}) => call('POST', 'admin-discord', { body: { discordId: ADMIN, action, ...more } });
+  const png = 'data:image/png;base64,iVBORw0KGgo=';
+  admin('save', { webhook: 'https://discord.com/api/webhooks/1/abc' });
+  try {
+    globalThis.fetch = async (url, o) => { sent.push(o.body); return new Response('', { status: 200 }); };
+    discordMod._setImageWait(60);
+    // Image recue a temps : une seule publication, avec le fichier.
+    const a = admin('send', { message: { title: 'Titre', text: '**Salut**', color: '#112233' } }).json.discordPending[0];
+    assert.equal(a.title, 'Titre');
+    assert.equal(a.color, '#112233');
+    assert.equal(call('POST', 'discord-image', { body: { userId: 1, id: a.id, image: png } }).status, 403, 'pas la personne a l origine de l annonce');
+    assert.equal(call('POST', 'discord-image', { body: { discordId: ADMIN, id: a.id, image: 'pas une image' } }).json.error, 'invalid_image');
+    assert.equal(call('POST', 'discord-image', { body: { discordId: ADMIN, id: a.id, image: png } }).json.posted, true);
+    assert.equal(call('POST', 'discord-image', { body: { discordId: ADMIN, id: a.id, image: png } }).status, 410, 'une seule fois');
+    await pause(100);
+    assert.equal(sent.length, 1);
+    assert.ok(sent[0] instanceof FormData);
+    const payload = JSON.parse(sent[0].get('payload_json'));
+    assert.equal(payload.embeds[0].image.url, 'attachment://annonce.png');
+    assert.equal(payload.embeds[0].description, undefined, 'le texte est dans l image');
+    // Pas d'image : l'annonce part en texte.
+    sent.length = 0;
+    const b = admin('send', { message: { title: 'Sans image', text: 'texte' } }).json.discordPending[0];
+    await pause(100);
+    assert.equal(sent.length, 1);
+    assert.equal(JSON.parse(sent[0]).embeds[0].description, 'texte');
+    assert.equal(call('POST', 'discord-image', { body: { discordId: ADMIN, id: b.id, image: png } }).status, 410, 'trop tard');
+    // Annonce de workflow : retenue, avec la carte et le joueur.
+    sent.length = 0;
+    const c = cards()[0];
+    const imageId = Array.isArray(c.Image) ? c.Image[1] : null;
+    if (imageId) {
+      native.beforeRequest({ userId: 1 }, {}, 'notify-reveal');
+      const res = await discordMod.discordFetch('https://discord.com/api/webhooks/1/abc', { method: 'POST', body: JSON.stringify({ content: 'bravo', embeds: [{ title: c.Name, image: { url: `https://x/webhook/image?id=${imageId}` } }] }) }, store);
+      assert.equal(res.status, 204);
+      const response = { status: 200, json: {} };
+      discordMod.attachPending(response);
+      native.endRequest();
+      assert.equal(response.json.discordPending[0].card.cardId, c.id);
+      assert.equal(response.json.discordPending[0].headline, 'bravo');
+    }
+    await pause(100);
+  } finally {
+    globalThis.fetch = realFetch;
+    discordMod._setImageWait(20000);
+    admin('save', { webhook: '' });
+  }
 });
 
 await test('dinos : crane a la fouille, eclosion, soins, cacas, engrais au jardin, nourriture a la peche', () => atParisHour(12, () => {
@@ -2649,7 +2747,7 @@ await test('defis de saison, histoire, evenement surprise, bonus de prestige, ba
   // Defis de saison : XP de saison, pas d'XP de compte.
   const season = () => call('POST', 'season', { body: { userId: p.id } }).json;
   const xp0 = season().xp;
-  const quests = sq.weekQuests();
+  const quests = sq.weekQuests(undefined, store);
   assert.equal(quests.length, 3);
   sq.onEvents(store, quests.map((q) => ({ userId: p.id, type: q.type, n: q.target, meta: {} })));
   const sqc = (key) => call('POST', 'season-quests', { body: { userId: p.id, action: 'claim', key } }).json;

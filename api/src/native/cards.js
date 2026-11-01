@@ -16,7 +16,7 @@
 //   GET  /webhook/card-price ?cardId=
 //   POST /webhook/share-card { userId, cardId, finish?, quality?, edition?, serial?, image }
 
-import { webhookUrl, render as renderDiscord } from './discord.js';
+import { webhookUrl, discordFetch, render as renderDiscord } from './discord.js';
 import { refId, now, ok, fail, userById, parseJson, cardSummary, nextSerial } from './common.js';
 import { setting } from './settings.js';
 import { currentContext } from './context.js';
@@ -223,7 +223,7 @@ function handleShare({ store, body }) {
       const form = new FormData();
       form.append('payload_json', JSON.stringify(payload));
       form.append('files[0]', new Blob([buffer], { type: `image/${m[1]}` }), `carte.${m[1] === 'png' ? 'png' : 'jpg'}`);
-      await fetch(url, { method: 'POST', body: form });
+      await discordFetch(url, { method: 'POST', body: form });
     } catch (e) { /* Discord indisponible : sans consequence pour le jeu */ }
   }, 0);
   return ok({ shared: true, cooldown });

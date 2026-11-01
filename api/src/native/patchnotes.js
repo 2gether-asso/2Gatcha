@@ -8,6 +8,13 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-01', title: 'Remise à l’heure', items: [
+    'Salle des machines : le mode voté s’applique bien le 1er du mois (celui d’octobre était resté bloqué)',
+    'Halloween se termine maintenant le 31 octobre au soir : décor, édition Maudite et cadeau du jour compris',
+    'Les annonces de tirages sur Discord retrouvent l’image de la carte',
+    'Discord : les annonces de tirages, de codes et de cartes Unique arrivent maintenant en belle image du studio',
+    'Noisette : choisis la graine qu’elle replante, même pendant qu’elle travaille (merci pour le signalement !)'
+  ] },
   { date: '2026-10-31', title: 'D’un seul coup', items: [
     'Fouille : nouveau bouton « Tout fouiller » pour dépenser toute ton énergie d’un coup, avec le bilan de tes trouvailles (merci pour l’idée !)',
     'Recycler, sacrifier, décrafter ou fusionner beaucoup de cartes se fait maintenant d’une traite, et bien plus vite',

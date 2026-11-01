@@ -27,6 +27,7 @@ import { addFeed } from './feed.js';
 import { grantCosmetic } from './cosmetics.js';
 import { setMachineLeader } from './modeextras.js';
 import { grantFragment } from './phantom.js';
+import { captureError } from '../monitoring.js';
 
 export const schema = {
   Users: {
@@ -267,21 +268,35 @@ export function beforeRequest({ store }) {
   if (checked === key || !store.tables.has('AppSettings') || !setting(store, 'MachineRoomEnabled')) return;
   checked = key;
   // Mois precedent d'abord (vote ouvert tout le mois), puis mois en cours si le vote ferme tot.
-  for (const m of [prevMonth(month()), month()]) {
-    const done = roomState(store).month;
-    if (now() >= voteClose(store, m) && !(done && done >= m)) closeVote(store, m);
-  }
+  for (const m of [prevMonth(month()), month()]) if (voteToClose(store, m)) closeVote(store, m);
   const settled = appRead(store, SETTLED).month;
   const prev = prevMonth(month());
   if (!(settled && settled >= prev)) settleMonth(store, prev);
 }
 
+// Un mois deja ferme se referme si des votes sont arrives depuis : fermeture
+// trop tot (MachineVoteDay change en cours de mois) qui ne doit pas annuler le
+// vote du mois (2026-11-01 : le mois d'octobre etait reste sur un resultat vide).
+const totalVotes = (votes) => Object.values(votes || {}).reduce((a, b) => a + b, 0);
+function voteToClose(store, m) {
+  if (now() < voteClose(store, m)) return false;
+  const rs = roomState(store);
+  if (!rs.month || rs.month < m) return true;
+  return rs.month === m && totalVotes(tally(store, m).votes) > totalVotes(rs.votes);
+}
+
 function closeVote(store, m) {
   const { votes, voters } = tally(store, m);
   const winner = winnerOf(votes);
+  // Mode d'abord : s'il est refuse, le mois reste ouvert et on reessaie au prochain passage.
+  const errors = winner ? applyPreset(store, winner, 'machine-room') : [];
+  if (errors.length) {
+    console.error('[salle des machines] mode refuse : ' + errors.join(', '));
+    captureError(new Error(`Salle des machines : mode ${winner} refuse (${errors.join(', ')})`), { hook: 'machine-close' });
+    return;
+  }
   appSave(store, KEY, { month: m, at: now(), votes, voters, winner });
   if (!winner) return;
-  applyPreset(store, winner, 'machine-room');
   const until = m === month() ? 'jusqu’à la fin du mois' : 'pour ce mois-ci';
   addFeed(store, { kind: 'machine', icon: '⚙️', text: `La salle des machines a parlé : mode ${label(winner)} ${until} (${votes[winner]} voix sur ${Object.values(votes).reduce((a, b) => a + b, 0)}).` });
 }

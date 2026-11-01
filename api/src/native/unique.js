@@ -191,7 +191,7 @@ function handleCounter({ store, body }) {
 // Annonce Discord (hors verrou, sans attendre : un echec ne bloque rien).
 // Modele reglable dans Admin > Discord (discord.js, 2026-10-26).
 function announce(store, user, card) {
-  discordAnnounce(store, 'unique', { pseudo: user.Pseudo || 'Un joueur', card: card.name, serial: String(card.serialNumber).padStart(3, '0'), first: card.isFirstEver ? ' : premier exemplaire du serveur !' : '.' });
+  discordAnnounce(store, 'unique', { pseudo: user.Pseudo || 'Un joueur', card: card.name, serial: String(card.serialNumber).padStart(3, '0'), first: card.isFirstEver ? ' : premier exemplaire du serveur !' : '.' }, { cardId: card.cardId });
 }
 
 export const routes = {

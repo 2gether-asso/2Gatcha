@@ -330,6 +330,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       // Ecritures de l'equipe : journal avec annulation (audit.js).
       const response = audit.wrap(store, path, body, () => routes.get(`${method} ${path}`)({ store, body, query }));
       if (method === 'POST') observe(path, body, response);
+      discord.attachPending(response);
       return response;
     },
     // Bonus appliques apres un workflow (sous le verrou).
@@ -341,6 +342,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
         try { m.afterWorkflow({ store, path, request, response }); } catch (e) { console.error(e); captureError(e, { hook: path }); }
       }
       observe(path, request.body || {}, response);
+      discord.attachPending(response);
     },
     async start() {
       if (!(await push.init({ store }))) return;

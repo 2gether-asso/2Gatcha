@@ -25,7 +25,7 @@
 // replante la meme graine (payee en poussieres, la tendresse lui donne de
 // l'avance sur la pousse). Ses recoltes s'accumulent dans un rapport
 // (Users.BunnyReport) remis a la visite du jardin (takeReport).
-//   POST /webhook/garden { userId, action: 'status' | 'plant' | 'harvest' | 'buyPlot' | 'fertilize' | 'bunnyFeed', plot?, seed?, count?, takeReport? }
+//   POST /webhook/garden { userId, action: 'status' | 'plant' | 'harvest' | 'buyPlot' | 'fertilize' | 'bunnyFeed' | 'bunnySeed', plot?, seed?, count?, takeReport? }
 
 import { ok, fail, userById, now, parisDay, parseJson } from './common.js';
 import { setting } from './settings.js';
@@ -44,7 +44,7 @@ import { pantryFields, gardenBuff } from './cooking.js';
 export const PLOTS = 4;
 
 export const schema = {
-  Users: { GardenPlots: { type: 'Text' }, GoldBait: { type: 'Numeric' }, GardenExtraPlots: { type: 'Numeric' }, GardenStreak: { type: 'Numeric' }, GardenStreakDay: { type: 'Text' }, Carrots: { type: 'Numeric' }, Grubs: { type: 'Numeric' }, BunnyState: { type: 'Text' }, BunnyReport: { type: 'Text' } }
+  Users: { GardenPlots: { type: 'Text' }, GoldBait: { type: 'Numeric' }, GardenExtraPlots: { type: 'Numeric' }, GardenStreak: { type: 'Numeric' }, GardenStreakDay: { type: 'Text' }, Carrots: { type: 'Numeric' }, Grubs: { type: 'Numeric' }, BunnyState: { type: 'Text' }, BunnyReport: { type: 'Text' }, BunnySeed: { type: 'Text' } }
 };
 
 // Graines : prix (x GardenPlantCost), temps de pousse (x), recolte.
@@ -196,6 +196,15 @@ function handleGarden({ store, body }) {
     user = store.update('Users', user.id, { GardenPlots: JSON.stringify(plots), DinoPoop: have - used.length });
     return ok({ ...state(store, user), fertilized: used.length });
   }
+  // Ce que Noisette replante : '' = la meme graine. Vaut pour ses prochaines recoltes.
+  if (action === 'bunnySeed') {
+    const seeds = seedsOf(store);
+    const seed = String(body.seed || '');
+    if (seed && !seeds[seed]) return fail('unknown_seed');
+    if (seed && gardenLevel(store, user).level < (seeds[seed].level || 1)) return fail('seed_locked', 400, { level: seeds[seed].level });
+    user = store.update('Users', user.id, { BunnySeed: seed });
+    return ok(state(store, user));
+  }
   if (action === 'plant') {
     const seeds = seedsOf(store);
     const seed = seeds[body.seed] ? body.seed : 'mix';
@@ -303,7 +312,7 @@ const bunnyStateOf = (user) => { const s = parseJson(user && user.BunnyState, nu
 function bunnyView(store, user) {
   const s = bunnyStateOf(user);
   const t = now();
-  return { carrots: Number(user.Carrots) || 0, secondsLeft: s ? Math.max(0, s.until - t) : 0, minutesPerCarrot: setting(store, 'BunnyMinutesPerCarrot'), maxMinutes: setting(store, 'BunnyMaxMinutes'), pending: !!parseJson(user.BunnyReport, null) };
+  return { carrots: Number(user.Carrots) || 0, secondsLeft: s ? Math.max(0, s.until - t) : 0, minutesPerCarrot: setting(store, 'BunnyMinutesPerCarrot'), maxMinutes: setting(store, 'BunnyMaxMinutes'), pending: !!parseJson(user.BunnyReport, null), seed: user.BunnySeed || '' };
 }
 const GAIN_KEYS = ['worms', 'bait', 'dust', 'catFish', 'bones', 'skulls', 'parts', 'grubs', 'veg', 'herb', 'mush'];
 // Travail de Noisette depuis le dernier passage : champs a ecrire (ou null).
@@ -342,7 +351,9 @@ export function settleBunny(store, user) {
     harvests++;
     if (isWilted) wilted++;
     plots[best] = null;
-    const seed = seeds[p.seed || 'mix'] && level >= (seeds[p.seed || 'mix'].level || 1) ? p.seed || 'mix' : 'mix';
+    // Graine choisie pour elle (Users.BunnySeed), sinon la meme.
+    const wanted = user.BunnySeed && seeds[user.BunnySeed] ? user.BunnySeed : p.seed || 'mix';
+    const seed = seeds[wanted] && level >= (seeds[wanted].level || 1) ? wanted : 'mix';
     const cost = Math.round(base * (seeds[seed] || seeds.mix).cost);
     if (h < s.until && dust + sum.dust >= cost) {
       dust -= cost; spent += cost; replanted++;
