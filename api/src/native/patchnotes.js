@@ -29,7 +29,8 @@ export const PATCH_NOTES = [
     'Les annonces de tirages sur Discord retrouvent l’image de la carte',
     'Discord : les annonces de tirages, de codes et de cartes Unique arrivent maintenant en belle image du studio',
     'Mode Chill : le bandeau de l’happy hour n’annonce plus de réduction quand la boutique est fermée',
-    'Noisette : choisis la graine qu’elle replante, même pendant qu’elle travaille (merci pour le signalement !)'
+    'Noisette : choisis la graine qu’elle replante, même pendant qu’elle travaille (merci pour le signalement !)',
+    'Sur téléphone : les cartes postales des compagnons tiennent dans l’écran, leur bouton reste toujours à portée de doigt'
   ] },
   { date: '2026-10-31', title: 'D’un seul coup', items: [
     'Fouille : nouveau bouton « Tout fouiller » pour dépenser toute ton énergie d’un coup, avec le bilan de tes trouvailles (merci pour l’idée !)',
