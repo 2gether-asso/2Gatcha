@@ -56,7 +56,9 @@ const SEEDS = {
   catnip: { label: 'Herbe à chat', icon: '🌿', cost: 2, grow: 1.2, level: 2, desc: '2 à 4 poissons pour Moka.' },
   bone: { label: 'Arbre à os', icon: '🦴', cost: 3, grow: 1.5, level: 4, desc: '1 ou 2 os pour Milo, parfois un crâne de dino.' },
   mushroom: { label: 'Champignon lumineux', icon: '🍄', cost: 4, grow: 2, level: 6, desc: '20 à 40 poussières, souvent une pièce détachée.' },
-  veggie: { label: 'Potager', icon: '🥬', cost: 2, grow: 1.2, desc: '2 à 4 légumes pour la cuisine, souvent des herbes.' }
+  veggie: { label: 'Potager', icon: '🥬', cost: 2, grow: 1.2, desc: '2 à 4 légumes pour la cuisine, souvent des herbes.' },
+  // Mode Chill seulement (une plante en terre pousse encore apres le changement de mode).
+  tropical: { label: 'Graine tropicale', icon: '🥭', cost: 3, grow: 2, desc: '1 ou 2 fruits exotiques pour le bar de plage, parfois un appât doré.' }
 };
 // Graines reglables (GardenSeeds) : on ne change que nom, prix, pousse,
 // niveau et presence ; ce que donne chaque graine reste celui du jeu.
@@ -68,6 +70,7 @@ function seedsOf(store) {
     const r = (Array.isArray(rows) ? rows : []).find((x) => x && x.key === k) || {};
     const num = (v, def, lo, hi) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : def; };
     if (r.active === false && k !== 'mix') continue;
+    if (k === 'tropical' && !(store && ruleOn(store, 'chill.tropicalSeed'))) continue;
     out[k] = { ...s, label: String(r.label || s.label).slice(0, 40), cost: num(r.cost, s.cost, 0, 100), grow: num(r.grow, s.grow, 0.1, 10), level: Math.round(num(r.level, s.level || 1, 1, 10)) };
   }
   return out;
@@ -230,13 +233,13 @@ function handleGarden({ store, body }) {
     let xp = 0;
     const wilt = wiltSeconds(store, user);
     const diplo = dinoTalent(user, 'long');
-    const kitchen = { veg: 0, herb: 0, mush: 0 };
+    const kitchen = { veg: 0, herb: 0, mush: 0, fruit: 0 };
     for (const i of ready) {
       const wilted = wilt > 0 && wiltFrom(plots[i], plots[i].plantedAt + Math.round(grow * seedMult(plots[i])), talentUntil(user, 'stego')) + wilt <= now();
       const item = rollPlot(store, plots[i], i, { wilted, baitChance, diplo });
       worms += item.worms; bait += item.bait; dust += item.dust;
       more.CatFish += item.catFish; more.BoneCount += item.bones; more.DinoSkulls += item.skulls; more.SpareParts += item.parts; more.Grubs += item.grubs;
-      kitchen.veg += item.veg; kitchen.herb += item.herb; kitchen.mush += item.mush;
+      kitchen.veg += item.veg; kitchen.herb += item.herb; kitchen.mush += item.mush; kitchen.fruit += item.fruit;
       xp += item.xp;
       items.push(item);
       plots[i] = null;
@@ -283,7 +286,7 @@ function handleGarden({ store, body }) {
 // Ce que donne une parcelle recoltee (toi ou Noisette).
 function rollPlot(store, p, i, { wilted = false, baitChance = 0, diplo = false } = {}) {
   const seed = (p && p.seed) || 'mix';
-  const item = { plot: i, seed, worms: 0, bait: 0, dust: 0, catFish: 0, bones: 0, skulls: 0, parts: 0, grubs: 0, veg: 0, herb: 0, mush: 0, xp: seed === 'mix' || seed === 'worm' ? 2 : 3 };
+  const item = { plot: i, seed, worms: 0, bait: 0, dust: 0, catFish: 0, bones: 0, skulls: 0, parts: 0, grubs: 0, veg: 0, herb: 0, mush: 0, fruit: 0, xp: seed === 'mix' || seed === 'worm' ? 2 : 3 };
   const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   if (seed === 'worm') item.worms = rnd(3, 5);
   else if (seed === 'bait') { item.worms = 1; if (Math.random() < Math.min(0.95, baitChance * 2)) item.bait = 1; }
@@ -292,6 +295,7 @@ function rollPlot(store, p, i, { wilted = false, baitChance = 0, diplo = false }
   else if (seed === 'bone') { item.bones = rnd(1, 2); if (Math.random() < 0.06) item.skulls = 1; }
   else if (seed === 'mushroom') { item.dust = rnd(20, 40); if (Math.random() < 0.35) item.parts = 1; if (Math.random() < 0.5) item.mush = 1; }
   else if (seed === 'veggie') { item.veg = rnd(2, 4); if (Math.random() < 0.6) item.herb = 1; }
+  else if (seed === 'tropical') { item.fruit = rnd(1, 2); if (Math.random() < 0.25) item.bait = 1; }
   else {
     item.worms = rnd(1, 2);
     if (Math.random() < baitChance) item.bait = 1;
@@ -303,7 +307,7 @@ function rollPlot(store, p, i, { wilted = false, baitChance = 0, diplo = false }
   if (p.fert) { item.fertilized = true; item.worms *= 2; item.catFish *= 2; item.bones *= 2; item.veg *= 2; if (seed === 'mushroom') item.dust *= 2; }
   if (p.gfert) { item.goldFertilized = true; item.bait = Math.max(1, item.bait); }
   if (diplo) { item.dino = true; item.worms += 1; }
-  if (wilted) { item.wilted = true; item.worms = Math.floor(item.worms / 2); item.bait = 0; item.dust = 0; item.catFish = Math.floor(item.catFish / 2); item.bones = Math.floor(item.bones / 2); item.skulls = 0; item.parts = 0; item.grubs = 0; item.veg = Math.floor(item.veg / 2); item.herb = 0; item.mush = 0; }
+  if (wilted) { item.fruit = Math.floor(item.fruit / 2); item.wilted = true; item.worms = Math.floor(item.worms / 2); item.bait = 0; item.dust = 0; item.catFish = Math.floor(item.catFish / 2); item.bones = Math.floor(item.bones / 2); item.skulls = 0; item.parts = 0; item.grubs = 0; item.veg = Math.floor(item.veg / 2); item.herb = 0; item.mush = 0; }
   return item;
 }
 
@@ -314,7 +318,7 @@ function bunnyView(store, user) {
   const t = now();
   return { carrots: Number(user.Carrots) || 0, secondsLeft: s ? Math.max(0, s.until - t) : 0, minutesPerCarrot: setting(store, 'BunnyMinutesPerCarrot'), maxMinutes: setting(store, 'BunnyMaxMinutes'), pending: !!parseJson(user.BunnyReport, null), seed: user.BunnySeed || '' };
 }
-const GAIN_KEYS = ['worms', 'bait', 'dust', 'catFish', 'bones', 'skulls', 'parts', 'grubs', 'veg', 'herb', 'mush'];
+const GAIN_KEYS = ['worms', 'bait', 'dust', 'catFish', 'bones', 'skulls', 'parts', 'grubs', 'veg', 'herb', 'mush', 'fruit'];
 // Travail de Noisette depuis le dernier passage : champs a ecrire (ou null).
 // Elle recolte chaque parcelle prete pendant ses heures de travail (au moment
 // ou elle l'est), puis replante la meme graine si tu as de quoi la payer.
@@ -370,7 +374,7 @@ export function settleBunny(store, user) {
     StardustCount: dust + sum.dust, GardenXP: (Number(user.GardenXP) || 0) + xp,
     CatFish: (Number(user.CatFish) || 0) + sum.catFish, BoneCount: (Number(user.BoneCount) || 0) + sum.bones, DinoSkulls: (Number(user.DinoSkulls) || 0) + sum.skulls,
     SpareParts: (Number(user.SpareParts) || 0) + sum.parts, Grubs: (Number(user.Grubs) || 0) + sum.grubs,
-    ...pantryFields(user, { veg: sum.veg, herb: sum.herb, mush: sum.mush }),
+    ...pantryFields(user, { veg: sum.veg, herb: sum.herb, mush: sum.mush, fruit: sum.fruit }),
     BunnyState: finished ? '' : JSON.stringify(s)
   };
   const gift = petGift(store, { ...user, ...fields }, 'noisette');

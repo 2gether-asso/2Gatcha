@@ -13,7 +13,8 @@
 
 import { ok, fail, isAdmin, parisDay, parisHour, parseJson } from './common.js';
 import { currentMode, PRESETS, PRESET_INFO } from './presets.js';
-import { REGISTRY } from './settings.js';
+import { REGISTRY, setting } from './settings.js';
+import { matrix, disabled } from './features.js';
 
 const KEY = 'mode-rules';
 export const MODES = ['cool', 'chill', 'medium', 'hard', 'chaos'];
@@ -42,6 +43,17 @@ export const RULES = [
   { key: 'chill.happyHour', mode: 'chill', kind: 'extra', icon: '🍹', label: 'Happy hour', desc: 'Chaque jour de 18 h à 19 h : boutique et boosters de la boutique à -30 %.', isNew: true },
   { key: 'chill.sharedGarden', mode: 'chill', kind: 'extra', icon: '🌻', label: 'Jardin partagé', desc: 'Une parcelle commune que tout le monde arrose ; à maturité, la récolte est partagée selon la participation.', isNew: true },
   { key: 'chill.dinoWalk', mode: 'chill', kind: 'extra', icon: '🦕', label: 'Balade du dino', desc: 'Une fois par jour et par dino : une promenade d’une heure qui rapporte des trouvailles et de la bonne humeur.', isNew: true },
+  { key: 'chill.nap', mode: 'chill', kind: 'extra', icon: '🛌', label: 'Sieste au hamac', desc: 'Une fois par jour : ne rien faire pendant 2 h rapporte des vers et des poussières. Jouer entre-temps te réveille.', isNew: true },
+  { key: 'chill.sunset', mode: 'chill', kind: 'extra', icon: '🌅', label: 'Coucher de soleil', desc: 'Chaque soir vers 21 h : le ciel du site se réchauffe un quart d’heure, avec un cadeau pour ceux qui passent à ce moment-là.', isNew: true },
+  { key: 'chill.postcard', mode: 'chill', kind: 'extra', icon: '💌', label: 'Carte postale', desc: 'Une fois par jour : envoyer une carte de sa collection à un ami, qui reçoit un petit cadeau. La carte n’est pas donnée. Publiable sur Discord.', isNew: true },
+  { key: 'chill.beachFishing', mode: 'chill', kind: 'extra', icon: '🐠', label: 'Pêche sans appât', desc: 'Une partie par jour au bord de l’eau, sans ver et sans prise vide, avec des poissons exotiques et leur carnet.', isNew: true },
+  { key: 'chill.cocktails', mode: 'chill', kind: 'extra', icon: '🍹', label: 'Bar de plage', desc: 'Des cocktails à la cuisine, à base de fruits exotiques : un bonus d’une heure.', isNew: true },
+  { key: 'chill.petHoliday', mode: 'chill', kind: 'bonus', icon: '🏖️', label: 'Transat des compagnons', desc: 'L’affection gagnée en s’occupant de ses compagnons est doublée, et une photo souvenir rapporte des poussières une fois par jour.', isNew: true },
+  { key: 'chill.tropicalSeed', mode: 'chill', kind: 'extra', icon: '🥭', label: 'Graine tropicale', desc: 'Une graine exotique, lente à pousser, qui donne des fruits pour le bar de plage et parfois un appât doré.', isNew: true },
+  { key: 'chill.beachDig', mode: 'chill', kind: 'extra', icon: '🏴‍☠️', label: 'Fouille de plage', desc: 'Chaque jour, une petite grille de sable sans énergie : 5 coups de pelle pour trouver le coffre du pirate.', isNew: true },
+  { key: 'chill.apero', mode: 'chill', kind: 'extra', icon: '🥂', label: 'Apéro du serveur', desc: 'Quand assez de joueurs passent dans la même heure, chacun reçoit des poussières (une fois par jour).', isNew: true },
+  { key: 'chill.passport', mode: 'chill', kind: 'extra', icon: '🛂', label: 'Passeport de vacances', desc: 'Un tampon par activité différente et par jour. Carnet complet : un titre et un cadre exclusifs.', isNew: true },
+  { key: 'chill.sunbath', mode: 'chill', kind: 'extra', icon: '☀️', label: 'Doublons au soleil', desc: 'Laisser bronzer un doublon 24 h : il peut gagner un cran d’état, jamais en perdre.', isNew: true },
   // ------------------------------------------------------------------ Medium
   { key: 'medium.bet', mode: 'medium', kind: 'extra', icon: '🎲', label: 'Pari du booster', desc: 'Miser des poussières à l’ouverture : triplées si une épique (ou mieux) sort.' },
   { key: 'medium.contract', mode: 'medium', kind: 'extra', icon: '📜', label: 'Contrat de la semaine', desc: 'Un objectif personnel par semaine, un booster à la clé.' },
@@ -102,13 +114,25 @@ export function ruleOn(store, key) {
 // Libelles des regles actives d'un mode (annonce du changement de mode).
 export function modePerks(store, mode) {
   const off = offSet(store);
-  return RULES.filter((r) => r.mode === mode && !off.has(r.key)).map((r) => `${r.icon} ${r.label}`);
+  return RULES.filter((r) => r.mode === mode && !off.has(r.key) && !(r.key === 'chill.happyHour' && shopClosed(store, mode))).map((r) => `${r.icon} ${r.label}`);
 }
 
 // ------------------------------------------------------------------ heure joyeuse (Chill)
 export const HAPPY_FROM = 18, HAPPY_TO = 19, HAPPY_DISCOUNT = 0.3;
-export const happyHourNow = (store) => ruleOn(store, 'chill.happyHour') && parisHour() >= HAPPY_FROM && parisHour() < HAPPY_TO;
+// Boutique fermee (Admin > Economie, ou le mode donne) : pas de happy hour a annoncer.
+const shopClosed = (store, mode = null) => (mode ? (matrix(store).shop || []).includes(mode) : disabled(store).some((f) => f.key === 'shop'));
+const happyHourOn = (store) => ruleOn(store, 'chill.happyHour') && !shopClosed(store);
+export const happyHourNow = (store) => happyHourOn(store) && parisHour() >= HAPPY_FROM && parisHour() < HAPPY_TO;
 export const happyFactor = (store) => (happyHourNow(store) ? 1 - HAPPY_DISCOUNT : 1);
+
+// ------------------------------------------------------------------ vacances (Chill, vacation.js)
+export const vacationCfg = (store) => ({ ...REGISTRY.ChillVacation.def, ...(setting(store, 'ChillVacation') || {}) });
+export function sunsetState(store) {
+  if (!ruleOn(store, 'chill.sunset')) return null;
+  const c = vacationCfg(store);
+  const hour = Number(c.sunsetHour) || 0, minutes = Math.min(60, Number(c.sunsetMinutes) || 0);
+  return { hour, minutes, active: parisHour() === hour && new Date(Date.now()).getUTCMinutes() < minutes };
+}
 
 // ------------------------------------------------------------------ tempetes (Hard)
 // Une chance sur deux par jour ; fenetre de 3 h entre 9 h et 21 h ; pêche ou fouille.
@@ -181,9 +205,11 @@ function handleAdmin({ store, body }) {
 export function publicRules(store) {
   const mode = modeKeyOf(store);
   const off = offSet(store);
-  const rules = RULES.filter((r) => r.mode === mode && !off.has(r.key)).map((r) => ({ key: r.key, kind: r.kind, icon: r.icon, label: r.label, desc: r.desc, isNew: !!r.isNew }));
+  const rules = RULES.filter((r) => r.mode === mode && !off.has(r.key) && !(r.key === 'chill.happyHour' && shopClosed(store))).map((r) => ({ key: r.key, kind: r.kind, icon: r.icon, label: r.label, desc: r.desc, isNew: !!r.isNew }));
   const out = { mode, label: PRESET_INFO[mode]?.label || mode, icon: PRESET_INFO[mode]?.icon || '', rules, on: rules.map((r) => r.key) };
-  if (ruleOn(store, 'chill.happyHour')) out.happyHour = { from: HAPPY_FROM, to: HAPPY_TO, discount: HAPPY_DISCOUNT, active: happyHourNow(store) };
+  if (happyHourOn(store)) out.happyHour = { from: HAPPY_FROM, to: HAPPY_TO, discount: HAPPY_DISCOUNT, active: happyHourNow(store) };
+  const sunset = sunsetState(store);
+  if (sunset) out.sunset = sunset;
   const storm = stormState(store);
   if (storm) out.storm = storm;
   return out;

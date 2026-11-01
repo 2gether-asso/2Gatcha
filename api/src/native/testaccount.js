@@ -38,7 +38,7 @@ const BLOCKED = {
   trade: null, auctions: null, contracts: null, 'player-gift': null, 'dog-gift': null, 'duo-expedition': null,
   'guild-chest': ['deposit', 'take', 'free'], 'guild-works': null, 'boss-attack': null, 'community-boss': null, 'community-dig': null,
   teams: ['join', 'leave', 'switch'], wanted: null, lottery: null, 'chaos-vote': null, 'redeem-code': null, 'black-market': ['buy'],
-  'profile-wall': null, 'sunday-market': null, 'machine-room': ['vote', 'event-vote'],
+  'profile-wall': null, 'sunday-market': null, 'machine-room': ['vote', 'event-vote'], vacation: ['postcard'],
   // Registre public des Unique et annonces Discord.
   'unique-counter': ['redeem'], 'share-card': null
 };

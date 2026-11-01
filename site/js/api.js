@@ -947,6 +947,7 @@ const API = {
   decraftUndo(userId, action = "list", id) { return this.post("decraftUndo", { userId, action, id }); },
   weeklyGoal(userId, action = "status") { return this.post("weeklyGoal", { userId, action }); },
   modeRules() { return this.get("modeRules"); },
+  vacation(userId, action = "status", params = {}) { return this.post("vacation", { userId, action, ...params }); },
   modeExtra(userId, action = "status", params = {}) { return this.post("modeExtra", { userId, action, ...params }); },
   draft(userId, action = "status", params = {}) { return this.post("draft", { userId, action, ...params }); },
   skyTree(userId, action = "status", key) { return this.post("skyTree", { userId, action, key }); },

@@ -30,6 +30,11 @@ export const TEMPLATES = {
     vars: { pseudo: 'le joueur', card: 'la carte', serial: 'son numéro', first: '« premier exemplaire du serveur ! » si c’est le cas' },
     def: { enabled: true, title: '🍀 Carte Unique obtenue !', text: '**{pseudo}** a échangé un Ticket Unique contre **{card}** (#{serial}){first}', color: '#22c55e' }
   },
+  postcard: {
+    label: 'Carte postale (mode Chill)', when: 'Quand un joueur coche « Publier aussi sur Discord » en envoyant une carte postale. Le mot du joueur reste privé.',
+    vars: { pseudo: 'le joueur', to: 'le destinataire', card: 'la carte' },
+    def: { enabled: true, title: '💌 {pseudo} envoie une carte postale à {to}', text: 'Une carte {card}, avec le soleil en prime.', color: '#f97316' }
+  },
   cardShare: {
     label: 'Carte partagée par un joueur', when: 'Bouton « Publier sur Discord » du studio de partage (l’image de la carte est jointe).',
     vars: { pseudo: 'le joueur', card: 'la carte', details: 'rareté, finition, état, édition, numéro' },

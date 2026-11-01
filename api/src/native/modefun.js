@@ -59,7 +59,7 @@ function swapPull(store, userId, pull, card, target = null) {
 }
 const ownPull = (store, user, pullId) => { const p = store.get('Pulls', Number(pullId)); return p && refId(p.User) === user.id ? p : null; };
 // Petits messages differes (larcin subi...), montres a la prochaine visite.
-function inbox(store, userId, icon, text) {
+export function inbox(store, userId, icon, text) {
   const u = store.get('Users', userId);
   if (!u) return;
   const list = parseJson(u.ModeInbox, []).slice(-9);

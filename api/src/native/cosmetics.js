@@ -64,6 +64,8 @@ const SECRETS = [
   { key: 'title-ironman', type: 'title', label: 'Ironman 🛡️', source: 'Défi Ironman' },
   { key: 'frame-iron', type: 'frame', label: 'Cadre d’acier', source: 'Défi Ironman' },
   { key: 'frame-inferno', type: 'frame', label: 'Cadre Infernal', source: 'Mode Hard : 7 jours de survie' },
+  { key: 'globetrotter', type: 'title', label: 'Globe-trotteur 🏝️', source: 'Mode Chill : passeport de vacances complet' },
+  { key: 'frame-tropical', type: 'frame', label: 'Cadre Tropical', source: 'Mode Chill : passeport de vacances complet' },
   { key: 'frame-seasons', type: 'frame', label: 'Cadre Toutes saisons', source: '5 jours dans chaque mode' },
   { key: 'title-survivor', type: 'title', label: 'Survivant 🔥', source: 'Mode Hard : légendaire en survie' },
   { key: 'title-adventurer', type: 'title', label: 'Aventurier', source: 'Quête en chaîne terminée' },

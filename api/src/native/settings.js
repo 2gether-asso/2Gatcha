@@ -124,7 +124,7 @@ export const REGISTRY = {
   CookMaxHours: { ...int('Cuisine : heures de bonus au maximum devant soi', 12, 'Cuisine', 'Recuisiner un plat prolonge son bonus, jusqu’à ce plafond.', 1, 72), storage: 'app' },
   CookRecipes: {
     label: 'Cuisine : les recettes', type: 'json', group: 'Cuisine', storage: 'app',
-    help: 'Liste : key (unique), label, icon, desc, effect (garden, fish, archeo, pets ou all), hours (durée du bonus), needs { veg, herb, berry, mush, honey, fish, carrot : quantité }, active (false = retirée).',
+    help: 'Liste : key (unique), label, icon, desc, effect (garden, fish, archeo, pets ou all), hours (durée du bonus), needs { veg, herb, berry, mush, honey, fruit, fish, carrot : quantité }, active (false = retirée).',
     def: [
       { key: 'soupe', label: 'Soupe du potager', icon: '🍲', desc: 'Une grande marmite qui sent bon le jardin.', effect: 'garden', hours: 4, needs: { veg: 3, herb: 1 } },
       { key: 'grillade', label: 'Poisson grillé aux herbes', icon: '🐟', desc: 'Grillé au feu de bois, sur le ponton.', effect: 'fish', hours: 3, needs: { fish: 2, herb: 1 } },
@@ -425,6 +425,7 @@ export const REGISTRY = {
   // --- Bonus et malus des modes (modeperks.js, 2026-10-14)
   BoosterBetStake: { ...int('Medium : mise du pari du booster (poussières)', 100, 'Modes de jeu', 'Triplée si le booster contient une épique ou mieux.', 1), storage: 'app' },
   ChillLuckyDuplicateChance: { ...pct('Chill : chance qu’un doublon devienne une carte manquante', 0.1, 'Modes de jeu', ''), storage: 'app' },
+  ChillVacation: { label: 'Chill : réglages des vacances', type: 'json', group: 'Modes de jeu', storage: 'app', help: 'Objet : napHours, napWorms, napDust (sieste) ; sunsetHour, sunsetMinutes, sunsetDust (coucher de soleil) ; postcardGift ; beachCasts ; beachDigs, beachChestDust ; photoDust ; aperoPlayers, aperoDust ; passportGoal ; sunbathSlots, sunbathChance.', def: { napHours: 2, napWorms: 8, napDust: 40, sunsetHour: 21, sunsetMinutes: 15, sunsetDust: 60, postcardGift: 30, beachCasts: 3, beachDigs: 5, beachChestDust: 120, photoDust: 20, aperoPlayers: 3, aperoDust: 30, passportGoal: 25, sunbathSlots: 3, sunbathChance: 0.5 } },
   HardWearChance: { ...pct('Hard : chance d’usure d’un doublon par jour', 0.25, 'Modes de jeu', 'Jamais un #001, un exemplaire assuré, ★ ou au coffre.'), storage: 'app' },
   HardFinishLoss: { ...pct('Hard : part des finitions spéciales perdues à l’ouverture', 0.25, 'Modes de jeu', ''), storage: 'app' },
   LuxuryTaxMultiplier: { ...num('Hard : taxe de luxe (× pour les plus riches que la moyenne)', 1.5, 'Modes de jeu', 'Le surplus est redistribué chaque lundi aux joueurs actifs.', 1, 5), storage: 'app' },

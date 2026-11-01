@@ -21,6 +21,7 @@ import { goldenWindow } from '../src/native/comfort.js';
 import * as modeperks from '../src/native/modeperks.js';
 import * as machine from '../src/native/machine.js';
 import * as discordMod from '../src/native/discord.js';
+import * as vacation from '../src/native/vacation.js';
 import * as modeextras from '../src/native/modeextras.js';
 import * as seasonal from '../src/native/seasonal.js';
 import * as editions from '../src/native/editions.js';
@@ -2027,7 +2028,7 @@ await test('regles par difficulte : registre, admin (activer, desactiver, par mo
   assert.equal(call('POST', 'admin-mode-rules', { body: { discordId: 'x' } }).status, 403);
   let st = call('POST', 'admin-mode-rules', { body: { discordId: ADMIN } }).json;
   assert.deepEqual(st.modes.map((m) => m.key), ['cool', 'chill', 'medium', 'hard', 'chaos']);
-  assert.equal(st.modes.reduce((n, m) => n + m.rules.filter((r) => r.isNew).length, 0), 20);
+  assert.equal(st.modes.reduce((n, m) => n + m.rules.filter((r) => r.isNew).length, 0), 31);
   assert.ok(st.modes.every((m) => m.presets.length > 0));
   applyMode('cool');
   assert.equal(moderules.ruleOn(store, 'cool.fishNoEmpty'), true);
@@ -2111,6 +2112,130 @@ await test('mode Cool : boite a souhaits garantie en 10 boosters, atelier gratui
   assert.equal(dinoMod.dinoHoliday(), false);
   assert.equal(call('POST', 'dino', { body: { userId: 1 } }).json.dinos[0].food, food, 'fin des vacances : on repart de la');
 });
+
+await test('vacances du mode Chill : sieste, soleil, carte postale, plage, photo, apero, passeport, bronzage, fruits', () => atParisHour(21, () => {
+  applyMode('chill');
+  const vac = (action, more = {}, userId = 1) => call('POST', 'vacation', { body: { userId, action, ...more } });
+  const reset = { NapState: '', NapDay: '', SunsetDay: '', PostcardDay: '', Postcards: '[]', BeachFishDay: '', ExoticFish: '{}', BeachDig: '', PetPhotoDay: '', AperoDay: '', Passport: '{}', StardustCount: 1000, Worms: 0, KeyCount: 0 };
+  store.update('Users', 1, reset); store.update('Users', 2, reset);
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { ChillVacation: { sunsetMinutes: 60, aperoPlayers: 2, passportGoal: 3 } } } });
+  // Sieste : un geste de jeu reveille, le reveil paie une fois.
+  assert.equal(vac('nap-claim').json.error, 'not_napping');
+  assert.ok(vac('nap-start').json.toast);
+  assert.equal(vac('nap-claim').json.error, 'too_soon');
+  vacation.onEvents(store, [{ userId: 1, type: 'dig', n: 1, meta: {} }]);
+  assert.equal(user(1).NapState, '', 'reveille par une action');
+  vac('nap-start');
+  store.update('Users', 1, { NapState: JSON.stringify({ start: now() - 8000, until: now() - 1 }) });
+  const dust0 = user(1).StardustCount;
+  assert.ok(vac('nap-claim').json.toast);
+  assert.equal(user(1).Worms, 8);
+  assert.equal(user(1).StardustCount, dust0 + 40);
+  assert.equal(vac('nap-start').json.error, 'already_used');
+  // Coucher de soleil : a l'heure, une fois.
+  assert.equal(moderules.publicRules(store).sunset.active, true);
+  assert.ok(vac('sunset-claim').json.toast);
+  assert.equal(vac('sunset-claim').json.error, 'already_used');
+  // Carte postale : la carte reste a l'expediteur, le mot n'est pas sur Discord.
+  const pull = mk(1, cards()[0].id); // un id
+  assert.equal(vac('postcard', { toPseudo: user(1).Pseudo, pullId: pull }).json.error, 'unknown_target');
+  assert.equal(vac('postcard', { toPseudo: user(2).Pseudo, pullId: mk(2, cards()[0].id) }).json.error, 'copy_not_owned');
+  const d2 = user(2).StardustCount;
+  assert.ok(vac('postcard', { toPseudo: user(2).Pseudo, pullId: pull, message: 'Bisous' }).json.toast);
+  assert.equal(refIdOf(store.get('Pulls', pull).User), 1);
+  assert.equal(user(2).StardustCount, d2 + 30);
+  assert.equal(vac('status', {}, 2).json.postcards[0].message, 'Bisous');
+  assert.equal(vac('postcard', { toPseudo: user(2).Pseudo, pullId: pull }).json.error, 'already_used');
+  // Peche sans appat : ne coute aucun ver, jamais vide, une fois par jour.
+  const fished = vac('beach-fish').json;
+  assert.equal(fished.catches.length, 3);
+  assert.equal(vac('beach-fish').json.error, 'already_used');
+  assert.equal(vac('status').json.beachFish.book.reduce((s, f) => s + f.count, 0), 3);
+  // Fouille de plage : le coffre n'est revele qu'a la fin, 5 coups de pelle.
+  assert.equal(vac('status').json.beachDig.chest, null, 'coffre cache');
+  assert.equal(vac('beach-dig', { tile: 99 }).json.error, 'invalid_tile');
+  const board = JSON.parse(JSON.stringify({ day: parisDay(0), chest: 15, dug: {}, left: 5, found: false }));
+  store.update('Users', 1, { BeachDig: JSON.stringify(board) });
+  assert.ok(vac('beach-dig', { tile: 0 }).json.toast);
+  assert.equal(vac('beach-dig', { tile: 0 }).json.error, 'already_dug');
+  assert.equal(vac('status').json.beachDig.dug[0], 'cold');
+  const keys0 = user(1).KeyCount;
+  vac('beach-dig', { tile: 15 });
+  assert.equal(user(1).KeyCount, keys0 + 1);
+  assert.equal(vac('beach-dig', { tile: 3 }).json.error, 'already_used');
+  // Passeport : un tampon par activite et par jour, carnet complet = titre et cadre.
+  store.update('Users', 1, { Passport: '{}' });
+  vacation.onEvents(store, [{ userId: 1, type: 'harvest', n: 1, meta: {} }, { userId: 1, type: 'harvest', n: 1, meta: {} }]);
+  assert.equal(vac('status').json.passport.total, 1, 'meme activite, meme jour : un seul tampon');
+  const notices = vacation.onEvents(store, [{ userId: 1, type: 'dig', n: 1, meta: {} }, { userId: 1, type: 'cook', n: 1, meta: {} }]);
+  assert.equal(vac('status').json.passport.done, true);
+  assert.ok(notices.some((x) => /Passeport complet/.test(x.label)));
+  assert.ok(store.getAll('UserCosmetics').some((c) => refIdOf(c.User) === 1 && c.Key === 'frame-tropical'));
+  // Bronzage : un doublon seulement, jamais de perte, a la fin des 24 h.
+  const card = cards()[1];
+  store.getAll('Pulls').filter((p) => refIdOf(p.User) === 1 && refIdOf(p.Card) === card.id).forEach((p) => store.delete('Pulls', p.id));
+  const only = mk(1, card.id, 'normal', 'worn');
+  assert.equal(vac('sunbath-start', { pullId: only }).json.error, 'not_a_duplicate');
+  mk(1, card.id, 'normal', 'good');
+  assert.ok(vac('sunbath-start', { pullId: only }).json.toast);
+  assert.equal(vac('sunbath-start', { pullId: only }).json.error, 'already_sunbathing');
+  assert.equal(vac('sunbath-claim', { pullId: only }).json.error, 'too_soon');
+  store.update('Pulls', only, { SunbathUntil: now() - 1 });
+  const realRandom = Math.random; Math.random = () => 0.1;
+  assert.equal(vac('sunbath-claim', { pullId: only }).json.improved, true);
+  Math.random = realRandom;
+  assert.equal(store.get('Pulls', only).Quality, 'good');
+  assert.equal(store.get('Pulls', only).SunbathUntil, 0);
+  // Apero : au 2e joueur de l'heure (seuil regle a 2), chacun recoit une fois.
+  store.getAll('AppSettings').filter((r) => ['apero', 'apero-day'].includes(r.Key)).forEach((r) => store.delete('AppSettings', r.id));
+  store.update('Users', 1, { AperoDay: '' }); store.update('Users', 2, { AperoDay: '' });
+  vacation._reset();
+  const a1 = user(1).StardustCount, a2 = user(2).StardustCount;
+  vac('status', {}, 1);
+  assert.equal(user(1).StardustCount, a1, 'seul au bar');
+  vac('status', {}, 2);
+  assert.equal(user(1).StardustCount, a1 + 30);
+  assert.equal(user(2).StardustCount, a2 + 30);
+  vacation._reset();
+  vac('status', {}, 1); vac('status', {}, 2);
+  assert.equal(user(1).StardustCount, a1 + 30, 'une fois par jour');
+  // Compagnons : affection doublee, seulement en Chill.
+  const gain = (m) => { applyMode(m); return call('POST', 'pets', { body: { userId: 1, action: 'status' } }).json.pets[0].gestures.cuddle.gain; };
+  const chillGain = gain('chill');
+  assert.equal(chillGain, gain('medium') * 2);
+  applyMode('chill');
+  // Graine tropicale et cocktails : en Chill seulement, le fruit va au garde-manger.
+  const garden = (body = {}) => call('POST', 'garden', { body: { userId: 1, ...body } }).json;
+  assert.ok(garden().seeds.some((s) => s.key === 'tropical'));
+  store.update('Users', 1, { GardenPlots: JSON.stringify([{ plantedAt: now() - 100 * 3600, seed: 'tropical', safeAt: now() }]), Pantry: '{}' });
+  garden({ action: 'harvest' });
+  const pantry = JSON.parse(user(1).Pantry);
+  assert.ok(pantry.fruit >= 0);
+  store.update('Users', 1, { Pantry: JSON.stringify({ fruit: 1, herb: 2 }) });
+  assert.ok(call('POST', 'cook', { body: { userId: 1 } }).json.recipes.some((r) => r.key === 'mojito'));
+  assert.equal(call('POST', 'cook', { body: { userId: 1, action: 'cook', recipe: 'mojito' } }).json.cooked.key, 'mojito');
+  applyMode('medium');
+  assert.ok(!garden().seeds.some((s) => s.key === 'tropical'));
+  assert.ok(!call('POST', 'cook', { body: { userId: 1 } }).json.recipes.some((r) => r.key === 'mojito'));
+  assert.equal(vac('beach-fish').json.error, 'wrong_mode');
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'ChillVacation' } });
+  store.update('Users', 1, { Buffs: '{}', GardenPlots: '[]', BeachDig: '', Passport: '{}' });
+}));
+
+await test('mode Chill : pas de happy hour annoncee quand la boutique est fermee', () => atParisHour(18, () => {
+  applyMode('chill');
+  const setShop = (off) => call('POST', 'admin-mode-features', { body: { discordId: ADMIN, action: 'set', matrix: { shop: off } } });
+  setShop([]);
+  assert.ok(moderules.publicRules(store).happyHour.active, 'boutique ouverte a 18 h : happy hour');
+  assert.equal(moderules.happyFactor(store), 0.7);
+  setShop(['chill']);
+  const closed = moderules.publicRules(store);
+  assert.equal(closed.happyHour, undefined, 'pas de bandeau');
+  assert.ok(!closed.on.includes('chill.happyHour'), 'pas dans la liste des regles');
+  assert.ok(!moderules.modePerks(store, 'chill').some((p) => p.includes('Happy hour')));
+  assert.equal(moderules.happyFactor(store), 1);
+  setShop([]);
+}));
 
 await test('mode Chill : happy hour sur les prix, jardin partage (arrosage, recolte partagee), balade du dino', () => atParisHour(12, () => {
   applyMode('chill');

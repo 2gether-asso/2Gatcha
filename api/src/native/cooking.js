@@ -16,6 +16,7 @@
 
 import { ok, fail, userById, now, parseJson } from './common.js';
 import { setting } from './settings.js';
+import { ruleOn } from './moderules.js';
 
 export const schema = { Users: { Pantry: { type: 'Text' }, Buffs: { type: 'Text' }, CookCount: { type: 'Numeric' } } };
 
@@ -26,6 +27,7 @@ export const INGREDIENTS = {
   berry: { label: 'Baies', one: 'baie', icon: '🫐' },
   mush: { label: 'Champignons', one: 'champignon', icon: '🍄' },
   honey: { label: 'Miel', one: 'pot de miel', icon: '🍯' },
+  fruit: { label: 'Fruits exotiques', one: 'fruit exotique', icon: '🥭' },
   fish: { label: 'Poissons', one: 'poisson', icon: '🐟', field: 'CatFish' },
   carrot: { label: 'Carottes', one: 'carotte', icon: '🥕', field: 'Carrots' }
 };
@@ -76,10 +78,19 @@ export const gardenBuff = (store, user) => (buffOn(user, 'garden') ? 1 - Math.mi
 export const fishBuff = (store, user) => (buffOn(user, 'fish') ? 1 + setting(store, 'CookFishPct') / 100 : 1);
 export const archeoBuff = (store, user) => (buffOn(user, 'archeo') ? 1 + setting(store, 'CookArcheoPct') / 100 : 1);
 
+// Bar de plage (mode Chill) : une recette reglee de meme cle prend le dessus.
+const COCKTAILS = [
+  { key: 'mojito', label: 'Mojito du potager', icon: '🍹', desc: 'Frais, avec les herbes du jardin.', effect: 'garden', hours: 1, needs: { fruit: 1, herb: 2 } },
+  { key: 'pina', label: 'Piña du pêcheur', icon: '🍍', desc: 'À siroter sur le ponton.', effect: 'fish', hours: 1, needs: { fruit: 1, honey: 1 } },
+  { key: 'smoothie', label: 'Smoothie des compagnons', icon: '🥤', desc: 'Un peu pour toi, beaucoup pour eux.', effect: 'pets', hours: 1, needs: { fruit: 1, berry: 2 } },
+  { key: 'planteur', label: 'Planteur du coucher de soleil', icon: '🌅', desc: 'Le cocktail de la maison.', effect: 'all', hours: 1, needs: { fruit: 2, honey: 1, berry: 1 } }
+];
 // Recettes reglees, bornees ; une recette mal formee est ignoree.
 function recipesOf(store) {
-  const rows = setting(store, 'CookRecipes');
-  return (Array.isArray(rows) ? rows : []).filter((r) => r && r.key && EFFECT_KEYS.includes(r.effect) && r.active !== false).map((r) => {
+  const saved = setting(store, 'CookRecipes');
+  const list = Array.isArray(saved) ? saved : [];
+  const rows = ruleOn(store, 'chill.cocktails') ? [...list, ...COCKTAILS.filter((c) => !list.some((r) => r && r.key === c.key))] : list;
+  return rows.filter((r) => r && r.key && EFFECT_KEYS.includes(r.effect) && r.active !== false).map((r) => {
     const needs = {};
     for (const [k, n] of Object.entries(r.needs || {})) if (INGREDIENTS[k] && Math.floor(Number(n)) > 0) needs[k] = Math.min(50, Math.floor(Number(n)));
     return { key: String(r.key).slice(0, 30), label: String(r.label || r.key).slice(0, 40), icon: String(r.icon || '🍲').slice(0, 8), desc: String(r.desc || '').slice(0, 160), effect: r.effect, hours: Math.max(0.25, Math.min(24, Number(r.hours) || 1)), needs };

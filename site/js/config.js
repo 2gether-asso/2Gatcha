@@ -171,6 +171,7 @@ window.APP_CONFIG = {
     // Regles par difficulte (2026-10-16, api/src/native/moderules.js, modefun.js, draft.js, chaosvote.js).
     adminModeRules: "/admin-mode-rules", // POST { discordId, action: 'status'|'set'|'mode'|'reset', key?, on?, mode? }
     modeRules: "/mode-rules",           // GET -> regles actives du mode en cours
+    vacation: "/vacation",              // POST { userId, action, ... } -> vacances du mode Chill (api/src/native/vacation.js)
     modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode
     draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }
     casino: "/casino",                   // POST { userId, game, action, ... } (casino de la salle interdite)

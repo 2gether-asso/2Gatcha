@@ -121,6 +121,9 @@ export function eventsFrom(store, path, body = {}, response = {}) {
     case 'prestige':
       if (json.prestiged) out.push(ev('prestige', 1, { skill: body.skill }));
       break;
+    case 'cook':
+      if (body.action === 'cook' && json.cooked) out.push(ev('cook'));
+      break;
     case 'cosmetics':
       if (body.action === 'buy' && json.bought) out.push(ev('cosmeticBought'));
       break;

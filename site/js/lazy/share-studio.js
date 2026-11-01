@@ -683,6 +683,45 @@ const ShareStudio = (function () {
   }
 
   // ------------------------------------------------------------ studio
+  // Photo souvenir d'un compagnon sur son transat (mode Chill).
+  async function renderPetPhoto(fmt, p, pal) {
+    const { w: W, h: H } = FORMATS[fmt];
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    const sea = H * 0.56, sand = H * 0.68;
+    const sky = g.createLinearGradient(0, 0, 0, sea);
+    sky.addColorStop(0, "#7c3aed"); sky.addColorStop(0.55, "#f97316"); sky.addColorStop(1, "#fde68a");
+    g.fillStyle = sky; g.fillRect(0, 0, W, sea);
+    g.fillStyle = "#fef3c7"; g.beginPath(); g.arc(W * 0.72, sea - 40, 110, 0, Math.PI * 2); g.fill();
+    const water = g.createLinearGradient(0, sea, 0, sand);
+    water.addColorStop(0, "#fb923c"); water.addColorStop(1, "#0e7490");
+    g.fillStyle = water; g.fillRect(0, sea, W, sand - sea);
+    const beach = g.createLinearGradient(0, sand, 0, H);
+    beach.addColorStop(0, "#fcd34d"); beach.addColorStop(1, "#b45309");
+    g.fillStyle = beach; g.fillRect(0, sand, W, H - sand);
+    brand(g, W / 2 + 20, 120, 66, pal);
+    g.save();
+    g.textAlign = "center";
+    // Transat, puis le compagnon dessus.
+    g.lineWidth = 26; g.lineCap = "round"; g.strokeStyle = "#7c2d12";
+    g.beginPath(); g.moveTo(W / 2 - 260, sand + 150); g.lineTo(W / 2 + 60, sand + 150); g.lineTo(W / 2 + 240, sand - 70); g.stroke();
+    g.font = `260px ${SANS}`;
+    g.fillStyle = "#fff";
+    g.fillText(p.icon, W / 2 - 40, sand + 100);
+    g.font = `90px ${SANS}`;
+    g.fillText("😎", W / 2 + 160, sand - 130);
+    g.fillStyle = "#fff";
+    g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = 16;
+    fitText(g, `${p.label} en vacances`, W - 160, 76, 800, SANS);
+    g.fillText(`${p.label} en vacances`, W / 2, 250);
+    g.font = `600 34px ${SANS}`;
+    g.fillText(`Affection : ${p.love}/100`, W / 2, 305);
+    g.restore();
+    footer(g, W, H, pal, p.pseudo ? `Souvenir de ${p.pseudo}` : null);
+    return cv;
+  }
+
   // Annonce Discord sans carte (nouveau code, message de l'admin) : titre et texte.
   function wrapText(g, text, maxW) {
     const out = [];
@@ -855,6 +894,9 @@ const ShareStudio = (function () {
         render: (f, pal) => renderCard(f, o, pal),
         discord: o.owned ? (image) => API.post("shareCard", { userId: Session.userId, cardId: o.card.cardId, finish: o.finish, quality: o.quality, edition: o.edition || null, serial: o.serial || null, image }) : null
       });
+    },
+    petPhoto(p) {
+      return open({ kind: "pet", title: `${p.label} en vacances`, file: "2gatcha-vacances-" + p.pet, render: (f, pal) => renderPetPhoto(f, p, pal) });
     },
     recap(r, from) {
       return open({ kind: "recap", title: `Ma semaine du ${from}`, file: "2gatcha-semaine", render: (f, pal) => renderRecap(f, { r, from }, pal) });

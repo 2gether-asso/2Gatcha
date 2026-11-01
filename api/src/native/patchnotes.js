@@ -8,11 +8,23 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-01', title: 'Vacances en mode Chill', items: [
+    'Sieste au hamac : ne fais rien pendant 2 h et réveille-toi avec des vers et des poussières',
+    'Coucher de soleil : chaque soir vers 21 h, le ciel se réchauffe un quart d’heure, avec un cadeau à la clé',
+    'Carte postale : envoie une carte à un ami, il reçoit un petit cadeau',
+    'Pêche sans appât et fouille de plage : une partie par jour, poissons exotiques et coffre de pirate',
+    'Graine tropicale et bar de plage : fais pousser des fruits exotiques, prépare des cocktails à la cuisine',
+    'Transat des compagnons : affection doublée et photo souvenir',
+    'Apéro du serveur : quand assez de joueurs passent dans la même heure, c’est la tournée',
+    'Passeport de vacances : collectionne les tampons pour gagner un titre et un cadre exclusifs',
+    'Doublons au soleil : un doublon qui bronze peut gagner un cran d’état'
+  ] },
   { date: '2026-11-01', title: 'Remise à l’heure', items: [
     'Salle des machines : le mode voté s’applique bien le 1er du mois (celui d’octobre était resté bloqué)',
     'Halloween se termine maintenant le 31 octobre au soir : décor, édition Maudite et cadeau du jour compris',
     'Les annonces de tirages sur Discord retrouvent l’image de la carte',
     'Discord : les annonces de tirages, de codes et de cartes Unique arrivent maintenant en belle image du studio',
+    'Mode Chill : le bandeau de l’happy hour n’annonce plus de réduction quand la boutique est fermée',
     'Noisette : choisis la graine qu’elle replante, même pendant qu’elle travaille (merci pour le signalement !)'
   ] },
   { date: '2026-10-31', title: 'D’un seul coup', items: [

@@ -1105,6 +1105,8 @@ function modeBanners(el, mode) {
   // Regles par difficulte (moderules.js) : happy hour, tempete.
   const r = mode.rules || {};
   if (r.happyHour && r.happyHour.active) bits.push(`<a class="beta-banner banner-happy banner-link" href="boutique.html">🍹 <strong>Happy hour</strong> : boutique à -${Math.round(r.happyHour.discount * 100)} % jusqu'à ${r.happyHour.to} h !</a>`);
+  // Coucher de soleil (mode Chill) : ciel orange le temps du cadeau.
+  if (r.sunset && r.sunset.active) { document.documentElement.dataset.sunset = "1"; bits.push(`<a class="beta-banner banner-sunset banner-link" href="mode.html#md-sunset">🌅 <strong>Coucher de soleil</strong> : un cadeau t'attend !</a>`); } else delete document.documentElement.dataset.sunset;
   if (r.storm && (r.storm.active || r.storm.soon)) bits.push(`<a class="beta-banner banner-storm banner-link" href="mode.html">⛈️ ${r.storm.active ? `<strong>Tempête</strong> : ${escHtml(r.storm.label)} est fermée jusqu'à ${r.storm.to} h.` : `Une tempête approche : ${escHtml(r.storm.label)} fermera de ${r.storm.from} h à ${r.storm.to} h.`}</a>`);
   if (r.on && r.on.includes("chaos.bugs") && typeof Session !== "undefined" && Session.isLoggedIn()) setTimeout(spawnModeBugs, 1500);
   const n = mode.next;
@@ -1690,7 +1692,7 @@ function shellReads(withPage = true) {
         boutique: [read("cosmetics"), read("shop"), read("boosterShop"), read("upgrades"), read("sundayMarket"), read("contracts"), { name: "economyState" }],
         communaute: [read("machineRoom"), read("lottery"), read("teams")],
         progression: [read("mastery"), read("constellations"), read("skyTree"), read("talents"), read("achievementTiers"), { name: "exchangeRates" }, { name: "accountPrestige", query: { userId } }],
-        mode: [read("modeExtra"), read("draft")],
+        mode: [read("modeExtra"), read("draft"), read("vacation")],
         coffre: [read("personalVault"), read("uniqueCounter")],
         collection: [read("shop"), coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("showcase", "list"), { name: "exchangeRates" }, read("decraftUndo", "list")],
         trade: [coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("tradeMatches", "list")],

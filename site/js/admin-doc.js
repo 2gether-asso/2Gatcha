@@ -368,7 +368,22 @@
         <li><strong>Boîte à souhaits</strong> (Cool) : une carte de la liste de souhaits par semaine, remplace la carte la moins rare d'un des 10 boosters suivants (chance 1/n restant, garantie au 10e).</li>
         <li><strong>Atelier gratuit / Seconde chance</strong> (Cool) : une fois par jour chacun ; la seconde chance ne vise qu'une carte du dernier booster de moins de 24 h et garde finition, état et édition.</li>
         <li><strong>Vacances des dinos</strong> (Cool) : jauges figées, délai de ponte et d'éclosion divisés par 2 ; au début et à la fin, tous les dinos sont « figés » pour ne rien compter en retard.</li>
-        <li><strong>Happy hour</strong> (Chill) : -30 % de 18 h à 19 h sur la boutique d'objets et la boutique de boosters.</li>
+        <li><strong>Vacances du mode Chill</strong> (1er novembre, page Mode du moment ; une règle par activité dans Admin &rarr; Difficultés, valeurs dans le réglage « Chill : réglages des vacances ») :
+          <ul>
+            <li><strong>Sieste au hamac</strong> : une fois par jour, 2 h (réglable) sans aucune action de jeu donnent des vers et des poussières ; une action (booster, fouille, pêche…) réveille le joueur, qui peut recommencer. Regarder les pages ne réveille pas.</li>
+            <li><strong>Coucher de soleil</strong> : de 21 h à 21 h 15 (réglable), bandeau, ciel orangé sur le site et cadeau de poussières, une fois par jour.</li>
+            <li><strong>Carte postale</strong> : une fois par jour, une carte possédée (montrée, pas donnée) et un mot de 140 caractères à un autre joueur, qui reçoit des poussières et peut ouvrir l'image dans le studio. En option, annonce Discord (modèle « Carte postale », Admin &rarr; Discord) : le mot reste privé.</li>
+            <li><strong>Pêche sans appât</strong> : une partie de 3 lancers par jour, sans ver ni prise vide : 6 poissons exotiques avec leur carnet (Users.ExoticFish), à part du carnet de pêche.</li>
+            <li><strong>Bar de plage</strong> : 4 cocktails à la cuisine (bonus d'une heure) à base de fruits exotiques. Une recette de même clé dans CookRecipes prend le dessus.</li>
+            <li><strong>Transat des compagnons</strong> : affection des caresses, jeux et friandises doublée ; photo souvenir dans le studio, avec des poussières à la première de la journée.</li>
+            <li><strong>Graine tropicale</strong> : se plante seulement en Chill, pousse deux fois moins vite, donne 1 ou 2 fruits et parfois un appât doré. Une plante en terre se récolte encore après le mode ; Noisette replante alors un Mélange.</li>
+            <li><strong>Fouille de plage</strong> : une grille de 16 cases par jour, 5 coups de pelle sans énergie, avec un indice chaud/froid ; le coffre du pirate donne des poussières et une clé.</li>
+            <li><strong>Apéro du serveur</strong> : dès 3 joueurs (réglable) vus dans la même heure de Paris, chacun reçoit des poussières, une fois par jour ; ceux qui arrivent ensuite dans l'heure aussi. Le compte test ne compte pas.</li>
+            <li><strong>Passeport de vacances</strong> : un tampon par activité et par jour parmi 10 (fouille, pêche, jardin, booster, atelier, boss, casino, archéologie, cuisine, plage). À 25 tampons : titre Globe-trotteur et Cadre Tropical. Le carnet est conservé d'un mois à l'autre.</li>
+            <li><strong>Doublons au soleil</strong> : jusqu'à 3 doublons (exemplaire non parfait, hors coffre) bronzent 24 h ; à la récupération, 50 % de chance de gagner un cran d'état, jamais de perte. L'exemplaire reste utilisable pendant ce temps ; s'il est consommé, le bronzage est perdu. La récupération reste possible après le mode Chill.</li>
+          </ul>
+        </li>
+        <li><strong>Happy hour</strong> (Chill) : -30 % de 18 h à 19 h sur la boutique d'objets et la boutique de boosters. Si la page Boutique est fermée dans le mode (Admin &rarr; Économie), ni le bandeau ni la règle ne s'affichent.</li>
         <li><strong>Jardin partagé</strong> (Chill) : un arrosage toutes les 2 h par joueur ; objectif = 4 × joueurs actifs (20 à 80) ; récolte : 25 ✨ par arrosage (300 max) et 1 booster dès 3 arrosages.</li>
         <li><strong>Balade du dino</strong> (Chill) : 1 h, une fois par jour et par dino (pas la nuit) : 20 à 60 ✨, 1 à 3 vers, de la nourriture, 8 % d'os, +15 bonheur.</li>
         <li><strong>Bourse des cartes</strong> (Medium) : coefficient = racine(moyenne des exemplaires par carte / exemplaires de la carte), borné entre ×0,7 et ×1,6, appliqué au décraft et au craft.</li>

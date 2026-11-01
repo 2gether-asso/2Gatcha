@@ -10,6 +10,7 @@
   const serial = fmtSerial; // core.js
   const fmtH = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h} h ${String(m).padStart(2, "0")}` : `${m} min`; };
   const nowS = () => Math.floor(Date.now() / 1000);
+  let vac = null;
   let rules = null, extra = null, draftSt = null, voteSt = null, collection = null, users = null;
   let draftTimer = null;
 
@@ -124,12 +125,77 @@
     if (x.bugs) {
       out.push(block("bugs", "🐛", "Chasse aux bugs", `<p>Des « bugs » se cachent dans les pages du site aujourd'hui : un bouton qui fuit, un texte à l'envers, un pixel qui clignote… Clique dessus pour gagner ${x.bugs.dust} ✨ chacun.</p><p class="md-meta">Trouvés aujourd'hui : <strong>${x.bugs.found} / ${x.bugs.total}</strong></p>`));
     }
+    renderVacation(out);
     if (voteSt && voteSt.active) {
       out.push(block("vote", "🗳️", "Règle de demain", `<p>Vote pour la règle du Chaos de demain (${voteSt.total} vote${voteSt.total > 1 ? "s" : ""}).</p><div class="md-vote">${voteSt.candidates.map((c) => `<button type="button" class="md-vote-opt ${voteSt.mine === c.key ? "is-mine" : ""}" data-vote="${c.key}"><span>${c.icon}</span><span>${esc(c.label)}</span><strong>${c.votes}</strong></button>`).join("")}</div>`));
     }
     if (draftSt) out.push(renderDraft());
     document.getElementById("md-widgets").innerHTML = out.join("");
     fillForms();
+  }
+
+  // Vacances du mode Chill (api/src/native/vacation.js).
+  function renderVacation(out) {
+    const v = vac || {};
+    const left = (at) => fmtH(at - nowS());
+    if (v.sunset) {
+      const s = v.sunset;
+      out.push(block("sunset", "🌅", "Coucher de soleil", s.active && !s.claimed
+        ? `<p>Le ciel s'embrase : profites-en !</p><button type="button" class="btn" data-vac="sunset-claim">🌅 Admirer (+${s.dust} ✨)</button>`
+        : `<p class="muted">${s.claimed ? "Déjà admiré ce soir. À demain !" : `Chaque soir à ${s.hour} h, pendant ${s.minutes} minutes : +${s.dust} ✨.`}</p>`));
+    }
+    if (v.nap) {
+      const a = v.nap;
+      out.push(block("nap", "🛌", "Sieste au hamac", a.claimed ? `<p class="muted">Tu as déjà fait ta sieste aujourd'hui.</p>`
+        : a.until && a.until > nowS() ? `<p>Chut… encore <strong>${left(a.until)}</strong> de sieste. Une action de jeu te réveillerait.</p>`
+          : a.until ? `<p>Bien dormi ?</p><button type="button" class="btn" data-vac="nap-claim">😌 Se réveiller (+${a.worms} vers, +${a.dust} ✨)</button>`
+            : `<p>Ne joue pas pendant ${a.hours} h : +${a.worms} vers et +${a.dust} ✨ au réveil. Tu peux regarder les pages sans te réveiller.</p><button type="button" class="btn" data-vac="nap-start">🛌 S'installer</button>`));
+    }
+    if (v.beachDig) {
+      const b = v.beachDig;
+      const ICON = { chest: "🏴‍☠️", hot: "🔥", warm: "🌡️", cold: "❄️" };
+      const over = b.found || b.left <= 0;
+      const cells = Array.from({ length: b.tiles }, (_, i) => {
+        const d = b.dug[i];
+        return `<button type="button" class="md-sand ${d ? "dug" : ""}" data-vac="beach-dig" data-tile="${i}" ${d || over ? "disabled" : ""} aria-label="Case ${i + 1}">${d ? ICON[d] : b.chest === i ? "🏴‍☠️" : ""}</button>`;
+      }).join("");
+      out.push(block("beachdig", "🏴‍☠️", "Fouille de plage", `<p>${b.found ? "Coffre trouvé ! Reviens demain." : over ? "Plus de coups de pelle : le coffre était là. À demain !" : `Encore <strong>${b.left}</strong> coups de pelle pour trouver le coffre du pirate (+${b.chestDust} ✨ et 1 clé). Sans énergie.`}</p><div class="md-beach" style="--side:${b.side}">${cells}</div>`));
+    }
+    if (v.beachFish) {
+      const f = v.beachFish;
+      out.push(block("beachfish", "🐠", "Pêche sans appât", `<p>${f.done ? "Tu as déjà pêché aujourd'hui." : `${f.casts} lancers, sans ver et sans prise vide.`}</p>${f.done ? "" : '<button type="button" class="btn" data-vac="beach-fish">🎣 Lancer la ligne</button>'}
+        <ul class="md-fishbook">${f.book.map((x) => `<li class="${x.count ? "" : "unknown"}"><span aria-hidden="true">${x.count ? x.icon : "❔"}</span> ${x.count ? `${esc(x.label)} ×${x.count} · ${x.best} cm` : "À découvrir"}</li>`).join("")}</ul>`));
+    }
+    if (v.postcard) {
+      out.push(block("postcard", "💌", "Carte postale", v.postcard.sent ? `<p class="muted">Carte postale envoyée aujourd'hui. À demain !</p>`
+        : `<p>Montre une de tes cartes à un ami (elle reste à toi) : il reçoit ${v.postcard.gift} ✨.</p>
+          <div class="md-form"><select id="md-post-card"><option value="">Chargement…</option></select><input type="text" id="md-post-to" list="md-post-users" placeholder="Pseudo de l'ami" autocomplete="off" /><datalist id="md-post-users"></datalist><input type="text" id="md-post-msg" maxlength="140" placeholder="Un petit mot (facultatif)" /></div>
+          <label class="md-check"><input type="checkbox" id="md-post-discord" /> Publier aussi sur Discord (ton mot reste privé)</label>
+          <button type="button" class="btn" id="md-post-btn">💌 Envoyer</button>`));
+    }
+    if (v.postcards && v.postcards.length) {
+      out.push(block("postcards", "📬", "Cartes reçues", `<div class="md-grid">${v.postcards.map((p, i) => `<button type="button" class="md-pick" data-postcard="${i}">${mini(p.card, `de ${esc(p.from)}`)}${p.message ? `<span class="md-meta">« ${esc(p.message)} »</span>` : ""}</button>`).join("")}</div>`));
+    }
+    if (v.petHoliday) {
+      const h = v.petHoliday;
+      out.push(block("transat", "🏖️", "Transat des compagnons", `<p>L'affection de tes gestes compte double.${h.taken ? "" : ` Une photo souvenir aujourd'hui : +${h.dust} ✨.`}</p>${h.pets.length ? `<div class="md-row">${h.pets.map((p) => `<button type="button" class="btn-secondary" data-vac="pet-photo" data-pet="${esc(p.pet)}">📸 ${p.icon} ${esc(p.label)}</button>`).join("")}</div>` : '<p class="muted">Tu n\'as pas encore de compagnon. Ils viendront à toi en jouant…</p>'}`));
+    }
+    if (v.sunbath) {
+      const s = v.sunbath;
+      out.push(block("sunbath", "☀️", "Doublons au soleil", `<p>24 h de bronzage : ${Math.round(s.chance * 100)} % de chance de gagner un cran d'état, jamais de perte.</p>
+        ${s.list.length ? `<div class="md-grid">${s.list.map((c) => `<div>${mini(c.card, c.ready ? "prêt !" : left(c.until))}${c.ready ? `<button type="button" class="btn-secondary" data-vac="sunbath-claim" data-pull="${c.pullId}">☀️ Récupérer</button>` : ""}</div>`).join("")}</div>` : ""}
+        ${s.open && s.list.length < s.slots ? `<div class="md-form"><select id="md-sun-select"><option value="">Chargement…</option></select><button type="button" class="btn" id="md-sun-btn">🏖️ Mettre au soleil (${s.list.length}/${s.slots})</button></div>` : ""}`));
+    }
+    if (v.apero) {
+      const a = v.apero;
+      out.push(block("apero", "🥂", "Apéro du serveur", `<p>${a.gifted ? "Tu as eu ta tournée aujourd'hui. Santé !" : `Dès ${a.need} joueurs dans la même heure : +${a.dust} ✨ pour chacun.`}</p><p class="md-meta">Cette heure-ci : ${a.here} joueur${a.here > 1 ? "s" : ""} au bar</p>`));
+    }
+    if (v.passport) {
+      const p = v.passport;
+      out.push(block("passport", "🛂", "Passeport de vacances", `<p>${p.done ? "Carnet complet : tu es Globe-trotteur !" : "Un tampon par activité et par jour. Carnet complet : un titre et un cadre exclusifs."}</p>
+        <div class="md-progress"><span style="width:${Math.min(100, (p.total / p.goal) * 100)}%"></span></div><p class="md-meta">${p.total} / ${p.goal} tampons</p>
+        <div class="md-stamps">${p.stamps.map((s) => `<span class="md-stamp ${s.today ? "on" : ""}" title="${esc(s.label)}">${s.icon}<small>${esc(s.label)}</small></span>`).join("")}</div>`));
+    }
   }
 
   function renderDraft() {
@@ -158,6 +224,24 @@
       const list = (await ensureCollection().catch(() => [])).filter((c) => c.quality !== "mint").sort((a, b) => (b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0));
       sel.innerHTML = list.length ? list.map((c) => `<option value="${c.pullId}">${esc(c.card.name)} ${esc(copyLabel(c))}</option>`).join("") : '<option value="">Aucune carte à restaurer</option>';
     }
+    const postSel = document.getElementById("md-post-card");
+    if (postSel) {
+      const list = (await ensureCollection().catch(() => [])).slice().sort((a, b) => (b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0));
+      postSel.innerHTML = list.length ? list.map((c) => `<option value="${c.pullId}">${esc(c.card.name)} ${esc(copyLabel(c))}</option>`).join("") : '<option value="">Aucune carte</option>';
+    }
+    const sunSel = document.getElementById("md-sun-select");
+    if (sunSel) {
+      const all = await ensureCollection().catch(() => []);
+      const count = new Map();
+      all.forEach((c) => count.set(c.card.cardId, (count.get(c.card.cardId) || 0) + 1));
+      const list = all.filter((c) => count.get(c.card.cardId) > 1 && c.quality !== "mint").sort((a, b) => (b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0));
+      sunSel.innerHTML = list.length ? list.map((c) => `<option value="${c.pullId}">${esc(c.card.name)} ${esc(copyLabel(c))}</option>`).join("") : '<option value="">Aucun doublon à faire bronzer</option>';
+    }
+    const postUsers = document.getElementById("md-post-users");
+    if (postUsers) {
+      if (!users) users = (await API.listUsers().catch(() => ({ users: [] }))).users || [];
+      postUsers.innerHTML = users.filter((u) => String(u.userId) !== String(Session.userId)).map((u) => `<option value="${esc(u.pseudo)}"></option>`).join("");
+    }
     const dl = document.getElementById("md-theft-users");
     if (dl) {
       if (!users) users = (await API.listUsers().catch(() => ({ users: [] }))).users || [];
@@ -170,12 +254,13 @@
     try {
       rules = await API.modeRules();
       const on = new Set(rules.on || []);
-      const [x, d, v] = await Promise.all([
+      const [x, d, v, vc] = await Promise.all([
         API.modeExtra(Session.userId).catch(() => null),
         on.has("medium.draft") ? API.draft(Session.userId).catch(() => null) : Promise.resolve(null),
-        on.has("chaos.vote") ? API.chaosVote(Session.userId).catch(() => null) : Promise.resolve(null)
+        on.has("chaos.vote") ? API.chaosVote(Session.userId).catch(() => null) : Promise.resolve(null),
+        API.vacation(Session.userId).catch(() => null)
       ]);
-      extra = x; voteSt = v;
+      extra = x; voteSt = v; vac = vc;
       // Un draft commence continue meme apres un changement de mode.
       draftSt = d || (await API.draft(Session.userId).then((r) => (r.current ? r : null)).catch(() => null));
       renderRules();
@@ -220,6 +305,17 @@
     if (draftSt && (draftSt.current || draftSt.active)) draftTimer = setTimeout(() => { if (document.hidden) pollDraft(); else refreshDraft(); }, 6000);
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden && draftSt && (draftSt.current || draftSt.active)) refreshDraft(); });
+  async function vacAct(action, params = {}, done = null) {
+    try {
+      const res = await API.vacation(Session.userId, action, params);
+      if (res.toast) Toast.success(esc(res.toast));
+      if (res.passport && res.passport.label) Toast.success(esc("🛂 " + res.passport.label));
+      if (done) done(res);
+      collection = null;
+      await load();
+      if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+    } catch (e) { Toast.error(friendlyError(e)); }
+  }
   async function act(action, params, done) {
     try {
       const r = await API.modeExtra(Session.userId, action, params);
@@ -236,6 +332,32 @@
     document.getElementById("md-widgets").addEventListener("click", async (e) => {
       const t = e.target.closest("button");
       if (!t || t.disabled) return;
+      if (t.dataset.vac) {
+        const a = t.dataset.vac;
+        t.disabled = true;
+        if (a === "beach-dig") vacAct(a, { tile: Number(t.dataset.tile) });
+        else if (a === "pet-photo") vacAct(a, { pet: t.dataset.pet }, (r) => { LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.petPhoto(r.photo)).catch(LazyJs.fail("Photo indisponible pour le moment.")); });
+        else if (a === "sunbath-claim") vacAct(a, { pullId: Number(t.dataset.pull) });
+        else vacAct(a);
+        return;
+      }
+      if (t.dataset.postcard != null) {
+        const p = vac.postcards[Number(t.dataset.postcard)];
+        LazyJs.load("js/lazy/share-studio.js").then(() => ShareStudio.card({ card: p.card, finish: p.finish, quality: p.quality, owner: `Carte postale de ${p.from}`, owned: false })).catch(LazyJs.fail("Image indisponible pour le moment."));
+        return;
+      }
+      if (t.id === "md-post-btn") {
+        const pullId = Number(document.getElementById("md-post-card").value);
+        const toPseudo = document.getElementById("md-post-to").value.trim();
+        if (!pullId || !toPseudo) { Toast.info("Choisis une carte et un ami."); return; }
+        vacAct("postcard", { pullId, toPseudo, message: document.getElementById("md-post-msg").value, discord: document.getElementById("md-post-discord").checked });
+        return;
+      }
+      if (t.id === "md-sun-btn") {
+        const pullId = Number(document.getElementById("md-sun-select").value);
+        if (pullId) vacAct("sunbath-start", { pullId });
+        return;
+      }
       if (t.dataset.wish) {
         if (await Confirm.show("Choisir cette carte pour ta boîte à souhaits de la semaine ? Tu ne pourras plus en changer.", { title: "Boîte à souhaits", confirmText: "Choisir" })) act("wishbox", { cardId: Number(t.dataset.wish) }, () => Toast.success("🎀 Souhait enregistré !"));
       } else if (t.id === "md-repair-btn") {

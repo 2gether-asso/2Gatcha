@@ -170,7 +170,7 @@ let gardenState = null;
 const SEED_ICONS = { mix: "&#127793;", worm: resIcon("worm"), bait: resIcon("bait"), dust: "&#127776;", catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;", veggie: "&#129388;" };
 // Culture prete : selon la graine (melange : legume different selon la parcelle).
 const CROP_ART = { worm: "Jardin/Champi.PNG", bait: "Jardin/Blé.png", dust: "Jardin/Gingembre.PNG" };
-const CROP_EMOJI = { catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;", veggie: "&#129388;" };
+const CROP_EMOJI = { catnip: "&#127807;", bone: "&#129460;", mushroom: "&#127812;", veggie: "&#129388;", tropical: "&#129389;" };
 const MIX_ART = ["Jardin/Carotte.png", "Jardin/Brocoli.png", "Jardin/Poivron.png"];
 const gardenCrop = (p, i) => (CROP_EMOJI[p.seed] ? `<span class="gp-emoji">${CROP_EMOJI[p.seed]}</span>` : artImg(CROP_ART[p.seed] || MIX_ART[i % MIX_ART.length]));
 const gardenLeft = (s) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.ceil((s % 3600) / 60)).padStart(2, "0")}` : `${Math.max(1, Math.ceil(s / 60))} min`);
@@ -293,7 +293,7 @@ function gardenFloat(items) {
   (items || []).forEach((it, k) => {
     const el = document.querySelector(`#garden-plots [data-plot="${it.plot}"]`);
     if (!el) return;
-    const bits = [it.worms && `+${it.worms} ${resIcon("worm")}`, it.bait && `+${it.bait} ${resIcon("bait")}`, it.dust && `+${it.dust} &#10024;`, it.catFish && `+${it.catFish} &#128031;`, it.bones && `+${it.bones} &#129460;`, it.skulls && `+${it.skulls} &#128128;`, it.parts && `+${it.parts} &#128297;`, it.veg && `+${it.veg} &#129388;`, it.herb && `+${it.herb} &#127807;`, it.mush && `+${it.mush} &#127812;`, it.grubs && `+${it.grubs} &#128027;`].filter(Boolean);
+    const bits = [it.worms && `+${it.worms} ${resIcon("worm")}`, it.bait && `+${it.bait} ${resIcon("bait")}`, it.dust && `+${it.dust} &#10024;`, it.catFish && `+${it.catFish} &#128031;`, it.bones && `+${it.bones} &#129460;`, it.skulls && `+${it.skulls} &#128128;`, it.parts && `+${it.parts} &#128297;`, it.veg && `+${it.veg} &#129388;`, it.herb && `+${it.herb} &#127807;`, it.mush && `+${it.mush} &#127812;`, it.fruit && `+${it.fruit} &#129389;`, it.grubs && `+${it.grubs} &#128027;`].filter(Boolean);
     if (!bits.length) return;
     const r = el.getBoundingClientRect();
     const f = document.createElement("span");
@@ -323,7 +323,7 @@ async function gardenAction(action, extra = {}) {
       const g = res.gained;
       if (g.rare) setTimeout(() => Toast.success(`&#127775; Récolte rare : ${g.rare.icon} ${g.rare.label} !`), 600);
       if (g.wilted) setTimeout(() => Toast.info(`&#129344; ${g.wilted} plante${g.wilted > 1 ? "s" : ""} fanée${g.wilted > 1 ? "s" : ""} : récolte réduite. Repasse plus tôt la prochaine fois !`), 300);
-      const parts = [g.worms && `+${g.worms} vers`, g.bait && `+${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}`, g.dust && `+${g.dust} &#10024;`, g.catFish && `+${g.catFish} poisson${g.catFish > 1 ? "s" : ""} pour Moka`, g.bones && `+${g.bones} os pour Milo`, g.skulls && `+${g.skulls} crâne de dino`, g.parts && `+${g.parts} pièce${g.parts > 1 ? "s" : ""} détachée${g.parts > 1 ? "s" : ""}`, g.veg && `+${g.veg} légume${g.veg > 1 ? "s" : ""}`, g.herb && `+${g.herb} herbe${g.herb > 1 ? "s" : ""}`, g.mush && `+${g.mush} champignon${g.mush > 1 ? "s" : ""}`, g.grubs && PetText.mask(`+${g.grubs} ver${g.grubs > 1 ? "s" : ""} blanc${g.grubs > 1 ? "s" : ""} pour Pistache`)].filter(Boolean);
+      const parts = [g.worms && `+${g.worms} vers`, g.bait && `+${g.bait} appât${g.bait > 1 ? "s" : ""} doré${g.bait > 1 ? "s" : ""}`, g.dust && `+${g.dust} &#10024;`, g.catFish && `+${g.catFish} poisson${g.catFish > 1 ? "s" : ""} pour Moka`, g.bones && `+${g.bones} os pour Milo`, g.skulls && `+${g.skulls} crâne de dino`, g.parts && `+${g.parts} pièce${g.parts > 1 ? "s" : ""} détachée${g.parts > 1 ? "s" : ""}`, g.fruit && `+${g.fruit} fruit${g.fruit > 1 ? "s" : ""} exotique${g.fruit > 1 ? "s" : ""}`, g.veg && `+${g.veg} légume${g.veg > 1 ? "s" : ""}`, g.herb && `+${g.herb} herbe${g.herb > 1 ? "s" : ""}`, g.mush && `+${g.mush} champignon${g.mush > 1 ? "s" : ""}`, g.grubs && PetText.mask(`+${g.grubs} ver${g.grubs > 1 ? "s" : ""} blanc${g.grubs > 1 ? "s" : ""} pour Pistache`)].filter(Boolean);
       Toast.success(`&#129530; Récolte : ${parts.join(", ") || "rien cette fois"} !`);
       if ((g.bait || g.skulls) && typeof confetti === "function") confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
       if (res.levelUp) LevelUpModal.show({ icon: "&#127793;", name: "Jardin", level: res.levelUp, perks: gardenPerkTexts(res.level && res.level.perks) });

@@ -50,7 +50,7 @@
     worms: ["&#129713;", "ver", "vers"], bait: ["&#10024;", "appât doré", "appâts dorés"], dust: ["&#10024;", "poussière", "poussières"],
     catFish: ["&#128031;", "poisson pour Moka", "poissons pour Moka"], bones: ["&#129460;", "os", "os"], skulls: ["&#128128;", "crâne de dino", "crânes de dino"],
     parts: ["&#128297;", "pièce détachée", "pièces détachées"], grubs: ["&#128027;", "ver blanc", "vers blancs"],
-    veg: ["&#129388;", "légume", "légumes"], herb: ["&#127807;", "herbe", "herbes"], mush: ["&#127812;", "champignon", "champignons"]
+    veg: ["&#129388;", "légume", "légumes"], herb: ["&#127807;", "herbe", "herbes"], mush: ["&#127812;", "champignon", "champignons"], fruit: ["&#129389;", "fruit exotique", "fruits exotiques"]
   };
   const gainLines = (g) => Object.entries(g || {}).filter(([k, n]) => GAIN[k] && n > 0).map(([k, n]) => `${GAIN[k][0]} ${PetText.mask(plural(n, GAIN[k][1], GAIN[k][2]))}`);
 

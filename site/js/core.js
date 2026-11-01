@@ -638,7 +638,10 @@ document.addEventListener("DOMContentLoaded", () => {
       canvas.setAttribute("aria-hidden", "true");
       canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none";
       document.body.appendChild(canvas);
-      try { shoot = lib.create(canvas, { resize: true, useWorker: true, disableForReducedMotion: true }); } catch (e) { canvas.remove(); shoot = lib; }
+      // Firefox : canevas transfere au worker refuse parfois (« Cannot update created
+      // context to different thread », GlitchTip #32), et ca ne se rattrape pas d'ici.
+      const useWorker = !/firefox/i.test(navigator.userAgent);
+      try { shoot = lib.create(canvas, { resize: true, useWorker, disableForReducedMotion: true }); } catch (e) { canvas.remove(); shoot = lib; }
     }
     const light = document.documentElement.dataset.fx === "light";
     const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;

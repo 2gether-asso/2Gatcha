@@ -21,6 +21,7 @@
 //   POST /webhook/pets { userId, action: 'status' | 'cuddle' | 'play' | 'treat', pet: 'milo' | 'moka' | 'noisette' | 'pistache' }
 // Users.PetLove = { milo: { v, at, cuddle, play, treats, treatDay }, moka: {...} }
 
+import { ruleOn } from './moderules.js';
 import { ok, fail, userById, now, parisDay, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { buffOn } from './cooking.js';
@@ -91,6 +92,8 @@ export function petGift(store, user, pet) {
 function cooldowns(store) {
   return { cuddle: setting(store, 'PetCuddleMinutes') * 60, play: setting(store, 'PetPlayHours') * 3600 };
 }
+// Transat des compagnons (mode Chill) : affection des gestes doublee.
+const loveMult = (store) => (ruleOn(store, 'chill.petHoliday') ? 2 : 1);
 function petView(store, user, pet, t = now()) {
   const p = allLove(user)[pet] || {};
   const cd = cooldowns(store);
@@ -103,9 +106,9 @@ function petView(store, user, pet, t = now()) {
     pet, label: PETS[pet].label, icon: PETS[pet].icon, fem: !!PETS[pet].fem, love: Math.round(b.love), mood, cooked: buffOn(user, 'pets'),
     speedPct: Math.round(b.speed * 100), lootPct: Math.round(b.loot * 100), giftChance: b.giftChance,
     gestures: {
-      cuddle: { ...GESTURES.cuddle, gain: setting(store, 'PetCuddleLove'), wait: next('cuddle') },
-      play: { ...GESTURES.play, gain: setting(store, 'PetPlayLove'), wait: next('play') },
-      treat: { ...GESTURES.treat, gain: setting(store, 'PetTreatLove'), price: setting(store, 'PetTreatPrice'), left: Math.max(0, setting(store, 'PetTreatsPerDay') - treats) }
+      cuddle: { ...GESTURES.cuddle, gain: setting(store, 'PetCuddleLove') * loveMult(store), wait: next('cuddle') },
+      play: { ...GESTURES.play, gain: setting(store, 'PetPlayLove') * loveMult(store), wait: next('play') },
+      treat: { ...GESTURES.treat, gain: setting(store, 'PetTreatLove') * loveMult(store), price: setting(store, 'PetTreatPrice'), left: Math.max(0, setting(store, 'PetTreatsPerDay') - treats) }
     },
     maxSpeedPct: setting(store, 'PetMaxSpeedPct'), maxLootPct: setting(store, 'PetMaxLootPct'), decayPerHour: setting(store, 'PetLoveDecayPerHour'),
     rhythm: petRhythm(store, user, pet, t)
