@@ -5,7 +5,7 @@
 // S'appuie sur admin-db.js (adbFetch, toWebp, uploadImage...) et
 // admin-content.js (acRows, acRef, acImg, acSlug, acEnsureColumn).
 
-const AA = { rows: [], cards: [], sel: null };
+const AA = { rows: [], cards: [], users: [], sel: null };
 const aaNorm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
 const aaNames = (r) => [r.Name, ...String(r.Aliases || "").split(/[,;\n]/)].map(aaNorm).filter(Boolean);
 const aaVisible = (r) => r.Active !== false && r.Active !== 0;
@@ -16,6 +16,7 @@ async function aaLoad() {
   try { rows = (await acRows("Artists")).rows; } catch (e) { if (!/404|introuvable|not.found/i.test(e.message)) throw e; }
   AA.rows = rows.sort((a, b) => (a.SortOrder || 0) - (b.SortOrder || 0) || String(a.Name || "").localeCompare(String(b.Name || ""), "fr"));
   AA.cards = (await acRows("Cards")).rows.filter((c) => c.Active && !c.IsSecret);
+  AA.users = (await acRows("Users")).rows.filter((u) => u.Pseudo).sort((a, b) => String(a.Pseudo).localeCompare(String(b.Pseudo), "fr"));
   if (AA.sel && !AA.rows.some((r) => r.id === AA.sel)) AA.sel = null;
   aaRender();
 }
@@ -30,7 +31,7 @@ function aaRender() {
     const av = acImg(r.Avatar), n = aaCardsOf(r).length;
     return `<button type="button" class="ac-ext ${r.id === AA.sel ? "selected" : ""} ${aaVisible(r) ? "" : "inactive"}" data-artist="${r.id}">
       <span class="ac-ext-imgs">${av ? `<img class="aa-av" src="${adbImageUrl(av)}" alt="" loading="lazy" decoding="async" />` : '<span class="ac-noimg aa-av">photo ?</span>'}</span>
-      <span class="ac-ext-body"><strong>${escapeHtml(r.Name || "(sans nom)")}</strong><small>${n} carte${n > 1 ? "s" : ""}${String(r.Links || "").trim() ? " · réseaux ✓" : ""}${String(r.Bio || "").trim() ? " · présentation ✓" : ""}</small><small>${aaVisible(r) ? "visible" : "masquée"} · ordre ${r.SortOrder || 0}</small></span>
+      <span class="ac-ext-body"><strong>${escapeHtml(r.Name || "(sans nom)")}</strong><small>${n} carte${n > 1 ? "s" : ""}${acRef(r.User) ? ` · compte : ${escapeHtml((AA.users.find((u) => u.id === acRef(r.User)) || {}).Pseudo || "#" + acRef(r.User))}` : ""}${String(r.Links || "").trim() ? " · réseaux ✓" : ""}${String(r.Bio || "").trim() ? " · présentation ✓" : ""}</small><small>${aaVisible(r) ? "visible" : "masquée"} · ordre ${r.SortOrder || 0}</small></span>
     </button>`;
   }).join("") + [...orphans.values()].sort((a, b) => b.count - a.count).map((o) => `
     <button type="button" class="ac-ext ac-ext-new" data-orphan="${escapeHtml(o.name)}"><span>&#10133;</span><span class="ac-ext-body"><strong>${escapeHtml(o.name)}</strong><small>${o.count} carte${o.count > 1 ? "s" : ""}, pas de fiche · Créer la fiche</small></span></button>`).join("")
@@ -53,6 +54,8 @@ function aaRender() {
   acEl("aa-links").value = r.Links || "";
   const cards = aaCardsOf(r), feat = acRef(r.FeaturedCard);
   acEl("aa-featured").innerHTML = '<option value="0">— automatique (sa carte la plus rare) —</option>' + cards.map((c) => `<option value="${c.id}" ${c.id === feat ? "selected" : ""}>${escapeHtml(c.Name || "#" + c.id)}</option>`).join("");
+  const owner = acRef(r.User);
+  acEl("aa-user").innerHTML = '<option value="0">— aucun (seule l\'équipe modifie la fiche) —</option>' + AA.users.map((u) => `<option value="${u.id}" ${u.id === owner ? "selected" : ""}>${escapeHtml(u.Pseudo)}</option>`).join("");
   const av = acImg(r.Avatar), bn = acImg(r.Banner);
   acEl("aa-avatar-preview").innerHTML = av ? `<img src="${adbImageUrl(av)}" alt="Photo" />` : '<span class="ac-noimg">Aucune photo</span>';
   acEl("aa-banner-preview").innerHTML = bn ? `<img src="${adbImageUrl(bn)}" alt="Bannière" />` : '<span class="ac-noimg">Aucune bannière</span>';
@@ -75,12 +78,16 @@ async function aaSave() {
     Name: acEl("aa-name").value.trim(), Aliases: acEl("aa-aliases").value.trim(), Tagline: acEl("aa-tagline").value.trim(),
     Slug: acSlug(acEl("aa-slug").value), Color: acEl("aa-color-on").checked ? acEl("aa-color").value : "",
     SortOrder: Number(acEl("aa-order").value) || 0, Active: acEl("aa-active").checked,
-    Bio: acEl("aa-bio").value.trim(), Links: acEl("aa-links").value.trim(), FeaturedCard: Number(acEl("aa-featured").value) || 0
+    Bio: acEl("aa-bio").value.trim(), Links: acEl("aa-links").value.trim(), FeaturedCard: Number(acEl("aa-featured").value) || 0,
+    User: Number(acEl("aa-user").value) || 0
   };
+  const taken = fields.User && AA.rows.find((x) => x.id !== r.id && acRef(x.User) === fields.User);
+  if (taken) { Toast.error(`Ce compte est déjà relié à la fiche de ${taken.Name}.`); return; }
   if (!fields.Name) { Toast.error("Le nom est obligatoire."); return; }
   const slug = fields.Slug || acSlug(fields.Name);
   if (AA.rows.some((x) => x.id !== r.id && (x.Slug ? acSlug(x.Slug) : acSlug(x.Name)) === slug)) { Toast.error(`L'adresse « ${slug} » est déjà prise par une autre fiche.`); return; }
   try {
+    await acEnsureColumn("Artists", "User", "Ref:Users");
     await adbFetch(`/admin/api/tables/Artists/rows/${r.id}`, { method: "PATCH", ...aaJson({ fields }) });
     Toast.success("Fiche enregistrée.");
     await aaLoad();

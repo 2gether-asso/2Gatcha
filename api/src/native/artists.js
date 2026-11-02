@@ -6,7 +6,12 @@
 // (Base de donnees -> Artistes). Cartes montrees : actives, pas secretes, d'une
 // extension visible ; la reponse dit lesquelles le joueur possede.
 //   GET /webhook/artists [?userId=]          -> { artists }
-//   GET /webhook/artist ?slug= [&userId=]    -> { artist, cards, extensions, stats }
+//   GET /webhook/artist ?slug= [&userId=]    -> { artist, cards, extensions, stats, editable }
+// Fiche tenue par l'artiste (2026-11-02) : l'admin relie une fiche a un compte
+// (Artists.User) ; ce compte modifie lui-meme presentation, phrase d'accroche,
+// reseaux, couleur, carte phare, photo et banniere. Nom, autres noms, adresse,
+// ordre et visibilite restent a l'admin (les cartes sont rattachees par le nom).
+//   POST /webhook/artist-profile { userId, slug?, action: 'status' | 'save' | 'image', fields?, column?, image? }
 
 import { ok, fail, refId, firstAttachment, userById, cardSummary } from './common.js';
 
@@ -14,7 +19,7 @@ export const schema = {
   Artists: {
     Name: { type: 'Text' }, Slug: { type: 'Text' }, Aliases: { type: 'Text' }, Tagline: { type: 'Text' }, Bio: { type: 'Text' },
     Avatar: { type: 'Attachments' }, Banner: { type: 'Attachments' }, Links: { type: 'Text' }, FeaturedCard: { type: 'Ref:Cards' },
-    Color: { type: 'Text' }, SortOrder: { type: 'Numeric' }, Active: { type: 'Bool' }
+    Color: { type: 'Text' }, SortOrder: { type: 'Numeric' }, Active: { type: 'Bool' }, User: { type: 'Ref:Users' }
   }
 };
 
@@ -107,7 +112,10 @@ function listHandler({ store, query }) {
   const artists = list.filter((a) => a.row || a.cards.length)
     .sort((x, y) => (!!y.row - !!x.row) || (Number(x.row && x.row.SortOrder) || 0) - (Number(y.row && y.row.SortOrder) || 0) || y.cards.length - x.cards.length || x.name.localeCompare(y.name, 'fr'))
     .map((a) => header(store, a, owned));
-  return ok({ artists });
+  // Fiche du joueur connecte, s'il est un artiste relie.
+  const uid = Number(query && query.userId) || 0;
+  const mine = uid ? list.find((a) => a.row && refId(a.row.User) === uid) : null;
+  return ok({ artists, mine: mine ? mine.slug : null });
 }
 
 function artistHandler({ store, query }) {
@@ -138,9 +146,69 @@ function artistHandler({ store, query }) {
   for (const c of cards) if (c.rarity) byRarity[c.rarity.key] = (byRarity[c.rarity.key] || 0) + 1;
   return ok({
     artist: header(store, a, owned),
+    editable: !!(owned && a.row && refId(a.row.User) === Number(userId)),
     cards, extensions,
     stats: { cards: cards.length, extensions: extensions.length, copies: [...copies.values()].reduce((n, v) => n + v, 0), collectors: holders.size, byRarity }
   });
 }
 
-export const routes = { 'GET artists': listHandler, 'GET artist': artistHandler };
+// ------------------------------------------------------------------ fiche tenue par l'artiste
+const IMAGE_MAX = 1.5 * 1024 * 1024;
+const COLOR_RE = /^#[0-9a-f]{6}$/i;
+function ownRow(store, userId, slug) {
+  if (!store.tables.has('Artists')) return null;
+  const rows = store.getAll('Artists').filter((x) => refId(x.User) === Number(userId) && norm(x.Name));
+  const s = slugOf(slug || '');
+  return (s && rows.find((x) => slugOf(x.Slug || x.Name) === s)) || rows[0] || null;
+}
+function profileView(store, row) {
+  const a = directory(store).list.find((x) => x.row && x.row.id === row.id);
+  const cards = a ? a.cards : [];
+  return {
+    slug: a ? a.slug : slugOf(row.Slug || row.Name), name: String(row.Name).trim(), visible: !!a,
+    tagline: row.Tagline || '', bio: row.Bio || '', links: row.Links || '', color: COLOR_RE.test(String(row.Color || '').trim()) ? String(row.Color).trim() : '',
+    featuredCard: refId(row.FeaturedCard) || 0, avatarId: firstAttachment(row.Avatar), bannerId: firstAttachment(row.Banner),
+    cards: cards.map((c) => ({ cardId: c.id, name: c.Name }))
+  };
+}
+function profileHandler({ store, body }) {
+  if (!userById(store, body.userId)) return fail('unknown_user', 404);
+  const row = ownRow(store, body.userId, body.slug);
+  if (!row) return fail('not_linked', 403);
+  const action = body.action || 'status';
+  if (action === 'status') return ok({ profile: profileView(store, row) });
+  if (action === 'save') {
+    const f = body.fields && typeof body.fields === 'object' ? body.fields : {};
+    const fields = {};
+    if (f.tagline != null) fields.Tagline = String(f.tagline).trim().slice(0, 120);
+    if (f.bio != null) fields.Bio = String(f.bio).trim().slice(0, 3000);
+    if (f.links != null) fields.Links = String(f.links).trim().slice(0, 2000);
+    if (f.color != null) {
+      const c = String(f.color).trim();
+      if (c && !COLOR_RE.test(c)) return fail('invalid_color');
+      fields.Color = c;
+    }
+    if (f.featuredCard != null) {
+      const id = Number(f.featuredCard) || 0;
+      if (id && !profileView(store, row).cards.some((c) => c.cardId === id)) return fail('not_your_card');
+      fields.FeaturedCard = id;
+    }
+    const next = store.update('Artists', row.id, fields);
+    return ok({ profile: profileView(store, next), saved: true });
+  }
+  if (action === 'image') {
+    const col = body.column === 'Banner' ? 'Banner' : body.column === 'Avatar' ? 'Avatar' : null;
+    if (!col) return fail('invalid_column');
+    const m = /^data:image\/(webp|png|jpeg);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+    if (!m) return fail('invalid_image');
+    const data = Buffer.from(m[2], 'base64');
+    if (!data.length || data.length > IMAGE_MAX) return fail('image_too_large');
+    const id = store.nextAttachmentId();
+    store.putAttachment(id, `${col.toLowerCase()}-${row.id}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`, `image/${m[1]}`, data);
+    const next = store.update('Artists', row.id, { [col]: ['L', id] });
+    return ok({ profile: profileView(store, next), saved: true });
+  }
+  return fail('unknown_action');
+}
+
+export const routes = { 'GET artists': listHandler, 'GET artist': artistHandler, 'POST artist-profile': profileHandler };

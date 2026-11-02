@@ -64,7 +64,7 @@ const NotifCenter = (function () {
   }
   function rewardItem(it, i) {
     return `<li class="nc-item nc-todo" data-kind="todo" data-reward="${i}"><span class="nc-ico" aria-hidden="true">${it.icon}</span>
-      <span class="nc-body"><span class="nc-msg">${it.label}</span><span class="nc-actions"><button type="button" class="nc-btn nc-ok" data-nc="claim">Récupérer</button></span></span></li>`;
+      <span class="nc-body"><span class="nc-msg">${it.label}</span><span class="nc-actions"><button type="button" class="nc-btn nc-ok" data-nc="claim">Récupérer</button>${it.url ? `<a class="nc-link" href="${esc(it.url)}">Y aller</a>` : ""}</span></span></li>`;
   }
   function readyItem(it, i) {
     const act = it.key === "garden" || it.key === "garden-all" ? "Récolter" : it.key === "expedition" ? "Accueillir" : "";
@@ -74,7 +74,7 @@ const NotifCenter = (function () {
   function historyItem(n) {
     const icons = { success: "&#10003;", error: "&#9888;", info: "&#10024;" };
     return `<li class="nc-item nc-h-${n.type} ${n.ts > lastSeen ? "nc-unread" : ""}" data-kind="history"><span class="nc-ico" aria-hidden="true">${icons[n.type] || icons.info}</span>
-      <span class="nc-body"><span class="nc-msg">${n.message}</span><span class="nc-time">${relativeTime(n.ts)}</span></span></li>`;
+      <span class="nc-body"><span class="nc-msg">${n.message}</span><span class="nc-time">${relativeTime(n.ts)}${n.url ? ` · <a class="nc-link" href="${esc(n.url)}">voir</a>` : ""}</span></span></li>`;
   }
 
   function render() {

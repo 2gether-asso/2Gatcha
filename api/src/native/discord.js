@@ -84,7 +84,7 @@ export function render(store, kind, vars = {}) {
 // (server.js). Un refus de Discord ou une panne reseau ne bloque pas le jeu, mais
 // se voit : Admin > Discord, journaux du serveur et GlitchTip.
 const isDiscordUrl = (u) => /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\//.test(String(u));
-const delivery = { count: 0, last: null };
+const delivery = { count: 0, last: null, textFallbacks: 0, lastFallback: null };
 function noteDelivery(result) {
   delivery.count++;
   delivery.last = { at: new Date().toISOString(), ...result };
@@ -120,7 +120,15 @@ function queueAnnounce(store, url, payload, { cardId = 0 } = {}) {
   const embed = payload.embeds && payload.embeds[0];
   if (!embed || !ctx.actor) { setTimeout(() => { jsonPost(url, payload).catch(() => {}); }, 0); return; }
   const id = crypto.randomUUID();
-  const timer = setTimeout(() => { pending.delete(id); jsonPost(url, payload).catch(() => {}); }, IMAGE_WAIT);
+  const owner = ctx.actor;
+  const timer = setTimeout(() => {
+    pending.delete(id);
+    // Aucune image recue a temps : l'annonce part en texte, et ca se voit (Admin > Discord, journaux).
+    delivery.textFallbacks++;
+    delivery.lastFallback = { at: new Date().toISOString(), owner };
+    console.log('[discord] annonce envoyée en texte : pas d’image reçue de ' + owner);
+    jsonPost(url, payload).catch(() => {});
+  }, IMAGE_WAIT);
   if (timer.unref) timer.unref();
   pending.set(id, { url, payload, owner: ctx.actor, timer, cardId });
   const pseudoOf = (discordId) => (store.getAll('Users').find((u) => String(u.DiscordId) === discordId) || {}).Pseudo || 'Un joueur';
@@ -197,7 +205,7 @@ export function announce(store, kind, vars, { cardId = 0 } = {}) {
 
 function status(store) {
   const url = webhookUrl(store);
-  return { webhook: { configured: !!url, masked: mask(url), source: urlSource(store), legacy: workflowUrl() ? mask(workflowUrl()) : null, delivery }, templates: Object.entries(TEMPLATES).map(([k, t]) => ({ key: k, label: t.label, when: t.when, vars: t.vars, def: t.def, ...templatesOf(store)[k] })) };
+  return { webhook: { configured: !!url, masked: mask(url), source: urlSource(store), legacy: workflowUrl() ? mask(workflowUrl()) : null, delivery: { ...delivery, waiting: pending.size } }, templates: Object.entries(TEMPLATES).map(([k, t]) => ({ key: k, label: t.label, when: t.when, vars: t.vars, def: t.def, ...templatesOf(store)[k] })) };
 }
 function clean(t, def) {
   return {
@@ -248,4 +256,6 @@ function handle({ store, body }) {
 }
 
 export const routes = { 'POST admin-discord': handle, 'POST discord-image': handleImage };
-export const _legacyUrl = workflowUrl;
+
+// Admin > Sante (health.js).
+export const deliveryStatus = () => ({ count: delivery.count, last: delivery.last, textFallbacks: delivery.textFallbacks, lastFallback: delivery.lastFallback, waiting: pending.size });

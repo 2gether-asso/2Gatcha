@@ -8,6 +8,23 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-02', title: 'Les vacances s’installent partout', items: [
+    'Les activités du mode Chill sont maintenant là où tu joues : la plage et ton château de sable dans la Fouille, le lagon dans la Pêche, la sieste sur l’accueil, les cartes postales depuis la fenêtre d’une carte…',
+    'Marées : à marée haute les poissons rares mordent plus, à marée basse le lagon rend des coquillages',
+    'Château de sable : bâtis le tien avec le sable de la plage, et participe au château commun du serveur',
+    'La bibliothèque engloutie : 12 fragments d’une histoire à retrouver au lagon, sur la plage et en promenade',
+    'Nouvelle promenade à la plage, préférée de Moka',
+    'Amis, titres de vacances et carnet exotique (poissons, coquillages, fragments) sur ton profil',
+    'La carte exclusive du mode explique enfin comment l’obtenir : participe à l’objectif commun, puis récupère ta part',
+    '« Tout récupérer » prend aussi les défis de saison et les vacances ; chaque notification t’emmène au bon endroit',
+    'Recherche : les artistes et les onglets du jeu ; cinématiques possibles seulement pour les épiques et plus',
+    'Le résumé d’ouverture met en avant ta meilleure carte',
+    'Le site se met à jour tout seul quand quelqu’un t’envoie quelque chose, et ta collection reste consultable hors ligne',
+    'Pages de jeu et collection plus légères à charger'
+  ] },
+  { date: '2026-11-02', title: 'Les artistes tiennent leur fiche', items: [
+    'Artistes de l’asso : relié à ton compte par l’équipe, tu modifies toi-même ta présentation, tes réseaux, ta photo, ta bannière et ta carte phare'
+  ] },
   { date: '2026-11-01', title: 'Un pass pour tout le mois', items: [
     'Le pass de saison se joue maintenant sur tout le mois : plus de paliers à gravir, et ce que tu gagnes en plus d’un jour reste en réserve pour les jours suivants',
     'Un jour sans jouer se rattrape : rien n’est perdu'

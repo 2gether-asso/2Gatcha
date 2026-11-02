@@ -38,15 +38,6 @@ export const schema = {
 export const modeKey = (store) => (currentMode(store) || {}).key || 'medium';
 export const modeIs = (store, key) => modeKey(store) === key;
 
-// Ce que chaque mode change pour les joueurs (annonce du changement de mode).
-export const MODE_PERKS = {
-  cool: ['🎁 Un petit cadeau à chaque connexion du jour', '🎣 Plus aucune prise vide à la pêche', '↩️ Décraft annulable pendant 24 h', '🐕 Milo rapporte 2 trouvailles par jour', '🌱 Le jardin ne fane plus, une récolte sur cinq est rare', '🤝 Échanges et enchères sans taxe'],
-  chill: ['🍀 Deux heures de chance par jour', '🎯 Le pity avance deux fois plus vite le week-end', '☀️ Marché aussi le mercredi', '🎯 Un 4e défi de la semaine, et des fragments en plus', '🍀 Un doublon sur dix devient une carte qui te manque'],
-  medium: ['🎲 Pari du booster : mise 100 ✨, triplée si une épique sort', '📜 Un contrat personnel chaque semaine (booster à la clé)', '⚔️ Booster à double tranchant : 3 cartes dont une rare garantie', '🍀 Un booster par jour, au hasard, a ses finitions doublées'],
-  chaos: ['👾 Une règle surprise chaque jour, annoncée dans le bandeau', '🎲 Base Medium, mais tout peut changer à minuit', '👾 Édition limitée Glitch à l’ouverture des boosters', '🏆 Succès « Agent du chaos » : 5 règles différentes'],
-  hard: ['🧽 Tes doublons s’usent un peu chaque jour (sauf sous un parapluie ☂️)', '🔥 Finitions plus rares, mais les arc-en-ciel sont « forgées dans les flammes »', '👹 Boss enragé : 2× plus résistant, récompense ×3', '🌋 Marché noir brûlant : offres plus rares et plus courtes', '💸 Taxe de luxe pour les plus riches, redistribuée aux joueurs actifs', '🏆 Succès et cadres de survie exclusifs']
-};
-
 // ------------------------------------------------------------------ outils communs
 const QUALITY = ['damaged', 'worn', 'good', 'mint'];
 const rarityRank = (store, key) => { const r = store.getAll('Rarities').find((x) => x.Key === key); return r ? r.SortOrder || 0 : 99; };

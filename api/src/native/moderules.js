@@ -54,6 +54,14 @@ export const RULES = [
   { key: 'chill.apero', mode: 'chill', kind: 'extra', icon: '🥂', label: 'Apéro du serveur', desc: 'Quand assez de joueurs passent dans la même heure, chacun reçoit des poussières (une fois par jour).', isNew: true },
   { key: 'chill.passport', mode: 'chill', kind: 'extra', icon: '🛂', label: 'Passeport de vacances', desc: 'Un tampon par activité différente et par jour. Carnet complet : un titre et un cadre exclusifs.', isNew: true },
   { key: 'chill.sunbath', mode: 'chill', kind: 'extra', icon: '☀️', label: 'Doublons au soleil', desc: 'Laisser bronzer un doublon 24 h : il peut gagner un cran d’état, jamais en perdre.', isNew: true },
+  { key: 'chill.tides', mode: 'chill', kind: 'bonus', icon: '🌊', label: 'Marées', desc: 'Marée haute : les poissons exotiques rares mordent plus. Marée basse : des coquillages à chaque lancer au lagon.', isNew: true },
+  { key: 'chill.sandcastle', mode: 'chill', kind: 'extra', icon: '🏰', label: 'Château de sable', desc: 'Le sable de la fouille de plage bâtit ton château : 6 étages à récompenses, remis à zéro chaque mois.', isNew: true },
+  { key: 'chill.seaLore', mode: 'chill', kind: 'extra', icon: '📜', label: 'Bibliothèque engloutie', desc: 'Des fragments de tablettes marines au lagon, à la plage et en promenade : 12 fragments racontent une histoire.', isNew: true },
+  { key: 'chill.beachWalk', mode: 'chill', kind: 'extra', icon: '🏖️', label: 'Promenade à la plage', desc: 'Un nouveau lieu de promenade, préféré de Moka : coquillages, fruits exotiques, poissons et fragments.', isNew: true },
+  { key: 'chill.sharedCastle', mode: 'chill', kind: 'extra', icon: '🏯', label: 'Château de sable commun', desc: 'Tout le monde y apporte son sable : 5 étages par semaine, chaque étage récompense ceux qui ont participé.', isNew: true },
+  { key: 'chill.friends', mode: 'chill', kind: 'extra', icon: '🤝', label: 'Amis', desc: 'Une liste d’amis sur ton profil, proposés en premier pour les cartes postales.', isNew: true },
+  { key: 'chill.vacationCosmetics', mode: 'chill', kind: 'bonus', icon: '🎖️', label: 'Titres de vacances', desc: 'Des titres et un cadre gagnés en jouant aux vacances : pirate des plages, maître du bar, bâtisseur de sable.', isNew: true },
+  { key: 'chill.exoticBook', mode: 'chill', kind: 'extra', icon: '📔', label: 'Carnet exotique', desc: 'Poissons exotiques, coquillages et fragments engloutis : chaque carnet complet donne une récompense.', isNew: true },
   // ------------------------------------------------------------------ Medium
   { key: 'medium.bet', mode: 'medium', kind: 'extra', icon: '🎲', label: 'Pari du booster', desc: 'Miser des poussières à l’ouverture : triplées si une épique (ou mieux) sort.' },
   { key: 'medium.contract', mode: 'medium', kind: 'extra', icon: '📜', label: 'Contrat de la semaine', desc: 'Un objectif personnel par semaine, un booster à la clé.' },
@@ -86,35 +94,60 @@ export const RULES = [
   { key: 'chaos.unstable', mode: 'chaos', kind: 'extra', icon: '🌀', label: 'Carte instable', desc: 'Une carte Glitch offerte par période Chaos, dont l’image et la finition changent chaque jour (figée à la fin du Chaos).', isNew: true },
   { key: 'chaos.bugs', mode: 'chaos', kind: 'extra', icon: '🐛', label: 'Chasse aux bugs', desc: 'Des « bugs » volontaires se cachent dans l’interface (bouton qui fuit, texte à l’envers…) : les trouver rapporte des poussières.', isNew: true }
 ];
+// Ou jouer chaque regle dans le jeu (page Mode du moment : bouton « Y aller »).
+const RULE_URLS = {
+  'cool.wishbox': 'mode.html#md-wishbox', 'cool.freeRepair': 'mode.html#md-repair', 'cool.secondChance': 'mode.html#md-second', 'cool.dinoHoliday': 'jeux.html#dinos',
+  'chill.happyHour': 'boutique.html', 'chill.sharedGarden': 'mode.html#md-garden', 'chill.dinoWalk': 'jeux.html#dinos', 'chill.fourthChallenge': 'index.html#defis',
+  'chill.nap': 'index.html#vacances', 'chill.sunset': 'index.html#vacances', 'chill.postcard': 'collection.html#classeur', 'chill.beachFishing': 'jeux.html#peche',
+  'chill.cocktails': 'jeux.html#cuisine', 'chill.petHoliday': 'jeux.html#jardin', 'chill.tropicalSeed': 'jeux.html#jardin', 'chill.beachDig': 'jeux.html#fouille',
+  'chill.apero': 'communaute.html#ensemble', 'chill.passport': 'profile.html#vacances', 'chill.sunbath': 'collection.html#qualite', 'chill.tides': 'jeux.html#peche',
+  'chill.sandcastle': 'jeux.html#fouille', 'chill.seaLore': 'jeux.html#archeologie', 'chill.beachWalk': 'jeux.html#promenade', 'chill.sharedCastle': 'communaute.html#ensemble',
+  'chill.friends': 'profile.html#amis', 'chill.vacationCosmetics': 'profile.html#vacances', 'chill.exoticBook': 'profile.html#carnet',
+  'medium.bet': 'ouverture.html', 'medium.edge': 'ouverture.html', 'medium.contract': 'boutique.html', 'medium.stock': 'mode.html#md-stock', 'medium.draft': 'mode.html#md-draft', 'medium.questChain': 'mode.html#md-quest',
+  'hard.ironman': 'mode.html#md-ironman', 'hard.bounty': 'mode.html#md-bounty', 'hard.cursed': 'mode.html#md-cursed', 'hard.theft': 'mode.html#md-theft', 'hard.leaderboard': 'communaute.html#metiers',
+  'chaos.vote': 'mode.html#md-vote', 'chaos.unstable': 'mode.html#md-unstable', 'chaos.bugs': 'mode.html#md-bugs'
+};
+for (const r of RULES) if (RULE_URLS[r.key]) r.url = RULE_URLS[r.key];
 export const RULE = Object.fromEntries(RULES.map((r) => [r.key, r]));
 
 // ------------------------------------------------------------------ etat
-let cache = { store: null, at: 0, off: null };
-function offSet(store) {
+// AppSettings 'mode-rules' = { off: [cles desactivees], also: { cle: [autres modes] } }.
+// « also » (2026-11-02) : une regle joue aussi dans d'autres modes que le sien,
+// activee a la main dans Admin > Difficultes (ex. tout le Chill en plus en Chaos).
+let cache = { store: null, at: 0, off: null, also: null };
+function ruleState(store) {
   const t = Date.now();
-  if (cache.store === store && t - cache.at < 30000 && cache.off) return cache.off;
+  if (cache.store === store && t - cache.at < 30000 && cache.off) return cache;
   const row = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((r) => r.Key === KEY) : null;
-  const off = new Set((parseJson(row && row.Value, {}).off || []).filter((k) => RULE[k]));
-  cache = { store, at: t, off };
-  return off;
+  const v = parseJson(row && row.Value, {});
+  const off = new Set((v.off || []).filter((k) => RULE[k]));
+  const also = {};
+  for (const [k, modes] of Object.entries(v.also || {})) if (RULE[k] && Array.isArray(modes)) also[k] = modes.filter((m) => MODES.includes(m) && m !== RULE[k].mode);
+  cache = { store, at: t, off, also };
+  return cache;
 }
-function saveOff(store, off) {
-  const value = JSON.stringify({ off: [...off].sort() });
+const offSet = (store) => ruleState(store).off;
+const alsoOf = (store, key) => ruleState(store).also[key] || [];
+function saveState(store, off, also) {
+  const clean = Object.fromEntries(Object.entries(also).filter(([, m]) => m.length));
+  const value = JSON.stringify({ off: [...off].sort(), also: clean });
   const row = store.getAll('AppSettings').find((r) => r.Key === KEY);
   if (row) store.update('AppSettings', row.id, { Value: value }); else store.create('AppSettings', { Key: KEY, Value: value });
-  cache = { store: null, at: 0, off: null };
+  cache = { store: null, at: 0, off: null, also: null };
 }
+const saveOff = (store, off) => saveState(store, off, { ...ruleState(store).also });
 export const modeKeyOf = (store) => (currentMode(store) || {}).key || 'medium';
 export const ruleEnabled = (store, key) => !!RULE[key] && !offSet(store).has(key);
-// La regle joue maintenant : son mode est en cours et elle est active.
+// La regle joue dans ce mode : le sien ou un mode ajoute a la main, et elle est active.
+const activeIn = (store, r, mode) => !offSet(store).has(r.key) && (r.mode === mode || alsoOf(store, r.key).includes(mode));
+// La regle joue maintenant.
 export function ruleOn(store, key) {
   const r = RULE[key];
-  return !!r && modeKeyOf(store) === r.mode && !offSet(store).has(key);
+  return !!r && activeIn(store, r, modeKeyOf(store));
 }
 // Libelles des regles actives d'un mode (annonce du changement de mode).
 export function modePerks(store, mode) {
-  const off = offSet(store);
-  return RULES.filter((r) => r.mode === mode && !off.has(r.key) && !(r.key === 'chill.happyHour' && shopClosed(store, mode))).map((r) => `${r.icon} ${r.label}`);
+  return RULES.filter((r) => activeIn(store, r, mode) && !(r.key === 'chill.happyHour' && shopClosed(store, mode))).map((r) => `${r.icon} ${r.label}`);
 }
 
 // ------------------------------------------------------------------ heure joyeuse (Chill)
@@ -174,7 +207,7 @@ function adminStatus(store, features) {
       key: m, label: PRESET_INFO[m]?.label || m, icon: PRESET_INFO[m]?.icon || '', desc: PRESETS[m]?.desc || '', current: m === current,
       presets: presetSummary(m),
       closed: features ? features.FEATURES.filter((f) => (matrix[f.key] || []).includes(m)).map((f) => ({ key: f.key, icon: f.icon, label: f.label })) : [],
-      rules: RULES.filter((r) => r.mode === m).map((r) => ({ ...r, on: !off.has(r.key) }))
+      rules: RULES.filter((r) => r.mode === m).map((r) => ({ ...r, on: !off.has(r.key), also: alsoOf(store, r.key) }))
     }))
   };
 }
@@ -195,8 +228,28 @@ function handleAdmin({ store, body }) {
     const off = new Set(offSet(store));
     RULES.filter((r) => r.mode === body.mode && (!body.onlyNew || r.isNew)).forEach((r) => (body.on ? off.delete(r.key) : off.add(r.key)));
     saveOff(store, off);
+  } else if (action === 'also') {
+    // Une regle aussi active dans un autre mode que le sien.
+    const r = RULE[body.key];
+    if (!r) return fail('unknown_rule');
+    if (!MODES.includes(body.mode) || body.mode === r.mode) return fail('unknown_mode');
+    const st = ruleState(store);
+    const list = new Set(st.also[r.key] || []);
+    if (body.on) list.add(body.mode); else list.delete(body.mode);
+    saveState(store, st.off, { ...st.also, [r.key]: [...list] });
+  } else if (action === 'everywhere') {
+    // Toutes les regles des autres modes aussi actives dans ce mode (typiquement le Chaos).
+    if (!MODES.includes(body.mode)) return fail('unknown_mode');
+    const st = ruleState(store);
+    const also = { ...st.also };
+    for (const r of RULES.filter((x) => x.mode !== body.mode)) {
+      const list = new Set(also[r.key] || []);
+      if (body.on) list.add(body.mode); else list.delete(body.mode);
+      also[r.key] = [...list];
+    }
+    saveState(store, st.off, also);
   } else if (action === 'reset') {
-    saveOff(store, new Set());
+    saveState(store, new Set(), {});
   } else if (action !== 'status') return fail('unknown_action');
   return ok(adminStatus(store, featuresMod));
 }
@@ -204,8 +257,7 @@ function handleAdmin({ store, body }) {
 // Pour le site : regles actives du mode en cours + infos en direct.
 export function publicRules(store) {
   const mode = modeKeyOf(store);
-  const off = offSet(store);
-  const rules = RULES.filter((r) => r.mode === mode && !off.has(r.key) && !(r.key === 'chill.happyHour' && shopClosed(store))).map((r) => ({ key: r.key, kind: r.kind, icon: r.icon, label: r.label, desc: r.desc, isNew: !!r.isNew }));
+  const rules = RULES.filter((r) => activeIn(store, r, mode) && !(r.key === 'chill.happyHour' && shopClosed(store))).map((r) => ({ key: r.key, kind: r.kind, icon: r.icon, label: r.label, desc: r.desc, url: r.url || null, from: r.mode !== mode ? r.mode : null, isNew: !!r.isNew }));
   const out = { mode, label: PRESET_INFO[mode]?.label || mode, icon: PRESET_INFO[mode]?.icon || '', rules, on: rules.map((r) => r.key) };
   if (happyHourOn(store)) out.happyHour = { from: HAPPY_FROM, to: HAPPY_TO, discount: HAPPY_DISCOUNT, active: happyHourNow(store) };
   const sunset = sunsetState(store);

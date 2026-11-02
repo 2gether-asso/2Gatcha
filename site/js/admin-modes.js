@@ -80,6 +80,9 @@
         <div class="amr-rule-text">
           <strong>${esc(r.label)}</strong>${r.isNew ? ' <span class="amr-new">nouveau</span>' : ""} <span class="amr-kind amr-kind-${k.cls}">${k.label}</span>
           <p>${esc(r.desc)}</p>
+          <div class="amr-also" title="Activer aussi cette règle dans d'autres modes">Aussi en :
+            ${(state.modes || []).filter((m) => m.key !== r.mode).map((m) => `<label class="amr-also-chip"><input type="checkbox" data-also="${r.key}" data-also-mode="${m.key}" ${(r.also || []).includes(m.key) ? "checked" : ""} /> ${m.icon} ${esc(m.label)}</label>`).join("")}
+          </div>
         </div>
         <label class="amr-switch" title="${r.on ? "Désactiver" : "Activer"}">
           <input type="checkbox" data-rule="${r.key}" ${r.on ? "checked" : ""} aria-label="${esc(r.label)}" />
@@ -102,6 +105,8 @@
           <div class="amr-mode-actions">
             <button type="button" class="btn-ghost" data-bulk="${m.key}" data-on="1">Tout activer</button>
             <button type="button" class="btn-ghost" data-bulk="${m.key}" data-on="0">Tout désactiver</button>
+            <button type="button" class="btn-ghost" data-everywhere="${m.key}" data-on="1" title="Les règles de tous les autres modes jouent aussi dans ce mode">+ règles des autres modes</button>
+            <button type="button" class="btn-ghost" data-everywhere="${m.key}" data-on="0">− règles des autres modes</button>
             ${m.current ? "" : `<button type="button" class="btn-secondary" data-apply="${m.key}">Passer en ${esc(m.label)}</button>`}
           </div>
         </header>
@@ -158,6 +163,8 @@
     box.addEventListener("change", (e) => {
       const cb = e.target.closest("[data-rule]");
       if (cb) call("set", { key: cb.dataset.rule, on: cb.checked }, cb.checked ? "Règle activée." : "Règle désactivée.");
+      const al = e.target.closest("[data-also]");
+      if (al) call("also", { key: al.dataset.also, mode: al.dataset.alsoMode, on: al.checked }, al.checked ? "Règle ajoutée à ce mode." : "Règle retirée de ce mode.");
       const inp = e.target.closest("input[data-ov-key]");
       if (inp) {
         const value = inp.type === "checkbox" ? inp.checked : Number(inp.value);
@@ -182,6 +189,16 @@
         if (ovb.hasAttribute("data-ov-json")) return editJson(mode, key);
         if (ovb.hasAttribute("data-ov-reset")) return ovCall({ action: "override-reset", mode, key }, "Valeur d'origine rétablie.");
         if (ovb.hasAttribute("data-ov-drop")) return ovCall({ action: "override-set", mode, key, value: null }, "Ce mode ne touche plus à ce réglage.");
+      }
+      const ev = e.target.closest("[data-everywhere]");
+      if (ev) {
+        const m = state.modes.find((x) => x.key === ev.dataset.everywhere);
+        const on = ev.dataset.on === "1";
+        if (await Confirm.show(on ? `Activer aussi en <strong>${esc(m.label)}</strong> toutes les règles des autres modes ? Elles jouent toutes en même temps, bonus et malus compris.` : `Retirer du mode <strong>${esc(m.label)}</strong> les règles des autres modes ?`, { title: "Règles des autres modes", confirmText: on ? "Tout activer" : "Retirer" })) {
+          open = m.key;
+          call("everywhere", { mode: m.key, on }, on ? "Toutes les règles jouent aussi dans ce mode." : "Règles des autres modes retirées.");
+        }
+        return;
       }
       const t = e.target.closest("[data-open],[data-bulk],[data-apply],#amr-reset,[data-goto]");
       if (!t) return;

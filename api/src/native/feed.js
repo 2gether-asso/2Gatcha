@@ -7,6 +7,7 @@
 
 import { refId, now, ok, cardSummary } from './common.js';
 import { isTestUser, inTestRequest } from './testuser.js';
+import { feedChanged } from '../live.js';
 
 export const schema = {
   ServerFeed: { At: { type: 'Numeric' }, User: { type: 'Ref:Users' }, Kind: { type: 'Text' }, Icon: { type: 'Text' }, Text: { type: 'Text' }, Card: { type: 'Ref:Cards' } }
@@ -19,6 +20,7 @@ export function addFeed(store, { userId, kind, icon, text, cardId = null }) {
   if (!store.tables.has('ServerFeed')) return;
   // Compte test admin : jamais dans le fil d'actu.
   if (isTestUser(store, userId) || inTestRequest(store)) return;
+  feedChanged();
   store.create('ServerFeed', { At: now(), User: userId || null, Kind: kind, Icon: icon || '✨', Text: String(text).slice(0, 200), Card: cardId || null });
   const rows = store.getAll('ServerFeed');
   if (rows.length > KEEP + 20) rows.sort((a, b) => a.id - b.id).slice(0, rows.length - KEEP).forEach((r) => store.delete('ServerFeed', r.id));

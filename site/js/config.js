@@ -96,6 +96,7 @@ window.APP_CONFIG = {
     adminSurprise: "/admin-surprise",  // POST { discordId, action: 'status'|'start'|'stop', key? } (evenements surprises)
     museum: "/museum",                 // POST/GET { userId } (musee du coffre-fort, 2026-10-18)
     artists: "/artists",               // GET [?userId] -> { artists } (artistes a l'honneur, 2026-10-30)
+    artistProfile: "/artist-profile",  // POST { userId, slug?, action: 'status'|'save'|'image', fields?, column?, image? } (fiche tenue par l'artiste)
     artist: "/artist",                 // GET ?slug= [&userId] -> { artist, cards, extensions, stats }
     starter: "/starter",               // POST/GET { userId, action: 'status'|'claim', key? } (parcours du debutant, 2026-10-18)
     adminTestAccount: "/admin-test-account", // POST { discordId, action: 'status'|'login'|'set'|'reset'|'cards', levels?, resources?, mode? } (compte test, 2026-10-18)
@@ -171,6 +172,9 @@ window.APP_CONFIG = {
     // Regles par difficulte (2026-10-16, api/src/native/moderules.js, modefun.js, draft.js, chaosvote.js).
     adminModeRules: "/admin-mode-rules", // POST { discordId, action: 'status'|'set'|'mode'|'reset', key?, on?, mode? }
     modeRules: "/mode-rules",           // GET -> regles actives du mode en cours
+    live: "/live",                      // GET ?token= -> flux SSE (mises a jour en direct, api/src/live.js)
+    friends: "/friends",                // POST { userId, action: 'status'|'add'|'remove', pseudo?, friendId? } (amis, mode Chill)
+    adminHealth: "/admin-health",       // POST { discordId } -> sante du serveur (Admin > Sante)
     vacation: "/vacation",              // POST { userId, action, ... } -> vacances du mode Chill (api/src/native/vacation.js)
     modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode
     draft: "/draft",                    // POST { userId, action: 'status'|'create'|'join'|'leave'|'start'|'pick', id?, index? }

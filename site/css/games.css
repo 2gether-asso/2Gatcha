@@ -1390,15 +1390,3 @@ html[data-game-mode="chaos"]:not([data-theme]) button:not(.btn-secondary):not(.b
 /* Vacances du mode Chill (mode.js, vacation.js) */
 .beta-banner.banner-sunset { background: linear-gradient(90deg, rgba(124, 58, 237, 0.92), rgba(249, 115, 22, 0.92)); color: #fff7ed; }
 html[data-sunset]::after { content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(249, 115, 22, 0.16), rgba(124, 58, 237, 0.1)); }
-.md-beach { display: grid; grid-template-columns: repeat(var(--side, 4), 1fr); gap: 6px; max-width: 280px; }
-.md-sand { aspect-ratio: 1; min-height: 44px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #fcd34d, #d97706); font-size: 1.3rem; cursor: pointer; }
-.md-sand:hover:not(:disabled) { filter: brightness(1.1); }
-.md-sand.dug { background: rgba(120, 53, 15, 0.45); }
-.md-sand:disabled { cursor: default; }
-.md-fishbook { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px; font-size: 0.88rem; }
-.md-fishbook .unknown { color: var(--text-dim); }
-.md-check { display: flex; align-items: center; gap: 6px; margin: 8px 0; font-size: 0.88rem; }
-.md-stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
-.md-stamp { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 10px; border: 1px dashed var(--text-dim); font-size: 1.3rem; opacity: 0.55; }
-.md-stamp small { font-size: 0.7rem; }
-.md-stamp.on { opacity: 1; border-style: solid; border-color: #fb923c; background: rgba(251, 146, 60, 0.15); }

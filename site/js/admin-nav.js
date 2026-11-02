@@ -4,7 +4,7 @@
 // donnees la premiere fois qu'on l'ouvre (AdminNav.onFirstShow).
 
 const AdminNav = {
-  PANES: ["accueil", "codes", "joueurs", "discord", "economie", "modes", "visuels", "test", "evenements", "contenu", "tout", "reglages", "site", "doc"],
+  PANES: ["accueil", "codes", "joueurs", "discord", "economie", "modes", "visuels", "test", "evenements", "contenu", "tout", "reglages", "site", "sante", "doc"],
   current: null,
   firstShow: new Map(),
   shown: new Set(),

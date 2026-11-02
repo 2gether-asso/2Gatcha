@@ -1,0 +1,67 @@
+/* Vacances du mode Chill dans les pages du jeu (js/vacation-ui.js) */
+.vac-zone { display: grid; gap: 12px; margin: 14px 0; }
+.vac-card { min-width: 0; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, rgba(251, 146, 60, 0.1), rgba(34, 211, 238, 0.07)), var(--bg-panel-2, rgba(255,255,255,0.04)); border: 1px solid rgba(251, 146, 60, 0.35); }
+.vac-card h3 { margin: 0 0 8px; font-size: 1.02rem; }
+.vac-card h4 { margin: 12px 0 6px; font-size: 0.95rem; }
+.vac-card p { margin: 0 0 8px; }
+.vac-meta { color: var(--text-dim); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.vac-bar { height: 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin: 6px 0; }
+.vac-bar span { display: block; height: 100%; background: linear-gradient(90deg, #fb923c, #22d3ee); }
+.vac-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.vac-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.vac-form select, .vac-form input { min-width: 0; max-width: 100%; }
+.vac-grid { display: grid; grid-template-columns: repeat(var(--side, 4), 1fr); gap: 6px; max-width: 280px; }
+.vac-sand { aspect-ratio: 1; min-height: 44px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #fcd34d, #d97706); font-size: 1.3rem; cursor: pointer; }
+.vac-sand:hover:not(:disabled) { filter: brightness(1.1); }
+.vac-sand.dug { background: rgba(120, 53, 15, 0.45); }
+.vac-sand:disabled { cursor: default; }
+.vac-book { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px; font-size: 0.88rem; }
+.vac-book .unknown, .vac-lore .unknown { color: var(--text-dim); }
+.vac-lore { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: 0.9rem; }
+.vac-floors { margin: 0 0 6px; padding-left: 0; list-style: none; display: grid; gap: 2px; font-size: 0.88rem; }
+.vac-floors .built { color: #fbbf24; }
+.vac-tide { padding: 6px 10px; border-radius: 10px; font-size: 0.88rem; }
+.vac-tide-high { background: rgba(14, 165, 233, 0.18); }
+.vac-tide-low { background: rgba(250, 204, 21, 0.14); }
+.vac-stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.vac-stamp { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 10px; border: 1px dashed var(--text-dim); font-size: 1.3rem; opacity: 0.55; }
+.vac-stamp small { font-size: 0.7rem; }
+.vac-stamp.on { opacity: 1; border-style: solid; border-color: #fb923c; background: rgba(251, 146, 60, 0.15); }
+.vac-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.vac-list small { color: var(--text-dim); }
+.vac-book-sec { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.vac-mini { display: inline-flex; gap: 8px; align-items: center; }
+.vac-mini img { width: 44px; height: 60px; object-fit: cover; border-radius: 6px; }
+.vac-mini small { display: block; color: var(--text-dim); }
+.vac-pc { display: grid; gap: 4px; padding: 6px; border: 1px solid var(--border-soft, rgba(255,255,255,0.12)); border-radius: 12px; background: none; color: inherit; cursor: pointer; text-align: left; }
+.vac-pc em { font-size: 0.82rem; color: var(--text-dim); }
+.vac-bath { display: grid; gap: 6px; }
+.vac-x { padding: 2px 8px; min-height: 0; }
+.vac-dialog { border: 1px solid var(--border-soft, rgba(255,255,255,0.15)); border-radius: 16px; background: var(--bg-panel-solid, #14162e); color: var(--text, #fff); padding: 18px; width: min(460px, calc(100vw - 32px)); }
+.vac-dialog::backdrop { background: rgba(4, 5, 12, 0.78); }
+.vac-pc-form { display: grid; gap: 10px; }
+.vac-pc-form h3 { margin: 0; }
+.vac-pc-form label { display: grid; gap: 4px; }
+.vac-check { display: flex !important; align-items: center; gap: 6px; }
+.vac-actions { display: flex; justify-content: flex-end; gap: 8px; }
+/* Page Mode du moment : liens vers la place de chaque regle */
+.md-go { display: inline-block; margin-top: 4px; font-size: 0.85rem; font-weight: 600; }
+.md-modecard { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.md-modecard img { width: 92px; border-radius: 8px; }
+.md-modecard ol { margin: 0; padding-left: 20px; }
+/* Hors ligne (shell.js) */
+.offline-banner { position: sticky; top: 0; z-index: 250; padding: 6px 12px; text-align: center; font-size: 0.85rem; background: #92400e; color: #fff7ed; }
+/* Admin > Difficultes : regle aussi active dans d'autres modes */
+.amr-also { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 0.78rem; color: var(--text-dim); }
+.amr-also-chip { display: inline-flex; gap: 3px; align-items: center; padding: 1px 6px; border: 1px solid var(--border-soft, rgba(255,255,255,0.15)); border-radius: 99px; cursor: pointer; }
+/* Communaute > Ensemble : carte exclusive du mode */
+.goal-modecard { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-soft, rgba(255,255,255,0.15)); }
+.goal-modecard img { width: 72px; border-radius: 6px; }
+.goal-modecard ol { margin: 4px 0 0; padding-left: 0; list-style: none; display: grid; gap: 2px; font-size: 0.88rem; }
+.summary-best { margin-bottom: 8px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--pill-color); background: color-mix(in srgb, var(--pill-color) 14%, transparent); }
+/* Admin > Sante (admin-health.js) */
+.health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 14px 0; }
+.health-grid section { padding: 12px; border-radius: 12px; border: 1px solid var(--border-soft, rgba(255,255,255,0.12)); }
+.health-grid h3 { margin: 0 0 6px; font-size: 1rem; }
+.health-grid p { margin: 0 0 4px; font-size: 0.9rem; }
+.health-errors { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.88rem; }

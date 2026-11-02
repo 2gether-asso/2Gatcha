@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="css/games.css" />
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
+  <link rel="stylesheet" href="css/vacation.css" />
   <link rel="stylesheet" href="css/admin.css" />
 </head>
 <body data-no-maintenance class="admin-page">
@@ -73,6 +74,7 @@
           <button type="button" role="tab" data-pane="reglages"><span aria-hidden="true">&#9881;&#65039;</span> Réglages</button>
           <button type="button" role="tab" data-pane="discord"><span aria-hidden="true">&#128226;</span> Discord</button>
           <button type="button" role="tab" data-pane="site"><span aria-hidden="true">&#128736;&#65039;</span> Site</button>
+          <button type="button" role="tab" data-pane="sante"><span aria-hidden="true">&#129658;</span> Santé</button>
           <button type="button" role="tab" data-pane="doc"><span aria-hidden="true">&#128214;</span> Documentation</button>
         </nav>
 
@@ -465,6 +467,11 @@
           </section>
 
           <!-- ============================== Documentation ============================== -->
+          <section class="adm-pane" id="pane-sante" role="tabpanel" data-title="Santé du serveur">
+            <header class="adm-card-head"><h2>&#129658; Santé du serveur</h2><p>Temps de réponse, erreurs, sauvegardes, Discord et joueurs en direct, sans ouvrir les journaux.</p></header>
+            <div id="health-zone" class="empty-state">Chargement…</div>
+          </section>
+
           <section class="adm-pane" id="pane-doc" role="tabpanel" data-title="Documentation" hidden>
             <section class="adm-card">
               <header class="adm-card-head"><h2>&#128214; Documentation du jeu</h2><p>Toutes les fonctionnalités et règles métier, avec les valeurs actuelles des réglages. À mettre à jour à chaque ajout, modification ou suppression.</p></header>
@@ -563,5 +570,6 @@
   <script src="js/admin-visuals.js"></script>
   <script src="js/admin-doc.js"></script>
   <script src="js/testaccount.js"></script>
+  <script src="js/admin-health.js"></script>
 </body>
 </html>

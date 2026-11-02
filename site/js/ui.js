@@ -103,7 +103,8 @@ const NotificationHistory = {
     if (!message) return;
     try {
       const list = this.getAll();
-      list.unshift({ type, message, ts: Date.now() });
+      // Page d'ou vient la notification : le centre de notifications y ramene (2026-11-02).
+      list.unshift({ type, message, ts: Date.now(), url: (location.pathname.split("/").pop() || "index.html") + location.hash });
       localStorage.setItem(this.KEY, JSON.stringify(list.slice(0, this.MAX)));
     } catch (e) {}
   },

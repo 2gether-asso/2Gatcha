@@ -84,6 +84,42 @@ await test('fiche masquee : artiste absent, sans page automatique', () => {
   store.update('Artists', row.id, { Active: true });
 });
 
+await test('fiche tenue par l artiste : reliee par l admin, champs limites, images', () => {
+  const post = (p, body) => { native.beforeRequest(body, {}, p); const res = native.run('POST', p, { body, query: {} }); native.endRequest(); return res; };
+  const stranger = store.create('Users', { Pseudo: 'Curieux', DiscordId: '990102', BoosterCount: 0, StardustCount: 0, XP: 0 });
+  const row = store.getAll('Artists').find((x) => x.Name === 'Léa Martin');
+  assert.equal(post('artist-profile', { userId: player.id }).json.error, 'not_linked');
+  assert.equal(get('artist', { slug: 'lea-martin', userId: player.id }).json.editable, false);
+  store.update('Artists', row.id, { User: player.id });
+  assert.equal(get('artist', { slug: 'lea-martin', userId: player.id }).json.editable, true);
+  assert.equal(get('artist', { slug: 'lea-martin', userId: stranger.id }).json.editable, false);
+  assert.equal(get('artist', { slug: 'lea-martin' }).json.editable, false);
+  assert.equal(get('artists', { userId: player.id }).json.mine, 'lea-martin');
+  assert.equal(get('artists', { userId: stranger.id }).json.mine, null);
+  assert.equal(post('artist-profile', { userId: stranger.id }).json.error, 'not_linked');
+  const st = post('artist-profile', { userId: player.id, action: 'status' }).json.profile;
+  assert.equal(st.slug, 'lea-martin');
+  assert.equal(st.cards.length, 3);
+  // Le nom et la visibilite ne bougent pas, meme envoyes.
+  const saved = post('artist-profile', { userId: player.id, action: 'save', fields: { tagline: 'Chats et aquarelle', bio: 'Bonjour', links: 'https://bsky.app/profile/lea', color: '#ff00aa', featuredCard: a2.id, name: 'Pirate', Active: false } }).json;
+  assert.equal(saved.saved, true);
+  const after = store.get('Artists', row.id);
+  assert.equal(after.Name, 'Léa Martin');
+  assert.notEqual(after.Active, false);
+  assert.equal(after.Tagline, 'Chats et aquarelle');
+  assert.equal(get('artist', { slug: 'lea-martin' }).json.artist.cover.cardId, a2.id);
+  assert.equal(post('artist-profile', { userId: player.id, action: 'save', fields: { color: 'red' } }).json.error, 'invalid_color');
+  assert.equal(post('artist-profile', { userId: player.id, action: 'save', fields: { featuredCard: 99999 } }).json.error, 'not_your_card');
+  // Images : petite image acceptee, autre format refuse.
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const im = post('artist-profile', { userId: player.id, action: 'image', column: 'Avatar', image: png }).json.profile;
+  assert.ok(im.avatarId && store.getAttachment(im.avatarId));
+  assert.equal(post('artist-profile', { userId: player.id, action: 'image', column: 'Avatar', image: 'data:image/svg+xml;base64,PHN2Zz4=' }).json.error, 'invalid_image');
+  assert.equal(post('artist-profile', { userId: player.id, action: 'image', column: 'Bio', image: png }).json.error, 'invalid_column');
+  store.update('Artists', row.id, { User: 0 });
+  assert.equal(post('artist-profile', { userId: player.id }).json.error, 'not_linked', 'lien retire');
+});
+
 store.db.close();
 clean();
 console.log(`${passed} tests artistes ok`);

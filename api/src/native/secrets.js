@@ -264,4 +264,3 @@ function handleGlitch({ store }) {
 }
 
 export const routes = { 'POST secrets': handle, 'GET secret-card': handleGlitch };
-export const _parisHM = parisHM;

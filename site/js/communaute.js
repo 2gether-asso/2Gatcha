@@ -158,7 +158,17 @@ function renderGoal(g) {
       <span>Récompense pour chaque participant : <strong>${g.reward.dust} &#10024; + ${g.reward.worms} vers</strong>. Ta part : ${g.mine} ${skillsEscape(g.unit)}.</span>
       ${g.claimable ? '<button type="button" class="btn" id="goal-claim-btn">Récupérer ma part</button>' : g.claimed ? "<span class=\"goal-done\">&#10004; Récupéré</span>" : g.reached ? "<span>Objectif atteint (participe pour avoir ta part la semaine prochaine)</span>" : ""}
     </div>
-    ${g.top.length ? `<div class="goal-top">${g.top.map((t) => `<span>${skillsEscape(t.pseudo)} <strong>${t.n}</strong></span>`).join("")}</div>` : ""}`;
+    ${g.top.length ? `<div class="goal-top">${g.top.map((t) => `<span>${skillsEscape(t.pseudo)} <strong>${t.n}</strong></span>`).join("")}</div>` : ""}
+    ${modeCardHowTo(g)}`;
+}
+// Carte exclusive du mode (2026-11-02) : comment l'avoir, en clair.
+function modeCardHowTo(g) {
+  const c = g.modeCard;
+  if (!c) return "";
+  const img = c.imageId ? `<img src="${API.thumbUrl(c.imageId)}" alt="" loading="lazy" decoding="async" />` : "";
+  const step = (ok, text) => `<li class="${ok ? "done" : ""}">${ok ? "&#9989;" : "&#9634;"} ${text}</li>`;
+  return `<div class="goal-modecard">${img}<div><strong>&#127183; Carte exclusive du mode : ${skillsEscape(c.name)}</strong>
+    ${c.owned ? "<p>Elle est dans ta collection.</p>" : `<ol>${step(g.mine > 0, `Participe à l'objectif commun de la semaine (ta part : ${g.mine} ${skillsEscape(g.unit)})`)}${step(g.reached, `L'objectif est atteint par tout le serveur (${g.progress} / ${g.target})`)}${step(g.claimed, "Récupère ta part ici : la carte est donnée avec, une fois par joueur")}</ol>`}</div></div>`;
 }
 async function loadTogether() {
   if (!Session.isLoggedIn()) return;

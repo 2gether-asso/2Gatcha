@@ -210,6 +210,7 @@ const CardExtras = (function () {
       ${serials.length ? '<button type="button" class="btn-ghost" data-cx="history">&#128220; Historique</button>' : ""}
       <button type="button" class="btn-ghost" data-cx="price">&#128200; Cote</button>
       ${o.owned ? '<button type="button" class="btn-ghost" data-cx="share">&#128228; Partager</button>' : ""}
+      ${o.owned ? '<button type="button" class="btn-ghost" data-cx="postcard" hidden>&#128140; Carte postale</button>' : ""}
       <button type="button" class="btn-ghost" data-cx="vault" hidden>&#128274; Ranger au coffre</button>`;
     const panel = document.createElement("div");
     panel.className = "card-extras-panel";
@@ -225,6 +226,9 @@ const CardExtras = (function () {
       vb.title = `Ranger ${serial(slot.serialNumber)} dans la case ${FINISH[o.finish] || o.finish} du coffre-fort (il quitte ta collection active, tu peux le retirer quand tu veux)`;
       vb.dataset.pullId = slot.pullId;
     });
+    // Carte postale (mode Chill, vacation.js) : bouton montre si on peut en envoyer une aujourd'hui.
+    const pcBtn = bar.querySelector('[data-cx="postcard"]');
+    if (pcBtn && typeof Session !== "undefined" && Session.isLoggedIn() && API.vacation) API.vacation(Session.userId).then((v) => { pcBtn.hidden = !(v && v.postcard && !v.postcard.sent); }).catch(() => {});
     bar.addEventListener("click", (e) => {
       const b = e.target.closest("[data-cx]");
       if (!b) return;
@@ -232,6 +236,7 @@ const CardExtras = (function () {
       if (what === "vault") { storeInVault(b); return; }
       if (what === "verso") { modal.classList.toggle("show-verso"); b.classList.toggle("active", modal.classList.contains("show-verso")); return; }
       if (what === "share") { share({ ...o, serial: serials[0] || null }, b); return; }
+      if (what === "postcard") { LazyJs.load("js/vacation-ui.js").then(() => VacationUI.postcard(o)).catch(LazyJs.fail("Carte postale indisponible pour le moment.")); return; }
       // Inspecteur plein ecran (js/lazy/card-inspector.js, charge au premier clic).
       if (what === "inspect") {
         b.disabled = true;

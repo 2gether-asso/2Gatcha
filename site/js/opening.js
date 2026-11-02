@@ -397,8 +397,12 @@ function renderRevealSummary() {
     const pct = all.length ? Math.round((owned / all.length) * 100) : 0;
     return `<li class="summary-ext"><span class="summary-ext-name">${e.name}</span><span class="summary-ext-track"><span style="width:${pct}%"></span></span><span class="summary-ext-count">${owned}/${all.length}${e.added ? ` <b>(+${e.added})</b>` : ""}</span></li>`;
   });
+  // Meilleure carte de la session (2026-11-02) : rarete, puis finition, puis #001.
+  const score = (c) => (RARITY_ORDER[c.rarity?.key || "commune"] ?? 0) * 100 + (c.finish && c.finish !== "normal" ? 10 : 0) + (c.serialNumber === 1 ? 5 : 0) + (c.isNewToPlayer ? 1 : 0);
+  const best = cards.slice().sort((a, b) => score(b) - score(a))[0];
   el.hidden = false;
   el.innerHTML = `
+    ${best ? `<div class="summary-best" style="--pill-color:${best.rarity?.colorHex || "#9aa0b4"};">&#11088; Meilleure carte : <strong>${best.name}</strong>${best.rarity ? ` · ${best.rarity.name}` : ""}${best.finish && best.finish !== "normal" ? ` · ${FINISH_LABELS[best.finish] || best.finish}` : ""}</div>` : ""}
     <div class="summary-head"><strong>${items.length} objet${items.length > 1 ? "s" : ""}</strong>${fresh ? ` · <span class="summary-new">${fresh} nouvelle${fresh > 1 ? "s" : ""} carte${fresh > 1 ? "s" : ""}</span>` : ""}</div>
     <div class="summary-pills">${pills.join("")}</div>
     ${progress.length ? `<ul class="summary-exts">${progress.join("")}</ul>` : ""}

@@ -103,7 +103,7 @@
 
   // ---------------------------------------------------------------- vignettes
   function protectedTilesHtml(card) {
-    const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+    const imgSrc = API.thumbUrl(card.imageId) || PLACEHOLDER_IMG; // vignette (2026-11-02)
     return (state.protectedMap.get(card.cardId) || []).filter((c) => variantMatches(Coll.finishOf(c), "mint", c.serialNumber === 1 ? [1] : [], copyEditions([c]))).map((c) => `
       <div class="collection-card protected-card" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${Coll.finishOf(c)}" data-quality="mint"${copyEditions([c])[0] ? ` data-edition="${copyEditions([c])[0]}"` : ""} title="Rangée dans ton coffre-fort : clique pour l'examiner">
         <button type="button" class="fav-btn ${favorites.has(card.cardId) ? "active" : ""}" data-fav-id="${card.cardId}" title="Favori" aria-label="Marquer comme favori">&#9733;</button>
@@ -130,7 +130,7 @@
   const wishBtnInner = (on) => `<span class="wl-ico" aria-hidden="true">${on ? "&#9829;" : "&#9825;"}</span><span class="wl-txt">${on ? "Souhaitée" : "Souhaiter"}</span>`;
 
   function lockedTileHtml(card) {
-    const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+    const imgSrc = API.thumbUrl(card.imageId) || PLACEHOLDER_IMG; // vignette (2026-11-02)
     const craftCost = Coll.craftCostOf(card);
     const coupon = Coll.couponOf(card);
     const craftable = card.inCatalog && !card.isPromo && craftCost != null && Coll.canCraftNow(card) && !Coll.isLocked("craft");
@@ -158,7 +158,7 @@
     const protectedTiles = protectedTilesHtml(card);
     if (!owned) return protectedTiles.length ? protectedTiles : [lockedTileHtml(card)];
 
-    const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+    const imgSrc = API.thumbUrl(card.imageId) || PLACEHOLDER_IMG; // vignette (2026-11-02)
     const isFav = favorites.has(card.cardId);
     const inShowcase = state.showcase.has(card.cardId);
     const canQuickAct = !card.isPromo;
@@ -525,7 +525,7 @@
       const copies = owned ? variantCopies(owned, finish, quality) : [];
       const serials = copies.map((c) => c.serialNumber).filter((n) => n != null).sort((a, b) => a - b);
       const up = upgrades(card, owned, finish, quality);
-      const imgSrc = API.imageUrl(card.imageId) || PLACEHOLDER_IMG;
+      const imgSrc = API.thumbUrl(card.imageId) || PLACEHOLDER_IMG; // vignette (2026-11-02)
       const isFirstObtainer = card.firstObtainedBy && card.firstObtainedBy === Session.pseudo;
       const disenchantable = owned && canDisenchant(card);
       // Edition limitee de la variante affichee (effet + badge, comme sur la vignette).

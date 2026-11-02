@@ -91,15 +91,12 @@ function safetyCopy(store, dbPath) {
   fs.readdirSync(dir).filter((f) => f.startsWith(prefix)).sort().slice(0, -3).forEach((f) => fs.rmSync(path.join(dir, f), { force: true }));
   return name;
 }
-// Telechargement : ecrit au fil de l'eau, les images ne tiennent pas en une seule chaine.
-async function streamSave(req, res, { store, withLock, corsHeaders, withImages }) {
+// Ecrit la sauvegarde au fil de l'eau dans un flux (telechargement, fichier planifie
+// json-backup.js) : les images ne tiennent pas en une seule chaine.
+export async function writeSave(out, { store, withLock, withImages, gone = () => false }) {
   // Lecture des tables sous verrou : une copie coherente, sans bloquer l'envoi.
   const tables = await withLock(() => [...store.tables.values()].map((t) => [t.name, JSON.stringify(t.columns), store.getAllJson(t.name)]));
-  const gz = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
-  res.writeHead(200, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...(gz ? { 'Content-Encoding': 'gzip' } : {}) });
-  const out = gz ? zlib.createGzip({ level: 6 }) : res;
-  if (gz) out.pipe(res);
-  const write = async (text) => { if (!out.write(text)) await new Promise((r) => { out.once('drain', r); res.once('close', r); }); };
+  const write = async (text) => { if (!out.write(text)) await new Promise((r) => { out.once('drain', r); out.once('close', r); }); };
   await write(`{"format":${JSON.stringify(SAVE_FORMAT)},"version":1,"exportedAt":${JSON.stringify(new Date().toISOString())},"tables":{`);
   for (let i = 0; i < tables.length; i++) {
     const [name, columns, rows] = tables[i];
@@ -109,7 +106,7 @@ async function streamSave(req, res, { store, withLock, corsHeaders, withImages }
   const ids = withImages ? store.listAttachments().filter((a) => !a.missing).map((a) => a.id) : [];
   let first = true;
   for (const id of ids) {
-    if (res.destroyed) break;
+    if (gone()) break;
     const a = store.getAttachment(id);
     if (!a) continue;
     await write((first ? '' : ',') + JSON.stringify({ id, fileName: a.file_name, mime: a.mime, data: Buffer.from(a.data).toString('base64') }));
@@ -118,8 +115,16 @@ async function streamSave(req, res, { store, withLock, corsHeaders, withImages }
   await write(`],"withImages":${withImages}}`);
   out.end();
 }
+async function streamSave(req, res, { store, withLock, corsHeaders, withImages }) {
+  const gz = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
+  res.writeHead(200, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...(gz ? { 'Content-Encoding': 'gzip' } : {}) });
+  const out = gz ? zlib.createGzip({ level: 6 }) : res;
+  if (gz) out.pipe(res);
+  res.once('close', () => out.emit('close'));
+  await writeSave(out, { store, withLock, withImages, gone: () => res.destroyed });
+}
 
-export function createAdmin({ store, withLock, token, sendJson, corsHeaders = () => ({}), dbPath = '', restart = async () => {}, backups = null, workflowsDir = null }) {
+export function createAdmin({ store, withLock, token, sendJson, corsHeaders = () => ({}), dbPath = '', restart = async () => {}, backups = null, jsonBackups = null, workflowsDir = null }) {
   let importSafety = null; // copie de securite de l'import en cours
   return async function handleAdmin(req, res, url) {
     if (!token) return sendJson(res, req, 503, { error: 'admin_disabled', message: 'ADMIN_TOKEN non configure sur le serveur.' });
@@ -238,6 +243,36 @@ export function createAdmin({ store, withLock, token, sendJson, corsHeaders = ()
       for (const [id, used] of usage) if (!images.some((i) => i.id === id)) images.push({ id, fileName: null, mime: null, size: null, missing: true, usedBy: used });
       images.sort((x, y) => x.id - y.id);
       return sendJson(res, req, 200, { images, extensions: store.getAll('Extensions').map((e) => ({ id: e.id, name: e.Name, key: e.Key })) });
+    }
+
+    // PUT /admin/api/images/:id/thumb : vignette (320 px, faite dans la page admin)
+    // servie par /webhook/image?id=&size=thumb dans les grilles du site.
+    if (section === 'images' && a && b === 'thumb' && method === 'PUT') {
+      const mime = String(req.headers['content-type'] || '').split(';')[0];
+      if (!/^image\/(webp|png|jpeg)$/.test(mime)) return sendJson(res, req, 415, { error: 'unsupported_type' });
+      const data = await readRaw(req, MAX_IMAGE_BYTES);
+      if (!data.length) return sendJson(res, req, 400, { error: 'empty_file' });
+      const done = await withLock(() => store.putThumb(Number(a), mime, data));
+      return sendJson(res, req, done ? 200 : 404, done ? { id: Number(a), size: data.length } : { error: 'not_found' });
+    }
+
+    // GET /admin/api/json-backups : sauvegardes JSON gardees sur le serveur ;
+    // POST : en faire une maintenant ; GET /admin/api/json-backups/:nom : la telecharger.
+    if (section === 'json-backups') {
+      if (!jsonBackups) return sendJson(res, req, 503, { error: 'json_backups_disabled' });
+      if (method === 'GET' && !a) return sendJson(res, req, 200, { files: jsonBackups.list(), status: jsonBackups.status });
+      if (method === 'POST' && !a) {
+        const st = await jsonBackups.run();
+        if (st.lastError) return sendJson(res, req, 502, { error: 'backup_failed', message: st.lastError.message });
+        return sendJson(res, req, 200, { files: jsonBackups.list(), status: st });
+      }
+      if (method === 'GET' && a) {
+        const file = jsonBackups.fileOf(a);
+        if (!file) return sendJson(res, req, 404, { error: 'not_found' });
+        res.writeHead(200, { ...corsHeaders(req), 'Content-Type': 'application/gzip', 'Content-Disposition': `attachment; filename="${a}"`, 'Cache-Control': 'no-store' });
+        fs.createReadStream(file).pipe(res);
+        return;
+      }
     }
 
     // PUT /admin/api/images/:id  (corps = image binaire, deja convertie en

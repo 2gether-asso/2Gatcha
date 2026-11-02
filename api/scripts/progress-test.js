@@ -2064,7 +2064,7 @@ await test('regles par difficulte : registre, admin (activer, desactiver, par mo
   assert.equal(call('POST', 'admin-mode-rules', { body: { discordId: 'x' } }).status, 403);
   let st = call('POST', 'admin-mode-rules', { body: { discordId: ADMIN } }).json;
   assert.deepEqual(st.modes.map((m) => m.key), ['cool', 'chill', 'medium', 'hard', 'chaos']);
-  assert.equal(st.modes.reduce((n, m) => n + m.rules.filter((r) => r.isNew).length, 0), 31);
+  assert.equal(st.modes.reduce((n, m) => n + m.rules.filter((r) => r.isNew).length, 0), 39);
   assert.ok(st.modes.every((m) => m.presets.length > 0));
   applyMode('cool');
   assert.equal(moderules.ruleOn(store, 'cool.fishNoEmpty'), true);

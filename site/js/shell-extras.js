@@ -203,6 +203,13 @@ const StarterLocks = {
     if (tab.getAttribute("role") !== "tab" || !tab.parentElement || !this.lockOf(tab)) return;
     const next = [...tab.parentElement.querySelectorAll('[role="tab"]')].find((x) => !this.lockOf(x) && x.offsetParent !== null);
     if (next) setTimeout(() => next.click(), 0);
+    // Lien vers un onglet pas encore ouvert (ex. jeux.html#jardin) : on dit pourquoi on change.
+    const lock = this.lockOf(tab);
+    if (typeof Toast !== "undefined" && !this.toldLock) {
+      this.toldLock = true;
+      const name = (tab.textContent || "Cet onglet").replace(/^[^\p{L}]+/u, "").trim();
+      Toast.info(lock.level ? `${escHtml(name)} se débloque au niveau ${lock.level}.` : `${escHtml(name)} n'est pas encore découvert : continue de jouer, il viendra à toi.`);
+    }
   },
   async refresh() {
     if (typeof Session === "undefined" || !Session.isLoggedIn()) return null;

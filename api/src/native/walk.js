@@ -7,6 +7,8 @@
 //   POST /webhook/walk { userId, action: 'status' | 'go', pet?, place? }
 // Users.WalkDay = { day, done: { milo: 'foret', ... } }
 
+import { beachWalkFields } from './vacation.js';
+import { ruleOn } from './moderules.js';
 import { ok, fail, userById, parisDay, parisHour, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { PETS, loveOf, loveFields } from './pets.js';
@@ -27,8 +29,12 @@ const RES = {
   dust: { field: 'StardustCount', label: 'poussières', icon: '✨' },
   key: { field: 'KeyCount', label: 'clé', icon: '🔑' }
 };
-const ING = { veg: ['légumes', '🥬'], herb: ['herbes', '🌿'], berry: ['baies', '🫐'], mush: ['champignons', '🍄'], honey: ['miel', '🍯'], fish: ['poissons', '🐟'], carrot: ['carottes', '🥕'] };
+const ING = { veg: ['légumes', '🥬'], herb: ['herbes', '🌿'], berry: ['baies', '🫐'], mush: ['champignons', '🍄'], honey: ['miel', '🍯'], fish: ['poissons', '🐟'], carrot: ['carottes', '🥕'], fruit: ['fruits exotiques', '🥭'] };
 export const PLACES = [
+  // Mode Chill (2026-11-02) : coquillages et fragments de la bibliotheque engloutie (vacation.js).
+  { key: 'plage', label: 'La plage', icon: '🏖️', fav: 'moka', rule: 'chill.beachWalk', desc: 'Coquillages, fruits exotiques, poissons pour Moka et parfois un fragment englouti.',
+    loot: [['shell', 0.8, 1, 2], ['fruit', 0.5, 1, 1], ['fish', 0.5, 1, 2], ['dust', 0.4, 10, 30]],
+    story: ['a couru après les vagues', 'a creusé un trou dans le sable mouillé', 'a fait la sieste à l’ombre d’un parasol'] },
   { key: 'foret', label: 'La forêt', icon: '🌲', fav: 'milo', desc: 'Baies, champignons et parfois un os.',
     loot: [['berry', 0.6, 1, 3], ['mush', 0.5, 1, 2], ['herb', 0.3, 1, 1], ['bone', 0.25, 1, 1], ['dust', 0.4, 10, 30]],
     story: ['a flairé quelque chose sous les fougères', 'a couru après un écureuil', 'a fouillé un tas de feuilles mortes'] },
@@ -59,7 +65,7 @@ function view(store, user) {
   const mult = setting(store, 'WalkFavMult');
   return {
     enabled: !!setting(store, 'WalkEnabled'), night, favMult: mult, love: setting(store, 'WalkLove'),
-    places: PLACES.map((p) => ({ key: p.key, label: p.label, icon: p.icon, desc: p.desc, fav: p.fav || null, night: !!p.night, open: !p.night || night })),
+    places: PLACES.filter((p) => !p.rule || ruleOn(store, p.rule)).map((p) => ({ key: p.key, label: p.label, icon: p.icon, desc: p.desc, fav: p.fav || null, night: !!p.night, open: !p.night || night })),
     pets: adoptedPets(store, user).map((k) => ({ pet: k, label: PETS[k].label, icon: PETS[k].icon, fem: !!PETS[k].fem, love: Math.round(loveOf(store, user, k)), walked: done[k] || null, fav: (PLACES.find((p) => p.fav === k) || {}).key || null })),
     left: adoptedPets(store, user).filter((k) => !done[k]).length
   };
@@ -77,6 +83,12 @@ function rollFinds(store, user, place, fav) {
   for (const f of out) {
     if (ING[f.key]) { Object.assign(fields, pantryFields(user, { [f.key]: f.n }, fields)); items.push({ key: f.key, label: ING[f.key][0], icon: ING[f.key][1], n: f.n }); }
     else if (RES[f.key]) { add(RES[f.key].field, f.n); items.push({ key: f.key, label: RES[f.key].label, icon: RES[f.key].icon, n: f.n }); }
+    else if (f.key === 'shell') {
+      const b = beachWalkFields(store, { ...user, ...fields }, f.n, fields);
+      Object.assign(fields, b.fields);
+      items.push({ key: 'shell', label: 'coquillages', icon: b.shells.map((s) => s.icon).join(''), n: f.n });
+      if (b.lore) items.push({ key: 'lore', label: 'fragment de la bibliothèque engloutie', icon: '📜', n: 1 });
+    }
     else if (f.key === 'tablet') { Object.assign(fields, addTabletsFields({ ...user, ...fields }, 'clay', 1)); items.push({ key: 'tablet', label: 'tablette d’argile', icon: '🟫', n: 1 }); }
     else if (f.key === 'mineral') {
       const pool = MINERALS.filter((m) => m.tier <= 2);
@@ -100,7 +112,7 @@ function handle({ store, body }) {
   const pet = String(body.pet || '');
   if (!PETS[pet]) return fail('unknown_pet');
   if (!petAdopted(store, user, pet)) return fail('pet_not_adopted', 403);
-  const place = PLACES.find((p) => p.key === String(body.place || ''));
+  const place = PLACES.find((p) => p.key === String(body.place || '') && (!p.rule || ruleOn(store, p.rule)));
   if (!place) return fail('unknown_place');
   if (place.night && !isNight(store)) return fail('place_closed', 400, view(store, user));
   const done = doneToday(user);

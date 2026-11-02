@@ -104,6 +104,8 @@ import * as moderules from './moderules.js';
 import * as chaosvote from './chaosvote.js';
 import * as modefun from './modefun.js';
 import * as vacation from './vacation.js';
+import * as health from './health.js';
+import { notify as liveNotify } from '../live.js';
 import * as draft from './draft.js';
 import * as skytree from './skytree.js';
 import * as aquarium from './aquarium.js';
@@ -145,7 +147,7 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, vacation, starter, seasonquests, story];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
@@ -186,7 +188,19 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   // Journal de l'economie : toute variation de boosters / poussieres / vers
   // d'un joueur, quel que soit le module ou le workflow qui l'ecrit.
   const rawUpdate = store.update.bind(store);
+  // Mises a jour en direct (live.js) : une ligne qui designe un autre joueur que celui de
+  // la requete (don, echange, cadeau, carte offerte) previent ce joueur.
+  const rawCreate = store.create.bind(store);
+  store.create = (name, fields) => {
+    const row = rawCreate(name, fields);
+    try {
+      const cols = store.table(name).columns, me = currentContext().userId;
+      for (const [k, v] of Object.entries(fields || {})) if (String((cols[k] || {}).type) === 'Ref:Users') { const uid = Array.isArray(v) ? v[1] : Number(v); if (uid && uid !== me) liveNotify(uid); }
+    } catch (e) { /* sans consequence */ }
+    return row;
+  };
   store.update = (name, id, fields) => {
+    if (name === 'Users' && Number(id) !== currentContext().userId) liveNotify(id);
     if (name !== 'Users' || !fields) return rawUpdate(name, id, fields);
     const xpWrite = XP_FIELDS.some((f) => f in fields);
     if (!xpWrite && !('BoosterCount' in fields || 'StardustCount' in fields || 'Worms' in fields)) return rawUpdate(name, id, fields);

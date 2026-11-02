@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="css/games.css" />
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
+  <link rel="stylesheet" href="css/vacation.css" />
   <link rel="stylesheet" href="css/admin.css" />
 </head>
 <body data-no-maintenance>
@@ -145,6 +146,7 @@
               <label class="ac-inline ac-inline-tall"><input type="checkbox" id="aa-color-on" /> Utiliser cette couleur</label>
               <label>Ordre d'affichage <input type="number" id="aa-order" step="1" /></label>
               <label>Carte phare <select id="aa-featured"></select></label>
+              <label>Compte 2Gatcha de l'artiste (il peut alors modifier sa fiche) <select id="aa-user"></select></label>
               <label class="ac-inline ac-inline-tall"><input type="checkbox" id="aa-active" /> Visible par les joueurs</label>
             </div>
             <label class="aa-wide">Présentation (une ligne vide = nouveau paragraphe)<textarea id="aa-bio" rows="6" maxlength="3000"></textarea></label>
@@ -206,10 +208,18 @@
             </div>
             <div class="adb-row">
               <label for="adb-save-file">Importer un fichier :</label>
-              <input type="file" id="adb-save-file" accept=".json,application/json" />
+              <input type="file" id="adb-save-file" accept=".json,.gz,application/json,application/gzip" />
             </div>
             <div id="adb-save-summary"></div>
             <p id="adb-save-progress" class="adb-help" role="status"></p>
+          </div>
+          <div class="adb-card">
+            <div class="adb-row adb-row-between">
+              <h2>Sauvegardes JSON automatiques</h2>
+              <button type="button" class="btn-secondary" id="adb-json-now">Faire une sauvegarde maintenant</button>
+            </div>
+            <p class="adb-help">Le serveur garde lui-même un fichier complet (images comprises) tous les quelques jours, à côté de la base. Fréquence et nombre gardés : réglages « Sauvegarde JSON automatique » (page Admin &rarr; Réglages). Un fichier téléchargé ici (.json.gz) s'importe tel quel ci-dessus.</p>
+            <div id="adb-json-list"></div>
           </div>
           <div class="adb-card">
             <div class="adb-row adb-row-between">

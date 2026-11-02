@@ -11,9 +11,9 @@
 // recompense (CommunityGoalDust + CommunityGoalWorms).
 //   POST /webhook/community-goal { userId, action: 'status' | 'claim' }
 
-import { ok, fail, userById, parseJson as parse, hash, weekEndsAt } from './common.js';
+import { ok, fail, userById, parseJson as parse, hash, weekEndsAt , cardSummary } from './common.js';
 import { startRain, addShards } from './comfort.js';
-import { modeIs, grantModeCard } from './modeperks.js';
+import { modeIs, modeCardFor, grantModeCard } from './modeperks.js';
 const maxPicks = (store) => (ruleOn(store, 'chill.fourthChallenge') ? 4 : 3);
 import { setting } from './settings.js';
 import { weekKey } from './levels.js';
@@ -141,6 +141,16 @@ function goalFor(store, week = weekKey()) {
   return g;
 }
 
+// Carte exclusive du mode (modeperks.js) : donnee avec la recompense de l'objectif
+// commun, une fois par joueur, a condition d'y avoir participe.
+function modeCardInfo(store, userId) {
+  const mc = modeCardFor(store);
+  if (!mc) return null;
+  const user = store.get('Users', userId);
+  const owned = parseJsonSafe(user && user.ModeCards).includes(mc.card.id);
+  return { ...cardSummary(store, mc.card), mode: mc.key, owned };
+}
+const parseJsonSafe = (v) => { try { const x = JSON.parse(v || '[]'); return Array.isArray(x) ? x : []; } catch (e) { return []; } };
 function goalState(store, userId) {
   const g = goalFor(store);
   const tpl = GOALS.find((x) => x.type === g.Type) || GOALS[0];
@@ -155,7 +165,8 @@ function goalState(store, userId) {
     target: Number(g.Target) || 0, progress: Math.min(Number(g.Progress) || 0, Number(g.Target) || 0), reached,
     participants: Object.keys(contrib).length, top, mine,
     reward: { dust: setting(store, 'CommunityGoalDust'), worms: setting(store, 'CommunityGoalWorms') },
-    claimable: reached && mine > 0 && !claimed.includes(userId), claimed: claimed.includes(userId)
+    claimable: reached && mine > 0 && !claimed.includes(userId), claimed: claimed.includes(userId),
+    modeCard: modeCardInfo(store, userId)
   };
 }
 

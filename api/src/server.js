@@ -14,12 +14,16 @@ import path from 'node:path';
 import { config } from './config.js';
 import { Store } from './store.js';
 import { WorkflowRunner } from './runtime.js';
-import { createAdmin } from './admin.js';
+import { createAdmin, writeSave } from './admin.js';
+import { createJsonBackups } from './json-backup.js';
+import { recordRequest, provide } from './metrics.js';
+import { open as openLive, stats as liveStats } from './live.js';
+import { setting } from './native/settings.js';
 import { AzureBackup, startBackupSchedule } from './backup.js';
 import { initMonitoring, captureError, flushMonitoring } from './monitoring.js';
 import { createNative } from './native/index.js';
 import { requestContext, freshContext } from './native/context.js';
-import { isInvalidGrant } from './native/auth.js';
+import { isInvalidGrant, verifyToken } from './native/auth.js';
 import { webhookUrl, discordFetch } from './native/discord.js';
 
 // Suivi des erreurs (GlitchTip) le plus tot possible.
@@ -218,8 +222,11 @@ function staticEntry(file) {
 
 // Images des cartes : servies directement depuis la base (remplace le
 // ancien workflow get-image).
+// ?size=thumb : la vignette si elle existe (grilles), sinon l'image entiere.
 function serveImage(req, res, url) {
-  const att = store.getAttachment(url.searchParams.get('id'));
+  const id = url.searchParams.get('id');
+  const thumb = url.searchParams.get('size') === 'thumb' ? store.getThumb(id) : null;
+  const att = thumb || store.getAttachment(id);
   if (!att) return sendJson(res, req, 404, { error: 'not_found' });
   send(res, req, 200, { 'Content-Type': att.mime || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' }, Buffer.from(att.data));
 }
@@ -386,12 +393,19 @@ async function handleBatchWrite(req, res, url) {
 const adminLock = (fn) => withLock(() => { Object.assign(requestContext.getStore(), { source: 'admin-db', actor: 'Page admin de la base' }); return fn(); });
 // Apres l'import d'une sauvegarde : le conteneur redemarre (restart: unless-stopped) et
 // repart de zero (caches des modules, colonnes manquantes). Le verrou reste pris jusque-la.
+// Sauvegardes JSON planifiees (json-backup.js) et mesures pour Admin > Sante (metrics.js).
+const jsonBackups = createJsonBackups({ store, dbPath: config.dbPath, withLock, writeSave, days: () => setting(store, 'JsonBackupDays'), keep: () => setting(store, 'JsonBackupKeep') });
+provide('backups', () => (backups ? { enabled: true, last: backups.status.lastBackup, lastError: backups.status.lastError } : { enabled: false }));
+provide('jsonBackups', () => ({ last: jsonBackups.status.last, lastError: jsonBackups.status.lastError, files: jsonBackups.list().slice(0, 4) }));
+provide('live', liveStats);
+provide('database', () => ({ sizeMb: Math.round((fs.statSync(config.dbPath).size / 1048576) * 10) / 10 }));
 const restartAfterImport = () => { setTimeout(() => process.exit(0), 300); return new Promise(() => {}); };
-const handleAdmin = createAdmin({ store, withLock: adminLock, token: config.adminToken, sendJson, corsHeaders, dbPath: config.dbPath, restart: restartAfterImport, backups, workflowsDir: config.workflowsDir });
+const handleAdmin = createAdmin({ store, withLock: adminLock, token: config.adminToken, sendJson, corsHeaders, dbPath: config.dbPath, restart: restartAfterImport, backups, jsonBackups, workflowsDir: config.workflowsDir });
 
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname.startsWith('/webhook/') && url.pathname !== '/webhook/live') res.on('finish', () => recordRequest(url.pathname.slice(9), Date.now() - started, res.statusCode));
   try {
     if (req.method === 'OPTIONS') return send(res, req, 204, {}, '');
     if (url.pathname.startsWith('/admin/api/')) return await handleAdmin(req, res, url);
@@ -408,6 +422,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Mises a jour en direct (live.js) : jeton de session dans l'adresse (EventSource n'envoie pas d'en-tete).
+    if (url.pathname === '/webhook/live' && req.method === 'GET') {
+      const t = verifyToken(url.searchParams.get('token'));
+      const userId = t ? Number(t.u) : process.env.AUTH_MODE === 'off' ? Number(url.searchParams.get('userId')) || 0 : 0;
+      if (!userId) return sendJson(res, req, 401, { error: 'auth_required' });
+      return openLive(req, res, userId, corsHeaders(req));
+    }
     const m = url.pathname.match(/^\/webhook\/(.+?)\/?$/);
     if (m) {
       const hookPath = m[1];

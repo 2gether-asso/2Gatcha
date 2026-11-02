@@ -196,7 +196,7 @@ function setCount(el, n) {
 const RewardsCenter = {
   async collect() {
     const uid = Session.userId;
-    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes, box, dice, wheel, dogGift, gifts, goalSt] = await Promise.all([
+    const [quests, weekly, levelRewards, streak, sets, season, challenges, goal, themes, box, dice, wheel, dogGift, gifts, goalSt, sq, vac] = await Promise.all([
       API.getQuestStatus(uid).catch(() => null),
       API.getWeeklyQuestStatus(uid).catch(() => null),
       API.getLevelRewardsStatus(uid).catch(() => null),
@@ -211,7 +211,9 @@ const RewardsCenter = {
       API.getDailyWheelStatus(uid).catch(() => null),
       API.dogGift ? API.dogGift(uid).catch(() => null) : null,
       API.playerGift ? API.playerGift(uid).catch(() => null) : null,
-      API.weeklyGoal ? API.weeklyGoal(uid).catch(() => null) : null
+      API.weeklyGoal ? API.weeklyGoal(uid).catch(() => null) : null,
+      API.post("seasonQuests", { userId: uid, action: "status" }).catch(() => null),
+      API.vacation ? API.vacation(uid).catch(() => null) : null
     ]);
     const items = [];
     // Rituels du jour (2026-10-11) : ouverts aussi par "Tout récupérer", avec un récapitulatif.
@@ -234,6 +236,16 @@ const RewardsCenter = {
     if (challenges?.claimable > 0) items.push({ key: "challenges", icon: "&#127919;", label: `Défis de la semaine : ${challenges.claimable} récompense${challenges.claimable > 1 ? "s" : ""}`, claim: () => API.challenges(uid, "claim") });
     if (goal?.claimable) items.push({ key: "goal", icon: "&#129309;", label: `Objectif commun réussi : ${goal.reward.dust} ✨ + ${goal.reward.worms} vers`, claim: () => API.communityGoal(uid, "claim") });
     if (themes?.claimable > 0) items.push({ key: "themes", icon: "&#127912;", label: `Collection thématique terminée (+ titre)`, claim: () => API.themes(uid, "claim") });
+    // 2026-11-02 : defis de saison et vacances du mode Chill (vacation.js).
+    (sq?.quests || []).filter((q) => q.complete && !q.claimed).forEach((q) => items.push({ key: "sq-" + q.key, icon: "&#127942;", label: `Défi de saison réussi : ${escHtml(q.label || "")}`, url: "index.html#saison", claim: () => API.post("seasonQuests", { userId: uid, action: "claim", key: q.key }) }));
+    const t0 = Math.floor(Date.now() / 1000);
+    if (vac?.nap && !vac.nap.claimed && vac.nap.until && vac.nap.until <= t0) items.push({ key: "nap", icon: "&#128716;", label: "Fin de ta sieste au hamac", url: "index.html#vacances", claim: () => API.vacation(uid, "nap-claim"), describe: (r) => r.toast || "" });
+    if (vac?.sunset && vac.sunset.active && !vac.sunset.claimed) items.push({ key: "sunset", icon: "&#127749;", label: "Cadeau du coucher de soleil", url: "index.html#vacances", claim: () => API.vacation(uid, "sunset-claim"), describe: (r) => r.toast || "" });
+    (vac?.sunbath?.list || []).filter((c) => c.ready).forEach((c) => items.push({ key: "sun-" + c.pullId, icon: "&#9728;&#65039;", label: `Doublon au soleil prêt : ${escHtml(c.card.name)}`, url: "collection.html#qualite", claim: () => API.vacation(uid, "sunbath-claim", { pullId: c.pullId }), describe: (r) => r.toast || "" }));
+    (vac?.book?.sections || []).filter((s) => s.have >= s.size && !s.claimed).forEach((s) => items.push({ key: "book-" + s.key, icon: "&#128212;", label: `Carnet complet : ${escHtml(s.label)}`, url: "profile.html#carnet", claim: () => API.vacation(uid, "book-claim", { section: s.key }), describe: (r) => r.toast || "" }));
+    // Ou aller pour chaque recompense (centre de notifications).
+    const WHERE = { box: "index.html", dice: "index.html", wheel: "index.html", streak: "index.html", quests: "index.html#quetes", weekly: "index.html#quetes", level: "index.html", season: "index.html#saison", "season-chest": "index.html#saison", challenges: "index.html#defis", goal: "communaute.html#ensemble", themes: "collection.html", "dog-gift": "jeux.html#fouille", "player-gifts": "index.html", "weekly-goal": "boutique.html" };
+    items.forEach((it) => { if (!it.url) it.url = WHERE[it.key] || (it.key.startsWith("set-") ? "collection.html" : ""); });
     const deadlines = [];
     const t = Math.floor(Date.now() / 1000);
     const left = (end) => { const h = Math.max(0, Math.round((end - t) / 3600)); return h >= 48 ? `${Math.round(h / 24)} j` : `${h} h`; };
@@ -607,6 +619,15 @@ function renderHeader() {
     let searchCards = [];
     // Filtres (2026-10-07) : rarete, finition, etat, possedees / manquantes.
     let searchOwned = new Map();
+    let searchArtists = [];
+    // Onglets et reglages qu'on cherche souvent (2026-11-02).
+    const SEARCH_SPOTS = [
+      ["&#9935;&#65039;", "Fouille", "jeux.html#fouille"], ["&#127907;", "Pêche", "jeux.html#peche"], ["&#127793;", "Jardin", "jeux.html#jardin"], ["&#127994;", "Archéologie", "jeux.html#archeologie"],
+      ["&#129430;", "Dinos", "jeux.html#dinos"], ["&#128062;", "Promenade", "jeux.html#promenade"], ["&#127859;", "Cuisine", "jeux.html#cuisine"], ["&#129517;", "Expédition", "jeux.html#expedition"],
+      ["&#9851;&#65039;", "Décrafter", "collection.html#decrafter"], ["&#10024;", "Crafter", "collection.html#crafter"], ["&#128293;", "Autel", "collection.html#autel"], ["&#127752;", "Finitions", "collection.html#finitions"], ["&#129529;", "Qualité, restauration", "collection.html#qualite"],
+      ["&#129309;", "Objectif commun", "communaute.html#ensemble"], ["&#128197;", "Calendrier", "communaute.html#calendrier"], ["&#128081;", "Boss", "communaute.html#boss"], ["&#9881;&#65039;", "Salle des machines", "communaute.html#machines"],
+      ["&#128100;", "Mon profil", "profile.html"], ["&#127942;", "Saison et pass", "index.html#saison"], ["&#128203;", "Nouveautés", "nouveautes.html"]
+    ];
     const gsVal = (id) => (document.getElementById(id) || {}).value || "";
     const gsActive = () => ["gs-rarity", "gs-finish", "gs-quality", "gs-owned"].some((id) => gsVal(id));
 
@@ -614,7 +635,8 @@ function renderHeader() {
       if (searchDataLoaded) return;
       searchDataLoaded = true;
       try {
-        const [usersRes, cardsRes, col] = await Promise.all([API.listUsers(), API.getCards(), Session.isLoggedIn() ? API.getCollection(Session.userId).catch(() => ({})) : Promise.resolve({})]);
+        const [usersRes, cardsRes, col, arts] = await Promise.all([API.listUsers(), API.getCards(), Session.isLoggedIn() ? API.getCollection(Session.userId).catch(() => ({})) : Promise.resolve({}), API.get("artists", {}).catch(() => ({ artists: [] }))]);
+        searchArtists = arts.artists || [];
         searchUsers = usersRes.users || [];
         searchCards = cardsRes.cards || [];
         searchOwned = new Map((col.owned || []).map((o) => [o.cardId, o]));
@@ -646,6 +668,10 @@ function renderHeader() {
       const cardMatches = searchCards.filter((c) => (!q || (c.name || "").toLowerCase().includes(q)) && cardMatchesFilters(c));
       const cards = cardMatches.slice(0, filtering ? 12 : 5);
       const pages = filtering ? [] : visibleNavItems().filter((i) => i.label.toLowerCase().includes(q));
+      const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const artists = filtering || !q ? [] : searchArtists.filter((a) => norm(a.name).includes(norm(q))).slice(0, 4);
+      const spots = filtering || !q ? [] : SEARCH_SPOTS.filter(([, label]) => norm(label).includes(norm(q))).slice(0, 6);
+      const prefs = !filtering && q && /pref|regl|theme|cine|son|anim/.test(norm(q));
       const sections = [];
       if (players.length) {
         sections.push(`<div class="global-search-group">Joueurs</div>` + players.map((u) =>
@@ -655,9 +681,12 @@ function renderHeader() {
       if (cards.length) {
         sections.push(`<div class="global-search-group">Cartes${cardMatches.length > cards.length ? ` (${cards.length} sur ${cardMatches.length})` : ""}</div>` + cards.map((c) => {
           const o = searchOwned.get(c.cardId);
-          return `<a class="global-search-item gs-card" href="collection.html?cardId=${c.cardId}">${c.imageId ? `<img src="${API.imageUrl(c.imageId)}" alt="" loading="lazy" decoding="async" />` : "&#127183;"}<span>${c.name}</span><small style="color:${c.rarity?.colorHex || "inherit"}">${c.rarity?.name || ""}</small>${Session.isLoggedIn() ? `<small class="gs-own">${o ? "×" + o.count : "manquante"}</small>` : ""}</a>`;
+          return `<a class="global-search-item gs-card" href="collection.html?cardId=${c.cardId}">${c.imageId ? `<img src="${API.thumbUrl(c.imageId)}" alt="" loading="lazy" decoding="async" />` : "&#127183;"}<span>${c.name}</span><small style="color:${c.rarity?.colorHex || "inherit"}">${c.rarity?.name || ""}</small>${Session.isLoggedIn() ? `<small class="gs-own">${o ? "×" + o.count : "manquante"}</small>` : ""}</a>`;
         }).join(""));
       }
+      if (artists.length) sections.push(`<div class="global-search-group">Artistes</div>` + artists.map((a) => `<a class="global-search-item" href="artistes.html?a=${encodeURIComponent(a.slug)}">&#127912; ${escHtml(a.name)}</a>`).join(""));
+      if (spots.length) sections.push(`<div class="global-search-group">Dans le jeu</div>` + spots.map(([icon, label, href]) => `<a class="global-search-item" href="${href}">${icon} ${label}</a>`).join(""));
+      if (prefs) sections.push(`<div class="global-search-group">Réglages</div><a class="global-search-item" href="#" data-prefs-open>&#9881;&#65039; Mes préférences (thème, cinématiques, sons)</a>`);
       if (pages.length) {
         sections.push(`<div class="global-search-group">Pages</div>` + pages.map((i) =>
           `<a class="global-search-item" href="${i.href}">${i.icon} ${i.label}</a>`
@@ -1106,7 +1135,7 @@ function modeBanners(el, mode) {
   const r = mode.rules || {};
   if (r.happyHour && r.happyHour.active) bits.push(`<a class="beta-banner banner-happy banner-link" href="boutique.html">🍹 <strong>Happy hour</strong> : boutique à -${Math.round(r.happyHour.discount * 100)} % jusqu'à ${r.happyHour.to} h !</a>`);
   // Coucher de soleil (mode Chill) : ciel orange le temps du cadeau.
-  if (r.sunset && r.sunset.active) { document.documentElement.dataset.sunset = "1"; bits.push(`<a class="beta-banner banner-sunset banner-link" href="mode.html#md-sunset">🌅 <strong>Coucher de soleil</strong> : un cadeau t'attend !</a>`); } else delete document.documentElement.dataset.sunset;
+  if (r.sunset && r.sunset.active) { document.documentElement.dataset.sunset = "1"; bits.push(`<a class="beta-banner banner-sunset banner-link" href="index.html#vacances">🌅 <strong>Coucher de soleil</strong> : un cadeau t'attend !</a>`); } else delete document.documentElement.dataset.sunset;
   if (r.storm && (r.storm.active || r.storm.soon)) bits.push(`<a class="beta-banner banner-storm banner-link" href="mode.html">⛈️ ${r.storm.active ? `<strong>Tempête</strong> : ${escHtml(r.storm.label)} est fermée jusqu'à ${r.storm.to} h.` : `Une tempête approche : ${escHtml(r.storm.label)} fermera de ${r.storm.from} h à ${r.storm.to} h.`}</a>`);
   if (r.on && r.on.includes("chaos.bugs") && typeof Session !== "undefined" && Session.isLoggedIn()) setTimeout(spawnModeBugs, 1500);
   const n = mode.next;
@@ -1685,16 +1714,22 @@ function shellReads(withPage = true) {
       // Lectures propres a la page, servies par le meme lot (memes corps que
       // les appels de la page, sinon elles repartent simplement en individuel).
       const coll = { name: "collection", query: { userId } };
+      // Page Jeux (2026-11-02) : les statuts de la carte du village en un seul lot, et
+      // les lectures lourdes (dinos, collection) seulement si l'onglet ouvert en a besoin.
+      const jeuxTab = (() => { const h = location.hash.slice(1); if (h) return h; try { return localStorage.getItem("2gatcha_last_tab_jeux") || ""; } catch (e) { return ""; } })();
+      const jeuxReads = [read("shop"), read("dig"), read("garden"), read("expedition"), read("guessCard"), read("walk"), read("cook"), read("vacation"),
+        { name: "fishing", body: { userId, action: "status", bait: false, zone: "shore" } },
+        ...(/^(dino|dinos)$/.test(jeuxTab) ? [read("dino")] : []), ...(/^(vault|coffre-fort|guess|devine)$/.test(jeuxTab) ? [coll] : [])];
       const PAGE_READS = {
-        index: [read("story"), read("seasonQuests"), read("seasonal"), { name: "weeklyRecap", query: { userId } }, { name: "whatNow", query: { userId } }],
-        jeux: [read("shop"), read("dig"), read("dino"), read("garden"), read("duoExpedition"), coll],
+        index: [read("story"), read("seasonQuests"), read("seasonal"), read("vacation"), { name: "weeklyRecap", query: { userId } }, { name: "whatNow", query: { userId } }],
+        jeux: jeuxReads,
+        profile: [read("vacation"), read("friends")],
         ouverture: [read("shop"), read("ripen"), read("chests"), read("mastery"), coll, { name: "rarityPity", query: { userId } }],
         boutique: [read("cosmetics"), read("shop"), read("boosterShop"), read("upgrades"), read("sundayMarket"), read("contracts"), { name: "economyState" }],
-        communaute: [read("machineRoom"), read("lottery"), read("teams")],
+        communaute: [read("machineRoom"), read("lottery"), read("teams"), read("vacation")],
         progression: [read("mastery"), read("constellations"), read("skyTree"), read("talents"), read("achievementTiers"), { name: "exchangeRates" }, { name: "accountPrestige", query: { userId } }],
         mode: [read("modeExtra"), read("draft"), read("vacation")],
-        coffre: [read("personalVault"), read("uniqueCounter")],
-        collection: [read("shop"), coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("showcase", "list"), { name: "exchangeRates" }, read("decraftUndo", "list")],
+        collection: [read("shop"), read("vacation"), coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("showcase", "list"), { name: "exchangeRates" }, read("decraftUndo", "list")],
         trade: [coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("tradeMatches", "list")],
         // 2026-10-29 : dernieres lectures de page qui partaient seules.
         coffre: [read("personalVault"), read("uniqueCounter"), read("showcase", "list")],
@@ -1768,9 +1803,47 @@ document.addEventListener("DOMContentLoaded", () => {
   // deux fonctions appelees ont deja leur propre cache (45-90s), donc cet
   // intervalle ne multiplie pas vraiment les requetes - il se contente de
   // les redeclencher regulierement. Pause quand l'onglet est en arriere-plan.
+  // Mises a jour en direct (2026-11-02, api/src/live.js) : le serveur previent quand le
+  // compte change a cause de quelqu'un d'autre ; la relecture periodique devient un filet.
+  let liveOn = false, lastPoll = Date.now();
+  function startLive() {
+    if (!Session.isLoggedIn() || typeof EventSource === "undefined") return;
+    const base = API.url("live").split("?")[0];
+    const es = new EventSource(`${base}?${Session.token ? "token=" + encodeURIComponent(Session.token) : "userId=" + encodeURIComponent(Session.userId)}`);
+    // Connecte seulement a la reception du premier message (pas a l'ouverture : un proxy peut retenir le flux).
+    es.addEventListener("hello", () => { liveOn = true; });
+    es.addEventListener("error", () => { liveOn = false; });
+    es.addEventListener("refresh", () => {
+      API.invalidate();
+      loadHeaderBoosterBadge();
+      loadNavBadges();
+      document.dispatchEvent(new CustomEvent("live:refresh"));
+    });
+    es.addEventListener("feed", () => document.dispatchEvent(new CustomEvent("live:feed")));
+    window.addEventListener("pagehide", () => es.close());
+  }
+  startLive();
+  // Hors ligne : la derniere version gardee par le service worker, et un bandeau.
+  const offline = () => {
+    let b = document.getElementById("offline-banner");
+    if (navigator.onLine) { b?.remove(); return; }
+    if (b) return;
+    b = document.createElement("div");
+    b.id = "offline-banner";
+    b.className = "offline-banner";
+    b.setAttribute("role", "status");
+    b.textContent = "Hors ligne : tu vois la dernière version enregistrée. Les actions reprendront au retour du réseau.";
+    document.body.prepend(b);
+  };
+  window.addEventListener("online", offline);
+  window.addEventListener("offline", offline);
+  offline();
   if (Session.isLoggedIn()) {
     setInterval(async () => {
       if (document.visibilityState !== "visible") return;
+      // Flux en direct ouvert : une relecture toutes les 5 minutes suffit.
+      if (liveOn && Date.now() - lastPoll < 5 * 60000) return;
+      lastPoll = Date.now();
       API.invalidate();
       // Gabarit seul (pas la collection ni les lectures de la page) ; les
       // deux fonctions suivantes sont servies par ce lot.

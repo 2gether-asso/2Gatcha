@@ -230,7 +230,10 @@ const API = {
     const owner = { userId: body && body.userId, discordId: body && body.discordId };
     LazyJs.load("js/lazy/share-studio.js").then(async () => {
       for (const a of list) await this._post("discordImage", { ...owner, id: a.id, image: await ShareStudio.announceImage(a) });
-    }).catch(() => {});
+    }).catch((e) => {
+      // Diagnostic (2026-11-02) : la raison part dans GlitchTip ; l'annonce partira en texte.
+      if (typeof Monitor !== "undefined") Monitor.capture(new Error("Annonce Discord : image non créée (" + ((e && e.message) || e) + ")"), { endpoint: "discordImage", browser: navigator.userAgent.slice(0, 120) });
+    });
   },
 
   _sumEventBonus(results) {
@@ -452,6 +455,11 @@ const API = {
   imageUrl(imageId) {
     if (!imageId) return null;
     return this.url("image", { id: imageId });
+  },
+  // Vignette (grilles) : l'image entiere si l'admin n'a pas encore fait la vignette.
+  thumbUrl(imageId) {
+    if (!imageId) return null;
+    return this.url("image", { id: imageId, size: "thumb" });
   },
 
   getBoosterStatus(userId) {

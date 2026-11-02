@@ -16,10 +16,10 @@
 // - API (/webhook/...) et tout ce qui n'est pas un GET : jamais en cache.
 // Les notifications push (api/src/native/push.js) restent gerees plus bas.
 
-const VERSION = "2026-11-01c";
+const VERSION = "2026-11-02a";
 const STATIC = "gatcha-static-" + VERSION;
 const IMAGES = "gatcha-images-v1";
-const KEEP = [STATIC, IMAGES];
+const KEEP = [STATIC, IMAGES, "gatcha-api-" + VERSION];
 const IMAGE_MAX = 600;
 const NAV_TIMEOUT = 3000;
 // Precharge a l'installation : la page hors ligne (styles en ligne, rien a
@@ -41,6 +41,32 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Lectures de l'API gardees pour le mode hors ligne (2026-11-02) : collection, profil,
+// cartes, en-tete. Reseau d'abord ; la copie ne sert que si le reseau manque.
+const API_CACHE = "gatcha-api-" + VERSION;
+const API_MAX = 80;
+const OFFLINE_READS = /\/webhook\/(collection|cards|public-profile|booster-status|extensions|artists|artist)$/;
+async function hashText(s) { const b = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(s)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join(""); }
+async function networkFirstApi(event) {
+  const req = event.request;
+  const cache = await caches.open(API_CACHE);
+  let key = req.url;
+  // Lot de lectures (POST /webhook/batch) : la cle tient compte du corps.
+  if (req.method === "POST") key = req.url + "?sw=" + (await hashText(await req.clone().text()));
+  try {
+    const res = await fetch(req);
+    if (res.ok) event.waitUntil((async () => {
+      await cache.put(new Request(key), res.clone());
+      const keys = await cache.keys();
+      if (keys.length > API_MAX) await Promise.all(keys.slice(0, keys.length - API_MAX).map((k) => cache.delete(k)));
+    })().catch(() => {}));
+    return res;
+  } catch (e) {
+    const cached = await cache.match(key);
+    if (cached) return cached;
+    throw e;
+  }
+}
 function isApi(url) {
   return /\/webhook\//.test(url.pathname) && !/\/webhook\/image$/.test(url.pathname);
 }
@@ -77,7 +103,7 @@ async function cacheFirst(event, cacheName, max) {
   const cached = await cache.match(event.request);
   if (cached) return cached;
   const res = await fetch(event.request);
-  if (res && res.ok && res.type === "basic") {
+  if (res && res.ok && (res.type === "basic" || res.type === "cors")) {
     // Rangement apres coup : la page n'attend jamais le cache (quota plein...).
     event.waitUntil((async () => {
       await cache.put(event.request, res.clone());
@@ -111,11 +137,13 @@ async function networkFirstPage(event) {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  if (req.method !== "GET") return;
   const url = new URL(req.url);
+  if (req.method === "POST" && /\/webhook\/batch$/.test(url.pathname)) { event.respondWith(networkFirstApi(event)); return; }
+  if (req.method !== "GET") return;
+  if (OFFLINE_READS.test(url.pathname)) { event.respondWith(networkFirstApi(event)); return; }
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
   if (req.mode === "navigate") { event.respondWith(networkFirstPage(event)); return; }
-  if (isCardImage(url)) { if (url.origin === self.location.origin) event.respondWith(cacheFirst(event, IMAGES, IMAGE_MAX)); return; }
+  if (isCardImage(url)) { event.respondWith(cacheFirst(event, IMAGES, IMAGE_MAX)); return; }
   if (isApi(url)) return;
   if (isStatic(url)) { event.respondWith(staleWhileRevalidate(event, STATIC)); return; }
 });

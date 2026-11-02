@@ -481,4 +481,3 @@ export function risk(store, user) {
   return ok({ machine: machineView(store, updated), staked: n, newBoosterCount: updated.BoosterCount });
 }
 
-export const _frenzyOf = frenzyOf;

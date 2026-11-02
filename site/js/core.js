@@ -531,8 +531,10 @@ const Session = {
 const CinePref = {
   KEY: "2gatcha_cine_pref",
   SEEN: "2gatcha_cine_seen",
-  ORDER: ["always", "first", "never"],
-  LABELS: { always: "Toujours affichées", first: "Affichées la première fois", never: "Jamais affichées" },
+  // 'rare' (2026-11-02) : a l'ouverture, seulement les epiques et plus ; les autres cinematiques toujours.
+  ORDER: ["always", "rare", "first", "never"],
+  LABELS: { always: "Toujours affichées", rare: "Épiques et plus seulement", first: "Affichées la première fois", never: "Jamais affichées" },
+  RARE: ["epique", "legendaire", "mythique", "god", "unique"],
   get() {
     try { const v = localStorage.getItem(this.KEY); return this.ORDER.includes(v) ? v : "always"; } catch (e) { return "always"; }
   },
@@ -545,6 +547,7 @@ const CinePref = {
     const pref = this.get();
     if (pref === "never") return false;
     if (pref === "always") return true;
+    if (pref === "rare") return kind !== "opening" || this.RARE.includes(key);
     const sig = kind + ":" + key;
     let seen = {};
     try { seen = JSON.parse(localStorage.getItem(this.SEEN) || "{}") || {}; } catch (e) { seen = {}; }

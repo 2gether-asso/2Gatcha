@@ -1,3 +1,4 @@
+import { recordError } from './metrics.js';
 // Suivi des erreurs dans GlitchTip (compatible Sentry) : SENTRY_DSN dans
 // l'environnement. Sans DSN, ou si le paquet @sentry/node est absent, tout
 // reste inactif : l'API fonctionne exactement pareil.
@@ -24,6 +25,7 @@ export async function initMonitoring({ dsn, environment, release }) {
 
 // context : { workflow, node, method, path, ... } - visible dans GlitchTip.
 export function captureError(err, context = {}) {
+  recordError(err, context); // Admin > Sante, meme sans GlitchTip
   if (!Sentry) return;
   Sentry.withScope((scope) => {
     for (const [k, v] of Object.entries(context)) if (v != null) scope.setTag(k, String(v).slice(0, 200));

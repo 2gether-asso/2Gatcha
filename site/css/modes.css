@@ -115,6 +115,8 @@ html[data-game-mode="hard"] header#site-header.shrunk .brand-fx i { height: 18px
 .preset-card-pick { display: grid; gap: 4px; font-size: 0.76rem; color: var(--text-dim); }
 .preset-card-pick select { padding: 6px 8px; border-radius: 8px; font-size: 0.8rem; max-width: 100%; }
 .decor-frame-inferno { box-shadow: 0 0 0 3px #f97316, 0 0 0 5px #7f1d1d, 0 0 18px rgba(239,68,68,0.85); animation: brandHeatFrame 1.4s ease-in-out infinite alternate; }
+.decor-frame-sable { box-shadow: 0 0 0 3px #fde68a, 0 0 0 5px #d97706, 0 0 12px rgba(251,191,36,0.6); }
+.decor-frame-nacre { box-shadow: 0 0 0 3px #f5f3ff, 0 0 0 5px #c4b5fd, 0 0 0 7px #a5f3fc, 0 0 14px rgba(196,181,253,0.7); }
 .decor-frame-tropical { box-shadow: 0 0 0 3px #fb923c, 0 0 0 5px #22d3ee, 0 0 14px rgba(251,146,60,0.7); }
 .decor-frame-seasons { box-shadow: 0 0 0 3px #67e8f9, 0 0 0 5px #34d399, 0 0 0 7px var(--accent-light), 0 0 0 9px #f87171; }
 @keyframes brandHeatFrame { from { box-shadow: 0 0 0 3px #f97316, 0 0 0 5px #7f1d1d, 0 0 12px rgba(239,68,68,0.6); } to { box-shadow: 0 0 0 3px #fde047, 0 0 0 5px #b91c1c, 0 0 22px rgba(251,146,60,0.95); } }

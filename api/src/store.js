@@ -92,12 +92,15 @@ export class Store {
       CREATE TABLE IF NOT EXISTS rows (tbl TEXT NOT NULL, id INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (tbl, id));
       CREATE TABLE IF NOT EXISTS attachments (id INTEGER PRIMARY KEY, file_name TEXT, mime TEXT, data BLOB);
     `);
+    // Vignettes des images (2026-11-02) : colonnes ajoutees aux bases existantes.
+    const attCols = this.db.prepare('PRAGMA table_info(attachments)').all().map((c) => c.name);
+    if (!attCols.includes('thumb')) this.db.exec('ALTER TABLE attachments ADD COLUMN thumb BLOB; ALTER TABLE attachments ADD COLUMN thumb_mime TEXT;');
     this.stmt = {
       upsertRow: this.db.prepare('INSERT INTO rows (tbl, id, data) VALUES (?, ?, ?) ON CONFLICT (tbl, id) DO UPDATE SET data = excluded.data'),
       deleteRow: this.db.prepare('DELETE FROM rows WHERE tbl = ? AND id = ?'),
       upsertTable: this.db.prepare('INSERT INTO meta_tables (name, columns) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET columns = excluded.columns'),
       getAttachment: this.db.prepare('SELECT file_name, mime, data FROM attachments WHERE id = ?'),
-      putAttachment: this.db.prepare('INSERT INTO attachments (id, file_name, mime, data) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET file_name = excluded.file_name, mime = excluded.mime, data = excluded.data')
+      putAttachment: this.db.prepare('INSERT INTO attachments (id, file_name, mime, data) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET file_name = excluded.file_name, mime = excluded.mime, data = excluded.data, thumb = NULL, thumb_mime = NULL')
     };
     this.load();
   }
@@ -389,13 +392,23 @@ export class Store {
   }
 
   listAttachments() {
-    return this.db.prepare('SELECT id, file_name AS fileName, mime, LENGTH(data) AS size FROM attachments ORDER BY id').all()
+    return this.db.prepare('SELECT id, file_name AS fileName, mime, LENGTH(data) AS size, thumb IS NOT NULL AS hasThumb FROM attachments ORDER BY id').all()
       .map((a) => ({ ...a, missing: a.size == null }));
   }
 
   deleteAttachment(id) {
     this.db.prepare('DELETE FROM attachments WHERE id = ?').run(Number(id));
     this.changes++;
+  }
+
+  // Vignette d'une image existante (false si l'image n'existe pas).
+  putThumb(id, mime, data) {
+    const res = this.db.prepare('UPDATE attachments SET thumb = ?, thumb_mime = ? WHERE id = ? AND data IS NOT NULL').run(data, mime, Number(id));
+    return res.changes > 0;
+  }
+  getThumb(id) {
+    const t = this.db.prepare('SELECT thumb_mime AS mime, thumb AS data FROM attachments WHERE id = ?').get(Number(id));
+    return t && t.data ? t : null;
   }
 
   putAttachment(id, fileName, mime, data) {

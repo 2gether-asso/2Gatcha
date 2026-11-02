@@ -55,6 +55,7 @@
         <h3>🔗 Webhook du serveur</h3>
         <p class="muted">${w.configured ? `Annonces envoyées à <code>${esc(w.masked)}</code> (${w.source === "admin" ? "réglée ici" : "variable DISCORD_WEBHOOK_URL du serveur"}).` : "Aucune adresse : rien n'est annoncé sur Discord pour l'instant."}</p>
         <p class="${last && !last.ok ? "error-box" : "muted"}">${last ? `Dernier envoi (${esc(new Date(last.at).toLocaleString("fr-FR"))}) : ${esc(deliveryText(last))}` : "Aucun envoi depuis le dernier démarrage du serveur."}</p>
+        ${w.delivery && w.delivery.textFallbacks ? `<p class="muted">Annonces parties en texte faute d'image (navigateur du joueur) : <strong>${w.delivery.textFallbacks}</strong>${w.delivery.lastFallback ? `, la dernière le ${esc(new Date(w.delivery.lastFallback.at).toLocaleString("fr-FR"))}` : ""}. La raison est dans GlitchTip (« Annonce Discord : image non créée »).</p>` : ""}
         <div class="dc-row"><input type="url" id="dc-hook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" /><button type="button" class="btn-secondary" id="dc-hook-save">Enregistrer l'adresse</button>
           ${w.legacy && w.source !== "admin" ? `<button type="button" class="btn-ghost" id="dc-legacy" title="${esc(w.legacy)}">Reprendre l'adresse des anciens workflows</button>` : ""}
           <button type="button" class="btn-ghost" id="dc-test" ${w.configured ? "" : "disabled"}>✅ Envoyer un test</button></div>

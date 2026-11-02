@@ -96,7 +96,36 @@ function webpName(name) {
 }
 
 async function uploadImage({ method, path, blob, fileName }) {
-  return adbFetch(path, { method, headers: { "Content-Type": blob.type, "X-File-Name": encodeURIComponent(fileName) }, body: blob });
+  const res = await adbFetch(path, { method, headers: { "Content-Type": blob.type, "X-File-Name": encodeURIComponent(fileName) }, body: blob });
+  // Vignette faite tout de suite, depuis l'image deja en memoire (2026-11-02).
+  if (res && res.id && /^image\/(webp|png|jpeg)$/.test(blob.type)) await makeThumb(res.id, blob).catch(() => {});
+  return res;
+}
+
+// Vignettes (2026-11-02) : 320 px, pour les grilles du site (collection, recherche, artistes).
+// Servies par /webhook/image?id=&size=thumb ; sans vignette, l'image entiere.
+async function makeThumb(id, blob) {
+  const { blob: small } = await toWebp(blob, 320, 0.8);
+  await adbFetch(`/admin/api/images/${id}/thumb`, { method: "PUT", headers: { "Content-Type": small.type }, body: small });
+}
+async function generateThumbs(e) {
+  const btn = e && e.currentTarget;
+  const todo = (adb.images || []).filter((i) => !i.missing && !i.hasThumb);
+  if (!todo.length) { Toast.info("Toutes les images ont déjà leur vignette."); return; }
+  if (btn) btn.disabled = true;
+  let done = 0, failed = 0;
+  for (const img of todo) {
+    try {
+      const res = await fetch(adbImageUrl(img.id));
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      await makeThumb(img.id, await res.blob());
+      done++;
+    } catch (err) { failed++; }
+    if (btn) btn.textContent = `Vignettes : ${done + failed} / ${todo.length}…`;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = "Faire les vignettes manquantes"; }
+  Toast.success(`${done} vignette${done > 1 ? "s" : ""} faite${done > 1 ? "s" : ""}${failed ? `, ${failed} en échec` : ""}.`);
+  await loadImages();
 }
 
 // ------------------------------------------------------------- connexion
@@ -135,7 +164,7 @@ function setTab(tab) {
     document.getElementById(`adb-${t}-pane`).style.display = t === tab ? "" : "none";
   });
   if (tab === "tables" && !adb.table && adb.tables.length) loadRows(document.getElementById("adb-table").value);
-  if (tab === "backups") loadBackups();
+  if (tab === "backups") { loadBackups(); loadJsonBackups(); }
 }
 
 // ------------------------------------------------------------- images
@@ -154,7 +183,9 @@ async function loadImages() {
   filterExt.value = keepFilter;
   const missing = images.filter((i) => i.missing).length;
   const total = images.reduce((s, i) => s + (i.size || 0), 0);
+  const noThumb = images.filter((i) => !i.missing && !i.hasThumb).length;
   document.getElementById("adb-img-summary").innerHTML = `
+    <div class="stat-tile ${noThumb ? "adb-warn" : ""}"><div class="stat-value">${noThumb}</div><div class="stat-label">Sans vignette ${noThumb ? '<button type="button" class="btn-ghost" id="adb-thumbs-btn">Faire les vignettes manquantes</button>' : ""}</div></div>
     <div class="stat-tile"><div class="stat-value">${images.length}</div><div class="stat-label">Images</div></div>
     <div class="stat-tile ${missing ? "adb-warn" : ""}"><div class="stat-value">${missing}</div><div class="stat-label">Manquantes</div></div>
     <div class="stat-tile"><div class="stat-value">${formatBytes(total)}</div><div class="stat-label">Poids total</div></div>`;
@@ -803,6 +834,42 @@ async function downloadSave(e) {
   }
 }
 
+async function loadJsonBackups() {
+  const box = document.getElementById("adb-json-list");
+  try {
+    const { files, status } = await adbFetch("/admin/api/json-backups");
+    box.innerHTML = (status && status.lastError ? `<div class="error-box">Dernier échec : ${escapeHtml(status.lastError.message)}</div>` : "")
+      + (files.length ? `<div class="adb-table-wrap"><table class="adb-table"><thead><tr><th>Date</th><th>Taille</th><th></th></tr></thead><tbody>${files.map((f) => `<tr><td>${new Date(f.at).toLocaleString("fr-FR")}</td><td>${formatBytes(f.size)}</td><td><button type="button" class="btn-ghost" data-json-dl="${escapeHtml(f.name)}">&#11015;&#65039; Télécharger</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="adb-help">Aucune pour l\'instant : la première arrive quelques minutes après le démarrage du serveur.</p>');
+  } catch (err) { box.innerHTML = `<div class="error-box">${err.status === 404 || err.status === 503 ? "Cette fonction demande la mise à jour du serveur." : escapeHtml(err.message)}</div>`; }
+}
+async function downloadJsonBackup(e) {
+  const b = e.target.closest("[data-json-dl]");
+  if (!b) return;
+  b.disabled = true;
+  try {
+    const res = await fetch(`${adb.apiUrl.replace(/\/$/, "")}/admin/api/json-backups/${encodeURIComponent(b.dataset.jsonDl)}`, { headers: { Authorization: `Bearer ${adb.token}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(await res.blob());
+    a.download = b.dataset.jsonDl;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  } catch (err) { Toast.error(`Téléchargement impossible : ${err.message}`); }
+  b.disabled = false;
+}
+async function jsonBackupNow(e) {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try { await adbFetch("/admin/api/json-backups", { method: "POST" }); Toast.success("Sauvegarde JSON faite."); await loadJsonBackups(); } catch (err) { Toast.error(`Échec : ${err.message}`); }
+  btn.disabled = false;
+}
+
+// Fichier .gz (sauvegarde automatique) : decompresse dans le navigateur.
+async function readSaveFile(file) {
+  if (!/\.gz$/i.test(file.name)) return file.text();
+  return new Response(file.stream().pipeThrough(new DecompressionStream("gzip"))).text();
+}
+
 async function pickSave(e) {
   const box = document.getElementById("adb-save-summary");
   const file = e.target.files[0];
@@ -811,7 +878,7 @@ async function pickSave(e) {
   if (!file) return;
   saveProgress("Lecture du fichier…");
   try {
-    const save = JSON.parse(await file.text());
+    const save = JSON.parse(await readSaveFile(file));
     if (save.format !== "2gatcha-save" || !save.tables || !save.tables.Users) throw new Error("ce n'est pas une sauvegarde 2Gatcha");
     pendingSave = save;
     const count = (t) => (save.tables[t] ? save.tables[t].rows.length : 0);
@@ -888,6 +955,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adb-tab-backups").addEventListener("click", () => setTab("backups"));
   document.getElementById("adb-backup-now").addEventListener("click", backupNow);
   document.getElementById("adb-save-download").addEventListener("click", downloadSave);
+  document.getElementById("adb-img-summary").addEventListener("click", (e) => { if (e.target.closest("#adb-thumbs-btn")) generateThumbs({ currentTarget: e.target.closest("#adb-thumbs-btn") }); });
+  document.getElementById("adb-json-list").addEventListener("click", downloadJsonBackup);
+  document.getElementById("adb-json-now").addEventListener("click", jsonBackupNow);
   document.getElementById("adb-save-file").addEventListener("change", pickSave);
 
   const quality = document.getElementById("adb-quality");
