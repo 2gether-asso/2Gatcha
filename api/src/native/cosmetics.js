@@ -19,6 +19,7 @@
 import { refId, now, ok, fail, userById, isAdmin } from './common.js';
 import { setting, setSettings, REGISTRY } from './settings.js';
 import { namesHiddenPet } from './starter.js';
+import { ruleOn, RULE } from './moderules.js';
 
 const TYPES = { title: 'EquippedTitle', frame: 'EquippedFrame', color: 'EquippedColor' };
 
@@ -31,6 +32,9 @@ export const schema = {
 // ete personnalise dans l'admin, sauf si l'admin les a supprimes depuis
 // (AppSettings 'cosmeticsRemoved').
 const ADDED_2026_10_25 = ['frame-aurore', 'frame-citrouille', 'frame-ocean', 'color-aurore', 'color-menthe', 'title-pinceau', 'title-maitre-chien', 'title-emeraude'];
+// 2026-11-02 : objets de vacances du mode Chill (regle chill.vacationShop).
+const ADDED_2026_11_02 = ["frame-lagon","frame-coucher-soleil","frame-coquillage","color-tropical","color-sable","color-lagon","title-sieste","title-surfeur","title-tongs","title-parasol"];
+const ADDED = [...ADDED_2026_10_25, ...ADDED_2026_11_02];
 function removedKeys(store) {
   const r = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((x) => x.Key === 'cosmeticsRemoved') : null;
   try { return new Set(r ? JSON.parse(r.Value) : []); } catch (e) { return new Set(); }
@@ -39,12 +43,13 @@ function storedCatalog(store) {
   const list = setting(store, 'CosmeticsCatalog').filter((c) => c && c.key);
   const have = new Set(list.map((c) => c.key));
   const removed = removedKeys(store);
-  const added = REGISTRY.CosmeticsCatalog.def.filter((c) => ADDED_2026_10_25.includes(c.key) && !have.has(c.key) && !removed.has(c.key));
+  const added = REGISTRY.CosmeticsCatalog.def.filter((c) => ADDED.includes(c.key) && !have.has(c.key) && !removed.has(c.key));
   return [...list, ...added];
 }
 const allCatalog = (store) => storedCatalog(store).filter((c) => TYPES[c.type]);
-// En vente : sans les objets retires (hidden) ni les secrets.
-export const catalog = (store) => allCatalog(store).filter((c) => !c.hidden && !c.secret);
+// En vente : sans les objets retires (hidden) ni les secrets ; un objet lie a une
+// regle de mode (rule, ex. le kiosque de la plage en Chill) seulement quand elle joue.
+export const catalog = (store) => allCatalog(store).filter((c) => !c.hidden && !c.secret && (!c.rule || ruleOn(store, c.rule)));
 
 // Cosmetiques gagnes hors boutique, avec leur origine (nom par defaut tel
 // qu'il est donne en jeu). Les codes secrets (SecretCodes) et les objets deja
@@ -198,6 +203,7 @@ function cleanItem(it, known = null) {
   if (it.desc) out.desc = String(it.desc).slice(0, 160);
   if (it.tag) out.tag = String(it.tag).slice(0, 20);
   if (it.hidden) out.hidden = true;
+  if (it.rule && RULE[it.rule]) out.rule = it.rule;
   if (out.type !== 'title' && it.style && typeof it.style === 'object') {
     const st = it.style;
     if (!isColor(st.c1)) return { error: 'invalid_style' };
@@ -223,6 +229,8 @@ function handleAdmin({ store, body }) {
     const r = cleanItem(it, known);
     if (r.error) return fail(r.error);
     const i = list.findIndex((c) => c && c.key === r.item.key);
+    // L'editeur ne montre pas la regle : celle de l'objet est gardee.
+    if (i >= 0 && list[i].rule && !('rule' in it)) r.item.rule = list[i].rule;
     if (i >= 0) list[i] = r.item; else list.push(r.item);
     const errors = setSettings(store, { CosmeticsCatalog: list });
     if (errors.length) return fail('invalid_catalog', 400, { errors });
@@ -261,6 +269,28 @@ function handleAdmin({ store, body }) {
   }
   if (action !== 'list') return fail('unknown_action');
   return ok(adminList(store));
+}
+
+// Une fois (2026-11-02) sur un catalogue deja personnalise : citrouille retiree de la
+// vente (Halloween fini, ceux qui l'ont la gardent), etiquette « nouveau » du 25 octobre enlevee.
+export function init({ store }) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((x) => x.Key === 'cosmetics-2026-11-02')) return;
+  const row = store.getAll('AppSettings').find((x) => x.Key === 'setting:CosmeticsCatalog');
+  if (row) {
+    let list = [];
+    try { list = JSON.parse(row.Value); } catch (e) { list = []; }
+    if (Array.isArray(list)) {
+      list = list.map((c) => {
+        if (!c || typeof c !== 'object') return c;
+        const out = { ...c };
+        if (out.key === 'frame-citrouille') out.hidden = true;
+        if (out.tag === 'nouveau' && ADDED_2026_10_25.concat(['title-archeologue']).includes(out.key)) delete out.tag;
+        return out;
+      });
+      store.update('AppSettings', row.id, { Value: JSON.stringify(list) });
+    }
+  }
+  store.create('AppSettings', { Key: 'cosmetics-2026-11-02', Value: JSON.stringify({ at: now() }) });
 }
 
 export const routes = { 'POST cosmetics': handleCosmetics, 'POST admin-cosmetics': handleAdmin };

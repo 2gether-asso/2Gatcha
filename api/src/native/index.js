@@ -180,6 +180,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
   secrets.init({ store });
   garden.init({ store });
   archeo.init({ store });
+  cosmetics.init({ store });
   Object.assign(currentContext(), { source: null, actor: null });
 
   // Contexte de la requete en cours (propre a chaque requete, voir

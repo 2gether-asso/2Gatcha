@@ -187,6 +187,23 @@ await test('sauvegarde JSON planifiee : fichier complet, les plus anciens suppri
   assert.equal(jb.fileOf('../base.sqlite'), null, 'pas de chemin arbitraire');
 });
 
+await test('kiosque de la plage : en vente seulement quand la regle joue, citrouille retiree', () => {
+  const shop = () => call('POST', 'cosmetics', { userId: u1.id }).json.shop;
+  mode('chill');
+  const items = shop().filter((c) => c.rule === 'chill.vacationShop');
+  assert.equal(items.length, 10);
+  assert.ok(!shop().some((c) => c.key === 'frame-citrouille'), 'Halloween fini');
+  store.update('Users', u1.id, { StardustCount: 5000 });
+  assert.equal(call('POST', 'cosmetics', { userId: u1.id, action: 'buy', key: 'title-sieste' }).json.bought, 'title-sieste');
+  mode('medium');
+  assert.ok(!shop().some((c) => c.rule), 'plus en vente hors Chill');
+  assert.equal(call('POST', 'cosmetics', { userId: u1.id, action: 'buy', key: 'frame-lagon' }).json.error, 'unknown_item');
+  assert.ok(call('POST', 'cosmetics', { userId: u1.id }).json.earned.some((c) => c.key === 'title-sieste'), 'garde ce qui est achete');
+  // L'editeur garde la regle d'un objet modifie.
+  const save = call('POST', 'admin-cosmetics', { discordId: ADMIN, action: 'save', item: { key: 'title-surfeur', type: 'title', label: 'Surfeur', price: 950 } }).json;
+  assert.equal(save.items.find((c) => c.key === 'title-surfeur').rule, 'chill.vacationShop');
+});
+
 store.db.close();
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(`${passed} tests du lot Chill du 2 novembre ok`);

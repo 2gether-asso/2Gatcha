@@ -246,14 +246,25 @@ export const REGISTRY = {
       { key: 'color-fire', type: 'color', label: 'Pseudo de feu', price: 2500 },
       { key: 'color-galaxy', type: 'color', label: 'Pseudo galaxie', price: 3500 },
       // Ajouts 2026-10-25 (styles par donnees, modifiables dans l'editeur)
-      { key: 'frame-aurore', type: 'frame', label: 'Cadre aurore', price: 2800, tag: 'nouveau', desc: 'Les lumières du nord autour de ton avatar.', style: { c1: '#34d399', c2: '#a78bfa', glow: 18, anim: 'pulse' } },
-      { key: 'frame-citrouille', type: 'frame', label: 'Cadre citrouille', price: 1300, tag: 'saison', desc: 'Pour les nuits d’Halloween.', style: { c1: '#f97316', c2: '#581c87', glow: 14, anim: 'pulse' } },
-      { key: 'frame-ocean', type: 'frame', label: 'Cadre océan', price: 1700, tag: 'nouveau', style: { c1: '#0ea5e9', c2: '#1e3a8a', glow: 12, anim: 'none' } },
-      { key: 'color-aurore', type: 'color', label: 'Pseudo aurore', price: 2600, tag: 'nouveau', style: { c1: '#34d399', c2: '#a78bfa', glow: 6, anim: 'shine' } },
-      { key: 'color-menthe', type: 'color', label: 'Pseudo menthe', price: 700, tag: 'nouveau', style: { c1: '#6ee7b7', glow: 0, anim: 'none' } },
-      { key: 'title-pinceau', type: 'title', label: 'Pinceau d’or', price: 900, tag: 'nouveau', desc: 'Pour qui dégage les tablettes anciennes sans rien fissurer.' },
-      { key: 'title-maitre-chien', type: 'title', label: 'Meilleur ami de Milo', price: 600, tag: 'nouveau' },
-      { key: 'title-emeraude', type: 'title', label: 'Maître émeraude', price: 5000, tag: 'nouveau', desc: 'Le titre de ceux qui collectionnent les cartes émeraude.' }
+      { key: 'frame-aurore', type: 'frame', label: 'Cadre aurore', price: 2800, desc: 'Les lumières du nord autour de ton avatar.', style: { c1: '#34d399', c2: '#a78bfa', glow: 18, anim: 'pulse' } },
+      { key: 'frame-citrouille', type: 'frame', label: 'Cadre citrouille', price: 1300, hidden: true, tag: 'saison', desc: 'Pour les nuits d’Halloween.', style: { c1: '#f97316', c2: '#581c87', glow: 14, anim: 'pulse' } },
+      { key: 'frame-ocean', type: 'frame', label: 'Cadre océan', price: 1700, style: { c1: '#0ea5e9', c2: '#1e3a8a', glow: 12, anim: 'none' } },
+      { key: 'color-aurore', type: 'color', label: 'Pseudo aurore', price: 2600, style: { c1: '#34d399', c2: '#a78bfa', glow: 6, anim: 'shine' } },
+      { key: 'color-menthe', type: 'color', label: 'Pseudo menthe', price: 700, style: { c1: '#6ee7b7', glow: 0, anim: 'none' } },
+      { key: 'title-pinceau', type: 'title', label: 'Pinceau d’or', price: 900, desc: 'Pour qui dégage les tablettes anciennes sans rien fissurer.' },
+      { key: 'title-maitre-chien', type: 'title', label: 'Meilleur ami de Milo', price: 600 },
+      { key: 'title-emeraude', type: 'title', label: 'Maître émeraude', price: 5000, desc: 'Le titre de ceux qui collectionnent les cartes émeraude.' },
+      // Mode Chill (2026-11-02) : en vente seulement quand la regle chill.vacationShop joue.
+      { key: 'frame-lagon', type: 'frame', label: 'Cadre lagon', price: 1600, tag: 'saison', desc: 'L’eau turquoise du lagon autour de ton avatar.', style: { c1: '#22d3ee', c2: '#0d9488', glow: 12, anim: 'pulse' }, rule: 'chill.vacationShop' },
+      { key: 'frame-coucher-soleil', type: 'frame', label: 'Cadre coucher de soleil', price: 2400, tag: 'saison', desc: 'L’heure dorée de la plage, à garder toute l’année.', style: { c1: '#fb923c', c2: '#7c3aed', glow: 16, anim: 'shine' }, rule: 'chill.vacationShop' },
+      { key: 'frame-coquillage', type: 'frame', label: 'Cadre coquillage', price: 1100, tag: 'saison', desc: 'Nacre et sable rose.', style: { c1: '#fde68a', c2: '#f9a8d4', glow: 8, anim: 'none' }, rule: 'chill.vacationShop' },
+      { key: 'color-tropical', type: 'color', label: 'Pseudo tropical', price: 1400, tag: 'saison', desc: 'Mangue et lagon.', style: { c1: '#f97316', c2: '#22d3ee', glow: 4, anim: 'shine' }, rule: 'chill.vacationShop' },
+      { key: 'color-sable', type: 'color', label: 'Pseudo sable doré', price: 900, tag: 'saison', style: { c1: '#fcd34d', glow: 4, anim: 'none' }, rule: 'chill.vacationShop' },
+      { key: 'color-lagon', type: 'color', label: 'Pseudo lagon', price: 1800, tag: 'saison', style: { c1: '#22d3ee', c2: '#a7f3d0', glow: 6, anim: 'shine' }, rule: 'chill.vacationShop' },
+      { key: 'title-sieste', type: 'title', label: 'Roi de la sieste 💤', price: 500, tag: 'saison', desc: 'Pour celles et ceux qui savent prendre leur temps.', rule: 'chill.vacationShop' },
+      { key: 'title-surfeur', type: 'title', label: 'Surfeur des marées 🌊', price: 900, tag: 'saison', rule: 'chill.vacationShop' },
+      { key: 'title-tongs', type: 'title', label: 'En tongs toute l’année 🩴', price: 1200, tag: 'saison', rule: 'chill.vacationShop' },
+      { key: 'title-parasol', type: 'title', label: 'Gardien du parasol ⛱️', price: 700, tag: 'saison', rule: 'chill.vacationShop' }
     ]
   },
 

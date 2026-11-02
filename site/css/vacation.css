@@ -65,3 +65,8 @@
 .health-grid h3 { margin: 0 0 6px; font-size: 1rem; }
 .health-grid p { margin: 0 0 4px; font-size: 0.9rem; }
 .health-errors { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.88rem; }
+/* Kiosque de la plage (profil) */
+.vac-kiosk { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.vac-kiosk-item { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 10px; border-radius: 12px; border: 1px solid var(--border-soft, rgba(255,255,255,0.12)); }
+.vac-kiosk-item small { color: var(--text-dim); font-size: 0.78rem; }
+.vac-kiosk-title { font-style: italic; color: #fde68a; }

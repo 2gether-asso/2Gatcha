@@ -20,7 +20,8 @@ export const PATCH_NOTES = [
     'Recherche : les artistes et les onglets du jeu ; cinématiques possibles seulement pour les épiques et plus',
     'Le résumé d’ouverture met en avant ta meilleure carte',
     'Le site se met à jour tout seul quand quelqu’un t’envoie quelque chose, et ta collection reste consultable hors ligne',
-    'Pages de jeu et collection plus légères à charger'
+    'Pages de jeu et collection plus légères à charger',
+    'Kiosque de la plage sur ton profil : cadres, couleurs et titres de vacances à garder toute l’année'
   ] },
   { date: '2026-11-02', title: 'Les artistes tiennent leur fiche', items: [
     'Artistes de l’asso : relié à ton compte par l’équipe, tu modifies toi-même ta présentation, tes réseaux, ta photo, ta bannière et ta carte phare'

@@ -61,6 +61,7 @@ export const RULES = [
   { key: 'chill.sharedCastle', mode: 'chill', kind: 'extra', icon: '🏯', label: 'Château de sable commun', desc: 'Tout le monde y apporte son sable : 5 étages par semaine, chaque étage récompense ceux qui ont participé.', isNew: true },
   { key: 'chill.friends', mode: 'chill', kind: 'extra', icon: '🤝', label: 'Amis', desc: 'Une liste d’amis sur ton profil, proposés en premier pour les cartes postales.', isNew: true },
   { key: 'chill.vacationCosmetics', mode: 'chill', kind: 'bonus', icon: '🎖️', label: 'Titres de vacances', desc: 'Des titres et un cadre gagnés en jouant aux vacances : pirate des plages, maître du bar, bâtisseur de sable.', isNew: true },
+  { key: 'chill.vacationShop', mode: 'chill', kind: 'extra', icon: '🛍️', label: 'Kiosque de la plage', desc: 'Des cadres, couleurs et titres de vacances en vente sur ton profil (et en boutique quand elle est ouverte).', isNew: true },
   { key: 'chill.exoticBook', mode: 'chill', kind: 'extra', icon: '📔', label: 'Carnet exotique', desc: 'Poissons exotiques, coquillages et fragments engloutis : chaque carnet complet donne une récompense.', isNew: true },
   // ------------------------------------------------------------------ Medium
   { key: 'medium.bet', mode: 'medium', kind: 'extra', icon: '🎲', label: 'Pari du booster', desc: 'Miser des poussières à l’ouverture : triplées si une épique (ou mieux) sort.' },
@@ -102,7 +103,7 @@ const RULE_URLS = {
   'chill.cocktails': 'jeux.html#cuisine', 'chill.petHoliday': 'jeux.html#jardin', 'chill.tropicalSeed': 'jeux.html#jardin', 'chill.beachDig': 'jeux.html#fouille',
   'chill.apero': 'communaute.html#ensemble', 'chill.passport': 'profile.html#vacances', 'chill.sunbath': 'collection.html#qualite', 'chill.tides': 'jeux.html#peche',
   'chill.sandcastle': 'jeux.html#fouille', 'chill.seaLore': 'jeux.html#archeologie', 'chill.beachWalk': 'jeux.html#promenade', 'chill.sharedCastle': 'communaute.html#ensemble',
-  'chill.friends': 'profile.html#amis', 'chill.vacationCosmetics': 'profile.html#vacances', 'chill.exoticBook': 'profile.html#carnet',
+  'chill.friends': 'profile.html#amis', 'chill.vacationCosmetics': 'profile.html#vacances', 'chill.exoticBook': 'profile.html#carnet', 'chill.vacationShop': 'profile.html#kiosque',
   'medium.bet': 'ouverture.html', 'medium.edge': 'ouverture.html', 'medium.contract': 'boutique.html', 'medium.stock': 'mode.html#md-stock', 'medium.draft': 'mode.html#md-draft', 'medium.questChain': 'mode.html#md-quest',
   'hard.ironman': 'mode.html#md-ironman', 'hard.bounty': 'mode.html#md-bounty', 'hard.cursed': 'mode.html#md-cursed', 'hard.theft': 'mode.html#md-theft', 'hard.leaderboard': 'communaute.html#metiers',
   'chaos.vote': 'mode.html#md-vote', 'chaos.unstable': 'mode.html#md-unstable', 'chaos.bugs': 'mode.html#md-bugs'

@@ -18,7 +18,7 @@ const VacationUI = (function () {
   const nowS = () => Math.floor(Date.now() / 1000);
   const fmtH = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h} h ${String(m).padStart(2, "0")}` : `${m} min`; };
   const QUA = { damaged: "Usé", worn: "Abîmé", good: "Bon état", mint: "Parfait état" };
-  let st = null, friends = null, users = null, collection = null;
+  let st = null, friends = null, users = null, collection = null, kiosk = null;
   const bump = () => { if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); };
   const block = (id, icon, title, body) => `<section class="vac-card" id="vac-${id}"><h3>${icon} ${title}</h3>${body}</section>`;
   const img = (id) => (id ? (API.thumbUrl ? API.thumbUrl(id) : API.imageUrl(id)) : "");
@@ -112,6 +112,16 @@ const VacationUI = (function () {
       const list = v.postcards || [];
       return list.length ? block("postcards", "📬", "Cartes postales reçues", `<div class="vac-row">${list.map((p, i) => `<button type="button" class="vac-pc" data-postcard="${i}">${mini(p.card, `de ${esc(p.from)}`)}${p.message ? `<em>« ${esc(p.message)} »</em>` : ""}</button>`).join("")}</div>`) : "";
     },
+    // Kiosque de la plage (regle chill.vacationShop) : cosmetiques de vacances, achat et equipement.
+    kiosk() {
+      const items = kiosk && (kiosk.shop || []).filter((c) => c.rule === "chill.vacationShop");
+      if (!items || !items.length) return "";
+      const eq = kiosk.equipped || {};
+      const preview = (c) => c.type === "frame" ? `<span class="decor-avatar small decor-${esc(c.key)}"><span>${esc((Session.pseudo || "?")[0])}</span></span>` : c.type === "color" ? `<span class="decor-pseudo decor-${esc(c.key)}">${esc(Session.pseudo || "Pseudo")}</span>` : `<span class="vac-kiosk-title">« ${esc(c.label)} »</span>`;
+      return block("kiosque", "🛍️", "Kiosque de la plage", `<p>Des souvenirs de vacances à garder toute l'année. Tu as ${kiosk.stardust} ✨.</p>
+        <div class="vac-kiosk">${items.map((c) => `<div class="vac-kiosk-item">${preview(c)}<strong>${esc(c.label)}</strong>${c.desc ? `<small>${esc(c.desc)}</small>` : ""}
+          ${c.owned ? (eq[c.type] === c.key ? '<span class="vac-meta">équipé</span>' : `<button type="button" class="btn-secondary" data-kiosk-equip="${esc(c.key)}" data-type="${c.type}">Équiper</button>`) : `<button type="button" class="btn" data-kiosk-buy="${esc(c.key)}" ${kiosk.stardust >= c.price ? "" : "disabled"}>${c.price} ✨</button>`}</div>`).join("")}</div>`);
+    },
     friends() {
       if (!friends || !friends.enabled) return "";
       return block("amis", "🤝", "Mes amis", `${friends.friends.length ? `<ul class="vac-list">${friends.friends.map((f) => `<li><a href="profile.html?pseudo=${encodeURIComponent(f.pseudo)}">${esc(f.pseudo)}</a> <button type="button" class="btn-ghost vac-x" data-friend-remove="${f.userId}" aria-label="Retirer ${esc(f.pseudo)}">✕</button></li>`).join("")}</ul>` : '<p class="muted">Pas encore d\'amis : ajoute un joueur par son pseudo.</p>'}
@@ -142,6 +152,7 @@ const VacationUI = (function () {
       zone("vacances", "#profile-zone", "beforeend", R.passport(v, true) + R.cosmetics(v) + R.postcards(v));
       zone("carnet", "#profile-zone", "beforeend", R.book(v));
       zone("amis", "#profile-zone", "beforeend", R.friends());
+      zone("kiosque", "#profile-zone", "beforeend", R.kiosk());
     }
     fillForms();
     const h = location.hash.slice(1);
@@ -180,7 +191,7 @@ const VacationUI = (function () {
   }
   async function load() {
     if (!Session.isLoggedIn()) return;
-    [st, friends] = await Promise.all([API.vacation(Session.userId).catch(() => null), page === "profile.html" ? API.post("friends", { userId: Session.userId, action: "status" }).catch(() => null) : Promise.resolve(friends)]);
+    [st, friends, kiosk] = await Promise.all([API.vacation(Session.userId).catch(() => null), page === "profile.html" ? API.post("friends", { userId: Session.userId, action: "status" }).catch(() => null) : Promise.resolve(friends), page === "profile.html" ? API.cosmetics(Session.userId).catch(() => null) : Promise.resolve(kiosk)]);
     render();
   }
   async function act(action, params = {}) {
@@ -194,8 +205,18 @@ const VacationUI = (function () {
     } catch (e) { Toast.error(friendlyError(e)); return null; }
   }
   document.addEventListener("click", async (e) => {
-    const t = e.target.closest("[data-vac],[data-postcard],[data-friend-remove],#vac-sun-btn,#vac-donate-btn,#vac-friend-btn");
+    const t = e.target.closest("[data-vac],[data-postcard],[data-friend-remove],[data-kiosk-buy],[data-kiosk-equip],#vac-sun-btn,#vac-donate-btn,#vac-friend-btn");
     if (!t || t.disabled || !Session.isLoggedIn()) return;
+    if (t.dataset.kioskBuy || t.dataset.kioskEquip) {
+      t.disabled = true;
+      try {
+        kiosk = t.dataset.kioskBuy ? await API.cosmetics(Session.userId, "buy", { key: t.dataset.kioskBuy }) : await API.cosmetics(Session.userId, "equip", { key: t.dataset.kioskEquip, type: t.dataset.type });
+        Toast.success(t.dataset.kioskBuy ? "🛍️ Souvenir acheté : équipe-le quand tu veux." : "Équipé !");
+        render();
+        bump();
+      } catch (err) { t.disabled = false; Toast.error(friendlyError(err)); }
+      return;
+    }
     if (t.dataset.vac) {
       const a = t.dataset.vac;
       t.disabled = true;
