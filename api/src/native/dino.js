@@ -39,7 +39,7 @@ export const schema = {
   Users: {
     DinoSkulls: { type: 'Numeric' }, Dinos: { type: 'Text' }, DinoFood: { type: 'Text' }, DinoPoop: { type: 'Numeric' }, DinoGoldPoop: { type: 'Numeric' },
     DinoEggs: { type: 'Text' }, DinoDex: { type: 'Text' }, DinoAccessories: { type: 'Text' }, DinoDecor: { type: 'Text' },
-    DinoStar: { type: 'Numeric' }, DinoCompanion: { type: 'Numeric' }
+    DinoStar: { type: 'Numeric' }, DinoCompanion: { type: 'Numeric' }, DinoColorPity: { type: 'Numeric' }
   }
 };
 
@@ -346,6 +346,28 @@ function newDino(store, dinos, genes = {}) {
     bornAt: t, at: t, food: 60, happy: 80, xp: 0, digest: 0, poops: [], goldPoops: [], playAt: 0, petAt: 0, breedAt: 0
   };
 }
+// Couleurs rares (2026-11-06) : jamais obtenues par le joueur (Dinodex), et
+// application de l'une d'elles au dino (chroma = chromatique, independant).
+const missingColors = (user) => { const dex = dexOf(user); return Object.keys(COLORS).filter((k) => !dex.colors[k]); };
+const isNewColor = (user, d) => { const dex = dexOf(user); return (d.color && !dex.colors[d.color]) || (d.shiny && !dex.colors.chroma); };
+function giveColor(d, key) { if (key === 'chroma') d.shiny = true; else d.color = key; return d; }
+// Garantie (DinoColorPity) : apres N eclosions de crane sans nouvelle couleur
+// rare, la suivante en donne une. Mutation (DinoEggMutation) : un oeuf peut
+// sortir d'une couleur rare que le joueur n'a pas encore. Renvoie le compteur.
+function rareColorLuck(store, user, d, fromEgg) {
+  const missing = missingColors(user);
+  const pity = Number(user.DinoColorPity) || 0;
+  if (!missing.length) return 0;
+  if (fromEgg) {
+    if (!isNewColor(user, d) && Math.random() < setting(store, 'DinoEggMutation')) giveColor(d, rnd(missing));
+    return pity;
+  }
+  if (isNewColor(user, d)) return 0;
+  const need = setting(store, 'DinoColorPity');
+  if (need > 0 && pity + 1 >= need) { giveColor(d, rnd(missing)); return 0; }
+  return pity + 1;
+}
+
 // Petit d'un couple : espece d'un parent, teinte melangee, motif herite (ou
 // rare, 15 %), couleur nommee transmise une fois sur quatre.
 function eggGenes(a, b) {
@@ -396,6 +418,8 @@ function state(store, user) {
       species: Object.entries(SPECIES).map(([key, s]) => ({ key, label: s.label, found: !!dex.species[key] })),
       patterns: Object.entries(PATTERNS).map(([key, label]) => ({ key, label, found: !!dex.patterns[key] })),
       colors: Object.entries(COLORS).map(([key, label]) => ({ key, label, found: !!dex.colors[key] })),
+      // Garantie de couleur rare : eclosions de crane restantes (null = aucune garantie ou tout trouve).
+      colorPityLeft: setting(store, 'DinoColorPity') > 0 && Object.keys(COLORS).some((k) => !dex.colors[k]) ? Math.max(1, setting(store, 'DinoColorPity') - (Number(user.DinoColorPity) || 0)) : null,
       stages: STAGES.map((s) => ({ key: s.key, label: s.label, found: !!dex.stages[s.key] })),
       tiers: DEX_TIERS.map((x) => ({ n: x.n, label: x.label, claimed: dex.claimed.includes(x.n) }))
     },
@@ -478,9 +502,10 @@ function handleDino({ store, body }) {
     const need = setting(store, 'DinoHatchBones');
     if ((Number(user.BoneCount) || 0) < need) return fail('not_enough_bones', 400, { need });
     const dino = newDino(store, dinos, { name: String(body.name || '').trim().slice(0, 20) || null });
+    const pity = rareColorLuck(store, user, dino, false);
     const list = [...dinos, dino];
     const dex = dexNote(store, user, [dino]);
-    user = save(list, { DinoSkulls: (Number(user.DinoSkulls) || 0) - 1, BoneCount: (Number(user.BoneCount) || 0) - need, ...dex.fields });
+    user = save(list, { DinoSkulls: (Number(user.DinoSkulls) || 0) - 1, BoneCount: (Number(user.BoneCount) || 0) - need, DinoColorPity: pity, ...dex.fields });
     noteFirsts(store, user, dino, list);
     announce(store, user, dino, 'a ramené à la vie');
     return ok({ ...state(store, user), hatched: view(store, user, dino, t), dexRewards: dex.rewards });
@@ -493,6 +518,7 @@ function handleDino({ store, body }) {
     if (egg.hatchAt > t) return fail('egg_not_ready', 400, { wait: egg.hatchAt - t });
     if (dinos.length >= maxDinos(store)) return fail('max_dinos');
     const dino = newDino(store, dinos, egg.genes || {});
+    rareColorLuck(store, user, dino, true);
     const list = [...dinos, dino];
     const dex = dexNote(store, user, [dino]);
     user = save(list, { DinoEggs: JSON.stringify(eggs.filter((e) => e !== egg)), ...dex.fields });

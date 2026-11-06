@@ -156,6 +156,15 @@ function friendlyError(e) {
   const msg = String((e && e.message) || "");
   // Panne : serveur injoignable ou erreur 5xx.
   if (/Failed to fetch|NetworkError|Load failed|Erreur API \([^)]*\): 5\d\d/.test(msg)) return "Le serveur ne répond pas : réessaie dans un instant.";
+  // Refus que la page n'a pas prevu (pas de message dedie) : le joueur voit
+  // « Erreur. (code) », GlitchTip aussi (GlitchTip #40). Un evenement par code.
+  if (typeof Monitor !== "undefined" && !Monitor.isBug(e)) {
+    const err = new Error(`Erreur affichée au joueur : ${code || msg || "inconnue"}`);
+    err.name = "ToastError";
+    // Pas l'objet Error dans console.error : l'intercepteur (config.js) le renverrait en double.
+    console.error("[2Gatcha] " + err.message, (e && e.data) || "");
+    Monitor.capture(err, { via: "toast", code: code || null, page: location.pathname.split("/").pop() + location.hash });
+  }
   return "Erreur. (" + (code || msg || "inconnue") + ")";
 }
 

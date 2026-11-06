@@ -128,12 +128,15 @@ const VacationUI = (function () {
         <div class="vac-form"><input type="text" id="vac-friend-add" list="vac-users" placeholder="Pseudo" autocomplete="off" /><datalist id="vac-users"></datalist><button type="button" class="btn-secondary" id="vac-friend-btn">Ajouter</button></div>`);
     }
   };
+  // Bloc absent (regle inactive, `x && block(...)`) : chaine vide, sinon
+  // « undefined » s'affiche dans les zones concatenees et zone() plante (GlitchTip #37).
+  Object.keys(R).forEach((k) => { const f = R[k]; R[k] = (...a) => f(...a) || ""; });
 
   // ---------------------------------------------------------------- placement
   function zone(id, anchorSel, where, html) {
     document.getElementById(id)?.remove();
     const anchor = document.querySelector(anchorSel);
-    if (!anchor || !html.trim()) return;
+    if (!anchor || !html || !html.trim()) return;
     anchor.insertAdjacentHTML(where, `<div id="${id}" class="vac-zone">${html}</div>`);
   }
   const ownProfile = () => { const p = new URLSearchParams(location.search).get("pseudo"); return !p || (Session.pseudo && p.toLowerCase() === String(Session.pseudo).toLowerCase()); };

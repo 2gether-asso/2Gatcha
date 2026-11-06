@@ -392,7 +392,8 @@ function renderDigDepths(dd) {
   document.getElementById("dig-bag").innerHTML = `<img class="ico-art" src="assets/Fouille/Pioche_01.PNG" alt="" /> Sac : <strong>${dd.minerals}</strong> minér${dd.minerals > 1 ? "aux" : "al"} · <a href="communaute.html#marche">Comptoir des minéraux &rarr;</a>`;
 }
 async function setDigDepth(depth) {
-  if (!digDepthState || depth === digDepthState.depth || digBusy) return;
+  // Case « Plus profond… » (pas de data-depth) : rien a choisir (GlitchTip #39).
+  if (!digDepthState || !Number.isInteger(depth) || depth === digDepthState.depth || digBusy) return;
   const started = digTilesCache.some((t) => t.dug);
   if (started && !(await Confirm.show(`Changer de profondeur abandonne la grille en cours (les trésors déjà libérés sont gardés). Descendre à la profondeur <strong>${depth}</strong> ?`, { title: "Changer de profondeur ?", confirmText: "Changer" }))) return;
   try {
@@ -1759,7 +1760,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btn && !btn.disabled) submitGuess(Number(btn.dataset.cardId));
   });
   document.getElementById("vault-padlocks").addEventListener("click", (e) => { const b = e.target.closest(".vault-padlock.can"); if (b) popPadlock(b); });
-  document.getElementById("dig-depths").addEventListener("click", (e) => { const b = e.target.closest(".dig-depth:not([disabled])"); if (b) setDigDepth(Number(b.dataset.depth)); });
+  document.getElementById("dig-depths").addEventListener("click", (e) => { const b = e.target.closest(".dig-depth[data-depth]:not([disabled])"); if (b) setDigDepth(Number(b.dataset.depth)); });
   // Achat depuis un bandeau de la boutique : la partie concernee se rafraichit.
   document.addEventListener("shop:bought", (e) => {
     const k = e.detail && e.detail.key;

@@ -17,6 +17,7 @@ import { tourneyKey } from './fishing.js';
 import { luckyWindows } from './daily.js';
 import { goldenState } from './comfort.js';
 import { growSeconds, seedMult } from './garden.js';
+import { disabled as featuresDisabled } from './features.js';
 
 export const schema = {
   AppSettings: { Key: { type: 'Text' }, Value: { type: 'Text' } },
@@ -36,6 +37,10 @@ const PUSH_KINDS = [
 ];
 const prefsOf = (user) => { try { const p = JSON.parse((user && user.PushPrefs) || '{}'); return p && typeof p === 'object' ? p : {}; } catch (e) { return {}; } };
 const kindOf = (k) => (k === 'outbid' || k === 'auction-sold' || k === 'auction-won' ? 'auction' : k);
+// Categorie -> fonctionnalite (features.js) : rien n'est annonce pour un jeu
+// ferme dans le mode en cours (GlitchTip #35). Expedition rentree : toujours
+// annoncee, elle se recupere meme fermee (features.js, allow).
+const FEATURE_OF_KIND = { dog: 'dig', garden: 'garden', guess: 'guess', auction: 'auctions', evening: 'evening', tourney: 'fishing', boss: 'boss' };
 
 let webpush = null;
 let vapid = null;
@@ -186,6 +191,7 @@ export function collect({ store, hour: forcedHour } = {}) {
     lucky: luckyWindows(parisDay(0)),
     golden: goldenState(store),
     auctions: store.tables.has('Auctions') ? store.getAll('Auctions').filter((a) => a.Status === 'open' || (a.SettledAt || 0) > now() - 12 * 3600) : [],
+    closed: new Set(featuresDisabled(store).map((f) => f.key)),
     eventText: evParts.length ? `En ce moment : ${evParts.join(', ')} !` : 'Un événement est en cours sur 2Gatcha.'
   };
   const byUser = new Map();
@@ -195,7 +201,7 @@ export function collect({ store, hour: forcedHour } = {}) {
     if (!user) continue;
     const since = Math.min(...userSubs.map((s) => s.CreatedAt || 0));
     const prefs = prefsOf(user);
-    const due = dueFor(store, user, since, ctx).filter((n) => prefs[kindOf(n.kind)] !== false && !sent.has(`${uid}|${n.kind}|${n.key}`)).slice(0, 3);
+    const due = dueFor(store, user, since, ctx).filter((n) => prefs[kindOf(n.kind)] !== false && !ctx.closed.has(FEATURE_OF_KIND[kindOf(n.kind)]) && !sent.has(`${uid}|${n.kind}|${n.key}`)).slice(0, 3);
     for (const n of due) {
       store.create('NotificationLog', { User: uid, Kind: n.kind, RefKey: n.key, SentAt: now() });
       userSubs.forEach((s) => jobs.push({ sub: s, payload: n }));

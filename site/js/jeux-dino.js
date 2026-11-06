@@ -143,7 +143,7 @@
       <div class="dino-dex-grid">
         <section><h4>Espèces</h4><ul>${dx.species.map(cell).join("")}</ul></section>
         <section><h4>Motifs</h4><ul>${dx.patterns.map(cell).join("")}</ul></section>
-        <section><h4>Couleurs rares</h4><ul>${dx.colors.map(cell).join("")}</ul></section>
+        <section><h4>Couleurs rares</h4><ul>${dx.colors.map(cell).join("")}</ul>${dx.colorPityLeft ? `<p class="muted">Nouvelle couleur garantie dans ${dx.colorPityLeft} éclosion${dx.colorPityLeft > 1 ? "s" : ""} de crâne au plus.</p>` : ""}</section>
         <section><h4>Stades</h4><ul>${dx.stages.map(cell).join("")}</ul></section>
       </div>
       <p class="muted dino-dex-note">Les talents : ${st.species.map((s) => `<strong>${esc(s.label)}</strong> ${esc(s.talent)}${s.seasonal ? " (pendant les événements)" : ""}`).join(" · ")}.</p>

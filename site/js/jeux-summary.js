@@ -128,6 +128,8 @@
     <g class="wm-flies">${FLIES.map(([x, y], i) => `<circle class="wm-fly" style="--d:${(i * 0.7).toFixed(1)}s" cx="${x}" cy="${y}" r="6" fill="url(#wm-fly)"/>`).join("")}</g>
   </svg>`;
 
+  // Onglet -> cle de fonctionnalite (api/src/native/features.js) quand elles different.
+  const FEATURE_OF_TAB = { fish: "fishing", dino: "dinos" };
   const placeUrl = (p) => `${p.page}#${p.hash}`;
   const tabBtn = (tab) => document.getElementById(`tab-${tab}-btn`);
   // Lieu visible ? Onglet masque par sa page (style en ligne), puis une sonde
@@ -274,7 +276,10 @@
     const chips = [];
     // Etat principal de chaque lieu de la carte (le premier signale l'emporte).
     const status = {};
+    // Jeu ferme dans le mode en cours (Chill sans expedition...) : pas de pastille (GlitchTip #35).
+    const closed = (tab) => typeof featureClosed === "function" && featureClosed(FEATURE_OF_TAB[tab] || tab);
     const chip = (tab, icon, text, hot) => {
+      if (closed(tab)) return;
       chips.push(`<button type="button" class="gs-chip ${hot ? "hot" : ""}" data-gs-tab="${tab}"><span aria-hidden="true">${icon}</span> ${text}</button>`);
       if (!status[tab] || (hot && !status[tab].hot)) status[tab] = { text, hot };
     };
@@ -284,7 +289,7 @@
       if (left > 0) chip("dig", "&#128021;", `Milo : encore ${Math.ceil(left / 3600)} h`, false);
       else if (dig.bones > 0 && dig.bonesLeftToday !== 0 && !(typeof StarterLocks !== "undefined" && StarterLocks.pets.milo === false)) chip("dig", resIcon("bone"), `${dig.bones} os à donner`, true);
     }
-    if (dogGift && dogGift.available) chips.push(`<button type="button" class="gs-chip hot" data-gs-dog="1"><span aria-hidden="true">&#128021;</span> Trouvaille de Milo</button>`);
+    if (dogGift && dogGift.available && !closed("dig")) chips.push(`<button type="button" class="gs-chip hot" data-gs-dog="1"><span aria-hidden="true">&#128021;</span> Trouvaille de Milo</button>`);
     if (garden) {
       const empty = garden.plots.filter((p) => !p.planted).length;
       const bunny = garden.bunny && garden.bunny.secondsLeft > 0;
@@ -296,7 +301,9 @@
     if (fish) chip("fish", "&#127907;", fish.energy == null ? `${fish.worms} vers` : `${fish.energy}/${fish.maxEnergy} &#9889; · ${fish.worms} vers`, fish.energy > 0 && fish.worms >= fish.cost);
     if (expe) {
       const ex = expe.expedition || {};
-      if (ex.active && ex.ready) chip("expedition", "&#129517;", "Expédition rentrée", true);
+      // Fermee dans le mode mais deja rentree : onglet masque, on la recupere d'ici.
+      if (closed("expedition") && ex.active && ex.ready) chips.push(`<button type="button" class="gs-chip hot" data-gs-expe="1"><span aria-hidden="true">&#129517;</span> Expédition rentrée : récupérer</button>`);
+      else if (ex.active && ex.ready) chip("expedition", "&#129517;", "Expédition rentrée", true);
       else if (ex.active) chip("expedition", "&#129517;", "Expédition en cours", false);
       else chip("expedition", "&#129517;", "Explorateur disponible", true);
     }
@@ -346,6 +353,13 @@
         dog.disabled = true;
         API.dogGift(Session.userId, "claim").then((r) => { Toast.success(`&#128021; Milo t'a rapporté ${r.gift.label} !`); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); render(); })
           .catch(() => { dog.disabled = false; Toast.error("Milo n'a rien trouvé pour l'instant."); });
+        return;
+      }
+      const expe = e.target.closest("[data-gs-expe]");
+      if (expe) {
+        expe.disabled = true;
+        API.expedition(Session.userId, "claim").then(() => { Toast.success("&#129517; L'explorateur est de retour : récompense récupérée !"); if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge(); render(); })
+          .catch(() => { expe.disabled = false; Toast.error("Impossible de récupérer l'expédition pour l'instant."); });
         return;
       }
       const b = e.target.closest("[data-gs-tab]");

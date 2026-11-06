@@ -73,6 +73,13 @@ const Toast = {
       return;
     }
     this.show(msg, "error"); NotificationHistory.add("error", msg);
+    // Console + GlitchTip (#40) : « Erreur. (code) » (refus imprevu) est deja
+    // remonte en erreur par friendlyError ; le reste = refus attendu, en avertissement.
+    const text = String(msg || "").replace(/<[^>]+>/g, "").replace(/&#?\w+;/g, " ").replace(/\s+/g, " ").trim();
+    // Panne (5xx deja signalee par API._report, ou reseau du joueur) : pas d'avertissement.
+    if (/^Erreur\. \(|^Le serveur ne répond pas/.test(text)) return;
+    console.warn("[2Gatcha] " + text);
+    if (typeof Monitor !== "undefined" && text) Monitor.warn(text, { via: "toast", page: location.pathname.split("/").pop() + location.hash });
   },
   info(msg) { this.show(msg, "info"); NotificationHistory.add("info", msg); }
 };

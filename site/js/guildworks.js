@@ -36,7 +36,8 @@
           const pct = Math.min(100, Math.round((n.progress / n.target) * 100));
           const left = Math.max(0, n.target - n.progress);
           const canGive = Math.min(left, n.myCap - n.myGiven, n.have);
-          const steps = [1, 10].filter((k) => k < canGive);
+          // +100 / +1000 (2026-11-06) : pour les poussieres et les gros objectifs.
+          const steps = [1, 10, 100, 1000].filter((k) => k < canGive);
           return `<div class="gw-need ${n.done ? "done" : ""}">
             <div class="gw-need-top"><span class="gw-need-icon" aria-hidden="true">${n.icon}</span><strong>${esc(n.label)}</strong><span class="gw-need-count">${fmt(n.progress)} / ${fmt(n.target)}</span></div>
             <div class="gw-bar"><span style="width:${pct}%"></span></div>

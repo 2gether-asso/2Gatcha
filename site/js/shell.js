@@ -389,10 +389,12 @@ async function loadNavBadges() {
       ]);
       // Rappels quotidiens (2026-10-04) : quiz du jour pas encore joue,
       // expedition rentree ou chien de fouille au repos... de quoi revenir.
-      const guessReady = !!(guess && guess.choices && !guess.played);
+      // Fermes dans le mode en cours : pas de rappel (GlitchTip #35), sauf
+      // l'expedition rentree, qui se recupere quand meme.
+      const guessReady = !featureClosed("guess") && !!(guess && guess.choices && !guess.played);
       const expeditionReady = !!(expedition && expedition.expedition && expedition.expedition.active && expedition.expedition.ready);
       const vaultReady = !!(vault && !vault.alreadyOpened && vault.userKeys >= vault.keysRequired);
-      const bingoReady = !!(bingo && bingo.hasGrid && bingo.allOwned && !bingo.claimed);
+      const bingoReady = !featureClosed("bingo") && !!(bingo && bingo.hasGrid && bingo.allOwned && !bingo.claimed);
       jeuxCount = [vaultReady, bingoReady, guessReady, expeditionReady].filter(Boolean).length;
     }
     setNavDot("jeux", jeuxCount || "");
@@ -898,6 +900,7 @@ function leaveHiddenTab(tab) {
 // onglets, widgets et liens masques ; page fermee remplacee par un message ;
 // onglet actif masque -> premier onglet ouvert.
 function applyModeFeatures(off, mode) {
+  applyModeFeatures.keys = off.map((f) => f.key);
   let style = document.getElementById("mode-features-style");
   if (!style) { style = document.createElement("style"); style.id = "mode-features-style"; document.head.appendChild(style); }
   const selectors = off.flatMap((f) => f.hide || []);
@@ -924,6 +927,10 @@ function applyModeFeatures(off, mode) {
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(run, 0)); else run();
 }
+// Fonctionnalite fermee dans le mode en cours ? (cle de features.js) : pour les
+// rappels construits a la main (pastilles, resume des jeux), que les selecteurs
+// "hide" ne couvrent pas.
+function featureClosed(key) { return (applyModeFeatures.keys || []).includes(key); }
 try { const m = localStorage.getItem("2gatcha_game_mode"); if (m && GAME_MODE_TITLES[m]) document.documentElement.dataset.gameMode = m; } catch (e) { /* stockage indisponible */ }
 // Mode compact mobile (2026-10-18) : html[data-compact] (CSS sous 640 px), choix de l'appareil.
 function setCompact(on) {

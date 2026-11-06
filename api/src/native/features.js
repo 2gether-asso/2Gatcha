@@ -5,7 +5,8 @@
 //    message a la place des pages fermees (page) ;
 //  - l'API refuse ses ECRITURES (lectures permises : les widgets ne cassent
 //    pas) avec { error: 'feature_disabled' } ;
-//  - "Que faire maintenant ?" ne la suggere plus (urls, nudges).
+//  - "Que faire maintenant ?" ne la suggere plus (urls, nudges) ;
+//  - sauf ses actions "allow" (recuperer une expedition deja partie).
 // Bingo (refonte 2026-11) : dans la liste, ouvert partout par defaut.
 //   POST /webhook/admin-mode-features { discordId, action: 'status' | 'set', matrix? }
 
@@ -27,7 +28,7 @@ export const FEATURES = [
   // Jeux
   { key: 'dig', group: 'Jeux', icon: '⛏️', label: 'Fouille', paths: ['dig', 'community-dig'], hide: ['#tab-dig-btn'], urls: ['jeux.html#fouille'], nudges: ['dig', 'dig-some'], off: [] },
   { key: 'guess', group: 'Jeux', icon: '❓', label: 'Devine la carte', paths: ['guess-card'], hide: ['#tab-guess-btn'], urls: ['jeux.html#devine'], nudges: ['guess'], off: [] },
-  { key: 'expedition', group: 'Jeux', icon: '🧭', label: 'Expédition', paths: ['expedition'], hide: ['#tab-expedition-btn'], urls: ['jeux.html#expedition'], nudges: ['expedition', 'expedition-start'], off: [] },
+  { key: 'expedition', group: 'Jeux', icon: '🧭', label: 'Expédition', paths: ['expedition'], hide: ['#tab-expedition-btn'], urls: ['jeux.html#expedition'], nudges: ['expedition', 'expedition-start'], allow: ['claim'], off: [] },
   { key: 'fishing', group: 'Jeux', icon: '🎣', label: 'Pêche', paths: ['fishing', 'fishing-tournament'], hide: ['#tab-fish-btn'], urls: ['jeux.html#peche'], nudges: ['fishing'], off: [] },
   { key: 'archeo', group: 'Jeux', icon: '🏺', label: 'Archéologie', paths: ['archeo'], hide: ['#tab-archeo-btn'], urls: ['jeux.html#archeologie'], off: [] },
   { key: 'bingo', group: 'Jeux', icon: '🎱', label: 'Bingo du mois', paths: ['bingo'], hide: ['#tab-bingo-btn'], urls: ['jeux.html#bingo'], off: [] },
@@ -118,7 +119,9 @@ export function questTypeOpen(store, type) {
 export function gate(store, method, path, body = {}) {
   if (method === 'GET' || READ_ACTIONS.has(body.action) || body.discordId) return null;
   const f = disabled(store).find((x) => x.paths.includes(path));
-  if (!f) return null;
+  // allow : actions qui terminent ce qui est deja lance (expedition partie avant
+  // la fermeture : on la recupere, on n'en relance pas).
+  if (!f || (f.allow || []).includes(body.action)) return null;
   const mode = currentMode(store);
   const storm = stormState(store);
   if (storm && storm.active && storm.feature === f.key) return fail('feature_disabled', 403, { feature: f.key, label: f.label, mode: mode.key, storm: true, message: `⛈️ Tempête : ${storm.label} est fermée jusqu’à ${storm.to} h.` });

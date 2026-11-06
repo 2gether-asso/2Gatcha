@@ -460,6 +460,8 @@ export const REGISTRY = {
   DinoDigHours: { ...int('Dinos : heures entre deux trouvailles de la fouille automatique', 6, 'Dinos', 'Dinos adultes et contents seulement (Tricératops 2 fois plus vite). 4 trouvailles en attente au plus.', 1, 48), storage: 'app' },
   DinoAutoSkullChance: { ...num('Dinos : chance de crâne par trouvaille automatique', 0.003, 'Dinos', '', 0, 0.1), storage: 'app' },
   DinoGoldPoopChance: { ...pct('Dinos : chance de caca doré par crevette mangée', 0.3, 'Dinos', 'Engrais doré : parcelle prête tout de suite, appât doré garanti.'), storage: 'app' },
+  DinoColorPity: { ...int('Dinos : éclosions sans nouvelle couleur rare avant la garantie', 15, 'Dinos', 'Éclosions de crâne d’affilée sans couleur rare encore jamais obtenue : la suivante en donne une (Albinos, Obsidienne, Or, Fossile vivant, Chromatique). 0 = pas de garantie.', 0, 200), storage: 'app' },
+  DinoEggMutation: { ...pct('Dinos : chance qu’un œuf mute vers une couleur rare jamais obtenue', 0.03, 'Dinos', 'À l’éclosion d’un œuf, en plus de la couleur transmise par les parents.'), storage: 'app' },
   DinoSeasonalChance: { ...pct('Dinos : chance de Ptérodactyle saisonnier à l’éclosion', 0.3, 'Dinos', 'Seulement pendant un événement saisonnier.'), storage: 'app' },
   DinoFertilizerBoost: { ...pct('Dinos : avance donnée par un engrais', 0.5, 'Dinos', 'Part du temps de pousse sautée quand on met un caca de dino sur une parcelle (la récolte de vers est aussi doublée).'), storage: 'app' },
 

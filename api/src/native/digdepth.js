@@ -104,6 +104,10 @@ export function beforeWorkflow({ store, path, request }) {
     return { status: 200, json: { ok: true, digDepth: depthState(store, fresh) } };
   }
   const depth = currentDepth(store, user);
+  // Profondeur choisie plus verrouillee (prestige : retour au niveau 1) : on
+  // retient celle ou l'on fouille vraiment, sinon chaque nouveau deblocage la
+  // ferait glisser d'un cran et effacerait la grille sans rien demander.
+  if (user.DigDepth != null && Number(user.DigDepth) !== depth) store.update('Users', user.id, { DigDepth: depth });
   const cfg = setting(store, 'DigDepths')[depth - 1] || {};
   request.body = { ...request.body, depthCfg: JSON.stringify({ depth, treasures: cfg.treasures || [], cardShift: Number(cfg.cardShift) || 0, mineralMax: Math.min(5, Math.max(1, Number(cfg.mineralMax) || 1)) }), maxEnergyBase: setting(store, 'DigMaxEnergy') };
   return null;

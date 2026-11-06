@@ -259,18 +259,30 @@ var Monitor = {
   queue: [],
   seen: typeof WeakSet === "function" ? new WeakSet() : null,
   ready: false,
-  capture: function (err, tags) {
+  capture: function (err, tags, level) {
     if (!err) return;
     if (typeof err === "object" && this.seen) { if (this.seen.has(err)) return; this.seen.add(err); }
     var e = err instanceof Error ? err : new Error(typeof err === "string" ? err : (err && err.message) || String(err));
-    if (!this.ready) { if (this.queue.length < 30) this.queue.push([e, tags]); return; }
-    this.send(e, tags);
+    if (!this.ready) { if (this.queue.length < 30) this.queue.push([e, tags, level]); return; }
+    this.send(e, tags, level);
   },
-  send: function (e, tags) {
+  send: function (e, tags, level) {
     window.Sentry.withScope(function (scope) {
       if (tags) Object.keys(tags).forEach(function (k) { if (tags[k] != null) scope.setTag(k, String(tags[k]).slice(0, 200)); });
-      window.Sentry.captureException(e);
+      if (level) scope.setLevel(level);
+      if (level === "warning") window.Sentry.captureMessage(e.message); else window.Sentry.captureException(e);
     });
+  },
+  // Refus attendu montre au joueur (toast d'erreur avec un message clair) :
+  // avertissement, pas erreur (GlitchTip #40). Une fois par message et par
+  // page, 10 au plus : de quoi reperer les actions proposees a tort.
+  warned: {},
+  warnCount: 0,
+  warn: function (message, tags) {
+    if (!message || this.warned[message] || this.warnCount >= 10) return;
+    this.warned[message] = true;
+    this.warnCount++;
+    this.capture(new Error(message), tags, "warning");
   },
   // Erreur de code (TypeError, ReferenceError...) et non refus de l'API :
   // un bug a corriger, meme quand la page s'en remet.
@@ -321,7 +333,7 @@ var Monitor = {
     Monitor.ready = true;
     var q = Monitor.queue;
     Monitor.queue = [];
-    q.forEach(function (x) { Monitor.send(x[0], x[1]); });
+    q.forEach(function (x) { Monitor.send(x[0], x[1], x[2]); });
   };
   // SDK bloque (bloqueur de pub, reseau) : plus de file qui grossit.
   s.onerror = function () { Monitor.queue = []; Monitor.capture = function () {}; };
