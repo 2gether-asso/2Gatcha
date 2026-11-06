@@ -150,7 +150,7 @@ const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, econ
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
   talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, vacation, starter, seasonquests, story];
+const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, vacation, starter, seasonquests, story, cooking];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
 moderules.useFeatures(features);
 // XP doublee pendant l'action du jour (daily.js).
@@ -224,10 +224,12 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     const surge = xpWrite && before ? surprise.surpriseXpMult(store) : 1;
     const stars = xpWrite && before ? Math.min(10, accountPrestige.prestigeStars(store, before)) : 0;
     const prestigeMult = 1 + (stars * setting(store, 'AccountPrestigeXpPct')) / 100;
-    if (house || boosted || surge > 1 || prestigeMult > 1) {
+    // Plat du savoir (cooking.js, effet « xp »).
+    const cookMult = xpWrite && before ? cooking.xpMult(store, before) : 1;
+    if (house || boosted || surge > 1 || prestigeMult > 1 || cookMult > 1) {
       try {
         fields = { ...fields };
-        const mult = (house ? setting(store, 'HouseXpMultiplier') : 1) * (boosted ? 2 : 1) * surge * prestigeMult;
+        const mult = (house ? setting(store, 'HouseXpMultiplier') : 1) * (boosted ? 2 : 1) * surge * prestigeMult * cookMult;
         for (const f of XP_FIELDS) {
           if (!(f in fields)) continue;
           const delta = (Number(fields[f]) || 0) - (Number(before[f]) || 0);

@@ -121,6 +121,54 @@ export const REGISTRY = {
   CookGardenPct: { ...int('Cuisine : pousse du jardin plus rapide (%)', 25, 'Cuisine', 'Effet « garden ».', 0, 80), storage: 'app' },
   CookFishPct: { ...int('Cuisine : prises rares de la pêche en plus (%)', 30, 'Cuisine', 'Effet « fish » (Moka compris).', 0, 300), storage: 'app' },
   CookArcheoPct: { ...int('Cuisine : endurance d’archéologie en plus (%)', 25, 'Cuisine', 'Effet « archeo », sur les tablettes ouvertes pendant le bonus.', 0, 300), storage: 'app' },
+  // Cuisine V2 (2026-11-06, cooking.js).
+  CookSecretRecipes: {
+    label: 'Cuisine : recettes cachées et de saison', type: 'json', group: 'Cuisine', storage: 'app',
+    help: 'Comme « les recettes », plus : course (entree, plat, dessert), tool (oven, smoker, mill, cauldron : ustensile requis), keeps (le plat se garde), level (niveau de cuisinier), season (newyear, valentine, easter, aprilfools, summer, halloween, christmas : au menu pendant l’évènement, sinon cachée et découverte à la marmite). effect en plus : dig, expedition, xp, casino (porte de la salle interdite ouverte), luck (charges), random. Ingrédients en plus : egg, truffle, salt, spice, rarefish, flower, almond, cocoa, coconut, pumpkin, chestnut.',
+    def: [
+      { key: 'omelette', label: 'Omelette aux herbes', icon: '🍳', desc: 'Baveuse, comme il faut.', effect: 'xp', hours: 2, course: 'entree', needs: { egg: 2, herb: 1 } },
+      { key: 'veloute', label: 'Velouté des sous-bois', icon: '🥣', desc: 'Il sent la terre après la pluie.', effect: 'dig', hours: 2, course: 'entree', needs: { mush: 2, veg: 1, salt: 1 } },
+      { key: 'salade', label: 'Salade fleurie', icon: '🥗', desc: 'Presque trop jolie pour être mangée.', effect: 'garden', hours: 3, course: 'entree', needs: { veg: 1, flower: 2 } },
+      { key: 'sorbet', label: 'Sorbet exotique', icon: '🍧', desc: 'Frais comme le ponton à l’aube.', effect: 'fish', hours: 2, course: 'dessert', needs: { fruit: 2, berry: 1 } },
+      { key: 'curry', label: 'Curry du voyageur', icon: '🍛', desc: 'Milo en demande avant chaque départ.', effect: 'expedition', hours: 3, course: 'plat', level: 2, needs: { veg: 1, carrot: 1, spice: 1 } },
+      { key: 'confiture', label: 'Confiture du verger', icon: '🫙', desc: 'En bocal : elle se garde.', effect: 'pets', hours: 3, course: 'dessert', keeps: true, level: 2, needs: { berry: 3, fruit: 1 } },
+      { key: 'carottes', label: 'Carottes rôties au miel', icon: '🥕', desc: 'Noisette fait semblant de ne pas regarder.', effect: 'pets', hours: 4, course: 'plat', tool: 'oven', level: 2, needs: { carrot: 2, honey: 1 } },
+      { key: 'clafoutis', label: 'Clafoutis aux baies', icon: '🍮', desc: 'Doré sur le dessus, fondant dedans.', effect: 'xp', hours: 3, course: 'dessert', tool: 'oven', level: 3, needs: { berry: 2, egg: 1, honey: 1 } },
+      { key: 'fume', label: 'Poisson fumé', icon: '🐡', desc: 'Il se garde des semaines.', effect: 'fish', hours: 4, course: 'plat', tool: 'smoker', level: 3, needs: { fish: 2, salt: 1 } },
+      { key: 'nectar', label: 'Nectar de fleurs', icon: '🌼', desc: 'On dit qu’il porte bonheur.', effect: 'luck', course: 'dessert', level: 3, needs: { flower: 1, honey: 2 } },
+      { key: 'gratin', label: 'Gratin aux truffes', icon: '🥔', desc: 'Le plat préféré des fouilleurs chanceux.', effect: 'dig', hours: 3, course: 'plat', tool: 'oven', level: 4, needs: { veg: 2, truffle: 1, egg: 1 } },
+      { key: 'croupier', label: 'Cocktail du croupier', icon: '🍸', desc: 'Servi seulement derrière une certaine porte.', effect: 'casino', hours: 3, course: 'entree', level: 4, needs: { fruit: 1, spice: 1, honey: 1 } },
+      { key: 'bouillabaisse', label: 'Bouillabaisse des grands fonds', icon: '🦞', desc: 'Les poissons rares portent chance.', effect: 'luck', course: 'plat', tool: 'cauldron', level: 5, needs: { rarefish: 1, fish: 1, herb: 1, spice: 1 } },
+      { key: 'potaufeu', label: 'Pot-au-feu du vieux Barnabé', icon: '🍖', desc: 'Sa recette, qu’il ne donne à personne.', effect: 'all', hours: 4, course: 'plat', tool: 'cauldron', level: 6, needs: { veg: 2, carrot: 2, salt: 1, herb: 1 } },
+      { key: 'galette', label: 'Galette des rois', icon: '👑', desc: 'Qui aura la fève ?', effect: 'luck', course: 'dessert', season: 'newyear', needs: { almond: 2, egg: 1 } },
+      { key: 'fondant', label: 'Fondant du cœur', icon: '💝', desc: 'À partager… ou pas.', effect: 'pets', hours: 6, course: 'dessert', season: 'valentine', needs: { cocoa: 2, egg: 1 } },
+      { key: 'nid', label: 'Nid de Pâques', icon: '🪺', desc: 'Des œufs en chocolat cachés dedans.', effect: 'xp', hours: 4, course: 'dessert', season: 'easter', needs: { cocoa: 1, egg: 2 } },
+      { key: 'surprise', label: 'Gâteau surprise', icon: '🎂', desc: 'Poisson, baies et miel. Vraiment.', effect: 'random', hours: 3, course: 'dessert', season: 'aprilfools', needs: { fish: 1, berry: 1, honey: 1 } },
+      { key: 'flancoco', label: 'Flan coco', icon: '🥥', desc: 'Le dessert des soirs de fête.', effect: 'fish', hours: 3, course: 'dessert', season: 'summer', needs: { coconut: 2, egg: 1 } },
+      { key: 'potiron', label: 'Velouté de potiron', icon: '🎃', desc: 'Il fait peur, mais il est bon.', effect: 'all', hours: 3, course: 'entree', season: 'halloween', needs: { pumpkin: 2, veg: 1, salt: 1 } },
+      { key: 'buche', label: 'Bûche de Noël', icon: '🪵', desc: 'Aux châtaignes, bien sûr.', effect: 'all', hours: 4, course: 'dessert', season: 'christmas', needs: { chestnut: 2, egg: 1, honey: 1 } }
+    ]
+  },
+  CookQuality: { label: 'Cuisine : les 4 qualités de cuisson', type: 'json', group: 'Cuisine', storage: 'app', help: 'Liste de 4 : raté, correct, réussi, parfait. dur = durée du bonus ×, power = force du bonus ×. Les étoiles du carnet vont de 0 à 3.', def: [{ key: 'rate', label: 'Raté', dur: 0.5, power: 0.75 }, { key: 'correct', label: 'Correct', dur: 1, power: 1 }, { key: 'reussi', label: 'Réussi', dur: 1.3, power: 1.15 }, { key: 'parfait', label: 'Parfait', dur: 1.6, power: 1.3 }] },
+  CookTiming: { label: 'Cuisine : écart toléré à la cuisson (ms)', type: 'json', group: 'Cuisine', storage: 'app', help: '3 nombres : parfait, réussi, correct (au-delà : raté). +20 % au niveau 9.', def: [220, 550, 1100] },
+  CookLevelXpStep: { ...int('Cuisine : XP du niveau 2 de cuisinier', 60, 'Cuisine', 'Comme les autres métiers. XP : 4 / 8 / 12 / 18 par plat selon la qualité, +25 pour une recette découverte, +10 par commande.', 10, 10000), storage: 'app' },
+  CookOrdersCount: { ...int('Cuisine : commandes par jour', 3, 'Cuisine', '+1 au niveau 6 de cuisinier.', 0, 10), storage: 'app' },
+  CookOrderDust: { ...int('Cuisine : poussières d’une commande (× qualité demandée + 1)', 80, 'Cuisine', 'Multiplié par l’indice des prix.', 0, 100000), storage: 'app' },
+  CookOrderLove: { ...int('Cuisine : affection donnée par une commande d’un compagnon', 15, 'Cuisine', '', 0, 100), storage: 'app' },
+  CookOrderRareChance: { ...pct('Cuisine : chance d’un ingrédient rare par commande', 0.25, 'Cuisine', 'Truffe, poisson rare, épice, fleur ou œuf.'), storage: 'app' },
+  CookTools: { label: 'Cuisine : prix des ustensiles', type: 'json', group: 'Cuisine', storage: 'app', help: 'Objet { oven, smoker, mill, cauldron : liste de 3 niveaux [poussières, pièces détachées] }. Poussières × indice des prix. Niveau de cuisinier requis : four 2, fumoir 3, moulin 4, chaudron 5.', def: { oven: [[1500, 1], [4000, 2], [9000, 3]], smoker: [[2000, 1], [5000, 2], [11000, 3]], mill: [[2500, 2], [6000, 3], [12000, 4]], cauldron: [[3000, 2], [7000, 3], [14000, 5]] } },
+  CookFreshHours: { ...int('Cuisine : heures avant qu’un plat frais perde une qualité', 24, 'Cuisine', 'Après « raté », il se gâte. Fumoir 2 : ×1,5 ; fumoir 3 : ×2. Les plats qui se gardent ne bougent pas.', 1, 720), storage: 'app' },
+  CookDishMax: { ...int('Cuisine : plats gardés au maximum', 20, 'Cuisine', '', 1, 200), storage: 'app' },
+  CookDigPct: { ...int('Cuisine : chance d’un minéral en plus par coup de pelle (%)', 15, 'Cuisine', 'Effet « dig », × la force du plat.', 0, 100), storage: 'app' },
+  CookExpeditionPct: { ...int('Cuisine : expédition plus courte (%)', 25, 'Cuisine', 'Effet « expedition », sur les départs pendant le bonus ; 80 % au plus.', 0, 80), storage: 'app' },
+  CookXpPct: { ...int('Cuisine : XP en plus (%)', 10, 'Cuisine', 'Effet « xp », toutes les XP (compte et métiers).', 0, 100), storage: 'app' },
+  CookLuckMax: { ...int('Cuisine : charges de chance au maximum', 3, 'Cuisine', 'Effet « luck » : 1 charge par plat (2 s’il est parfait) ; chaque ouverture de booster en use une.', 0, 20), storage: 'app' },
+  CookTruffleChance: { ...pct('Cuisine : chance d’une truffe par coup de pelle', 0.03, 'Cuisine', ''), storage: 'app' },
+  CookFlowerChance: { ...pct('Cuisine : chance d’une fleur par plante récoltée', 0.15, 'Cuisine', ''), storage: 'app' },
+  CookRareFishChance: { ...pct('Cuisine : chance d’un poisson rare pour la cuisine par prise rare', 0.3, 'Cuisine', 'Prises rares, épiques, légendaires et mythiques.'), storage: 'app' },
+  CookEggChance: { ...pct('Cuisine : chance d’œufs quand on ramasse le butin des dinos', 0.3, 'Cuisine', '1 ou 2 œufs.'), storage: 'app' },
+  CookSeasonDropChance: { ...pct('Cuisine : chance de l’ingrédient de saison', 0.12, 'Cuisine', 'Par coup de pelle, récolte, partie de pêche ou promenade, pendant un évènement saisonnier.'), storage: 'app' },
+  CookMealBonusHours: { ...num('Cuisine : heures en plus d’un menu complet', 1, 'Cuisine', 'Entrée + plat + dessert mangés dans l’heure : tous les bonus en cours prolongés.', 0, 12), storage: 'app' },
   CookMaxHours: { ...int('Cuisine : heures de bonus au maximum devant soi', 12, 'Cuisine', 'Recuisiner un plat prolonge son bonus, jusqu’à ce plafond.', 1, 72), storage: 'app' },
   CookRecipes: {
     label: 'Cuisine : les recettes', type: 'json', group: 'Cuisine', storage: 'app',
@@ -706,6 +754,9 @@ function validate(key, raw) {
     if (key === 'ExpeditionDestinations' && (!v.length || v.some((d) => !d || !d.key || !d.name || !d.loot || !Object.keys(d.loot).length || Object.entries(d.loot).some(([k, n]) => !['Worms', 'BoneCount', 'GoldBait', 'SpareParts', 'CatFish', 'KeyCount', 'DinoSkulls', 'ChestCount', 'minerals'].includes(k) || !(Number(n) >= 0))) || new Set(v.map((d) => d.key)).size !== v.length)) throw new Error(`${r.label} : chaque destination a une key unique, un nom et un butin de ressources connues`);
     if (['ForbiddenInlaySpins', 'ForbiddenInlayPower', 'ForbiddenForgeChance', 'ForbiddenHeartPoints'].includes(key) && (v.length !== 5 || v.some((x) => !(Number(x) >= 0)) || (key === 'ForbiddenForgeChance' && v.some((x) => Number(x) > 1)))) throw new Error(`${r.label} : il faut 5 nombres positifs${key === 'ForbiddenForgeChance' ? ' (entre 0 et 1)' : ''}`);
     if ((key === 'ForbiddenGoldCost' || key === 'ForbiddenDiamondCost') && (Array.isArray(v) || !Object.keys(v).length || Object.values(v).some((x) => !(Number(x) >= 1)))) throw new Error(`${r.label} : un objet { rareté : nombre ≥ 1 }`);
+    if (key === 'CookQuality' && (v.length !== 4 || v.some((q) => !q || !q.label || !(Number(q.dur) > 0) || !(Number(q.power) > 0)))) throw new Error(`${r.label} : 4 qualités { key, label, dur > 0, power > 0 }`);
+    if (key === 'CookTiming' && (v.length !== 3 || v.some((x, i) => !(Number(x) > 0) || (i && Number(x) < Number(v[i - 1]))))) throw new Error(`${r.label} : 3 nombres croissants`);
+    if (key === 'CookTools' && (Array.isArray(v) || Object.values(v).some((l) => !Array.isArray(l) || l.some((x) => !Array.isArray(x) || !(Number(x[0]) >= 0) || !(Number(x[1]) >= 0))))) throw new Error(`${r.label} : un objet { ustensile : [[poussières, pièces], …] }`);
     if (key === 'ForbiddenForgeCost' && (!v.length || v.some((x) => !(Number(x) >= 1)))) throw new Error(`${r.label} : une liste de nombres (au moins 1)`);
     if (key === 'ForbiddenHeartSteps' && (v.length !== 6 || v.some((x, i) => !(Number(x) > 0) || (i && Number(x) <= Number(v[i - 1]))))) throw new Error(`${r.label} : 6 nombres croissants`);
     if (key === 'MineralValues' && (v.length !== 5 || v.some((x) => !(Number(x) >= 0)))) throw new Error(`${r.label} : il faut 5 nombres positifs`);

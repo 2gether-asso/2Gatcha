@@ -28,6 +28,7 @@ import { addFeed } from './feed.js';
 import { levelOf as machineLevel, GAME_LEVEL } from './slots.js';
 import { addTabletsFields } from './archeo.js';
 import { petMask } from './starter.js';
+import { casinoBuff } from './cooking.js';
 
 
 export const schema = {
@@ -437,13 +438,15 @@ function scratch(store, user, body) {
   const st = stateOf(user);
   const daily = dailyOf(user);
   const action = body.action || 'status';
-  const info = () => ({ freeToday: !daily.scratchFree, extraLeft: Math.max(0, setting(store, 'CasinoScratchExtra') - (Number(daily.scratchExtra) || 0)), cost: setting(store, 'CasinoScratchCost'), prizes: SCRATCH.map((x) => ({ icon: x.icon, label: x.label })) });
+  // Cocktail du croupier (cooking.js) : un ticket gratuit de plus par jour.
+  const bonusFree = () => casinoBuff(user) && !daily.scratchBonus;
+  const info = () => ({ freeToday: !daily.scratchFree || bonusFree(), extraLeft: Math.max(0, setting(store, 'CasinoScratchExtra') - (Number(daily.scratchExtra) || 0)), cost: setting(store, 'CasinoScratchCost'), prizes: SCRATCH.map((x) => ({ icon: x.icon, label: x.label })) });
   if (action === 'status') return ok({ scratch: { ...info(), ticket: st.scratch && !st.scratch.claimed ? scratchView(st.scratch) : null } });
   if (action === 'new') {
     if (st.scratch && !st.scratch.claimed) return fail('ticket_pending', 400, { scratch: { ...info(), ticket: scratchView(st.scratch) } });
-    const free = !daily.scratchFree;
+    const free = !daily.scratchFree || bonusFree();
     let chipsDelta = 0;
-    if (free) daily.scratchFree = true;
+    if (free) { if (!daily.scratchFree) daily.scratchFree = true; else daily.scratchBonus = true; }
     else {
       if ((Number(daily.scratchExtra) || 0) >= setting(store, 'CasinoScratchExtra')) return fail('daily_limit');
       const cost = setting(store, 'CasinoScratchCost');

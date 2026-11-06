@@ -5,7 +5,7 @@
 //    blancs, il nettoie les blocs bruts et gratte les tablettes ; #archeo-mole.
 //    Leurs rapports arrivent en carte postale a la visite (takeReport).
 //  - Promenade (api walk.js) : onglet #walk-pane, une balade par jour et par compagnon.
-//  - Cuisine du village (api cooking.js) : onglet #cook-pane, plats a bonus.
+//  - Cuisine du village (api cooking.js) : onglet #cook-pane, voir js/kitchen.js.
 // jeux.js appelle Companions.garden(etat) a chaque rendu du jardin et
 // archeo.js Companions.archeo(etat) ; les onglets appellent loadWalk / loadCook.
 
@@ -258,74 +258,14 @@
   }
 
   // ---------------------------------------------------------- cuisine
-  let cookSt = null, cookBusy = false;
-  async function loadCook() {
-    const zone = document.getElementById("cook-zone");
-    if (!zone) return;
-    try { cookSt = await API.cook(uid()); } catch (e) { zone.innerHTML = `<p class="error-box">${esc(friendlyError(e))}</p>`; return; }
-    renderCook();
-  }
-  const WHERE = { veg: "graine Potager du jardin, prairie", herb: "Potager, prairie, forêt", berry: "forêt, clairière", mush: "forêt, clairière, champignon lumineux", honey: "prairie, clairière", fish: "pêche (aquarium), sardines", carrot: "fouille, prairie, boutique" };
-  function renderCook() {
-    const zone = document.getElementById("cook-zone");
-    const st = cookSt;
-    if (!zone || !st) return;
-    if (!st.enabled) { zone.innerHTML = `<div class="empty-state">Les fourneaux sont éteints pour l'instant.</div>`; return; }
-    const active = st.buffs.filter((b) => b.until);
-    zone.innerHTML = `
-      <div class="cook-pantry" aria-label="Garde-manger">
-        <strong class="cook-h">&#129387; Garde-manger</strong>
-        ${st.ingredients.map((i) => `<span class="cook-ing ${i.n ? "" : "empty"}" title="${esc(i.label)} : ${esc(PetText.mask(WHERE[i.key] || ""))}"><span aria-hidden="true">${i.icon}</span> <strong>${i.n}</strong> <small>${esc(i.label.toLowerCase())}</small></span>`).join("")}
-      </div>
-      <div class="cook-buffs">${active.length ? active.map((b) => `<span class="cook-buff">${b.icon} ${esc(b.text)} · <span data-countdown-to="${b.until}" data-countdown-done="terminé"></span></span>`).join("") : `<span class="muted">Aucun plat en cours : cuisine quelque chose pour un bonus !</span>`}</div>
-      <div class="cook-stove ${cookBusy ? "cooking" : ""}" aria-hidden="true"><span class="cook-pot">&#127858;</span><span class="cook-steam"><i></i><i></i><i></i></span></div>
-      <div class="cook-recipes">
-        ${st.recipes.map((r) => `<div class="cook-recipe ${r.can ? "can" : ""}">
-          <span class="cook-recipe-ico" aria-hidden="true">${r.icon}</span>
-          <div class="cook-recipe-body">
-            <strong>${esc(r.label)}</strong>
-            <small>${esc(r.desc)}</small>
-            <span class="cook-effect">${esc(r.effectText)} · ${String(r.hours).replace(".", ",")} h</span>
-            <span class="cook-needs">${r.needs.map((n) => `<span class="cook-need ${n.have >= n.n ? "ok" : "miss"}" title="${esc(n.label)} : ${n.have}/${n.n}">${n.icon} ${n.have}/${n.n}</span>`).join("")}</span>
-          </div>
-          <button type="button" class="btn${r.can ? "" : "-secondary"}" data-cook="${esc(r.key)}" ${r.can && !cookBusy ? "" : "disabled"}>Cuisiner</button>
-        </div>`).join("")}
-      </div>
-      <p class="muted cook-foot">Bonus au plus ${st.maxHours} h devant toi par effet. Les ingrédients viennent du jardin (graine Potager), des promenades et de la pêche.</p>`;
-  }
-  async function cook(key) {
-    if (cookBusy) return;
-    cookBusy = true;
-    const r0 = cookSt.recipes.find((r) => r.key === key);
-    renderCook();
-    // Les ingredients tombent dans la marmite.
-    const stove = document.querySelector("#cook-zone .cook-stove");
-    if (stove && r0 && !reduced()) {
-      r0.needs.forEach((n, k) => { const d = document.createElement("span"); d.className = "cook-drop"; d.textContent = n.icon; d.style.setProperty("--dx", `${(k - r0.needs.length / 2) * 22}px`); d.style.animationDelay = `${k * 140}ms`; stove.appendChild(d); });
-    }
-    try {
-      const [res] = await Promise.all([API.cook(uid(), "cook", { recipe: key }), new Promise((r) => setTimeout(r, reduced() ? 0 : 1300))]);
-      cookSt = res;
-      cookBusy = false;
-      renderCook();
-      Toast.success(`${res.cooked.icon} ${esc(res.cooked.label)} : ${esc(res.cooked.effectText)} pendant ${String(res.cooked.hours).replace(".", ",")} h !`);
-      if (typeof confetti === "function" && !reduced()) confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-      if (res.cooked.effect === "pets" || res.cooked.effect === "all") petsReload();
-    } catch (e) {
-      cookBusy = false;
-      if (e.data && e.data.recipes) cookSt = e.data;
-      renderCook();
-      Toast.error({ missing_ingredients: "Il manque des ingrédients.", cook_closed: "Les fourneaux sont éteints." }[e.code] || friendlyError(e));
-    }
-  }
+  // V2 (2026-11-06) : js/kitchen.js.
+  const loadCook = () => { if (window.Kitchen) Kitchen.load(); };
 
   document.addEventListener("click", (e) => {
     const p = e.target.closest("[data-walk-pet]");
     if (p) { walkPet = p.dataset.walkPet; renderWalk(); return; }
     const g = e.target.closest("[data-walk-go]");
-    if (g && !g.disabled) { goWalk(g.dataset.walkGo); return; }
-    const c = e.target.closest("[data-cook]");
-    if (c && !c.disabled) cook(c.dataset.cook);
+    if (g && !g.disabled) goWalk(g.dataset.walkGo);
   });
 
   let lastBunny = null, lastMole = null;

@@ -122,7 +122,14 @@ export function eventsFrom(store, path, body = {}, response = {}) {
       if (json.prestiged) out.push(ev('prestige', 1, { skill: body.skill }));
       break;
     case 'cook':
-      if (body.action === 'cook' && json.cooked) out.push(ev('cook', 1, { recipe: json.cooked.key }));
+      if ((body.action === 'cook' || body.action === 'finish') && json.cooked) out.push(ev('cook', 1, { recipe: json.cooked.key }));
+      break;
+    // Cuisine V2 : ingredients trouves en promenade et chez les dinos (cooking.js).
+    case 'walk':
+      if (json.walk) out.push(ev('walk'));
+      break;
+    case 'dino':
+      if (body.action === 'collect' && json.loot) out.push(ev('dinoCollect'));
       break;
     case 'cosmetics':
       if (body.action === 'buy' && json.bought) out.push(ev('cosmeticBought'));
