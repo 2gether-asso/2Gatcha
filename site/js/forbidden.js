@@ -147,6 +147,8 @@
             ${Array.from({ length: m.reels }, (_, i) => `<div class="fm-reel" data-reel="${i}"><div class="fm-strip">${[randSym(), randSym(), randSym()].map((k) => symHtml(k)).join("")}</div></div>`).join("")}
             <div class="fm-payline" aria-hidden="true"></div>
           </div>
+          <div class="fm-inlays" id="fm-inlays" style="--reels:${m.reels}"></div>
+          <div class="fm-inlay-pick" id="fm-inlay-pick" hidden></div>
           <div class="fm-heat" title="Surchauffe : à fond, le prochain tour est un triple garanti">
             <span>&#128293;</span><div class="fm-heat-bar"><div id="fm-heat-fill"></div></div><small id="fm-heat-n"></small>
           </div>
@@ -175,6 +177,7 @@
               <li><strong>Quitte ou double</strong> : remets les jetons gagnés en jeu ; le tour suivant gagnant les double.</li>
               <li>La machine prend des niveaux : nouveaux symboles, puis un 4e rouleau. Une heure par semaine, elle s'emballe et paie double.</li>
               <li>Toutes les cartes gagnées ici sont en édition <strong>&#9939;&#65039; Interdite</strong> : elles se décraftent pour une petite part de leur valeur.</li>
+              <li><strong>Incrustations</strong> : sous chaque rouleau, un creux accueille un minéral pour quelques tours. Chaque pierre a son effet (attirer un symbole sur ce rouleau, jokers &#127775;, relance gratuite, cascades…) ; plus elle est précieuse, plus elle dure et plus elle attire.</li>
             </ul>
           </details>
         </aside>
@@ -183,7 +186,10 @@
     z.querySelectorAll(".fm-cur").forEach((b) => b.addEventListener("click", () => { currency = b.dataset.cur; try { localStorage.setItem("2gatcha_fm_currency", currency); } catch (e) { /* stockage indisponible */ } refresh(); }));
     $("fm-spin").addEventListener("click", () => spin(1));
     $("fm-spin10").addEventListener("click", () => spin(10));
+    $("fm-inlays").addEventListener("click", (e) => { const b = e.target.closest("[data-reel]"); if (b) openInlayPick(Number(b.dataset.reel)); });
+    $("fm-inlay-pick").addEventListener("click", onInlayPick);
     refresh();
+    document.dispatchEvent(new CustomEvent("forbidden:machine"));
     clearInterval(jackpotTimer);
     jackpotTimer = setInterval(liveJackpot, 6000);
   }
@@ -214,10 +220,63 @@
     banner.className = "fm-banner" + (m.frenzy ? " frenzy" : " bonus");
     $("fm-daily").innerHTML = (m.boosterCap != null ? `<div class="fm-ch ${m.boostersToday >= m.boosterCap ? "done" : ""}"><span>&#127183; Jetons booster du jour</span><div class="fm-ch-bar"><div style="width:${m.boosterCap ? Math.min(100, Math.round((m.boostersToday / m.boosterCap) * 100)) : 100}%"></div></div><small>${m.boostersToday}/${m.boosterCap}${m.boostersToday >= m.boosterCap ? " · ensuite en poussières" : ""}</small></div>` : "") + m.daily.map((d) => `<div class="fm-ch ${d.done ? "done" : ""}"><span>${d.done ? "&#10004;" : "&#9675;"} ${esc(d.label)}</span><div class="fm-ch-bar"><div style="width:${Math.round((d.progress / d.target) * 100)}%"></div></div><small>${d.progress}/${d.target} · +${d.reward} &#127903;&#65039;</small></div>`).join("");
     $("fm-combos").innerHTML = `<div class="fm-combo-grid">${m.combos.map((c) => `<span class="fm-combo ${c.done ? "done" : ""} ${c.locked ? "locked" : ""} ${c.base ? "" : "bonus"}" title="${c.locked ? "À découvrir à un niveau supérieur" : esc(c.label)}">${c.locked ? "&#128274;" : c.icon}</span>`).join("")}</div><p class="fm-combo-reward ${m.combosReward.done ? "done" : ""}">${m.combosReward.done ? "&#10004; " : ""}Un triple de chaque symbole de base : ${esc(m.combosReward.label)}</p>`;
+    renderInlays();
     const w = m.week;
     $("fm-week").innerHTML = (w.top.length ? `<ol class="fm-top5">${w.top.map((t) => `<li><strong>${esc(t.pseudo)}</strong> <span>${esc(t.label)}</span> <small>${t.cards ? `${t.cards} carte${t.cards > 1 ? "s" : ""}` : ""}${t.dust ? ` · ${fmt(t.dust)} &#10024;` : ""}</small></li>`).join("")}</ol>` : `<p class="fm-empty">Personne encore cette semaine.</p>`)
       + (w.rarest ? `<p class="fm-rarest">Plus belle carte : <strong style="color:${esc(w.rarest.colorHex || "#fff")}">${esc(w.rarest.card)}</strong> (${esc(w.rarest.rarity)}${w.rarest.finish !== "normal" ? ", " + esc(w.rarest.finish) : ""}) par ${esc(w.rarest.pseudo)}</p>` : "")
       + (m.lastJackpots && m.lastJackpots.length ? `<p class="fm-rarest">Derniers jackpots : ${m.lastJackpots.map((j) => `${esc(j.pseudo)} (${fmt(j.amount)} &#10024;)`).join(" · ")}</p>` : "");
+  }
+
+  // Incrustations (2026-11-06) : un creux sous chaque rouleau, un mineral y
+  // est serti pour quelques tours (api/src/native/slots.js, action 'inlay').
+  let pickReel = null;
+  const mineralImg = (img, cls = "") => `<img class="${cls}" src="assets/${encodeURI(img)}" alt="" />`;
+  function renderInlays() {
+    const box = $("fm-inlays");
+    if (!box) return;
+    box.innerHTML = (M().inlays || []).map((x, i) => x
+      ? `<button type="button" class="fm-inlay on tier-${x.tier} ${pickReel === i ? "picking" : ""}" data-reel="${i}" title="${esc(x.name)} : ${esc(x.text)}">${mineralImg(x.img)}<small>${x.left}</small></button>`
+      : `<button type="button" class="fm-inlay ${pickReel === i ? "picking" : ""}" data-reel="${i}" title="Sertir un minéral dans ce rouleau">+</button>`).join("");
+    if (pickReel != null) renderInlayPick();
+  }
+  function openInlayPick(reel) {
+    pickReel = pickReel === reel ? null : reel;
+    $("fm-inlay-pick").hidden = pickReel == null;
+    renderInlays();
+  }
+  function renderInlayPick() {
+    const m = M(), cur = m.inlays[pickReel];
+    const own = m.inlayChoices.filter((c) => c.own > 0);
+    $("fm-inlay-pick").innerHTML = `
+      <div class="fm-ip-head"><strong>Rouleau ${pickReel + 1}</strong>${cur ? ` · ${esc(cur.name)} serti, encore ${cur.left} tour${cur.left > 1 ? "s" : ""}` : " · creux vide"}<button type="button" class="btn-ghost" data-close aria-label="Fermer">&#10005;</button></div>
+      ${cur ? `<p class="fm-ip-note">Le même minéral s'ajoute ; un autre remplace celui-ci (il est perdu).</p>` : ""}
+      ${own.length ? `<div class="fm-ip-list">${own.map((c) => `
+        <div class="fm-ip-row tier-${c.tier} ${cur && cur.key === c.key ? "same" : ""}">
+          ${mineralImg(c.img)}
+          <div><strong>${esc(c.name)}</strong> <small>×${c.own}</small><span>${esc(c.text)} · ${c.spins} tours</span></div>
+          <div class="fm-ip-acts"><button type="button" class="btn btn-secondary" data-inlay="${c.key}" data-n="1">Sertir</button>${c.own >= 5 ? `<button type="button" class="btn-ghost" data-inlay="${c.key}" data-n="5">×5</button>` : ""}</div>
+        </div>`).join("")}</div>` : `<p class="fm-ip-note">Aucun minéral dans ton sac : va fouiller.</p>`}`;
+  }
+  async function onInlayPick(e) {
+    if (e.target.closest("[data-close]")) { openInlayPick(pickReel); return; }
+    const b = e.target.closest("[data-inlay]");
+    if (!b || busy) return;
+    const cur = M().inlays[pickReel];
+    if (cur && cur.key !== b.dataset.inlay && !(await Confirm.show(`${esc(cur.name)} (encore ${cur.left} tours) sera perdu.`, { title: "Remplacer l'incrustation ?", confirmText: "Remplacer", dangerous: true }))) return;
+    busy = true;
+    try {
+      const res = await API.post("forbidden", { userId: Session.userId, action: "inlay", reel: pickReel, key: b.dataset.inlay, count: Number(b.dataset.n) || 1 });
+      state = res;
+      const reel = pickReel;
+      pickReel = null;
+      $("fm-inlay-pick").hidden = true;
+      refresh();
+      const sock = document.querySelector(`.fm-inlay[data-reel="${reel}"]`);
+      if (sock) { sock.classList.add("set"); setTimeout(() => sock.classList.remove("set"), 900); }
+      if (typeof Sfx !== "undefined" && Sfx._tone) { Sfx._tone(660, 0, 0.08, "triangle", 0.05); Sfx._tone(990, 0.08, 0.14, "triangle", 0.04); }
+      Toast.success(`&#129704; ${esc(res.inlaid.name)} serti dans le rouleau ${reel + 1} : ${res.inlaid.left} tours${res.inlaid.replaced ? ` (${esc(res.inlaid.replaced)} remplacé)` : ""}`);
+      document.dispatchEvent(new CustomEvent("stones:refresh"));
+    } catch (err) { Toast.error(errText(err)); } finally { busy = false; }
   }
 
   // Jackpot qui monte en direct (compteur anime).
@@ -283,17 +342,26 @@
     if (g.keys) bits.push(`+${g.keys} ${resIcon("key")}`);
     if (g.coins) bits.push(`+${g.coins} ${resIcon("coin")}`);
     if (g.skulls) bits.push(`+${g.skulls} ${resIcon("skull")}`);
+    (g.minerals || []).forEach((x) => bits.push(`+${x.n} ${mineralImg(x.img, "ico-token")} ${esc(x.name)}`));
     return `${bits.length ? `<div class="fm-gains">${bits.join(" · ")}</div>` : ""}${g.cards && g.cards.length ? `<div class="fm-cards">${g.cards.map(cardTile).join("")}</div>` : ""}`;
   }
-  const sumGains = (list) => list.reduce((a, x) => ({ dust: a.dust + (x.dust || 0), boosters: a.boosters + (x.boosters || 0), keys: a.keys + (x.keys || 0), coins: a.coins + (x.coins || 0), skulls: a.skulls + (x.skulls || 0), cards: [...a.cards, ...(x.cards || [])] }), { dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, cards: [] });
-  function highlightLine(line, cls) {
+  const sumGains = (list) => list.reduce((a, x) => ({ dust: a.dust + (x.dust || 0), boosters: a.boosters + (x.boosters || 0), keys: a.keys + (x.keys || 0), coins: a.coins + (x.coins || 0), skulls: a.skulls + (x.skulls || 0), cards: [...a.cards, ...(x.cards || [])], minerals: mergeMinerals(a.minerals, x.minerals) }), { dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, cards: [], minerals: [] });
+  function mergeMinerals(a, b) {
+    const out = a.map((x) => ({ ...x }));
+    (b || []).forEach((x) => { const cur = out.find((y) => y.key === x.key); if (cur) cur.n += x.n; else out.push({ ...x }); });
+    return out;
+  }
+  // key : la combinaison donnee par le serveur (les jokers 🌟 la completent).
+  function highlightLine(line, key, cls) {
     const counts = {}; line.forEach((k) => (counts[k] = (counts[k] || 0) + 1));
-    const top = Object.keys(counts).find((k) => counts[k] >= 2);
+    const jokers = counts.joker || 0;
+    const top = key && (counts[key] || 0) + jokers >= 2 ? key : Object.keys(counts).find((k) => k !== "joker" && counts[k] >= 2);
+    const hit = (k) => k === top || (top && k === "joker");
     document.querySelectorAll(".fm-reel").forEach((reel, i) => {
       const mid = reel.querySelectorAll(".fm-sym")[1];
       reel.classList.remove("win", "odd");
-      if (top) reel.classList.add(line[i] === top ? "win" : "odd");
-      if (mid && cls && line[i] === top) mid.classList.add(cls);
+      if (top) reel.classList.add(hit(line[i]) ? "win" : "odd");
+      if (mid && cls && hit(line[i])) mid.classList.add(cls);
     });
   }
   const celebrate = (r) => {
@@ -356,6 +424,8 @@
       refresh();
       // Jetons depenses, niveau de la machine (jeux du casino debloques) : le casino se met a jour.
       document.dispatchEvent(new CustomEvent("casino:refresh"));
+      // Geodes : les pierres de la salle se mettent a jour.
+      if (res.results.some((r) => [r, ...(r.cascades || [])].some((x) => x.minerals && x.minerals.length))) document.dispatchEvent(new CustomEvent("stones:refresh"));
       if (typeof refreshStatus === "function") refreshStatus();
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     } catch (e) {
@@ -378,7 +448,7 @@
     const out = $("fm-result");
     // Tours bonus : les jackpots visibles s'allument.
     if (r.bonusAwarded) document.querySelectorAll('.fm-sym[data-k="jackpot"]').forEach((e) => e.classList.add("lit"));
-    highlightLine(r.line);
+    highlightLine(r.line, r.tier !== "none" && r.key);
     const tag = r.kind === "bonus" ? `<div class="fm-forced">&#127920; Tour bonus ×2</div>` : r.kind === "daily" || r.kind === "bank" ? `<div class="fm-kind">Tour gratuit</div>` : r.bet > 1 ? `<div class="fm-kind">Mise ×${r.bet}</div>` : "";
     out.className = `fm-result ${r.tier !== "none" ? "win" : ""} ${r.tier}`;
     out.innerHTML = `${r.forced ? `<div class="fm-forced">&#128293; Surchauffe ! Triple garanti</div>` : ""}${tag}
@@ -395,7 +465,7 @@
         const mid = reel.querySelectorAll(".fm-sym")[1];
         if (mid) mid.outerHTML = symHtml(c.line[i], "drop");
       });
-      highlightLine(c.line);
+      highlightLine(c.line, c.key);
       out.insertAdjacentHTML("beforeend", `<div class="fm-cascade"><div class="fm-label">Cascade ×${c.mult} : ${esc(c.label)}</div>${gainsHtml(c)}</div>`);
       celebrate(c);
       if (c.jackpot) jackpotFx();
@@ -429,7 +499,7 @@
       const out = $("fm-result");
       out.querySelector(".fm-acts")?.remove();
       if (n.tier === "triple" || n.tier === "quad") {
-        highlightLine(n.line);
+        highlightLine(n.line, n.key);
         out.className = "fm-result win triple";
         out.insertAdjacentHTML("beforeend", `<div class="fm-cascade"><div class="fm-label">Relance réussie : ${esc(n.label)} !</div>${gainsHtml(n)}</div>`);
         celebrate(n);
@@ -465,6 +535,18 @@
   document.addEventListener("casino:chips", async () => {
     if (!state || !state.machine) return;
     try { const st = await API.post("forbidden", { userId: Session.userId, action: "status" }); if (st.machine) { state.machine = st.machine; refresh(); } } catch (e) { /* rien */ }
+  });
+
+  // Coeur de la salle nourri (js/forbidden-stones.js) : tours gratuits, geode, surchauffe.
+  document.addEventListener("forbidden:refresh", async () => {
+    if (!state || !state.machine) return;
+    try {
+      const st = await API.post("forbidden", { userId: Session.userId, action: "status" });
+      if (!st.machine) return;
+      const reshape = st.machine.reels !== M().reels;
+      state = st;
+      if (reshape) renderMachine(st); else refresh();
+    } catch (e) { /* plus tard */ }
   });
 
   // ---------------------------------------------------------------- demarrage

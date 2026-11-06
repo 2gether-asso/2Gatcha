@@ -336,6 +336,11 @@ function editionBadge(key) {
   const e = EDITIONS[key];
   return e ? `<span class="edition-badge" data-edition="${key}" title="Édition limitée ${escHtml(e.label)}">${e.icon}<span class="eb-label"> ${escHtml(e.label)}</span></span>` : "";
 }
+// Pierre sertie sur une carte Interdite (2026-11-06, api/src/native/stones.js) :
+// info = { name, img, tier } (gemInfo de la route collection).
+function gemBadge(info, style = "") {
+  return info ? `<span class="gem-badge tier-${info.tier}" title="Sertie : ${escHtml(info.name)}"${style ? ` style="${style}"` : ""}><img src="assets/${encodeURI(info.img)}" alt="${escHtml(info.name)}" /></span>` : "";
+}
 
 const THEME_ORDER = ["default", "monochrome", "sepia", "cyberpunk"];
 const THEME_LABELS = { default: "Nébuleuse (défaut)", monochrome: "Monochrome", sepia: "Sépia", cyberpunk: "Cyberpunk" };

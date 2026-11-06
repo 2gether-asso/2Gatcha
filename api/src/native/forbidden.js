@@ -10,7 +10,9 @@
 //  - Porte : ForbiddenKeysNeeded cles speciales a inserer (Users.DoorKeys).
 //    Une cle speciale se forge avec 1 cle (KeyCount) + 1 de chaque mineral
 //    (digdepth.js). Ouverture definitive (Users.ForbiddenUnlocked).
-//  - Machine a sous : voir slots.js (actions spin, nudge, risk).
+//  - Machine a sous : voir slots.js (actions spin, nudge, risk, inlay).
+//  - Pierres (2026-11-06) : forge interdite, sertissage, Coeur de la salle,
+//    voir stones.js (actions atelier, forge, gem, heart, feed).
 //  - Parchemin (2026-10-19) : rare prise de peche (ArgScrollChance par
 //    lancer, une seule fois ; Users.ArgScroll). Il se relit (action
 //    'scroll') et donne en enigmes l'emplacement des 10 rouages, jamais le mot.
@@ -21,13 +23,14 @@
 //    V M page 404 · VI A page Mode du moment · VII N aquarium ouvert ·
 //    VIII D code Konami sur l'accueil (ou glisses du doigt sur mobile) ·
 //    IX R salle des machines (Communaute) · X E dinodex ouvert. Indice de depart : note de mise a jour du 19/10.
-//   POST /webhook/forbidden { userId, action: 'status' | 'gear' | 'scroll' | 'craftKey' | 'insertKey' | 'spin' | 'nudge' | 'risk', n?, count?, bet? }
+//   POST /webhook/forbidden { userId, action: 'status' | 'gear' | 'scroll' | 'craftKey' | 'insertKey' | 'spin' | 'nudge' | 'risk' | 'inlay' | 'atelier' | 'forge' | 'gem' | 'heart' | 'feed', n?, count?, bet?, reel?, key?, pullId?, tier? }
 
 import { ok, fail, userById, now, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { MINERALS, mineralsOf } from './digdepth.js';
 import { addFeed } from './feed.js';
-import { machineView, spin, nudge, risk } from './slots.js';
+import { machineView, spin, nudge, risk, inlay } from './slots.js';
+import { stonesAction, STONE_ACTIONS } from './stones.js';
 
 export const schema = {
   Users: {
@@ -139,9 +142,14 @@ function handle({ store, body }) {
     return ok({ ...view(store, user), inserted: door, opened });
   }
 
-  if (action === 'spin' || action === 'nudge' || action === 'risk') {
+  if (STONE_ACTIONS.has(action)) {
     if (!isUnlocked(user)) return fail('locked', 403);
-    const r = action === 'spin' ? spin(store, user, body) : action === 'nudge' ? nudge(store, user) : risk(store, user);
+    return stonesAction(store, user, body);
+  }
+
+  if (action === 'spin' || action === 'nudge' || action === 'risk' || action === 'inlay') {
+    if (!isUnlocked(user)) return fail('locked', 403);
+    const r = action === 'spin' ? spin(store, user, body) : action === 'nudge' ? nudge(store, user) : action === 'inlay' ? inlay(store, user, body) : risk(store, user);
     if (r.json && r.json.machine) r.json = { ...view(store, store.get('Users', user.id)), ...r.json };
     return r;
   }

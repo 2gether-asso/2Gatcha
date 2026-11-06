@@ -175,6 +175,8 @@
       const up = upgrades(card, owned, finish, quality);
       const edCopy = state.editions ? variant.copies.find((c) => state.editions.has(c.pullId)) : null;
       const edition = edCopy ? state.editions.get(edCopy.pullId) : "";
+      const gemCopy = state.gems && state.gems.size ? variant.copies.find((c) => state.gems.has(c.pullId)) : null;
+      const gem = gemCopy ? state.gemInfo[state.gems.get(gemCopy.pullId)] : null;
       return `
         <div class="collection-card ${inBulk ? "bulk-mode" : ""} ${checked ? "selected" : ""} ${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? "has-star" : ""}" data-rarity="${card.rarity?.key || "commune"}" data-card-id="${card.cardId}" data-nav-key="${navKey}" data-promo="${card.isPromo ? "1" : "0"}" data-finish="${finish}" data-quality="${quality}"${edition ? ` data-edition="${edition}"` : ""}>
           ${isNew && i === 0 ? '<span class="new-badge">New</span>' : ""}
@@ -185,6 +187,7 @@
             <span class="quality-indicator" data-quality="${quality}">${QUALITY_LABELS[quality]}</span>
             ${variant.serialNumbers.includes(1) ? `<span class="serial-one-badge" title="Premier exemplaire en circulation">#001</span>` : ""}
             ${edition ? editionBadge(edition) : ""}
+            ${gem ? gemBadge(gem) : ""}
             <span class="tile-marks">${i === 0 && state.firstMine && state.firstMine.has(card.cardId) ? `<span class="first-mine-badge" title="Tu as été le premier du serveur à l'obtenir${state.firstMine.get(card.cardId) ? " (" + new Date(state.firstMine.get(card.cardId) * 1000).toLocaleDateString("fr-FR") + ")" : ""}">&#129351;</span>` : ""}${variant.copies.some((c) => state.starred && state.starred.has(c.pullId)) ? '<span class="star-badge" title="Exemplaire ★">&#9733;</span>' : ""}${variant.copies.some((c) => state.insured && state.insured.has(c.pullId)) ? '<span class="insured-badge" title="Exemplaire assuré">&#128737;&#65039;</span>' : ""}${variant.copies.some((c) => state.forged && state.forged.has(c.pullId)) ? '<span class="forged-badge" title="Forgée dans les flammes (arc-en-ciel obtenue en mode Hard)">&#128293;</span>' : ""}${state.mastered && state.mastered.has(card.cardId) ? '<span class="master-badge" title="Maître : les 6 finitions de cette carte">&#128081;</span>' : ""}</span>
           </div>
           <div class="card-info">
@@ -530,6 +533,7 @@
       const disenchantable = owned && canDisenchant(card);
       // Edition limitee de la variante affichee (effet + badge, comme sur la vignette).
       const modalEdition = state.editions && copies ? (copies.map((c) => state.editions.get(c.pullId)).find(Boolean) || "") : "";
+      const modalGem = state.gems && copies ? state.gemInfo[copies.map((c) => state.gems.get(c.pullId)).find(Boolean)] : null;
       overlay.innerHTML = `
         <div class="card-modal ${direction ? "slide-" + direction : ""}" data-card-id="${card.cardId}" data-rarity="${card.rarity?.key || "commune"}" data-finish="${finish}" data-quality="${quality}"${modalEdition ? ` data-edition="${modalEdition}"` : ""} role="dialog" aria-modal="true" aria-label="${escapeHtml(card.name)}">
           <button class="card-modal-close" aria-label="Fermer">&times;</button>
@@ -548,6 +552,7 @@
               ${owned ? `<span class="quality-indicator" data-quality="${quality}" style="position:static;">${QUALITY_LABELS[quality]}</span>` : ""}
               ${serials.includes(1) ? `<span class="serial-one-badge" style="position:static;" title="Premier exemplaire en circulation">#001</span>` : ""}
               ${modalEdition ? editionBadge(modalEdition).replace('class="edition-badge"', 'class="edition-badge" style="position:static;"') : ""}
+              ${modalGem ? gemBadge(modalGem, "position:static;transform:none;") : ""}
             </div>
             ${owned ? `<div class="card-modal-stats"><span>Possédée &times;${copies.length}${owned.count > copies.length ? ` (${owned.count} toutes variantes)` : ""}</span>${serials.length ? `<span>${serials.map(Coll.serial).join(", ")}</span>` : ""}</div>` : ""}
             ${card.description ? `<p class="card-modal-description">${escapeHtml(card.description)}</p>` : ""}
@@ -564,7 +569,7 @@
             </details>` : ""}
             <div class="card-modal-actions">
               ${owned && finish === "normal" && !card.isPromo && card.rarity?.key !== "unique" && copies.some((c) => !state.insured.has(c.pullId)) ? `<button type="button" class="btn-ghost" data-modal-act="reroll" title="Payer des poussières pour retenter une finition spéciale sur un de tes exemplaires">&#127922; Relancer la finition</button>` : ""}
-              ${disenchantable ? `<button type="button" class="btn-ghost" data-modal-act="disenchant">&#9851; Décrafter (${card.isSecret ? "+1 booster" : "+" + Coll.estimateDust(card.rarity.disenchantValue, finish, quality, copies && copies.length && copies.every((c) => state.editions.get(c.pullId) === "forbidden") ? "forbidden" : "")})</button>` : ""}
+              ${disenchantable ? `<button type="button" class="btn-ghost" data-modal-act="disenchant">&#9851; Décrafter (${card.isSecret ? "+1 booster" : "+" + Coll.estimateDust(card.rarity.disenchantValue, finish, quality, copies && copies.length && copies.every((c) => state.editions.get(c.pullId) === "forbidden" && !state.forgedForbidden.has(c.pullId)) ? "forbidden" : "")})</button>` : ""}
               ${owned && !card.isPromo ? `<button type="button" class="btn-secondary" data-modal-act="trade">&#8644; Échanger</button>` : ""}
               ${up.finish ? `<button type="button" class="btn-secondary" data-modal-act="finish">&#10024; Fusionner en ${FINISH_LABELS[up.nextFinish]}</button>` : ""}
               ${up.quality ? `<button type="button" class="btn-secondary" data-modal-act="quality">&#128295; Restaurer en ${QUALITY_LABELS[up.nextQuality]}</button>` : ""}

@@ -251,6 +251,7 @@ const Coll = (() => {
     level: 1,
     finishMultipliers: {},
     editionDecraft: {},
+    gems: new Map(), gemInfo: {}, forgedForbidden: new Set(),
     qualityMultipliers: {},
     wishlist: new Set(),
     showcase: new Set(),
@@ -357,6 +358,12 @@ const Coll = (() => {
     state.mastered = new Set(collection.masteredCards || []);
     state.editions = new Map(Object.entries(collection.editionPulls || {}).map(([k, v]) => [Number(k), v]));
     state.editionDecraft = collection.editionDecraft || {};
+    // Pierres serties et cartes Interdites forgees (decraft normal), 2026-11-06.
+    state.gems = new Map(Object.entries(collection.gemPulls || {}).map(([k, v]) => [Number(k), v]));
+    state.gemInfo = collection.gemInfo || {};
+    state.forgedForbidden = new Set(collection.forgedForbiddenPullIds || []);
+    // Transmutation par l'Or et le Diamant (porte de la salle ouverte seulement).
+    state.transmute = collection.transmute || null;
     // Edition de chaque exemplaire (choix d'exemplaires, fusions...).
     state.ownedMap.forEach((o) => (o.copies || []).forEach((c) => { c.edition = state.editions.get(c.pullId) || ""; }));
     state.insured = new Set(collection.insuredPullIds || []);
@@ -466,7 +473,7 @@ const Coll = (() => {
       if (!card || card.isPromo || card.rarity?.disenchantValue == null) return;
       value += estimateDust(card.rarity.disenchantValue, finish, quality, edition);
     };
-    state.ownedMap.forEach((o, id) => (o.copies || []).forEach((c) => add(state.byId.get(id), finishOf(c), qualityOf(c), c.edition)));
+    state.ownedMap.forEach((o, id) => (o.copies || []).forEach((c) => add(state.byId.get(id), finishOf(c), qualityOf(c), state.forgedForbidden.has(c.pullId) ? "" : c.edition)));
     state.protectedMap.forEach((copies, id) => copies.forEach((c) => add(state.byId.get(id), finishOf(c), "mint")));
     return value;
   }

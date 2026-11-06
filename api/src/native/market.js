@@ -159,8 +159,9 @@ export function beforeWorkflow({ store, path, request }) {
   if (path === 'disenchant' && Number(body.pullId)) {
     const p = store.get('Pulls', Number(body.pullId));
     if (p && p.Starred) request._starred = true;
-    // Carte gagnee aux machines interdites : decraft reduit (boosts.js).
-    if (p && p.Edition === 'forbidden') request._forbidden = true;
+    // Carte gagnee aux machines interdites : decraft reduit (boosts.js) ;
+    // pas celle passee en Interdite a la forge (stones.js).
+    if (p && p.Edition === 'forbidden' && !p.ForbiddenForged) request._forbidden = true;
   }
   // Echange : l'exemplaire change de main avec son edition, rien n'est perdu.
   if (path !== 'trade') {

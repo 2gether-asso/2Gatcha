@@ -648,8 +648,88 @@
     return out.sort((a, b) => a.card.name.localeCompare(b.card.name) || (order.indexOf(a.from) - order.indexOf(b.from)));
   }
 
+  // Transmutation (2026-11-06, api/src/native/stones.js) : des minéraux Or
+  // passent un exemplaire normal ou holo en Doré, des Diamants un exemplaire
+  // sous le Diamant en Diamant. Le même exemplaire change de finition.
+  // Affichée seulement si le serveur l'envoie (porte de la salle ouverte).
+  let transmuteTo = "gold";
+  function transmuteList(to) {
+    const rank = FINISH_ORDER.indexOf(to);
+    const q = (fusionSearch.finish || "").trim().toLowerCase();
+    const out = [];
+    state.ownedMap.forEach((owned, cardId) => {
+      const card = cardOf(cardId);
+      if (!card || card.isPromo || card.rarity?.key === "unique") return;
+      if (q && !card.name.toLowerCase().includes(q)) return;
+      const groups = new Map();
+      (owned.copies || []).forEach((c) => {
+        const f = Coll.finishOf(c);
+        if (c.inVault || FINISH_ORDER.indexOf(f) >= rank) return;
+        const cur = groups.get(f);
+        if (!cur) groups.set(f, { copy: c, n: 1 });
+        else { cur.n++; if (FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c)) > FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(cur.copy))) cur.copy = c; }
+      });
+      const costs = state.transmute[to].costs;
+      groups.forEach((g, from) => out.push({ card, from, copy: g.copy, n: g.n, cost: costs[card.rarity?.key] || costs.default || 10 }));
+    });
+    return out.sort((a, b) => (b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0) || a.card.name.localeCompare(b.card.name) || FINISH_ORDER.indexOf(b.from) - FINISH_ORDER.indexOf(a.from));
+  }
+  function renderTransmute(el) {
+    let box = el.parentNode.querySelector(":scope > .transmute-box");
+    if (!state.transmute) { box?.remove(); return; }
+    if (!box) {
+      box = document.createElement("details");
+      box.className = "transmute-box";
+      el.parentNode.insertBefore(box, el.parentNode.querySelector(":scope > .fusion-search") || el);
+      box.addEventListener("click", onTransmuteClick);
+    }
+    const t = state.transmute[transmuteTo];
+    const list = transmuteList(transmuteTo);
+    const shown = list.slice(0, 30);
+    const ico = (img) => `<img class="ico-token" src="assets/${encodeURI(img)}" alt="" />`;
+    box.innerHTML = `
+      <summary><span>&#9879;&#65039; Transmutation minérale</span><small>${Object.values(state.transmute).map((x) => `${ico(x.mineral.img)} ${fmtNum(x.own)}`).join(" · ")}</small></summary>
+      <p class="coll-pane-help">Les pierres les plus précieuses de la fouille changent une carte d'un coup, sans fusion : de l'<strong>Or</strong> la passe en <strong>Doré</strong> (depuis Normal ou Holographique), du <strong>Diamant</strong> en <strong>Diamant</strong> (depuis Normal, Holo, Doré ou Ghost). C'est le même exemplaire : il garde son numéro, son état et son édition.</p>
+      <div class="transmute-tabs" role="radiogroup" aria-label="Finition visée">${Object.entries(state.transmute).map(([k, x]) => `<button type="button" role="radio" class="fusion-chip ${k === transmuteTo ? "active" : ""}" aria-checked="${k === transmuteTo}" data-transmute-to="${k}">${ico(x.mineral.img)} ${escapeHtml(x.mineral.name)} &#8594; <span class="finish-tag" data-finish="${k}">${FINISH_LABELS_LONG[k]}</span></button>`).join("")}</div>
+      ${shown.length ? `<div class="transmute-list">${shown.map((u) => `
+        <div class="finish-upgrade-row transmute-row" data-card-id="${u.card.cardId}">
+          <img src="${API.imageUrl(u.card.imageId) || PLACEHOLDER_IMG}" alt="" loading="lazy" decoding="async" />
+          <div class="finish-upgrade-info">
+            <div class="finish-upgrade-name">${escapeHtml(u.card.name)}</div>
+            <div class="finish-upgrade-path"><span class="finish-tag" data-finish="${u.from}">${FINISH_LABELS_LONG[u.from]}</span> <span aria-hidden="true">&#8594;</span> <span class="finish-tag" data-finish="${transmuteTo}">${FINISH_LABELS_LONG[transmuteTo]}</span></div>
+            <div class="finish-upgrade-count">${u.copy.serialNumber != null ? Coll.serial(u.copy.serialNumber) + " · " : ""}${QUALITY_LABELS[Coll.qualityOf(u.copy)] || ""}${u.n > 1 ? ` · ${u.n} exemplaires ${FINISH_LABELS_LONG[u.from]}` : ""}</div>
+          </div>
+          <div class="fusion-actions"><button type="button" class="btn" data-transmute="${u.copy.pullId}" ${t.own >= u.cost ? "" : "disabled"}>${ico(t.mineral.img)} ${u.cost} · Transmuter</button></div>
+        </div>`).join("")}</div>${list.length > shown.length ? `<p class="coll-pane-help">${list.length - shown.length} autres : cherche une carte par son nom.</p>` : ""}`
+      : `<div class="empty-state">Aucune carte à transmuter${fusionSearch.finish ? " pour cette recherche" : ""}.</div>`}`;
+  }
+  async function onTransmuteClick(e) {
+    const tab = e.target.closest("[data-transmute-to]");
+    if (tab) { e.preventDefault(); transmuteTo = tab.dataset.transmuteTo; renderTransmute($("finish-tiers")); return; }
+    const b = e.target.closest("[data-transmute]");
+    if (!b || b.disabled) return;
+    const pullId = Number(b.dataset.transmute);
+    const u = transmuteList(transmuteTo).find((x) => x.copy.pullId === pullId);
+    if (!u) return;
+    const t = state.transmute[transmuteTo];
+    if (!(await Confirm.show(`Passer <strong>${escapeHtml(u.card.name)}</strong> ${u.copy.serialNumber != null ? Coll.serial(u.copy.serialNumber) + " " : ""}de <strong>${FINISH_LABELS_LONG[u.from]}</strong> à <strong>${FINISH_LABELS_LONG[transmuteTo]}</strong> pour <strong>${u.cost} ${escapeHtml(t.mineral.name)}</strong> ?`, { title: "Transmutation", confirmText: "Transmuter" }))) return;
+    b.disabled = true;
+    try {
+      const res = await API.post("forbidden", { userId: Session.userId, action: "transmute", pullId, to: transmuteTo });
+      Toast.success(`&#9879;&#65039; ${escapeHtml(res.transmuted.name)} passe en ${FINISH_LABELS_LONG[res.transmuted.to]} !`);
+      (res.notices || []).forEach((n, i) => setTimeout(() => Toast.success(`${n.icon || ""} ${escapeHtml(n.label || n.text || "")}`), 600 + i * 700));
+      if (typeof confetti === "function") confetti({ particleCount: 110, spread: 90, origin: { y: 0.5 }, colors: transmuteTo === "gold" ? ["#fbbf24", "#fde68a", "#b45309"] : ["#a5f3fc", "#e0f2fe", "#60a5fa"] });
+      if (typeof Sfx !== "undefined" && Sfx.reveal) Sfx.reveal(u.card.rarity?.key);
+      await Coll.refresh();
+    } catch (err) {
+      b.disabled = false;
+      Toast.error(err.code === "not_enough_minerals" ? `Pas assez de ${escapeHtml(t.mineral.name)}.` : friendlyError(err));
+    }
+  }
+
   function renderFusions(kind) {
     const el = $(kind === "finish" ? "finish-tiers" : "quality-tiers");
+    if (kind === "finish") renderTransmute(el);
     if (!el.parentNode.querySelector(":scope > .fusion-search")) {
       const input = document.createElement("input");
       input.type = "search";
