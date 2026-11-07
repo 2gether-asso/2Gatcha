@@ -15,6 +15,8 @@
 //   - le noeud Respond envoie la reponse HTTP, l'execution continue ensuite.
 // Les noeuds de table lisent et ecrivent dans le Store (SQLite + memoire).
 
+import { copyRows } from './store.js';
+
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 // --------------------------------------------------------------- expressions
@@ -97,11 +99,13 @@ function evaluate(value, ctx) {
 class NodeOutput {
   constructor(outputs, jsonText) {
     this.outputs = outputs; // tableau de sorties, chaque sortie = tableau d'items
-    this.jsonText = jsonText || null; // lecture de table : '[{...},{...}]'
+    this.jsonText = jsonText || null; // lecture de table : instantane du Store (tableSnapshot)
   }
   items(index = 0) {
     if (this.jsonText != null && index === 0) {
-      const rows = JSON.parse(this.jsonText);
+      // Copie privee a chaque demande (2026-11-07 : copie des objets deja
+      // parses du Store au lieu d'un JSON.parse de toute la table).
+      const rows = copyRows(this.jsonText);
       return rows.length ? rows.map((json) => ({ json })) : [{ json: {} }];
     }
     let out = this.outputs[index];
@@ -323,7 +327,17 @@ class Execution {
         if (row) { out.push({ json: row }); break; }
         // Un getAll par item (les workflows s'assurent d'un seul
         // item en entree grace aux noeuds "Sync").
-        if (items.length === 1) { jsonText = this.store.getAllJson(table); break; }
+        // rowsBy { column, value } (2026-11-07) : le workflow n'utilise que les
+        // lignes ou column = value (ex. exemplaires d'un joueur) : lues par
+        // l'index au lieu de toute la table. Sortie jamais vide (comme une
+        // table pleine sans ligne correspondante) pour ne pas couper la branche.
+        if (p.rowsBy && items.length === 1) {
+          const v = evaluate(p.rowsBy.value, ctx);
+          jsonText = this.store.tableSnapshotBy(table, p.rowsBy.column, Number.isFinite(Number(v)) ? Number(v) : v);
+          jsonText.keepBranch = true;
+          break;
+        }
+        if (items.length === 1) { jsonText = this.store.tableSnapshot(table); break; }
         for (const row of this.store.getAll(table)) out.push({ json: row });
         continue;
       }
@@ -341,7 +355,7 @@ class Execution {
     if (jsonText != null) {
       // Pas de JSON.parse ici : NodeOutput.items le fait a la demande. Le
       // contenu de outputs ne sert qu'a savoir si la table est vide.
-      return { outputs: [jsonText === '[]' ? [] : [{ json: {} }]], jsonText };
+      return { outputs: [jsonText.list.length || jsonText.keepBranch ? [{ json: {} }] : []], jsonText };
     }
     return { outputs: [out] };
   }

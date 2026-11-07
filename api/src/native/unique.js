@@ -83,7 +83,7 @@ export function syncUniqueCards(store) {
       // Premier obtenteur jamais note (carte obtenue avant le registre, ou
       // donnee par un admin) : le plus ancien exemplaire.
       if (cols.FirstObtainedBy && !refId(c.FirstObtainedBy) && store.tables.has('Pulls')) {
-        const first = store.getAll('Pulls').filter((p) => refId(p.Card) === c.id).sort((a, b) => (a.ObtainedAt || 0) - (b.ObtainedAt || 0) || (a.SerialNumber || 0) - (b.SerialNumber || 0))[0];
+        const first = store.peekBy('Pulls', 'Card', c.id).slice().sort((a, b) => (a.ObtainedAt || 0) - (b.ObtainedAt || 0) || (a.SerialNumber || 0) - (b.SerialNumber || 0))[0];
         if (first && refId(first.User)) fix.FirstObtainedBy = refId(first.User);
       }
       if (Object.keys(fix).length) { store.update('Cards', c.id, fix); promoted++; }
@@ -91,7 +91,7 @@ export function syncUniqueCards(store) {
   }
   if (store.tables.has('Pulls') && store.tables.has('Cards') && store.table('Pulls').columns.InVault) {
     const promo = new Set(store.getAll('Cards').filter((c) => c.IsPromo).map((c) => c.id));
-    for (const p of store.getAll('Pulls')) {
+    for (const p of store.peekAll('Pulls')) {
       if (p.InVault && promo.has(refId(p.Card))) { store.update('Pulls', p.id, { InVault: false }); released++; }
     }
   }
@@ -142,7 +142,7 @@ function uniqueCards(store) {
 }
 
 function giveUniqueCard(store, user, card) {
-  const pulls = store.getAll('Pulls').filter((p) => refId(p.Card) === card.id);
+  const pulls = store.peekBy('Pulls', 'Card', card.id);
   const used = new Set(pulls.map((p) => p.SerialNumber));
   let serial = 1;
   while (used.has(serial)) serial++;
@@ -155,14 +155,12 @@ function giveUniqueCard(store, user, card) {
 // Vitrine du comptoir : toutes les cartes Unique, possedees ou non.
 function counterState(store, user) {
   const mine = new Map();
-  for (const p of store.getAll('Pulls')) {
-    if (refId(p.User) !== user.id) continue;
+  for (const p of store.peekBy('Pulls', 'User', user.id)) {
     const id = refId(p.Card);
     if (!mine.has(id) || (p.SerialNumber || 0) < mine.get(id)) mine.set(id, p.SerialNumber || 0);
   }
   const users = new Map(store.getAll('Users').map((u) => [u.id, u]));
-  const ownersOf = (cardId) => store.getAll('Pulls')
-    .filter((p) => refId(p.Card) === cardId)
+  const ownersOf = (cardId) => store.peekBy('Pulls', 'Card', cardId).slice()
     .sort((a, b) => (a.ObtainedAt || 0) - (b.ObtainedAt || 0) || (a.SerialNumber || 0) - (b.SerialNumber || 0))
     .map((p) => users.get(refId(p.User)))
     .filter((u, i, arr) => u && arr.findIndex((x) => x && x.id === u.id) === i)
@@ -181,7 +179,7 @@ function handleCounter({ store, body }) {
   if ((Number(user.UniqueTickets) || 0) < 1) return fail('no_ticket');
   const card = uniqueCards(store).find((c) => c.id === Number(body.cardId));
   if (!card) return fail('not_unique_card');
-  if (store.getAll('Pulls').some((p) => refId(p.User) === user.id && refId(p.Card) === card.id)) return fail('already_owned');
+  if (store.peekBy('Pulls', 'User', user.id).some((p) => refId(p.Card) === card.id)) return fail('already_owned');
   store.update('Users', user.id, { UniqueTickets: (Number(user.UniqueTickets) || 0) - 1 });
   const granted = giveUniqueCard(store, user, card);
   announce(store, user, granted);

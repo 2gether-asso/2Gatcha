@@ -124,7 +124,7 @@ function checkMastery(store, userId) {
   const user = store.get('Users', userId);
   if (!user) return [];
   const have = new Map();
-  store.getAll('Pulls').forEach((p) => {
+  store.peekBy('Pulls', 'User', userId).forEach((p) => {
     if (refId(p.User) !== userId) return;
     const k = refId(p.Card);
     if (!have.has(k)) have.set(k, new Set());

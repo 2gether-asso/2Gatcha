@@ -20,6 +20,7 @@ export const REGISTRY = {
   RateLimitWritesPerMinute: { ...int('Actions par minute et par joueur', 60, 'Sécurité', "Au-delà, l'API répond « trop de requêtes » jusqu'à la minute suivante.", 5, 1000), storage: 'app' },
   RateLimitReadsPerMinute: { ...int('Lectures par minute et par joueur', 400, 'Sécurité', 'Consultations (statuts, listes).', 20, 10000), storage: 'app' },
   AuthTokenDays: { ...int('Durée de connexion (jours)', 60, 'Sécurité', 'Après ce délai, le joueur doit se reconnecter avec Discord.', 1, 365), storage: 'app' },
+  DiscordProfileRefreshHours: { ...int('Photo Discord : relue toutes les (heures)', 24, 'Sécurité', "Photo de profil et nom Discord des joueurs venus depuis 3 jours relus en arrière-plan, sans reconnexion.", 1, 720), storage: 'app' },
 
   // --- Boosters (lus par le workflow open-pack)
   SpecialFinishChance: { ...pct('Chance de finition spéciale', 0.10, 'Boosters', 'Holo, doré, ghost… par carte tirée.'), storage: 'config' },
@@ -398,6 +399,29 @@ export const REGISTRY = {
   DigLevelXpStep: { ...int('XP pour le niveau 2 de fouille', 20, 'Fouille', 'Chaque niveau suivant demande ce palier en plus (20, 60, 120…). 1 XP par case, +5 par trésor.', 1), storage: 'config' },
   VaultBoostersPerRow: { ...int('Coffre-fort : jetons booster par ligne complète', 6, 'Coffre-fort perso', ''), storage: 'config' },
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
+  // Coffre-fort V2 (2026-11-07) : niveau du coffre, recompense de palier et interets du jour.
+  VaultXpPerCard: { ...int('Coffre-fort : points de prestige par carte rangée', 1, 'Coffre-fort perso', 'Chaque exemplaire rangé (hors émeraude). Retirer une carte retire ses points.'), storage: 'app' },
+  VaultXpPerRow: { ...int('Coffre-fort : points de prestige par ligne complète', 10, 'Coffre-fort perso', 'Une fois par ligne récompensée (toutes éditions), même si une carte est retirée ensuite.'), storage: 'app' },
+  VaultLevels: {
+    label: 'Coffre-fort : niveaux du coffre', type: 'json', group: 'Coffre-fort perso', storage: 'app',
+    help: 'Une ligne par niveau, dans l’ordre. xp : points de prestige à atteindre ; boosters / dust : récompense donnée une fois en atteignant le niveau (bouton « Réclamer ») ; interest : poussières à récupérer une fois par jour à ce niveau ; name : nom affiché (la porte du coffre change de métal tous les 3 niveaux).',
+    def: [
+      { xp: 0, name: 'Coffre de fer', boosters: 0, dust: 0, interest: 0 },
+      { xp: 8, name: 'Coffre renforcé', boosters: 1, dust: 50, interest: 5 },
+      { xp: 25, name: 'Coffre de bronze', boosters: 1, dust: 80, interest: 10 },
+      { xp: 50, name: 'Salle blindée', boosters: 2, dust: 120, interest: 15 },
+      { xp: 90, name: 'Coffre d’argent', boosters: 2, dust: 160, interest: 20 },
+      { xp: 140, name: 'Chambre forte', boosters: 3, dust: 200, interest: 25 },
+      { xp: 210, name: 'Coffre d’or', boosters: 3, dust: 260, interest: 30 },
+      { xp: 300, name: 'Réserve royale', boosters: 4, dust: 320, interest: 40 },
+      { xp: 420, name: 'Coffre d’émeraude', boosters: 5, dust: 400, interest: 50 },
+      { xp: 600, name: 'Trésor légendaire', boosters: 6, dust: 500, interest: 60 }
+    ]
+  },
+  // Pages d'album (2026-11-07, collection-v2.js).
+  AlbumPageSize: { ...int('Album : cartes par page', 9, 'Album', 'Les cartes de chaque extension, dans l’ordre du catalogue, sont rangées par pages de cette taille.', 3, 30), storage: 'app' },
+  AlbumPageBoosters: { ...int('Album : jetons booster par page complète', 1, 'Album', 'Une fois par page (cartes découvertes, coffre-fort compris).', 0, 20), storage: 'app' },
+  AlbumPageDust: { ...int('Album : poussières par page complète', 40, 'Album', '', 0, 5000), storage: 'app' },
 
   // --- Progression longue (2026-10-07)
   MasteryFinishBonusPerLevel: { label: 'Maîtrise : finition spéciale en plus par niveau', type: 'number', def: 0.005, min: 0, max: 0.05, step: 0.001, group: 'Progression', storage: 'app', help: '0,005 = +0,5 point de chance de finition spéciale par niveau de maîtrise au-dessus du 1, sur les boosters de cette extension.' },
@@ -744,6 +768,7 @@ function validate(key, raw) {
     if (key === 'FishingZones' && (!v.length || v.some((z) => !z || !z.key || !['shore', 'deep'].includes(z.pool || 'shore')) || !v.some((z) => z.key === 'shore') || new Set(v.map((z) => z.key)).size !== v.length)) throw new Error(`${r.label} : chaque lieu a une key unique et un pool shore ou deep, et le rivage (shore) doit exister`);
     if (key === 'DigDepths' && (!v.length || v.length > 8 || v.some((d) => !d || !Array.isArray(d.treasures) || !d.treasures.length || d.treasures.some((t) => !['card', 'rareCard', 'booster', 'bigDust', 'smallDust', 'mineral'].includes(t.reward) || !(Number(t.cells) >= 1) || !(Number(t.n) >= 1)) || d.treasures.reduce((s, t) => s + Number(t.cells) * Number(t.n), 0) > 32))) throw new Error(`${r.label} : chaque profondeur a des trésors connus (reward, cells, n) qui tiennent dans 32 cases`);
     if (key === 'RipenStages' && (!v.length || v.some((s, i) => !s || !s.label || !(Number(s.hours) > 0) || !(Number(s.finish) >= 0) || (i > 0 && Number(s.hours) <= Number(v[i - 1].hours))))) throw new Error(`${r.label} : chaque stade a un label, des heures croissantes et des points de finition`);
+    if (key === 'VaultLevels' && (!v.length || v.length > 30 || Number(v[0] && v[0].xp) !== 0 || v.some((l, i) => !l || !(Number(l.xp) >= 0) || (i > 0 && Number(l.xp) <= Number(v[i - 1].xp)) || ['boosters', 'dust', 'interest'].some((k) => l[k] != null && !(Number(l[k]) >= 0))))) throw new Error(`${r.label} : 1 à 30 niveaux, le premier à xp 0, xp strictement croissants, boosters / dust / interest ≥ 0`);
     if (key === 'ChestExtraLoot' && v.some((l) => !l || !l.key || !(Number(l.chance) >= 0 && Number(l.chance) <= 1) || !(Number(l.min) >= 1) || !(Number(l.max) >= Number(l.min)))) throw new Error(`${r.label} : chaque ligne { key, chance (0 à 1), min, max (≥ min) }`);
     if (key === 'RipenSlotLevels' && (!v.length || v.some((x) => !(Number(x) >= 1)))) throw new Error(`${r.label} : une liste de niveaux (au moins 1)`);
     if (key === 'PatchNotesExtra' && v.some((n) => !n || !/^\d{4}-\d{2}-\d{2}$/.test(String(n.date || '')) || !n.title || !Array.isArray(n.items) || !n.items.length)) throw new Error(`${r.label} : chaque entrée a une date AAAA-MM-JJ, un titre et une liste de textes`);

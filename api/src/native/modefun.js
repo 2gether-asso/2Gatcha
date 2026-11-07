@@ -302,7 +302,7 @@ function bountyDeliver(store, user, body) {
 // ------------------------------------------------------------------ Hard : cartes maudites
 const purifyCost = (store, pull) => { const r = rarityOf(store, store.get('Cards', refId(pull.Card))); return Math.max(30, 2 * n(r && r.DisenchantValue)); };
 function cursedOf(store, userId) {
-  return store.getAll('Pulls').filter((p) => refId(p.User) === userId && n(p.CursedUntil) > 0);
+  return store.rowsBy('Pulls', 'User', userId).filter((p) => n(p.CursedUntil) > 0);
 }
 function purify(store, user, pullId) {
   const pull = ownPull(store, user, pullId);
@@ -401,7 +401,7 @@ function bugFound(store, user, id) {
 export function sweepUser(store, userId) {
   const notes = [];
   const t = now();
-  const mine = store.getAll('Pulls').filter((p) => refId(p.User) === userId && (n(p.CursedUntil) > 0 || n(p.MutateAt) > 0 || p.Unstable));
+  const mine = store.rowsBy('Pulls', 'User', userId).filter((p) => n(p.CursedUntil) > 0 || n(p.MutateAt) > 0 || p.Unstable);
   const cursing = ruleOn(store, 'hard.cursed');
   for (const p of mine) {
     const card = store.get('Cards', refId(p.Card));

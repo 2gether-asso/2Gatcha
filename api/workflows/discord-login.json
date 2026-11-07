@@ -200,7 +200,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const m = $('Match User').first().json;\nreturn [{ json: { userId: m.userId, pseudo: m.pseudo, discordId: m.discordId, discordUsername: m.discordUsername, discordAvatar: m.discordAvatar } }];"
+        "jsCode": "const m = $('Match User').first().json;\nreturn [{ json: { userId: m.userId, pseudo: m.pseudo, discordId: m.discordId, discordUsername: m.discordUsername, discordAvatar: m.discordAvatar, discordRefresh: $('Exchange Token').first().json.refresh_token || '' } }];"
       },
       "id": "format-existing",
       "name": "Format Existing",
@@ -249,7 +249,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const created = $input.first().json;\nreturn [{ json: { userId: created.id, pseudo: created.Pseudo, discordId: created.DiscordId, discordUsername: created.DiscordUsername, discordAvatar: created.DiscordAvatar } }];"
+        "jsCode": "const created = $input.first().json;\nreturn [{ json: { userId: created.id, pseudo: created.Pseudo, discordId: created.DiscordId, discordUsername: created.DiscordUsername, discordAvatar: created.DiscordAvatar, discordRefresh: $('Exchange Token').first().json.refresh_token || '' } }];"
       },
       "id": "format-created",
       "name": "Format Created",

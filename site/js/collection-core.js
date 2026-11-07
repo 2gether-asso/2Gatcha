@@ -417,6 +417,8 @@ const Coll = (() => {
       if (!panes[mode] || isLocked(mode)) mode = "binder";
       showMode(mode);
       if (silent && typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+      // Collection V2 (collection-v2.js) : rail des extensions, pages d'album, aides de l'atelier.
+      document.dispatchEvent(new CustomEvent("coll:loaded", { detail: { silent } }));
     } catch (e) {
       Toast.error("Impossible de charger la collection. (" + e.message + ")");
     } finally {
@@ -430,7 +432,11 @@ const Coll = (() => {
   function renderSummary() {
     const { owned, total } = state.stats;
     document.getElementById("progress-label").textContent = `${owned} / ${total} cartes découvertes` + (state.offline ? " (hors-ligne)" : "");
-    document.getElementById("progress-fill").style.width = (total ? Math.round((owned / total) * 100) : 0) + "%";
+    const pct = total ? Math.round((owned / total) * 100) : 0;
+    document.getElementById("progress-fill").style.width = pct + "%";
+    // Anneau du bandeau V2 (2026-11-07).
+    const ring = document.getElementById("cv2-ring");
+    if (ring) { ring.style.setProperty("--p", String(pct)); document.getElementById("cv2-ring-pct").textContent = pct + "%"; }
     document.getElementById("stardust-amount").textContent = state.stardust.toLocaleString("fr-FR");
     renderRarityProgress();
     renderStats();
@@ -444,6 +450,13 @@ const Coll = (() => {
     const ready = state.sets.filter((x) => x.complete && !x.claimed);
     if (!ready.length) { el.style.display = "none"; return; }
     el.style.display = "";
+    // V2 : plusieurs sets prets = une seule ligne (avant : une ligne par set, tout l'ecran).
+    if (ready.length > 1) {
+      const r = ready[0].reward || {};
+      el.innerHTML = `<div class="set-reward-row"><span>&#127942; <strong>${ready.length} sets complets</strong> : ${ready.map((x) => escapeHtml(x.name)).join(", ")}. ${r.boosters} jeton${r.boosters > 1 ? "s" : ""} booster + ${r.dust} poussières chacun.</span>
+        <button type="button" class="btn" data-claim-all-sets>&#127873; Tout réclamer</button></div>`;
+      return;
+    }
     el.innerHTML = ready.map((x) => `
       <div class="set-reward-row">
         <span>&#127942; <strong>Set complet : ${escapeHtml(x.name)}</strong> (${x.total} cartes) ! Récompense : ${x.reward.boosters} jeton${x.reward.boosters > 1 ? "s" : ""} booster + ${x.reward.dust} poussières, et un badge sur ton profil.</span>
@@ -666,6 +679,10 @@ const Coll = (() => {
     document.getElementById("sort-select").style.display = m === "binder" ? "" : "none";
     document.getElementById("search-input").placeholder = m === "craft" ? "Rechercher une carte à crafter..." : m === "disenchant" ? "Rechercher parmi mes cartes..." : "Rechercher une carte...";
     document.body.dataset.collMode = m;
+    // Deux espaces (V2) : Classeur, ou Atelier et ses outils.
+    document.body.classList.toggle("cv2-in-workshop", m !== "binder");
+    document.querySelectorAll(".cv2-top-tab").forEach((b) => { const on = (b.dataset.top === "binder") === (m === "binder"); b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
+    if (m !== "binder") { try { localStorage.setItem("2gatcha_collection_tool", m); } catch (e) {} }
     renderDustReminder();
     renderActive();
   }
@@ -715,10 +732,8 @@ const Coll = (() => {
     filters.search = "";
     filters.extension = "";
     filters.artist = "";
-    savePrefs({ extensionFilter: "", hideStats: false });
+    savePrefs({ extensionFilter: "" });
     document.getElementById("search-input").value = "";
-    document.body.classList.remove("hide-stats");
-    applyStatsLabel(false);
     Object.values(panes).forEach((p) => p.reset && p.reset());
     renderToolbar();
     renderRarityProgress();
@@ -728,7 +743,7 @@ const Coll = (() => {
 
   function applyStatsLabel(hidden) {
     const btn = document.getElementById("stats-toggle");
-    btn.innerHTML = hidden ? "&#128202; Afficher les stats" : "&#128202; Masquer les stats";
+    btn.innerHTML = hidden ? "&#128202; Stats" : "&#128202; Masquer les stats";
     btn.setAttribute("aria-expanded", String(!hidden));
   }
 
@@ -741,7 +756,8 @@ const Coll = (() => {
     mode = initialMode();
     const hashMode = modeFromHash();
 
-    const hideStats = prefs.hideStats != null ? prefs.hideStats : window.matchMedia("(max-width: 640px)").matches;
+    // V2 : stats repliees par defaut (le bandeau garde l'essentiel).
+    const hideStats = prefs.hideStats != null ? prefs.hideStats : true;
     if (hideStats) { document.body.classList.add("hide-stats"); applyStatsLabel(true); }
     document.getElementById("stats-toggle").addEventListener("click", () => {
       const hidden = document.body.classList.toggle("hide-stats");
@@ -757,10 +773,20 @@ const Coll = (() => {
     // Fleches gauche/droite entre les onglets (pattern ARIA tablist).
     nav.addEventListener("keydown", (e) => {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-      const btns = [...nav.querySelectorAll(".coll-mode:not(.locked)")];
+      const btns = [...nav.querySelectorAll(".coll-mode:not(.locked):not([data-mode='binder'])")];
       const i = btns.findIndex((b) => b.dataset.mode === mode);
       const next = btns[(i + (e.key === "ArrowRight" ? 1 : -1) + btns.length) % btns.length];
       if (next) { e.preventDefault(); setMode(next.dataset.mode); next.focus(); }
+    });
+    // Espaces Classeur / Atelier : l'Atelier rouvre le dernier outil utilise.
+    document.getElementById("cv2-top")?.addEventListener("click", (e) => {
+      const b = e.target.closest(".cv2-top-tab");
+      if (!b) return;
+      if (b.dataset.top === "binder") { setMode("binder"); return; }
+      let tool = "disenchant";
+      try { tool = localStorage.getItem("2gatcha_collection_tool") || tool; } catch (err) {}
+      if (!MODES[tool] || tool === "binder" || isLocked(tool)) tool = "disenchant";
+      setMode(tool);
     });
     window.addEventListener("hashchange", () => {
       const m = modeFromHash();
@@ -790,7 +816,20 @@ const Coll = (() => {
     });
     document.getElementById("artist-filter").addEventListener("change", (e) => { filters.artist = e.target.value; renderActive(); });
     document.getElementById("reset-filters-btn").addEventListener("click", resetFilters);
-    document.getElementById("set-reward-banner").addEventListener("click", (e) => {
+    document.getElementById("set-reward-banner").addEventListener("click", async (e) => {
+      const all = e.target.closest("[data-claim-all-sets]");
+      if (all) {
+        all.disabled = true;
+        const ready = state.sets.filter((x) => x.complete && !x.claimed);
+        let boosters = 0, dust = 0;
+        // Une reclamation par set, a la suite (route set-rewards inchangee).
+        for (const x of ready) { try { const r = await API.claimSetReward(Session.userId, x.extensionId); boosters += r.boosters || 0; dust += r.dust || 0; } catch (err) { /* deja reclame : on continue */ } }
+        Toast.success(`&#127942; ${ready.length} sets récompensés : +${boosters} jetons booster et +${dust} poussières !`);
+        if (typeof confetti === "function") confetti({ particleCount: 180, spread: 120, origin: { y: 0.5 } });
+        await refresh();
+        if (typeof loadNavBadges === "function") loadNavBadges();
+        return;
+      }
       const btn = e.target.closest("[data-claim-set]");
       if (btn) claimSet(Number(btn.dataset.claimSet), btn);
     });

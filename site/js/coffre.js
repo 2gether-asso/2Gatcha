@@ -461,7 +461,8 @@ document.addEventListener("DOMContentLoaded", () => {
     try { localStorage.setItem(PV_VIEW_KEY, JSON.stringify({ sort: document.getElementById("pv-sort").value, filter: document.getElementById("pv-filter").value, ext: document.getElementById("pv-ext").value })); } catch (e) {}
     if (pvLastData) pvRender(pvLastData);
   }));
-  document.getElementById("pv-store-all").addEventListener("click", async (e) => {
+  // V2 : remplace par le depot guide (coffre-v2.js) ; garde si la page l'a encore.
+  document.getElementById("pv-store-all")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     const ids = pvCurrentRows().flatMap(pvStorable);
     if (!ids.length) return;

@@ -1647,3 +1647,8 @@ html[data-fx="light"] .gf-cloud, html[data-fx="light"] .gf-bee, html[data-fx="li
 /* Bloc termine a masquer (2026-10-30, home-more.js) : petite croix discrete dans le titre. */
 .done-hide { margin-left: auto; padding: 2px 8px; font-size: 0.8rem; line-height: 1; opacity: 0.6; }
 .done-hide:hover, .done-hide:focus-visible { opacity: 1; }
+
+/* 2026-11-07 : fiche d'une carte arc-en-ciel invisible. Le cadre anime
+   (card-fx.css, animation tierSpin) remplacait l'animation d'apparition de la
+   fenetre (cardModalIn), qui restait a opacite 0. Les deux animations ensemble. */
+:root:not(#fx) .card-modal-overlay .card-modal[data-finish="rainbow"] { animation: cardModalIn 0.18s ease-out forwards, tierSpin 3s linear infinite; }

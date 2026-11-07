@@ -31,6 +31,7 @@
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
   <link rel="stylesheet" href="css/vacation.css" />
+  <link rel="stylesheet" href="css/coffre-v2.css" />
 </head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -39,15 +40,14 @@
   <main id="main-content">
     <div class="panel">
       <h1>&#128274; Coffre-fort perso</h1>
-      <p class="lead">
-        Range tes plus belles cartes à l'abri. Une carte rangée reste à toi
-        (avec son numéro), mais elle quitte ta collection active : elle ne peut
-        plus être échangée, décraftée ou fusionnée tant qu'elle est au coffre.
-        Tu peux la retirer quand tu veux.
-      </p>
+      <p class="lead">Range tes plus belles cartes en parfait état à l'abri : chaque ligne de 6 finitions complétée rapporte une récompense, une carte émeraude et fait monter ton coffre de niveau.</p>
+      <details class="pv2-how">
+        <summary>Comment ça marche ?</summary>
+        <p>Une carte rangée reste à toi (avec son numéro), mais elle quitte ta collection active : elle ne peut plus être échangée, décraftée ou fusionnée tant qu'elle est au coffre. Tu peux la retirer quand tu veux (sauf l'émeraude, preuve de maîtrise). Chaque carte rangée et chaque ligne complète donnent des <strong>points de prestige</strong> : le coffre monte de niveau, chaque palier rapporte une récompense et des <strong>intérêts en poussières</strong> à récupérer chaque jour.</p>
+      </details>
       <nav class="tabs coffre-switch" id="coffre-switch" role="tablist" aria-label="Coffre-fort ou musée">
         <button type="button" class="tab active" role="tab" aria-selected="true" data-coffre-view="vault">&#128274; Coffre-fort</button>
-        <button type="button" class="tab" role="tab" aria-selected="false" data-coffre-view="gallery">&#128142; Présentoir</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-coffre-view="gallery">&#128444;&#65039; Vitrine</button>
         <button type="button" class="tab" role="tab" aria-selected="false" data-coffre-view="museum">&#127963;&#65039; Musée</button>
       </nav>
       <div id="pv-guest" class="error-box" style="display:none">Connecte-toi pour accéder à ton coffre-fort.</div>
@@ -58,6 +58,9 @@
         <a class="btn" href="jeux.html">Aller aux jeux</a>
       </div>
       <div id="pv-zone" style="display:none">
+        <!-- Coffre-fort V2 (2026-11-07) : niveau du coffre, depot guide, tiroirs par extension (coffre-v2.js). -->
+        <section id="pv2-hall" class="pv2-hall" aria-label="Niveau du coffre-fort"></section>
+        <section id="pv2-deposit" class="pv2-deposit" hidden aria-live="polite"></section>
         <div id="pv-summary" class="pv-summary"></div>
         <section id="comptoir" class="pv-counter" aria-labelledby="pv-counter-title" hidden>
           <div class="pv-counter-head">
@@ -90,11 +93,16 @@
             </select>
           </label>
         </div>
-        <button type="button" class="btn pv-store-all" id="pv-store-all" hidden>📥 Tout ranger</button>
+        <div id="pv2-drawer-head" class="pv2-drawer-head" hidden></div>
+        <div id="pv2-drawers" class="pv2-drawers" hidden></div>
         <div id="pv-rows" class="pv-rows"></div>
       </div>
       </div>
-      <div id="gallery-view" hidden><div id="pv-gallery" class="pv-gallery"></div></div>
+      <div id="gallery-view" hidden>
+        <!-- Vitrine du profil (6 places, dans l'ordre) + salle des tresors du coffre. -->
+        <section id="pv2-showcase" class="pv2-showcase" aria-label="Vitrine de ton profil"></section>
+        <div id="pv-gallery" class="pv-gallery"></div>
+      </div>
       <div id="museum-view" hidden>
         <p class="lead" style="font-size:0.85rem;">Tout ce que tu as trouvé au moins une fois, exposé pour toujours : poissons de l'aquarium, minéraux, objets et dinos. Ce que tu n'as pas encore trouvé reste en silhouette.</p>
         <div id="museum-zone"><div class="skeleton-line">Chargement…</div></div>
@@ -110,6 +118,7 @@
   <script src="js/shell-extras.js"></script>
   <script src="js/card-extras.js"></script>
   <script src="js/coffre.js"></script>
+  <script src="js/coffre-v2.js"></script>
   <script src="js/museum.js"></script>
 </body>
 </html>

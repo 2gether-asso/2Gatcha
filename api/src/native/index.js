@@ -1,5 +1,7 @@
 // Fonctionnalites natives de l'API (2026-10-04), a cote des workflows (api/workflows) :
 //   sets.js     recompense de set complet + sets sur le profil public
+//   collection-v2.js pages d'album recompensees + ordre de la vitrine (2026-11-07)
+//   admin-v2.js tableau de bord de l'admin + planificateur semi-automatique (2026-11-07)
 //   matches.js  correspondances d'echange (doublons x wishlists)
 //   streak.js   serie de connexion (7 jours)
 //   events.js   week-ends evenement (bonus apres les workflows existants)
@@ -43,6 +45,8 @@
 import { ensureSchema, levelForXp } from './common.js';
 import { workflowSchemaSpec } from './workflow-schema.js';
 import * as sets from './sets.js';
+import * as collectionV2 from './collection-v2.js';
+import * as adminV2 from './admin-v2.js';
 import * as matches from './matches.js';
 import * as streak from './streak.js';
 import * as events from './events.js';
@@ -53,6 +57,7 @@ import * as chests from './chests.js';
 import * as duplicates from './duplicates.js';
 import * as settings from './settings.js';
 import * as auth from './auth.js';
+import * as discordProfile from './discord-profile.js';
 import * as seasons from './seasons.js';
 import * as fishing from './fishing.js';
 import * as unique from './unique.js';
@@ -146,7 +151,7 @@ import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
 import { setting } from './settings.js';
 
-const MODULES = [settings, auth, pity, sets, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
+const MODULES = [settings, auth, discordProfile, pity, sets, collectionV2, adminV2, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
   talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback];
 // Abonnes du bus d'activite (voir activity.js).
@@ -328,7 +333,7 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     },
     // Regles verifiees avant un workflow : null = OK, sinon la reponse.
     beforeWorkflow(path, request) {
-      for (const m of [testaccount, secrets, forbidden, rewards, features, starter, ripen, digdepth, modeperks, pity, balance, comfort, rules, levels, expedition2, market, modefun, pets]) {
+      for (const m of [testaccount, secrets, forbidden, rewards, collectionV2, features, starter, ripen, digdepth, modeperks, pity, balance, comfort, rules, levels, expedition2, market, modefun, pets]) {
         try {
           const denied = m.beforeWorkflow({ store, path, request });
           if (denied) { market.restoreHidden(store, request); return denied; }
@@ -364,6 +369,13 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       discord.attachPending(response);
     },
     async start() {
+      // Photo et nom Discord relus en arriere-plan (discord-profile.js).
+      discordProfile.startRefresh({ store, withLock, captureError, workflowsDir });
+      // Planificateur de l'admin (admin-v2.js) : une passe par minute, avant les notifications push
+      // (qui s'arretent la si les cles VAPID manquent).
+      const plan = async () => { try { await withLock(() => adminV2.tick(store)); } catch (e) { console.error(e); captureError(e, { job: 'planner' }); } };
+      setInterval(plan, 60 * 1000).unref();
+      setTimeout(plan, 8000).unref();
       if (!(await push.init({ store }))) return;
       // Planificateur des notifications : une passe par minute.
       const tick = async () => {

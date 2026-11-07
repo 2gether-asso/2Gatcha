@@ -1519,6 +1519,11 @@ async function loadHeaderBoosterBadge() {
       wormBadge.style.display = worms > 0 ? "flex" : "none";
       if (worms > 0) setCount(wormBadge.querySelector(".count"), worms);
     }
+    // Photo Discord changee depuis la connexion (relue par l'API, 2026-11-06).
+    if (status.discordAvatar && status.discordAvatar !== Session.discordAvatar) {
+      try { localStorage.setItem(Session.KEY_DISCORD_AVATAR, status.discordAvatar); } catch (e) { /* stockage plein */ }
+      document.querySelectorAll("#user-menu-trigger img.avatar, .menu-head img.avatar").forEach((img) => { img.src = status.discordAvatar; });
+    }
     // Decorations equipees (boutique) : couleur du pseudo, cadre de l'avatar, titre.
     if (status.decor) {
       const p = document.getElementById("header-pseudo");

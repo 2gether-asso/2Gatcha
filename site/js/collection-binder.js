@@ -153,10 +153,17 @@
 
   // Une vignette par VARIANTE possedee (finition + qualite) : le decraft
   // d'une vignette cible exactement sa variante.
+  // V2 (2026-11-07) : une seule vignette par carte (sa plus belle variante),
+  // les autres exemplaires sont dans la fiche. "Par exemplaire" et la
+  // selection multiple gardent une vignette par variante.
+  const groupByCard = () => Coll.prefs.cv2Group !== "variant" && !bulkSelectMode;
   function cardTilesHtml(card, now) {
     const owned = state.ownedMap.get(card.cardId);
     const protectedTiles = protectedTilesHtml(card);
-    if (!owned) return protectedTiles.length ? protectedTiles : [lockedTileHtml(card)];
+    if (!owned) return protectedTiles.length ? (groupByCard() ? [protectedTiles[protectedTiles.length - 1]] : protectedTiles) : [lockedTileHtml(card)];
+    const grouped = groupByCard();
+    const allVariants = Coll.buildVariants(owned).filter((v) => variantMatches(v.finish, v.quality, v.serialNumbers, copyEditions(v.copies)));
+    const vaultN = (state.protectedMap.get(card.cardId) || []).length;
 
     const imgSrc = API.thumbUrl(card.imageId) || PLACEHOLDER_IMG; // vignette (2026-11-02)
     const isFav = favorites.has(card.cardId);
@@ -167,8 +174,9 @@
     const isNew = !!(owned.lastObtainedAt && (now - owned.lastObtainedAt) < NEW_BADGE_WINDOW_SECONDS && !seenCards.has(card.cardId));
     const name = escapeHtml(card.name);
 
-    return Coll.buildVariants(owned).filter((v) => variantMatches(v.finish, v.quality, v.serialNumbers, copyEditions(v.copies))).map((variant, i) => {
-      const { finish, quality, count } = variant;
+    return (grouped && allVariants.length ? [allVariants[allVariants.length - 1]] : allVariants).map((variant, i) => {
+      const { finish, quality } = variant;
+      const count = grouped ? owned.count : variant.count;
       const navKey = navKeyOf(card.cardId, finish, quality);
       const inBulk = bulkSelectMode && bulkEligible;
       const checked = inBulk && bulkSelected.has(navKey);
@@ -194,6 +202,7 @@
             <div class="card-name">${name}${card.isPromo && card.rarity?.key !== "unique" ? '<span class="promo-badge">Promo</span>' : ""}</div>
             ${Coll.rarityBadge(card)}
             <div class="count-badge">x${count}</div>
+            ${grouped && (allVariants.length > 1 || vaultN) ? `<span class="cv2-stack" title="${allVariants.length} variante${allVariants.length > 1 ? "s" : ""} possédée${allVariants.length > 1 ? "s" : ""}${vaultN ? ` · ${vaultN} au coffre` : ""} : tout est dans la fiche">${allVariants.length > 1 ? `&#129695; ${allVariants.length}` : ""}${vaultN ? ` &#128274; ${vaultN}` : ""}</span>` : ""}
             ${(canQuickAct || disenchantable) ? `
               <div class="quick-actions-row">
                 ${disenchantable ? `<button type="button" class="card-quick-action" data-act="disenchant" data-finish="${finish}" data-quality="${quality}" title="Décrafter contre ${disenchantLabel(card, finish, quality)}" aria-label="Décrafter">&#9851;</button>` : ""}
@@ -204,7 +213,7 @@
               </div>` : ""}
           </div>
         </div>`;
-    }).concat(protectedTiles);
+    }).concat(grouped ? [] : protectedTiles);
   }
 
   // ---------------------------------------------------------------- grille
@@ -400,10 +409,30 @@
   function albumExtensions() {
     return state.extensions.filter((x) => state.cards.some((c) => c.extension?.id === x.id));
   }
+  // Pages d'album (V2) : ordre et decoupage du serveur (api/src/native/collection-v2.js),
+  // pour que chaque page affichee soit exactement celle qui est recompensee.
+  const albumData = () => (state.album && state.album.extensions || []).find((e) => e.extensionId === albumExt) || null;
+  const albumSize = () => (state.album && state.album.size) || 9;
   function albumCards() {
-    return state.cards.filter((c) => c.extension?.id === albumExt).sort((a, b) => (state.cardNumber.get(a.cardId) || 0) - (state.cardNumber.get(b.cardId) || 0));
+    const list = state.cards.filter((c) => c.extension?.id === albumExt).sort((a, b) => (state.cardNumber.get(a.cardId) || 0) - (state.cardNumber.get(b.cardId) || 0));
+    const ext = albumData();
+    if (!ext) return list;
+    const order = ext.pages.flatMap((p) => p.cardIds);
+    const pos = new Map(order.map((id, i) => [id, i]));
+    return list.slice().sort((a, b) => (pos.has(a.cardId) ? pos.get(a.cardId) : 1e9) - (pos.has(b.cardId) ? pos.get(b.cardId) : 1e9));
   }
-  const albumPerView = () => (window.innerWidth >= 1100 ? 18 : 9);
+  const albumPerView = () => albumSize() * (window.innerWidth >= 1100 ? 2 : 1);
+  function albumPageHead(n) {
+    const ext = albumData();
+    const pg = ext && ext.pages.find((p) => p.page === n);
+    if (!pg) return "";
+    const r = state.album.reward || {};
+    const gift = `${r.boosters ? `+${r.boosters} &#127915;` : ""}${r.dust ? ` +${r.dust} &#10024;` : ""}`;
+    const status = pg.claimed ? `<span class="album-page-done" title="Récompense de page récupérée">&#10004;</span>`
+      : pg.complete ? `<button type="button" class="album-page-claim" data-album-claim="${pg.page}" title="Récupérer la récompense de cette page">&#127873; ${gift}</button>`
+      : `<span class="album-page-gift" title="Récompense quand la page est complète">${gift}</span>`;
+    return `<div class="album-page-head"><span>Page ${n}</span><span class="album-page-count">${pg.owned}/${pg.total}</span>${status}</div>`;
+  }
   // Cartes deja vues dans l'album (2026-10-07) : une carte obtenue depuis la
   // derniere visite "se glisse" dans son emplacement, avec un petit son.
   const ALBUM_SEEN_KEY = '2gatcha_album_seen';
@@ -446,7 +475,8 @@
     albumPage = Math.min(Math.max(0, albumPage), pages - 1);
     const slice = cards.slice(albumPage * per, albumPage * per + per);
     const sheets = [];
-    for (let i = 0; i < slice.length; i += 9) sheets.push(slice.slice(i, i + 9));
+    const size = albumSize();
+    for (let i = 0; i < slice.length; i += size) sheets.push(slice.slice(i, i + size));
     const ext = exts.find((x) => x.id === albumExt);
     const ownedCount = cards.filter((c) => Coll.isDiscovered(c.cardId)).length;
     container.innerHTML = `
@@ -456,7 +486,7 @@
           <span class="album-progress">${ownedCount}/${cards.length} cartes</span>
           ${setChip(ext && ext.key)}
         </div>
-        <div class="album-spread ${albumTurn > 0 ? 'turn-next' : albumTurn < 0 ? 'turn-prev' : ''}">${sheets.map((sheet) => `<div class="album-page">${sheet.map(albumSlot).join("")}</div>`).join("")}</div>
+        <div class="album-spread ${albumTurn > 0 ? 'turn-next' : albumTurn < 0 ? 'turn-prev' : ''}">${sheets.map((sheet, k) => `<div class="album-page">${albumPageHead(Math.floor((albumPage * per) / size) + k + 1)}${sheet.map(albumSlot).join("")}</div>`).join("")}</div>
         <div class="album-nav">
           <button type="button" class="btn-secondary" data-album-page="-1" ${albumPage === 0 ? "disabled" : ""} aria-label="Page précédente">&#10094;</button>
           <span>Page ${albumPage + 1} / ${pages}</span>
@@ -490,6 +520,8 @@
   // Clics dans l'album (true si traite).
   function albumClick(e) {
     if (!albumMode) return false;
+    const claim = e.target.closest("[data-album-claim]");
+    if (claim) { if (window.CollV2) CollV2.claimPage(albumExt, Number(claim.dataset.albumClaim), claim); return true; }
     const nav = e.target.closest("[data-album-page]");
     if (nav) { albumPageBy(Number(nav.dataset.albumPage)); return true; }
     const slot = e.target.closest(".album-slot[data-nav-key]");
@@ -511,10 +543,51 @@
     render();
   }
 
+  // ---------------------------------------------------------------- fiche V2
+  // Etoiles de maitrise d'une carte (affichage seul) : decouverte, parfait
+  // etat, 3 finitions, les 6 finitions, emeraude au coffre.
+  const ALL_FINISHES = [...FINISH_ORDER, "emerald"];
+  function masteryOf(card) {
+    const owned = state.ownedMap.get(card.cardId);
+    const vault = state.protectedMap.get(card.cardId) || [];
+    const all = [...((owned && owned.copies) || []), ...vault.map((c) => ({ ...c, quality: "mint" }))];
+    const fins = new Set(all.map(Coll.finishOf).filter((f) => f !== "emerald"));
+    const steps = [
+      { ok: all.length > 0, label: "Découverte" },
+      { ok: all.some((c) => Coll.qualityOf(c) === "mint"), label: "Un exemplaire en parfait état" },
+      { ok: fins.size >= 3, label: `3 finitions différentes (${Math.min(fins.size, 3)}/3)` },
+      { ok: fins.size >= 6 || (state.mastered && state.mastered.has(card.cardId)), label: `Les 6 finitions (${Math.min(fins.size, 6)}/6)` },
+      { ok: vault.some((c) => Coll.finishOf(c) === "emerald"), label: "Carte émeraude au coffre-fort" }
+    ];
+    return { n: steps.filter((s) => s.ok).length, steps };
+  }
+  function sheetHtml(card, owned, finish, quality, copies) {
+    const m = masteryOf(card);
+    const vault = state.protectedMap.get(card.cardId) || [];
+    const stars = `<div class="cv2-mastery" title="${m.steps.map((s) => (s.ok ? "★ " : "☆ ") + s.label).join(" · ")}"><span class="cv2-stars" aria-label="Maîtrise ${m.n} sur 5">${"★".repeat(m.n)}<span class="off">${"★".repeat(5 - m.n)}</span></span><span class="cv2-mastery-next">${m.n >= 5 ? "Carte maîtrisée" : "Prochaine étoile : " + m.steps.find((s) => !s.ok).label}</span></div>`;
+    if (!owned && !vault.length) return stars;
+    // Matrice finitions x etats : combien d'exemplaires de chaque variante.
+    const count = (f, q) => ((owned && owned.copies) || []).filter((c) => Coll.finishOf(c) === f && Coll.qualityOf(c) === q).length;
+    const inVault = (f) => vault.filter((c) => Coll.finishOf(c) === f).length;
+    const fins = ALL_FINISHES.filter((f) => f !== "emerald" || inVault("emerald"));
+    const matrix = `<div class="cv2-matrix" role="grid" aria-label="Exemplaires par finition et par état">
+      <span></span>${QUALITY_ORDER.map((q) => `<span class="cv2-mx-h">${QUALITY_LABELS[q]}</span>`).join("")}<span class="cv2-mx-h" title="Au coffre-fort">&#128274;</span>
+      ${fins.map((f) => `<span class="cv2-mx-f" data-finish="${f}">${FINISH_LABELS[f]}</span>${QUALITY_ORDER.map((q) => {
+        const n = f === "emerald" ? 0 : count(f, q);
+        const cur = owned && f === finish && q === quality;
+        return n ? `<button type="button" class="cv2-mx-c has ${cur ? "cur" : ""}" data-sheet-variant="${f}::${q}" title="${FINISH_LABELS[f]} · ${QUALITY_LABELS[q]} : ${n}">${n}</button>` : `<span class="cv2-mx-c"></span>`;
+      }).join("")}<span class="cv2-mx-c vault ${inVault(f) ? "has" : ""}">${inVault(f) ? "&#10003;" : ""}</span>`).join("")}
+    </div>`;
+    // Ranger au coffre : deja dans la fiche (card-extras.js, bouton "Ranger au coffre").
+    const vaultLine = vault.length ? `<div class="cv2-vault-line">&#128274; Au coffre : ${vault.map((c) => `${FINISH_LABELS[Coll.finishOf(c)] || c.finish} ${Coll.serial(c.serialNumber)}`).join(", ")} · <a href="coffre.html">Voir le coffre</a></div>` : "";
+    return stars + matrix + vaultLine;
+  }
+
   // ---------------------------------------------------------------- modale
   function showCardModal(navKey, navList) {
+    navList = navList.slice();
     const overlay = document.createElement("div");
-    overlay.className = "card-modal-overlay";
+    overlay.className = "card-modal-overlay cv2-sheet-overlay";
     let index = Math.max(0, navList.indexOf(navKey));
 
     function renderAt(newIndex, direction) {
@@ -554,6 +627,7 @@
               ${modalEdition ? editionBadge(modalEdition).replace('class="edition-badge"', 'class="edition-badge" style="position:static;"') : ""}
               ${modalGem ? gemBadge(modalGem, "position:static;transform:none;") : ""}
             </div>
+            ${sheetHtml(card, owned, finish, quality, copies)}
             ${owned ? `<div class="card-modal-stats"><span>Possédée &times;${copies.length}${owned.count > copies.length ? ` (${owned.count} toutes variantes)` : ""}</span>${serials.length ? `<span>${serials.map(Coll.serial).join(", ")}</span>` : ""}</div>` : ""}
             ${card.description ? `<p class="card-modal-description">${escapeHtml(card.description)}</p>` : ""}
             <div class="card-modal-info" data-card-info="${card.cardId}" aria-live="polite"><div class="card-info-loading">Chargement des infos…</div></div>
@@ -573,11 +647,21 @@
               ${owned && !card.isPromo ? `<button type="button" class="btn-secondary" data-modal-act="trade">&#8644; Échanger</button>` : ""}
               ${up.finish ? `<button type="button" class="btn-secondary" data-modal-act="finish">&#10024; Fusionner en ${FINISH_LABELS[up.nextFinish]}</button>` : ""}
               ${up.quality ? `<button type="button" class="btn-secondary" data-modal-act="quality">&#128295; Restaurer en ${QUALITY_LABELS[up.nextQuality]}</button>` : ""}
+              ${owned && !card.isPromo ? `<button type="button" class="btn-ghost ${state.showcase.has(card.cardId) ? "active" : ""}" data-sheet-showcase="1">&#128444;&#65039; ${state.showcase.has(card.cardId) ? "En vitrine" : "Vitrine"}</button>` : ""}
+              ${!owned && !(state.protectedMap.get(card.cardId) || []).length && !card.isPromo ? `<button type="button" class="btn-ghost" data-sheet-wish="1">${state.wishlist.has(card.cardId) ? "&#9829; Souhaitée" : "&#9825; Souhaiter"}</button>` : ""}
               ${owned && (owned.count > 1) && !card.isPromo ? `<button type="button" class="btn-ghost" data-modal-act="workshop" title="Voir cette carte dans le mode Décrafter">&#9881; Atelier</button>` : ""}
             </div>
           </div>
         </div>`;
       overlay.querySelector(".card-modal-close").addEventListener("click", close);
+      // Fiche V2 : changer de variante (matrice), ranger au coffre, vitrine, souhait.
+      overlay.querySelectorAll("[data-sheet-variant]").forEach((b) => b.addEventListener("click", () => {
+        const [f, q] = b.dataset.sheetVariant.split("::");
+        navList[index] = navKeyOf(cardId, f, q);
+        renderAt(index, null);
+      }));
+      overlay.querySelector("[data-sheet-showcase]")?.addEventListener("click", (ev) => toggleShowcase(cardId, ev.currentTarget).then(() => renderAt(index, null)));
+      overlay.querySelector("[data-sheet-wish]")?.addEventListener("click", (ev) => toggleWishlist(cardId, ev.currentTarget).then(() => renderAt(index, null)));
       overlay.querySelector(".card-modal-nav.prev")?.addEventListener("click", () => go(-1));
       overlay.querySelector(".card-modal-nav.next")?.addEventListener("click", () => go(1));
       overlay.querySelectorAll("[data-modal-act]").forEach((btn) => btn.addEventListener("click", () => {

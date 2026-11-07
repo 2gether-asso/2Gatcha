@@ -1,0 +1,158 @@
+/* collection-v2.css - Collection V2 (2026-11-07) : bandeau compact, espaces
+   Classeur / Atelier, outils de l'atelier en cartes, barre de filtres en une
+   ligne avec menus, rail des extensions, pages d'album, fiche carte en
+   panneau lateral. Chargee apres refonte.css (collection.html seulement). */
+
+/* ------------------------------------------------------------ bandeau */
+.cv2-hero { display: flex; align-items: center; gap: 14px 18px; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-2-rgb), 0.06)); }
+.cv2-ring { position: relative; width: 64px; height: 64px; flex: none; }
+.cv2-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.cv2-ring circle { fill: none; stroke-width: 4.5; }
+.cv2-ring-bg { stroke: rgba(255, 255, 255, 0.08); }
+.cv2-ring-fg { stroke: var(--binder-accent, var(--accent)); stroke-linecap: round; stroke-dasharray: calc(var(--p) * 1) 100; transition: stroke-dasharray 0.6s ease; }
+.cv2-ring strong { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.cv2-hero-main { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cv2-hero-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cv2-hero-chips:empty { display: none; }
+.cv2-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius-pill); border: 1px solid var(--border-soft); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 0.78rem; font-weight: 600; text-decoration: none; }
+a.cv2-chip:hover { border-color: var(--border); }
+button.cv2-chip { cursor: pointer; font-family: var(--font-body); box-shadow: none; text-shadow: none; }
+button.cv2-chip::before { content: none; }
+.cv2-chip.gift { border-color: rgba(var(--accent-3-rgb), 0.6); background: rgba(var(--accent-3-rgb), 0.16); animation: cv2Pulse 2.4s ease-in-out infinite; }
+@keyframes cv2Pulse { 50% { box-shadow: 0 0 0 4px rgba(var(--accent-3-rgb), 0.12); } }
+.cv2-hero .coll-dust { padding: 8px 14px; }
+#stats-block { margin-top: 10px; }
+#stats-block .pg-cta { margin-top: 10px; }
+
+/* ------------------------------------------------------------ espaces */
+.cv2-top { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 18px 0 10px; padding: 5px; border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-soft); max-width: 460px; }
+.cv2-top-tab { border-radius: var(--radius-pill); padding: 9px 14px; font-weight: 800; font-family: var(--font-display); background: transparent; border: 0; box-shadow: none; text-shadow: none; color: var(--text-dim); cursor: pointer; transform: none !important; }
+.cv2-top-tab::before { content: none; }
+.cv2-top-tab.active { background: var(--binder-accent, var(--accent)); color: #fff; box-shadow: 0 6px 18px -8px var(--binder-accent, var(--accent)); }
+.cv2-top-tab .tab-count:empty { display: none; }
+.cv2-top-tab .tab-count { margin-left: 6px; }
+
+/* Outils de l'atelier : cartes, visibles seulement dans l'Atelier. */
+.coll-modes.cv2-tools { display: none; margin: 4px 0 14px; }
+body.cv2-in-workshop .coll-modes.cv2-tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; overflow: visible; border: 0; }
+.cv2-tools .coll-mode[data-mode="binder"] { display: none !important; }
+.cv2-tools .coll-mode { display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-soft); background: rgba(255, 255, 255, 0.03); white-space: normal; position: relative; min-width: 0; }
+.cv2-tools .coll-mode.active { border-color: var(--binder-accent, var(--accent)); background: rgba(var(--accent-rgb), 0.14); box-shadow: inset 0 0 0 1px var(--binder-accent, var(--accent)); }
+.cv2-tools .coll-mode.locked { opacity: 0.5; }
+.cv2-tool-ico { font-size: 1.35rem; flex: none; }
+.cv2-tool-txt { display: flex; flex-direction: column; min-width: 0; }
+.cv2-tool-name { font-weight: 800; font-size: 0.92rem; }
+.cv2-tool-hint { color: var(--text-dim); font-size: 0.72rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-tools .coll-mode .tab-count { position: absolute; top: 6px; right: 8px; }
+.cv2-tools .coll-mode .tab-count:empty { display: none; }
+@media (max-width: 760px) {
+  body.cv2-in-workshop .coll-modes.cv2-tools { grid-template-columns: repeat(5, minmax(132px, 1fr)); overflow-x: auto; scrollbar-width: none; }
+}
+
+/* ------------------------------------------------------------ barre */
+.cv2-toolbar { margin-bottom: 12px; }
+.cv2-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cv2-bar > #search-input { flex: 1 1 220px; min-width: 0; }
+.cv2-bar > select { flex: 0 1 auto; max-width: 220px; }
+.cv2-pop { position: relative; }
+.cv2-pop > summary { list-style: none; cursor: pointer; padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); font-weight: 700; font-size: 0.86rem; user-select: none; white-space: nowrap; }
+.cv2-pop > summary::-webkit-details-marker { display: none; }
+.cv2-pop[open] > summary { border-color: var(--binder-accent, var(--accent)); background: rgba(var(--accent-rgb), 0.16); }
+.cv2-pop .adv-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.7rem; }
+.cv2-pop .adv-count[hidden] { display: none; }
+.cv2-pop-body { position: absolute; z-index: 60; top: calc(100% + 6px); right: 0; width: min(560px, calc(100vw - 32px)); padding: 14px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--bg-panel-solid); box-shadow: 0 24px 50px -16px rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; gap: 12px; }
+.cv2-pop-right .cv2-pop-body { right: 0; }
+.cv2-pop-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.cv2-pop-row .toolbar-label { flex: 0 0 92px; color: var(--text-dim); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.cv2-pop-row .toolbar-group, .cv2-pop-row .filters { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 260px; min-width: 0; }
+.cv2-pop-row .btn-secondary { padding: 6px 10px; font-size: 0.8rem; }
+.cv2-pop-foot { display: flex; justify-content: flex-end; border-top: 1px solid var(--border-soft); padding-top: 10px; }
+.cv2-pop-row.binder-accent-row, .cv2-pop-row.sleeve-row { margin: 0; }
+.cv2-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-soft); }
+.cv2-seg-btn { border: 0; box-shadow: none; text-shadow: none; background: transparent; color: var(--text-dim); padding: 6px 12px; border-radius: var(--radius-pill); font-weight: 700; font-size: 0.8rem; cursor: pointer; transform: none !important; }
+.cv2-seg-btn::before { content: none; }
+.cv2-seg-btn.on { background: var(--binder-accent, var(--accent)); color: #fff; }
+@media (max-width: 640px) {
+  .cv2-bar > select { flex: 1 1 40%; max-width: none; }
+  .cv2-pop { flex: 1 1 40%; }
+  .cv2-pop > summary { text-align: center; }
+  .cv2-pop-body, .cv2-pop-right .cv2-pop-body { position: fixed; left: 12px; right: 12px; top: auto; bottom: calc(var(--nav-bottom-h) + 12px); width: auto; max-height: 70vh; overflow-y: auto; }
+  .cv2-pop-row .toolbar-label { flex-basis: 100%; }
+}
+/* L'ancien repli mobile des lignes d'affinage est remplace par le menu. */
+.cv2-toolbar .toolbar-row[data-only-mode] { margin: 0; }
+
+/* ------------------------------------------------------------ classeur + rail */
+.cv2-binder { display: block; }
+.cv2-binder-main { min-width: 0; }
+.cv2-rail[hidden] { display: none; }
+.cv2-rail { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; scrollbar-width: thin; }
+.cv2-rail-title { display: none; }
+.cv2-rail-item { flex: 0 0 auto; display: flex; flex-direction: column; gap: 3px; text-align: left; min-width: 132px; max-width: 200px; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-soft); background: rgba(255, 255, 255, 0.03); color: var(--text); box-shadow: none; text-shadow: none; cursor: pointer; font-family: var(--font-body); transform: none !important; }
+.cv2-rail-item::before { content: none; }
+.cv2-rail-item:hover { border-color: var(--border); }
+.cv2-rail-item.on { border-color: var(--binder-accent, var(--accent)); background: rgba(var(--accent-rgb), 0.14); }
+.cv2-rail-name { font-weight: 700; font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-rail-meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-dim); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.cv2-rail-gift { color: var(--accent-3); font-weight: 800; }
+.cv2-rail-set { color: var(--rarity-legendaire); }
+.cv2-rail-bar { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.cv2-rail-bar span { display: block; height: 100%; width: calc(var(--p) * 1%); background: var(--binder-accent, var(--accent)); border-radius: inherit; }
+.cv2-rail-item.done .cv2-rail-bar span { background: var(--rarity-legendaire); }
+@media (min-width: 1100px) {
+  body.cv2-has-rail .cv2-binder { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; align-items: start; }
+  body.cv2-has-rail .cv2-rail { flex-direction: column; overflow: visible; position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow-y: auto; padding: 0 4px 0 0; }
+  .cv2-rail-item { min-width: 0; max-width: none; }
+  .cv2-rail-title { display: block; color: var(--text-dim); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; margin: 2px 0 2px 2px; }
+  body.cinema-mode .cv2-binder { display: block; }
+  body.cinema-mode .cv2-rail { display: none; }
+}
+
+/* Vignette "par carte" : pile des variantes et exemplaires au coffre. */
+.cv2-stack { display: inline-flex; gap: 4px; align-items: center; font-size: 0.7rem; font-weight: 700; color: var(--text-dim); padding: 1px 7px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-soft); }
+.collection-card .card-info .cv2-stack { margin-top: 2px; }
+
+/* ------------------------------------------------------------ pages d'album */
+.album-page-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); margin: -4px 0 0; }
+.album-page-count { font-variant-numeric: tabular-nums; }
+.album-page-head > :last-child { margin-left: auto; }
+.album-page-done { color: var(--success); }
+.album-page-gift { opacity: 0.7; font-weight: 600; }
+.album-page-claim { padding: 4px 10px; font-size: 0.78rem; border-radius: var(--radius-pill); background: rgba(var(--accent-3-rgb), 0.2); border: 1px solid rgba(var(--accent-3-rgb), 0.7); color: var(--text); cursor: pointer; animation: cv2Pulse 2.4s ease-in-out infinite; }
+
+/* ------------------------------------------------------------ fiche carte */
+.cv2-mastery { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 0.8rem; color: var(--text-dim); }
+.cv2-stars { color: var(--rarity-legendaire); letter-spacing: 2px; font-size: 1rem; }
+.cv2-stars .off { color: rgba(255, 255, 255, 0.15); }
+.cv2-matrix { display: grid; grid-template-columns: auto repeat(5, minmax(0, 1fr)); gap: 3px; margin-top: 12px; font-size: 0.72rem; align-items: center; }
+.cv2-mx-h { color: var(--text-dim); text-align: center; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cv2-mx-f { font-weight: 700; padding-right: 6px; white-space: nowrap; }
+.cv2-mx-c { height: 24px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-soft); display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+button.cv2-mx-c { padding: 0; box-shadow: none; text-shadow: none; color: var(--text); font-weight: 800; cursor: pointer; transform: none !important; }
+button.cv2-mx-c::before { content: none; }
+.cv2-mx-c.has { background: rgba(var(--accent-rgb), 0.22); border-color: rgba(var(--accent-rgb), 0.5); }
+.cv2-mx-c.cur { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cv2-mx-c.vault.has { background: rgba(74, 222, 128, 0.18); border-color: rgba(74, 222, 128, 0.5); color: var(--success); }
+.cv2-vault-line { margin-top: 10px; font-size: 0.8rem; color: var(--text-dim); }
+.cv2-store-btn { margin-top: 10px; }
+.card-modal-actions .btn-ghost.active { border-color: var(--accent); color: var(--text); }
+/* Grand ecran : fiche en panneau lateral, l'image a gauche, tout le reste a droite. */
+@media (min-width: 900px) {
+  .cv2-sheet-overlay { justify-content: flex-end; padding: 0; }
+  .cv2-sheet-overlay .card-modal { width: min(820px, 92vw); max-height: 100vh; height: 100vh; border-radius: 20px 0 0 20px; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); overflow: hidden; }
+  .cv2-sheet-overlay .card-modal > .card-art { border-radius: 20px 0 0 20px; align-self: center; padding: 18px; }
+  .cv2-sheet-overlay .card-modal > .card-art img { border-radius: 14px; max-height: calc(100vh - 36px); object-fit: contain; background: none; }
+  .cv2-sheet-overlay .card-modal-body { overflow-y: auto; max-height: 100vh; padding: 26px 24px 30px; }
+  .cv2-sheet-overlay .card-modal-close { z-index: 3; }
+}
+
+/* Telephone : bandeau sur deux lignes courtes (anneau + progression, puis solde + stats). */
+@media (max-width: 640px) {
+  .cv2-hero { gap: 10px; padding: 10px; }
+  .cv2-ring { width: 52px; height: 52px; }
+  .cv2-hero-main { flex: 1 1 calc(100% - 66px); }
+  .cv2-hero .coll-dust { flex: 1 1 auto; padding: 6px 10px; }
+  .cv2-hero .coll-dust .sd-count { font-size: 1.05rem; }
+  .cv2-hero .coll-dust .sd-icon { font-size: 1.1rem; }
+  .cv2-chip { font-size: 0.72rem; padding: 2px 8px; }
+}

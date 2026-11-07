@@ -145,7 +145,7 @@ const completeLines = (done) => LINES.filter((l) => l.cells.every((i) => done.in
 
 // Valide les cases remplies (cartes possedees, objectifs atteints) ; renvoie les nouvelles.
 function refresh(store, user, grid, p) {
-  const owned = new Set(store.getAll('Pulls').filter((x) => refId(x.User) === user.id).map((x) => refId(x.Card)));
+  const owned = new Set(store.peekBy('Pulls', 'User', user.id).map((x) => refId(x.Card)));
   const fresh = [];
   grid.cells.forEach((cell, i) => {
     if (p.done.includes(i)) return;
@@ -180,7 +180,7 @@ function stateOf(store, user) {
   let p = progress(user, m);
   const fresh = refresh(store, user, grid, p);
   if (fresh.length || user.BingoMonth !== m) user = save(store, user, p, m);
-  const owned = new Set(store.getAll('Pulls').filter((x) => refId(x.User) === user.id).map((x) => refId(x.Card)));
+  const owned = new Set(store.peekBy('Pulls', 'User', user.id).map((x) => refId(x.Card)));
   const lines = completeLines(p.done).map((l) => l.key);
   const full = p.done.length >= SIZE * SIZE;
   return {

@@ -23,13 +23,28 @@
     if (players) return;
     try { players = ((await API.listUsers()).users || []).map((u) => ({ kind: "player", label: u.pseudo || "#" + u.userId, hint: "Fiche joueur", userId: u.userId, text: norm(u.pseudo) })); } catch (e) { players = []; }
   }
+  // Actions directes (Admin V2, 2026-11-07) : la recherche sert aussi de palette de commandes.
+  const ACTIONS = [
+    { label: "Programmer un boss chaque semaine", hint: "Planning · modèle", tpl: "boss", words: "boss hebdo semaine lancer planifier automatique" },
+    { label: "Programmer un week-end bonus", hint: "Planning · modèle", tpl: "weekend", words: "evenement week-end bonus planifier poussieres" },
+    { label: "Programmer un code chaque vendredi", hint: "Planning · modèle", tpl: "code", words: "code vendredi planifier distribuer" },
+    { label: "Programmer une annonce Discord", hint: "Planning · modèle", tpl: "discord", words: "discord annonce message rappel planifier" },
+    { label: "Créer un code maintenant", hint: "Codes & dons", pane: "codes", focus: "rw-code", words: "code creer evenement" },
+    { label: "Faire un don à un joueur", hint: "Codes & dons", pane: "codes", focus: "rw-app", words: "don cadeau donner joueur" },
+    { label: "Lancer un événement maintenant", hint: "Événements", pane: "evenements", words: "evenement lancer bonus maintenant" },
+    { label: "Lancer un boss maintenant", hint: "Contenu", pane: "contenu", words: "boss lancer nouveau maintenant" },
+    { label: "Afficher un bandeau", hint: "Site", pane: "site", focus: "banner-message-input", words: "bandeau message annonce site maintenance" },
+    { label: "Changer le mode de jeu", hint: "Économie", pane: "economie", words: "mode difficulte cool chill medium hard chaos" },
+    { label: "Voir la santé du serveur", hint: "Santé", pane: "sante", words: "sante serveur lent erreurs memoire" },
+    { label: "Modifier une valeur depuis la documentation", hint: "Documentation", pane: "doc", words: "doc documentation regle valeur modifier" }
+  ].map((a) => ({ ...a, kind: "action", text: norm(a.label + " " + a.words + " " + a.hint) }));
   function search(q) {
     const words = norm(q).split(/\s+/).filter(Boolean);
     if (!words.length) return [];
     const match = (x) => words.every((w) => x.text.includes(w));
-    return [...sections().filter(match).slice(0, 8), ...(settings || []).filter(match).slice(0, 12), ...(players || []).filter(match).slice(0, 5)];
+    return [...ACTIONS.filter(match).slice(0, 5), ...sections().filter(match).slice(0, 8), ...(settings || []).filter(match).slice(0, 12), ...(players || []).filter(match).slice(0, 5)];
   }
-  const ICON = { section: "📂", setting: "⚙️", player: "👤" };
+  const ICON = { section: "📂", setting: "⚙️", player: "👤", action: "⚡" };
   function paint() {
     const box = $("adm-search-results");
     box.hidden = !results.length && !$("adm-search").value.trim();
@@ -37,6 +52,7 @@
   }
   function go(r) {
     $("adm-search-results").hidden = true;
+    if (r.kind === "action") { if (r.tpl && window.AdminPlanner) AdminPlanner.newFrom(r.tpl); else AdminNav.show(r.pane, { focus: r.focus || null }); return; }
     if (r.kind === "section") { AdminNav.show(r.pane); setTimeout(() => { if (window.AdminSections) AdminSections.reveal(r.el); if (r.el.tagName === "DETAILS") r.el.open = true; r.el.scrollIntoView({ behavior: "smooth", block: "start" }); r.el.classList.add("flash"); setTimeout(() => r.el.classList.remove("flash"), 1600); }, 80); }
     else if (r.kind === "setting") {
       AdminNav.show("reglages");
@@ -47,7 +63,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     const top = document.querySelector(".adm-top");
     if (!top || !$("admin-zone")) return;
-    top.insertAdjacentHTML("afterend", `<div class="adm-search" role="search"><input type="search" id="adm-search" placeholder="🔎 Chercher un outil, un réglage ou un joueur… (touche /)" autocomplete="off" aria-label="Recherche dans l'administration" aria-controls="adm-search-results" /><div class="adm-search-results" id="adm-search-results" role="listbox" hidden></div></div>`);
+    top.insertAdjacentHTML("afterend", `<div class="adm-search" role="search"><input type="search" id="adm-search" placeholder="🔎 Chercher ou faire : « boss », « code », « bandeau », un réglage, un joueur… (touche /)" autocomplete="off" aria-label="Recherche dans l'administration" aria-controls="adm-search-results" /><div class="adm-search-results" id="adm-search-results" role="listbox" hidden></div></div>`);
     const input = $("adm-search");
     input.addEventListener("focus", () => { loadSettings(); loadPlayers(); });
     input.addEventListener("input", async () => { await Promise.all([loadSettings(), loadPlayers()]); results = search(input.value); active = results.length ? 0 : -1; paint(); });

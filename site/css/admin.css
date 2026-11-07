@@ -509,3 +509,107 @@
 .aa-wide textarea { width: 100%; padding: 8px 10px; font: inherit; color: var(--text); resize: vertical; }
 #aa-edit .ac-form-grid select, #aa-edit .ac-form-grid input:not([type="checkbox"]) { width: 100%; min-width: 0; box-sizing: border-box; }
 #aa-edit input[type="color"] { height: 38px; padding: 2px; }
+
+/* ===================== Admin V2 (2026-11-07) =====================
+   Menu regroupe, tableau de bord, planning, doc editable au clic. */
+.adm-nav-group { margin: 10px 8px 2px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); opacity: 0.75; }
+.adm-nav-group:first-child { margin-top: 2px; }
+@media (max-width: 959px) { .adm-nav-group { display: none; } }
+
+.adm-dash-head { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.8rem; }
+.adm-dash-head .btn-ghost { padding: 4px 10px; font-size: 0.8rem; }
+.adm-tile small { color: var(--text-dim); font-size: 0.75rem; line-height: 1.35; }
+.adm-live { font-size: 0.72rem; font-weight: 800; color: var(--success); }
+.adm-spark { display: flex; align-items: flex-end; gap: 3px; height: 28px; margin-top: 4px; }
+.adm-spark i { flex: 1; min-height: 3px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, var(--accent-2), var(--accent)); opacity: 0.85; }
+.adm-spark i:last-child { opacity: 1; box-shadow: 0 0 8px rgba(var(--accent-2-rgb), 0.6); }
+.adm-hp { display: block; height: 6px; margin-top: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.adm-hp i { display: block; height: 100%; background: linear-gradient(90deg, #ef4444, #f59e0b); }
+.adm-dash-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; margin-top: 14px; align-items: start; }
+.adm-dash-cols .adm-card { margin: 0; }
+.adm-pending { margin-top: 14px; border-color: rgba(217, 119, 6, 0.6); background: linear-gradient(135deg, rgba(217, 119, 6, 0.12), transparent 70%); }
+.adm-plan-mini { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.adm-plan-mini li { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.03); font-size: 0.86rem; }
+.adm-plan-mini .btn, .adm-plan-mini .btn-ghost { padding: 5px 12px; font-size: 0.8rem; }
+.adm-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-soft); }
+.adm-chip.on { border-color: rgba(var(--accent-2-rgb), 0.6); color: var(--accent-2); }
+.adm-chip.warn { border-color: rgba(217, 119, 6, 0.7); color: #fbbf24; }
+
+/* Planning */
+.apl-templates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.apl-templates .muted { font-size: 0.82rem; margin-right: 4px; }
+.apl-form { padding: 14px; margin-bottom: 14px; border-radius: 14px; border: 1px solid var(--accent); background: rgba(var(--accent-rgb), 0.08); display: flex; flex-direction: column; gap: 12px; }
+.apl-form h3 { margin: 0; }
+.apl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 10px 14px; }
+.apl-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 700; }
+.apl-field input, .apl-field select, .apl-field textarea { font-weight: 500; }
+.apl-field small { font-weight: 500; font-size: 0.72rem; }
+.apl-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.84rem; grid-column: 1 / -1; }
+.apl-check input { margin-top: 3px; }
+.apl-preview { margin: 0; font-size: 0.8rem; color: var(--text-dim); }
+.apl-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.apl-list { display: flex; flex-direction: column; gap: 8px; }
+.apl-rule { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--bg-panel-2); }
+.apl-rule.off { opacity: 0.6; }
+.apl-rule.pending { border-color: rgba(217, 119, 6, 0.7); }
+.apl-rule-main { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.apl-rule-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.apl-ico { font-size: 1.15rem; }
+.apl-rule-title small { font-size: 0.76rem; }
+.apl-rule-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.76rem; align-items: center; }
+.apl-rule-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.apl-rule-tools button { padding: 5px 10px; font-size: 0.8rem; }
+.apl-rule-tools .danger:hover { color: var(--danger); }
+
+/* Documentation : valeurs modifiables au clic, raccourcis de section. */
+.adoc-hint { font-size: 0.8rem; margin: 4px 0 10px; }
+.adoc-edit { font: inherit; font-weight: 800; padding: 0 5px; margin: 0 1px; border-radius: 6px; border: 1px dashed rgba(var(--accent-2-rgb), 0.55); background: rgba(var(--accent-2-rgb), 0.1); color: var(--accent-2); cursor: pointer; box-shadow: none; text-shadow: none; line-height: inherit; transform: none !important; }
+.adoc-edit::before { display: none; }
+.adoc-edit:hover, .adoc-edit:focus-visible { background: rgba(var(--accent-2-rgb), 0.22); border-style: solid; }
+.adoc-edit.custom { border-color: rgba(var(--accent-3-rgb), 0.7); color: var(--accent-3); background: rgba(var(--accent-3-rgb), 0.1); }
+.adoc-edit.flash { animation: adocFlash 1.2s ease; }
+@keyframes adocFlash { 30% { background: rgba(74, 222, 128, 0.45); color: #fff; } }
+.adoc-links { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 12px; vertical-align: middle; }
+.adoc-link { font: inherit; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); color: var(--text-dim); cursor: pointer; box-shadow: none; text-shadow: none; transform: none !important; }
+.adoc-link::before { display: none; }
+.adoc-link:hover { color: var(--text); border-color: var(--accent); }
+.adoc-pop { position: relative; z-index: 5; max-width: 460px; margin: 8px 0 12px; padding: 12px; border-radius: 14px; border: 1px solid var(--accent); background: var(--bg-panel-solid); box-shadow: 0 24px 50px -16px rgba(0, 0, 0, 0.85); display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; }
+.adoc-pop-head { display: flex; flex-direction: column; gap: 2px; }
+.adoc-pop p { margin: 0; font-size: 0.78rem; }
+.adoc-pop textarea { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; }
+.adoc-pop-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.adoc-pop-actions button { padding: 5px 10px; font-size: 0.8rem; }
+.apl-field input[type="datetime-local"] { color-scheme: dark; background: var(--bg-panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+
+.adoc-edit.editing { background: rgba(var(--accent-2-rgb), 0.3); border-style: solid; }
+li > .adoc-pop, td > .adoc-pop { margin-top: 6px; }
+
+/* ---- Admin V2 : contenu des rubriques (admin-v2-ui.js) ---- */
+.adm-pane-head { margin: 0 0 14px; }
+.adm-pane-head h2 { margin: 0; font-size: 1.35rem; display: flex; align-items: center; gap: 10px; }
+.adm-pane-head p { margin: 4px 0 0; color: var(--text-dim); font-size: 0.9rem; }
+/* Descriptions des cartes : une ligne, clic pour tout lire. */
+.adm-card-head > p.adm-desc { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; max-width: 900px; }
+.adm-card-head > p.adm-desc.open { display: block; -webkit-line-clamp: unset; }
+.adm-card-head > p.adm-desc:not(.open)::after { content: ""; }
+/* Sommaire des sections plus discret (une rangee de pastilles). */
+.adm-sections { position: static !important; margin-bottom: 14px; }
+/* Onglets internes (Economie, Difficultes). */
+.ait-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--border-soft); }
+.ait-tab { font: inherit; font-size: 0.84rem; font-weight: 700; padding: 7px 12px; border-radius: 9px; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; box-shadow: none; text-shadow: none; transform: none !important; }
+.ait-tab::before { display: none; }
+.ait-tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+.ait-tab.on { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--text); }
+.ait-tab small { font-weight: 600; color: var(--accent-2); }
+.ait-panel > h3:first-child { display: none; }
+/* Enregistrement groupe : bouton par ligne seulement sur les lignes modifiees. */
+.adm-batch .balance-save-btn, .adm-batch [data-season-save] { visibility: hidden; }
+.adm-batch .adm-dirty .balance-save-btn, .adm-batch .adm-dirty [data-season-save] { visibility: visible; }
+.adm-dirty { background: rgba(217, 119, 6, 0.1) !important; box-shadow: inset 3px 0 0 #d97706; }
+.adm-savebar { position: fixed; z-index: 400; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; border: 1px solid #d97706; background: var(--bg-panel-solid); box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.8); font-size: 0.88rem; max-width: calc(100vw - 24px); flex-wrap: wrap; }
+.adm-savebar[hidden] { display: none; }
+@media (max-width: 959px) { .adm-savebar { bottom: calc(var(--nav-bottom-h, 64px) + 12px); } }
+/* Contenu > Extensions : une grille compacte au lieu d'une carte par ligne. */
+#extensions-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+#extensions-list .codes-calendar-day { margin: 0; padding: 10px 12px; }
+#extensions-list .day-code-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

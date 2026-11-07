@@ -31,6 +31,7 @@
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
   <link rel="stylesheet" href="css/vacation.css" />
+  <link rel="stylesheet" href="css/collection-v2.css" />
 </head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -50,14 +51,21 @@
       </div>
 
       <div id="collection-zone" style="display:none;">
-        <!-- Bandeau commun a tous les modes : progression + solde, toujours visibles -->
-        <div class="coll-summary">
-          <div class="coll-summary-progress">
+        <!-- Collection V2 (2026-11-07) : bandeau compact (anneau de progression,
+             poussieres, pages a reclamer), stats repliees, Classeur / Atelier,
+             barre de filtres en une ligne avec menus deroulants. Les identifiants
+             historiques sont gardes : collection-core / binder / workshop les lisent. -->
+        <section class="cv2-hero coll-summary" aria-label="Résumé de ta collection">
+          <div class="cv2-ring" id="cv2-ring" style="--p:0" aria-hidden="true">
+            <svg viewBox="0 0 44 44"><circle class="cv2-ring-bg" cx="22" cy="22" r="19"/><circle class="cv2-ring-fg" cx="22" cy="22" r="19" pathLength="100"/></svg>
+            <strong id="cv2-ring-pct">0%</strong>
+          </div>
+          <div class="cv2-hero-main coll-summary-progress">
             <div class="coll-summary-line">
               <span id="progress-label"></span>
-              <button type="button" class="btn-ghost coll-stats-toggle" id="stats-toggle" aria-expanded="true">&#128202; Masquer les stats</button>
             </div>
             <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+            <div class="cv2-hero-chips" id="cv2-hero-chips"></div>
           </div>
           <div class="coll-dust" title="Poussières d'étoile : gagnées en décraftant, dépensées pour crafter">
             <span class="sd-icon" aria-hidden="true">&#10024;</span>
@@ -66,12 +74,17 @@
               <div class="sd-label">poussières d'étoile</div>
             </div>
           </div>
-        </div>
-
+          <button type="button" class="btn-ghost coll-stats-toggle" id="stats-toggle" aria-expanded="true" aria-controls="stats-block">&#128202; Masquer les stats</button>
+        </section>
         <div id="stats-block">
           <div id="rarity-progress" class="rarity-progress-list"></div>
           <div id="stats-grid" class="stats-grid"></div>
           <div id="milestone-banner" class="milestone-banner" style="display:none;"></div>
+          <a class="pg-cta" href="progression.html">
+            <span class="pg-cta-icon" aria-hidden="true">&#127775;</span>
+            <span><strong>Progression</strong><small>Maîtrise des extensions, constellations et arbre céleste, talents et prestige.</small></span>
+            <span class="pg-cta-go" aria-hidden="true">&rarr;</span>
+          </a>
         </div>
         <div id="unused-dust-reminder" class="milestone-banner" style="display:none;"></div>
         <div id="set-reward-banner" class="set-reward-banner" style="display:none;"></div>
@@ -80,120 +93,142 @@
           <p class="lead" style="font-size:0.85rem;">Des objectifs qui traversent les extensions. Chaque collection terminée rapporte des poussières et un titre à équiper dans la boutique.</p>
           <div class="themes-grid" id="themes-grid"></div>
         </details>
-        <a class="pg-cta" href="progression.html">
-            <span class="pg-cta-icon" aria-hidden="true">&#127775;</span>
-            <span><strong>Progression</strong><small>Maîtrise des extensions, constellations et arbre céleste, talents et prestige.</small></span>
-            <span class="pg-cta-go" aria-hidden="true">&rarr;</span>
-          </a>
-
         <div data-shop-strip="collection"></div>
-        <!-- Modes de la page (ancres #classeur, #decrafter, #crafter, #autel, #finitions, #qualite) -->
-        <nav class="tabs coll-modes" role="tablist" aria-label="Modes de la collection">
+
+        <!-- Deux espaces : Classeur (regarder, ranger) et Atelier (transformer). -->
+        <nav class="cv2-top" id="cv2-top" role="tablist" aria-label="Espaces de la collection">
+          <button type="button" class="cv2-top-tab active" data-top="binder" role="tab" aria-selected="true">&#128218; Classeur<span class="tab-count" id="cv2-top-binder-n"></span></button>
+          <button type="button" class="cv2-top-tab" data-top="workshop" role="tab" aria-selected="false">&#9874;&#65039; Atelier<span class="tab-count" id="cv2-top-ws-n"></span></button>
+        </nav>
+        <!-- Outils de l'Atelier (ancres #decrafter, #crafter, #qualite, #finitions, #autel ; #classeur pour le classeur) -->
+        <nav class="tabs coll-modes cv2-tools" role="tablist" aria-label="Outils de l'atelier">
           <button type="button" class="tab coll-mode active" data-mode="binder" role="tab" aria-selected="true" aria-controls="pane-binder">&#128218; Classeur<span class="tab-count"></span></button>
-          <button type="button" class="tab coll-mode" data-mode="disenchant" role="tab" aria-selected="false" aria-controls="pane-disenchant">&#9851; Décrafter<span class="tab-count"></span></button>
-          <button type="button" class="tab coll-mode" data-mode="craft" role="tab" aria-selected="false" aria-controls="pane-craft">&#10024; Crafter<span class="tab-count"></span></button>
-          <button type="button" class="tab coll-mode" data-mode="quality" role="tab" aria-selected="false" aria-controls="pane-quality">&#129521; Qualité<span class="tab-count"></span></button>
-          <button type="button" class="tab coll-mode" data-mode="finish" role="tab" aria-selected="false" aria-controls="pane-finish">&#127752; Finitions<span class="tab-count"></span></button>
-          <button type="button" class="tab coll-mode" data-mode="altar" role="tab" aria-selected="false" aria-controls="pane-altar">&#128293; Autel<span class="tab-count"></span></button>
+          <button type="button" class="tab coll-mode" data-mode="disenchant" role="tab" aria-selected="false" aria-controls="pane-disenchant"><span class="cv2-tool-ico" aria-hidden="true">&#9851;</span><span class="cv2-tool-txt"><span class="cv2-tool-name">Décrafter</span><small class="cv2-tool-hint" data-hint="disenchant"></small></span><span class="tab-count"></span></button>
+          <button type="button" class="tab coll-mode" data-mode="craft" role="tab" aria-selected="false" aria-controls="pane-craft"><span class="cv2-tool-ico" aria-hidden="true">&#10024;</span><span class="cv2-tool-txt"><span class="cv2-tool-name">Crafter</span><small class="cv2-tool-hint" data-hint="craft"></small></span><span class="tab-count"></span></button>
+          <button type="button" class="tab coll-mode" data-mode="quality" role="tab" aria-selected="false" aria-controls="pane-quality"><span class="cv2-tool-ico" aria-hidden="true">&#129521;</span><span class="cv2-tool-txt"><span class="cv2-tool-name">Qualité</span><small class="cv2-tool-hint" data-hint="quality"></small></span><span class="tab-count"></span></button>
+          <button type="button" class="tab coll-mode" data-mode="finish" role="tab" aria-selected="false" aria-controls="pane-finish"><span class="cv2-tool-ico" aria-hidden="true">&#127752;</span><span class="cv2-tool-txt"><span class="cv2-tool-name">Finitions</span><small class="cv2-tool-hint" data-hint="finish"></small></span><span class="tab-count"></span></button>
+          <button type="button" class="tab coll-mode" data-mode="altar" role="tab" aria-selected="false" aria-controls="pane-altar"><span class="cv2-tool-ico" aria-hidden="true">&#128293;</span><span class="cv2-tool-txt"><span class="cv2-tool-name">Autel</span><small class="cv2-tool-hint" data-hint="altar"></small></span><span class="tab-count"></span></button>
         </nav>
 
-        <!-- Filtres partages par Classeur / Décrafter / Crafter -->
-        <div id="shared-toolbar">
-          <div class="toolbar-row toolbar-row-rarity"><span class="toolbar-label">Rareté</span><div class="filters" id="rarity-filters"></div></div>
-          <div class="collection-toolbar">
-            <div class="toolbar-row">
-              <span class="toolbar-label">Chercher</span>
-              <div class="toolbar-group">
-                <input type="text" id="search-input" placeholder="Rechercher une carte…" autocomplete="off" aria-label="Rechercher une carte" />
-                <select id="extension-filter" aria-label="Filtrer par extension">
-                <option value="">Extensions</option>
-                </select>
-                <select id="artist-filter" aria-label="Filtrer par artiste">
-                <option value="">Artistes</option>
-                </select>
-                <select id="sort-select" aria-label="Trier">
-                <option value="extension">Trier : par extension</option>
-                <option value="name">Trier : alphabétique</option>
-                <option value="artist">Trier : par artiste</option>
-                <option value="recent">Trier : récemment obtenues</option>
-                <option value="edition">Trier : par édition</option>
-                </select>
+        <!-- Filtres partages par Classeur / Décrafter / Crafter : une ligne + menus. -->
+        <div id="shared-toolbar" class="cv2-toolbar adv-open">
+          <div class="cv2-bar">
+            <input type="search" id="search-input" placeholder="Rechercher une carte…" autocomplete="off" aria-label="Rechercher une carte" />
+            <select id="extension-filter" aria-label="Filtrer par extension">
+              <option value="">Extensions</option>
+            </select>
+            <select id="sort-select" aria-label="Trier">
+              <option value="extension">Trier : par extension</option>
+              <option value="name">Trier : alphabétique</option>
+              <option value="artist">Trier : par artiste</option>
+              <option value="recent">Trier : récemment obtenues</option>
+              <option value="edition">Trier : par édition</option>
+            </select>
+            <details class="cv2-pop" id="cv2-filters">
+              <summary>&#127898;&#65039; Filtres <span class="adv-count" id="adv-count" hidden></span></summary>
+              <div class="cv2-pop-body">
+                <div class="cv2-pop-row toolbar-row-rarity"><span class="toolbar-label">Rareté</span><div class="filters" id="rarity-filters"></div></div>
+                <div class="cv2-pop-row"><span class="toolbar-label">Artiste</span>
+                  <select id="artist-filter" aria-label="Filtrer par artiste">
+                    <option value="">Tous les artistes</option>
+                  </select>
+                </div>
+                <div class="cv2-pop-row toolbar-row" data-only-mode="binder">
+                  <span class="toolbar-label">Exemplaires</span>
+                  <div class="toolbar-group">
+                    <select id="finish-filter" aria-label="Filtrer par finition">
+                      <option value="">Finitions</option>
+                      <option value="normal">Normal</option>
+                      <option value="holo">Holo</option>
+                      <option value="gold">Doré</option>
+                      <option value="ghost">Ghost</option>
+                      <option value="diamond">Diamant</option>
+                      <option value="rainbow">Arc-en-ciel</option>
+                      <option value="emerald">Émeraude</option>
+                    </select>
+                    <select id="quality-filter" aria-label="Filtrer par état">
+                      <option value="">États</option>
+                      <option value="damaged">Usé</option>
+                      <option value="worn">Abîmé</option>
+                      <option value="good">Bon état</option>
+                      <option value="mint">Parfait état</option>
+                    </select>
+                    <select id="edition-filter" aria-label="Filtrer par édition"></select>
+                  </div>
+                </div>
+                <div class="cv2-pop-row toolbar-row" data-only-mode="binder">
+                  <span class="toolbar-label">Afficher</span>
+                  <div class="toolbar-group">
+                    <button type="button" class="btn-secondary" id="missing-toggle">&#128269; Manquantes</button>
+                    <button type="button" class="btn-secondary" id="favorites-toggle">&#9733; Favoris</button>
+                    <button type="button" class="btn-secondary" id="first-serial-toggle" title="Seulement les premiers exemplaires en circulation">#001</button>
+                    <button type="button" class="btn-secondary" data-wishlist-open title="Les cartes que tu cherches, et où les trouver maintenant">&#9829; Souhaits</button>
+                  </div>
+                </div>
+                <div class="cv2-pop-row toolbar-row" data-only-mode="craft">
+                  <span class="toolbar-label">Afficher</span>
+                  <div class="toolbar-group">
+                    <button type="button" class="btn-secondary" id="hide-owned-toggle">&#128269; Manquantes uniquement</button>
+                  </div>
+                </div>
+                <div class="cv2-pop-foot"><button type="button" class="btn-ghost" id="reset-filters-btn">Réinitialiser</button></div>
               </div>
-            </div>
-            <div class="toolbar-row" data-only-mode="binder">
-              <span class="toolbar-label">Affiner</span>
-              <div class="toolbar-group">
-                <select id="finish-filter" aria-label="Filtrer par finition">
-                <option value="">Finitions</option>
-                <option value="normal">Normal</option>
-                <option value="holo">Holo</option>
-                <option value="gold">Doré</option>
-                <option value="ghost">Ghost</option>
-                <option value="diamond">Diamant</option>
-                <option value="rainbow">Arc-en-ciel</option>
-                <option value="emerald">Émeraude</option>
-                </select>
-                <select id="quality-filter" aria-label="Filtrer par état">
-                <option value="">États</option>
-                <option value="damaged">Usé</option>
-                <option value="worn">Abîmé</option>
-                <option value="good">Bon état</option>
-                <option value="mint">Parfait état</option>
-                </select>
-                <select id="edition-filter" aria-label="Filtrer par édition"></select>
-                <button type="button" class="btn-secondary" id="first-serial-toggle" title="Seulement les premiers exemplaires en circulation">#001</button>
-                <button type="button" class="btn-secondary" id="missing-toggle">&#128269; Manquantes uniquement</button>
-                <button type="button" class="btn-secondary" id="favorites-toggle">&#9733; Favoris uniquement</button>
-                <button type="button" class="btn-secondary" data-wishlist-open title="Les cartes que tu cherches, et où les trouver maintenant">&#9829; Ma liste de souhaits</button>
+            </details>
+            <details class="cv2-pop cv2-pop-right" id="cv2-display" data-only-mode="binder">
+              <summary>&#128065;&#65039; Affichage</summary>
+              <div class="cv2-pop-body">
+                <div class="cv2-pop-row"><span class="toolbar-label">Vignettes</span>
+                  <div class="cv2-seg" role="group" aria-label="Une vignette par carte ou par exemplaire">
+                    <button type="button" class="cv2-seg-btn" data-group="card" aria-pressed="true" title="Une vignette par carte : ses autres exemplaires sont dans sa fiche">Par carte</button>
+                    <button type="button" class="cv2-seg-btn" data-group="variant" aria-pressed="false" title="Une vignette par variante possédée (finition + état)">Par exemplaire</button>
+                  </div>
+                </div>
+                <div class="cv2-pop-row"><span class="toolbar-label">Vue</span>
+                  <div class="toolbar-group">
+                    <button type="button" class="btn-secondary" id="album-toggle" title="Album : une extension, page par page, avec les emplacements vides numérotés et les récompenses de page">&#128214; Album</button>
+                    <button type="button" class="btn-secondary" id="dense-toggle" title="Grille compacte : plus de cartes visibles à l'écran">&#9638; Compacte</button>
+                    <button type="button" class="btn-secondary" id="cinema-toggle" title="Plein écran : masque le menu et les stats pour ne garder que les cartes">&#128065; Plein écran</button>
+                    <button type="button" class="btn-secondary" id="mark-seen-btn">&#10003; Tout vu</button>
+                  </div>
+                </div>
+                <div class="cv2-pop-row binder-accent-row" id="binder-accent-row" title="Personnalise la couleur d'accent de ton classeur">
+                  <span class="toolbar-label binder-accent-label">Couleur</span>
+                  <span class="toolbar-group">
+                    <button type="button" class="binder-swatch active" data-accent="" style="--swatch-color:#8b5cf6;" aria-label="Accent violet (défaut)"></button>
+                    <button type="button" class="binder-swatch" data-accent="#22d3ee" style="--swatch-color:#22d3ee;" aria-label="Accent cyan"></button>
+                    <button type="button" class="binder-swatch" data-accent="#f472b6" style="--swatch-color:#f472b6;" aria-label="Accent rose"></button>
+                    <button type="button" class="binder-swatch" data-accent="#4ade80" style="--swatch-color:#4ade80;" aria-label="Accent vert"></button>
+                    <button type="button" class="binder-swatch" data-accent="#f5a524" style="--swatch-color:#f5a524;" aria-label="Accent doré"></button>
+                  </span>
+                </div>
+                <div class="cv2-pop-row sleeve-row" id="sleeve-row" title="Pochettes de cartes : débloquées en montant de niveau">
+                  <span class="toolbar-label binder-accent-label">Pochettes</span>
+                  <span class="toolbar-group">
+                    <button type="button" class="sleeve-swatch active" data-sleeve="" data-level="1">Défaut</button>
+                    <button type="button" class="sleeve-swatch" data-sleeve="neon" data-level="4">Néon</button>
+                    <button type="button" class="sleeve-swatch" data-sleeve="vintage" data-level="6">Vintage</button>
+                    <button type="button" class="sleeve-swatch" data-sleeve="carbone" data-level="10">Carbone</button>
+                  </span>
+                </div>
               </div>
-            </div>
-            <div class="toolbar-row" data-only-mode="craft">
-              <span class="toolbar-label">Affiner</span>
-              <div class="toolbar-group">
-                <button type="button" class="btn-secondary" id="hide-owned-toggle">&#128269; Manquantes uniquement</button>
-              </div>
-            </div>
-            <div class="toolbar-row" data-only-mode="binder">
-              <span class="toolbar-label">Affichage</span>
-              <div class="toolbar-group">
-                <button type="button" class="btn-secondary" id="album-toggle" title="Album : une extension, page par page, avec les emplacements vides numérotés">&#128214; Album</button>
-                <button type="button" class="btn-secondary" id="dense-toggle" title="Grille compacte : plus de cartes visibles à l'écran">&#9638; Grille compacte</button>
-                <button type="button" class="btn-secondary" id="cinema-toggle" title="Plein écran : masque le menu et les stats pour ne garder que les cartes">&#128065; Plein écran</button>
-                <button type="button" class="btn-secondary" id="mark-seen-btn">&#10003; Tout marquer comme vu</button>
-              </div>
-            </div>
-            <div class="toolbar-reset">
-              <button type="button" class="btn-ghost adv-toggle" id="adv-filters-toggle" aria-expanded="false" aria-controls="shared-toolbar">&#9881;&#65039; Filtres et affichage <span class="adv-count" id="adv-count" hidden></span></button>
-              <button type="button" class="btn-ghost" id="reset-filters-btn">Réinitialiser</button>
-            </div>
+            </details>
           </div>
         </div>
-
         <!-- ===== Classeur ===== -->
         <section class="coll-pane" id="pane-binder" role="tabpanel">
-          <div class="coll-pane-actions">
-            <button type="button" class="btn-ghost" id="bulk-select-toggle">&#9745; Sélection multiple</button>
+          <div class="cv2-binder">
+            <aside class="cv2-rail" id="cv2-rail" aria-label="Extensions"></aside>
+            <div class="cv2-binder-main">
+              <div class="coll-pane-actions">
+                <button type="button" class="btn-ghost" id="bulk-select-toggle">&#9745; Sélection multiple</button>
+              </div>
+              <div id="bulk-disenchant-bar" class="bulk-action-bar" style="display:none;">
+                <span id="bulk-disenchant-summary"></span>
+                <button type="button" class="btn-danger" id="bulk-disenchant-btn">Décrafter la sélection</button>
+              </div>
+              <div id="collection-grid"></div>
+            </div>
           </div>
-          <div id="bulk-disenchant-bar" class="bulk-action-bar" style="display:none;">
-            <span id="bulk-disenchant-summary"></span>
-            <button type="button" class="btn-danger" id="bulk-disenchant-btn">Décrafter la sélection</button>
-          </div>
-          <div class="binder-accent-row" id="binder-accent-row" title="Personnalise la couleur d'accent de ton classeur">
-            <span class="binder-accent-label">Classeur :</span>
-            <button type="button" class="binder-swatch active" data-accent="" style="--swatch-color:#8b5cf6;" aria-label="Accent violet (défaut)"></button>
-            <button type="button" class="binder-swatch" data-accent="#22d3ee" style="--swatch-color:#22d3ee;" aria-label="Accent cyan"></button>
-            <button type="button" class="binder-swatch" data-accent="#f472b6" style="--swatch-color:#f472b6;" aria-label="Accent rose"></button>
-            <button type="button" class="binder-swatch" data-accent="#4ade80" style="--swatch-color:#4ade80;" aria-label="Accent vert"></button>
-            <button type="button" class="binder-swatch" data-accent="#f5a524" style="--swatch-color:#f5a524;" aria-label="Accent doré"></button>
-          </div>
-          <div class="sleeve-row" id="sleeve-row" title="Pochettes de cartes : débloquées en montant de niveau">
-            <span class="binder-accent-label">Pochettes :</span>
-            <button type="button" class="sleeve-swatch active" data-sleeve="" data-level="1">Défaut</button>
-            <button type="button" class="sleeve-swatch" data-sleeve="neon" data-level="4">Néon</button>
-            <button type="button" class="sleeve-swatch" data-sleeve="vintage" data-level="6">Vintage</button>
-            <button type="button" class="sleeve-swatch" data-sleeve="carbone" data-level="10">Carbone</button>
-          </div>
-          <div id="collection-grid"></div>
         </section>
 
         <!-- ===== Décrafter ===== -->
@@ -278,6 +313,7 @@
   <script src="js/collection-altar-smart.js"></script>
   <script src="js/collection-undo.js"></script>
   <script src="js/collection-filterbar.js"></script>
+  <script src="js/collection-v2.js"></script>
   <script src="js/vacation-ui.js"></script>
 </body>
 </html>

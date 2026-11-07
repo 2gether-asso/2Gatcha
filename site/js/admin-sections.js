@@ -6,7 +6,8 @@
 // vers un champ d'une section cachee ouvre d'abord cette section.
 
 const AdminSections = (() => {
-  const PANES = ["codes", "evenements", "contenu"];
+  // Admin V2 (2026-11-07) : toutes les rubriques a plusieurs cartes (avant : codes, evenements, contenu).
+  const PANES = ["planning", "codes", "joueurs", "test", "evenements", "contenu", "modes", "visuels", "reglages", "economie", "discord", "site", "tout", "doc"];
   const KEY = "2gatcha_admin_sections";
   const saved = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } };
   const remember = (pane, id) => { try { localStorage.setItem(KEY, JSON.stringify({ ...saved(), [pane]: id })); } catch (e) { /* stockage indisponible */ } };

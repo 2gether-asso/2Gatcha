@@ -49,7 +49,7 @@ function cardView(card, rarities) {
 function view(store, user) {
   const rarities = rarityMap(store);
   const cards = new Map(store.getAll('Cards').map((c) => [c.id, c]));
-  const myPulls = store.getAll('Pulls').filter((p) => refId(p.User) === user.id);
+  const myPulls = store.rowsBy('Pulls', 'User', user.id);
   const ownedCount = new Map();
   myPulls.forEach((p) => ownedCount.set(refId(p.Card), (ownedCount.get(refId(p.Card)) || 0) + 1));
   const deposits = store.getAll('GuildChestDeposits');

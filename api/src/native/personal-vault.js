@@ -25,8 +25,16 @@
 // echange, ni decraft : InVault l'exclut de tout le reste) et atteste de la
 // maitrise de la carte. Une par carte et par edition ; rattrapage pour les
 // lignes completees avant (au premier passage sur le coffre).
+//
+// V2 (2026-11-07) : NIVEAU DU COFFRE. Points de prestige = exemplaires ranges
+// (VaultXpPerCard, emeraudes exclues) + lignes recompensees (VaultXpPerRow,
+// toutes editions). Les paliers (VaultLevels) donnent une recompense une fois
+// (action 'claimLevel', tous les paliers en attente d'un coup, retenu dans
+// Users.VaultLevelClaimed : retirer des cartes peut faire redescendre le
+// niveau, jamais reprendre une recompense) et des interets en poussieres a
+// recuperer une fois par jour (action 'interest', Users.VaultInterestDay).
 
-import { refId, now, ok, fail, userById, firstAttachment, parseJson, nextSerial } from './common.js';
+import { refId, now, ok, fail, userById, firstAttachment, parseJson, nextSerial, parisDay } from './common.js';
 import { EDITIONS } from './editions.js';
 import { setting } from './settings.js';
 import { addTicket, vaultSummary } from './unique.js';
@@ -35,6 +43,7 @@ export const FINISHES = ['normal', 'holo', 'gold', 'ghost', 'diamond', 'rainbow'
 
 export const schema = {
   Pulls: { InVault: { type: 'Bool' }, VaultLocked: { type: 'Bool' } },
+  Users: { VaultLevelClaimed: { type: 'Numeric' }, VaultInterestDay: { type: 'Text' } },
   VaultRewards: { User: { type: 'Ref:Users' }, Card: { type: 'Ref:Cards' }, ClaimedAt: { type: 'Numeric' }, Edition: { type: 'Text' } }
 };
 
@@ -43,20 +52,24 @@ const qualityOf = (p) => p.Quality || 'damaged';
 
 function isUnlocked(store, userId) {
   const vaultCard = store.getAll('Cards').find((c) => !!c.IsVault);
-  return !!vaultCard && store.getAll('Pulls').some((p) => refId(p.User) === userId && refId(p.Card) === vaultCard.id && String(p.BatchId || '').startsWith('vault-'));
+  return !!vaultCard && store.peekBy('Pulls', 'User', userId).some((p) => refId(p.Card) === vaultCard.id && String(p.BatchId || '').startsWith('vault-'));
 }
 
 const editionOf = (p) => p.Edition || '';
 export const EMERALD = 'emerald';
 const isEmerald = (p) => p.Finish === EMERALD;
+// Lectures seules (peekBy, 2026-11-07) : exemplaires du joueur par l'index,
+// regroupes par carte une fois (avant : toute la table, puis cartes x exemplaires).
 function buildRows(store, userId, edition = '') {
   const cards = store.getAll('Cards');
-  const myPulls = store.getAll('Pulls').filter((p) => refId(p.User) === userId && editionOf(p) === edition);
-  const claimed = new Set(store.getAll('VaultRewards').filter((r) => refId(r.User) === userId && (r.Edition || '') === edition).map((r) => refId(r.Card)));
+  const myPulls = store.peekBy('Pulls', 'User', userId).filter((p) => editionOf(p) === edition);
+  const byCard = new Map();
+  for (const p of myPulls) { const k = refId(p.Card); if (!byCard.has(k)) byCard.set(k, []); byCard.get(k).push(p); }
+  const claimed = new Set(store.peekBy('VaultRewards', 'User', userId).filter((r) => (r.Edition || '') === edition).map((r) => refId(r.Card)));
   const rarities = new Map(store.getAll('Rarities').map((r) => [r.id, r]));
   const exts = new Map((store.tables.has('Extensions') ? store.getAll('Extensions') : []).map((e) => [e.id, e]));
   return cards.filter((c) => !c.IsPromo).map((card) => {
-    const mine = myPulls.filter((p) => refId(p.Card) === card.id && qualityOf(p) === 'mint');
+    const mine = (byCard.get(card.id) || []).filter((p) => qualityOf(p) === 'mint');
     if (!mine.length && !claimed.has(card.id)) return null;
     const slots = FINISHES.map((f) => {
       const stored = mine.find((p) => p.InVault && finishOf(p) === f);
@@ -66,7 +79,7 @@ function buildRows(store, userId, edition = '') {
     const rarity = rarities.get(refId(card.Rarity));
     const filled = slots.filter((s) => s.stored).length;
     const ext = exts.get(refId(card.Extension));
-    const emerald = myPulls.find((p) => refId(p.Card) === card.id && isEmerald(p));
+    const emerald = (byCard.get(card.id) || []).find(isEmerald);
     return {
       cardId: card.id, name: card.Name, imageId: firstAttachment(card.Image),
       rarity: rarity ? { key: rarity.Key, name: rarity.Name, colorHex: rarity.ColorHex, sortOrder: rarity.SortOrder || 0 } : null,
@@ -80,7 +93,7 @@ function buildRows(store, userId, edition = '') {
 // Exemplaire emeraude d'une carte maitrisee (ligne complete) : cree dans le
 // coffre, verrouille. null s'il existe deja.
 function grantEmerald(store, userId, cardId, edition = '') {
-  const has = store.getAll('Pulls').some((p) => refId(p.User) === userId && refId(p.Card) === cardId && isEmerald(p) && editionOf(p) === edition);
+  const has = store.peekBy('Pulls', 'User', userId).some((p) => refId(p.Card) === cardId && isEmerald(p) && editionOf(p) === edition);
   if (has || !store.get('Cards', cardId)) return null;
   const pull = store.create('Pulls', {
     User: userId, Card: cardId, SerialNumber: nextSerial(store, cardId), Finish: EMERALD, Quality: 'mint',
@@ -91,7 +104,11 @@ function grantEmerald(store, userId, cardId, edition = '') {
 // Lignes completees avant l'arrivee de l'emeraude : rattrapage.
 function emeraldCatchUp(store, userId) {
   const out = [];
-  for (const r of store.getAll('VaultRewards').filter((x) => refId(x.User) === userId)) {
+  const rewards = store.peekBy('VaultRewards', 'User', userId);
+  if (!rewards.length) return out;
+  const emeralds = new Set(store.peekBy('Pulls', 'User', userId).filter(isEmerald).map((p) => refId(p.Card) + '|' + editionOf(p)));
+  for (const r of rewards) {
+    if (emeralds.has(refId(r.Card) + '|' + (r.Edition || ''))) continue;
     const g = grantEmerald(store, userId, refId(r.Card), r.Edition || '');
     if (g) { const c = store.get('Cards', g.cardId); out.push({ ...g, cardName: c ? c.Name : '?' }); }
   }
@@ -117,8 +134,8 @@ function maybeReward(store, user, cardId, edition = '') {
 function editionsSeen(store, userId, myPulls) {
   const seen = new Set(myPulls.filter((p) => p.Edition).map((p) => p.Edition));
   if (store.tables.has('PullHistory')) {
-    for (const h of store.getAll('PullHistory')) {
-      if (refId(h.User) !== userId || (h.Kind !== 'created' && h.Kind !== 'changed')) continue;
+    for (const h of store.peekBy('PullHistory', 'User', userId)) {
+      if (h.Kind !== 'created' && h.Kind !== 'changed') continue;
       const d = parseJson(h.Detail, null);
       if (d && d.edition) seen.add(d.edition);
     }
@@ -128,7 +145,7 @@ function editionsSeen(store, userId, myPulls) {
 
 // Un onglet par edition obtenue, avec les memes lignes que le Classique.
 function buildEditionTabs(store, userId) {
-  const myPulls = store.getAll('Pulls').filter((p) => refId(p.User) === userId);
+  const myPulls = store.peekBy('Pulls', 'User', userId);
   const seen = editionsSeen(store, userId, myPulls);
   return Object.entries(EDITIONS).filter(([key]) => seen.has(key)).map(([key, e]) => {
     const rows = buildRows(store, userId, key);
@@ -141,6 +158,39 @@ function buildEditionTabs(store, userId) {
   });
 }
 
+// ------------------------------------------------------------ niveau du coffre
+function levelTable(store) {
+  const raw = setting(store, 'VaultLevels');
+  const list = (Array.isArray(raw) ? raw : []).map((l, i) => ({
+    level: i + 1, xp: Math.max(0, Number(l && l.xp) || 0), name: String((l && l.name) || `Niveau ${i + 1}`),
+    boosters: Math.max(0, Math.floor(Number(l && l.boosters) || 0)), dust: Math.max(0, Math.floor(Number(l && l.dust) || 0)), interest: Math.max(0, Math.floor(Number(l && l.interest) || 0))
+  }));
+  return list.length ? list : [{ level: 1, xp: 0, name: 'Coffre', boosters: 0, dust: 0, interest: 0 }];
+}
+export function vaultLevel(store, userId) {
+  const u = store.get('Users', userId) || {};
+  const table = levelTable(store);
+  const stored = store.peekBy('Pulls', 'User', userId).filter((p) => p.InVault && !isEmerald(p)).length;
+  const rows = store.peekBy('VaultRewards', 'User', userId).length;
+  const perCard = setting(store, 'VaultXpPerCard'), perRow = setting(store, 'VaultXpPerRow');
+  const xp = stored * perCard + rows * perRow;
+  let i = 0;
+  while (i + 1 < table.length && xp >= table[i + 1].xp) i++;
+  const cur = table[i], next = table[i + 1] || null;
+  const claimed = Math.max(1, Number(u.VaultLevelClaimed) || 1);
+  const pending = table.filter((l) => l.level > claimed && l.level <= cur.level && (l.boosters || l.dust));
+  return {
+    level: cur.level, name: cur.name, xp, stored, rows, perCard, perRow,
+    floor: cur.xp, next: next ? { level: next.level, xp: next.xp, name: next.name, boosters: next.boosters, dust: next.dust, interest: next.interest } : null,
+    interest: cur.interest, interestReady: cur.interest > 0 && u.VaultInterestDay !== parisDay(),
+    claimedLevel: claimed, pending, levels: table
+  };
+}
+function grant(store, userId, boosters, dust) {
+  const u = store.get('Users', userId);
+  store.update('Users', userId, { BoosterCount: (Number(u.BoosterCount) || 0) + boosters, StardustCount: (Number(u.StardustCount) || 0) + dust });
+}
+
 function payload(store, userId, reward = null) {
   const emeraldGrants = emeraldCatchUp(store, userId);
   return {
@@ -151,6 +201,7 @@ function payload(store, userId, reward = null) {
     boostersPerRow: setting(store, 'VaultBoostersPerRow'),
     dustPerRow: setting(store, 'VaultDustPerRow'),
     unique: vaultSummary(store, userId),
+    level: vaultLevel(store, userId),
     reward
   };
 }
@@ -162,8 +213,28 @@ function handleVault({ store, body }) {
   if (!isUnlocked(store, user.id)) return action === 'status' ? ok({ unlocked: false }) : fail('vault_locked');
   if (action === 'status') return ok(payload(store, user.id));
 
+  // Recompenses des paliers atteints (toutes celles en attente d'un coup).
+  if (action === 'claimLevel') {
+    const lv = vaultLevel(store, user.id);
+    if (lv.level <= lv.claimedLevel) return fail('nothing_to_claim');
+    const boosters = lv.pending.reduce((n, l) => n + l.boosters, 0), dust = lv.pending.reduce((n, l) => n + l.dust, 0);
+    grant(store, user.id, boosters, dust);
+    store.update('Users', user.id, { VaultLevelClaimed: lv.level });
+    return ok({ ...payload(store, user.id), levelReward: { level: lv.level, name: lv.name, boosters, dust, levels: lv.pending.map((l) => l.level) } });
+  }
+  // Interets du jour (une fois par jour, heure de Paris).
+  if (action === 'interest') {
+    const lv = vaultLevel(store, user.id);
+    if (!lv.interest) return fail('no_interest');
+    if (!lv.interestReady) return fail('already_claimed_today');
+    grant(store, user.id, 0, lv.interest);
+    store.update('Users', user.id, { VaultInterestDay: parisDay() });
+    return ok({ ...payload(store, user.id), interestGained: lv.interest });
+  }
+
   if (action === 'store' || action === 'withdraw') {
-    const target = store.getAll('Pulls').find((p) => p.id === Number(body.pullId) && refId(p.User) === user.id);
+    const t0 = store.get('Pulls', Number(body.pullId));
+    const target = t0 && refId(t0.User) === user.id ? t0 : null;
     if (!target) return fail('pull_not_owned');
     const cardId = refId(target.Card);
     if (action === 'withdraw') {
@@ -176,7 +247,7 @@ function handleVault({ store, body }) {
     const card = store.get('Cards', cardId);
     if (!card || card.IsPromo) return fail('promo_not_storable');
     if (qualityOf(target) !== 'mint') return fail('not_mint');
-    const mine = store.getAll('Pulls').filter((p) => refId(p.User) === user.id && refId(p.Card) === cardId);
+    const mine = store.peekBy('Pulls', 'User', user.id).filter((p) => refId(p.Card) === cardId);
     const ed = editionOf(target);
     if (mine.some((p) => p.InVault && editionOf(p) === ed && finishOf(p) === finishOf(target))) return fail('slot_filled');
     store.update('Pulls', target.id, { InVault: true });

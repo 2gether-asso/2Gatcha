@@ -46,7 +46,8 @@ export function userById(store, userId) {
 // Exemplaires d'un joueur. withVault : y compris ceux ranges au coffre-fort.
 export function userPulls(store, userId, { withVault = true } = {}) {
   const id = Number(userId);
-  return store.getAll('Pulls').filter((p) => refId(p.User) === id && (withVault || !p.InVault));
+  // Index par joueur (2026-11-07) : plus de copie de toute la table.
+  return store.rowsBy('Pulls', 'User', id).filter((p) => withVault || !p.InVault);
 }
 
 export function firstAttachment(v) {

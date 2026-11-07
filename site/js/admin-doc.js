@@ -8,7 +8,7 @@
 
 (function () {
   const esc = escHtml;
-  const UPDATED = "30 octobre 2026";
+  const UPDATED = "7 novembre 2026";
 
   // ---------------------------------------------------------------- contenu
   // {{Cle}} : valeur actuelle du reglage ; {{RULES}}, {{CLOSED}}, {{SETTINGS}} : blocs generes.
@@ -67,6 +67,8 @@
       </ul>` },
 
     { id: "atelier", icon: "🛠️", title: "Collection et atelier", body: `
+      <p><strong>Collection V2 (7 novembre)</strong> : bandeau compact (anneau de progression, poussières, pastilles « pages d'album à récompenser », sets, valeur, cartes au coffre ; stats détaillées repliées derrière « 📊 Stats », repliées par défaut). Deux espaces : <strong>📚 Classeur</strong> (regarder, ranger) et <strong>⚒️ Atelier</strong> (Décrafter, Crafter, Qualité, Finitions, Autel, présentés en cartes avec une ligne d'aide : doublons, cartes à portée, fusions et restaurations possibles, offrandes) ; l'Atelier rouvre le dernier outil utilisé, les ancres #classeur, #decrafter… restent valables. Barre de filtres sur une ligne : recherche, extension, tri, menu <strong>Filtres</strong> (rareté, artiste, finition, état, édition, manquantes, favoris, #001, souhaits ; compteur des filtres actifs) et menu <strong>Affichage</strong> (vignettes par carte ou par exemplaire, album, compacte, plein écran, tout vu, couleur, pochettes). <strong>Rail des extensions</strong> (colonne sur grand écran, bande défilante sur téléphone) : progression, pages d'album à récompenser, set complet ; un clic filtre la grille. <strong>Une vignette par carte</strong> par défaut (sa plus belle variante, pastille du nombre de variantes et des exemplaires au coffre) ; « Par exemplaire » et la sélection multiple gardent une vignette par variante. <strong>Fiche carte</strong> en panneau latéral sur grand écran : étoiles de maîtrise (découverte, parfait état, 3 finitions, 6 finitions, émeraude au coffre ; affichage seul), <strong>matrice finitions × états</strong> (cliquer une case affiche cette variante), exemplaires au coffre, boutons Vitrine et Souhaiter. Plusieurs sets complets : une seule ligne « Tout réclamer ». Correctif : la fiche d'une carte arc-en-ciel restait invisible (animation du cadre qui écrasait celle d'apparition).</p>
+      <p><strong>Pages d'album</strong> (7 novembre, collection-v2.js, route album-pages) : les cartes actives hors promo de chaque extension, dans l'ordre du catalogue (numéros #001…), sont rangées par pages de <strong>{{AlbumPageSize}} cartes</strong>. Une page dont toutes les cartes sont découvertes (collection ou coffre) rapporte une fois <strong>{{AlbumPageBoosters}} jeton(s) booster + {{AlbumPageDust}} ✨</strong> (table AlbumPageClaims, retenue par extension et numéro de page : changer la taille des pages ne redonne pas les pages déjà payées). Réclamation dans l'album (en-tête de chaque page) ou d'un coup depuis le bandeau. Réglages : groupe « Album ».</p>
       <ul>
         <li><strong>Craft</strong> : créer une carte contre son coût en poussières (par rareté ; en Medium, la Bourse des cartes peut le moduler).</li>
         <li><strong>Décraft</strong> : détruire un exemplaire contre sa valeur (rareté × finition × état), modulée par le <strong>cours du décraft</strong> de la semaine (±{{ExchangeRateSwing}} selon l'offre et la demande de la semaine passée), le bonus « carte rare sur le serveur » (moins de {{RareOnServerCopies}} exemplaires : +{{RareOnServerDecraftBonus}}), les talents, le dé, l'heure de chance… En mode Cool, un décraft s'annule pendant 24 h.</li>
@@ -103,6 +105,7 @@
       <p><strong>Rangé par extension</strong> (25 octobre) : les lignes sont groupées sous le nom de leur extension (lignes complètes / total, cartes émeraude), avec un menu « Extension » pour n'en afficher qu'une ; dans chaque extension, les lignes où l'on peut ranger quelque chose passent en tête.</p>
       <p><strong>Carte émeraude</strong> (25 octobre) : une ligne complète donne en plus, ticket compris, un exemplaire de la carte en finition <strong>émeraude</strong>, créé directement dans le coffre (7e case de la ligne). Il ne peut pas en sortir (ni retrait, ni échange, ni décraft) : il atteste la maîtrise de la carte. Une par carte et par édition ; les lignes complétées avant le 25 octobre reçoivent la leur au premier passage sur le coffre. Chaque carte émeraude donne aussi 1 point d'étoile à l'arbre céleste.</p>
       <p><strong>Comptoir Unique</strong> : un Ticket Unique s'échange contre la carte Unique de son choix.</p>
+      <p><strong>Coffre-fort V2 (7 novembre)</strong> : <strong>niveau du coffre</strong>. Points de prestige = <strong>{{VaultXpPerCard}}</strong> par exemplaire rangé (émeraudes exclues) + <strong>{{VaultXpPerRow}}</strong> par ligne récompensée (toutes éditions). Les paliers (réglage <em>VaultLevels</em> : points, nom, boosters, poussières, intérêts) donnent une récompense une seule fois (bouton « Palier », tous les paliers en attente d'un coup ; retenu dans Users.VaultLevelClaimed : retirer des cartes peut faire redescendre le niveau, jamais reprendre ou redonner une récompense) et des <strong>intérêts en poussières</strong> à récupérer une fois par jour (heure de Paris, Users.VaultInterestDay) selon le niveau actuel. La porte du coffre change de métal tous les 2 niveaux (fer, bronze, argent, or, émeraude) et s'ouvre à la première visite de la session (passable d'un clic ; jamais en mouvement réduit ni en mode fluide). <strong>Dépôt guidé</strong> : bandeau « À ranger maintenant » (toutes éditions) avec ce que ça rapporte (lignes complétées, boosters, poussières, tickets, émeraudes, prestige, palier atteint) ; « Préparer le dépôt » ouvre la liste des exemplaires à cocher (tout / rien / seulement les lignes qui se complètent), un seul appel au serveur. <strong>Tiroirs</strong> : sans recherche ni filtre, le coffre s'ouvre sur un tiroir par extension (lignes complètes, émeraudes, cartes rangées, à ranger) ; un tiroir ouvert = le filtre Extension, « ← Tous les tiroirs » pour revenir. L'onglet Présentoir devient <strong>🖼️ Vitrine</strong> (coffre.html#vitrine, l'ancien #presentoir marche encore) : en haut, les <strong>6 places de la vitrine du profil</strong> dans l'ordre (◀ ▶ pour déplacer, ✕ pour retirer), puis la salle des trésors. Ordre de la vitrine : nouvelle action <em>order</em> de la route showcase (un seul appel ; l'ancien retirer / remettre reste en secours si le serveur n'est pas à jour).</p>
       <p><strong>Vitrine, zoom et présentoir</strong> (26 octobre, site seulement) : chaque ligne qui a au moins une carte rangée a un bouton « 🖼️ Vitrine » (la vitrine du profil ne garde que la carte ; le serveur compte déjà les exemplaires du coffre comme possédés, la limite reste 6). Toucher une carte rangée l'ouvre dans l'inspecteur (plein écran, zoom ×4, lumière qui suit la souris ou le téléphone) avec toutes les variantes rangées de cette carte, émeraude et éditions comprises. Troisième onglet <strong>💎 Présentoir</strong> (coffre.html#presentoir) : toutes les cartes du coffre exposées sur des socles sous projecteur, plaque en laiton (nom, rareté, finition, numéro, édition), les émeraudes en tête dans la vitrine « Maîtrises » ; filtres par finition (avec le nombre), tri prestige / rareté / nom, bouton vitrine sur chaque plaque. <strong>Vitrine pleine</strong> (6/6) : au lieu d'une erreur, on choisit la carte à remplacer (coffre, collection) ; <strong>ordre de la vitrine</strong> : « ↕️ Ordonner » sur son profil et sur le présentoir (glisser-déposer ou flèches ; l'API range la vitrine par ordre d'ajout, le site retire puis remet les cartes dans le nouvel ordre). <strong>Partager</strong> : image « Salle des trésors » (9 plus belles cartes, émeraudes en tête, chiffres du coffre) dans le studio de partage. <strong>Ranger depuis la fenêtre d'une carte</strong> : bouton « 🔒 Ranger au coffre » quand l'exemplaire affiché (parfait état) a une case libre ; dans la collection, une carte protégée s'ouvre dans l'inspecteur (avec « Gérer au coffre »).</p>` },
 
     { id: "echanges", icon: "🔄", title: "Échanges et marchés", body: `
@@ -449,9 +452,12 @@
       </ul>` },
 
     { id: "admin", icon: "🛠️", title: "Administration et sécurité", body: `
+      <p><strong>Admin V2 (7 novembre)</strong> : menu regroupé par usage (Pilotage, Joueurs, Jeu, Réglages, Données). <strong>Tableau de bord</strong> (route admin-dashboard, admin-v2.js) : joueurs actifs 24 h / 7 j, inscrits, nouveaux, en direct ; exemplaires obtenus aujourd'hui et courbe sur 7 jours ; économie du jour (boosters créés / ouverts, poussières gagnées / dépensées, sources du jour) ; boosters et poussières en circulation, inflation ; mode de jeu et mode recommandé ; serveur (médiane, 95 %, requêtes par heure, mémoire, durée en ligne) ; boss (barre de PV) ; événement ou surprise en cours et prochain prévu ; codes actifs. En dessous : les <strong>actions à valider</strong>, ce qui arrive <strong>prochainement</strong> et les <strong>points d'attention</strong> (actions à valider, aucun boss ni événement prévu, routes lentes, erreurs serveur, maintenance, échec du planificateur, mode recommandé, origine de boosters inconnue). Rafraîchi toutes les 2 minutes quand il est affiché. <strong>Planning semi-automatique</strong> (route admin-planner, table PlannerRules) : une règle lance à l'heure prévue un <em>boss</em> (noms à tour de rôle, PV = le plus grand entre un minimum et « PV par joueur actif sur 7 jours », boosters de récompense ; par défaut rien si un boss est encore en vie), un <em>événement</em> (multiplicateurs, durée), un <em>code</em> (début du code + date, récompenses, durée, joueurs max, publication au calendrier et sur Discord) ou une <em>annonce Discord</em> ; une fois, chaque jour, semaine ou mois. Vérifié chaque minute par le serveur ; une règle en retard ne rattrape pas les passages manqués. « À valider » : à l'heure dite la règle passe en attente sur le tableau de bord (Lancer / Passer) au lieu de partir seule. Modèles en un clic : boss du lundi, week-end bonus (à valider), code du vendredi, rappel Discord. Chaque règle : lancer maintenant, modifier, pause, supprimer, dernier résultat. <strong>Contenu des rubriques</strong> : chaque rubrique commence par une phrase qui dit à quoi elle sert et, dès qu'elle a plusieurs encadrés, un sommaire qui en montre un à la fois (« Tout afficher » pour tout voir) ; les descriptions des encadrés tiennent sur une ligne (clic pour tout lire). <strong>Économie</strong> rangée en onglets (mode de jeu, fonctionnalités par mode, en circulation, origine des boosters, inflation, journal) ; <strong>Difficultés</strong> : un mode à la fois. Tableaux à enregistrer ligne par ligne (taux de tirage, saisons) : le bouton n'apparaît que sur les lignes modifiées (surlignées) et une barre en bas de l'écran « Tout enregistrer / Annuler » ; quitter la page avec des modifications non enregistrées demande confirmation. Contenu &gt; Extensions en grille compacte. <strong>Documentation</strong> : chaque valeur de réglage est cliquable et se modifie sur place, dans le texte juste sous la valeur, sans faire défiler la page (enregistrée tout de suite, « Défaut » pour revenir à la valeur d'origine, « Dans Réglages » pour l'ouvrir avec le reste) ; raccourcis vers la rubrique concernée en tête de section. <strong>Recherche « / »</strong> : propose aussi des actions (programmer un boss, un week-end, un code, une annonce ; créer un code, faire un don, lancer un événement ou un boss, bandeau, mode de jeu, santé).</p>
       <ul>
+        <li><strong>Optimisation du serveur</strong> (7 novembre) : chaque lecture complète d'une table refaisait un JSON.parse de toute la table (Pulls, ~56 000 lignes : ~30 ms à chaque fois, plusieurs fois par requête). Le Store garde maintenant les lignes déjà lues sous forme d'objets gelés, remplacés à chaque écriture : une lecture complète est une copie rapide (~2,5 ms) ; le code natif qui ne fait que lire utilise des lectures sans copie (peekAll / peekBy, par l'index par joueur ou par carte). Les modules les plus appelés (collection, coffre-fort, comptoir Unique, bingo, vitrine, cartes, éditions, succès, souhaits…) ne relisent plus toute la table Pulls. Un nœud de table de workflow peut lire seulement les lignes d'une colonne (rowsBy) : get-collection ne lit plus que les exemplaires du joueur. Sur une base de test à l'échelle de la prod, les lectures d'une page (lot du gabarit) passent d'environ 3,5 s à moins d'une seconde. Coût : un peu plus de mémoire (les lignes lues sont gardées en objets).</li>
         <li>Admins : comptes Discord listés côté serveur (ADMIN_DISCORD_IDS) ; jeton admin du serveur pour la base de données.</li>
         <li>Jeton de session signé ({{AuthTokenDays}} jours) ; limite de {{RateLimitWritesPerMinute}} écritures et {{RateLimitReadsPerMinute}} lectures par minute et par joueur.</li>
+        <li><strong>Photo et nom Discord à jour</strong> (6 novembre, discord-profile.js) : à la connexion, l'API garde le jeton de rafraîchissement Discord (table DiscordLinks, jamais renvoyé au site). Toutes les 10 minutes, les joueurs venus depuis 3 jours dont la photo a été lue il y a plus de DiscordProfileRefreshHours ({{DiscordProfileRefreshHours}}) h sont relus auprès de Discord, sans reconnexion ; le site reprend la nouvelle photo à l'affichage suivant de l'en-tête. Accès retiré côté Discord : le lien est oublié, la photo sera relue à la prochaine connexion. Les joueurs connectés avant cette version doivent se reconnecter une fois. Nécessite DISCORD_CLIENT_SECRET sur l'hébergement.</li>
         <li>Pages : codes & dons, joueurs, tout voir (toutes les tables), Discord, économie (mode de jeu, matrice des fonctionnalités, journal), difficultés, événements, contenu (cartes, saisons, bingo, boss), réglages (taux, règles de base, réglages avancés), site (maintenance, sauvegardes).</li>
         <li>Notifications push (silence de {{PushQuietStart}} h à {{PushQuietEnd}} h).</li>
         <li><strong>Santé</strong> (2 novembre, onglet Santé) : depuis le démarrage du serveur, temps de réponse et routes les plus lentes de la dernière heure, erreurs (aussi envoyées à GlitchTip), mémoire, taille de la base, joueurs en direct, dernier envoi Discord et annonces parties en texte, sauvegardes Azure et JSON. Relu toutes les 30 s. Les chiffres repartent de zéro à chaque redémarrage.</li>
@@ -565,7 +571,21 @@
     if (/probabilit/.test(s.unit || "") || (v > 0 && v < 1 && !/Multiplier|Mult$|Swing|Step/.test(s.key))) return (Math.round(v * 1000) / 10).toLocaleString("fr-FR") + " %";
     return v.toLocaleString("fr-FR");
   }
-  const value = (key) => `<span class="adoc-val" title="${esc(key)}${settings.get(key)?.custom ? " (modifié)" : ""}">${fmt(settings.get(key))}</span>`;
+  // Admin V2 (2026-11-07) : chaque valeur est un raccourci, un clic ouvre un
+  // mini-editeur (enregistre tout de suite, comme dans Reglages).
+  const value = (key) => {
+    const st = settings.get(key);
+    if (!st) return `<span class="adoc-val" title="${esc(key)}">${fmt(st)}</span>`;
+    return `<button type="button" class="adoc-val adoc-edit ${st.custom ? "custom" : ""}" data-set="${esc(key)}" title="${esc(st.label)}${st.custom ? " (modifié)" : ""} : cliquer pour modifier">${fmt(st)}</button>`;
+  };
+  // Raccourcis en tete de section : la rubrique de l'admin qui va avec.
+  const SECTION_LINKS = {
+    atelier: [["contenu", "🃏 Contenu"], ["reglages", "⚙️ Réglages"]], coffre: [["reglages", "⚙️ Réglages du coffre"]], boosters: [["reglages", "⚖️ Taux de tirage"], ["economie", "💰 Économie"]],
+    echanges: [["economie", "💰 Économie"]], jeux: [["contenu", "🃏 Contenu"], ["visuels", "🎨 Visuels"]], progression: [["contenu", "🌟 Récompenses de niveau"]],
+    communaute: [["planning", "📆 Planning (boss)"], ["contenu", "💀 Boss"]], economie: [["economie", "💰 Économie"]], modes: [["modes", "🎲 Difficultés"]],
+    evenements: [["planning", "📆 Planning"], ["evenements", "🎉 Événements"]], admin: [["sante", "🩺 Santé"], ["tout", "🔍 Tout voir"]], reglages: [["reglages", "⚙️ Réglages"]]
+  };
+  const sectionLinks = (id) => (SECTION_LINKS[id] || []).map(([pane, label]) => `<button type="button" class="adoc-link" data-goto="${pane}">${label}</button>`).join("");
 
   function rulesBlock() {
     if (!rules) return "<p class=\"muted\">Règles indisponibles.</p>";
@@ -579,7 +599,7 @@
   function settingsBlock() {
     const groups = new Map();
     settings.forEach((s) => { if (!groups.has(s.group)) groups.set(s.group, []); groups.get(s.group).push(s); });
-    return [...groups.entries()].map(([g, list]) => `<details class="adoc-settings"><summary>${esc(g)} (${list.length})</summary><div class="table-scroll"><table class="admin-table"><tbody>${list.map((s) => `<tr><td>${esc(s.label)}${s.help ? `<br><small class="muted">${esc(s.help)}</small>` : ""}</td><td class="num">${fmt(s)}${s.custom ? " ✎" : ""}</td></tr>`).join("")}</tbody></table></div></details>`).join("");
+    return [...groups.entries()].map(([g, list]) => `<details class="adoc-settings"><summary>${esc(g)} (${list.length})</summary><div class="table-scroll"><table class="admin-table"><tbody>${list.map((s) => `<tr><td>${esc(s.label)}${s.help ? `<br><small class="muted">${esc(s.help)}</small>` : ""}</td><td class="num">${value(s.key)}</td></tr>`).join("")}</tbody></table></div></details>`).join("");
   }
   function fill(html) {
     return html.replace(/\{\{RULES\}\}/g, rulesBlock).replace(/\{\{CLOSED\}\}/g, closedBlock).replace(/\{\{SETTINGS\}\}/g, settingsBlock).replace(/\{\{(\w+)\}\}/g, (_, k) => value(k));
@@ -598,9 +618,82 @@
         <span class="muted">Mise à jour : ${UPDATED} · valeurs en direct</span>
       </div>
       <nav class="adoc-toc" aria-label="Sommaire">${shown.map((s) => `<a href="#doc-${s.id}" data-doc-jump="${s.id}">${s.icon} ${esc(s.title)}</a>`).join("")}</nav>
-      ${shown.map((s) => `<section class="adoc-section" id="doc-${s.id}"><h2>${s.icon} ${esc(s.title)}</h2>${s.html}</section>`).join("") || '<p class="muted">Rien ne correspond à cette recherche.</p>'}`;
+      <p class="adoc-hint muted">Astuce : les valeurs en couleur sont les réglages en direct. Clique sur l'une d'elles pour la changer ici même.</p>
+      ${shown.map((s) => `<section class="adoc-section" id="doc-${s.id}"><h2>${s.icon} ${esc(s.title)}${SECTION_LINKS[s.id] ? `<span class="adoc-links">${sectionLinks(s.id)}</span>` : ""}</h2>${s.html}</section>`).join("") || '<p class="muted">Rien ne correspond à cette recherche.</p>'}`;
     const input = document.getElementById("doc-search");
     input.addEventListener("input", () => { const pos = input.selectionStart; render(input.value); const again = document.getElementById("doc-search"); again.focus(); again.setSelectionRange(pos, pos); });
+  }
+
+  // ------------------------------------------------------------ editeur en ligne
+  function closeEditor() { document.querySelector(".adoc-pop")?.remove(); document.querySelectorAll(".adoc-edit.editing").forEach((b) => b.classList.remove("editing")); }
+  function openEditor(btn) {
+    closeEditor();
+    const key = btn.dataset.set;
+    const st = settings.get(key);
+    if (!st) return;
+    const pop = document.createElement("div");
+    pop.className = "adoc-pop";
+    pop.setAttribute("role", "dialog");
+    pop.setAttribute("aria-label", st.label);
+    const input = st.type === "bool"
+      ? `<select id="adoc-in"><option value="true" ${st.value ? "selected" : ""}>Oui</option><option value="false" ${!st.value ? "selected" : ""}>Non</option></select>`
+      : st.type === "json" ? `<textarea id="adoc-in" rows="8" spellcheck="false">${esc(JSON.stringify(st.value, null, 2))}</textarea>`
+      : st.type === "number" ? `<input type="number" id="adoc-in" value="${st.value}" ${st.min != null ? `min="${st.min}"` : ""} ${st.max != null ? `max="${st.max}"` : ""} step="${st.step || "any"}" />`
+      : `<input type="text" id="adoc-in" value="${esc(st.value)}" />`;
+    pop.innerHTML = `<div class="adoc-pop-head"><strong>${esc(st.label)}</strong><small class="muted">${esc(st.group)} · ${esc(key)}</small></div>
+      ${st.help ? `<p class="muted">${esc(st.help)}</p>` : ""}
+      ${input}
+      <small class="muted">Défaut : ${esc(typeof st.def === "object" ? JSON.stringify(st.def) : String(st.def))}${st.unit ? ` · ${esc(st.unit)}` : ""}${st.min != null ? ` · min ${st.min}` : ""}${st.max != null ? ` · max ${st.max}` : ""}</small>
+      <div class="adoc-pop-actions">
+        ${st.custom ? `<button type="button" class="btn-ghost" data-pop="reset">Défaut</button>` : ""}
+        <button type="button" class="btn-ghost" data-pop="open">Dans Réglages</button>
+        <button type="button" class="btn-ghost" data-pop="cancel">Annuler</button>
+        <button type="button" class="btn" data-pop="save">Enregistrer</button>
+      </div>`;
+    // Dans le texte, juste sous la valeur (2026-11-07, retour : la bulle
+    // ajoutee en bas de page puis replacee faisait defiler la page) :
+    // aucune position calculee, aucun defilement.
+    const host = btn.closest("li, td, p, h3, .adoc-section") || btn.parentElement;
+    if (host.tagName === "P" || host.tagName === "H3") host.insertAdjacentElement("afterend", pop);
+    else host.appendChild(pop);
+    btn.classList.add("editing");
+    const field = pop.querySelector("#adoc-in");
+    field.focus({ preventScroll: true });
+    if (field.select && st.type !== "json") field.select();
+    const save = async (reset) => {
+      let v = field.value;
+      try {
+        if (!reset) { if (st.type === "number") v = Number(v); else if (st.type === "bool") v = v === "true"; else if (st.type === "json") v = JSON.parse(v); }
+      } catch (err) { Toast.error("JSON invalide : " + err.message); return; }
+      pop.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+      try {
+        const res = reset ? await API.post("adminSettings", { discordId: Session.discordId, action: "reset", key }) : await API.adminSetSettings(Session.discordId, { [key]: v });
+        settings = new Map((res.settings || []).map((x) => [x.key, x]));
+        closeEditor();
+        // Mise a jour sur place de chaque mention de ce reglage (pas de nouveau rendu de la page).
+        const fresh = settings.get(key);
+        document.querySelectorAll(`.adoc-edit[data-set="${CSS.escape(key)}"]`).forEach((el) => {
+          el.innerHTML = fmt(fresh);
+          el.classList.toggle("custom", !!(fresh && fresh.custom));
+          el.classList.add("flash");
+          setTimeout(() => el.classList.remove("flash"), 1400);
+        });
+        Toast.success(`${esc(st.label)} : ${reset ? "valeur par défaut" : "enregistré"}.`);
+      } catch (err) {
+        pop.querySelectorAll("button").forEach((b) => { b.disabled = false; });
+        Toast.error((err.data && err.data.errors && err.data.errors.join(" · ")) || friendlyError(err));
+      }
+    };
+    pop.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pop]");
+      if (!b) return;
+      if (b.dataset.pop === "cancel") closeEditor();
+      else if (b.dataset.pop === "save") save(false);
+      else if (b.dataset.pop === "reset") save(true);
+      else if (b.dataset.pop === "open") { closeEditor(); AdminNav.show("reglages"); const tryOpen = (n) => { if (window.openSetting && window.openSetting(key)) return; if (n > 0) setTimeout(() => tryOpen(n - 1), 300); }; tryOpen(15); }
+    });
+    pop.addEventListener("keydown", (e) => { if (e.key === "Escape") closeEditor(); if (e.key === "Enter" && st.type !== "json") { e.preventDefault(); save(false); } });
+    setTimeout(() => document.addEventListener("click", function off(ev) { if (!pop.isConnected) { document.removeEventListener("click", off); return; } if (!pop.contains(ev.target) && !ev.target.closest("[data-set]")) { closeEditor(); document.removeEventListener("click", off); } }), 0);
   }
 
   async function load() {
@@ -623,6 +716,8 @@
     if (!box) return;
     if (typeof AdminNav !== "undefined" && AdminNav.onFirstShow) AdminNav.onFirstShow("doc", load); else load();
     box.addEventListener("click", (e) => {
+      const ed = e.target.closest("[data-set]");
+      if (ed) { e.preventDefault(); openEditor(ed); return; }
       const a = e.target.closest("[data-doc-jump]");
       if (!a) return;
       e.preventDefault();

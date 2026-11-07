@@ -129,6 +129,7 @@ window.APP_CONFIG = {
     personalVault: "/personal-vault", // POST { userId, action: 'status'|'store'|'withdraw', pullId? } -> { unlocked, rows, boostersPerRow, dustPerRow, reward }
     vault: "/vault",                   // POST { userId, action: 'status'|'open' } -> { card, keysRequired, userKeys, alreadyOpened } | { opened, card, serialNumber, newKeyCount }
     // Fonctionnalites natives de l'API (api/src/native, 2026-10-04)
+    albumPages: "/album-pages",         // POST { userId, action: 'status'|'claim'|'claimAll', extensionId?, page? } (pages d'album, 2026-11-07)
     setRewards: "/set-rewards",         // POST { userId, action: 'status'|'claim', extensionId? }
     setCompletions: "/set-completions", // GET ?pseudo=... -> { sets: [{ extensionId, name, claimedAt }] }
     tradeMatches: "/trade-matches",     // POST { userId, action: 'list' } -> { matches }
@@ -174,6 +175,8 @@ window.APP_CONFIG = {
     modeRules: "/mode-rules",           // GET -> regles actives du mode en cours
     live: "/live",                      // GET ?token= -> flux SSE (mises a jour en direct, api/src/live.js)
     friends: "/friends",                // POST { userId, action: 'status'|'add'|'remove', pseudo?, friendId? } (amis, mode Chill)
+    adminDashboard: "/admin-dashboard", // POST { discordId } -> tableau de bord de l'admin (Admin V2, 2026-11-07)
+    adminPlanner: "/admin-planner",     // POST { discordId, action: list|save|delete|run|approve|skip, rule?, id? } (planificateur)
     adminHealth: "/admin-health",       // POST { discordId } -> sante du serveur (Admin > Sante)
     vacation: "/vacation",              // POST { userId, action, ... } -> vacances du mode Chill (api/src/native/vacation.js)
     modeExtra: "/mode-extra",           // POST { userId, action, ... } -> fonctionnalites exclusives du mode

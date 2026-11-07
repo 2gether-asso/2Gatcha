@@ -256,7 +256,7 @@ export function afterWorkflow({ store, path, request, response }) {
   }
   if (path === 'collection') {
     const userId = Number((request.query || {}).userId || body.userId);
-    json.forgedPullIds = store.getAll('Pulls').filter((p) => refId(p.User) === userId && p.ForgedInFire).map((p) => p.id);
+    json.forgedPullIds = store.peekBy('Pulls', 'User', userId).filter((p) => p.ForgedInFire).map((p) => p.id);
   }
 }
 

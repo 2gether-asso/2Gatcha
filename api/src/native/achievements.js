@@ -122,7 +122,7 @@ function handleHidden({ store, query }) {
 function themeProgress(store, userId) {
   const cards = new Map(store.getAll('Cards').map((c) => [c.id, c]));
   const rarities = store.getAll('Rarities');
-  const pulls = store.getAll('Pulls').filter((p) => refId(p.User) === userId);
+  const pulls = store.peekBy('Pulls', 'User', userId);
   const ownedIds = new Set(pulls.map((p) => refId(p.Card)));
   const distinct = (pred) => new Set(pulls.filter(pred).map((p) => refId(p.Card))).size;
   const playable = [...cards.values()].filter((c) => c.Active !== false && !c.IsPromo);

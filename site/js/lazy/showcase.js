@@ -62,6 +62,8 @@ const ShowcaseKit = (function () {
 
   // Applique un nouvel ordre (liste de cardId).
   async function reorder(current, next) {
+    // Route d'ordre (2026-11-07) : un seul appel ; ancien serveur -> retirer / remettre.
+    try { const r = await API.orderShowcase(Session.userId, next); if (r && r.ordered) return r.showcase || []; } catch (e) { /* ancien serveur */ }
     let k = 0;
     while (k < next.length && current[k] === next[k]) k++;
     const tail = next.slice(k);

@@ -138,7 +138,7 @@ export function pullValue(maps, p) {
 export function collectionValues(store) {
   const maps = valueMaps(store);
   const out = new Map();
-  for (const p of store.getAll('Pulls')) {
+  for (const p of store.peekAll('Pulls')) {
     const u = refId(p.User);
     if (!u) continue;
     out.set(u, (out.get(u) || 0) + pullValue(maps, p));
@@ -397,8 +397,9 @@ export function afterWorkflow({ store, path, request, response }) {
     const id = Number((request.query || {}).userId);
     if (!id) return;
     response.json.firstObtained = store.getAll('Cards').filter((c) => refId(c.FirstObtainedBy) === id).map((c) => ({ cardId: c.id, at: Number(c.FirstObtainedAt) || null }));
-    response.json.starredPullIds = store.getAll('Pulls').filter((p) => refId(p.User) === id && p.Starred).map((p) => p.id);
-    response.json.insuredPullIds = store.getAll('Pulls').filter((p) => refId(p.User) === id && p.Insured).map((p) => p.id);
+    const mine = store.peekBy('Pulls', 'User', id);
+    response.json.starredPullIds = mine.filter((p) => p.Starred).map((p) => p.id);
+    response.json.insuredPullIds = mine.filter((p) => p.Insured).map((p) => p.id);
   } else if (path === 'leaderboard') {
     // Rang a cote des pseudos + classement des plus belles collections.
     const users = store.getAll('Users');

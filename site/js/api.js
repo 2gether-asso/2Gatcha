@@ -874,6 +874,15 @@ const API = {
   claimSetReward(userId, extensionId) {
     return this.post("setRewards", { userId, action: "claim", extensionId });
   },
+  // Pages d'album recompensees (Collection V2, 2026-11-07).
+  albumPages(userId, action = "status", extensionId, page) {
+    return this.post("albumPages", { userId, action, extensionId, page });
+  },
+  // Ordre de la vitrine (2026-11-07) : { showcase, ordered } ; sans
+  // "ordered", le serveur est ancien (voir ShowcaseKit.reorder).
+  orderShowcase(userId, cardIds) {
+    return this.post("showcase", { userId, action: "order", cardIds });
+  },
   getSetCompletions(pseudo) {
     return this.get("setCompletions", { pseudo });
   },
@@ -977,6 +986,9 @@ const API = {
   findTreasure(userId, clue, page) { return this.post("treasureHunt", { userId, clue, page }); },
   getAccountPrestige(userId) { return this.get("accountPrestige", { userId }); },
   adminEvents(discordId, action = "list", params = {}) { return this.post("adminEvents", { discordId, action, ...params }); },
+  // Admin V2 (2026-11-07) : tableau de bord et planificateur semi-automatique.
+  adminDashboard(discordId) { return this.post("adminDashboard", { discordId }); },
+  adminPlanner(discordId, action = "list", params = {}) { return this.post("adminPlanner", { discordId, action, ...params }); },
   adminCosmetics(discordId, action = "list", params = {}) { return this.post("adminCosmetics", { discordId, action, ...params }); },
   chests(userId, action, count, tier, all) {
     return this.post("chests", { userId, action, ...(count ? { count } : {}), ...(tier ? { tier } : {}), ...(all ? { all: true } : {}) });

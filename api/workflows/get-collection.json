@@ -37,7 +37,11 @@
         "docId": "={{ $json.docId }}",
         "tableId": "Pulls",
         "returnAll": true,
-        "additionalOptions": {}
+        "additionalOptions": {},
+        "rowsBy": {
+          "column": "User",
+          "value": "={{ $('Set Config').first().json.userId }}"
+        }
       },
       "id": "get-pulls",
       "name": "Get Pulls",
@@ -53,7 +57,8 @@
           "id": "Yoc8FS9lCXpWBRrk",
           "name": "Grist account"
         }
-      }
+      },
+      "notes": "rowsBy (2026-11-07) : seulement les exemplaires du joueur (index), Format Collection ne garde que ceux-la."
     },
     {
       "parameters": {

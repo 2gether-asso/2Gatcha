@@ -49,7 +49,7 @@
     if (view === "gallery" && typeof window.pvRenderGallery === "function") window.pvRenderGallery();
     document.querySelectorAll("[data-coffre-view]").forEach((b) => { const on = b.dataset.coffreView === view; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
     if (museum) load();
-    try { history.replaceState(null, "", museum ? "#musee" : view === "gallery" ? "#presentoir" : location.pathname); } catch (e) { /* adresse inchangee */ }
+    try { history.replaceState(null, "", museum ? "#musee" : view === "gallery" ? "#vitrine" : location.pathname); } catch (e) { /* adresse inchangee */ }
     try { localStorage.setItem("2gatcha_coffre_view", view); } catch (e) { /* stockage indisponible */ }
   }
 
@@ -62,6 +62,7 @@
     let last = "";
     try { last = localStorage.getItem("2gatcha_coffre_view") || ""; } catch (e) { /* idem */ }
     if (location.hash === "#musee" || (!location.hash && last === "museum")) show("museum");
-    else if (location.hash === "#presentoir" || (!location.hash && last === "gallery")) show("gallery");
+    // #vitrine (V2, 2026-11-07) ; #presentoir garde pour les anciens liens.
+    else if (location.hash === "#vitrine" || location.hash === "#presentoir" || (!location.hash && last === "gallery")) show("gallery");
   });
 })();

@@ -75,6 +75,36 @@ function removeFromIndex(index, key, id) {
   if (!ids.size) index.delete(key);
 }
 
+// Cache d'objets (2026-11-07) : chaque table lue en entier garde ses lignes
+// deja parsees (objets de reference, REMPLACES a chaque ecriture, jamais
+// modifies ni donnes tels quels). Une lecture complete n'est plus un
+// JSON.parse de toute la table (Pulls, 56 000 lignes : 32 ms a chaque fois)
+// mais une copie superficielle (~3 ms) ; les valeurs objet (listes de
+// references, pieces jointes) sont copiees en profondeur, colonne par colonne.
+// Objet de reference gele (valeurs objet comprises) : une modification par
+// erreur d'une ligne lue avec peekAll / peekBy leve une erreur au lieu de
+// corrompre le cache.
+function master(t, raw) {
+  const o = JSON.parse(raw);
+  for (const k in o) { const v = o[k]; if (v !== null && typeof v === 'object') { t.objKeys.add(k); deepFreeze(v); } }
+  return Object.freeze(o);
+}
+function deepFreeze(v) {
+  for (const k in v) { const x = v[k]; if (x !== null && typeof x === 'object') deepFreeze(x); }
+  return Object.freeze(v);
+}
+const copyRow = (o, keys) => {
+  const r = { ...o };
+  for (const k of keys) { const v = r[k]; if (v !== null && typeof v === 'object') r[k] = JSON.parse(JSON.stringify(v)); }
+  return r;
+};
+export function copyRows(snap) {
+  const keys = [...snap.objKeys];
+  const list = snap.list, out = new Array(list.length);
+  for (let i = 0; i < list.length; i++) out[i] = copyRow(list[i], keys);
+  return out;
+}
+
 export class Store {
   // lenient : colonnes inconnues acceptees (creees a la volee) - reserve aux
   // tests sur une base d'essai, jamais en production.
@@ -149,7 +179,43 @@ export class Store {
   }
 
   getAll(name) {
-    return JSON.parse(this.getAllJson(name));
+    return copyRows(this.tableSnapshot(name));
+  }
+
+  // Lignes de la table a cet instant (objets de reference : a passer a
+  // copyRows, jamais a modifier). Les ecritures suivantes n'y touchent pas.
+  tableSnapshot(name) {
+    const t = this.table(name);
+    this.masters(t);
+    if (!t.list) t.list = Object.freeze([...t.objs.values()]);
+    return { list: t.list, objKeys: t.objKeys };
+  }
+  masters(t) {
+    if (!t.objs) {
+      t.objs = new Map();
+      t.objKeys = new Set();
+      for (const [id, raw] of t.rows) t.objs.set(id, master(t, raw));
+    }
+    return t.objs;
+  }
+
+  // LECTURE SEULE, sans copie (2026-11-07) : les lignes gelees du cache.
+  // Pour le code natif qui ne fait que parcourir (filtrer, compter, lire des
+  // champs) ; pour modifier une ligne : store.update, jamais l'objet.
+  peekAll(name) {
+    return this.tableSnapshot(name).list;
+  }
+  // Instantane limite aux lignes ou col = value (noeud de table "rowsBy").
+  tableSnapshotBy(name, col, value) {
+    const list = this.peekBy(name, col, value);
+    return { list, objKeys: this.table(name).objKeys || new Set() };
+  }
+  peekBy(name, col, value) {
+    const t = this.table(name);
+    const ids = this.columnIndex(t, col).get(value);
+    if (!ids) return [];
+    const objs = this.masters(t);
+    return [...ids].sort((a, b) => a - b).map((id) => objs.get(id));
   }
 
   get(name, id) {
@@ -164,7 +230,9 @@ export class Store {
   rowsBy(name, col, value) {
     const t = this.table(name);
     const ids = this.columnIndex(t, col).get(value);
-    return ids ? [...ids].sort((a, b) => a - b).map((id) => JSON.parse(t.rows.get(id))) : [];
+    if (!ids) return [];
+    const objs = this.masters(t), keys = [...t.objKeys];
+    return [...ids].sort((a, b) => a - b).map((id) => copyRow(objs.get(id), keys));
   }
 
   countBy(name, col, value) {
@@ -225,6 +293,7 @@ export class Store {
     this.updateIndexes(t, id, row);
     t.rows.set(id, json);
     t.snapshot = null;
+    if (t.objs) { t.objs.set(id, master(t, json)); t.list = null; }
     this.stmt.upsertRow.run(t.name, id, json);
     this.changes++;
   }
@@ -264,6 +333,7 @@ export class Store {
     this.updateIndexes(t, id, null);
     t.rows.delete(id);
     t.snapshot = null;
+    if (t.objs) { t.objs.delete(id); t.list = null; }
     this.stmt.deleteRow.run(name, id);
     this.changes++;
     return true;

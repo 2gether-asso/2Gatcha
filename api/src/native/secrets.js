@@ -231,7 +231,8 @@ export function fixSecretQuality(store, userId = null) {
   const ids = new Set(effectCards(store).map((c) => c.id));
   if (!ids.size) return 0;
   let n = 0;
-  for (const p of store.getAll('Pulls')) {
+  // Lecture seule (peek) : la mise a jour passe par store.update.
+  for (const p of userId ? store.peekBy('Pulls', 'User', Number(userId)) : store.peekAll('Pulls')) {
     if (!ids.has(refId(p.Card)) || p.Quality === 'mint' || (userId && refId(p.User) !== Number(userId))) continue;
     store.update('Pulls', p.id, { Quality: 'mint' });
     n++;

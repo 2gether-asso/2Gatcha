@@ -8,6 +8,16 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-07', title: 'Collection et coffre-fort, nouvelle version', items: [
+    'Collection : un bandeau plus court, le Classeur pour regarder tes cartes et l’Atelier pour les transformer, avec ce que tu peux faire tout de suite sous chaque outil',
+    'Une vignette par carte : ses autres exemplaires sont dans sa fiche, qui s’ouvre sur le côté avec le tableau de toutes ses finitions et états',
+    'Étoiles de maîtrise sur chaque carte, et une colonne des extensions pour sauter de l’une à l’autre',
+    'Pages d’album : chaque page complétée rapporte une récompense, à récupérer dans l’album',
+    'Coffre-fort : il monte de niveau quand tu ranges des cartes, chaque palier rapporte une récompense et des intérêts en poussières chaque jour',
+    'Ranger devient simple : le coffre te montre tout ce qui peut y aller et ce que ça rapporte, tu coches et c’est rangé',
+    'Le coffre s’ouvre sur un tiroir par extension, et l’onglet Vitrine permet de choisir l’ordre des 6 cartes de ton profil',
+    'Le site répond plus vite : les pages chargent leurs informations bien plus rapidement'
+  ] },
   { date: '2026-11-02', title: 'Les vacances s’installent partout', items: [
     'Les activités du mode Chill sont maintenant là où tu joues : la plage et ton château de sable dans la Fouille, le lagon dans la Pêche, la sieste sur l’accueil, les cartes postales depuis la fenêtre d’une carte…',
     'Marées : à marée haute les poissons rares mordent plus, à marée basse le lagon rend des coquillages',

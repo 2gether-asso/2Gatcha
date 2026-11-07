@@ -78,7 +78,7 @@ function handleWishAlerts({ store, body }) {
   const t = now();
   const items = [];
   const counts = new Map();
-  store.getAll('Pulls').forEach((p) => {
+  store.peekAll('Pulls').forEach((p) => {
     if (p.InVault) return;
     const k = `${refId(p.User)}|${refId(p.Card)}`;
     counts.set(k, (counts.get(k) || 0) + 1);

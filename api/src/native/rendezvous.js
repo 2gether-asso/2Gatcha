@@ -183,7 +183,7 @@ function handleRecap({ store, query }) {
   const start = parisEpoch(prevMonday, 0);
   const catalog = store.getAll('Cards').filter((c) => c.Active && !c.IsPromo);
   const catalogIds = new Set(catalog.map((c) => c.id));
-  const allPulls = store.getAll('Pulls');
+  const allPulls = store.peekAll('Pulls');
   const firstByUserCard = new Map();
   for (const p of allPulls) {
     const k = refId(p.User) + ':' + refId(p.Card);

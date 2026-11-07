@@ -60,28 +60,35 @@
       </div>
 
       <div id="admin-zone" class="adm-layout" style="display:none;">
+        <!-- Admin V2 (2026-11-07) : rubriques regroupees par usage. -->
         <nav class="adm-nav" id="adm-nav" role="tablist" aria-label="Sections de l'administration">
-          <button type="button" role="tab" data-pane="accueil"><span aria-hidden="true">&#127968;</span> Vue d'ensemble</button>
-          <button type="button" role="tab" data-pane="codes"><span aria-hidden="true">&#127915;</span> Codes &amp; dons</button>
+          <p class="adm-nav-group">Pilotage</p>
+          <button type="button" role="tab" data-pane="accueil"><span aria-hidden="true">&#128202;</span> Tableau de bord</button>
+          <button type="button" role="tab" data-pane="planning"><span aria-hidden="true">&#128198;</span> Planning</button>
+          <button type="button" role="tab" data-pane="sante"><span aria-hidden="true">&#129658;</span> Santé</button>
+          <p class="adm-nav-group">Joueurs</p>
           <button type="button" role="tab" data-pane="joueurs"><span aria-hidden="true">&#128100;</span> Joueurs</button>
-          <button type="button" role="tab" data-pane="economie"><span aria-hidden="true">&#128176;</span> Économie</button>
+          <button type="button" role="tab" data-pane="codes"><span aria-hidden="true">&#127915;</span> Codes &amp; dons</button>
+          <button type="button" role="tab" data-pane="test"><span aria-hidden="true">&#129514;</span> Compte test</button>
+          <p class="adm-nav-group">Jeu</p>
+          <button type="button" role="tab" data-pane="evenements"><span aria-hidden="true">&#127881;</span> Événements</button>
+          <button type="button" role="tab" data-pane="contenu"><span aria-hidden="true">&#127183;</span> Contenu</button>
           <button type="button" role="tab" data-pane="modes"><span aria-hidden="true">&#127922;</span> Difficultés</button>
           <button type="button" role="tab" data-pane="visuels"><span aria-hidden="true">&#127912;</span> Visuels</button>
-          <button type="button" role="tab" data-pane="test"><span aria-hidden="true">&#129514;</span> Compte test</button>
-          <button type="button" role="tab" data-pane="evenements"><span aria-hidden="true">&#128197;</span> Événements</button>
-          <button type="button" role="tab" data-pane="contenu"><span aria-hidden="true">&#127183;</span> Contenu</button>
-          <button type="button" role="tab" data-pane="tout"><span aria-hidden="true">&#128269;</span> Tout voir</button>
+          <p class="adm-nav-group">Réglages</p>
           <button type="button" role="tab" data-pane="reglages"><span aria-hidden="true">&#9881;&#65039;</span> Réglages</button>
+          <button type="button" role="tab" data-pane="economie"><span aria-hidden="true">&#128176;</span> Économie</button>
           <button type="button" role="tab" data-pane="discord"><span aria-hidden="true">&#128226;</span> Discord</button>
           <button type="button" role="tab" data-pane="site"><span aria-hidden="true">&#128736;&#65039;</span> Site</button>
-          <button type="button" role="tab" data-pane="sante"><span aria-hidden="true">&#129658;</span> Santé</button>
+          <p class="adm-nav-group">Données</p>
+          <button type="button" role="tab" data-pane="tout"><span aria-hidden="true">&#128269;</span> Tout voir</button>
           <button type="button" role="tab" data-pane="doc"><span aria-hidden="true">&#128214;</span> Documentation</button>
         </nav>
 
         <div class="adm-panes">
 
           <!-- ============================== Vue d'ensemble ============================== -->
-          <section class="adm-pane" id="pane-accueil" role="tabpanel" data-title="Vue d'ensemble">
+          <section class="adm-pane" id="pane-accueil" role="tabpanel" data-title="Tableau de bord">
             <div class="adm-overview" id="adm-overview"><div class="loading-row"><div class="spinner"></div></div></div>
             <section class="adm-card">
               <header class="adm-card-head"><h2>&#9889; Raccourcis</h2></header>
@@ -93,6 +100,16 @@
                 <a class="adm-shortcut" href="admin-db.html#extensions"><span aria-hidden="true">&#129513;</span>Ajouter une extension</a>
                 <button type="button" class="adm-shortcut" data-goto="site" data-focus="banner-message-input"><span aria-hidden="true">&#128226;</span>Afficher un bandeau</button>
               </div>
+            </section>
+          </section>
+
+          <!-- ============================== Planning (Admin V2) ============================== -->
+          <section class="adm-pane" id="pane-planning" role="tabpanel" data-title="Planning" hidden>
+            <section class="adm-card">
+              <header class="adm-card-head"><h2>&#128198; Planning semi-automatique</h2><p>Programme une fois pour toutes ce qui revient : un boss chaque lundi, un week-end bonus, un code le vendredi, une annonce Discord… Chaque règle se lance toute seule à l'heure prévue (vérifié chaque minute). Coche « À valider » pour qu'elle t'attende sur le tableau de bord au lieu de partir seule.</p></header>
+              <div class="apl-templates" id="apl-templates"></div>
+              <div id="apl-form-zone"></div>
+              <div id="apl-list" class="apl-list"><div class="loading-row"><div class="spinner"></div></div></div>
             </section>
           </section>
 
@@ -553,6 +570,7 @@
   <script src="js/shell-extras.js"></script>
   <script src="js/admin-nav.js"></script>
   <script src="js/admin-sections.js"></script>
+  <script src="js/admin-v2-ui.js"></script>
   <script src="js/json-table.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/admin-events.js"></script>
@@ -564,6 +582,7 @@
   <script src="js/admin-search.js"></script>
   <script src="js/admin-discord.js"></script>
   <script src="js/admin-home.js"></script>
+  <script src="js/admin-planner.js"></script>
   <script src="js/admin-bingo.js"></script>
   <script src="js/admin-modes.js"></script>
   <script src="js/visuals-manifest.js"></script>
