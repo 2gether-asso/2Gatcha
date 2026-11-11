@@ -145,6 +145,7 @@ import * as audit from './audit.js';
 import * as artists from './artists.js';
 import * as cooking from './cooking.js';
 import * as walk from './walk.js';
+import * as legacy from './legacy.js';
 import { isTestUser } from './testuser.js';
 import { currentContext } from './context.js';
 import * as treasure from './treasure.js';
@@ -153,7 +154,7 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, discordProfile, pity, sets, collectionV2, adminV2, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback, legacy];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, vacation, starter, seasonquests, story, cooking];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
@@ -376,6 +377,10 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       const plan = async () => { try { await withLock(() => adminV2.tick(store)); } catch (e) { console.error(e); captureError(e, { job: 'planner' }); } };
       setInterval(plan, 60 * 1000).unref();
       setTimeout(plan, 8000).unref();
+      // Heritage des comptes supprimes hors de Tout voir (legacy.js) : une passe par heure.
+      const heritage = async () => { try { await withLock(() => legacy.sweep(store)); } catch (e) { console.error(e); captureError(e, { job: 'legacy' }); } };
+      setInterval(heritage, 3600 * 1000).unref();
+      setTimeout(heritage, 20000).unref();
       if (!(await push.init({ store }))) return;
       // Planificateur des notifications : une passe par minute.
       const tick = async () => {

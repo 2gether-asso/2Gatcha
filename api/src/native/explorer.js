@@ -9,6 +9,7 @@
 //   POST /webhook/admin-explorer { discordId, action: 'tables' | 'rows' | 'row' | 'set' | 'create' | 'delete', table?, id?, q?, offset?, limit?, sort?, desc?, fields? }
 
 import { ok, fail, isAdmin } from './common.js';
+import { inherit } from './legacy.js';
 
 const LABEL_COLS = ['Pseudo', 'Name', 'Label', 'Title', 'Key', 'Code', 'Nom'];
 const JSON_TYPES = new Set(['RefList', 'Attachments', 'ChoiceList', 'Any']);
@@ -121,7 +122,10 @@ function handle({ store, body }) {
     try { return ok({ row: store.create(name, fields) }); } catch (e) { return fail('write_failed', 400, { message: e.message }); }
   }
   if (action === 'delete') {
+    const before = name === 'Users' ? store.get(name, id) : null;
     if (!store.delete(name, id)) return fail('unknown_row', 404);
+    // Compte supprime : son contenu est reparti entre les autres joueurs (legacy.js).
+    if (before) return ok({ deleted: id, inheritance: inherit(store, id, before) });
     return ok({ deleted: id });
   }
   return fail('unknown_action');

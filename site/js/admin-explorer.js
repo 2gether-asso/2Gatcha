@@ -135,8 +135,14 @@
       if (f) { const ta = $(f.dataset.fmt); try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); ta.rows = Math.min(20, ta.value.split("\n").length + 1); count(); } catch (err) { Toast.error("JSON invalide."); } return; }
       if (e.target.closest("[data-dup]")) { close(); openRow(table, null, true, { ...row, id: null }); return; }
       if (e.target.closest("[data-del]")) {
-        if (!(await Confirm.show(`Supprimer définitivement <strong>${esc(table)} #${row.id}</strong> ? Impossible à annuler (une sauvegarde reste possible depuis la page Base de données).`, { title: "Supprimer une ligne", confirmText: "Supprimer", dangerous: true }))) return;
-        try { await api("delete", { table, id: row.id }); Toast.info("Ligne supprimée."); close(); load(); } catch (err) { Toast.error(errText(err)); }
+        const heritage = table === "Users" ? "<br>Ses cartes et ses ressources seront <strong>partagées entre tous les autres joueurs</strong>, et ses traces nettoyées (Annuler dans le journal de l'équipe rend tout)." : "";
+        if (!(await Confirm.show(`Supprimer définitivement <strong>${esc(table)} #${row.id}</strong> ? Impossible à annuler (une sauvegarde reste possible depuis la page Base de données).${heritage}`, { title: "Supprimer une ligne", confirmText: "Supprimer", dangerous: true }))) return;
+        try {
+          const r = await api("delete", { table, id: row.id });
+          const h = r && r.inheritance;
+          Toast.info(h && h.heirs ? `Compte supprimé : ${h.cards} carte(s) et ${Object.keys(h.resources || {}).length} ressource(s) partagées entre ${h.heirs} joueurs, ${h.cleaned} trace(s) nettoyée(s).` : "Ligne supprimée.");
+          close(); load();
+        } catch (err) { Toast.error(errText(err)); }
         return;
       }
       if (e.target.closest("[data-save]")) {

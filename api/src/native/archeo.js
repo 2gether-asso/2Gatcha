@@ -125,7 +125,7 @@ function toolsFor(user) {
 }
 // Reserve de tablettes par sorte ; Users.Tablets reste le total (les tablettes
 // donnees ailleurs, par Tablets + n, comptent comme de l'argile).
-function stockOf(user) {
+export function stockOf(user) {
   const st = parseJson(user && user.TabletStock, {}) || {};
   const out = Object.fromEntries(TABLET_KEYS.map((k) => [k, Math.max(0, Math.floor(Number(st[k]) || 0))]));
   const total = TABLET_KEYS.reduce((a, k) => a + out[k], 0);
