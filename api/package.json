@@ -14,7 +14,7 @@
     "restore": "node --disable-warning=ExperimentalWarning scripts/restore.js"
   },
   "dependencies": {
-    "@sentry/node": "^11.4.0",
+    "@sentry/node": "^11.11.0",
     "web-push": "^3.6.7"
   }
 }
