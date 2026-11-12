@@ -1,0 +1,226 @@
+/* opening-v2.css - Ouverture V2 (2026-11-13, js/opening-v2.js) : scene
+   booster par booster, cartes qui jaillissent du paquet, projecteur, paquet
+   qui resiste, jauge de pity en direct, bilan final. Chargee en dernier sur
+   ouverture.html. Jamais de transform anime sur un ancetre des cartes (flip
+   3D, voir opening.js) : les secousses visent le paquet ou le projecteur. */
+
+/* ---------------------------------------------------------------- scene */
+.pack-modal-stage.ov2-on { width: min(1000px, 100%); gap: 16px; }
+.pack-modal-stage.ov2-on #reveal-grid,
+.pack-modal-stage.ov2-on #stack-pips,
+.pack-modal-stage.ov2-on #stack-progress,
+.pack-modal-stage.ov2-on #reveal-summary,
+.pack-modal-stage.ov2-on #reveal-all-btn,
+.pack-modal-stage.ov2-on .post-reveal-actions,
+.pack-modal-stage.ov2-on .mode-options,
+.pack-modal-stage.ov2-on .quantity-picker { display: none !important; }
+.pack-modal-stage.ov2-cards .booster-stage { display: none; }
+.pack-modal-stage.ov2-on:not(.ov2-cards) .ov2-row,
+.pack-modal-stage.ov2-on:not(.ov2-cards) .ov2-btags { display: none; }
+.ov2 { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; order: 0; }
+.pack-modal-stage.ov2-on .booster-hint { text-align: center; }
+
+/* Teinte de fond : couleur de la meilleure carte du booster en cours. */
+.ov2-tint {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 55%, var(--ov2-tint, #000) 0%, transparent 62%);
+  opacity: var(--ov2-tint-a, 0);
+  transition: opacity 0.6s ease, background 0.6s ease;
+}
+
+/* ---------------------------------------------------------------- haut */
+.ov2-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 22px; width: 100%; }
+.ov2-packs:empty, .ov2-btags:empty, .ov2-actions:empty { display: none; }
+.ov2-packs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.ov2-packs-label { font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.ov2-packs-label b { color: var(--text); }
+.ov2-dots { display: flex; gap: 5px; flex-wrap: wrap; max-width: 360px; justify-content: center; }
+.ov2-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); transition: background 0.3s, transform 0.2s, box-shadow 0.3s; }
+.ov2-dot.done { background: var(--d, #9aa0b4); box-shadow: 0 0 8px var(--d, #9aa0b4); }
+.ov2-dot.cur { transform: scale(1.45); background: rgba(255, 255, 255, 0.6); }
+
+.ov2-pity { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-dim); padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-soft); }
+.ov2-pity b { color: var(--text); font-variant-numeric: tabular-nums; }
+.ov2-pity-track { width: 110px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.ov2-pity-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f59e0b, #fde047); transition: width 0.45s cubic-bezier(.2, .8, .2, 1); }
+.ov2-pity.hot { border-color: rgba(245, 158, 11, 0.6); box-shadow: 0 0 16px -4px rgba(245, 158, 11, 0.7); }
+.ov2-pity.hot .ov2-pity-fill { animation: ov2PityHot 0.9s ease-in-out infinite; }
+.ov2-pity.reset { animation: ov2PityReset 0.8s ease-out; }
+@keyframes ov2PityHot { 50% { filter: brightness(1.5); } }
+@keyframes ov2PityReset { 0% { box-shadow: 0 0 0 0 rgba(253, 224, 71, 0.9); } 100% { box-shadow: 0 0 0 18px rgba(253, 224, 71, 0); } }
+
+.ov2-btags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.ov2-btag { font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-soft); animation: ov2Pop 0.35s cubic-bezier(.2, .9, .3, 1.4) both; }
+.ov2-btag.god, .ov2-btag.shiny { border-color: #f9a8d4; color: #fbcfe8; background: rgba(244, 114, 182, 0.14); }
+.ov2-btag.mystery { border-color: rgba(var(--accent-rgb), 0.6); }
+@keyframes ov2Pop { from { transform: scale(0.6); opacity: 0; } }
+
+/* ---------------------------------------------------------------- rangée */
+.reveal-grid.ov2-row {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
+  width: 100%; margin: 4px 0 0;
+  --ov2-w: clamp(104px, 17vw, 172px);
+}
+.reveal-grid.ov2-row.many { --ov2-w: clamp(92px, 14vw, 150px); }
+.ov2-slot { width: var(--ov2-w); position: relative; cursor: pointer; transition: transform 0.22s cubic-bezier(.2, .9, .3, 1.3); }
+.ov2-slot .card { opacity: 1; animation: none; transform: none; }
+.ov2-slot.dealing { animation: ov2Deal 0.62s cubic-bezier(.2, .85, .25, 1.15) both; animation-delay: calc(var(--i) * 0.09s); }
+@keyframes ov2Deal {
+  0% { transform: translate(var(--fx), var(--fy)) scale(0.25) rotate(-24deg); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.ov2-slot:not(.is-revealed):hover { transform: translateY(-10px) scale(1.04); }
+.ov2-slot:not(.is-revealed) .tap-hint { display: none; }
+/* Dos qui fremit au survol si la carte vaut quelque chose (neutre : pas de couleur en plus). */
+.ov2-slot:not(.is-revealed):hover .card-back.shine-epique,
+.ov2-slot:not(.is-revealed):hover .card-back.shine-legendaire,
+.ov2-slot:not(.is-revealed):hover .card-back.shine-mythique,
+.ov2-slot:not(.is-revealed):hover .card-back.shine-unique { animation: ov2Shiver 0.28s ease-in-out infinite; }
+@keyframes ov2Shiver { 25% { translate: -1.5px 0; } 75% { translate: 1.5px 0; } }
+.ov2-slot.ov2-focus { z-index: 2; transform: translateY(-14px) scale(1.12); }
+.ov2-slot.is-revealed { cursor: zoom-in; }
+.ov2-slot.is-revealed.r0 { transform: scale(0.97); filter: saturate(0.85); }
+.ov2-slot.is-revealed.r1 .card-front, .ov2-slot.is-revealed.r2 .card-front { box-shadow: 0 0 22px -4px var(--r, currentColor); }
+.ov2-slot.is-new::after {
+  content: "NOUVELLE"; position: absolute; top: -9px; left: 50%; translate: -50% 0; z-index: 3;
+  font: 800 0.6rem/1 var(--font-display, sans-serif); letter-spacing: 0.06em; padding: 4px 8px; border-radius: 6px;
+  background: #22c55e; color: #04220f; box-shadow: 0 4px 12px -2px rgba(34, 197, 94, 0.7);
+  animation: ov2Stamp 0.45s 0.35s cubic-bezier(.2, .9, .3, 1.5) both; pointer-events: none;
+}
+@keyframes ov2Stamp { from { transform: scale(2.6) rotate(-12deg); opacity: 0; } to { transform: rotate(-4deg); opacity: 1; } }
+
+.ov2-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+/* ---------------------------------------------------------------- paquet qui resiste */
+.booster-pack.ov2-resist { box-shadow: 0 0 calc(30px + var(--ov2-crack, 0) * 50px) rgba(255, 255, 255, calc(0.2 + var(--ov2-crack, 0) * 0.45)); }
+.booster-pack.ov2-resist.ov2-jolt { animation: ov2Jolt 0.36s cubic-bezier(.3, .1, .3, 1) both !important; }
+.booster-pack.ov2-resist::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+  background:
+    linear-gradient(118deg, transparent 46%, rgba(255, 255, 255, 0.95) 48%, transparent 50%),
+    linear-gradient(64deg, transparent 58%, rgba(255, 255, 255, 0.85) 59.5%, transparent 61%),
+    linear-gradient(160deg, transparent 30%, rgba(255, 255, 255, 0.8) 31.2%, transparent 32.5%);
+  opacity: var(--ov2-crack, 0); filter: blur(0.4px) drop-shadow(0 0 6px #fff);
+  transition: opacity 0.2s;
+}
+@keyframes ov2Jolt {
+  0% { transform: scale(1.04); }
+  20% { transform: translate(-9px, 2px) rotate(-4deg) scale(1.09); }
+  45% { transform: translate(8px, -2px) rotate(3.5deg) scale(1.1); }
+  70% { transform: translate(-4px, 0) rotate(-1.5deg) scale(1.07); }
+  100% { transform: scale(1.05); }
+}
+
+/* ---------------------------------------------------------------- projecteur */
+.ov2-spot {
+  position: fixed; inset: 0; z-index: 415; display: grid; place-items: center; cursor: pointer; overflow: hidden;
+  animation: ov2SpotIn 0.25s ease-out both;
+}
+.ov2-spot.out { animation: ov2SpotOut 0.26s ease-in both; }
+@keyframes ov2SpotIn { from { opacity: 0; } }
+@keyframes ov2SpotOut { to { opacity: 0; } }
+.ov2-spot-bg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--c) 34%, rgba(4, 5, 12, 0.7)) 0%, rgba(4, 5, 12, 0.94) 62%); }
+.ov2-spot-rays {
+  position: absolute; left: 50%; top: 46%; width: 160vmax; height: 160vmax; translate: -50% -50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c) 30%, transparent) 0deg 6deg, transparent 6deg 18deg);
+  mask: radial-gradient(circle, #000 0%, transparent 55%); -webkit-mask: radial-gradient(circle, #000 0%, transparent 55%);
+  animation: ov2Rays 14s linear infinite; opacity: 0.8;
+}
+@keyframes ov2Rays { to { rotate: 360deg; } }
+.ov2-spot-inner { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+.ov2-spot.r2 .ov2-spot-inner { animation: ov2Shake 0.42s 0.12s ease-out both; }
+@keyframes ov2Shake { 20% { transform: translate(-7px, 3px); } 40% { transform: translate(6px, -3px); } 60% { transform: translate(-4px, 2px); } 80% { transform: translate(2px, -1px); } }
+.ov2-spot-title {
+  font: 400 clamp(2rem, 7vw, 3.6rem)/1 var(--font-display, "Bungee", sans-serif); text-transform: uppercase; letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--c) 70%, #fff); text-shadow: 0 0 24px var(--c), 0 4px 0 rgba(0, 0, 0, 0.5);
+  animation: ov2Slam 0.5s 0.08s cubic-bezier(.2, .9, .25, 1.35) both;
+}
+.ov2-spot.r0 .ov2-spot-title { font-size: clamp(1.4rem, 5vw, 2.2rem); }
+@keyframes ov2Slam { from { transform: scale(2.8); opacity: 0; filter: blur(6px); } 60% { opacity: 1; filter: none; } }
+.reveal-grid.ov2-spot-grid { display: block; width: min(300px, 66vw, 46vh); margin: 0; perspective: 1400px; }
+.ov2-spot-cardwrap { animation: ov2CardIn 0.7s cubic-bezier(.2, .85, .25, 1.15) both; transform-style: preserve-3d; }
+@keyframes ov2CardIn { from { transform: rotateY(-100deg) scale(0.35) translateY(40px); opacity: 0; } 40% { opacity: 1; } }
+.ov2-spot-card { opacity: 1 !important; animation: none !important; transform: none !important; }
+.ov2-spot-card .card-inner { transform: none !important; transition: none; }
+.ov2-spot-card .card-front { transform: none; position: absolute; inset: 0; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 70%, #fff), 0 0 50px 6px color-mix(in srgb, var(--c) 70%, transparent); }
+.ov2-spot-name { font-weight: 800; font-size: 1.1rem; text-align: center; max-width: 80vw; animation: ov2Pop 0.4s 0.35s both; }
+.ov2-stamps { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 26px; }
+.ov2-stamp {
+  font: 800 0.78rem/1 var(--font-display, sans-serif); text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 6px 12px; border-radius: 8px; border: 2px solid currentColor; color: #fde68a; background: rgba(0, 0, 0, 0.35);
+  animation: ov2Stamp 0.42s var(--d, 0.4s) cubic-bezier(.2, .9, .3, 1.5) both;
+}
+.ov2-stamp.new { color: #4ade80; }
+.ov2-stamp.first { color: #fbbf24; }
+.ov2-stamp.serial { color: #e5e7eb; }
+.ov2-stamp.edition { color: #c4b5fd; }
+.ov2-spot-skip { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; animation: ov2Pop 0.3s 1s both; }
+.ov2-ghost-host { position: fixed; left: -9999px; top: 0; width: 200px; }
+
+/* ---------------------------------------------------------------- bilan */
+.pack-modal-stage.ov2-bilan-on .ov2-row,
+.pack-modal-stage.ov2-bilan-on .ov2-top,
+.pack-modal-stage.ov2-bilan-on .ov2-actions { display: none; }
+/* Pendant la scene : fond opaque (sans flou - telephone, effets alleges - la
+   page transparaissait derriere les cartes). */
+.pack-modal-overlay:has(.pack-modal-stage.ov2-on) { background: radial-gradient(circle at 50% 30%, rgba(var(--accent-rgb), 0.22), transparent 55%), #04050c; }
+.ov2-bilan { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px; animation: ov2Pop 0.35s ease-out both; }
+.ov2-bilan-title { margin: 0; font: 400 clamp(1.1rem, 3.4vw, 1.6rem)/1.2 var(--font-display, "Bungee", sans-serif); text-align: center; }
+.ov2-hero {
+  display: flex; align-items: center; gap: 22px; padding: 16px 28px 16px 18px; border-radius: 18px; max-width: min(560px, 100%);
+  background: radial-gradient(circle at 20% 50%, color-mix(in srgb, var(--c) 28%, transparent), transparent 70%), rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); box-shadow: 0 0 40px -12px var(--c);
+}
+.reveal-grid.ov2-hero-card { display: block; width: 150px; flex: none; margin: 0; animation: ov2CardIn 0.7s 0.1s cubic-bezier(.2, .85, .25, 1.15) both; }
+.ov2-hero-card .card { opacity: 1; animation: none; transform: none; }
+.ov2-hero-card .card-inner { transform: none !important; }
+.ov2-hero-card .card-front { transform: none; position: absolute; inset: 0; }
+.ov2-hero-txt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.ov2-hero-kicker { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+.ov2-hero-name { font-size: 1.25rem; line-height: 1.2; color: color-mix(in srgb, var(--c) 45%, #fff); }
+.ov2-hero-meta { font-size: 0.85rem; color: var(--text-dim); }
+.ov2-hero-meta b { color: #4ade80; }
+.ov2-share { margin-top: 4px; }
+.ov2-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: min(640px, 100%); }
+.ov2-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-soft); text-align: center; }
+.ov2-stat b { font: 400 1.6rem/1.1 var(--font-display, "Bungee", sans-serif); font-variant-numeric: tabular-nums; }
+.ov2-stat span { font-size: 0.72rem; color: var(--text-dim); }
+.ov2-stat.hot { border-color: rgba(74, 222, 128, 0.55); }
+.ov2-stat.hot b { color: #4ade80; }
+.ov2-dist { display: flex; width: min(640px, 100%); height: 12px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.06); gap: 2px; }
+.ov2-seg { flex: var(--w) 1 0; background: var(--c); box-shadow: 0 0 10px -2px var(--c); transform-origin: left; animation: ov2Grow 0.6s var(--d, 0s) cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes ov2Grow { from { transform: scaleX(0); } }
+.ov2-dist-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 0.76rem; color: var(--text-dim); }
+.ov2-dist-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 5px; }
+.ov2-exts { list-style: none; margin: 0; padding: 0; width: min(640px, 100%); display: flex; flex-direction: column; gap: 6px; }
+.ov2-exts li { display: grid; grid-template-columns: minmax(0, 150px) 1fr auto; align-items: center; gap: 10px; font-size: 0.8rem; }
+.ov2-ext-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov2-ext-track { position: relative; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.ov2-ext-before { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(var(--accent-rgb), 0.7); }
+.ov2-ext-gain { position: absolute; top: 0; bottom: 0; width: var(--w); background: #4ade80; box-shadow: 0 0 10px #4ade80; transform-origin: left; animation: ov2Grow 0.7s var(--d, 0.4s) cubic-bezier(.2, .8, .2, 1) both; }
+.ov2-ext-count { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.ov2-ext-count b { color: #4ade80; }
+.reveal-grid.ov2-grid { width: 100%; margin-top: 4px; }
+.reveal-grid.ov2-grid .card { opacity: 1; animation: none; transform: none; cursor: zoom-in; }
+.reveal-grid.ov2-grid .card.ov2-new::after {
+  content: "NOUVELLE"; position: absolute; bottom: -6px; left: 50%; translate: -50% 0; z-index: 3;
+  font: 800 0.52rem/1 var(--font-display, sans-serif); letter-spacing: 0.05em; padding: 3px 6px; border-radius: 5px;
+  background: #22c55e; color: #04220f; animation: ov2Stamp 0.4s var(--d, 0.6s) cubic-bezier(.2, .9, .3, 1.5) both; pointer-events: none;
+}
+.ov2-bilan-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; position: sticky; bottom: 0; padding: 14px 12px 2px; width: 100%; background: linear-gradient(transparent, rgba(4, 5, 12, 0.92) 45%); }
+
+/* ---------------------------------------------------------------- telephone */
+@media (max-width: 640px) {
+  .reveal-grid.ov2-row { gap: 10px; --ov2-w: clamp(92px, 29vw, 130px); }
+  .ov2-hero { flex-direction: column; text-align: center; padding: 14px; gap: 12px; }
+  .ov2-hero-txt { align-items: center; }
+  .reveal-grid.ov2-hero-card { width: 130px; }
+  .ov2-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ov2-exts li { grid-template-columns: minmax(0, 96px) 1fr auto; }
+  .ov2-pity-track { width: 70px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ov2-slot.dealing, .ov2-spot-rays, .ov2-spot.r2 .ov2-spot-inner, .ov2-spot-title, .ov2-spot-cardwrap, .ov2-seg, .ov2-ext-gain { animation: none !important; }
+}

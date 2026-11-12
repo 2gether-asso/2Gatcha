@@ -427,6 +427,8 @@ function resetRevealView() {
   if (stage) stage.scrollTop = 0;
   const sum = document.getElementById("reveal-summary");
   if (sum) { sum.hidden = true; sum.innerHTML = ""; }
+  // Scene de l'ouverture V2 (js/opening-v2.js) : repart de zero.
+  if (typeof OpeningV2 !== "undefined") OpeningV2.reset();
 }
 
 function onAllRevealed() {
@@ -1154,6 +1156,8 @@ async function startOpening(ext) {
     let godPack = false;
     const editionsSeen = [];
     const modeTags = { wish: null, cursed: 0, mutants: 0, glitch: 0 };
+    // Ouverture V2 : les cartes de chaque booster, revelees booster par booster.
+    const perBooster = [];
     // Gros lots (2026-10-21) : 3 boosters demandes en parallele (au lieu d'un
     // a la fois), compteur dans l'indice ; resultats traites dans l'ordre. Une
     // erreur en cours de route (limite d'actions...) n'efface pas ce qui est
@@ -1215,6 +1219,7 @@ async function startOpening(ext) {
         break;
       }
       allCards.push(...(res.cards || []));
+      perBooster.push({ planned: pe, ext: (pe.mystery && extensionById(res.mystery ? res.mystery.extensionId : simExt.id)) || pe, cards: (res.cards || []).slice(), res });
       opened++;
       if (res.batchId && !sim) batchIds.push(res.batchId);
       if (res.pack?.shiny) packShiny = true;
@@ -1235,7 +1240,9 @@ async function startOpening(ext) {
     // quelque chose, sans savoir quoi - un seul fremissement neutre des une
     // epique, plus de tremblement/couleur differents par rarete qui
     // revelaient le contenu avant meme la dechirure.
-    const bestRarity = allCards.reduce((best, c) => {
+    // V2 : seul le 1er booster se dechire ici, l'indice ne porte que sur lui.
+    const v2 = typeof OpeningV2 !== "undefined" && perBooster.length > 0;
+    const bestRarity = (v2 ? perBooster[0].cards : allCards).reduce((best, c) => {
       const k = c.rarity?.key || "commune";
       return (RARITY_ORDER[k] ?? 0) > (RARITY_ORDER[best] ?? 0) ? k : best;
     }, "commune");
@@ -1271,6 +1278,8 @@ async function startOpening(ext) {
     // avant l'apparition des cartes. Le pull est LE moment fort de la
     // page, il ne doit pas se sentir expedie.
     await wait(750);
+    // V2 : le paquet « resiste » s'il cache une epique ou mieux (indice neutre).
+    if (v2 && somethingSpecial) await OpeningV2.resist(pack);
     pack.classList.remove("charging", "charging-special", "charging-legendaire", "charging-epique", "charging-rare", "charging-mythique");
     if (bonusCards) Toast.info(`&#127873; +${bonusCards} carte${bonusCards > 1 ? "s" : ""} bonus dans ce booster !`);
     lastPackTags = sim ? [{ kind: "sim", html: "&#129514; Simulation", short: "simulation" }] : [];
@@ -1354,6 +1363,17 @@ async function startOpening(ext) {
       } else BoosterCart.consumed(ext.id, opened);
     }
     openPlan = null;
+    if (v2) {
+      const fromRect = pack.getBoundingClientRect();
+      flash.classList.remove("flash-active");
+      if (lastBoosterInfo) boosterCount = lastBoosterInfo.count;
+      loadHeaderBoosterBadge();
+      if (!sim) loadRarityPity();
+      // Scene booster par booster puis bilan (js/opening-v2.js) ; isBusy
+      // repasse a false au bilan (onAllRevealed).
+      OpeningV2.run({ boosters: perBooster, sim: !!sim, backImageId, fromRect });
+      return;
+    }
     if (grid) grid.classList.toggle("big-lot", allCards.length > BIG_LOT);
     stackIndex = 0;
     stackCardEls = allCards.map((card, i) => {

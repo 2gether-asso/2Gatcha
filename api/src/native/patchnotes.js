@@ -8,6 +8,15 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-13', title: 'Ouverture de boosters, nouvelle version', items: [
+    'Les boosters s’ouvrent un par un : chaque booster se déchire, ses cartes jaillissent et se posent face cachée, tu les retournes dans l’ordre que tu veux',
+    'Une belle carte passe au centre de l’écran en grand ; une légendaire ou mieux a toujours sa cinématique',
+    'Le booster résiste quand il cache quelque chose de bien… et la meilleure carte se fait attendre',
+    'La jauge de légendaire garantie avance en direct pendant l’ouverture',
+    'Un bilan à la fin : ta meilleure carte (à partager), tes nouvelles cartes, tes poussières et la progression de tes extensions',
+    'Pressé ? « Tout révéler », « Passer au bilan » ou le mode « Auto » pour les gros lots',
+    'Collection : sur ordinateur, la fiche d’une carte s’ouvre maintenant au centre de l’écran'
+  ] },
   { date: '2026-11-07', title: 'Collection et coffre-fort, nouvelle version', items: [
     'Collection : un bandeau plus court, le Classeur pour regarder tes cartes et l’Atelier pour les transformer, avec ce que tu peux faire tout de suite sous chaque outil',
     'Une vignette par carte : ses autres exemplaires sont dans sa fiche, qui s’ouvre sur le côté avec le tableau de toutes ses finitions et états',

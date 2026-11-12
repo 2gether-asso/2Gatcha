@@ -1,7 +1,7 @@
 /* collection-v2.css - Collection V2 (2026-11-07) : bandeau compact, espaces
    Classeur / Atelier, outils de l'atelier en cartes, barre de filtres en une
    ligne avec menus, rail des extensions, pages d'album, fiche carte en
-   panneau lateral. Chargee apres refonte.css (collection.html seulement). */
+   modale centree. Chargee apres refonte.css (collection.html seulement). */
 
 /* ------------------------------------------------------------ bandeau */
 .cv2-hero { display: flex; align-items: center; gap: 14px 18px; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-2-rgb), 0.06)); }
@@ -136,13 +136,13 @@ button.cv2-mx-c::before { content: none; }
 .cv2-vault-line { margin-top: 10px; font-size: 0.8rem; color: var(--text-dim); }
 .cv2-store-btn { margin-top: 10px; }
 .card-modal-actions .btn-ghost.active { border-color: var(--accent); color: var(--text); }
-/* Grand ecran : fiche en panneau lateral, l'image a gauche, tout le reste a droite. */
+/* Grand ecran : fiche en modale centree, l'image a gauche, tout le reste a droite. */
 @media (min-width: 900px) {
-  .cv2-sheet-overlay { justify-content: flex-end; padding: 0; }
-  .cv2-sheet-overlay .card-modal { width: min(820px, 92vw); max-height: 100vh; height: 100vh; border-radius: 20px 0 0 20px; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); overflow: hidden; }
+  .cv2-sheet-overlay { justify-content: center; align-items: center; padding: 32px; }
+  .cv2-sheet-overlay .card-modal { width: min(860px, 92vw); height: auto; max-height: min(720px, calc(100vh - 64px)); border-radius: 20px; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); overflow: hidden; }
   .cv2-sheet-overlay .card-modal > .card-art { border-radius: 20px 0 0 20px; align-self: center; padding: 18px; }
-  .cv2-sheet-overlay .card-modal > .card-art img { border-radius: 14px; max-height: calc(100vh - 36px); object-fit: contain; background: none; }
-  .cv2-sheet-overlay .card-modal-body { overflow-y: auto; max-height: 100vh; padding: 26px 24px 30px; }
+  .cv2-sheet-overlay .card-modal > .card-art img { border-radius: 14px; max-height: calc(min(720px, calc(100vh - 64px)) - 36px); object-fit: contain; background: none; }
+  .cv2-sheet-overlay .card-modal-body { overflow-y: auto; max-height: min(720px, calc(100vh - 64px)); padding: 26px 24px 30px; }
   .cv2-sheet-overlay .card-modal-close { z-index: 3; }
 }
 
