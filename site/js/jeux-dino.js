@@ -50,7 +50,7 @@
     return `<div class="dino-eggs">${st.eggs.map((e) => `<div class="dino-egg ${e.ready ? "ready" : ""}">
       <span class="dino-egg-icon" aria-hidden="true">🥚</span>
       <small>${e.parents.length ? `De ${esc(e.parents.join(" et "))}` : "Œuf"}</small>
-      ${e.ready ? `<button type="button" class="btn" data-dino-egg="${e.id}">Faire éclore</button>` : `<small class="muted">Éclot dans ${dur(e.hatchAt - t)}</small>`}
+      ${e.ready ? (st.dinos.length >= st.max ? `<small class="muted" title="Relâche un dino ou déblaie un tas d'os pour lui faire de la place.">Enclos plein (${st.dinos.length}/${st.max}) : libère une place</small>` : `<button type="button" class="btn" data-dino-egg="${e.id}">Faire éclore</button>`) : `<small class="muted">Éclot dans ${dur(e.hatchAt - t)}</small>`}
     </div>`).join("")}</div>`;
   }
 
@@ -176,6 +176,15 @@
     collect.innerHTML = `⛏️ Récupérer les trouvailles de tes dinos (${finds})`;
     $("dino-clean-all-btn").hidden = st.dinos.reduce((s, d) => s + d.poops + d.goldPoops, 0) < 2;
     $("dino-clean-all-btn").disabled = false;
+    // Soins groupes (avis joueur, GlitchTip #60) : montres des que 2 dinos en profitent.
+    const nowS = Date.now() / 1000;
+    const living = st.dinos.filter((d) => !d.dead);
+    const hungry = living.filter((d) => !d.walkUntil && d.food < 80).length;
+    const foodLeft = Object.entries(st.food || {}).some(([k, n]) => (k === "worm" ? n > 30 : n > 2));
+    const playable = living.filter((d) => !d.sleeping && (d.canPlayAt || 0) <= nowS).length;
+    const walkable = st.walkOn ? living.filter((d) => !d.walkUntil && !d.walkedToday && !d.sleeping).length : 0;
+    [["dino-feed-all-btn", hungry >= 2 && foodLeft, `&#127830; Tout nourrir (${hungry})`], ["dino-play-all-btn", playable >= 2, `&#127934; Jouer avec tous (${playable})`], ["dino-walk-all-btn", walkable >= 2, `&#129429; Tous en balade (${walkable})`]]
+      .forEach(([id, on, html]) => { const b = $(id); if (!b) return; b.hidden = !on; b.disabled = false; b.innerHTML = html; });
     $("dino-scene-box").innerHTML = st.dinos.length ? scene(st) : "";
     $("dino-eggs").innerHTML = eggsHtml(st);
     $("dino-list").innerHTML = st.dinos.length
@@ -205,7 +214,7 @@
   const ERRORS = {
     no_skull: "Il te faut un crâne de dinosaure (fouille).", not_enough_bones: "Pas assez d'os.", get max_dinos() { return `Ton enclos est plein (${state && state.max ? state.max + " places" : "plus de place"}, tas d'os compris). Tu peux relâcher un dino dans la nature pour libérer une place.`; }, already_walking: "Il est en balade : attends son retour.",
     no_food: "Plus de cette nourriture : va pêcher !", not_hungry: "Il n'a plus faim.", play_cooldown: "Il se repose, reviens plus tard.", sleeping: "Chut, il dort (23 h - 7 h).",
-    nothing_to_clean: "Rien à ramasser.", invalid_name: "Nom invalide.", nothing_to_collect: "Pas encore de trouvaille.", max_eggs: "Déjà 3 œufs en attente.",
+    nothing_to_clean: "Rien à ramasser.", nothing_to_feed: "Personne n'a faim, ou il ne reste que ta réserve de nourriture : va pêcher !", walked_today: "Ils se sont tous déjà promenés aujourd'hui.", wrong_mode: "Les balades des dinos sont réservées au mode Chill.", invalid_name: "Nom invalide.", nothing_to_collect: "Pas encore de trouvaille.", max_eggs: "Déjà 3 œufs en attente.",
     not_adult: "Il faut deux adultes.", not_happy_enough: "Les deux parents doivent être heureux (bonheur 70+) et nourris (satiété 40+).", breed_cooldown: "Ils se reposent avant une nouvelle ponte.",
     egg_not_ready: "L'œuf n'est pas encore prêt.", not_enough_dust: "Pas assez de poussières.", already_owned: "Déjà possédé.", dino_dead: "Il n'y a plus qu'un tas d'os…"
   };
@@ -252,6 +261,9 @@
       if (res.buried) Toast.info(`${resIcon("bone")} Tu récupères ${res.buried.bones} os. Repose en paix, ${esc(res.buried.name)}…`);
       if (res.grown) { Toast.success(`🌟 Ton dino grandit : stade ${esc(res.grown.stage)} !`); if (res.grown.stage === "Adulte") Toast.info("⛏️ Adulte : il fouille maintenant pour toi quand il est content."); }
       if (res.bought) Toast.success("🛍️ Acheté !");
+      if (res.fedAll) Toast.success(`🍖 Repas servi à ${res.fedAll.length} dino${res.fedAll.length > 1 ? "s" : ""} (${res.fedAll.reduce((s, x) => s + x.meals, 0)} portions).`);
+      if (res.playedAll) Toast.success(`🎾 Tu as joué avec ${res.playedAll} dinos : ils sont ravis !`);
+      if (res.walkingAll) Toast.success(`🦕 ${res.walkingAll} dinos partent en balade pour une heure.`);
     } catch (e) {
       Toast.error(ERRORS[e.code] || friendlyError(e));
       if (el) el.disabled = false;
@@ -283,6 +295,9 @@
     if (b.id === "dino-hatch-btn") return act("hatch", {}, b);
     if (b.id === "dino-collect-btn") return act("collect", {}, b);
     if (b.id === "dino-clean-all-btn") return act("clean", {}, b);
+    if (b.id === "dino-feed-all-btn") return act("feedAll", {}, b);
+    if (b.id === "dino-play-all-btn") return act("playAll", {}, b);
+    if (b.id === "dino-walk-all-btn") return act("walkAll", {}, b);
     if (b.dataset.dinoPet) return act("pet", { dino: Number(b.dataset.dinoPet) });
     if (b.dataset.dinoFeed) return act("feed", { dino: Number(b.dataset.dinoFeed), food: b.dataset.food }, b);
     if (b.dataset.dinoPlay) return act("play", { dino: Number(b.dataset.dinoPlay) }, b);

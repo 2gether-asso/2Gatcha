@@ -62,10 +62,13 @@ function getInitialTab() {
 // Rubriques (2026-10-21) : les dix onglets ranges en trois familles ; seule
 // la rubrique de l'onglet ouvert montre ses onglets. Une rubrique sans onglet
 // actif (fonctions coupees) disparait ; sa pastille reprend celles de ses onglets.
+// Communaute V2 (2026-11-15) : Evenements (ce qui se passe), Commerce (ce qui
+// s'echange, echanges entre joueurs compris : lien vers trade.html) et Entre
+// joueurs (equipes, classements, affichage). Cles inchangees (choix gardes).
 const COMM_GROUPS = [
-  { key: "events", icon: "&#128197;", label: "Événements", tabs: ["calendar", "board", "boss", "together"] },
-  { key: "play", icon: "&#129309;", label: "Jouer ensemble", tabs: ["teams", "machine", "skills"] },
-  { key: "trade", icon: "&#127761;", label: "Marché", tabs: ["market", "auctions", "chest"] }
+  { key: "events", icon: "&#128197;", label: "Événements", tabs: ["calendar", "boss", "together", "machine"] },
+  { key: "trade", icon: "&#128176;", label: "Commerce", tabs: ["auctions", "market", "chest"], links: ["tab-trades-link"] },
+  { key: "play", icon: "&#129309;", label: "Entre joueurs", tabs: ["teams", "skills", "board"] }
 ];
 const LAST_GROUP_TAB_KEY = "2gatcha_comm_group_tabs";
 function groupOf(tab) { return COMM_GROUPS.find((g) => g.tabs.includes(tab)) || COMM_GROUPS[0]; }
@@ -80,6 +83,7 @@ function renderGroups() {
       <span aria-hidden="true">${g.icon}</span> ${g.label}${dot ? '<span class="tab-new-dot" aria-label="Nouveau"></span>' : ""}</button>`;
   }).join("");
   COMM_GROUPS.forEach((g) => g.tabs.forEach((k) => { const b = document.getElementById(`tab-${k}-btn`); if (b) b.classList.toggle("cm-out", g.key !== current.key); }));
+  COMM_GROUPS.forEach((g) => (g.links || []).forEach((id) => { const a = document.getElementById(id); if (a) a.classList.toggle("cm-out", g.key !== current.key); }));
 }
 function openGroup(key) {
   const g = COMM_GROUPS.find((x) => x.key === key);

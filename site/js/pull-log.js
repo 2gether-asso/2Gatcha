@@ -189,7 +189,18 @@ function renderPullLog() {
   if (more) more.addEventListener("click", () => { pullLogShown += GROUPS_PER_PAGE; renderPullLog(); });
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+// Mes chiffres (2026-11-15) : le journal est l'onglet « Ouvertures » de
+// stats.html ; il ne se charge qu'a la premiere ouverture de l'onglet
+// (evenement chiffres:ouvertures), sinon des l'arrivee sur la page.
+let pullLogStarted = false;
+document.addEventListener("DOMContentLoaded", () => {
+  const tabs = document.getElementById("chiffres-tabs");
+  if (tabs && location.hash !== "#ouvertures") document.addEventListener("chiffres:ouvertures", startPullLog, { once: true });
+  else startPullLog();
+});
+async function startPullLog() {
+  if (pullLogStarted) return;
+  pullLogStarted = true;
   if (!Session.isLoggedIn()) {
     document.getElementById("guest-warning").style.display = "block";
     return;
@@ -222,4 +233,4 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderPullLog();
   });
   enhanceSelect(document.getElementById("pull-log-source-filter"));
-});
+}

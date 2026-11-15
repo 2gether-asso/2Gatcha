@@ -13,7 +13,7 @@
 import { refId, now, ok, fail, userById, isAdmin, firstAttachment, cardSummary, parisDay } from './common.js';
 import { uniqueRarity } from './unique.js';
 import { grantCosmetic } from './cosmetics.js';
-import { setting } from './settings.js';
+import { setting, seasonRewardFor } from './settings.js';
 
 export const schema = {
   SeasonProgress: {
@@ -63,9 +63,11 @@ function seasonCard(store, season) {
 }
 
 // Rythme du pass (2026-11-01) : un stock de boosters ouvert d'un coup finissait le
-// pass en une heure. L'XP compte au plus SeasonXpPerDay par jour ecoule du mois ;
-// le surplus reste en reserve et se libere les jours suivants. Rien n'est perdu pour
-// qui joue moins un jour. 0 = pas de limite.
+// pass en une heure. L'XP de JEU compte au plus SeasonXpPerDay par jour ecoule du
+// mois ; le surplus reste en reserve et se libere les jours suivants (rattrapage).
+// Pass V2 (2026-11-15) : les missions du jour (seasonquests.js, BonusXP) s'ajoutent
+// hors plafond, elles sont deja limitees a 3 par jour. 120 + 240 = 360 XP par jour
+// au plus, 100 paliers de 100 XP : 28 jours pour finir. 0 = pas de limite.
 export function seasonAllowance(store, day = parisDay(0)) {
   const perDay = setting(store, 'SeasonXpPerDay');
   return perDay > 0 ? perDay * Number(day.slice(8, 10)) : Infinity;
@@ -108,16 +110,31 @@ function chestOf(store, user, season, row) {
   return { current: { xp: xpNow, contents: chestContents(store, xpNow), opensAt: seasonEnd(season) }, previous };
 }
 
+// Mois de bascule vers le pass V2 (balance.js migrateSeasonV2) : la saison deja
+// commencee finit avec l'ancien pass (parametres gardes dans la trace).
+function legacyOf(store, season) {
+  const row = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((r) => r.Key === 'season-v2-2026-11-15') : null;
+  if (!row) return null;
+  try { const v = JSON.parse(row.Value); return v && v.legacy && v.legacy.season === season ? v.legacy : null; } catch (e) { return null; }
+}
+
 function statusOf(store, user) {
   const season = seasonId();
   const enabled = !!setting(store, 'SeasonEnabled');
-  const tiersCount = setting(store, 'SeasonTiers');
-  const perTier = setting(store, 'SeasonXpPerTier');
-  const rewards = setting(store, 'SeasonRewards');
+  const legacy = legacyOf(store, season);
+  const tiersCount = legacy ? legacy.tiers : setting(store, 'SeasonTiers');
+  const perTier = legacy ? legacy.perTier : setting(store, 'SeasonXpPerTier');
+  const rewards = legacy ? legacy.rewards : setting(store, 'SeasonRewards');
   const row = progressRow(store, user.id, season);
-  // XP de saison = XP du compte gagnee ce mois + XP des defis de saison (seasonquests.js).
-  const earned = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0) + (Number(row.BonusXP) || 0)) : 0;
-  const xp = Math.min(earned, seasonAllowance(store));
+  // XP de saison = XP de jeu du mois (plafonnee par jour, reserve au-dela) + XP des
+  // missions du jour (seasonquests.js, hors plafond). Ancien pass : le plafond
+  // porte sur le total (missions comprises), comme avant.
+  const game = row ? Math.max(0, (Number(user.XP) || 0) - (Number(row.StartXP) || 0)) : 0;
+  const missions = row ? Math.max(0, Number(row.BonusXP) || 0) : 0;
+  const earned = game + missions;
+  const day = Number(parisDay(0).slice(8, 10));
+  const xp = legacy ? Math.min(earned, legacy.perDay > 0 ? legacy.perDay * day : Infinity) : Math.min(game, seasonAllowance(store)) + missions;
+  const gameXp = Math.max(0, xp - missions);
   const claimed = row ? Number(row.ClaimedTier) || 0 : 0;
   // Un palier deja recupere reste acquis, meme si la reserve ne le couvre pas encore.
   const reached = Math.max(Math.min(claimed, tiersCount), Math.min(tiersCount, Math.floor(xp / perTier)));
@@ -130,7 +147,7 @@ function statusOf(store, user) {
   const tiers = Array.from({ length: tiersCount }, (_, i) => ({
     tier: i + 1,
     xp: (i + 1) * perTier,
-    reward: rewards[i] || {},
+    reward: (Array.isArray(rewards) && rewards[i]) || (legacy ? {} : seasonRewardFor(i + 1)),
     card: i === tiersCount - 1 && card ? card : null,
     reached: i + 1 <= reached,
     claimed: i + 1 <= claimed
@@ -141,7 +158,11 @@ function statusOf(store, user) {
   bonus.claimable = bonusClaimable;
   const tierClaimable = Math.max(0, reached - claimed);
   const chest = chestOf(store, user, season, row);
-  return { enabled, season, chest, label: seasonLabel(season), endsAt: seasonEnd(season), xp, xpReserve: earned - xp, xpPerDay: setting(store, 'SeasonXpPerDay'), xpPerTier: perTier, reached, claimed, tierClaimable, claimable: tierClaimable + bonusClaimable, complete: reached === tiersCount, tiers, card, bonus };
+  return { enabled, season, chest, label: seasonLabel(season), endsAt: seasonEnd(season), xp, gameXp, missionXp: missions, xpReserve: earned - xp, xpPerDay: legacy ? legacy.perDay : setting(store, 'SeasonXpPerDay'), xpPerTier: perTier,
+    // Rythme vise : XP de jeu + missions du jour par jour, et le jour ou le pass peut etre fini.
+    pace: legacy
+      ? { perDay: legacy.perDay, total: tiersCount * perTier, day, legacy: true }
+      : { perDay: setting(store, 'SeasonXpPerDay') + 3 * setting(store, 'SeasonQuestXp') + setting(store, 'SeasonQuestAllXp'), total: tiersCount * perTier, day }, reached, claimed, tierClaimable, claimable: tierClaimable + bonusClaimable, complete: reached === tiersCount, tiers, card, bonus };
 }
 
 function grant(store, user, reward) {

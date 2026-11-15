@@ -33,11 +33,30 @@
     if (location.hash !== "#" + key) history.replaceState(null, "", "#" + key);
   }
 
+  // ---------------------------------------------------------------- metiers
+  async function loadSkills() {
+    const box = $("pg-skills");
+    if (!box) return;
+    let r;
+    try { r = await API.get("skills", { userId: Session.userId }); } catch (e) { box.innerHTML = `<p class="error-box">${esc(friendlyError(e))}</p>`; return; }
+    box.innerHTML = r.skills.map((s) => {
+      const max = s.level >= s.max;
+      const pct = max ? 100 : Math.round(((s.xp - s.current) / Math.max(1, (s.next || s.xp) - s.current)) * 100);
+      return `<a class="pg-skill ${max ? "max" : ""}" href="${s.url}">
+        <span class="pg-skill-ico" aria-hidden="true">${s.icon}</span>
+        <span class="pg-skill-body"><b>${esc(s.label)}</b><small>Niveau ${s.level} / ${s.max}${s.prestige ? ` · ${"★".repeat(Math.min(5, s.prestige))}${s.prestige > 5 ? " " + s.prestige : ""}` : ""}</small>
+          <span class="pg-skill-bar"><span style="width:${Math.max(0, Math.min(100, pct))}%"></span></span>
+          <small>${max ? "Niveau max : passe au prestige" : `${fmtNum(s.xp - s.current)} / ${fmtNum((s.next || s.xp) - s.current)} XP`}</small></span>
+      </a>`;
+    }).join("");
+  }
+
   // ---------------------------------------------------------------- resume
   async function renderSummary() {
-    const [t, p, c] = await Promise.all([API.talents(Session.userId).catch(() => null), API.getAccountPrestige(Session.userId).catch(() => null), API.constellations(Session.userId).catch(() => null)]);
+    const [t, p, c, season] = await Promise.all([API.talents(Session.userId).catch(() => null), API.getAccountPrestige(Session.userId).catch(() => null), API.constellations(Session.userId).catch(() => null), API.getSeason(Session.userId).catch(() => null)]);
     const chip = (icon, label, value, hot = false) => `<div class="pg-chip ${hot ? "hot" : ""}"><span aria-hidden="true">${icon}</span><strong>${value}</strong><small>${label}</small></div>`;
     $("pg-summary").innerHTML = [
+      season && season.enabled ? chip("🏆", "palier de saison", `${season.reached}/${season.tiers.length}`, season.claimable > 0) : "",
       t ? chip("🌟", "niveau de compte", t.level) : "",
       p ? chip("⭐", "étoiles de prestige", p.stars) : "",
       t ? chip("🌳", "points de talent à placer", t.available, t.available > 0) : "",
@@ -127,9 +146,12 @@
 
   document.addEventListener("DOMContentLoaded", async () => {
     if (!Session.isLoggedIn()) { $("pg-guest").style.display = "block"; document.querySelector(".pg-tabs").hidden = true; document.querySelectorAll(".pg-pane").forEach((p) => { p.hidden = true; }); return; }
+    // Progression V2 (2026-11-15) : Saison (ouverte par defaut) et Metiers en tete.
+    const TABS = ["saison", "metiers", "talents", "ciel", "maitrises"];
     let tab = (location.hash || "").replace("#", "");
-    if (!["talents", "ciel", "maitrises"].includes(tab)) { try { tab = localStorage.getItem(TAB_KEY) || "talents"; } catch (e) { tab = "talents"; } }
-    showTab(["talents", "ciel", "maitrises"].includes(tab) ? tab : "talents");
+    if (!TABS.includes(tab)) tab = "saison";
+    showTab(tab);
+    loadSkills();
     document.querySelector(".pg-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-pg]"); if (b) showTab(b.dataset.pg); });
     if (typeof window.renderOwnProgress === "function") window.renderOwnProgress();
     loadUpgrades();

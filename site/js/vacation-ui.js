@@ -197,6 +197,16 @@ const VacationUI = (function () {
     [st, friends, kiosk] = await Promise.all([API.vacation(Session.userId).catch(() => null), page === "profile.html" ? API.post("friends", { userId: Session.userId, action: "status" }).catch(() => null) : Promise.resolve(friends), page === "profile.html" ? API.cosmetics(Session.userId).catch(() => null) : Promise.resolve(kiosk)]);
     render();
   }
+  // Refus des vacances en clair (GlitchTip #72 : le joueur voyait « Erreur. (not_enough_sand) »).
+  const VAC_ERR = {
+    not_enough_sand: "Pas assez de sable : creuse la plage pour en trouver.", castle_done: "Le château de la semaine est déjà terminé !", invalid_amount: "Indique une quantité de sable.",
+    already_used: "Déjà fait aujourd'hui : reviens demain.", already_dug: "Ce coin de plage est déjà creusé.", invalid_tile: "Ce coin de plage n'existe plus : la plage est à jour.", already_claimed: "Déjà récupéré.",
+    too_soon: "Pas encore : patiente encore un peu.", sunset_closed: "Le coucher de soleil est passé.", book_incomplete: "Le carnet n'est pas encore complet.",
+    not_a_duplicate: "Il faut un doublon pour bronzer.", no_free_slot: "Plus de transat libre : récupère d'abord une carte.", already_sunbathing: "Cette carte bronze déjà.", already_mint: "Cette carte est déjà comme neuve.",
+    already_napping: "Tu fais déjà la sieste.", not_napping: "Tu ne fais pas la sieste.", already_friend: "Vous êtes déjà amis.", too_many_friends: "Tu as déjà 50 amis.", unknown_target: "Joueur introuvable.",
+    wrong_mode: "Pas disponible dans ton mode de jeu actuel."
+  };
+  const vacErr = (e) => VAC_ERR[e && e.code] || friendlyError(e);
   async function act(action, params = {}) {
     try {
       const r = await API.vacation(Session.userId, action, params);
@@ -205,7 +215,7 @@ const VacationUI = (function () {
       await load();
       bump();
       return r;
-    } catch (e) { Toast.error(friendlyError(e)); return null; }
+    } catch (e) { Toast.error(vacErr(e)); if (e.code === "not_enough_sand" || e.code === "castle_done") load(); return null; }
   }
   document.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-vac],[data-postcard],[data-friend-remove],[data-kiosk-buy],[data-kiosk-equip],#vac-sun-btn,#vac-donate-btn,#vac-friend-btn");
@@ -238,11 +248,19 @@ const VacationUI = (function () {
       return;
     }
     if (t.id === "vac-sun-btn") { const id = Number(document.getElementById("vac-sun-select").value); if (id) act("sunbath-start", { pullId: id }); return; }
-    if (t.id === "vac-donate-btn") { const n = Number(document.getElementById("vac-donate-n").value) || 0; if (n > 0) act("castle-donate", { n }); return; }
+    if (t.id === "vac-donate-btn") {
+      // Pas de double envoi (plusieurs dons d'un coup = sable a 0 puis refus) ;
+      // quantite bornee au sable possede (champ max).
+      const input = document.getElementById("vac-donate-n");
+      const max = Number(input.max) || Infinity;
+      const n = Math.min(max, Math.floor(Number(input.value) || 0));
+      if (n > 0) { t.disabled = true; await act("castle-donate", { n }); t.disabled = false; }
+      return;
+    }
     if (t.id === "vac-friend-btn" || t.dataset.friendRemove) {
       const body = t.dataset.friendRemove ? { action: "remove", friendId: Number(t.dataset.friendRemove) } : { action: "add", pseudo: document.getElementById("vac-friend-add").value.trim() };
       if (body.action === "add" && !body.pseudo) return;
-      try { friends = await API.post("friends", { userId: Session.userId, ...body }); if (friends.toast) Toast.success(esc(friends.toast)); render(); } catch (err) { Toast.error(friendlyError(err)); }
+      try { friends = await API.post("friends", { userId: Session.userId, ...body }); if (friends.toast) Toast.success(esc(friends.toast)); render(); } catch (err) { Toast.error(vacErr(err)); }
     }
   });
 

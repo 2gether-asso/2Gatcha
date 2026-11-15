@@ -340,6 +340,8 @@ function view(store, user) {
     meal: Object.keys(COURSES).map((c) => ({ course: c, label: COURSES[c], at: Number(meal[c]) > t - 3600 ? Number(meal[c]) : null })),
     level: { ...lv, perks: LEVEL_PERKS },
     potKinds: potKinds(user),
+    // Solde pour griser les ustensiles trop chers (GlitchTip #32).
+    wallet: { dust: Number(user.StardustCount) || 0, parts: Number(user.SpareParts) || 0 },
     qualities: q.map((x, i) => ({ key: x.key, label: x.label, stars: i, dur: x.dur, power: x.power })),
     orders: {
       list: orders.list.map((o) => { const r = byKey.get(o.recipe); const c = clients.find((x) => x.key === o.who) || VILLAGERS[0]; return { ...o, who: { key: c.key, label: c.label, icon: c.icon }, recipe: r ? { key: r.key, label: r.label, icon: r.icon } : { key: o.recipe, label: o.recipe, icon: '🍲' }, minLabel: (q[o.min] || {}).label, reward: orderReward(store, o) }; }),

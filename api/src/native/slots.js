@@ -230,7 +230,7 @@ const tierOf = (n) => (n >= 4 ? 'quad' : n === 3 ? 'triple' : n === 2 ? 'pair' :
 function payout(store, user, line, batchId, { mult = 1, bet = 1, onlyTriple = false, jar = { left: Infinity } } = {}) {
   const { key, n } = combo(line);
   const tier = tierOf(n);
-  const out = { tier, key, cards: [], dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, jackpot: 0, minerals: [], label: '' };
+  const out = { tier, key, cards: [], dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, bones: 0, jackpot: 0, minerals: [], label: '' };
   if (n < 2 || (onlyTriple && n < 3)) {
     out.tier = 'none';
     if (!onlyTriple && line.includes('jackpot')) { out.dust = Math.round(15 * pm(store) * mult); out.label = 'Une étincelle de jackpot'; }
@@ -282,7 +282,11 @@ function payout(store, user, line, batchId, { mult = 1, bet = 1, onlyTriple = fa
       out.label = 'Paire de jackpot';
     }
   } else if (key === 'crane') {
-    if (big) { out.skulls = n >= 4 ? 2 : 1; out.label = n >= 4 ? 'Quatre crânes… deux vrais !' : 'Trois crânes… un vrai !'; } else out.label = 'Deux crânes';
+    if (big) { out.skulls = n >= 4 ? 2 : 1; out.label = n >= 4 ? 'Quatre crânes… deux vrais !' : 'Trois crânes… un vrai !'; } else {
+      // Avis joueur (GlitchTip #68) : la paire ne donnait rien. Deux os, pour Milo ou les dinos.
+      out.bones = Math.max(1, Math.round(2 * k));
+      out.label = 'Deux crânes : quelques os';
+    }
   } else if (key === 'geode') {
     // Mineraux credites par l'appelant (creditMinerals).
     const [lo, hi] = big ? [3, 5] : [1, 3];
@@ -412,7 +416,7 @@ export function spin(store, user, body) {
   const jar = { left: Math.max(0, setting(store, 'ForbiddenBoosterDailyCap') - (acc.daily.boosters || 0)) };
   const jarStart = jar.left;
   let heat = Number(user.ForbiddenHeat) || 0;
-  let dust = useChips ? 0 : -total, boosters = 0, keys = 0, coins = 0, skulls = 0, xp = 0;
+  let dust = useChips ? 0 : -total, boosters = 0, keys = 0, coins = 0, skulls = 0, bones = 0, xp = 0;
   const minerals = [];
   let risk = Number(user.ForbiddenRisk) || 0;
   let riskResult = null;
@@ -460,8 +464,8 @@ export function spin(store, user, body) {
     const bonusAwarded = jackpotsSeen >= 3 ? 5 : 0;
     if (bonusAwarded) { bonusLeft += bonusAwarded; notices.push({ icon: '🎰', text: `${jackpotsSeen} jackpots visibles : ${bonusAwarded} tours bonus à gains doublés !` }); }
     const all = [p, ...cascades];
-    const won = all.reduce((a, x) => ({ dust: a.dust + x.dust, boosters: a.boosters + x.boosters, keys: a.keys + x.keys, coins: a.coins + x.coins, skulls: a.skulls + x.skulls, cards: a.cards + x.cards.length }), { dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, cards: 0 });
-    dust += won.dust; boosters += won.boosters; keys += won.keys; coins += won.coins; skulls += won.skulls;
+    const won = all.reduce((a, x) => ({ dust: a.dust + x.dust, boosters: a.boosters + x.boosters, keys: a.keys + x.keys, coins: a.coins + x.coins, skulls: a.skulls + x.skulls, bones: a.bones + (x.bones || 0), cards: a.cards + x.cards.length }), { dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, bones: 0, cards: 0 });
+    dust += won.dust; boosters += won.boosters; keys += won.keys; coins += won.coins; skulls += won.skulls; bones += won.bones;
     all.forEach((x) => minerals.push(x.minerals));
     heat = p.tier === 'triple' || p.tier === 'quad' ? 0 : Math.min(heatMax || 999, heat + bet + hasEffect(ctx, 'heat'));
     xp += bet;
@@ -523,6 +527,7 @@ export function spin(store, user, body) {
   if (keys) fields.KeyCount = (Number(fresh.KeyCount) || 0) + keys;
   if (coins) fields.ChestCount = (Number(fresh.ChestCount) || 0) + coins;
   if (skulls) fields.DinoSkulls = (Number(fresh.DinoSkulls) || 0) + skulls;
+  if (bones) fields.BoneCount = (Number(fresh.BoneCount) || 0) + bones;
   const mins = creditMinerals(fresh, minerals);
   if (mins) fields.Minerals = mins;
   if (!dailyFree && user.ForbiddenFreeDay !== today) fields.ForbiddenFreeDay = today;
@@ -560,6 +565,7 @@ export function nudge(store, user) {
   if (p.keys) fields.KeyCount = (Number(fresh.KeyCount) || 0) + p.keys;
   if (p.coins) fields.ChestCount = (Number(fresh.ChestCount) || 0) + p.coins;
   if (p.skulls) fields.DinoSkulls = (Number(fresh.DinoSkulls) || 0) + p.skulls;
+  if (p.bones) fields.BoneCount = (Number(fresh.BoneCount) || 0) + p.bones;
   const mins = creditMinerals(fresh, [p.minerals]);
   if (mins) fields.Minerals = mins;
   const updated = store.update('Users', user.id, fields);

@@ -1,0 +1,144 @@
+/* Jeux V2 « Le village » (2026-11-15, js/village.js) : tournee, lieux,
+   compagnons et sac. Couleurs du theme (tokens.css), donc des skins de mode. */
+
+/* Le panneau est affiche en display:block par jeux.js : marges entre blocs. */
+#village-pane > * + * { margin-top: 20px; }
+.vg-h { font-family: var(--font-display); font-size: 1.05rem; margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.vg-h small { font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
+
+/* Tournee */
+.vg-tour { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 20px; padding: 16px 18px; border-radius: var(--radius-lg, 18px);
+  background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.vg-tour.ready { border-color: rgba(var(--accent-rgb, 168, 85, 247), 0.55); box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 168, 85, 247), 0.25), 0 10px 30px -18px rgba(var(--accent-rgb, 168, 85, 247), 0.8); }
+.vg-tour-text { display: grid; gap: 6px; min-width: 0; flex: 1 1 280px; }
+.vg-tour h2 { font-family: var(--font-display); font-size: 1.2rem; margin: 0; }
+.vg-tour p { margin: 0; color: var(--text-dim); font-size: 0.88rem; }
+.vg-tour-list { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.vg-tour-list li { font-size: 0.8rem; padding: 4px 10px; border-radius: var(--radius-pill, 999px); background: var(--bg-panel); border: 1px solid var(--border-soft); }
+.vg-tour-btn { flex: 0 0 auto; min-height: 46px; padding-inline: 22px; font-size: 1rem; }
+
+/* Lieux */
+.vg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.vg-place { position: relative; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border-radius: var(--radius-md, 14px); cursor: pointer;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); color: var(--text); font: inherit; transition: border-color 0.15s ease, transform 0.15s ease; }
+.vg-place:hover, .vg-place:focus-visible { border-color: var(--accent); transform: translateY(-1px); }
+.vg-place:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vg-place.hot { border-color: rgba(var(--accent-rgb, 168, 85, 247), 0.5); }
+.vg-place-ico { font-size: 1.6rem; line-height: 1; flex: 0 0 auto; }
+.vg-place-txt { display: grid; gap: 2px; min-width: 0; }
+.vg-place-txt b { font-size: 0.95rem; }
+.vg-place-txt small { font-size: 0.8rem; color: var(--text-dim); }
+.vg-place-txt em { font-style: normal; font-size: 0.72rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.vg-dot { position: absolute; top: 10px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 168, 85, 247), 0.25); }
+
+/* Compagnons et sac */
+.vg-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .vg-cols { grid-template-columns: 1fr; } }
+.vg-pets { display: grid; gap: 10px; }
+.vg-pet { display: flex; gap: 12px; padding: 12px; border-radius: var(--radius-md, 14px); background: var(--bg-panel); border: 1px solid var(--border-soft); }
+.vg-pet-pic { position: relative; flex: 0 0 auto; width: 54px; height: 54px; border-radius: 50%; font-size: 1.9rem; display: grid; place-items: center; cursor: pointer;
+  background: var(--bg-panel-2); border: 2px solid var(--border-soft); color: inherit; }
+.vg-pet.working .vg-pet-pic { border-color: var(--success, #22c55e); }
+.vg-pet-mood { position: absolute; right: -4px; bottom: -4px; font-size: 0.95rem; }
+.vg-pet-body { display: grid; gap: 6px; min-width: 0; flex: 1; }
+.vg-pet-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.vg-pet-top small, .vg-pet-state { color: var(--text-dim); font-size: 0.78rem; }
+.vg-gauge { height: 8px; border-radius: 99px; overflow: hidden; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.vg-gauge span { display: block; height: 100%; background: linear-gradient(90deg, var(--success, #22c55e), var(--accent)); border-radius: inherit; }
+.vg-pet-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.vg-pet-acts button { min-height: 34px; padding: 4px 12px; font-size: 0.8rem; }
+.vg-bag { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.vg-item { border-radius: var(--radius-sm, 10px); background: var(--bg-panel); border: 1px solid var(--border-soft); }
+.vg-item.empty { opacity: 0.6; }
+.vg-item summary { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; list-style: none; font-size: 0.82rem; }
+.vg-item summary::-webkit-details-marker { display: none; }
+.vg-item summary b { font-variant-numeric: tabular-nums; }
+.vg-item summary span:last-child { color: var(--text-dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vg-item-ico { font-size: 1.1rem; display: inline-flex; }
+.vg-item[open] { grid-column: 1 / -1; }
+.vg-item p { margin: 0; padding: 0 12px 10px; font-size: 0.82rem; }
+
+/* Retour au village, en tete de chaque jeu */
+.vg-back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 6px 12px; border-radius: var(--radius-pill, 999px); cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 700;
+  background: var(--bg-panel-2); color: var(--text); border: 1px solid var(--border-soft); }
+.vg-back:hover, .vg-back:focus-visible { border-color: var(--accent); }
+@media (max-width: 640px) {
+  /* Telephone : le retour reste a portee en haut de l'ecran pendant le jeu. */
+  .vg-back { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 20; box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.6); }
+  .vg-tour-btn { width: 100%; }
+  .vg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vg-place { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
+/* Bilan de la tournee */
+.vg-bilan-overlay { display: grid; place-items: center; padding: 16px; }
+.vg-bilan { width: min(460px, 100%); max-height: 86vh; overflow: auto; display: grid; gap: 14px; padding: 20px; border-radius: var(--radius-lg, 18px); background: var(--bg-panel-solid, #15162a); border: 1px solid var(--border); color: var(--text); }
+.vg-bilan-head { display: flex; align-items: center; gap: 12px; }
+.vg-bilan-head > span { font-size: 2rem; }
+.vg-bilan-head div { display: grid; }
+.vg-bilan-head strong { font-family: var(--font-display); font-size: 1.15rem; }
+.vg-bilan-head small { color: var(--text-dim); }
+.vg-bilan ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.vg-bilan li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: var(--radius-sm, 10px); background: var(--bg-panel); }
+.vg-bilan li.miss { opacity: 0.7; }
+.vg-bilan-ico { font-size: 1.3rem; line-height: 1.2; }
+.vg-bilan li div { display: grid; gap: 2px; min-width: 0; }
+.vg-bilan li b { font-size: 0.88rem; }
+.vg-bilan li span { font-size: 0.82rem; color: var(--text-dim); }
+@media (prefers-reduced-motion: reduce) { .vg-place { transition: none; } .vg-place:hover { transform: none; } }
+
+/* ---------------------------------------------------------------------------
+   Jeux V2, etape 2 : un jeu ouvert (body.jeux-in-game, pose par setActiveTab).
+   Partout : la zone de jeu passe avant le niveau, la boutique et le
+   compagnon, et l'intro est repliee sur 2 lignes. Sur telephone, en plus :
+   plein ecran (titre et fil d'Ariane masques), boutons principaux colles
+   au-dessus de la barre du bas, grille de fouille en 8 colonnes.
+   --------------------------------------------------------------------------- */
+/* Intro du jeu : 2 lignes, un tap la deplie. */
+body.jeux-in-game [id$="-pane"] > p.lead { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer;
+  font-size: 0.82rem !important; color: var(--text-dim); margin: 0 0 12px; position: relative; max-width: 78ch; }
+body.jeux-in-game [id$="-pane"] > p.lead.open { display: block; }
+body.jeux-in-game [id$="-pane"] > p.lead.clamp-more:not(.open)::after { content: "plus"; position: absolute; right: 0; bottom: 0; padding-left: 18px; font-weight: 700; color: var(--accent);
+  background: linear-gradient(90deg, transparent, var(--bg-panel-solid, #15162a) 40%); }
+
+/* Zone de jeu d'abord (colonne flexible, pleine largeur). */
+body.jeux-in-game #dig-pane[style*="block"], body.jeux-in-game #fish-pane[style*="block"], body.jeux-in-game #garden-pane[style*="block"],
+body.jeux-in-game #archeo-pane[style*="block"], body.jeux-in-game #expedition-pane[style*="block"] { display: flex !important; flex-direction: column; width: 100%; }
+/* En colonne flexible, un bloc centre par marges automatiques se retrecirait. */
+body.jeux-in-game [id$="-pane"][style*="block"] > :not(.vg-back) { margin-inline: 0; max-width: 100%; width: 100%; align-self: stretch; box-sizing: border-box; }
+body.jeux-in-game [id$="-pane"] > .vg-back { align-self: flex-start; }
+#dig-level, #dig-pane > .dig-shop, #dig-kennel,
+#fish-level, #fish-pane > .dig-shop, #fish-cat,
+#garden-level, #garden-pane > .dig-shop, #garden-bunny,
+#archeo-pane > .dig-shop, #archeo-mole,
+#expe-level, #expedition-pane > .dig-shop { order: 5; }
+#fish-pane > details { order: 6; }
+body.jeux-in-game [id$="-pane"] > .dig-shop { margin-top: 16px; }
+
+/* « Regles » (flottant a droite) sur la ligne du retour au village, sans pousser le jeu. */
+body.jeux-in-game #main-content > .panel { position: relative; }
+body.jeux-in-game #main-content > .panel > .gh-btn { float: none; position: absolute; right: var(--vg-gutter, 28px); margin: 0; z-index: 21; }
+
+@media (max-width: 640px) {
+  body.jeux-in-game { --vg-gutter: 22px; }
+  body.jeux-in-game #main-content > .panel > h1,
+  body.jeux-in-game #main-content > .panel > p.lead,
+  body.jeux-in-game #breadcrumb { display: none; }
+  body.jeux-in-game #main-content > .panel { padding-top: 12px; }
+
+  /* Boutons principaux a portee de pouce (place laissee au bouton « haut de page »). */
+  body.jeux-in-game .garden-actions, body.jeux-in-game .fish-controls, body.jeux-in-game #dig-all-btn:not([hidden]) {
+    position: sticky; bottom: calc(var(--nav-bottom-h, 64px) + env(safe-area-inset-bottom, 0px) + 8px); z-index: 15;
+    padding: 8px; border-radius: 16px; background: color-mix(in srgb, var(--bg-panel-solid, #15162a) 88%, transparent);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border-soft); box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.7); }
+  body.jeux-in-game .garden-actions, body.jeux-in-game .fish-controls { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; margin-right: 52px; width: auto !important; }
+  body.jeux-in-game .garden-actions::-webkit-scrollbar, body.jeux-in-game .fish-controls::-webkit-scrollbar { display: none; }
+  body.jeux-in-game .garden-actions > *, body.jeux-in-game .fish-controls > button { flex: 0 0 auto; min-height: 42px; padding: 8px 12px; font-size: 0.85rem; white-space: nowrap; }
+  body.jeux-in-game .fish-controls .fish-meta { flex: 0 0 auto; font-size: 0.72rem; white-space: nowrap; }
+  body.jeux-in-game #dig-all-btn:not([hidden]) { width: calc(100% - 52px) !important; min-height: 46px; padding: 10px 14px; }
+
+  /* Fouille : la grille entiere tient a l'ecran (8 colonnes, 4 rangees). */
+  .dig-board { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 4px !important; max-width: none !important; }
+  .dig-tile { border-radius: 8px; font-size: 1rem; }
+  .dig-tile .dig-treasure-icon, .dig-tile .dig-partial-icon { font-size: clamp(0.85rem, 4.4vw, 1.2rem); }
+}

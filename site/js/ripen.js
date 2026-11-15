@@ -33,7 +33,10 @@
           ${l.ready ? "" : `<span class="vend-lot-bar" aria-hidden="true"><span style="width:${pct}%"></span></span>`}
           <details class="vend-lot-items"><summary>${kinds > 1 ? `${kinds} extensions` : esc(name(Object.keys(l.items)[0]))}</summary><small>${contents(l.items)}</small></details>
           ${l.ready
-            ? `<button type="button" class="btn" data-lot-claim="${esc(l.id)}">&#127873; Ouvrir le lot (gratuit)</button>`
+            ? (st.ready
+              // Un seul lot repris a la fois : le serveur refuserait (ripe_waiting, GlitchTip #32).
+              ? `<button type="button" class="btn" disabled title="Ouvre d'abord les boosters mûrs déjà repris">&#9203; Ouvre d'abord ${st.ready.remaining} booster${st.ready.remaining > 1 ? "s" : ""} mûr${st.ready.remaining > 1 ? "s" : ""}</button>`
+              : `<button type="button" class="btn" data-lot-claim="${esc(l.id)}">&#127873; Ouvrir le lot (gratuit)</button>`)
             : `<div class="vend-lot-side"><span class="vend-lot-timer">&#9203; ${left(l.readyAt - t)}</span><button type="button" class="btn-ghost" data-lot-cancel="${esc(l.id)}" title="Rend les jetons, sans bonus">Annuler</button></div>`}
         </div>`;
       }).join("")}`;

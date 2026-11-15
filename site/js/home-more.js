@@ -54,20 +54,7 @@
   }
   async function loadStory() { try { renderStory(await API.post("story", { userId: Session.userId, action: "status" })); } catch (e) { /* histoire indisponible */ } }
 
-  // ------------------------------------------------------------ defis de saison
-  function renderQuests(v) {
-    const box = document.getElementById("season-quests");
-    if (!box) return;
-    if (!v || !v.enabled) { box.hidden = true; return; }
-    box.hidden = false;
-    box.innerHTML = `<h3>&#127919; Défis de saison de la semaine</h3>
-      <ul class="sq-list">${v.quests.map((q) => `<li class="${q.claimed ? "done" : q.complete ? "ready" : ""}"><span aria-hidden="true">${q.icon}</span><span class="sq-label">${esc(q.label)} <small>${q.progress} / ${q.target}</small></span>
-        ${q.claimed ? `<span class="sq-ok">&#10004; +${q.xp} XP</span>` : `<button type="button" class="btn-secondary" data-sq-claim="${q.key}" ${q.complete ? "" : "disabled"}>+${q.xp} XP de saison</button>`}</li>`).join("")}</ul>
-      ${v.allBonus ? `<p class="muted sq-bonus">Les 3 défis réussis : +${v.allBonus} XP de saison en plus${v.allClaimed ? " (obtenu)" : ""}.</p>` : ""}`;
-    // Tout recupere cette semaine : masquable jusqu'aux defis de la semaine suivante.
-    if (v.quests.length && v.quests.every((q) => q.claimed) && (!v.allBonus || v.allClaimed)) doneBlock(box, "season-quests", String(v.week || v.quests.map((q) => q.key).join(",")));
-  }
-  async function loadQuests() { try { renderQuests(await API.post("seasonQuests", { userId: Session.userId, action: "status" })); } catch (e) { /* defis indisponibles */ } }
+  // Defis de saison : devenus les missions du jour du pass (js/season-pass.js, 2026-11-15).
 
   // ------------------------------------------------------------ mode compact
   function compactBar() {
@@ -94,19 +81,9 @@
       } catch (err) { Toast.error(friendlyError(err)); loadStory(); }
       return;
     }
-    const q = e.target.closest("[data-sq-claim]");
-    if (q) {
-      q.disabled = true;
-      try {
-        const r = await API.post("seasonQuests", { userId: Session.userId, action: "claim", key: q.dataset.sqClaim });
-        renderQuests(r);
-        Toast.success(`&#127919; +${r.seasonXp} XP de saison${r.allBonus ? " (bonus des 3 défis compris)" : ""} !`);
-        if (typeof window.reloadSeason === "function") window.reloadSeason();
-      } catch (err) { Toast.error(friendlyError(err)); loadQuests(); }
-    }
   });
 
-  document.addEventListener("DOMContentLoaded", () => { loadStory(); loadQuests(); compactBar(); });
+  document.addEventListener("DOMContentLoaded", () => { loadStory(); compactBar(); });
   document.addEventListener("compact:change", compactBar);
-  window.HomeMore = { loadStory, loadQuests };
+  window.HomeMore = { loadStory };
 })();

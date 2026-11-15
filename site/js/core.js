@@ -102,6 +102,10 @@ const Gyro = {
 const COMMON_ERRORS = {
   test_account_isolated: "Impossible avec le compte test : il est isolé des autres joueurs.",
   edition_kept: "Annulé : ton exemplaire en édition limitée est conservé.",
+  // Echanges deja traites ailleurs (centre de notifications, GlitchTip #44/#45).
+  trade_not_pending: "Cet échange n'est plus en attente : la liste est à jour.", trade_not_found: "Cet échange n'existe plus.",
+  offer_no_longer_available: "L'exemplaire proposé a déjà changé de main : cet échange a été annulé automatiquement.",
+  cards_no_longer_available: "Une des deux cartes n'est plus disponible (déjà échangée ailleurs).",
   ironman_pledged: "Serment Ironman : aucun décraft tant que dure le mode Hard (tu peux renoncer depuis la page du mode).",
   wrong_mode: "Pas disponible dans le mode de jeu actuel.",
   already_used: "Déjà utilisé aujourd'hui : reviens demain !",

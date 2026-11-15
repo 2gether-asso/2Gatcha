@@ -31,6 +31,7 @@
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
   <link rel="stylesheet" href="css/vacation.css" />
+  <link rel="stylesheet" href="css/season-pass.css" />
 </head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -39,16 +40,28 @@
   <main id="main-content">
     <div class="panel">
       <h1>&#127775; Progression</h1>
-      <p class="lead">Tout ce qui te fait grandir sur le long terme : talents, améliorations permanentes et prestige du compte, constellations et arbre céleste, maîtrises.</p>
+      <p class="lead">Tout ce qui te fait grandir : le pass de la saison (100 paliers sur le mois), tes métiers, tes talents et améliorations, les constellations et l'arbre céleste, tes maîtrises.</p>
       <div id="pg-guest" class="error-box" style="display:none">Connecte-toi pour voir ta progression.</div>
       <div id="pg-summary" class="pg-summary"></div>
       <nav class="tabs tabs-scroll pg-tabs" role="tablist" aria-label="Sections de la progression">
-        <button type="button" class="tab active" role="tab" data-pg="talents" aria-selected="true">&#127795; Talents &amp; améliorations</button>
+        <button type="button" class="tab active" role="tab" data-pg="saison" aria-selected="true">&#127942; Saison</button>
+        <button type="button" class="tab" role="tab" data-pg="metiers" aria-selected="false">&#128736;&#65039; Métiers</button>
+        <button type="button" class="tab" role="tab" data-pg="talents" aria-selected="false">&#127795; Talents &amp; améliorations</button>
         <button type="button" class="tab" role="tab" data-pg="ciel" aria-selected="false">&#127756; Constellations</button>
         <button type="button" class="tab" role="tab" data-pg="maitrises" aria-selected="false">&#127941; Maîtrises</button>
       </nav>
 
-      <section class="pg-pane" id="pg-talents" role="tabpanel">
+      <!-- Progression V2 (2026-11-15) : pass de saison (js/season-pass.js) et metiers (route skills). -->
+      <section class="pg-pane" id="pg-saison" role="tabpanel">
+        <div data-season-pass data-mode="full"></div>
+      </section>
+
+      <section class="pg-pane" id="pg-metiers" role="tabpanel" hidden>
+        <p class="lead" style="font-size:0.88rem;">Chaque jeu a son niveau (1 à 10) et ses bonus ; au niveau 10, le prestige ajoute des étoiles. Ton niveau de compte, lui, monte avec toute l'XP gagnée.</p>
+        <div class="pg-skills" id="pg-skills"><p class="muted">Chargement…</p></div>
+      </section>
+
+      <section class="pg-pane" id="pg-talents" role="tabpanel" hidden>
         <section id="own-progress" class="own-progress" hidden>
           <span id="talents" class="anchor"></span>
           <div class="talents-panel" id="talents-panel"></div>
@@ -96,5 +109,6 @@
   <script src="js/profile-progress.js"></script>
   <script src="js/collection-progress.js"></script>
   <script src="js/progression.js"></script>
+  <script src="js/season-pass.js"></script>
 </body>
 </html>

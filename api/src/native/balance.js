@@ -43,6 +43,8 @@ export function init({ store }) {
   migrateBoosterTarget(store);
   migrateBalance30(store);
   migrateSeasonPass(store);
+  migratePetHours(store);
+  migrateSeasonV2(store);
   if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === MIGRATION)) return;
   const changes = [];
   const appRow = (key) => store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key);
@@ -124,6 +126,57 @@ export function migrateBoosterTarget(store) {
   if (row && typeof v === 'number' && v < 60) { store.update('AppSettings', row.id, { Value: JSON.stringify(60) }); changes.push({ key: 'EconomyAlertBoostersPerPlayer', from: v, to: 60 }); }
   store.create('AppSettings', { Key: TARGET_MIGRATION, Value: JSON.stringify({ at: now(), target: 40, margin: 20, changes }) });
   if (changes.length) console.log(`Cible de boosters : seuil d'alerte releve de ${v} a 60 (cible 40 +/- 20, hors codes)`);
+}
+
+// Pass de saison V2 (2026-11-15) : 100 paliers de 100 XP, XP de jeu plafonnee a
+// 120 par jour + missions du jour (seasonquests.js). Migration unique :
+//  - les reglages de saison enregistres passent aux valeurs V2 (anciennes valeurs
+//    gardees dans la trace AppSettings 'season-v2-2026-11-15') ;
+//  - une saison deja commencee (des joueurs ont une progression ce mois-ci) finit
+//    avec l'ANCIEN pass : ses parametres sont gardes dans la trace (legacy) et
+//    seasons.js les applique jusqu'a la fin du mois. Basculer en cours de mois
+//    rendait le pass impossible a finir (carte et titre de la saison perdus). La V2
+//    commence au 1er du mois suivant ; rien a convertir.
+const SEASON_V2 = 'season-v2-2026-11-15';
+const SEASON_V2_VALUES = { SeasonTiers: 100, SeasonXpPerTier: 100, SeasonXpPerDay: 120 };
+const SEASON_V1_REWARDS = [{ dust: 50 }, { dust: 70 }, { boosters: 1 }, { dust: 100 }, { chests: 1 }, { dust: 150 }, { boosters: 1 }, { keys: 1 }, { dust: 200 }, { chests: 1, boosters: 1 }];
+function migrateSeasonV2(store) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === SEASON_V2)) return;
+  const appRow = (key) => store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key);
+  const read = (key, def) => { const r = appRow(key); if (!r) return def; try { return JSON.parse(r.Value); } catch (e) { return def; } };
+  const season = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit' }).format(new Date());
+  const started = store.tables.has('SeasonProgress') && store.getAll('SeasonProgress').some((x) => x.Season === season);
+  const rewards = read('SeasonRewards', null);
+  const legacy = started ? { season, tiers: Number(read('SeasonTiers', 10)) || 10, perTier: Number(read('SeasonXpPerTier', 700)) || 700, perDay: Number(read('SeasonXpPerDay', 250)) || 0, rewards: Array.isArray(rewards) ? rewards : SEASON_V1_REWARDS } : null;
+  const changes = [];
+  for (const [key, target] of Object.entries(SEASON_V2_VALUES)) {
+    const row = appRow(key);
+    if (row) { changes.push({ key, from: read(key, null), to: target }); store.update('AppSettings', row.id, { Value: JSON.stringify(target) }); }
+  }
+  // Anciennes recompenses (10 paliers) : remplacees par la table par defaut (100 paliers).
+  const rw = appRow('SeasonRewards');
+  if (rw) { changes.push({ key: 'SeasonRewards', from: rewards }); store.delete('AppSettings', rw.id); }
+  store.create('AppSettings', { Key: SEASON_V2, Value: JSON.stringify({ at: now(), season, legacy, changes }) });
+  console.log(`Pass de saison V2 : ${changes.length} reglage(s) mis a jour${legacy ? `, ${season} finit avec l'ancien pass (${legacy.tiers} paliers)` : ''}`);
+}
+
+// Compagnons a 24 h (2026-11-15, avis joueur GlitchTip #81) : Milo 12 h,
+// Pistache 8 h, Moka 4 h et Noisette 24 h de travail d'avance au plus, pas
+// de quoi laisser tout le monde travailler une nuit. Tous a 24 h (Milo : dig.json).
+// Migration unique : les reglages enregistres plus bas sont releves.
+const PET_HOURS = 'pet-hours-2026-11-15';
+const PET_RULES = [['MoleMaxMinutes', 1440], ['CatMaxMinutes', 1440], ['BunnyMaxMinutes', 1440]];
+function migratePetHours(store) {
+  if (!store.tables.has('AppSettings') || store.getAll('AppSettings').some((r) => r.Key === PET_HOURS)) return;
+  const changes = [];
+  for (const [key, target] of PET_RULES) {
+    const row = store.getAll('AppSettings').find((r) => r.Key === 'setting:' + key);
+    if (!row) continue;
+    let v; try { v = JSON.parse(row.Value); } catch (e) { continue; }
+    if (typeof v === 'number' && v < target) { store.update('AppSettings', row.id, { Value: JSON.stringify(target) }); changes.push({ key, from: v, to: target }); }
+  }
+  store.create('AppSettings', { Key: PET_HOURS, Value: JSON.stringify({ at: now(), changes }) });
+  if (changes.length) console.log(`Compagnons a 24 h : ${changes.map((c) => `${c.key} ${c.from} -> ${c.to}`).join(', ')}`);
 }
 
 // Base de 30 boosters par jour (2026-10-15) : l'equilibrage du 11/10 visait

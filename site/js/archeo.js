@@ -22,6 +22,16 @@
   const $ = (id) => document.getElementById(id);
   const esc = escHtml;
   const ERR = { no_tablet: "Pas de tablette : termine des grilles de fouille pour en trouver.", tablet_in_progress: "Une tablette est déjà ouverte.", no_tablet_open: "Aucune tablette ouverte.", archeo_closed: "L'archéologie est fermée pour le moment.", no_find: "Ce bloc n'existe plus." };
+  // Refus qui veulent seulement dire « l'ecran n'etait plus a jour ».
+  const STALE = { no_find: 1, no_tablet_open: 1, tablet_in_progress: 1, no_tablet: 1 };
+  // Recale l'ecran sur la vue renvoyee avec le refus (ou la recharge) et
+  // previent en douceur, sans erreur remontee.
+  const staleRefresh = (e) => {
+    if (!e || !STALE[e.code]) return false;
+    if (e.data && e.data.stock) { st = e.data; work = null; render(); } else { work = null; load(); }
+    Toast.info(e.code === "no_find" ? "Ce bloc a déjà été nettoyé : l'atelier est à jour." : e.code === "no_tablet_open" ? "Cette tablette est déjà rangée." : ERR[e.code]);
+    return true;
+  };
   const STATE = { intact: ["Intact", "✨"], scratched: ["Rayé", "〰️"], cracked: ["Fissuré", "⚡"], broken: ["Cassé", "💔"] };
   const TOOL_UI = {
     brush: { icon: "🖌️", label: "Pinceau", sub: "large et doux" },
@@ -493,7 +503,13 @@
     const pts = eng.queue.splice(0, 200);
     eng.sending = true;
     try { eng.after(await eng.send(pts)); }
-    catch (e) { Toast.error(ERR[e.code] || friendlyError(e)); eng.queue = []; load(); }
+    catch (e) {
+      eng.queue = [];
+      // Bloc libere / tablette finie entre-temps (Pistache, autre onglet) :
+      // l'ecran etait en retard, on se recale sans erreur (GlitchTip #32).
+      if (!STALE[e.code]) Toast.error(ERR[e.code] || friendlyError(e));
+      work = null; load();
+    }
     finally { eng.sending = false; if (eng.queue.length) flush(); }
   }
   // Recalage sur le serveur quand plus rien n'est en route.
@@ -579,8 +595,8 @@
     Object.assign(eng, { depth: t.depth.slice(), hard: hasRock ? t.hard : null, fragile: new Set(t.fragile || []), fragileAll: false, energy: t.energy, max: t.max, peek: new Set(t.peek), glints: t.glints, extracted: t.extracted, mask: null, art: null, artIcon: null, warned: false });
     eng.send = (pts) => API.archeo(Session.userId, "scrape", { pts });
     eng.after = (res) => {
-      if (res.hurt) Toast.error("💥 Trop brusque : une trouvaille a pris un coup.");
-      if (res.finished) { if (settled()) digResult(res); else setTimeout(() => digResult(res), 600); return; }
+      if (res.hurt) Toast.miss("💥 Trop brusque : une trouvaille a pris un coup.");
+      if (res.finished) { eng.queue = []; eng.send = () => Promise.resolve(res); eng.after = () => {}; if (settled()) digResult(res); else setTimeout(() => digResult(res), 600); return; }
       st = res;
       const t2 = res.tablet;
       eng.peek = new Set(t2.peek); eng.glints = t2.glints; eng.extracted = t2.extracted; eng.fragile = new Set(t2.fragile || []); eng.dirty = true;
@@ -627,7 +643,7 @@
       : `<div class="ar-empty"><p>L'atelier est vide. Extrais des blocs d'une tablette pour les nettoyer ici.</p><button type="button" class="btn-secondary" data-mode="dig">⛏️ Aller à l'extraction</button></div>`;
   }
   async function openWork(id) {
-    try { const r = await API.archeo(Session.userId, "cleanStatus", { findId: id }); st = r; work = r.work; render(); } catch (e) { Toast.error(ERR[e.code] || friendlyError(e)); }
+    try { const r = await API.archeo(Session.userId, "cleanStatus", { findId: id }); st = r; work = r.work; render(); } catch (e) { if (!staleRefresh(e)) Toast.error(ERR[e.code] || friendlyError(e)); }
   }
   function renderWork() {
     const body = $("ar-body");
@@ -645,8 +661,8 @@
     eng.send = (pts) => API.archeo(Session.userId, "clean", { findId: w.id, pts });
     eng.after = (res) => {
       st = res;
-      if (res.hurt) Toast.error("💥 Trop brusque ! La trouvaille s'abîme.");
-      if (res.freed) { const go = () => freedFx(res); if (settled()) go(); else setTimeout(go, 500); return; }
+      if (res.hurt) Toast.miss("💥 Trop brusque ! La trouvaille s'abîme.");
+      if (res.freed) { eng.queue = []; eng.send = () => Promise.resolve(res); eng.after = () => {}; const go = () => freedFx(res); if (settled()) go(); else setTimeout(go, 500); return; }
       work = res.work;
       if (settled()) { eng.depth = work.depth.slice(); eng.dirty = true; }
       const s = $("ar-state"); if (s) { s.className = `ar-state ${work.state}`; s.textContent = `${STATE[work.state][1]} ${STATE[work.state][0]}`; }
@@ -708,13 +724,15 @@
       if (e.target.closest("#ar-back")) { await flush(); work = null; load(); return; }
       const sb = e.target.closest("[data-start]");
       if (sb) {
-        try { st = await API.archeo(Session.userId, "start", { kind: sb.dataset.start }); render(); } catch (err) { Toast.error(ERR[err.code] || friendlyError(err)); }
+        if (sb.disabled || sb.dataset.busy) return;
+        sb.dataset.busy = "1";
+        try { st = await API.archeo(Session.userId, "start", { kind: sb.dataset.start }); render(); } catch (err) { if (!staleRefresh(err)) Toast.error(ERR[err.code] || friendlyError(err)); } finally { delete sb.dataset.busy; }
         return;
       }
       if (e.target.closest("#ar-finish")) {
         if (!(await Confirm.show("Ranger la tablette maintenant ? Seuls les blocs entièrement dégagés sont extraits, le reste reste dans la pierre.", { title: "Ranger la tablette", confirmText: "Ranger" }))) return;
         await flush();
-        try { digResult(await API.archeo(Session.userId, "finish")); } catch (err) { Toast.error(ERR[err.code] || friendlyError(err)); }
+        try { digResult(await API.archeo(Session.userId, "finish")); } catch (err) { if (!staleRefresh(err)) Toast.error(ERR[err.code] || friendlyError(err)); }
       }
     });
     // Raccourcis : 1-5 pour les outils, tant qu'une surface a gratter est affichee.

@@ -444,21 +444,33 @@ await test('saison : le pass dure le mois, le surplus reste en reserve, un palie
   store.update('SeasonProgress', row.id, { ClaimedTier: 0, BonusClaimed: 0, BonusXP: 0 });
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'SeasonXpPerDay' } });
   const day = Number(parisDay(0).slice(8, 10));
-  assert.equal(s0.tiers.length * 700, 7000, 'pass a 7 000 XP par defaut');
-  // Un gros stock ouvert d'un coup : pas plus que l'allocation du jour.
+  // Pass V2 (2026-11-15) : 100 paliers de 100 XP.
+  assert.equal(s0.tiers.length, 100);
+  assert.equal(s0.xpPerTier, 100);
+  assert.equal(s0.tiers[9].reward.boosters, 1, 'palier 10 : un booster');
+  assert.equal(s0.tiers[4].reward.chests, 1, 'palier 5 : un coffre');
+  assert.ok(s0.tiers[0].reward.dust > 0, 'palier 1 : des poussieres');
+  // Un gros stock ouvert d'un coup : l'XP de jeu ne depasse pas l'allocation du jour.
   store.update('Users', 1, { XP: (Number(row.StartXP) || 0) + 50000 });
   let st = season();
-  assert.equal(st.xp, 250 * day);
-  assert.equal(st.xpReserve, 50000 - 250 * day);
-  assert.equal(st.xpPerDay, 250);
-  assert.equal(st.reached, Math.min(10, Math.floor((250 * day) / 700)));
-  // Fin au plus tot le 28 : avant, le dernier palier est hors d'atteinte.
-  assert.ok(Math.floor((250 * 27) / 700) < 10);
-  assert.ok(Math.floor((250 * 28) / 700) >= 10);
-  // Un palier deja recupere n'est ni perdu ni repaye.
-  store.update('SeasonProgress', row.id, { ClaimedTier: 10 });
+  assert.equal(st.xp, 120 * day);
+  assert.equal(st.gameXp, 120 * day);
+  assert.equal(st.xpReserve, 50000 - 120 * day);
+  assert.equal(st.xpPerDay, 120);
+  assert.equal(st.reached, Math.min(100, Math.floor((120 * day) / 100)));
+  // Les missions du jour s'ajoutent hors plafond.
+  store.update('SeasonProgress', row.id, { BonusXP: 240 });
   st = season();
-  assert.equal(st.reached, 10);
+  assert.equal(st.xp, 120 * day + 240);
+  assert.equal(st.missionXp, 240);
+  // Rythme : 360 XP par jour au plus, fin au plus tot le 28.
+  assert.equal(st.pace.perDay, 360);
+  assert.ok(360 * 27 < st.pace.total && 360 * 28 >= st.pace.total);
+  store.update('SeasonProgress', row.id, { BonusXP: 0 });
+  // Un palier deja recupere n'est ni perdu ni repaye.
+  store.update('SeasonProgress', row.id, { ClaimedTier: 100 });
+  st = season();
+  assert.equal(st.reached, 100);
   assert.equal(st.tierClaimable, 0);
   // Peu d'XP : tout compte, rien en reserve.
   store.update('SeasonProgress', row.id, { ClaimedTier: 0 });
@@ -604,7 +616,7 @@ await test('jardin etendu : graines, parcelle achetee, recolte selon la graine',
   store.update('Users', 1, { GardenPlots: '[]', GardenExtraPlots: 0, StardustCount: 5000, Worms: 0 });
   let st = call('POST', 'garden', { body: { userId: 1, action: 'status' } }).json;
   assert.equal(st.plots.length, 4);
-  assert.equal(st.seeds.length, 8); // 3 graines de plus le 26 octobre (herbe a chat, arbre a os, champignon), le potager le 30
+  assert.equal(st.seeds.length, 9); // 3 graines de plus le 26 octobre (herbe a chat, arbre a os, champignon), le potager le 30, les fleurs melliferes le 15 novembre
   st = call('POST', 'garden', { body: { userId: 1, action: 'buyPlot' } }).json;
   assert.equal(st.plots.length, 5);
   assert.equal(user(1).StardustCount, 5000 - 400);
@@ -2908,7 +2920,7 @@ await test('defis de saison, histoire, evenement surprise, bonus de prestige, ba
   // Defis de saison : XP de saison, pas d'XP de compte.
   const season = () => call('POST', 'season', { body: { userId: p.id } }).json;
   const xp0 = season().xp;
-  const quests = sq.weekQuests(undefined, store);
+  const quests = sq.dayQuests(undefined, store);
   assert.equal(quests.length, 3);
   sq.onEvents(store, quests.map((q) => ({ userId: p.id, type: q.type, n: q.target, meta: {} })));
   const sqc = (key) => call('POST', 'season-quests', { body: { userId: p.id, action: 'claim', key } }).json;
@@ -3287,9 +3299,9 @@ await test('Moka le chat : poisson donne, peche passive creditee une fois, jamai
   assert.equal(r.fed, 2);
   assert.equal(r.cat.fish, 1);
   assert.ok(Math.abs(r.cat.secondsLeft - 2 * r.cat.minutesPerFish * 60) <= 2);
-  // Plafond de temps devant lui (240 min) : 2 x 30 + 7 x 30 > 240.
-  store.update('Users', 1, { CatFish: 20, CatFedCount: 0 });
-  assert.equal(cat('feed', 7).error, 'cat_max_time');
+  // Plafond de temps devant lui (1440 min depuis le 15/11) : 2 x 30 + 47 x 30 > 1440.
+  store.update('Users', 1, { CatFish: 60, CatFedCount: 0 });
+  assert.equal(cat('feed', 47).error, 'cat_max_time');
   // Table forcee : que des boosters -> remplaces par des poussieres.
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { FishingLoot: [{ type: 'booster', weight: 1, min: 1, max: 1 }] } } });
   const t = Math.floor(Date.now() / 1000);

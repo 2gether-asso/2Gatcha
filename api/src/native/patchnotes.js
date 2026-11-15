@@ -8,6 +8,47 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-15', title: 'Le pass de saison se réinvente', items: [
+    'Dès décembre, le pass compte 100 paliers, avec une récompense à chaque palier : poussières, un coffre tous les 5, un booster et une clé tous les 10, et toujours la carte et le titre de la saison au bout',
+    'Chaque jour, 3 missions du jour courtes (ouvrir 3 boosters, creuser 10 cases, récolter 3 plantes…) donnent de l’XP de saison, en plus de l’XP gagnée en jouant',
+    'Le pass se joue sur tout le mois : en faisant tes missions chaque jour, tu le finis en 28 jours. Un jour manqué se rattrape en partie avec l’XP de jeu mise en réserve',
+    'Novembre se termine avec le pass actuel ; les missions du jour comptent déjà',
+    'Progression : le pass complet et tes métiers (niveau de chaque jeu) ont leur onglet'
+  ] },
+  { date: '2026-11-15', title: 'Mes chiffres', items: [
+    'Tes statistiques et ton journal d’ouvertures sont réunis dans « Mes chiffres » (menu du compte) : un onglet Résumé, un onglet Ouvertures',
+    'La boutique ne garde que ce qui s’achète : les améliorations permanentes sont dans Progression, avec les talents'
+  ] },
+  { date: '2026-11-15', title: 'Communauté : trois espaces', items: [
+    '« En ce moment » en haut de la Communauté : boss, objectif commun, vote de la salle des machines, enchères, marché noir et échanges à traiter, d’un coup d’œil, et les dernières nouvelles du serveur',
+    'Trois espaces : Événements (calendrier, boss, ensemble, salle des machines), Commerce (enchères, marché noir, coffre de guilde et tes échanges) et Entre joueurs (équipes, classements, tableau d’affichage)',
+    'Les échanges se rejoignent depuis le Commerce, avec le nombre d’échanges qui t’attendent, et la page Échanges ramène au Commerce'
+  ] },
+  { date: '2026-11-15', title: 'Accueil : ma journée', items: [
+    'En haut de l’accueil, ta journée en trois tuiles : tes récompenses (tout récupérer d’un geste), ce qui est prêt au village (direction la tournée) et tes boosters à ouvrir',
+    '« À faire maintenant » passe en premier : la prochaine chose utile, d’un coup d’œil',
+    'Mes objectifs regroupe tout : quêtes du jour et de la semaine, défis, contrat, missions du soir, saison et série de connexion, avec une pastille là où une récompense t’attend',
+    'Aujourd’hui (boîte, dé, heures de chance) et la roue passent sur le côté ; succès, activité et direct restent repliés en bas'
+  ] },
+  { date: '2026-11-15', title: 'Jeux : bienvenue au village', items: [
+    'La page Jeux s’ouvre sur le village : la carte, et l’état de chaque lieu (prêt, en cours, à faire) d’un coup d’œil',
+    '« Faire ma tournée » : récolte du jardin, trouvailles et cacas des dinos, dinos rentrés de balade, expédition, trouvaille de Milo et rapports de Noisette et Pistache, tout d’un bouton, avec un bilan',
+    'Tes compagnons au même endroit : le travail qu’il leur reste sur 24 h, et de quoi les remettre au travail en un geste',
+    'Ton sac : toutes les ressources des jeux, à quoi elles servent et où en trouver',
+    'Dans chaque jeu, un bouton « ← Village » pour revenir (toujours visible sur téléphone)',
+    'Le jeu passe avant le reste : la grille, la scène de pêche ou le jardin s’affichent tout de suite, le niveau, la boutique et le compagnon en dessous',
+    'Sur téléphone, les jeux s’ouvrent en plein écran : boutons principaux à portée de pouce, grille de fouille entière à l’écran'
+  ] },
+  { date: '2026-11-15', title: 'Vos avis, appliqués', items: [
+    'Compagnons : Milo, Moka, Noisette et Pistache peuvent tous avoir 24 h de travail devant eux, de quoi les laisser travailler toute la nuit',
+    'Dinos : « Tout nourrir » (le plat préféré s’il est connu, sinon ce dont il te reste le plus, sans vider tes réserves), « Jouer avec tous » et, en mode Chill, « Tous en balade »',
+    'Légendaire garantie : un seul compteur pour toutes les extensions, booster mystère compris, comme pour les autres raretés',
+    'Miel : nouvelle graine « Fleurs mellifères » au jardin (niveau 3), et bien plus de miel en promenade dans la prairie et la clairière',
+    'Fruits exotiques : la graine tropicale en donne 2 ou 3, et la promenade à la plage en rapporte plus souvent',
+    'Machine interdite : une paire de crânes rapporte maintenant deux os',
+    'Fouille : le bouton « Tout fouiller » est toujours visible, même avec un seul point d’énergie',
+    'Cuisine : la marmite te dit ce qui manque et où le trouver avant de lancer la cuisson'
+  ] },
   { date: '2026-11-13', title: 'Ouverture de boosters, nouvelle version', items: [
     'Les boosters s’ouvrent un par un : chaque booster se déchire, ses cartes jaillissent et se posent face cachée, tu les retournes dans l’ordre que tu veux',
     'Une belle carte passe au centre de l’écran en grand ; une légendaire ou mieux a toujours sa cinématique',

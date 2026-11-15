@@ -131,6 +131,13 @@ const NotifCenter = (function () {
       busy = false;
       btn.disabled = false;
       btn.textContent = label;
+      // Echange deja accepte / annule ailleurs : la liste etait en retard,
+      // on la recharge et on previent sans erreur (GlitchTip #44/#45).
+      if (/^(trade_not_pending|trade_not_found|offer_no_longer_available|cards_no_longer_available)$/.test(e && e.code)) {
+        Toast.info(friendlyError(e));
+        refresh();
+        return;
+      }
       Toast.error(typeof friendlyError === "function" ? friendlyError(e) : e.message);
     }
   }

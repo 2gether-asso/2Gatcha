@@ -18,8 +18,8 @@
   const ago = (at) => { const h = Math.max(0, (Date.now() / 1000 - at) / 3600); return h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : `${Math.floor(h)} h`; };
   const hours = (h) => (h >= 1 ? `${String(Math.round(h * 10) / 10).replace(".", ",")} h` : `${Math.round(h * 60)} min`);
   const WHERE = {
-    veg: "graine Potager du jardin, prairie", herb: "Potager, prairie, forêt", berry: "forêt, clairière", mush: "forêt, clairière, champignon lumineux", honey: "prairie, clairière",
-    fruit: "graine tropicale, mode Chill", fish: "pêche (aquarium), sardines", carrot: "fouille, prairie, boutique",
+    veg: "graine Potager du jardin, prairie", herb: "Potager, prairie, forêt", berry: "forêt, clairière", mush: "forêt, clairière, champignon lumineux", honey: "graine Fleurs mellifères (jardin niv. 3), prairie, clairière",
+    fruit: "graine tropicale et promenade à la plage, mode Chill", fish: "pêche (aquarium), sardines", carrot: "fouille, prairie, boutique",
     egg: "butin des dinos", truffle: "coups de pelle à la fouille (rare)", salt: "moulin à épices (Calcaire)", spice: "moulin à épices (herbes)", rarefish: "prises rares à la pêche", flower: "récoltes du jardin",
     almond: "Nouvel an", cocoa: "Saint-Valentin et Pâques", coconut: "Fête de la musique", pumpkin: "Halloween", chestnut: "Noël"
   };
@@ -78,12 +78,21 @@
 
   function potHtml() {
     const entries = [...pot].filter(([, n]) => n > 0);
-    const slots = Array.from({ length: st.potKinds }, (_, i) => entries[i]);
+    // Marmite remplie depuis le menu ou une commande (GlitchTip #32) : la
+    // recette peut demander plus que le garde-manger, ou plus de sortes que la
+    // marmite (sans chaudron). On le montre ici et on bloque la cuisson,
+    // plutot que de laisser le serveur refuser.
+    const short = entries.filter(([k, n]) => n > ing(k).n);
+    const over = entries.length > st.potKinds;
+    const ok = entries.length && !short.length && !over && !busy;
+    const slots = Array.from({ length: Math.max(st.potKinds, entries.length) }, (_, i) => entries[i]);
     return `
-      <div class="ck-slots-row">${slots.map((e) => e ? `<div class="ck-slot"><span class="ck-slot-ico">${ing(e[0]).icon}</span><div class="ck-qty"><button type="button" class="btn-ghost" data-minus="${e[0]}" aria-label="Moins">&minus;</button><b>${e[1]}</b><button type="button" class="btn-ghost" data-add="${e[0]}" aria-label="Plus" ${ing(e[0]).n > e[1] ? "" : "disabled"}>+</button></div><small>${esc(ing(e[0]).label)}</small></div>` : `<div class="ck-slot empty"><span>+</span><small>ingrédient</small></div>`).join("")}</div>
+      <div class="ck-slots-row">${slots.map((e, i) => e ? `<div class="ck-slot ${e[1] > ing(e[0]).n ? "short" : ""} ${i >= st.potKinds ? "over" : ""}"><span class="ck-slot-ico">${ing(e[0]).icon}</span><div class="ck-qty"><button type="button" class="btn-ghost" data-minus="${e[0]}" aria-label="Moins">&minus;</button><b>${e[1]}</b><button type="button" class="btn-ghost" data-add="${e[0]}" aria-label="Plus" ${ing(e[0]).n > e[1] ? "" : "disabled"}>+</button></div><small>${esc(ing(e[0]).label)}${e[1] > ing(e[0]).n ? ` · tu en as ${ing(e[0]).n}` : ""}</small></div>` : `<div class="ck-slot empty"><span>+</span><small>ingrédient</small></div>`).join("")}</div>
+      ${short.length ? `<p class="ck-pot-warn">Il te manque ${short.map(([k, n]) => `${ing(k).icon} ${n - ing(k).n} ${esc(ing(k).label.toLowerCase())}`).join(", ")}. ${short.map(([k]) => WHERE[k] ? `${ing(k).icon} ${esc(PetText.mask(WHERE[k]))}` : "").filter(Boolean).join(" · ")}</p>` : ""}
+      ${over ? `<p class="ck-pot-warn">Ta marmite ne prend que ${st.potKinds} sortes d'ingrédients${st.potKinds < 4 ? " : il te faut le chaudron (onglet Ustensiles)" : ""}.</p>` : ""}
       <div class="ck-pot-acts">
-        <button type="button" class="btn ck-fire-btn" data-pot="start" ${entries.length && !busy ? "" : "disabled"}>&#128293; Cuisiner à point</button>
-        <button type="button" class="btn-secondary" data-pot="quick" ${entries.length && !busy ? "" : "disabled"} title="Qualité « correct », mangé tout de suite">&#9889; Cuisson rapide</button>
+        <button type="button" class="btn ck-fire-btn" data-pot="start" ${ok ? "" : "disabled"}>&#128293; Cuisiner à point</button>
+        <button type="button" class="btn-secondary" data-pot="quick" ${ok ? "" : "disabled"} title="Qualité « correct », mangé tout de suite">&#9889; Cuisson rapide</button>
         ${entries.length ? `<button type="button" class="btn-ghost" data-pot="clear">Vider</button>` : ""}
       </div>`;
   }
@@ -145,7 +154,7 @@
     return `<div class="ck-tools">${st.tools.map((t) => `<div class="ck-tool ${t.level ? "owned" : ""} ${t.open ? "" : "locked"}">
         <span class="ck-tool-ico">${t.icon}</span>
         <div><strong>${esc(t.label)}</strong> ${t.level ? `<span class="ck-q">niv. ${t.level}/${t.max}</span>` : ""}<small>${esc(t.text)}</small>${t.next ? `<small class="muted">${t.level ? "Suivant : " + esc(t.next.text) : ""}</small>` : ""}</div>
-        ${!t.open ? `<span class="muted">&#128274; Cuisinier niv. ${t.unlockAt}</span>` : t.next ? `<button type="button" class="btn${t.level ? "-secondary" : ""}" data-tool="${t.key}">${t.level ? "Améliorer" : "Acheter"} · ${fmt(t.next.dust)} &#10024;${t.next.parts ? ` + ${t.next.parts} ${resIcon("part")}` : ""}</button>` : `<span class="ck-done">Maximum</span>`}
+        ${!t.open ? `<span class="muted">&#128274; Cuisinier niv. ${t.unlockAt}</span>` : t.next ? `<button type="button" class="btn${t.level ? "-secondary" : ""}" data-tool="${t.key}" ${st.wallet && (st.wallet.dust < t.next.dust || st.wallet.parts < (t.next.parts || 0)) ? `disabled title="Pas assez de ${st.wallet.dust < t.next.dust ? "poussières" : "pièces détachées"}"` : ""}>${t.level ? "Améliorer" : "Acheter"} · ${fmt(t.next.dust)} &#10024;${t.next.parts ? ` + ${t.next.parts} ${resIcon("part")}` : ""}</button>` : `<span class="ck-done">Maximum</span>`}
       </div>`).join("")}</div>
       ${st.mill ? `<h4 class="ck-course">&#9881;&#65039; Moulin à épices</h4><div class="ck-mill">
         <div><span>&#129474; Sel de roche : ${st.mill.salt} Calcaire <small class="muted">(tu en as ${st.mill.calcaire})</small></span><button type="button" class="btn-secondary" data-mill="salt" data-n="1" ${st.mill.calcaire >= st.mill.salt ? "" : "disabled"}>Moudre</button><button type="button" class="btn-ghost" data-mill="salt" data-n="5" ${st.mill.calcaire >= st.mill.salt * 5 ? "" : "disabled"}>×5</button></div>
@@ -312,7 +321,7 @@
     if (dc) { if (await Confirm.show("Jeter ce plat ?", { title: "Garde-manger", confirmText: "Jeter", dangerous: true })) act("discard", { dishId: dc.dataset.discard }); return; }
     if (t.closest("[data-close-result]")) { result = null; render(); return; }
     const tl = t.closest("[data-tool]");
-    if (tl) {
+    if (tl && !tl.disabled) {
       const tool = st.tools.find((x) => x.key === tl.dataset.tool);
       if (tool && tool.next && await Confirm.show(`${tool.level ? "Améliorer" : "Acheter"} ${esc(tool.label)} pour ${fmt(tool.next.dust)} poussières${tool.next.parts ? ` et ${tool.next.parts} pièce${tool.next.parts > 1 ? "s" : ""} détachée${tool.next.parts > 1 ? "s" : ""}` : ""} ?`, { title: "Ustensile", confirmText: tool.level ? "Améliorer" : "Acheter" })) {
         act("buyTool", { tool: tool.key }, () => { Toast.success(`${tool.icon} ${esc(tool.label)} : niveau ${(tool.level || 0) + 1} !`); if (typeof refreshStatus === "function") refreshStatus(); });

@@ -33,7 +33,7 @@ const ING = { veg: ['légumes', '🥬'], herb: ['herbes', '🌿'], berry: ['baie
 export const PLACES = [
   // Mode Chill (2026-11-02) : coquillages et fragments de la bibliotheque engloutie (vacation.js).
   { key: 'plage', label: 'La plage', icon: '🏖️', fav: 'moka', rule: 'chill.beachWalk', desc: 'Coquillages, fruits exotiques, poissons pour Moka et parfois un fragment englouti.',
-    loot: [['shell', 0.8, 1, 2], ['fruit', 0.5, 1, 1], ['fish', 0.5, 1, 2], ['dust', 0.4, 10, 30]],
+    loot: [['shell', 0.8, 1, 2], ['fruit', 0.8, 1, 2], ['fish', 0.5, 1, 2], ['dust', 0.4, 10, 30]],
     story: ['a couru après les vagues', 'a creusé un trou dans le sable mouillé', 'a fait la sieste à l’ombre d’un parasol'] },
   { key: 'foret', label: 'La forêt', icon: '🌲', fav: 'milo', desc: 'Baies, champignons et parfois un os.',
     loot: [['berry', 0.6, 1, 3], ['mush', 0.5, 1, 2], ['herb', 0.3, 1, 1], ['bone', 0.25, 1, 1], ['dust', 0.4, 10, 30]],
@@ -42,13 +42,13 @@ export const PLACES = [
     loot: [['fish', 0.6, 1, 2], ['worm', 0.6, 2, 4], ['herb', 0.25, 1, 1], ['bait', 0.08, 1, 1], ['dust', 0.3, 10, 25]],
     story: ['a guetté les poissons depuis un rocher', 'a trempé une patte dans l’eau', 'a suivi un héron le long de la rive'] },
   { key: 'prairie', label: 'La prairie', icon: '🌼', fav: 'noisette', desc: 'Carottes sauvages, herbes, légumes et miel.',
-    loot: [['carrot', 0.55, 1, 2], ['herb', 0.5, 1, 2], ['veg', 0.4, 1, 2], ['honey', 0.2, 1, 1], ['dust', 0.3, 10, 25]],
+    loot: [['carrot', 0.55, 1, 2], ['herb', 0.5, 1, 2], ['veg', 0.4, 1, 2], ['honey', 0.45, 1, 2], ['dust', 0.3, 10, 25]],
     story: ['a gambadé dans les hautes herbes', 'a reniflé chaque fleur de la prairie', 'a dérangé une famille d’abeilles'] },
   { key: 'ruines', label: 'Les ruines', icon: '🏛️', fav: 'pistache', desc: 'Vers blancs, minéraux et parfois une tablette.',
     loot: [['grub', 0.55, 1, 2], ['mineral', 0.35, 1, 1], ['tablet', 0.12, 1, 1], ['dust', 0.4, 15, 40]],
     story: ['a gratté entre deux vieilles pierres', 'a exploré un couloir effondré', 'a déterré quelque chose près d’une colonne'] },
   { key: 'clairiere', label: 'La clairière aux lucioles', icon: '✨', night: true, desc: 'Seulement la nuit : miel, champignons, appât doré et, qui sait, une clé.',
-    loot: [['honey', 0.4, 1, 1], ['mush', 0.5, 1, 2], ['berry', 0.4, 1, 2], ['bait', 0.2, 1, 1], ['dust', 0.5, 30, 60], ['key', 0.03, 1, 1]],
+    loot: [['honey', 0.7, 1, 2], ['mush', 0.5, 1, 2], ['berry', 0.4, 1, 2], ['bait', 0.2, 1, 1], ['dust', 0.5, 30, 60], ['key', 0.03, 1, 1]],
     story: ['a dansé au milieu des lucioles', 'a contemplé les étoiles', 'a suivi une lueur entre les arbres'] }
 ];
 

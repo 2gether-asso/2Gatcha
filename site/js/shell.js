@@ -237,7 +237,7 @@ const RewardsCenter = {
     if (goal?.claimable) items.push({ key: "goal", icon: "&#129309;", label: `Objectif commun réussi : ${goal.reward.dust} ✨ + ${goal.reward.worms} vers`, claim: () => API.communityGoal(uid, "claim") });
     if (themes?.claimable > 0) items.push({ key: "themes", icon: "&#127912;", label: `Collection thématique terminée (+ titre)`, claim: () => API.themes(uid, "claim") });
     // 2026-11-02 : defis de saison et vacances du mode Chill (vacation.js).
-    (sq?.quests || []).filter((q) => q.complete && !q.claimed).forEach((q) => items.push({ key: "sq-" + q.key, icon: "&#127942;", label: `Défi de saison réussi : ${escHtml(q.label || "")}`, url: "index.html#saison", claim: () => API.post("seasonQuests", { userId: uid, action: "claim", key: q.key }) }));
+    (sq?.quests || []).filter((q) => q.complete && !q.claimed).forEach((q) => items.push({ key: "sq-" + q.key, icon: "&#127942;", label: `Mission du jour réussie : ${escHtml(q.label || "")}`, url: "index.html#saison", claim: () => API.post("seasonQuests", { userId: uid, action: "claim", key: q.key }) }));
     const t0 = Math.floor(Date.now() / 1000);
     if (vac?.nap && !vac.nap.claimed && vac.nap.until && vac.nap.until <= t0) items.push({ key: "nap", icon: "&#128716;", label: "Fin de ta sieste au hamac", url: "index.html#vacances", claim: () => API.vacation(uid, "nap-claim"), describe: (r) => r.toast || "" });
     if (vac?.sunset && vac.sunset.active && !vac.sunset.claimed) items.push({ key: "sunset", icon: "&#127749;", label: "Cadeau du coucher de soleil", url: "index.html#vacances", claim: () => API.vacation(uid, "sunset-claim"), describe: (r) => r.toast || "" });
@@ -528,7 +528,7 @@ function renderHeader() {
               <div class="menu-head">${avatar}<span><strong id="menu-pseudo">${escHtml(Session.pseudo || "")}</strong><small>Mon compte</small></span></div>
               <a id="view-profile-link" href="profile.html?pseudo=${encodeURIComponent(Session.pseudo || "")}"><span class="mi">&#128100;</span> Mon profil</a>
               <a href="progression.html"><span class="mi">&#127795;</span> Talents et maîtrises</a>
-              <a href="stats.html"><span class="mi">&#128202;</span> Mes statistiques</a>
+              <a href="stats.html"><span class="mi">&#128202;</span> Mes chiffres</a>
               <button type="button" data-wishlist-open title="Les cartes que tu cherches, et où les trouver maintenant"><span class="mi">&#9829;</span> Ma liste de souhaits</button>
               <a href="boutique.html#cosmetiques"><span class="mi">&#127912;</span> Titres, cadres, couleurs</a>
               <a href="nouveautes.html" id="notes-link"><span class="mi">&#128240;</span> Nouveautés</a>
@@ -1728,12 +1728,15 @@ function shellReads(withPage = true) {
       const coll = { name: "collection", query: { userId } };
       // Page Jeux (2026-11-02) : les statuts de la carte du village en un seul lot, et
       // les lectures lourdes (dinos, collection) seulement si l'onglet ouvert en a besoin.
-      const jeuxTab = (() => { const h = location.hash.slice(1); if (h) return h; try { return localStorage.getItem("2gatcha_last_tab_jeux") || ""; } catch (e) { return ""; } })();
+      // Sans ancre, la page Jeux ouvre le village (Jeux V2, 2026-11-15).
+      const jeuxTab = location.hash.slice(1) || "village";
       const jeuxReads = [read("shop"), read("dig"), read("garden"), read("expedition"), read("guessCard"), read("walk"), read("cook"), read("vacation"),
         { name: "fishing", body: { userId, action: "status", bait: false, zone: "shore" } },
-        ...(/^(dino|dinos)$/.test(jeuxTab) ? [read("dino")] : []), ...(/^(vault|coffre-fort|guess|devine)$/.test(jeuxTab) ? [coll] : [])];
+        // Village (Jeux V2, ecran par defaut) : dinos et archeologie pour la tournee et les compagnons.
+        ...(/^(dino|dinos|village|)$/.test(jeuxTab) ? [read("dino")] : []), ...(/^(village|)$/.test(jeuxTab) ? [read("archeo")] : []), ...(/^(vault|coffre-fort|guess|devine)$/.test(jeuxTab) ? [coll] : [])];
       const PAGE_READS = {
-        index: [read("story"), read("seasonQuests"), read("seasonal"), read("vacation"), { name: "weeklyRecap", query: { userId } }, { name: "whatNow", query: { userId } }],
+        // Accueil V2 : jardin et dinos pour la tuile du village (js/home-day.js).
+        index: [read("garden"), read("dino"), read("story"), read("seasonQuests"), read("seasonal"), read("vacation"), { name: "weeklyRecap", query: { userId } }, { name: "whatNow", query: { userId } }],
         jeux: jeuxReads,
         profile: [read("vacation"), read("friends")],
         ouverture: [read("shop"), read("ripen"), read("chests"), read("mastery"), coll, { name: "rarityPity", query: { userId } }],
@@ -1745,7 +1748,7 @@ function shellReads(withPage = true) {
         trade: [coll, { name: "economyRules", query: { userId } }, read("wishlist", "list"), read("tradeMatches", "list")],
         // 2026-10-29 : dernieres lectures de page qui partaient seules.
         coffre: [read("personalVault"), read("uniqueCounter"), read("showcase", "list")],
-        stats: [{ name: "myStats", query: { userId } }],
+        stats: [{ name: "myStats", query: { userId } }, ...(location.hash === "#ouvertures" ? [{ name: "pullLog", query: { userId } }] : [])],
         "pull-log": [{ name: "pullLog", query: { userId } }],
         artistes: [{ name: "artists", query: { userId } }],
         salamandre: [{ name: "casino", body: { userId, game: "cashier", action: "status" } }]

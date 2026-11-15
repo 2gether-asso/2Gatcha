@@ -64,11 +64,47 @@ function mysteryPool(store) {
   return exts.filter((e) => cards.some((c) => refId(c.Extension) === e.id));
 }
 
+// Pity de la rarete du sommet (legendaire) commune a toutes les extensions
+// (2026-11-15, avis joueur GlitchTip #67 : elle etait par extension, et
+// absente du booster mystere, alors que les autres raretes ont un compteur
+// commun). Le workflow garde son compteur par extension
+// (BoosterInventory.PullsSinceTopRarity) : avant chaque ouverture, la ligne
+// de l'extension recoit le compteur commun ; apres, toutes les lignes du
+// joueur sont realignees sur la nouvelle valeur (Users.RarityPity.top).
+const invRows = (store, userId) => store.getAll('BoosterInventory').filter((x) => refId(x.User) === userId);
+function topPityOf(store, user) {
+  const counts = parse(user && user.RarityPity, {});
+  if (counts.top != null) return Number(counts.top) || 0;
+  // Premiere fois : le plus avance des compteurs par extension (le plus genereux).
+  return invRows(store, user ? user.id : 0).reduce((m, x) => Math.max(m, Number(x.PullsSinceTopRarity) || 0), 0);
+}
 function rememberTopPity(store, request) {
   const body = request.body || {};
   if (body.dryRun || !store.tables.has('BoosterInventory')) return;
-  const inv = store.getAll('BoosterInventory').find((x) => refId(x.User) === Number(body.userId) && refId(x.Extension) === Number(body.extensionId));
-  request._topPityBefore = inv ? Number(inv.PullsSinceTopRarity) || 0 : 0;
+  const userId = Number(body.userId);
+  const user = store.get('Users', userId);
+  const global = topPityOf(store, user);
+  const inv = invRows(store, userId).find((x) => refId(x.Extension) === Number(body.extensionId));
+  if (inv && (Number(inv.PullsSinceTopRarity) || 0) !== global) store.update('BoosterInventory', inv.id, { PullsSinceTopRarity: global });
+  request._topPityBefore = global;
+  request._topPitySynced = !!inv;
+}
+// Apres l'ouverture : nouvelle valeur commune, recopiee sur toutes les extensions.
+function syncTopPity(store, request, json, userId, topId) {
+  if (request._topPityBefore == null || !store.tables.has('BoosterInventory')) return null;
+  const extId = Number((json.booster && json.booster.extensionId) || (request.body || {}).extensionId);
+  const rows = invRows(store, userId);
+  const own = rows.find((x) => refId(x.Extension) === extId);
+  let value;
+  if (request._topPitySynced && own) value = Number(own.PullsSinceTopRarity) || 0;
+  else {
+    // Ligne creee par le workflow (partie de 0) : on recompte depuis le compteur commun.
+    const lastTop = topId ? json.cards.map((c) => Number(c.rarity && c.rarity.id) === topId).lastIndexOf(true) : -1;
+    value = lastTop >= 0 ? json.cards.length - 1 - lastTop : request._topPityBefore + json.cards.length;
+  }
+  for (const r of rows) if ((Number(r.PullsSinceTopRarity) || 0) !== value) store.update('BoosterInventory', r.id, { PullsSinceTopRarity: value });
+  if (json.pity) json.pity.pullsSinceTop = value;
+  return value;
 }
 
 export function beforeWorkflow({ store, path, request }) {
@@ -97,6 +133,7 @@ export function afterWorkflow({ store, path, request, response }) {
   const pullsOf = () => store.getAll('Pulls').filter((p) => p.BatchId === json.batchId && refId(p.User) === userId);
   const cfg = configRow(store);
   const topId = Number(cfg.PityThreshold) > 0 ? refId(cfg.TopRarity) : null;
+  const topValue = syncTopPity(store, request, json, userId, topId);
   if (topId && request._topPityBefore != null && request._topPityBefore + json.cards.length >= Number(cfg.PityThreshold)) {
     const target = json.cards.find((c) => c.rarity && Number(c.rarity.id) === topId && owned.has(c.cardId));
     const rarity = store.get('Rarities', topId);
@@ -150,9 +187,13 @@ export function afterWorkflow({ store, path, request, response }) {
     if (lucky) json.luckyDuplicates = lucky;
   }
   const tracked = pityRarities(store);
-  if (!tracked.length) return;
+  if (!tracked.length) {
+    if (topValue != null) store.update('Users', userId, { RarityPity: JSON.stringify({ ...parse(user.RarityPity, {}), top: topValue }) });
+    return;
+  }
   const sortOf = (c) => (c.rarity && c.rarity.sortOrder != null ? Number(c.rarity.sortOrder) : (store.get('Rarities', Number(c.rarity && c.rarity.id)) || {}).SortOrder || 0);
   const counts = parse(user.RarityPity, {});
+  if (topValue != null) counts.top = topValue;
   const extId = Number((json.booster && json.booster.extensionId) || body.extensionId);
   let upgraded = false;
   for (const { r, threshold } of tracked) {
@@ -188,13 +229,11 @@ function handleStatus({ store, query }) {
   if (!user) return fail('unknown_user', 404);
   const counts = parse(user.RarityPity, {});
   const list = pityRarities(store).map(({ r, threshold }) => ({ key: r.Key, name: r.Name, colorHex: r.ColorHex, sortOrder: r.SortOrder || 0, threshold, left: Math.max(1, threshold - (Number(counts[r.id]) || 0)) }));
-  // Pity historique du workflow (rarete du sommet, compteur par extension).
+  // Pity du workflow (rarete du sommet) : compteur commun a toutes les extensions depuis le 15/11.
   const cfg = configRow(store);
   const top = Number(cfg.PityThreshold) > 0 ? store.get('Rarities', refId(cfg.TopRarity)) : null;
-  const extId = Number(query.extensionId);
-  if (top && extId && store.tables.has('BoosterInventory')) {
-    const inv = store.getAll('BoosterInventory').find((x) => refId(x.User) === user.id && refId(x.Extension) === extId);
-    list.unshift({ key: top.Key, name: top.Name, colorHex: top.ColorHex, sortOrder: top.SortOrder || 0, threshold: Number(cfg.PityThreshold), left: Math.max(1, Number(cfg.PityThreshold) - (Number(inv && inv.PullsSinceTopRarity) || 0)), perExtension: true });
+  if (top && store.tables.has('BoosterInventory')) {
+    list.unshift({ key: top.Key, name: top.Name, colorHex: top.ColorHex, sortOrder: top.SortOrder || 0, threshold: Number(cfg.PityThreshold), left: Math.max(1, Number(cfg.PityThreshold) - topPityOf(store, user)) });
   }
   list.sort((a, b) => b.sortOrder - a.sortOrder);
   return ok({ rarities: list, mystery: { extensions: mysteryPool(store).length, finishBonus: setting(store, 'MysteryFinishBonus') } });

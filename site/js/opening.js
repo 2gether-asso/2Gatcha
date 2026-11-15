@@ -848,7 +848,9 @@ async function refreshStatus() {
     boosterCount = statusRes.count || 0;
     pityThreshold = statusRes.pityThreshold || 0;
     goldenInfo = statusRes.golden || null;
-    pityByExt = new Map((statusRes.extensions || []).map((e) => [e.extensionId, e.pullsSinceTop || 0]));
+    // Compteur legendaire commun (pity.js, 15/11) : toutes les extensions affichent le plus avance.
+    const topPity = Math.max(0, ...(statusRes.extensions || []).map((e) => e.pullsSinceTop || 0));
+    pityByExt = new Map((statusRes.extensions || []).map((e) => [e.extensionId, topPity]));
     // Sert a detecter les doublons a la volee pendant le reveal (voir
     // startOpening) : combien d'exemplaires le joueur avait AVANT ce pack.
     ownedCountMap = new Map((collectionRes.owned || []).map((o) => [o.cardId, o.count]));
@@ -1166,23 +1168,55 @@ async function startOpening(ext) {
     let fetchError = null, nextIdx = 0, doneCount = 0;
     const plan = !sim && openPlan ? openPlan.slice(0, quantity) : null;
     const extAt = (i) => (plan && extensionById(plan[i])) || ext;
+    // Limite d'actions par minute du serveur (GlitchTip #69 : 150 boosters
+    // d'un coup) : au lieu de s'arreter, on attend la minute suivante
+    // (Retry-After) avec un compte a rebours, puis on reprend. 3 pauses au plus.
+    let pauseUntil = 0, pauses = 0;
+    const waitPause = async () => {
+      while (Date.now() < pauseUntil) {
+        if (hint) hint.textContent = `Pause anti-spam du serveur : reprise dans ${Math.ceil((pauseUntil - Date.now()) / 1000)} s… (${doneCount} / ${quantity} boosters)`;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    };
     const fetchOne = async () => {
       while (!fetchError && nextIdx < quantity) {
         const i = nextIdx++;
         const pe = extAt(i);
         const simExt = pe.mystery ? extensionsCache[Math.floor(Math.random() * extensionsCache.length)] : pe;
-        try {
-          const res = sim
-            ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
-            : await API.openPack(Session.userId, pe.id, !!pe.mystery, modeOptions());
-          fetched[i] = { res, simExt, pe };
-          if (res && res.error === "no_boosters") fetchError = fetchError || { code: "no_boosters" };
-        } catch (err) { fetchError = fetchError || err; }
+        let netTries = 0;
+        for (;;) {
+          await waitPause();
+          if (fetchError) break;
+          try {
+            const res = sim
+              ? await API.adminSimulate(Session.discordId, "pack", { extensionId: simExt.id, modifiers: sim })
+              : await API.openPack(Session.userId, pe.id, !!pe.mystery, modeOptions());
+            fetched[i] = { res, simExt, pe };
+            if (res && res.error === "no_boosters") fetchError = fetchError || { code: "no_boosters" };
+          } catch (err) {
+            // Ce booster n'est pas parti : on le redemande apres la pause.
+            if (err && err.code === "rate_limited" && !sim && (pauses < 3 || Date.now() < pauseUntil)) {
+              if (Date.now() >= pauseUntil) { pauses++; pauseUntil = Date.now() + (Math.max(1, Number(err.data && err.data.retryAfter) || 60) + 1) * 1000; }
+              continue;
+            }
+            // Coupure reseau d'un instant (mobile, GlitchTip #32 : 54 sur 84) :
+            // on redemande ce booster deux fois au plus avant d'abandonner.
+            if (err && !err.code && netTries < 2 && /Failed to fetch|NetworkError|Load failed|network/i.test(String(err.message))) {
+              netTries++;
+              await new Promise((r) => setTimeout(r, 1500 * netTries));
+              continue;
+            }
+            fetchError = fetchError || err;
+          }
+          break;
+        }
         doneCount++;
         if (quantity > 3 && hint) hint.textContent = `Ouverture… ${doneCount} / ${quantity} boosters`;
       }
     };
-    await Promise.all(Array.from({ length: sim ? 1 : Math.min(3, quantity) }, fetchOne));
+    // Pendant les pauses, pas de toast « Doucement ! » : le compte a rebours suffit.
+    API._quietRate = !sim;
+    try { await Promise.all(Array.from({ length: sim ? 1 : Math.min(3, quantity) }, fetchOne)); } finally { API._quietRate = false; }
     if (fetchError && fetchError.code !== "no_boosters" && !fetched.some(Boolean)) throw fetchError;
     let opened = 0;
     for (let i = 0; i < quantity; i++) {
@@ -1211,7 +1245,9 @@ async function startOpening(ext) {
           pack.classList.remove("charging");
           skipHint.classList.remove("visible");
           await refreshStatus();
-          Toast.error("Plus de jeton booster pour l'instant.");
+          // Compteur affiche en retard (jetons depenses ailleurs) : il vient
+          // d'etre recale, simple information (GlitchTip #32).
+          Toast.info("Plus de jeton booster pour l'instant : ton compteur est à jour.");
           isBusy = false;
           closeModal();
           return;

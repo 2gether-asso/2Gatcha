@@ -90,7 +90,8 @@ window.APP_CONFIG = {
     secrets: "/secrets",               // POST { userId, action } (petits secrets du site, 2026-10-19)
     secretCard: "/secret-card",        // GET -> { imageId, others } (glitch de la carte 404)
     timers: "/timers",                 // GET ?userId -> { now, items } (minuteurs de l'inventaire, 2026-10-18)
-    seasonQuests: "/season-quests",   // POST { userId, action: 'status'|'claim', key? } (defis de saison, 2026-10-18)
+    skills: "/skills",               // GET ?userId= -> { skills: [{ key, label, icon, level, max, xp, current, next, prestige, url }] } (Progression V2)
+    seasonQuests: "/season-quests",   // POST { userId, action: 'status'|'claim', key? } (missions du jour du pass, 2026-11-15)
     story: "/story",                   // POST/GET { userId, action: 'status'|'claim' } (quetes d'histoire)
     patchNotes: "/patch-notes",        // GET -> { notes, latest } (notes de mise a jour)
     adminSurprise: "/admin-surprise",  // POST { discordId, action: 'status'|'start'|'stop', key? } (evenements surprises)
@@ -273,7 +274,15 @@ var Monitor = {
     window.Sentry.withScope(function (scope) {
       if (tags) Object.keys(tags).forEach(function (k) { if (tags[k] != null) scope.setTag(k, String(tags[k]).slice(0, 200)); });
       if (level) scope.setLevel(level);
-      if (level === "warning") window.Sentry.captureMessage(e.message); else window.Sentry.captureException(e);
+      // Refus montre au joueur : une issue par message, titree « Refus: ... »
+      // (avant : captureMessage, tout tombait dans une seule issue « ? »
+      // ou « send/< » car la pile est la meme, GlitchTip #32 et #69).
+      if (level === "warning") {
+        var w = new Error(e.message);
+        w.name = "Refus";
+        scope.setFingerprint(["refus", e.message.replace(/\d+/g, "N")]);
+        window.Sentry.captureException(w);
+      } else window.Sentry.captureException(e);
     });
   },
   // Refus attendu montre au joueur (toast d'erreur avec un message clair) :

@@ -522,7 +522,7 @@ const Breadcrumb = {
     if (last) { last.textContent = tab; last.hidden = !tab; last.previousElementSibling.hidden = !tab; }
   },
   // Pages hors du menu (2026-10-21) : rattachees a une page du menu.
-  EXTRA: { "pull-log.html": { parent: "ouverture.html", label: "Journal d'ouvertures" }, "profile.html": { label: "Profil" } },
+  EXTRA: { "stats.html": { label: "Mes chiffres" }, "profile.html": { label: "Profil" } },
   init() {
     const page = currentPage();
     const extra = this.EXTRA[page];

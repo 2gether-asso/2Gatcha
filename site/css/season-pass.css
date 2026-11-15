@@ -1,0 +1,71 @@
+/* Pass de saison V2 (2026-11-15, js/season-pass.js) : accueil (compact) et
+   Progression (100 paliers). Couleurs du theme (tokens.css). */
+[data-season-pass] { display: grid; gap: 12px; }
+.sp-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; }
+.sp-eyebrow { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.sp-big { display: flex; align-items: baseline; gap: 6px; }
+.sp-big b { font-family: var(--font-display); font-size: 1.7rem; line-height: 1.1; }
+.sp-big span { color: var(--text-dim); font-weight: 700; }
+.sp-bar { height: 12px; border-radius: 99px; overflow: hidden; background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.sp-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--rarity-legendaire, #f59e0b)); transition: width 0.4s ease; }
+.sp-xp, .sp-pace { margin: 0; font-size: 0.85rem; }
+.sp-pace { color: var(--text-dim); }
+.sp-reserve { color: var(--text-dim); }
+
+/* Paliers */
+.sp-tiers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+.sp-tier { position: relative; display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 54px; padding: 4px 2px; border-radius: 10px;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); color: var(--text-dim); }
+.sp-tier-n { font-size: 0.68rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sp-tier-ico { font-size: 1rem; line-height: 1; display: inline-flex; }
+.sp-tier-ico img { width: 18px; height: 18px; }
+.sp-tier.big { border-color: rgba(var(--accent-rgb, 168, 85, 247), 0.45); }
+.sp-tier.reached { color: var(--text); border-color: var(--accent); background: rgba(var(--accent-rgb, 168, 85, 247), 0.16); box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 168, 85, 247), 0.25); }
+.sp-tier.claimed { color: var(--success, #22c55e); border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
+.sp-tier-card { width: 28px; height: 38px; object-fit: cover; border-radius: 4px; }
+.sp-tiers.full .sp-tier { min-height: 48px; }
+.sp-more { margin: 0; font-size: 0.82rem; text-align: right; }
+.sp-more a { color: var(--accent); font-weight: 700; text-decoration: none; }
+
+/* Missions du jour */
+.sp-missions { display: grid; gap: 8px; padding: 12px; border-radius: var(--radius-md, 14px); background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.sp-sub { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+.sp-sub h3 { margin: 0; font-size: 1rem; }
+.sp-sub small { color: var(--text-dim); }
+.sp-missions ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sp-missions li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--bg-panel); border: 1px solid var(--border-soft); }
+.sp-missions li.ready { border-color: var(--accent); }
+.sp-missions li.done { opacity: 0.7; }
+.sp-m-ico { font-size: 1.2rem; }
+.sp-m-txt { display: grid; gap: 4px; font-size: 0.86rem; min-width: 0; }
+.sp-m-txt small { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.sp-m-bar { height: 5px; border-radius: 99px; background: var(--bg-panel-2); overflow: hidden; }
+.sp-m-bar span { display: block; height: 100%; background: var(--accent); }
+.sp-m-ok { color: var(--success, #22c55e); font-weight: 800; font-size: 0.85rem; }
+.sp-missions li button { min-height: 36px; padding: 6px 12px; font-size: 0.82rem; white-space: nowrap; }
+.sp-m-bonus { margin: 0; font-size: 0.82rem; color: var(--text-dim); }
+
+/* Coffre */
+.sp-chest { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md, 14px); background: var(--bg-panel); border: 1px dashed var(--border-soft); }
+.sp-chest.ready { border-style: solid; border-color: var(--accent); }
+.sp-chest > span img { width: 34px; height: 34px; }
+.sp-chest div { display: grid; min-width: 0; flex: 1; }
+.sp-chest small { color: var(--text-dim); font-size: 0.8rem; }
+
+@media (max-width: 640px) {
+  .sp-tiers { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .sp-head .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .sp-bar span { transition: none; } }
+
+/* Progression V2 : metiers (route skills). */
+.pg-skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 10px; }
+.pg-skill { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md, 14px); background: var(--bg-panel); border: 1px solid var(--border-soft); color: var(--text); text-decoration: none; transition: border-color 0.15s ease; }
+.pg-skill:hover, .pg-skill:focus-visible { border-color: var(--accent); }
+.pg-skill.max { border-color: rgba(245, 158, 11, 0.5); }
+.pg-skill-ico { font-size: 1.8rem; line-height: 1; }
+.pg-skill-body { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.pg-skill-body small { color: var(--text-dim); font-size: 0.78rem; }
+.pg-skill-bar { height: 6px; border-radius: 99px; background: var(--bg-panel-2); overflow: hidden; }
+.pg-skill-bar span { display: block; height: 100%; background: var(--accent); }
+.sp-transition { padding: 8px 12px; border-radius: 10px; background: rgba(var(--accent-rgb, 168, 85, 247), 0.1); border: 1px solid rgba(var(--accent-rgb, 168, 85, 247), 0.35); color: var(--text); }

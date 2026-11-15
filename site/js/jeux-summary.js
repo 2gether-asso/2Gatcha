@@ -163,6 +163,14 @@
       pin.classList.toggle("active", !!btn && btn.getAttribute("aria-selected") === "true" && !p.night);
       pin.setAttribute("aria-pressed", String(pin.classList.contains("active")));
     });
+    // Carte toujours affichee (2026-11-15) : a chaque changement d'onglet, elle
+    // se recentre sur le lieu du jeu ouvert (panorama plus large que l'ecran).
+    const act = el.querySelector(".wm-pin.active");
+    const id = act ? act.dataset.wmId : "";
+    if (id && id !== el._activeId && el.scrollWidth > el.clientWidth) {
+      el.scrollTo({ left: Math.max(0, act.offsetLeft - el.clientWidth / 2), behavior: el._activeId ? "smooth" : "auto" });
+    }
+    el._activeId = id;
     // Onglets de jeux masques par la page (dinos, cage) : retenus pour l'autre carte.
     if (PAGE === GAMES) {
       const hidden = PLACES.filter((p) => p.page === GAMES && !p.night && (!tabBtn(p.tab) || tabBtn(p.tab).style.display === "none")).map((p) => p.tab);
@@ -205,7 +213,7 @@
         </div>
         <span class="wm-clock" data-wm-clock aria-live="polite"></span>
         ${games ? `<span class="wm-bar-end"><button type="button" class="wm-quick btn-ghost" data-quick-session title="Récolte, explorateur, pioche gratuite et récompenses, d'un coup">&#9889; Session rapide</button>
-        <button type="button" class="wm-toggle btn-ghost" data-wm-view="list" title="Afficher la liste plutôt que la carte">&#9776; Liste</button></span>` : ""}
+</span>` : ""}
       </div>
       <div class="wm-map" id="games-map">
         <div class="wm-world">
@@ -336,9 +344,9 @@
     if (!old) return;
     const hub = document.createElement("div");
     hub.className = "games-hub" + (PAGE === TOWN ? " wm-on-town" : "");
-    let view = "map";
-    try { view = localStorage.getItem(VIEW_KEY) || "map"; } catch (e) { /* stockage indisponible */ }
-    hub.dataset.view = PAGE === GAMES ? view : "map";
+    // Carte toujours affichee (2026-11-15) : l'ancienne vue liste est remplacee
+    // par les lieux du village (js/village.js).
+    hub.dataset.view = "map";
     old.replaceWith(hub);
     const map = build(hub);
     hub.addEventListener("click", (e) => {

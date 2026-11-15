@@ -166,7 +166,10 @@ async function redeem() {
     input.value = "";
     loadHeaderBoosterBadge();
   } catch (e) {
-    Toast.error(ERROR_MESSAGES[e.code] || ("Erreur lors de la reclamation. (" + e.message + ")"));
+    // Code saisi par le joueur (faute de frappe, code perime...) : refus
+    // normal, pas a remonter dans GlitchTip (#69). Le reste reste une erreur.
+    if (ERROR_MESSAGES[e.code] && e.code !== "unknown_user" && e.code !== "code_misconfigured") Toast.miss(ERROR_MESSAGES[e.code]);
+    else Toast.error(ERROR_MESSAGES[e.code] || ("Erreur lors de la reclamation. (" + e.message + ")"));
   } finally {
     btn.disabled = false;
   }

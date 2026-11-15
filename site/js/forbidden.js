@@ -168,7 +168,7 @@
           <details class="fm-panel fm-help">
             <summary>Comment ça marche ?</summary>
             <ul>
-              <li><strong>La ligne du milieu paie.</strong> Paire : une carte de la rareté (de commune à &#128160; mythique), une finition spéciale, un fantôme, des poussières (&#127183;) ou une clé. Triple : plusieurs cartes, 2 jetons booster, des clés… Trois &#128128; : un vrai crâne de dino.</li>
+              <li><strong>La ligne du milieu paie.</strong> Paire : une carte de la rareté (de commune à &#128160; mythique), une finition spéciale, un fantôme, des poussières (&#127183;), une clé ou deux os (&#128128;). Triple : plusieurs cartes, 2 jetons booster, des clés… Trois &#128128; : un vrai crâne de dino.</li>
               <li><strong>Jetons booster</strong> : la machine en donne un nombre limité par jour ; ensuite, un triple &#127183; paie en poussières.</li>
               <li><strong>Cascade</strong> : après un triple, la ligne retombe ; chaque nouvelle combinaison paie ×2, ×3, ×4.</li>
               <li><strong>Mise ×3 ou ×5</strong> : tout est multiplié, et le jackpot n'est complet qu'à ×5.</li>
@@ -342,10 +342,11 @@
     if (g.keys) bits.push(`+${g.keys} ${resIcon("key")}`);
     if (g.coins) bits.push(`+${g.coins} ${resIcon("coin")}`);
     if (g.skulls) bits.push(`+${g.skulls} ${resIcon("skull")}`);
+    if (g.bones) bits.push(`+${g.bones} ${resIcon("bone")}`);
     (g.minerals || []).forEach((x) => bits.push(`+${x.n} ${mineralImg(x.img, "ico-token")} ${esc(x.name)}`));
     return `${bits.length ? `<div class="fm-gains">${bits.join(" · ")}</div>` : ""}${g.cards && g.cards.length ? `<div class="fm-cards">${g.cards.map(cardTile).join("")}</div>` : ""}`;
   }
-  const sumGains = (list) => list.reduce((a, x) => ({ dust: a.dust + (x.dust || 0), boosters: a.boosters + (x.boosters || 0), keys: a.keys + (x.keys || 0), coins: a.coins + (x.coins || 0), skulls: a.skulls + (x.skulls || 0), cards: [...a.cards, ...(x.cards || [])], minerals: mergeMinerals(a.minerals, x.minerals) }), { dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, cards: [], minerals: [] });
+  const sumGains = (list) => list.reduce((a, x) => ({ dust: a.dust + (x.dust || 0), boosters: a.boosters + (x.boosters || 0), keys: a.keys + (x.keys || 0), coins: a.coins + (x.coins || 0), skulls: a.skulls + (x.skulls || 0), bones: a.bones + (x.bones || 0), cards: [...a.cards, ...(x.cards || [])], minerals: mergeMinerals(a.minerals, x.minerals) }), { dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, bones: 0, cards: [], minerals: [] });
   function mergeMinerals(a, b) {
     const out = a.map((x) => ({ ...x }));
     (b || []).forEach((x) => { const cur = out.find((y) => y.key === x.key); if (cur) cur.n += x.n; else out.push({ ...x }); });
@@ -373,6 +374,11 @@
 
   async function spin(count) {
     if (busy || !state || !M()) return;
+    // Paiement en jetons sans tour gratuit : solde connu, on previent sans
+    // appeler le serveur (GlitchTip #32, refus not_enough_chips).
+    const m0 = M();
+    const paid = !(m0.bonusSpins > 0 || m0.freeSpin || m0.freeSpins > 0);
+    if (paid && currency === "chips" && m0.spinCostChips && m0.chips != null && m0.chips < m0.spinCostChips * bet * count) { Toast.info(ERR.not_enough_chips); return; }
     busy = true;
     const btns = [$("fm-spin"), $("fm-spin10")];
     btns.forEach((b) => (b.disabled = true));

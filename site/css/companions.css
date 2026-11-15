@@ -130,6 +130,9 @@ button.cook-ing:disabled { cursor: default; }
 .ck-slot.empty span { font-size: 1.4rem; line-height: 1.6; }
 .ck-slot small { font-size: 0.72rem; color: var(--text-muted, #a1a1aa); }
 .ck-slot-ico { font-size: 1.8rem; line-height: 1; }
+.ck-slot.short, .ck-slot.over { border-color: rgba(248, 113, 113, 0.7); background: rgba(127, 29, 29, 0.28); }
+.ck-slot.short small { color: #fca5a5; }
+.ck-pot-warn { margin: 8px 0 0; font-size: 0.82rem; color: #fca5a5; text-align: center; }
 .ck-qty { display: flex; align-items: center; gap: 4px; }
 .ck-qty .btn-ghost { min-width: 30px; min-height: 30px; padding: 0; }
 .ck-pot-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }

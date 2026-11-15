@@ -199,7 +199,7 @@ const API = {
   },
 
   async post(name, body) {
-    if (this._isRead("POST", body)) return this._shared(this._readKey("POST", name, body), () => this._post(name, body));
+    if (this._isRead("POST", body)) return this._shared(this._readKey("POST", name, body), () => this._readRetry(name, () => this._post(name, body)));
     this.invalidate();
     try {
       let data;
@@ -275,12 +275,13 @@ const API = {
   },
 
   // Reponse refusee : session invalide (on deconnecte et on propose de se
-  // reconnecter) ou trop de requetes (message, une fois par minute).
+  // reconnecter) ou trop de requetes (message, une fois par minute ; muet
+  // quand l'appelant gere lui-meme la pause : _quietRate, ouverture en lot).
   _onRejected(res, data) {
     if (res.status === 401 && typeof Session !== "undefined" && Session.isLoggedIn()) {
       Session.clear();
       if (!/index\.html$|\/$/.test(location.pathname) || !location.search.includes("relogin")) location.replace("index.html?relogin=1");
-    } else if (res.status === 429 && typeof Toast !== "undefined" && Date.now() - (this._lastRateToast || 0) > 60000) {
+    } else if (res.status === 429 && !this._quietRate && typeof Toast !== "undefined" && Date.now() - (this._lastRateToast || 0) > 60000) {
       this._lastRateToast = Date.now();
       Toast.error(`Doucement ! Trop d'actions d'affilée : réessaie dans ${data.retryAfter || 60} s.`);
     }
@@ -343,7 +344,26 @@ const API = {
   },
 
   get(name, query) {
-    return this._shared(this._readKey("GET", name, query), () => this._get(name, query));
+    return this._shared(this._readKey("GET", name, query), () => this._readRetry(name, () => this._get(name, query)));
+  },
+
+  // Lecture coupee par le reseau (« Failed to fetch », 2026-11-15 : Admin >
+  // Economie, blocs Mode de jeu et Fonctionnalites par mode) : une lecture est
+  // sans effet, on la relance une fois. Si elle echoue encore, GlitchTip
+  // l'apprend (une fois par route et par page), avec la route en tag.
+  _netReported: {},
+  async _readRetry(name, fn) {
+    try { return await fn(); } catch (e) {
+      if (!(e instanceof TypeError) || (typeof navigator !== "undefined" && navigator.onLine === false)) throw e;
+      await new Promise((r) => setTimeout(r, 700));
+      try { return await fn(); } catch (e2) {
+        if (e2 instanceof TypeError && !this._netReported[name] && typeof Monitor !== "undefined") {
+          this._netReported[name] = true;
+          Monitor.capture(new Error(`Lecture ${name} coupée : ${e2.message}`), { endpoint: name, via: "network", page: location.pathname.split("/").pop() + location.hash });
+        }
+        throw e2;
+      }
+    }
   },
 
   async _get(name, query) {
@@ -979,7 +999,9 @@ const API = {
   playerGift(userId, action = "status", params = {}) { return this.post("playerGift", { userId, action, ...params }); },
   getWeeklyRecap(userId) { return this.get("weeklyRecap", { userId }); },
   adminPreset(discordId, action = "status", params = {}) { return this.post("adminPreset", { discordId, action, ...params }); },
-  adminEconomyLog(discordId, params = {}) { return this.post("adminEconomyLog", { discordId, ...params }); },
+  // action "list" : une lecture (sans action, prise pour une ecriture, elle vidait
+  // le cache des lectures et toute la page relisait ses pastilles une par une).
+  adminEconomyLog(discordId, params = {}) { return this.post("adminEconomyLog", { discordId, action: "list", ...params }); },
   getEconomyState() { return this.get("economyState"); },
   getRarityPity(userId, extensionId) { return this.get("rarityPity", extensionId ? { userId, extensionId } : { userId }); },
   getTreasureHunt(userId) { return this.get("treasureHunt", { userId }); },

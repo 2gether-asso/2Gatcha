@@ -63,6 +63,7 @@ import * as fishing from './fishing.js';
 import * as unique from './unique.js';
 import * as personalVault from './personal-vault.js';
 import * as levels from './levels.js';
+import * as skills from './skills.js';
 import * as activity from './activity.js';
 import * as challenges from './challenges.js';
 import * as achievements from './achievements.js';
@@ -152,7 +153,7 @@ import * as treasure from './treasure.js';
 import * as accountPrestige from './account-prestige.js';
 import { setting } from './settings.js';
 
-const MODULES = [settings, auth, discordProfile, pity, sets, collectionV2, adminV2, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels,
+const MODULES = [settings, auth, discordProfile, pity, sets, collectionV2, adminV2, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels, skills,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
   talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback, legacy];
 // Abonnes du bus d'activite (voir activity.js).
@@ -305,8 +306,12 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
     gate({ token, ip, body = {}, query = {}, isWrite = false, rate = true }) {
       const denied = auth.authorize({ token, body, query });
       if (denied) return denied;
-      if (!rate) return null;
       const t = auth.verifyToken(token);
+      // Compte supprime avec une session encore ouverte (GlitchTip #73-#75,
+      // userId 12) : jeton refuse, le site deconnecte au lieu de faire
+      // planter les workflows sur un utilisateur introuvable.
+      if (t && t.u != null && t.u !== '' && !store.get('Users', Number(t.u))) return { status: 401, json: { error: 'auth_invalid' } };
+      if (!rate) return null;
       return auth.rateLimit(store, t ? 'u:' + t.u : 'ip:' + (ip || '?'), isWrite);
     },
     // Avant chaque action d'un joueur (sous le verrou) : instantane de saison.

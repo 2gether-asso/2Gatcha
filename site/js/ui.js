@@ -72,6 +72,9 @@ const Toast = {
       window.dispatchEvent(new CustomEvent("api:claimed", { detail: { benign: true } }));
       return;
     }
+    // Le joueur vient lui-meme d'annuler (exemplaire en edition limitee garde) :
+    // simple information, rien a remonter (GlitchTip #32).
+    if (typeof COMMON_ERRORS !== "undefined" && msg === COMMON_ERRORS.edition_kept) { this.info(msg); return; }
     this.show(msg, "error"); NotificationHistory.add("error", msg);
     // Console + GlitchTip (#40) : « Erreur. (code) » (refus imprevu) est deja
     // remonte en erreur par friendlyError ; le reste = refus attendu, en avertissement.
@@ -81,7 +84,10 @@ const Toast = {
     console.warn("[2Gatcha] " + text);
     if (typeof Monitor !== "undefined" && text) Monitor.warn(text, { via: "toast", page: location.pathname.split("/").pop() + location.hash });
   },
-  info(msg) { this.show(msg, "info"); NotificationHistory.add("info", msg); }
+  info(msg) { this.show(msg, "info"); NotificationHistory.add("info", msg); },
+  // Echec de jeu (geste trop brusque, coup rate...) : toast rouge mais rien
+  // a corriger, donc pas de remontee GlitchTip (#32).
+  miss(msg) { this.show(msg, "error"); NotificationHistory.add("error", msg); }
 };
 
 // ---------------------------------------------------------------------------

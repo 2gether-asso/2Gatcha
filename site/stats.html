@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mes statistiques - 2Gatcha</title>
+  <title>Mes chiffres - 2Gatcha</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -38,8 +38,14 @@
 
   <main id="main-content">
     <div class="panel">
-      <h1>&#128202; Mes statistiques</h1>
-      <p class="lead">Ta chance face à la moyenne, d’où viennent tes poussières et où elles partent, ce que tu fais le plus, et tes plus beaux tirages du mois.</p>
+      <h1>&#128202; Mes chiffres</h1>
+      <p class="lead">Ta chance face à la moyenne, tes poussières, ce que tu fais le plus, et le journal complet de tout ce que tu as obtenu.</p>
+      <!-- Mes chiffres (2026-11-15) : statistiques et journal d'ouvertures reunis (pull-log.html redirige ici). -->
+      <div class="tabs" id="chiffres-tabs" role="tablist" aria-label="Mes chiffres">
+        <button type="button" class="tab active" role="tab" aria-selected="true" data-chiffres="resume">&#128202; Résumé</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-chiffres="ouvertures">&#128220; Ouvertures</button>
+      </div>
+      <div id="chiffres-resume" role="tabpanel">
       <div id="stats-guest" class="error-box" style="display:none">Connecte-toi pour voir tes statistiques.</div>
       <div id="stats-loading" class="loading-row"><div class="spinner"></div></div>
       <div id="stats-zone" class="mystats" hidden>
@@ -68,6 +74,44 @@
           <div class="mystats-best" id="best-pulls"></div>
         </section>
       </div>
+      </div>
+
+      <div id="chiffres-ouvertures" role="tabpanel" hidden>
+      <div id="guest-warning" style="display:none;">
+        <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+      </div>
+
+      <div id="pull-log-zone" style="display:none;">
+        <div id="pull-log-stats" class="stats-grid"></div>
+
+        <h2 class="chiffres-h">Tirages au fil du temps</h2>
+        <p class="lead" style="font-size:0.8rem;">30 derniers jours, boosters ouverts par jour.</p>
+        <div id="pull-timeline-chart" class="timeline-chart"></div>
+
+        <h2 class="chiffres-h">Chance : toi vs théorique</h2>
+        <p class="lead" style="font-size:0.8rem;">
+          Ta répartition de rareté sur les boosters (hors craft/autel/codes, non aléatoires) comparée
+          aux probabilités actuelles de la roue du gacha. Le repère vertical marque le taux théorique.
+        </p>
+        <div id="pull-luck-chart" class="rarity-progress-list"></div>
+
+        <h2 class="chiffres-h">Journal détaillé</h2>
+        <div class="craft-toolbar">
+          <input type="text" id="pull-log-search" placeholder="Rechercher une carte…" autocomplete="off" aria-label="Rechercher une carte" />
+          <div class="filters" id="pull-log-rarity-filters"></div>
+          <select id="pull-log-source-filter">
+            <option value="">Toutes les sources</option>
+            <option value="booster">Boosters</option>
+            <option value="craft">Craft</option>
+            <option value="altar">Autel</option>
+            <option value="code">Codes</option>
+          </select>
+        </div>
+
+        <div id="pull-log-loading" class="loading-row"><div class="spinner"></div></div>
+        <div id="pull-log-list" class="pull-log-list"></div>
+      </div>
+      </div>
     </div>
   </main>
 
@@ -79,5 +123,20 @@
   <script src="js/shell.js"></script>
   <script src="js/shell-extras.js"></script>
   <script src="js/stats.js"></script>
+  <script src="js/pull-log.js"></script>
+  <script>
+    // Onglets de « Mes chiffres » (#resume, #ouvertures).
+    (function () {
+      function show(key, push) {
+        document.querySelectorAll("[data-chiffres]").forEach(function (b) { var on = b.dataset.chiffres === key; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
+        document.getElementById("chiffres-resume").hidden = key !== "resume";
+        document.getElementById("chiffres-ouvertures").hidden = key !== "ouvertures";
+        if (key === "ouvertures") document.dispatchEvent(new CustomEvent("chiffres:ouvertures"));
+        if (push) history.replaceState(null, "", "#" + key);
+      }
+      document.addEventListener("click", function (e) { var b = e.target.closest("[data-chiffres]"); if (b) show(b.dataset.chiffres, true); });
+      document.addEventListener("DOMContentLoaded", function () { show(location.hash === "#ouvertures" ? "ouvertures" : "resume", false); });
+    })();
+  </script>
 </body>
 </html>

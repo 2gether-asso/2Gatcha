@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="css/vacation.css" />
   <link rel="stylesheet" href="css/worldmap.css" />
   <link rel="stylesheet" href="css/companions.css" />
+  <link rel="stylesheet" href="css/village.css" />
 </head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -43,9 +44,11 @@
       <h1>&#127918; Jeux</h1>
       <p class="lead">Petits à-côtés pour grappiller poussières, boosters et cartes.</p>
 
+      <!-- Carte du monde (jeux-summary.js) : toujours affichee, au-dessus des onglets (2026-11-15). -->
       <div class="games-summary" id="games-summary" aria-label="Où en sont tes jeux"></div>
       <div class="tabs tabs-scroll" role="tablist">
-        <button type="button" class="tab active" id="tab-dig-btn" role="tab" aria-selected="true">&#9935; Fouille</button>
+        <button type="button" class="tab active" id="tab-village-btn" role="tab" aria-selected="true">&#127969; Village</button>
+        <button type="button" class="tab" id="tab-dig-btn" role="tab" aria-selected="false">&#9935; Fouille</button>
         <button type="button" class="tab" id="tab-archeo-btn" role="tab" aria-selected="false">&#127994; Archéologie</button>
         <button type="button" class="tab" id="tab-guess-btn" role="tab" aria-selected="false">&#10067; Devine la carte</button>
         <button type="button" class="tab" id="tab-expedition-btn" role="tab" aria-selected="false">&#129517; Expédition</button>
@@ -60,6 +63,16 @@
 
       <div id="guest-warning" style="display:none;">
         <p>Tu dois d'abord te <a href="index.html">connecter avec Discord</a>.</p>
+      </div>
+
+      <!-- Jeux V2 (2026-11-15, js/village.js) : ecran d'entree. -->
+      <div id="village-pane">
+        <section class="vg-tour" id="vg-tour" aria-live="polite"><div class="skeleton-line">Chargement du village…</div></section>
+        <section class="vg-places" id="vg-places"></section>
+        <div class="vg-cols">
+          <section id="vg-pets"></section>
+          <section id="vg-bag"></section>
+        </div>
       </div>
 
       <div id="dig-pane" style="display:none;">
@@ -89,7 +102,7 @@
         <div class="dig-ground">
           <div class="dig-depths" id="dig-depths" role="radiogroup" aria-label="Profondeur de fouille"></div>
           <div class="dig-bag fish-extras" id="dig-bag"></div>
-          <button type="button" class="btn-ghost dig-all-btn" id="dig-all-btn" hidden></button>
+          <button type="button" class="btn-secondary dig-all-btn" id="dig-all-btn" hidden></button>
           <div class="dig-site">
             <div id="dig-board" class="dig-board"></div>
           </div>
@@ -270,6 +283,9 @@
           <button type="button" class="btn" id="dino-hatch-btn" hidden></button>
           <button type="button" class="btn-secondary" id="dino-collect-btn" hidden></button>
           <button type="button" class="btn-ghost" id="dino-clean-all-btn" hidden>&#129529; Tout ramasser</button>
+          <button type="button" class="btn-ghost" id="dino-feed-all-btn" hidden title="Un repas pour chaque dino qui a faim : son plat préféré s'il est connu, sinon la nourriture dont il te reste le plus (2 de chaque gardés en réserve, les vers seulement au-delà de 30)">&#127830; Tout nourrir</button>
+          <button type="button" class="btn-ghost" id="dino-play-all-btn" hidden>&#127934; Jouer avec tous</button>
+          <button type="button" class="btn-ghost" id="dino-walk-all-btn" hidden>&#129429; Tous en balade</button>
         </div>
         <div id="dino-scene-box"></div>
         <div id="dino-eggs"></div>
@@ -306,11 +322,18 @@
   <script src="js/shell-extras.js"></script>
   <script src="js/shop-strip.js"></script>
   <script src="js/jeux.js"></script>
+  <script src="js/jeux-dig.js"></script>
+  <script src="js/jeux-garden.js"></script>
+  <script src="js/jeux-fish.js"></script>
+  <script src="js/jeux-minis.js"></script>
+  <script src="js/jeux-expedition.js"></script>
+  <script src="js/jeux-init.js"></script>
   <script src="js/pets.js"></script>
   <script src="js/companions.js"></script>
   <script src="js/kitchen.js"></script>
   <script src="js/archeo.js"></script>
   <script src="js/jeux-summary.js"></script>
+  <script src="js/village.js"></script>
   <script src="js/jeux-duo.js"></script>
   <script src="js/jeux-bingo.js"></script>
   <script src="js/dino-art.js"></script>

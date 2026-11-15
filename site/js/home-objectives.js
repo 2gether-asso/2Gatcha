@@ -13,7 +13,10 @@
     { id: "challenges-panel", label: "Défis", icon: "&#127919;", claim: () => { const b = document.getElementById("challenges-claim"); return !!b && !b.hidden; } },
     { id: "weekly-quests-panel", label: "Semaine", icon: "&#128197;", claim: (el) => [...el.querySelectorAll("button")].some((b) => /récupérer|réclamer/i.test(b.textContent) && !b.disabled && !b.hidden && b.style.display !== "none") },
     { id: "weekly-goal-block", label: "Contrat", icon: "&#128220;", claim: () => { const b = document.getElementById("weekly-goal-claim"); return !!b && !b.hidden; } },
-    { id: "evening-block", label: "Ce soir", icon: "&#127769;", claim: () => { const b = document.getElementById("evening-claim"); return !!b && !b.hidden; } }
+    { id: "evening-block", label: "Ce soir", icon: "&#127769;", claim: () => { const b = document.getElementById("evening-claim"); return !!b && !b.hidden; } },
+    // Accueil V2 (2026-11-15) : la saison et la serie de connexion rejoignent les objectifs.
+    { id: "season-panel", label: "Saison", icon: "&#127942;", claim: () => { const b = document.getElementById("season-claim-btn"); return (!!b && !b.hidden) || !!document.querySelector("#season-pass [data-sq-claim]:not([disabled])"); } },
+    { id: "streak-panel", label: "Série", icon: "&#128293;", claim: () => { const b = document.getElementById("streak-claim-btn"); return !!b && !b.hidden && b.style.display !== "none"; } }
   ];
   let active = null;
   try { active = localStorage.getItem(KEY); } catch (e) { /* stockage indisponible */ }

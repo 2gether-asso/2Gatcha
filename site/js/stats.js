@@ -25,7 +25,7 @@
     "lottery": "&#127903;&#65039; Loterie", "draft": "&#127183; Draft", "duo-expedition": "&#129309; Expédition en duo", "bingo": "&#127922; Bingo", "wanted": "&#128220; Avis de recherche",
     "treasure-hunt": "&#128506;&#65039; Course aux trésors", "aquarium": "&#128032; Aquarium", "museum": "&#127963;&#65039; Musée", "dino": "&#129430; Dinos", "cat": "&#128008; Moka",
     "upgrades": "&#128736;&#65039; Améliorations", "sunday-market": "&#127774; Marché du dimanche", "ripen": "&#127817; Mûrissoir", "story": "&#128214; Histoire", "starter": "&#127793; Parcours du débutant",
-    "season-quests": "&#127942; Défis de saison", "sky-tree": "&#127795; Arbre céleste", "teams": "&#128681; Équipes", "fishing-tournament": "&#127907; Tournoi de pêche", "chaos-vote": "&#9881;&#65039; Salle des machines",
+    "season-quests": "&#127942; Missions du jour", "sky-tree": "&#127795; Arbre céleste", "teams": "&#128681; Équipes", "fishing-tournament": "&#127907; Tournoi de pêche", "chaos-vote": "&#9881;&#65039; Salle des machines",
     "machine-room": "&#9881;&#65039; Salle des machines", "player-gift": "&#127873; Cadeaux de joueurs", "dog-gift": "&#128021; Milo", "daily-dice": "&#127922; Dé du jour", "weekly-goal": "&#128220; Contrat de la semaine",
     "finish-reroll": "&#127752; Relance de finition", "prestige": "&#11088; Prestige", "account-prestige": "&#11088; Prestige", "card-prestige": "&#11088; Prestige de carte", "phantom": "&#128123; Fantôme",
     "secrets": "&#128273; Mots secrets", "secret-card": "&#10067; Carte secrète", "forbidden": "&#10067; Mystère", "mode-extra": "&#9878;&#65039; Mode du moment", "seasonal": "&#127881; Événements",

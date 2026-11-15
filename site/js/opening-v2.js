@@ -109,13 +109,14 @@ const OpeningV2 = (function () {
   }
 
   // ------------------------------------------------------------ pity
+  const PITY_KEY = "all";
   function renderPity(animateFrom) {
     const el = $("ov2-pity");
     if (!el || !st) return;
     const b = st.boosters[st.bi];
     if (st.sim || !pityThreshold || !b) { el.hidden = true; return; }
     el.hidden = false;
-    const v = Math.max(0, Math.min(pityThreshold, st.pity.get(b.ext.id) || 0));
+    const v = Math.max(0, Math.min(pityThreshold, st.pity.get(PITY_KEY) || 0));
     const left = Math.max(0, pityThreshold - v);
     el.innerHTML = `<span class="ov2-pity-ico">${typeof rarityIcon === "function" ? rarityIcon("legendaire") : "&#11088;"}</span>
       <span class="ov2-pity-track"><span class="ov2-pity-fill" style="width:${Math.round(((animateFrom ?? v) / pityThreshold) * 100)}%"></span></span>
@@ -126,7 +127,7 @@ const OpeningV2 = (function () {
   function bumpPity(card) {
     if (!st || st.sim || !pityThreshold) return;
     const b = st.boosters[st.bi];
-    const id = b.ext.id;
+    const id = PITY_KEY;
     const before = st.pity.get(id) || 0;
     if (rank(card) >= RANK.legendaire) {
       st.pity.set(id, 0);
@@ -187,7 +188,7 @@ const OpeningV2 = (function () {
       pack.classList.toggle("mystery-pack", !!b.planned.mystery);
       pack.innerHTML = packHtml(b.planned);
       pack.style.visibility = "visible";
-      pack.style.setProperty("--pity-ratio", String(pityThreshold ? Math.min(1, (st.pity.get(b.ext.id) || 0) / pityThreshold) : 0));
+      pack.style.setProperty("--pity-ratio", String(pityThreshold ? Math.min(1, (st.pity.get(PITY_KEY) || 0) / pityThreshold) : 0));
       pack.classList.add("pack-arrive");
       setTimeout(() => pack.classList.remove("pack-arrive"), 400);
       hint.textContent = st.auto ? "Ouverture automatique…" : `Booster ${st.bi + 1} / ${st.boosters.length} : tape ou glisse pour l'ouvrir`;
@@ -422,8 +423,8 @@ const OpeningV2 = (function () {
     b.done = true;
     // Valeur exacte du serveur une fois le booster fini.
     if (!st.sim && b.res && b.res.pity && b.res.pity.pullsSinceTop != null) {
-      const before = st.pity.get(b.ext.id) || 0;
-      st.pity.set(b.ext.id, Number(b.res.pity.pullsSinceTop) || 0);
+      const before = st.pity.get(PITY_KEY) || 0;
+      st.pity.set(PITY_KEY, Number(b.res.pity.pullsSinceTop) || 0);
       renderPity(before);
     }
     renderPackDots();
@@ -465,7 +466,7 @@ const OpeningV2 = (function () {
       const pending = i < st.bi ? [] : i === st.bi && b.slots ? b.slots.filter((s) => !s.revealed).map((s) => s.card) : b.cards;
       pending.forEach((c) => { if (!unseen || score(c) > score(unseen)) unseen = c; });
       if (i === st.bi && b.slots) b.slots.forEach((s) => { if (!s.revealed) { s.revealed = true; s.el.classList.add("revealed"); } });
-      if (!st.sim && b.res && b.res.pity && b.res.pity.pullsSinceTop != null) st.pity.set(b.ext.id, Number(b.res.pity.pullsSinceTop) || 0);
+      if (!st.sim && b.res && b.res.pity && b.res.pity.pullsSinceTop != null) st.pity.set(PITY_KEY, Number(b.res.pity.pullsSinceTop) || 0);
       b.done = true;
     });
     if (unseen && rank(unseen) >= RANK.legendaire && (typeof CinePref === "undefined" || CinePref.allow("opening", unseen.rarity.key))) {
@@ -618,10 +619,11 @@ const OpeningV2 = (function () {
     mount();
     // Pity de depart par extension (avant ce lot), puis valeurs finales pour
     // les cases du distributeur.
-    const pity = new Map();
-    o.boosters.forEach((b) => { if (!pity.has(b.ext.id)) pity.set(b.ext.id, pityByExt.get(b.ext.id) || 0); });
+    // Compteur legendaire commun a toutes les extensions (pity.js, 15/11) : une seule jauge.
+    const pity = new Map([[PITY_KEY, o.boosters[0] ? pityByExt.get(o.boosters[0].ext.id) || 0 : 0]]);
     if (!o.sim) {
-      o.boosters.forEach((b) => { if (b.res && b.res.pity && b.res.pity.pullsSinceTop != null) pityByExt.set(b.ext.id, Number(b.res.pity.pullsSinceTop) || 0); });
+      const last = [...o.boosters].reverse().find((b) => b.res && b.res.pity && b.res.pity.pullsSinceTop != null);
+      if (last) { const v = Number(last.res.pity.pullsSinceTop) || 0; [...pityByExt.keys(), ...o.boosters.map((b) => b.ext.id)].forEach((k) => pityByExt.set(k, v)); }
       renderExtensionPicker();
     }
     o.boosters.forEach((b) => { b.backImageId = b.ext.cardBackImageId || o.backImageId || null; b.cards = (b.cards || []).filter(Boolean); });

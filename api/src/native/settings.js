@@ -15,6 +15,16 @@ const pct = (label, def, group, help) => ({ label, type: 'number', def, min: 0, 
 const int = (label, def, group, help, min = 0, max = 100000) => ({ label, type: 'number', def, min, max, step: 1, group, help });
 const num = (label, def, group, help, min = 0, max = 100) => ({ label, type: 'number', def, min, max, step: 0.05, group, help });
 
+// Pass de saison V2 (2026-11-15) : recompense d'un palier par defaut (100 paliers).
+// Tous les 10 : 1 jeton booster + 1 cle ; tous les 5 (hors 10) : 1 coffre ;
+// sinon des poussieres, un peu plus chaque dizaine (25 a 43).
+export function seasonRewardFor(tier) {
+  const t = Math.max(1, Math.floor(Number(tier) || 1));
+  if (t % 10 === 0) return { boosters: 1, keys: 1 };
+  if (t % 5 === 0) return { chests: 1 };
+  return { dust: 25 + 2 * Math.floor((t - 1) / 10) };
+}
+
 export const REGISTRY = {
   // --- Securite
   RateLimitWritesPerMinute: { ...int('Actions par minute et par joueur', 60, 'Sécurité', "Au-delà, l'API répond « trop de requêtes » jusqu'à la minute suivante.", 5, 1000), storage: 'app' },
@@ -49,7 +59,8 @@ export const REGISTRY = {
       { key: 'mix', label: 'Mélange', cost: 1, grow: 1, level: 1, active: true }, { key: 'worm', label: 'Terreau à vers', cost: 1, grow: 1, level: 1, active: true },
       { key: 'bait', label: 'Fleur dorée', cost: 3, grow: 1.5, level: 1, active: true }, { key: 'dust', label: 'Étoile filante', cost: 4, grow: 2, level: 1, active: true },
       { key: 'catnip', label: 'Herbe à chat', cost: 2, grow: 1.2, level: 2, active: true }, { key: 'bone', label: 'Arbre à os', cost: 3, grow: 1.5, level: 4, active: true },
-      { key: 'mushroom', label: 'Champignon lumineux', cost: 4, grow: 2, level: 6, active: true }
+      { key: 'mushroom', label: 'Champignon lumineux', cost: 4, grow: 2, level: 6, active: true },
+      { key: 'honey', label: 'Fleurs mellifères', cost: 3, grow: 1.5, level: 3, active: true }
     ]
   },
   ChestExtraLoot: {
@@ -108,7 +119,7 @@ export const REGISTRY = {
   BunnyMinutesPerCarrot: { ...int('Noisette la lapine : minutes de travail par carotte', 180, 'Animaux', 'Elle récolte les parcelles prêtes du jardin et replante la même graine (payée en poussières).', 10, 1440), storage: 'app' },
   BunnyMaxMinutes: { ...int('Noisette la lapine : minutes de travail au maximum devant elle', 1440, 'Animaux', '', 30, 4320), storage: 'app' },
   MoleMinutesPerGrub: { ...int('Pistache le hérisson : minutes de travail par ver blanc', 60, 'Animaux', '', 5, 1440), storage: 'app' },
-  MoleMaxMinutes: { ...int('Pistache le hérisson : minutes de travail au maximum devant lui', 480, 'Animaux', '', 10, 2880), storage: 'app' },
+  MoleMaxMinutes: { ...int('Pistache le hérisson : minutes de travail au maximum devant lui', 1440, 'Animaux', '', 10, 2880), storage: 'app' },
   MoleJobMinutes: { ...int('Pistache le hérisson : minutes par tâche', 40, 'Animaux', 'Une tâche = nettoyer un bloc brut de l’atelier, sinon gratter une tablette de ta réserve. La tendresse rend les tâches plus courtes.', 5, 600), storage: 'app' },
   MoleExtractChance: { ...pct('Pistache le hérisson : chance d’extraire chaque trouvaille d’une tablette', 0.6, 'Animaux', 'Ce qu’il rate reste dans la terre (perdu). La tendresse ajoute jusqu’à 25 points.'), storage: 'app' },
   CarrotDigChance: { ...pct('Carottes sauvages : chance par trésor dégagé à la fouille', 0.06, 'Animaux', 'Une grille terminée en donne une à coup sûr. Aussi en promenade (prairie) et à la boutique.'), storage: 'app' },
@@ -183,7 +194,7 @@ export const REGISTRY = {
     ]
   },
   CatCastMinutes: { ...int('Moka le chat : minutes entre deux lancers', 10, 'Pêche', 'Table du rivage avec tes bonus, jamais de booster (remplacé par des poussières).', 1, 120), storage: 'app' },
-  CatMaxMinutes: { ...int('Moka le chat : minutes de pêche au maximum devant lui', 240, 'Pêche', '', 10, 1440), storage: 'app' },
+  CatMaxMinutes: { ...int('Moka le chat : minutes de pêche au maximum devant lui', 1440, 'Pêche', '', 10, 1440), storage: 'app' },
   CatDailyFish: { ...int('Moka le chat : poissons par jour (plus utilisé)', 8, 'Pêche', 'Ignoré depuis le 26/10/2026 : la fatigue (Animaux) remplace la limite par jour.', 0, 100), storage: 'app' },
   FishingRegenSeconds: { ...int('Pêche : secondes pour regagner 1 énergie', 600, 'Pêche', 'Réduit de 5 % par niveau de pêche.', 30, 86400), storage: 'app' },
   FishingTourneyPrizes: { label: 'Tournoi de pêche : poussières des premiers', type: 'json', group: 'Pêche', storage: 'app', help: 'Liste : poussières du 1er, du 2e, du 3e… Le 1er reçoit aussi le titre « Roi de la pêche ».', def: [500, 300, 150] },
@@ -233,16 +244,13 @@ export const REGISTRY = {
 
   // --- Saison
   SeasonEnabled: { label: 'Saisons activées', type: 'bool', def: true, group: 'Saison', storage: 'app', help: '' },
-  SeasonTiers: { ...int('Nombre de paliers', 10, 'Saison', '', 1, 50), storage: 'app' },
-  SeasonXpPerTier: { ...int('XP par palier', 700, 'Saison', 'XP gagnée pendant le mois.', 1), storage: 'app' },
-  SeasonXpPerDay: { ...int('XP de saison comptée par jour', 250, 'Saison', 'Au plus cette XP par jour écoulé du mois ; le surplus reste en réserve et se libère les jours suivants. Avec 10 paliers de 700 XP : pass fini au plus tôt le 28. 0 = pas de limite.', 0), storage: 'app' },
+  SeasonTiers: { ...int('Nombre de paliers', 100, 'Saison', 'Pass de saison V2 (15/11/2026) : 100 paliers, environ 3 ou 4 par jour sur 28 jours.', 1, 200), storage: 'app' },
+  SeasonXpPerTier: { ...int('XP de saison par palier', 100, 'Saison', 'XP de saison = XP de jeu du mois (plafonnée par jour) + XP des missions du jour.', 1), storage: 'app' },
+  SeasonXpPerDay: { ...int('XP de jeu comptée par jour', 120, 'Saison', 'L’XP gagnée en jouant compte pour le pass au plus à cette hauteur par jour écoulé du mois ; le surplus reste en réserve et se libère les jours suivants (rattrapage). Les missions du jour s’ajoutent. Avec 120 + 240 (missions) = 360 XP par jour et 100 paliers de 100 XP : pass fini en 28 jours. 0 = pas de limite.', 0), storage: 'app' },
   SeasonRewards: {
     label: 'Récompenses des paliers', type: 'json', group: 'Saison', storage: 'app',
-    help: 'Un objet par palier (dans l’ordre) : dust, boosters, chests, keys. Le dernier palier donne aussi la carte de la saison si elle est choisie.',
-    def: [
-      { dust: 50 }, { dust: 70 }, { boosters: 1 }, { dust: 100 }, { chests: 1 },
-      { dust: 150 }, { boosters: 1 }, { keys: 1 }, { dust: 200 }, { chests: 1, boosters: 1 }
-    ]
+    help: 'Un objet par palier (dans l’ordre) : dust, boosters, chests, keys. Le dernier palier donne aussi la carte et le titre de la saison. Un palier absent de la liste prend la récompense par défaut (poussières ; un coffre tous les 5 ; un booster et une clé tous les 10).',
+    def: Array.from({ length: 100 }, (_, i) => seasonRewardFor(i + 1))
   },
 
   SeasonBonusTierDust: { ...int('Poussières par palier bonus', 50, 'Saison', 'Après le dernier palier, chaque tranche d’XP supplémentaire rapporte ces poussières (à répétition).'), storage: 'app' },
@@ -561,8 +569,8 @@ export const REGISTRY = {
   StoryEnabled: { label: 'Quêtes d’histoire', type: 'bool', def: true, group: 'Progression', storage: 'app', help: 'Une histoire en chapitres (Milo, Moka, Pepper…) sur l’accueil, après le parcours du débutant.' },
   StoryChapters: { label: 'Quêtes d’histoire : chapitres', type: 'json', group: 'Progression', storage: 'app', help: 'Liste ordonnée { title, who, icon, text, steps : [{ label, type : événement, target }], reward : { BoosterCount, StardustCount, Worms, KeyCount, BoneCount, GoldBait, SpareParts, ChestCount, XP } }. Le dernier donne aussi la carte exclusive et le titre « Héros de 2Gatcha ».', def: [{"title":"Le flair de Milo","who":"Milo","icon":"🐕","text":"Wouf ! Milo gratte le sol en remuant la queue : il a senti quelque chose sous la surface. Aide-le à creuser !","steps":[{"label":"Creuser 15 cases","type":"dig","target":15}],"reward":{"BoneCount":2,"XP":30}},{"title":"Moka a faim","who":"Moka","icon":"🐈","text":"Moka te fixe avec ses grands yeux ronds. Une seule solution : aller pêcher… et partager.","steps":[{"label":"Lancer 5 fois ta ligne","type":"fish","target":5}],"reward":{"Worms":10,"XP":30}},{"title":"Les graines du vieux jardinier","who":"Le jardinier","icon":"👨‍🌾","text":"Un vieux jardinier te confie un sachet de graines : « Ce qui pousse ici nourrit tout le reste, tu verras. »","steps":[{"label":"Récolter 3 plantes","type":"harvest","target":3}],"reward":{"GoldBait":2,"XP":40}},{"title":"L’appel du large","who":"L’explorateur","icon":"🧭","text":"Une vieille carte au trésor, à moitié effacée… Envoie tes cartes explorer les environs pour en retrouver les morceaux.","steps":[{"label":"Revenir de 2 expéditions","type":"expedition","target":2}],"reward":{"KeyCount":1,"XP":40}},{"title":"La machine à boules","who":"Le marchand","icon":"🪙","text":"Un marchand installe une drôle de machine au coin de la rue : « Une pièce, une boule, un coffre. Qui sait ce qu’il y a dedans ? »","steps":[{"label":"Ouvrir 2 coffres du gatchapon","type":"chestOpened","target":2}],"reward":{"ChestCount":2,"XP":40}},{"title":"L’atelier","who":"L’artisane","icon":"🛠️","text":"L’artisane sourit : « Une carte, ça se travaille. Recycle tes doublons, crafte ce qui te manque, et ta collection brillera. »","steps":[{"label":"Recycler 5 doublons","type":"disenchant","target":5},{"label":"Crafter 1 carte","type":"craft","target":1}],"reward":{"SpareParts":1,"StardustCount":200,"XP":50}},{"title":"Les cadenas de Pepper","who":"Pepper","icon":"🔒","text":"Derrière six cadenas, Pepper attend. Chaque booster ouvert te rapproche des clés qui la libéreront.","steps":[{"label":"Ouvrir 10 boosters","type":"boosterOpened","target":10}],"reward":{"KeyCount":2,"XP":60}},{"title":"Le grand 2GETHER","who":"Toute la guilde","icon":"🤝","text":"Toute la guilde se retrouve : il est temps de montrer tout ce que tu as appris. Milo, Moka et Pepper comptent sur toi !","steps":[{"label":"Creuser 20 cases","type":"dig","target":20},{"label":"Lancer 5 fois ta ligne","type":"fish","target":5},{"label":"Revenir d’une expédition","type":"expedition","target":1}],"reward":{"BoosterCount":5,"StardustCount":300,"XP":80}}] },
   StoryCardId: { ...int('Quêtes d’histoire : carte exclusive du dernier chapitre (id)', 0, 'Progression', 'Id d’une carte (promo conseillée, pour qu’elle ne sorte pas des boosters). 0 = seulement le titre.', 0, 1000000), storage: 'app' },
-  SeasonQuestXp: { ...int('Défis de saison : XP de saison par défi', 60, 'Saison', '3 défis par semaine (les mêmes pour tous) ; l’XP compte pour les paliers et le coffre du mois, pas pour le niveau du compte. 0 = pas de défis.', 0, 10000), storage: 'app' },
-  SeasonQuestAllXp: { ...int('Défis de saison : bonus si les 3 sont réussis', 60, 'Saison', '', 0, 10000), storage: 'app' },
+  SeasonQuestXp: { ...int('Missions du jour : XP de saison par mission', 60, 'Saison', '3 missions par jour (les mêmes pour tous, depuis le 15/11/2026 ; avant : 3 défis par semaine) ; l’XP compte pour les paliers et le coffre du mois, pas pour le niveau du compte. 0 = pas de missions.', 0, 10000), storage: 'app' },
+  SeasonQuestAllXp: { ...int('Missions du jour : bonus si les 3 sont réussies', 60, 'Saison', '', 0, 10000), storage: 'app' },
   SurpriseEnabled: { label: 'Événements surprises', type: 'bool', def: true, group: 'Événements', storage: 'app', help: 'De petits événements de quelques heures, jamais annoncés (double XP, frénésie de pêche, soldes du gatchapon…).' },
   SurpriseEventsPerWeek: { ...num('Événements surprises : nombre moyen par semaine', 3, 'Événements', 'Tirage quotidien : chaque jour a cette chance divisée par 7 d’en avoir un.', 0, 7), storage: 'app' },
   SurpriseHours: { ...num('Événements surprises : durée (heures)', 2, 'Événements', '', 0.5, 12), storage: 'app' },

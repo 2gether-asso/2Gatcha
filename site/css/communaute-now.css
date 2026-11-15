@@ -1,0 +1,30 @@
+/* Communaute V2 (2026-11-15, js/communaute-now.js) : « En ce moment » et lien
+   vers les echanges dans la rubrique Commerce. Couleurs du theme. */
+.cm-now { display: grid; gap: 10px; margin: 4px 0 16px; padding: 14px 16px; border-radius: var(--radius-lg, 18px); background: var(--bg-panel-2); border: 1px solid var(--border-soft); }
+.cm-now-head h2 { margin: 0; font-family: var(--font-display); font-size: 1.05rem; }
+.cm-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cm-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 8px 12px; border-radius: var(--radius-pill, 999px); font: inherit; font-size: 0.84rem; text-align: left; cursor: pointer;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); color: var(--text); text-decoration: none; transition: border-color 0.15s ease; }
+.cm-chip > span:last-child { min-width: 0; }
+.cm-chip.hot { border-color: rgba(var(--accent-rgb, 168, 85, 247), 0.6); box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 168, 85, 247), 0.2); }
+.cm-chip:hover, .cm-chip:focus-visible { border-color: var(--accent); }
+.cm-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cm-live { list-style: none; margin: 0; padding: 8px 0 0; border-top: 1px dashed var(--border-soft); display: grid; gap: 6px; }
+.cm-live li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: baseline; font-size: 0.82rem; }
+.cm-live time { font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
+
+/* Lien « Echanges » parmi les onglets du Commerce. */
+.tab.cm-link { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.tab.cm-link.cm-out { display: none; }
+.cm-link-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--accent); color: #fff; font-size: 0.7rem; font-weight: 800; display: inline-grid; place-items: center; }
+
+/* Page Echanges : retour au Commerce. */
+.cm-back { text-decoration: none; }
+@media (max-width: 640px) {
+  .cm-now { padding: 12px; }
+  .cm-chip { border-radius: 14px; width: 100%; }
+  .cm-live li { grid-template-columns: auto minmax(0, 1fr); }
+  .cm-live time { grid-column: 2; }
+  /* Telephone : une seule nouvelle du serveur, pour garder les rubriques en vue. */
+  .cm-live li:nth-child(n + 2) { display: none; }
+}

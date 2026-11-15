@@ -578,6 +578,9 @@ function handleDino({ store, body }) {
     return ok({ ...state(store, user), laid: egg.id });
   }
 
+  // Soins de tout l'enclos d'un coup (vivants seulement, settle comme pour un dino).
+  if (action === 'feedAll' || action === 'playAll' || action === 'walkAll') return careAll(store, user, dinos.map((d) => (d.deadAt ? d : settle(user, d, t))), t, action);
+
   const idx = dinos.findIndex((d) => d.id === Number(body.dino));
   if (action === 'companion' && body.dino == null) return ok(state(store, store.update('Users', user.id, { DinoCompanion: 0 })));
   if (idx < 0) return fail('unknown_dino', 404);
@@ -680,19 +683,98 @@ function handleDino({ store, body }) {
       stock[key] -= 1;
       extra.DinoFood = JSON.stringify(stock);
     }
-    // Digestion : un caca tous les 40 points (30 adulte), 8 en attente au plus.
-    const per = stageOf(d.xp).key === 'adulte' ? 30 : 40;
-    let digest = (d.digest || 0) + f.food;
-    const poops = [...(d.poops || [])];
-    while (digest >= per) { digest -= per; if (poops.length < MAX_POOPS) poops.push(t + DIGEST_HOURS * HOUR + poops.length * 600); }
-    const goldPoops = [...(d.goldPoops || [])];
-    if (key === 'shrimp' && Math.random() < setting(store, 'DinoGoldPoopChance') && goldPoops.length < 3) goldPoops.push(t + DIGEST_HOURS * HOUR);
-    const isFav = favOf(d) === key;
-    const favFound = isFav && !d.favKnown;
-    dinos[idx] = grow({ ...d, food: clamp(d.food + f.food), happy: clamp(d.happy + f.happy + (isFav ? 20 : 0)), digest, poops, goldPoops, favKnown: d.favKnown || isFav }, d.food < 80 ? 3 : 1);
-    return finishCare(store, user, dinos, idx, d, { fed: { dino: d.id, food: key, fav: isFav, favFound } }, extra);
+    const r = eat(store, d, key, t);
+    dinos[idx] = r.d;
+    return finishCare(store, user, dinos, idx, d, { fed: { dino: d.id, food: key, fav: r.isFav, favFound: r.favFound } }, extra);
   }
   return fail('unknown_action');
+}
+
+// Un repas (action feed et « Tout nourrir ») : satiete, humeur, digestion.
+function eat(store, d, key, t) {
+  const f = FOODS[key];
+  // Digestion : un caca tous les 40 points (30 adulte), 8 en attente au plus.
+  const per = stageOf(d.xp).key === 'adulte' ? 30 : 40;
+  let digest = (d.digest || 0) + f.food;
+  const poops = [...(d.poops || [])];
+  while (digest >= per) { digest -= per; if (poops.length < MAX_POOPS) poops.push(t + DIGEST_HOURS * HOUR + poops.length * 600); }
+  const goldPoops = [...(d.goldPoops || [])];
+  if (key === 'shrimp' && Math.random() < setting(store, 'DinoGoldPoopChance') && goldPoops.length < 3) goldPoops.push(t + DIGEST_HOURS * HOUR);
+  const isFav = favOf(d) === key;
+  const favFound = isFav && !d.favKnown;
+  return { d: grow({ ...d, food: clamp(d.food + f.food), happy: clamp(d.happy + f.happy + (isFav ? 20 : 0)), digest, poops, goldPoops, favKnown: d.favKnown || isFav }, d.food < 80 ? 3 : 1), isFav, favFound };
+}
+
+// Soins groupes (avis joueur GlitchTip #60) : renvoie la reponse, comme finishCare.
+const FEED_TARGET = 90;
+function careAll(store, user, dinos, t, action) {
+  const before = new Map(dinos.map((d) => [d.id, d]));
+  const touched = [];
+  const extra = {};
+  if (action === 'feedAll') {
+    // Repas malins : on vise ~90 de satiete sans trop deborder ; d'abord le
+    // plat prefere connu, sinon la nourriture dont il reste le plus ; on garde
+    // une reserve de 2 de chaque et on ne touche aux vers de terre (appats de
+    // peche) que s'il y en a plus de 30.
+    const stock = foodOf(user);
+    let worms = Number(user.Worms) || 0;
+    const have = (k) => (k === 'worm' ? (worms > 30 ? worms - 30 : 0) : Math.max(0, (stock[k] || 0) - 2));
+    const take = (k) => { if (k === 'worm') worms--; else stock[k]--; };
+    const fed = [];
+    for (let i = 0; i < dinos.length; i++) {
+      let d = dinos[i];
+      if (d.deadAt || d.walkUntil || d.food >= 80) continue;
+      let meals = 0;
+      while (d.food < FEED_TARGET && meals < 12) {
+        const need = FEED_TARGET - d.food;
+        const fav = d.favKnown ? favOf(d) : null;
+        const fits = FOOD_KEYS.filter((k) => have(k) > 0 && FOODS[k].food <= need + 10);
+        const pool = fits.length ? fits : FOOD_KEYS.filter((k) => have(k) > 0);
+        if (!pool.length) break;
+        const k = fav && pool.includes(fav) ? fav : pool.sort((a, b) => have(b) - have(a) || FOODS[b].food - FOODS[a].food)[0];
+        take(k);
+        d = eat(store, d, k, t).d;
+        meals++;
+      }
+      if (meals) { dinos[i] = d; touched.push(d); fed.push({ dino: d.id, name: d.name, meals }); }
+    }
+    if (!fed.length) return fail('nothing_to_feed');
+    extra.DinoFood = JSON.stringify(stock);
+    if (worms !== (Number(user.Worms) || 0)) extra.Worms = worms;
+    return finishCareAll(store, user, dinos, before, touched, { fedAll: fed }, extra);
+  }
+  if (action === 'playAll') {
+    if (sleepingNow()) return fail('sleeping');
+    for (let i = 0; i < dinos.length; i++) {
+      const d = dinos[i];
+      if (d.deadAt || (d.playAt || 0) + PLAY_COOLDOWN > t) continue;
+      dinos[i] = grow({ ...d, happy: clamp(d.happy + 25), playAt: t }, 5);
+      touched.push(dinos[i]);
+    }
+    if (!touched.length) return fail('play_cooldown');
+    return finishCareAll(store, user, dinos, before, touched, { playedAll: touched.length });
+  }
+  if (action === 'walkAll') {
+    if (!ruleOn(store, 'chill.dinoWalk')) return fail('wrong_mode');
+    if (sleepingNow()) return fail('sleeping');
+    for (let i = 0; i < dinos.length; i++) {
+      const d = dinos[i];
+      if (d.deadAt || d.walkUntil || d.walkDay === parisDayKey()) continue;
+      dinos[i] = { ...d, walkUntil: t + HOUR, walkDay: parisDayKey() };
+      touched.push(dinos[i]);
+    }
+    if (!touched.length) return fail('walked_today');
+    return finishCareAll(store, user, dinos, before, touched, { walkingAll: touched.length });
+  }
+  return fail('unknown_action');
+}
+function finishCareAll(store, user, dinos, before, touched, payload, extra = {}) {
+  const grownList = touched.filter((d) => stageOf(d.xp).key !== stageOf(before.get(d.id).xp).key);
+  const dex = grownList.length ? dexNote(store, user, grownList) : { fields: {}, rewards: [] };
+  const u = store.update('Users', user.id, { Dinos: JSON.stringify(dinos), ...extra, ...dex.fields });
+  grownList.forEach((d) => noteFirsts(store, u, d, dinos));
+  const g = grownList[0];
+  return ok({ ...state(store, u), ...payload, ...(g ? { grown: { dino: g.id, stage: stageOf(g.xp).label } } : {}), dexRewards: dex.rewards });
 }
 
 const grow = (d, xp) => {

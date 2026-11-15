@@ -32,6 +32,7 @@
   <link rel="stylesheet" href="css/refonte.css" />
   <link rel="stylesheet" href="css/vacation.css" />
   <link rel="stylesheet" href="css/worldmap.css" />
+  <link rel="stylesheet" href="css/communaute-now.css" />
 </head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -44,6 +45,9 @@
         Ce qu'on construit ensemble : évènements en cours, boss commun à
         affaiblir, coffre de guilde et marché noir éphémère.
       </p>
+
+      <!-- Communaute V2 (2026-11-15, js/communaute-now.js) : ce qui se passe maintenant. -->
+      <section class="cm-now" id="cm-now" hidden aria-label="En ce moment"></section>
 
       <!-- Carte du monde (2026-10-29, js/jeux-summary.js) : centree sur le village. -->
       <div id="world-map-slot"></div>
@@ -61,6 +65,7 @@
         <button type="button" class="tab" id="tab-market-btn" role="tab" aria-selected="false">&#127761; Marché noir</button>
         <button type="button" class="tab" id="tab-auctions-btn" role="tab" aria-selected="false">&#128296; Enchères</button>
         <button type="button" class="tab" id="tab-chest-btn" role="tab" aria-selected="false">&#127873; Coffre de guilde</button>
+        <a class="tab cm-link" id="tab-trades-link" href="trade.html">&#128260; Échanges <span class="cm-link-count" id="cm-trades-count" hidden></span> <span aria-hidden="true">&#8599;</span></a>
       </div>
 
       <div id="calendar-pane">
@@ -212,6 +217,7 @@
   <script src="js/machine-room.js"></script>
   <script src="js/communaute-board.js"></script>
   <script src="js/communaute-calendar.js"></script>
+  <script src="js/communaute-now.js"></script>
   <script src="js/vacation-ui.js"></script>
 </body>
 </html>
