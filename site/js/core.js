@@ -100,6 +100,12 @@ const Gyro = {
 // parentheses (utile pour un signalement). Les pages gardent leurs messages
 // propres en priorite : MESSAGES[e.code] || friendlyError(e).
 const COMMON_ERRORS = {
+  // Compagnons V2 (2026-11-16).
+  pet_on_mission: "Ce compagnon est en mission : il reprendra le travail à son retour (page Compagnons).",
+  mission_running: "La mission n'est pas encore terminée.", no_mission: "Aucune mission en cours.", duo_unavailable: "Ce partenaire n'est pas disponible.",
+  quest_not_done: "Pas encore : termine d'abord sa quête.", path_chosen: "La voie est déjà choisie.", level_too_low: "Niveau trop bas pour ça.",
+  already_used_today: "Déjà utilisée aujourd'hui.", gear_max: "Déjà au meilleur palier.", no_charm: "Fabrique d'abord un porte-bonheur.", mineral_too_weak: "Il faut un minéral de palier 3 ou plus.",
+  companions_closed: "Les compagnons font une pause.", unknown_duration: "Durée inconnue.",
   test_account_isolated: "Impossible avec le compte test : il est isolé des autres joueurs.",
   edition_kept: "Annulé : ton exemplaire en édition limitée est conservé.",
   // Echanges deja traites ailleurs (centre de notifications, GlitchTip #44/#45).
@@ -220,6 +226,8 @@ function resKindOf(img) {
 // Icone envoyee par le serveur (catalogue de la boutique, couts de la salle
 // des machines...) : l'image de la ressource si on la connait, sinon l'emoji.
 const EMOJI_RES = { "🪱": "worm", "🔩": "part", "🦴": "bone", "🔑": "key", "🗝️": "key", "🗝": "key", "🪝": "bait", "🪙": "coin", "🃏": "token", "💀": "skull", "📘": "potion" };
+// Cle d'or des coffres V2 : l'emoji 🔑 (dore), a cote de l'image de la cle ordinaire.
+const GOLD_KEY = '<span class="keep-emoji" aria-label="clé d\'or">🔑</span>';
 const iconOf = (emoji) => (EMOJI_RES[emoji] ? resIcon(EMOJI_RES[emoji]) : emoji || "");
 
 // Petits formats partages (2026-10-18) : avant, recopies a l'identique dans
@@ -343,7 +351,9 @@ function editionBadge(key) {
 // Pierre sertie sur une carte Interdite (2026-11-06, api/src/native/stones.js) :
 // info = { name, img, tier } (gemInfo de la route collection).
 function gemBadge(info, style = "") {
-  return info ? `<span class="gem-badge tier-${info.tier}" title="Sertie : ${escHtml(info.name)}"${style ? ` style="${style}"` : ""}><img src="assets/${encodeURI(info.img)}" alt="${escHtml(info.name)}" /></span>` : "";
+  // Infobulle (2026-11-16) : ce que c'est et ou ca sert (ecrin du coffre-fort).
+  const TIERS = ["Commun", "Peu commun", "Rare", "Précieux", "Légendaire"];
+  return info ? `<span class="gem-badge tier-${info.tier}" title="Pierre sertie : ${escHtml(info.name)} (minéral ${TIERS[(info.tier || 1) - 1] || ""}). Range cette carte dans l'écrin de ton coffre-fort pour des points de prestige."${style ? ` style="${style}"` : ""}><img src="assets/${encodeURI(info.img)}" alt="${escHtml(info.name)}" /></span>` : "";
 }
 
 const THEME_ORDER = ["default", "monochrome", "sepia", "cyberpunk"];

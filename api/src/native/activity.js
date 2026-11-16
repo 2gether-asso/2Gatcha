@@ -68,7 +68,8 @@ export function eventsFrom(store, path, body = {}, response = {}) {
       break;
     case 'fishing':
       if (Array.isArray(json.catches)) {
-        out.push(ev('fish', json.catches.length, { hour: parisHour(), weather: json.weather && json.weather.key }));
+        out.push(ev('fish', json.catches.length, { hour: parisHour(), weather: json.weather && json.weather.key, zone: json.zone || 'shore' }));
+        if (Array.isArray(json.species) && json.species.length) out.push(ev('fishSpecies', json.species.length, { rarities: json.species.map((f) => f.rarity) }));
         json.catches.forEach((c) => out.push(ev('fishCatch:' + c.type, 1, { weather: json.weather && json.weather.key, tier: c.tier })));
         if (json.catches.filter((c) => RARE_TIERS.has(c.tier)).length >= 3) out.push(ev('fishLucky'));
       }
@@ -102,7 +103,7 @@ export function eventsFrom(store, path, body = {}, response = {}) {
       if (json.redeemed) out.push(ev('unique'));
       break;
     case 'garden':
-      if (body.action === 'harvest' && json.harvested) out.push(ev('harvest', Number(json.harvested) || 1));
+      if (body.action === 'harvest' && json.harvested) out.push(ev('harvest', Number(json.harvested) || 1, { rare: json.gained && json.gained.rare ? 1 : 0, bait: Number(json.gained && json.gained.bait) || 0 }));
       break;
     case 'community-dig':
       if (body.action === 'dig' && json.dug) out.push(ev('communityDig'), ...(json.found ? [ev('communityTreasure')] : []));
@@ -116,13 +117,15 @@ export function eventsFrom(store, path, body = {}, response = {}) {
       if (json.wallet && body.action && !['status'].includes(body.action) && body.game && !['cashier', 'lots'].includes(body.game)) out.push(ev('casinoPlay', 1, { game: body.game }));
       break;
     case 'archeo':
-      if (json.finished) out.push(ev('tablet', 1, { perfect: !!json.finished.perfect }));
+      if (json.finished) out.push(ev('tablet', 1, { perfect: !!json.finished.perfect, kind: json.finished.kind }));
+      if (body.action === 'clean' && json.freed && !Array.isArray(json.freed)) out.push(ev('archeoFreed', 1, { state: json.freed.state }));
       break;
     case 'prestige':
       if (json.prestiged) out.push(ev('prestige', 1, { skill: body.skill }));
       break;
     case 'cook':
-      if ((body.action === 'cook' || body.action === 'finish') && json.cooked) out.push(ev('cook', 1, { recipe: json.cooked.key }));
+      if ((body.action === 'cook' || body.action === 'finish') && json.cooked) out.push(ev('cook', 1, { recipe: json.cooked.key, q: Number(json.cooked.q) || 0 }));
+      if (body.action === 'deliver' && json.delivered) out.push(ev('cookDeliver'));
       break;
     // Cuisine V2 : ingredients trouves en promenade et chez les dinos (cooking.js).
     case 'walk':

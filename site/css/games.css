@@ -1390,3 +1390,31 @@ html[data-game-mode="chaos"]:not([data-theme]) button:not(.btn-secondary):not(.b
 /* Vacances du mode Chill (mode.js, vacation.js) */
 .beta-banner.banner-sunset { background: linear-gradient(90deg, rgba(124, 58, 237, 0.92), rgba(249, 115, 22, 0.92)); color: #fff7ed; }
 html[data-sunset]::after { content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(249, 115, 22, 0.16), rgba(124, 58, 237, 0.1)); }
+
+/* Distributeur automatique de l'enclos (2026-11-16). */
+.dino-feeder h4 { margin-top: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.dino-feeder h4 small { font-weight: 400; font-size: 0.75rem; }
+.dino-feeder.empty { border-color: color-mix(in srgb, var(--danger, #f87171) 55%, transparent); }
+.dino-feeder-gauge { position: relative; height: 22px; border-radius: 99px; background: var(--bg-panel, rgba(0,0,0,.25)); overflow: hidden; border: 1px solid var(--border-soft); }
+.dino-feeder-gauge span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #84cc16, #facc15); transition: width 0.4s ease; }
+.dino-feeder-gauge b { position: relative; display: block; text-align: center; font-size: 0.75rem; line-height: 20px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.dino-feeder-stock { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 4px; font-size: 0.85rem; }
+.dino-feeder-note { font-size: 0.78rem; margin: 4px 0 8px; }
+.dino-feeder-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.dino-feeder-actions .btn-secondary { flex-basis: 100%; }
+.dino-feeder-guardian { margin: 8px 0 0; font-size: 0.8rem; color: #fde68a; }
+
+/* Options du mode rapide de l'atelier (2026-11-16). */
+.fusion-all-bar { flex-wrap: wrap; align-items: center; gap: 8px; }
+.quick-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; flex: 1 1 260px; font-size: 0.8rem; }
+.quick-opts-title { color: var(--text-dim); }
+.quick-opt { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 99px; background: var(--bg-panel-2); border: 1px solid var(--border-soft); cursor: pointer; }
+.quick-opt:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg-panel-2)); }
+.quick-opt small { color: var(--text-dim); }
+.quick-opt-num { width: 70px; padding: 1px 4px; font: inherit; font-size: 0.78rem; border-radius: 6px; border: 1px solid var(--border-soft); background: var(--bg-panel); color: var(--text); }
+.quick-opt .ico-token, .quick-opt img { width: 16px; height: 16px; vertical-align: middle; }
+
+/* Lien vers la page Compagnons (V2, 2026-11-16) depuis le village. */
+.cp-village-link { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 10px 0; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--border); background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.14), rgba(244, 114, 182, 0.08)); color: var(--text); text-decoration: none; }
+.cp-village-link small { color: var(--text-dim); flex: 1; min-width: 160px; }
+.cp-village-link:hover { border-color: var(--accent); }

@@ -101,6 +101,17 @@
       after: () => { if (window.loadArcheo) window.loadArcheo(); },
       reload: () => { if (window.loadArcheo) window.loadArcheo(); },
       err: { no_grub: "Plus de vers blancs : récolte le jardin, promène-toi dans les ruines ou passe à la boutique.", mole_max_time: "Pistache a déjà assez de travail devant lui." }
+    },
+    // Poivre le rat (2026-11-16, api cooking.js) : il cuisine pour toi.
+    poivre: {
+      box: "cook-rat", food: "&#129472;", one: "fromage", many: "fromages", count: "cheese", per: "minutesPerCheese",
+      busy: "cuisine un plat toutes les {j} min avec ce qu'il y a au garde-manger (commandes du jour d'abord)",
+      idle: "1 fromage = {m} de travail : un plat toutes les {j} min environ avec les ingrédients du garde-manger, les commandes du jour d'abord. Les plats vont dans tes plats gardés.",
+      none: "Poivre travaille contre du fromage : pourboires des clients de l'auberge, promenade dans la forêt, coffres Compagnons, ou meule de fromage à la boutique.",
+      feed: (n) => API.cook(uid(), "ratFeed", { count: n }),
+      after: () => { if (window.Kitchen) Kitchen.load(); },
+      reload: () => { if (window.Kitchen) Kitchen.load(); },
+      err: { no_cheese: "Plus de fromage : livre des commandes, promène-toi dans la forêt ou passe à la boutique.", rat_max_time: "Poivre a déjà assez de travail devant lui." }
     }
   };
   const timers = {};
@@ -127,7 +138,7 @@
     const text = box.querySelector("[data-pc-text]");
     if (active) {
       let rem = v.secondsLeft;
-      const draw = () => { text.innerHTML = `<strong class="pet-work">Travaille encore ${left(rem)}</strong> · ${c.busy}. Reviens voir ce qu'${pet === "noisette" ? "elle" : "il"} a fait 🐾`; };
+      const draw = () => { text.innerHTML = `<strong class="pet-work">Travaille encore ${left(rem)}</strong> · ${c.busy.replace("{j}", v.jobMinutes || 60)}. Reviens voir ce qu'${pet === "noisette" ? "elle" : "il"} a fait 🐾`; };
       draw();
       timers[pet] = setInterval(() => { rem -= 30; if (rem <= 0) { clearInterval(timers[pet]); c.reload(); return; } draw(); }, 30000);
     } else {
@@ -138,13 +149,16 @@
     const b = e.target.closest("[data-pc-feed], [data-pc-feedmax]");
     if (!b) return;
     const box = b.closest(".pet-corner");
-    const pet = box && box.id === "garden-bunny" ? "noisette" : "pistache";
+    const pet = Object.keys(CORNERS).find((k) => box && CORNERS[k].box === box.id);
+    if (!pet) return;
     const c = CORNERS[pet];
     const n = b.hasAttribute("data-pc-feedmax") ? Number(b.dataset.count) || 1 : 1;
     b.disabled = true;
     try {
       const res = await c.feed(n);
-      Toast.success(`${pet === "noisette" ? "&#128007; Noisette" : "&#129428; Pistache"} se met au travail : +${hours(n * (pet === "noisette" ? res.bunny : res.mole)[c.per])} h !`);
+      const NAME = { noisette: "&#128007; Noisette", pistache: "&#129428; Pistache", poivre: "&#128000; Poivre" };
+      const view = pet === "noisette" ? res.bunny : pet === "pistache" ? res.mole : res.rat;
+      Toast.success(`${NAME[pet]} se met au travail : +${hours(n * view[c.per])} h !`);
       // Le rendu du jardin montre aussi le rapport (Companions.garden).
       c.after(res);
       bump();
@@ -268,7 +282,19 @@
     if (g && !g.disabled) goWalk(g.dataset.walkGo);
   });
 
-  let lastBunny = null, lastMole = null;
+  function ratPostcard(r) {
+    if (!r || !r.jobs) return;
+    const STARS = ["raté", "correct", "réussi", "parfait"];
+    const lines = (r.cooked || []).map((d) => `${d.icon} ${esc(d.label)} <small>(${STARS[d.q] || ""})</small>${d.saved ? " · sans rien consommer !" : ""}`);
+    if (r.loveGift) lines.push(`${r.loveGift.icon} un petit cadeau pour toi : ${esc(r.loveGift.label)} ❤️`);
+    const ps = [r.full ? `${plural(r.full, "fois", "fois")}, il n'y avait plus de place pour les plats gardés` : "", r.none ? `${plural(r.none, "fois", "fois")}, il manquait des ingrédients` : ""].filter(Boolean).join(" ; ");
+    postcard({
+      pic: "&#128000;&#127859;", stamp: "&#129472;", title: "Des nouvelles des fourneaux !",
+      intro: `J'ai cuisiné <strong>${plural((r.cooked || []).length, "plat", "plats")}</strong>${r.done ? " et j'ai fini mon fromage" : ""}. Ils t'attendent dans tes plats gardés.`,
+      lines, empty: "Je n'ai rien pu cuisiner…", sign: "Ton rat, Poivre &#128062;", ps: ps ? `P.S. ${ps}.` : "", btn: "Merci Poivre !"
+    });
+  }
+  let lastBunny = null, lastMole = null, lastRat = null;
   window.Companions = {
     garden(st) {
       if (!st) return;
@@ -279,6 +305,11 @@
       if (!st) return;
       if (st.mole) renderCorner("pistache", st.mole);
       if (st.moleReport && st.moleReport !== lastMole) { lastMole = st.moleReport; molePostcard(st.moleReport); }
+    },
+    cook(st) {
+      if (!st) return;
+      if (st.rat) renderCorner("poivre", st.rat);
+      if (st.ratReport && st.ratReport !== lastRat) { lastRat = st.ratReport; ratPostcard(st.ratReport); }
     },
     loadWalk, loadCook
   };

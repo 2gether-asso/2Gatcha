@@ -11,6 +11,7 @@
 // L'ancienne attaque du workflow community-boss (une carte, exemplaire au
 // hasard) reste disponible ; le bonus du coup final s'y applique aussi.
 
+import { addBall } from './chests.js';
 import { refId, now, ok, fail, userById } from './common.js';
 import { setting } from './settings.js';
 import { modeIs } from './modeperks.js';
@@ -42,6 +43,10 @@ function activeBoss(store) {
 }
 
 // Fin du boss : recompense commune a chaque participant + bonus du coup final.
+// Coffres V2 (2026-11-16) : chaque participant recoit aussi une boule de palier 5 a 7.
+function bossChests(store, contributors) {
+  for (const uid of contributors) addBall(store, uid, 5 + Math.floor(Math.random() * 3));
+}
 function defeatBoss(store, boss, finisherId) {
   store.update('CommunityBoss', boss.id, { Active: false, CurrentHp: 0, Finisher: finisherId });
   const enraged = ruleOn(store, 'hard.bossEnraged');
@@ -53,6 +58,7 @@ function defeatBoss(store, boss, finisherId) {
       if (u) store.update('Users', uid, { BoosterCount: (Number(u.BoosterCount) || 0) + reward });
     }
   }
+  try { bossChests(store, contributors); } catch (e) { /* coffres facultatifs */ }
   if (enraged) for (const uid of contributors) grantCosmetic(store, uid, 'title-rage-slayer', { type: 'title', label: 'Tueur de boss enragé' });
   const bonus = finisherBoosters(store);
   let finisher = store.get('Users', finisherId);

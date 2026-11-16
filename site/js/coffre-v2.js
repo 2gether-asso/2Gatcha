@@ -17,7 +17,9 @@ const CoffreV2 = (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => escHtml(s);
   const METALS = ["iron", "bronze", "silver", "gold", "emerald"];
-  const metalOf = (lv) => METALS[Math.min(METALS.length - 1, Math.floor((Math.max(1, lv) - 1) / 2))];
+  // Metal de la porte : 5 metaux repartis sur tous les niveaux (100 depuis le 2026-11-16).
+  let levelCount = 10;
+  const metalOf = (lv, total = levelCount) => METALS[Math.min(METALS.length - 1, Math.floor(((Math.max(1, lv) - 1) * METALS.length) / Math.max(1, total)))];
   let last = null;
   let busy = false;
 
@@ -32,6 +34,7 @@ const CoffreV2 = (() => {
     const span = next ? Math.max(1, next.xp - lv.floor) : 1;
     const pct = next ? Math.min(100, Math.round(((lv.xp - lv.floor) / span) * 100)) : 100;
     const pendB = lv.pending.reduce((a, l) => a + l.boosters, 0), pendD = lv.pending.reduce((a, l) => a + l.dust, 0);
+    if (lv.levels && lv.levels.length) levelCount = lv.levels.length;
     box.dataset.metal = metalOf(lv.level);
     box.innerHTML = `
       <div class="pv2-door-badge" aria-hidden="true"><span class="pv2-door-wheel"></span><strong>${lv.level}</strong></div>
@@ -46,9 +49,11 @@ const CoffreV2 = (() => {
       </div>
       <div class="pv2-hall-actions">
         ${lv.pending.length ? `<button type="button" class="btn pv2-claim" data-pv2="claimLevel">&#127873; Palier${lv.pending.length > 1 ? "s" : ""} : +${pendB} boosters +${pendD} &#10024;</button>` : ""}
-        ${lv.interest ? (lv.interestReady
-          ? `<button type="button" class="btn-secondary pv2-interest" data-pv2="interest">&#128176; Intérêts du jour : +${lv.interest} &#10024;</button>`
-          : `<span class="pv2-interest-done" title="Reviens demain">&#10004; Intérêts récupérés (${lv.interest} &#10024;/jour)</span>`) : `<span class="muted pv2-interest-done">Intérêts dès le niveau 2</span>`}
+        ${(lv.interestBase ?? lv.interest) ? (lv.interestReady
+          ? `<button type="button" class="btn-secondary pv2-interest" data-pv2="interest">&#128176; Intérêts${lv.interestDays > 1 ? ` de ${lv.interestDays} jours` : " du jour"} : +${lv.interest} &#10024;</button>`
+          : `<span class="pv2-interest-done" title="Reviens demain">&#10004; Intérêts récupérés (${lv.interestPerDay ?? lv.interest} &#10024;/jour)</span>`)
+          + (lv.interestRate ? `<small class="pv2-interest-rate" title="Talent Banquier, amélioration Coffre blindé, talent Protecteur">Rendement +${lv.interestRate} % (base ${lv.interestBase} &#10024;)</small>` : `<small class="pv2-interest-rate"><a href="progression.html#talents">Augmente le rendement</a> : talent Banquier, amélioration Coffre blindé</small>`)
+          + (lv.interestBankDays > 1 ? `<small class="pv2-interest-rate">Épargne : jusqu'à ${lv.interestBankDays} jours d'intérêts s'accumulent</small>` : "") : `<span class="muted pv2-interest-done">Intérêts dès le niveau ${((lv.levels || []).find((l) => l.interest > 0) || { level: 2 }).level}</span>`}
       </div>`;
   }
   async function act(action, btn) {
@@ -63,7 +68,7 @@ const CoffreV2 = (() => {
         Toast.success(`&#128274; ${esc(r.name)} : +${r.boosters} boosters et +${r.dust} poussières !`);
         if (typeof confetti === "function") confetti({ particleCount: 160, spread: 110, origin: { y: 0.4 } });
       }
-      if (res.interestGained) Toast.success(`&#128176; Intérêts du coffre : +${res.interestGained} poussières.`);
+      if (res.interestGained) Toast.success(`&#128176; Intérêts du coffre${res.interestDays > 1 ? ` (${res.interestDays} jours)` : ""} : +${res.interestGained} poussières.`);
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
     } catch (e) {
       if (btn) btn.disabled = false;

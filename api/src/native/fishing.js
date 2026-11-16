@@ -325,7 +325,7 @@ function handleFishing({ store, body }) {
     const min = Math.max(1, Number(x.min) || 1), max = Math.max(min, Number(x.max) || min);
     let amount = x.type === 'nothing' ? 0 : min + Math.floor(Math.random() * (max - min + 1));
     if (x.type === 'dust' && weather.dustBonus) amount = Math.round(amount * (1 + weather.dustBonus));
-    if ((x.type === 'dust' || x.type === 'pearl') && upgradeValue(user, 'rod')) amount = Math.round(amount * (1 + upgradeValue(user, 'rod')));
+    if ((x.type === 'dust' || x.type === 'pearl') && (upgradeValue(user, 'rod') || talentValue(user, 'linefine'))) amount = Math.round(amount * (1 + upgradeValue(user, 'rod') + talentValue(user, 'linefine')));
     // Rendements decroissants : au-dela de FishingFullRewardsPerDay lancers
     // dans la journee, poussieres divisees par 2 et objets une fois sur deux
     // remplaces par une pincee de poussieres.

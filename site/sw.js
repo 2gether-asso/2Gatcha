@@ -16,7 +16,7 @@
 // - API (/webhook/...) et tout ce qui n'est pas un GET : jamais en cache.
 // Les notifications push (api/src/native/push.js) restent gerees plus bas.
 
-const VERSION = "2026-11-15";
+const VERSION = "2026-11-16f";
 const STATIC = "gatcha-static-" + VERSION;
 const IMAGES = "gatcha-images-v1";
 const KEEP = [STATIC, IMAGES, "gatcha-api-" + VERSION];

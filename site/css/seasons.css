@@ -1082,3 +1082,14 @@ body::after { inset: -320px; animation: driftStarsT 90s linear infinite; will-ch
 body::before { will-change: transform; }
 @keyframes driftStarsT { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-280px, 240px, 0); } }
 @media (prefers-reduced-motion: reduce) { body::after { animation: none; } }
+
+/* « Les pierres » (2026-11-16) : un seul espace a onglets sous la machine. */
+.fs-zone { display: block; }
+.fs-head { margin-bottom: 8px; }
+.fs-head h2 { margin: 0 0 4px; color: #fde68a; }
+.fs-uses { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.84rem; color: var(--text-dim); }
+.fs-uses b { color: var(--text); }
+.fs-uses a, .fs-panel a { color: #fde68a; }
+.fs-main-tabs { margin: 12px 0 10px; flex-wrap: wrap; }
+.fs-main-tabs [data-tab] { flex: 1 1 140px; }
+.fs-panel[hidden] { display: none; }

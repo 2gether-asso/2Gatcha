@@ -40,6 +40,8 @@ import { ok, fail, userById, now, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { MINERALS, mineralsOf, currentDepth } from './digdepth.js';
 import { petBoost, petGift } from './pets.js';
+import { workFields } from './companions.js';
+import { onMission } from './companion-core.js';
 import { archeoBuff } from './cooking.js';
 import { found } from './starter.js';
 const foundArcheo = (store, user) => found(store, user, 'archeo');
@@ -391,6 +393,8 @@ export function settleMole(store, user) {
   const s = moleStateOf(user);
   if (!s) return null;
   const t = now();
+  // En mission (compagnons V2) : session decalee.
+  if (t < s.start) return null;
   const love = petBoost(store, user, 'pistache');
   const jobSec = moleJobSeconds(store, user);
   const total = Math.floor((Math.min(t, s.until) - s.start) / jobSec);
@@ -437,6 +441,7 @@ export function settleMole(store, user) {
   set({ MoleState: finished ? '' : JSON.stringify({ ...s, done: total }) });
   const gift = freed.length || dug.length ? petGift(store, u, 'pistache') : null;
   if (gift) set(gift.fields);
+  set(workFields(store, u, 'pistache', n - idle).fields);
   const prev = parseJson(user.MoleReport, null) || {};
   fields.MoleReport = JSON.stringify({
     jobs: (prev.jobs || 0) + n, idle: (prev.idle || 0) + idle, done: finished,
@@ -472,6 +477,7 @@ function handle({ store, body }) {
   if (!setting(store, 'ArcheoEnabled')) return fail('archeo_closed');
 
   if (action === 'moleFeed') {
+    if (onMission(user, 'pistache')) return fail('pet_on_mission', 400, { mole: moleView(store, user) });
     const count = Math.max(1, Math.floor(Number(body.count) || 1));
     const v = moleView(store, user);
     if (v.grubs < count) return fail('no_grub', 400, { mole: v });

@@ -91,6 +91,8 @@ window.APP_CONFIG = {
     secretCard: "/secret-card",        // GET -> { imageId, others } (glitch de la carte 404)
     timers: "/timers",                 // GET ?userId -> { now, items } (minuteurs de l'inventaire, 2026-10-18)
     skills: "/skills",               // GET ?userId= -> { skills: [{ key, label, icon, level, max, xp, current, next, prestige, url }] } (Progression V2)
+    companions: "/companions",        // POST { userId, action, pet?, ... } (compagnons V2, 2026-11-16)
+    metiers: "/metiers",              // POST { userId, action: 'status'|'buy', key? } (carnet des metiers, 2026-11-16)
     seasonQuests: "/season-quests",   // POST { userId, action: 'status'|'claim', key? } (missions du jour du pass, 2026-11-15)
     story: "/story",                   // POST/GET { userId, action: 'status'|'claim' } (quetes d'histoire)
     patchNotes: "/patch-notes",        // GET -> { notes, latest } (notes de mise a jour)

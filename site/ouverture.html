@@ -30,8 +30,10 @@
   <link rel="stylesheet" href="css/games.css" />
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
+  <link rel="stylesheet" href="css/pet-bar.css" />
   <link rel="stylesheet" href="css/vacation.css" />
   <link rel="stylesheet" href="css/opening-v2.css" />
+  <link rel="stylesheet" href="css/chest-v2.css" />
 </head>
 <body>
   <div id="burst-flash" class="burst-flash"></div>
@@ -93,7 +95,7 @@
           </div>
           <div class="gatcha-side">
             <h2 id="chest-title">Gatchapon de coffres</h2>
-            <p class="chest-desc">Glisse une pièce : une boule tombe avec un coffre dedans, du coffre en bois au coffre mystique. Ouvre-le avec une clé : plus le coffre est rare, meilleur est le butin (poussières, jetons booster, cartes, finitions).</p>
+            <p class="chest-desc">Glisse une pièce : une boule tombe avec un coffre dedans, du coffre en bois au coffre mystique. Chaque boule a un palier (la taille du butin) et une famille (ce qu’il y a dedans) : ouvre-la avec la bonne clé. Plus le coffre est rare, meilleur est le butin.</p>
             <div class="chest-stock">
               <span class="chest-chip" id="chest-count">&#129689; 0 pièce</span>
               <span class="chest-chip" id="chest-keys"><img class="ico-token" src="assets/cl%C3%A9s.PNG" alt="" /> 0 clé</span>
@@ -197,6 +199,8 @@
   <script src="js/ui.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/shell-extras.js"></script>
+  <!-- Barre du compagnon (Praline, Reglisse, Paprika ; compagnons V2). -->
+  <script src="js/pets.js"></script>
   <script src="js/opening-fx.js"></script>
   <script src="js/card-extras.js"></script>
   <script src="js/shop-strip.js"></script>
@@ -205,5 +209,6 @@
   <script src="js/opening-v2.js"></script>
   <script src="js/opening-cart.js"></script>
   <script src="js/opening-sim.js"></script>
+  <script src="js/chest-v2.js"></script>
 </body>
 </html>

@@ -1462,7 +1462,7 @@ const chestAllAvail = () => (chestState ? Math.min(chestState.balls || 0, chestS
 const CHEST_ART = (t) => `assets/Coffres/${t === 4 ? "4.png" : t + ".PNG"}`;
 const tierInfo = (t) => (chestState && chestState.tiers ? chestState.tiers.find((x) => x.tier === t) : null);
 const chestAvail = () => (chestAll ? chestAllAvail() : chestState ? Math.min(chestTier ? (tierInfo(chestTier)?.balls || 0) : chestState.chests, chestState.keys, CHEST_MAX_BATCH) : 0);
-const CHEST_ERRORS = { not_enough_dust: "Pas assez de poussières.", no_chest: "Plus de pièce de gatchapon : achètes-en ou gagne des coffres en jouant.", no_ball: "Plus de boule de ce coffre.", no_key: "Il te faut une clé pour ouvrir un coffre." };
+const CHEST_ERRORS = { not_enough_dust: "Pas assez de poussières.", no_chest: "Plus de pièce de gatchapon : achètes-en ou gagne des coffres en jouant.", no_ball: "Plus de boule de ce coffre.", no_key: "Il te faut une clé pour ouvrir un coffre.", key_too_weak: "Ce coffre est trop précieux pour une clé ordinaire : il faut une clé d'or." };
 
 function renderChests() {
   const panel = document.getElementById("chest-panel");

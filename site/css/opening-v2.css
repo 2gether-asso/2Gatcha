@@ -132,7 +132,7 @@
 .ov2-spot.r2 .ov2-spot-inner { animation: ov2Shake 0.42s 0.12s ease-out both; }
 @keyframes ov2Shake { 20% { transform: translate(-7px, 3px); } 40% { transform: translate(6px, -3px); } 60% { transform: translate(-4px, 2px); } 80% { transform: translate(2px, -1px); } }
 .ov2-spot-title {
-  font: 400 clamp(2rem, 7vw, 3.6rem)/1 var(--font-display, "Bungee", sans-serif); text-transform: uppercase; letter-spacing: 0.04em;
+  font: 400 clamp(2rem, 7vw, 3.6rem)/1 var(--font-brand, "Bungee", sans-serif); text-transform: uppercase; letter-spacing: 0.04em;
   color: color-mix(in srgb, var(--c) 70%, #fff); text-shadow: 0 0 24px var(--c), 0 4px 0 rgba(0, 0, 0, 0.5);
   animation: ov2Slam 0.5s 0.08s cubic-bezier(.2, .9, .25, 1.35) both;
 }
@@ -166,7 +166,7 @@
    page transparaissait derriere les cartes). */
 .pack-modal-overlay:has(.pack-modal-stage.ov2-on) { background: radial-gradient(circle at 50% 30%, rgba(var(--accent-rgb), 0.22), transparent 55%), #04050c; }
 .ov2-bilan { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px; animation: ov2Pop 0.35s ease-out both; }
-.ov2-bilan-title { margin: 0; font: 400 clamp(1.1rem, 3.4vw, 1.6rem)/1.2 var(--font-display, "Bungee", sans-serif); text-align: center; }
+.ov2-bilan-title { margin: 0; font: 400 clamp(1.1rem, 3.4vw, 1.6rem)/1.2 var(--font-brand, "Bungee", sans-serif); text-align: center; }
 .ov2-hero {
   display: flex; align-items: center; gap: 22px; padding: 16px 28px 16px 18px; border-radius: 18px; max-width: min(560px, 100%);
   background: radial-gradient(circle at 20% 50%, color-mix(in srgb, var(--c) 28%, transparent), transparent 70%), rgba(255, 255, 255, 0.04);
@@ -184,7 +184,7 @@
 .ov2-share { margin-top: 4px; }
 .ov2-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: min(640px, 100%); }
 .ov2-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-soft); text-align: center; }
-.ov2-stat b { font: 400 1.6rem/1.1 var(--font-display, "Bungee", sans-serif); font-variant-numeric: tabular-nums; }
+.ov2-stat b { font: 400 1.6rem/1.1 var(--font-brand, "Bungee", sans-serif); font-variant-numeric: tabular-nums; }
 .ov2-stat span { font-size: 0.72rem; color: var(--text-dim); }
 .ov2-stat.hot { border-color: rgba(74, 222, 128, 0.55); }
 .ov2-stat.hot b { color: #4ade80; }
@@ -224,3 +224,19 @@
 @media (prefers-reduced-motion: reduce) {
   .ov2-slot.dealing, .ov2-spot-rays, .ov2-spot.r2 .ov2-spot-inner, .ov2-spot-title, .ov2-spot-cardwrap, .ov2-seg, .ov2-ext-gain { animation: none !important; }
 }
+
+/* Polish 2026-11-16 : barre d'actions du bilan opaque (elle passait sur les
+   cartes du bilan), boutons de meme hauteur (lien « Voir la collection »
+   plus haut que les boutons), texte alternatif d'une image pas encore
+   chargee masque (il debordait sur les tampons), chiffres alignes. */
+.ov2-bilan { padding-bottom: 4px; }
+.ov2-bilan-actions { padding: 26px 12px 10px; background: linear-gradient(rgba(4, 5, 12, 0), rgba(4, 5, 12, 0.96) 38%); backdrop-filter: blur(2px); z-index: 4; margin-top: 4px; }
+.ov2-bilan-actions > .btn, .ov2-bilan-actions > .btn-secondary, .ov2-bilan-actions > .btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 18px; line-height: 1; box-sizing: border-box; font: 700 0.92rem/1 var(--font-body, "Inter", sans-serif); text-decoration: none; margin: 0; }
+.reveal-grid.ov2-grid .card img, .reveal-grid.ov2-hero-card .card img, .ov2-row .card img { color: transparent; }
+.ov2-stat b { letter-spacing: 0.02em; }
+.ov2-spot-title { text-shadow: 0 0 24px color-mix(in srgb, var(--c, #a78bfa) 70%, transparent), 0 3px 0 rgba(0, 0, 0, 0.35); }
+@media (max-width: 640px) {
+  .ov2-bilan-actions { padding: 22px 8px 8px; gap: 8px; }
+  .ov2-bilan-actions > * { flex: 1 1 auto; }
+}
+.reveal-grid.ov2-grid { justify-content: center; }

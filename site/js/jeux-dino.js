@@ -125,6 +125,35 @@
     </article>`;
   }
 
+  // Distributeur automatique (2026-11-16, dino.js FEEDER) : protege les dinos de la faim.
+  function feederHtml(st) {
+    const f = st.feeder;
+    if (!f) return "";
+    const foods = ["fish", "shrimp", "seaweed", "worm"];
+    const have = (k) => Number(st.food[k]) || 0;
+    if (!f.level) {
+      return `<section class="dino-box dino-feeder off">
+        <h4>🥣 Distributeur automatique</h4>
+        <p class="muted">Remplis-le avec ta nourriture : dès qu’un dino passe sous ${f.threshold} de satiété, il le nourrit tout seul, même quand tu n’es pas là. Tant qu’il reste des portions, <strong>aucun dino ne meurt de faim</strong>.</p>
+        <button type="button" class="btn" data-feeder="buy" ${st.stardust < f.next.price ? "disabled" : ""}>Installer une ${esc(f.next.label.toLowerCase())} (${fmtNum(f.next.price)} ✨, ${f.next.cap} portions)</button>
+      </section>`;
+    }
+    const pct = Math.round((f.count / Math.max(1, f.cap)) * 100);
+    return `<section class="dino-box dino-feeder ${f.count ? "" : "empty"}">
+      <h4>${f.icon} ${esc(f.label)} <small class="muted">niv. ${f.level}/3 · ${esc(f.perk)}</small></h4>
+      <div class="dino-feeder-gauge" role="progressbar" aria-valuemin="0" aria-valuemax="${f.cap}" aria-valuenow="${f.count}" aria-label="Portions dans le distributeur"><span style="width:${pct}%"></span><b>${f.count} / ${f.cap} portions</b></div>
+      <div class="dino-feeder-stock">${foods.map((k) => `<span title="Dans le distributeur">${resIcon(k)} ${f.stock[k] || 0}</span>`).join("")}</div>
+      <p class="muted dino-feeder-note">Sert sous ${f.threshold} de satiété, jusqu’à ${f.until}. ${f.served ? `${fmtNum(f.served)} portion${f.served > 1 ? "s" : ""} servie${f.served > 1 ? "s" : ""} en tout${f.saved ? ` (dont ${f.saved} offerte${f.saved > 1 ? "s" : ""} par le Nourricier)` : ""}.` : "Aucune portion servie pour l’instant."}${f.free ? ` Talent Nourricier : ${f.free} % de portions offertes.` : ""}</p>
+      <div class="dino-feeder-actions">
+        <button type="button" class="btn" data-feeder="fillAll" ${f.count >= f.cap ? "disabled" : ""}>Remplir (un peu de tout)</button>
+        ${foods.map((k) => `<button type="button" class="btn-ghost" data-feeder="fill" data-food="${k}" ${!have(k) || f.count >= f.cap ? "disabled" : ""} title="Tout ce que tu as de cette nourriture">+ ${resIcon(k)} ${have(k)}</button>`).join("")}
+        ${f.count ? '<button type="button" class="btn-ghost" data-feeder="empty">Vider</button>' : ""}
+        ${f.next ? `<button type="button" class="btn-secondary" data-feeder="buy" ${st.stardust < f.next.price ? "disabled" : ""}>Améliorer : ${esc(f.next.label)} (${f.next.cap} portions, ${esc(f.next.perk)}) · ${fmtNum(f.next.price)} ✨</button>` : ""}
+      </div>
+      ${st.guardian ? '<p class="dino-feeder-guardian">👼 Ange gardien : même à bout de forces, tes dinos ne meurent plus.</p>' : ""}
+    </section>`;
+  }
+
   function shopHtml(st) {
     const item = (x, kind) => `<div class="dino-shop-item ${x.owned ? "owned" : ""}"><span aria-hidden="true">${x.icon}</span><strong>${esc(x.label)}</strong>${x.owned ? '<small class="muted">Possédé</small>' : `<button type="button" class="btn-ghost" data-dino-buy="${kind}" data-key="${x.key}" ${st.stardust < x.price ? "disabled" : ""}>${x.price} ✨</button>`}</div>`;
     return `<details class="dino-box" id="dino-shop-box"><summary>🛍️ Boutique du dino</summary>
@@ -192,7 +221,7 @@
       : `<div class="dino-empty"><span aria-hidden="true"><img class="dino-empty-skull" src="assets/CraneDeDino.png" alt="" /></span><p>${st.skulls
         ? `Tu as un crâne de dinosaure ! Avec <strong>${st.hatchBones} os</strong> (pêche, ou achetés au chenil de la fouille), ramène-le à la vie.`
         : `Pas encore de dino. En creusant dans la <a href="jeux.html#fouille">fouille</a>, tu as une chance <strong>extrêmement rare</strong> de déterrer un <strong>crâne de dinosaure</strong>. Avec ${st.hatchBones} os en plus, il revient à la vie : couleur au hasard, 5 dinos au maximum.`}</p></div>`;
-    $("dino-extra").innerHTML = shopHtml(st) + dexHtml(st);
+    $("dino-extra").innerHTML = feederHtml(st) + shopHtml(st) + dexHtml(st);
     if (open.shop) $("dino-shop-box").open = true;
     if (open.dex) $("dino-dex-box").open = true;
     startPlaytime();
@@ -205,7 +234,15 @@
       const res = await API.dino(Session.userId);
       render(res);
       dexToasts(res);
+      feederNews(res);
     } catch (e) { $("dino-meta").textContent = "Impossible de charger les dinos."; }
+  }
+  // Repas servis en ton absence : annonce une fois, puis marques comme vus.
+  function feederNews(res) {
+    const f = res && res.feeder;
+    if (!f || !f.unseen) return;
+    Toast.info(`🥣 Le distributeur a servi ${f.unseen} portion${f.unseen > 1 ? "s" : ""} à tes dinos pendant ton absence.`);
+    API.dino(Session.userId, "feederSeen").then(render).catch(() => {});
   }
   function dexToasts(res) {
     (res.dexRewards || []).forEach((r, i) => setTimeout(() => Toast.success(`📖 Dinodex : ${r.n} entrées ! Récompense : ${esc(r.label)}`), 400 + i * 500));
@@ -216,7 +253,7 @@
     no_food: "Plus de cette nourriture : va pêcher !", not_hungry: "Il n'a plus faim.", play_cooldown: "Il se repose, reviens plus tard.", sleeping: "Chut, il dort (23 h - 7 h).",
     nothing_to_clean: "Rien à ramasser.", nothing_to_feed: "Personne n'a faim, ou il ne reste que ta réserve de nourriture : va pêcher !", walked_today: "Ils se sont tous déjà promenés aujourd'hui.", wrong_mode: "Les balades des dinos sont réservées au mode Chill.", invalid_name: "Nom invalide.", nothing_to_collect: "Pas encore de trouvaille.", max_eggs: "Déjà 3 œufs en attente.",
     not_adult: "Il faut deux adultes.", not_happy_enough: "Les deux parents doivent être heureux (bonheur 70+) et nourris (satiété 40+).", breed_cooldown: "Ils se reposent avant une nouvelle ponte.",
-    egg_not_ready: "L'œuf n'est pas encore prêt.", not_enough_dust: "Pas assez de poussières.", already_owned: "Déjà possédé.", dino_dead: "Il n'y a plus qu'un tas d'os…"
+    egg_not_ready: "L'œuf n'est pas encore prêt.", feeder_full: "Le distributeur est plein.", feeder_empty: "Le distributeur est déjà vide.", no_feeder: "Installe d'abord un distributeur.", max_level: "Déjà au niveau maximum.", not_enough_dust: "Pas assez de poussières.", already_owned: "Déjà possédé.", dino_dead: "Il n'y a plus qu'un tas d'os…"
   };
   const pop = (id, txt) => {
     const targets = [document.querySelector(`.dino-card[data-dino="${id}"] .dino-pen`), document.querySelector(`.dino-walker[data-dino-pet="${id}"]`)].filter(Boolean);
@@ -261,6 +298,9 @@
       if (res.buried) Toast.info(`${resIcon("bone")} Tu récupères ${res.buried.bones} os. Repose en paix, ${esc(res.buried.name)}…`);
       if (res.grown) { Toast.success(`🌟 Ton dino grandit : stade ${esc(res.grown.stage)} !`); if (res.grown.stage === "Adulte") Toast.info("⛏️ Adulte : il fouille maintenant pour toi quand il est content."); }
       if (res.bought) Toast.success("🛍️ Acheté !");
+      if (res.feederBought) Toast.success(`🥣 ${esc(res.feeder.label)} installé${res.feederBought > 1 ? "" : "e"} !`);
+      if (res.feederFilled) Toast.success(`🥣 +${res.feederFilled} portion${res.feederFilled > 1 ? "s" : ""} dans le distributeur.`);
+      if (res.feederEmptied) Toast.info(`🥣 ${res.feederEmptied} portion${res.feederEmptied > 1 ? "s" : ""} rendue${res.feederEmptied > 1 ? "s" : ""} à ta réserve.`);
       if (res.fedAll) Toast.success(`🍖 Repas servi à ${res.fedAll.length} dino${res.fedAll.length > 1 ? "s" : ""} (${res.fedAll.reduce((s, x) => s + x.meals, 0)} portions).`);
       if (res.playedAll) Toast.success(`🎾 Tu as joué avec ${res.playedAll} dinos : ils sont ravis !`);
       if (res.walkingAll) Toast.success(`🦕 ${res.walkingAll} dinos partent en balade pour une heure.`);
@@ -292,6 +332,13 @@
     if (!e.target.closest("#dino-pane")) return;
     const b = e.target.closest("button");
     if (!b) return;
+    if (b.dataset.feeder) {
+      const k = b.dataset.feeder;
+      if (k === "buy") return act("feederBuy", {}, b);
+      if (k === "fillAll") return act("feederFill", {}, b);
+      if (k === "fill") return act("feederFill", { food: b.dataset.food }, b);
+      if (k === "empty") return act("feederEmpty", {}, b);
+    }
     if (b.id === "dino-hatch-btn") return act("hatch", {}, b);
     if (b.id === "dino-collect-btn") return act("collect", {}, b);
     if (b.id === "dino-clean-all-btn") return act("clean", {}, b);

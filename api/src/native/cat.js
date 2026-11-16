@@ -15,6 +15,8 @@ import { setting } from './settings.js';
 import { catLoot } from './fishing.js';
 import { catchSpecies } from './aquarium.js';
 import { petBoost, petGift, petRhythm } from './pets.js';
+import { workFields } from './companions.js';
+import { onMission } from './companion-core.js';
 
 export const schema = { Users: { CatFish: { type: 'Numeric' }, CatState: { type: 'Text' }, CatFedDay: { type: 'Text' }, CatFedCount: { type: 'Numeric' } } };
 
@@ -27,6 +29,8 @@ export function settleCat(store, user) {
   const s = stateOf(user);
   if (!s) return null;
   const t = now();
+  // En mission (compagnons V2) : la session est decalee, rien a crediter.
+  if (t < s.start) return null;
   // Tendresse (pets.js) : Moka lance plus souvent et rapporte plus de poussieres.
   const love = petBoost(store, user, 'moka');
   // Fatigue (pets.js) : ses pauses ralentissent le rythme moyen.
@@ -59,13 +63,15 @@ export function settleCat(store, user) {
   }
   const gift = petGift(store, { ...user, ...fields }, 'moka');
   if (gift) Object.assign(fields, gift.fields);
+  const work = workFields(store, { ...user, ...fields }, 'moka', n);
+  Object.assign(fields, work.fields);
   const species = catchSpecies({ ...user, ...fields }, { store, count: n, weatherKey: weather.key });
   if (species) { Object.assign(fields, species.fields); add('StardustCount', species.dust); }
   fields.CatState = finished && total >= Math.floor((s.until - s.start) / castSec) ? '' : JSON.stringify({ ...s, done: total });
   // P.S. (2026-10-19) : un indice sur ses amis chats (reglages MokaHints, MokaHintChance).
   const hints = (setting(store, 'MokaHints') || []).filter((h) => typeof h === 'string' && h.trim());
   const hint = hints.length && Math.random() < setting(store, 'MokaHintChance') ? hints[Math.floor(Math.random() * hints.length)] : null;
-  return { fields, report: { casts: n, items: [...items.values()], species: species ? species.items : [], speciesDust: species ? species.dust : 0, done: !fields.CatState, ...(hint ? { hint } : {}), ...(gift ? { loveGift: gift.gift } : {}), ...(love.love ? { love: Math.round(love.love) } : {}) } };
+  return { fields, report: { casts: n, items: [...items.values()], species: species ? species.items : [], speciesDust: species ? species.dust : 0, done: !fields.CatState, ...(hint ? { hint } : {}), ...(gift ? { loveGift: gift.gift } : {}), ...(love.love ? { love: Math.round(love.love) } : {}), ...(work.items.length ? { petItems: work.items } : {}) } };
 }
 
 function rollLoot(table) {
@@ -98,6 +104,7 @@ function handle({ store, body }) {
   const report = settled && settled.report;
   if ((body.action || 'status') === 'status') return ok({ cat: catView(store, user), catReport: report });
   if (body.action !== 'feed') return fail('unknown_action');
+  if (onMission(user, 'moka')) return fail('pet_on_mission', 400, { cat: catView(store, user) });
   const count = Math.max(1, Math.floor(Number(body.count) || 1));
   const v = catView(store, user);
   if (v.fish < count) return fail('no_cat_fish', 400, { cat: v });

@@ -765,7 +765,7 @@ await test('pity carte manquante : la carte garantie est une carte pas encore po
 await test('ameliorations permanentes et relance de finition : depenses de poussieres', () => {
   store.update('Users', 1, { StardustCount: 10000, Upgrades: '{}' });
   let st = call('POST', 'upgrades', { body: { userId: 1 } }).json;
-  assert.equal(st.upgrades.length, 3);
+  assert.equal(st.upgrades.length, 9); // 6 ateliers de plus le 2026-11-16
   st = call('POST', 'upgrades', { body: { userId: 1, action: 'buy', key: 'greenhouse' } }).json;
   assert.equal(st.paid, 500);
   st = call('POST', 'upgrades', { body: { userId: 1, action: 'buy', key: 'greenhouse' } }).json;

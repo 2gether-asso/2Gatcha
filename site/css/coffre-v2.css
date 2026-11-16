@@ -112,3 +112,32 @@
 .pv2-sc-tools button::before { content: none; }
 .pv2-sc-tools button:disabled { opacity: 0.3; cursor: default; }
 @media (max-width: 760px) { .pv2-sc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.pv2-interest-rate { display: block; font-size: 0.72rem; color: var(--text-dim); text-align: center; margin-top: 2px; }
+.pv2-interest-rate a { color: var(--accent); }
+
+/* Ecrin des pierres (2026-11-16, js/coffre-gems.js). */
+.pv-gems { margin: 14px 0; border-radius: 16px; border: 1px solid color-mix(in srgb, #a78bfa 45%, var(--border-soft)); background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, #7c3aed 18%, transparent), transparent 60%), var(--bg-panel-2); }
+.pv-gems > summary { cursor: pointer; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-weight: 800; }
+.pv-gems > summary small { font-weight: 400; color: var(--text-dim); font-size: 0.8rem; }
+.pv-gems-ready { color: #f0abfc; }
+.pv-gems-body { padding: 0 14px 14px; }
+.pv-gems-help { font-size: 0.84rem; color: var(--text-dim); margin: 0 0 10px; }
+.pv-gems-tiers { list-style: none; padding: 0; margin: 0 0 6px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 6px; }
+.pv-gems-tiers li { display: grid; grid-template-columns: 1fr auto; gap: 0 6px; padding: 6px 10px; border-radius: 10px; background: var(--bg-panel, rgba(0,0,0,.2)); border: 1px solid var(--border-soft); font-size: 0.8rem; }
+.pv-gems-tiers li small { grid-column: 1 / -1; color: var(--text-dim); font-size: 0.72rem; }
+.pv-gems-tiers li.done { border-color: #a78bfa; }
+.pv-gems-tier-title { font-size: 0.85rem; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+.pv-gems-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); gap: 8px; }
+.pv-gem-slot { display: grid; gap: 4px; justify-items: center; text-align: center; padding: 10px 8px; border-radius: 12px; background: var(--bg-panel, rgba(0,0,0,.2)); border: 1px dashed var(--border-soft); min-width: 0; }
+.pv-gem-slot strong { font-size: 0.82rem; }
+.pv-gem-slot small { font-size: 0.7rem; color: var(--text-dim); overflow-wrap: anywhere; }
+.pv-gem-slot.ready { border-style: solid; border-color: #f0abfc; }
+.pv-gem-slot.filled { border-style: solid; border-color: #a78bfa; box-shadow: 0 0 18px -8px #a78bfa; }
+.pv-gem-card { position: relative; width: 64px; aspect-ratio: 5 / 7; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,.04); display: grid; place-items: center; }
+.pv-gem-card > img:first-child:not(.pv-gem-stone) { width: 100%; height: 100%; object-fit: cover; }
+.pv-gem-card .pv-gem-stone { width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+.pv-gem-slot.filled .pv-gem-card .pv-gem-stone { position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; }
+.pv-gem-slot.empty .pv-gem-stone { opacity: 0.35; filter: grayscale(1); }
+.pv-gem-pick { max-width: 100%; font: inherit; font-size: 0.72rem; }
+.pv-gem-btn { font-size: 0.75rem; padding: 4px 10px; }
+.pv-gems a { color: #f0abfc; }

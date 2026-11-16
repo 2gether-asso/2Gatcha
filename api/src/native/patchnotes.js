@@ -8,6 +8,58 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-16', title: 'Compagnons V2', items: [
+    'Une page Compagnons (menu Monde) : fiches, missions, souvenirs, amitiés et concours',
+    'Tes compagnons ont un niveau (1 à 30) : ils gagnent de l’XP en travaillant, en se promenant, en mission et avec tes câlins, et deviennent plus rapides et plus généreux',
+    'Au niveau 15, chacun choisit une voie (changeable contre des poussières) avec 3 compétences, dont une compétence active au niveau 30',
+    'Chaque jour, chaque compagnon a une envie : devine-la pour doubler l’affection gagnée',
+    'Missions de 2, 4 ou 8 h, seul ou en duo : butin, fragments d’équipement, souvenirs, parfois un coffre. Pendant la mission, il ne travaille pas dans son jeu (sa session reprend à son retour)',
+    'Équipement : collier, outil et porte-bonheur, en 3 paliers',
+    'Album de souvenirs par lieu, amitiés entre compagnons et concours de la semaine (titre « Ami des bêtes »)',
+    'Deux nouvelles compagnes à apprivoiser : Praline la tortue (coffre-fort) et Réglisse la chouette (ouverture de boosters, la nuit)',
+    'Poivre le rat s’installe aux fourneaux : donne-lui du fromage et il cuisine pour toi avec les ingrédients du garde-manger (les commandes du jour d’abord)',
+    'Une barre du compagnon identique dans chaque jeu : niveau, affection, envie du jour, gestes et compétence active'
+  ] },
+  { date: '2026-11-16', title: 'Coffres V2', items: [
+    'Chaque coffre du gatchapon a maintenant une famille : Collectionneur (des cartes, et des cartes que tu n’as pas encore), Explorateur (minéraux, tablettes), Nature (jardin et cuisine), Compagnons (friandises de tes compagnons) et Fortune (poussières et jetons)',
+    'Les pièces de couleur font tomber une boule de la famille de ton choix',
+    'Trois clés : la clé ordinaire ouvre jusqu’au coffre du voyageur, la clé d’or tous les coffres avec un bonus. Le serrurier les fabrique : clé ordinaire = 150 poussières, une pièce détachée et 3 minéraux communs ; clé d’or = 500 poussières, 3 clés ordinaires et un Or',
+    'Une nouvelle ouverture : le coffre tremble, la clé tourne, les objets sortent un par un, le meilleur en dernier, et plusieurs coffres s’ouvrent en cascade',
+    'Collection de coffres : chaque famille et chaque palier ouverts pour la première fois rapportent un bonus, et les 40 un titre',
+    'Des coffres ailleurs : coffres enfouis de la fouille profonde, expéditions longues, pourboires de la cuisine, boss vaincus, légendes et grand chelem du carnet des métiers, Comptoir des maîtres et coffre-fort'
+  ] },
+  { date: '2026-11-16', title: 'Progression : 100 talents, la branche Gardien', items: [
+    'L’arbre de talents compte maintenant 100 points : chaque branche gagne un deuxième palier (10 points) et un grand ultime (19 points)',
+    'Nouvelle branche 🛡️ Gardien : intérêts du coffre-fort, dinos, distributeur de l’enclos et Milo. Son grand ultime, l’Ange gardien, empêche tes dinos de mourir',
+    'Six nouvelles améliorations permanentes : Coffre blindé, Pioche affûtée, Pinceau d’archéologue, Four de chef, Trémie du distributeur et Boussole',
+    'Coffre-fort perso : le rendement des intérêts s’améliore (talents Banquier et Protecteur, Coffre blindé), et avec le talent Épargnant les jours non récupérés s’accumulent',
+    'Tes talents déjà appris sont gardés : les nouveaux points t’attendent',
+    'Le niveau maximum du coffre-fort suit maintenant le nombre de cartes du jeu : le dernier niveau demande toute la collection rangée dans ses 6 finitions, et recule à chaque nouvelle extension. Les récompenses de palier déjà prises restent acquises',
+    'Le coffre-fort monte maintenant jusqu’au niveau 100 : Coffre de fer I à X, Coffre renforcé I à X… jusqu’au Trésor légendaire. Des poussières à chaque niveau, des boosters tous les 5 niveaux et des intérêts qui grimpent jusqu’à 120 ✨ par jour'
+  ] },
+  { date: '2026-11-16', title: 'Coffre-fort : un écrin', items: [
+    'Ceux qui savent sertir des pierres sur leurs cartes trouveront un écrin dans leur coffre-fort : une place par minéral, des points de prestige et des récompenses'
+  ] },
+  { date: '2026-11-16', title: 'Distributeur automatique pour l’enclos', items: [
+    'Installe un distributeur dans l’enclos de tes dinos et remplis-le avec ta nourriture : il nourrit tout seul un dino qui a faim, même quand tu n’es pas là',
+    'Tant qu’il reste des portions, aucun dino ne meurt de faim. Trois niveaux : plus de place, plat préféré d’abord, puis un peu de bonheur à chaque repas',
+    'L’accueil te prévient quand il est presque vide'
+  ] },
+  { date: '2026-11-16', title: 'Le carnet des métiers', items: [
+    'Chaque semaine, 2 contrats par métier (fouille, pêche, jardin, archéologie, cuisine) en trois paliers bronze, argent et or : poussières, ressources et jetons de maître',
+    'Une légende cachée par métier et par semaine : un fossile, un poisson, une plante, une tablette, un plat… à débusquer en jouant, garantie si tu insistes',
+    'Les 10 contrats en or : grand chelem et un titre',
+    'Le Comptoir des maîtres échange tes jetons contre des appâts dorés, des tablettes, des pièces détachées, un crâne de dinosaure…',
+    'Le carnet est au village, et chaque métier rappelle ses contrats en haut de son onglet'
+  ] },
+  { date: '2026-11-16', title: 'Atelier : un mode rapide plus malin', items: [
+    'Options du rapide : compléter une fusion avec une pièce détachée, une restauration avec des poussières (dans la limite que tu choisis)',
+    'Avec la porte de la salle ouverte, « Tout en rapide » peut aussi transmuter en Doré ou en Diamant les cartes qui n’ont pas encore cette finition, sans toucher tes exemplaires précieux'
+  ] },
+  { date: '2026-11-16', title: 'Ouverture des boosters : finitions', items: [
+    'Les titres de rareté, le bilan et ses compteurs retrouvent la police du jeu',
+    'Les boutons du bilan ont tous la même taille et ne recouvrent plus les cartes'
+  ] },
   { date: '2026-11-15', title: 'Le pass de saison se réinvente', items: [
     'Dès décembre, le pass compte 100 paliers, avec une récompense à chaque palier : poussières, un coffre tous les 5, un booster et une clé tous les 10, et toujours la carte et le titre de la saison au bout',
     'Chaque jour, 3 missions du jour courtes (ouvrir 3 boosters, creuser 10 cases, récolter 3 plantes…) donnent de l’XP de saison, en plus de l’XP gagnée en jouant',

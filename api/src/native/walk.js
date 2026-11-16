@@ -16,6 +16,8 @@ import { petAdopted } from './starter.js';
 import { pantryFields } from './cooking.js';
 import { addTabletsFields } from './archeo.js';
 import { MINERALS, mineralsOf } from './digdepth.js';
+import { companionEvent } from './companions.js';
+import { onMission } from './companion-core.js';
 
 export const schema = { Users: { WalkDay: { type: 'Text' }, WalkCount: { type: 'Numeric' } } };
 
@@ -27,18 +29,19 @@ const RES = {
   grub: { field: 'Grubs', label: 'vers blancs', icon: '🐛' },
   bait: { field: 'GoldBait', label: 'appât doré', icon: '✨' },
   dust: { field: 'StardustCount', label: 'poussières', icon: '✨' },
-  key: { field: 'KeyCount', label: 'clé', icon: '🔑' }
+  key: { field: 'KeyCount', label: 'clé', icon: '🔑' },
+  cheese: { field: 'Cheese', label: 'fromage', icon: '🧀' }
 };
 const ING = { veg: ['légumes', '🥬'], herb: ['herbes', '🌿'], berry: ['baies', '🫐'], mush: ['champignons', '🍄'], honey: ['miel', '🍯'], fish: ['poissons', '🐟'], carrot: ['carottes', '🥕'], fruit: ['fruits exotiques', '🥭'] };
 export const PLACES = [
   // Mode Chill (2026-11-02) : coquillages et fragments de la bibliotheque engloutie (vacation.js).
-  { key: 'plage', label: 'La plage', icon: '🏖️', fav: 'moka', rule: 'chill.beachWalk', desc: 'Coquillages, fruits exotiques, poissons pour Moka et parfois un fragment englouti.',
+  { key: 'plage', label: 'La plage', icon: '🏖️', fav: 'moka', also: ['paprika'], rule: 'chill.beachWalk', desc: 'Coquillages, fruits exotiques, poissons pour Moka et parfois un fragment englouti.',
     loot: [['shell', 0.8, 1, 2], ['fruit', 0.8, 1, 2], ['fish', 0.5, 1, 2], ['dust', 0.4, 10, 30]],
     story: ['a couru après les vagues', 'a creusé un trou dans le sable mouillé', 'a fait la sieste à l’ombre d’un parasol'] },
-  { key: 'foret', label: 'La forêt', icon: '🌲', fav: 'milo', desc: 'Baies, champignons et parfois un os.',
-    loot: [['berry', 0.6, 1, 3], ['mush', 0.5, 1, 2], ['herb', 0.3, 1, 1], ['bone', 0.25, 1, 1], ['dust', 0.4, 10, 30]],
+  { key: 'foret', label: 'La forêt', icon: '🌲', fav: 'milo', also: ['poivre'], desc: 'Baies, champignons, parfois un os ou un fromage de la ferme.',
+    loot: [['berry', 0.6, 1, 3], ['mush', 0.5, 1, 2], ['herb', 0.3, 1, 1], ['bone', 0.25, 1, 1], ['cheese', 0.2, 1, 1], ['dust', 0.4, 10, 30]],
     story: ['a flairé quelque chose sous les fougères', 'a couru après un écureuil', 'a fouillé un tas de feuilles mortes'] },
-  { key: 'lac', label: 'Le bord du lac', icon: '🏞️', fav: 'moka', desc: 'Poissons, vers et parfois un appât doré.',
+  { key: 'lac', label: 'Le bord du lac', icon: '🏞️', fav: 'moka', also: ['praline'], desc: 'Poissons, vers et parfois un appât doré.',
     loot: [['fish', 0.6, 1, 2], ['worm', 0.6, 2, 4], ['herb', 0.25, 1, 1], ['bait', 0.08, 1, 1], ['dust', 0.3, 10, 25]],
     story: ['a guetté les poissons depuis un rocher', 'a trempé une patte dans l’eau', 'a suivi un héron le long de la rive'] },
   { key: 'prairie', label: 'La prairie', icon: '🌼', fav: 'noisette', desc: 'Carottes sauvages, herbes, légumes et miel.',
@@ -47,7 +50,7 @@ export const PLACES = [
   { key: 'ruines', label: 'Les ruines', icon: '🏛️', fav: 'pistache', desc: 'Vers blancs, minéraux et parfois une tablette.',
     loot: [['grub', 0.55, 1, 2], ['mineral', 0.35, 1, 1], ['tablet', 0.12, 1, 1], ['dust', 0.4, 15, 40]],
     story: ['a gratté entre deux vieilles pierres', 'a exploré un couloir effondré', 'a déterré quelque chose près d’une colonne'] },
-  { key: 'clairiere', label: 'La clairière aux lucioles', icon: '✨', night: true, desc: 'Seulement la nuit : miel, champignons, appât doré et, qui sait, une clé.',
+  { key: 'clairiere', label: 'La clairière aux lucioles', icon: '✨', night: true, fav: 'reglisse', desc: 'Seulement la nuit : miel, champignons, appât doré et, qui sait, une clé.',
     loot: [['honey', 0.7, 1, 2], ['mush', 0.5, 1, 2], ['berry', 0.4, 1, 2], ['bait', 0.2, 1, 1], ['dust', 0.5, 30, 60], ['key', 0.03, 1, 1]],
     story: ['a dansé au milieu des lucioles', 'a contemplé les étoiles', 'a suivi une lueur entre les arbres'] }
 ];
@@ -57,7 +60,8 @@ export function isNight(store, h = parisHour()) {
   return a > b ? h >= a || h < b : h >= a && h < b;
 }
 const doneToday = (user) => { const w = parseJson(user && user.WalkDay, null); return w && w.day === parisDay(0) && w.done && typeof w.done === 'object' ? w.done : {}; };
-const adoptedPets = (store, user) => Object.keys(PETS).filter((p) => petAdopted(store, user, p));
+const adoptedPets = (store, user) => Object.keys(PETS).filter((p) => petAdopted(store, user, p) && (p !== 'paprika' || Number(user.ForbiddenUnlocked) > 0));
+const isFav = (place, pet) => place.fav === pet || (place.also || []).includes(pet);
 
 function view(store, user) {
   const night = isNight(store);
@@ -66,12 +70,12 @@ function view(store, user) {
   return {
     enabled: !!setting(store, 'WalkEnabled'), night, favMult: mult, love: setting(store, 'WalkLove'),
     places: PLACES.filter((p) => !p.rule || ruleOn(store, p.rule)).map((p) => ({ key: p.key, label: p.label, icon: p.icon, desc: p.desc, fav: p.fav || null, night: !!p.night, open: !p.night || night })),
-    pets: adoptedPets(store, user).map((k) => ({ pet: k, label: PETS[k].label, icon: PETS[k].icon, fem: !!PETS[k].fem, love: Math.round(loveOf(store, user, k)), walked: done[k] || null, fav: (PLACES.find((p) => p.fav === k) || {}).key || null })),
+    pets: adoptedPets(store, user).map((k) => ({ pet: k, label: PETS[k].label, icon: PETS[k].icon, fem: !!PETS[k].fem, love: Math.round(loveOf(store, user, k)), walked: done[k] || null, away: onMission(user, k), fav: (PLACES.find((p) => isFav(p, k)) || {}).key || null })),
     left: adoptedPets(store, user).filter((k) => !done[k]).length
   };
 }
 
-function rollFinds(store, user, place, fav) {
+export function rollFinds(store, user, place, fav) {
   const k = fav ? setting(store, 'WalkFavMult') : 1;
   const out = [];
   for (const [key, chance, min, max] of place.loot) if (Math.random() < chance) out.push({ key, n: Math.max(1, Math.round((min + Math.floor(Math.random() * (max - min + 1))) * k)) });
@@ -117,16 +121,20 @@ function handle({ store, body }) {
   if (place.night && !isNight(store)) return fail('place_closed', 400, view(store, user));
   const done = doneToday(user);
   if (done[pet]) return fail('already_walked', 400, view(store, user));
-  const fav = place.fav === pet;
+  if (onMission(user, pet)) return fail('pet_on_mission', 400, view(store, user));
+  const fav = isFav(place, pet);
   const { fields, items } = rollFinds(store, user, place, fav);
   const gain = Math.round(setting(store, 'WalkLove') * (fav ? 1.5 : 1));
   fields.PetLove = loveFields(store, { ...user, ...fields }, pet, gain);
   fields.WalkDay = JSON.stringify({ day: parisDay(0), done: { ...done, [pet]: place.key } });
   fields.WalkCount = (Number(user.WalkCount) || 0) + 1;
+  // Compagnons V2 : XP, envie du jour (une balade precise), souvenir du lieu.
+  const ev = companionEvent(store, { ...user, ...fields }, pet, { xp: fav ? 40 : 25, mood: { kind: 'walk', place: place.key }, souvenirChance: 0.25, place: place.key });
+  Object.assign(fields, ev.fields);
   user = store.update('Users', user.id, fields);
   const p = PETS[pet];
   const story = `${p.label} ${place.story[Math.floor(Math.random() * place.story.length)]}`;
-  return ok({ ...view(store, user), walk: { pet, label: p.label, icon: p.icon, place: place.key, placeLabel: place.label, placeIcon: place.icon, fav, story, items, love: gain } });
+  return ok({ ...view(store, user), walk: { pet, label: p.label, icon: p.icon, place: place.key, placeLabel: place.label, placeIcon: place.icon, fav, story, items, love: gain, xp: ev.xp || 0, ...(ev.hit ? { moodHit: true } : {}), ...(ev.souvenir ? { souvenir: ev.souvenir } : {}), ...(ev.levelUp ? { levelUp: ev.levelUp } : {}) } });
 }
 
 export const routes = { 'POST walk': handle };

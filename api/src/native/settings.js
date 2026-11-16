@@ -73,6 +73,27 @@ export const REGISTRY = {
       { key: 'skull', chance: 0.03, min: 1, max: 1 }, { key: 'tabletStone', chance: 0.02, min: 1, max: 1 }
     ]
   },
+  ChestFamilies: {
+    label: 'Coffres V2 : les 5 familles', type: 'json', group: 'Coffres', storage: 'app',
+    help: 'Une ligne par famille (key : ne pas changer). weight : chance que la machine tire cette famille ; dust / card / booster : facteurs des poussières, des chances de carte et de jetons ; extras : bonus de la famille (même format que les bonus des coffres : key, chance, min, max). En plus : Explorateur = minéraux, Nature = garde-manger, Compagnons = carottes, vers blancs et nourriture de l’enclos, Collectionneur = carte jamais obtenue dès le palier 4.',
+    def: [
+      { key: 'collector', label: 'Collectionneur', icon: '🎴', color: '#a855f7', desc: 'Des cartes, et dès le coffre du voyageur une carte que tu n’as pas encore.', weight: 22, dust: 0.6, card: 1.8, booster: 0.5, extras: [{ key: 'luck', chance: 0.15, min: 1, max: 2 }, { key: 'part', chance: 0.2, min: 1, max: 1 }] },
+      { key: 'explorer', label: 'Explorateur', icon: '⛏️', color: '#f59e0b', desc: 'Minéraux, tablettes, os et parfois un crâne de dinosaure.', weight: 20, dust: 0.8, card: 0.4, booster: 0.6, extras: [{ key: 'tabletClay', chance: 0.35, min: 1, max: 1 }, { key: 'tabletStone', chance: 0.12, min: 1, max: 1 }, { key: 'tabletGold', chance: 0.03, min: 1, max: 1 }, { key: 'bone', chance: 0.4, min: 1, max: 3 }, { key: 'skull', chance: 0.04, min: 1, max: 1 }] },
+      { key: 'nature', label: 'Nature', icon: '🌱', color: '#22c55e', desc: 'Vers, appâts dorés, engrais et ingrédients pour la cuisine.', weight: 20, dust: 0.7, card: 0.4, booster: 0.6, extras: [{ key: 'worms', chance: 0.8, min: 5, max: 15 }, { key: 'bait', chance: 0.4, min: 1, max: 2 }, { key: 'fertilizer', chance: 0.35, min: 1, max: 3 }, { key: 'goldFertilizer', chance: 0.08, min: 1, max: 1 }] },
+      { key: 'pets', label: 'Compagnons', icon: '🐾', color: '#ec4899', desc: 'Friandises de Milo, Moka, Noisette, Pistache et des dinos.', weight: 18, dust: 0.7, card: 0.4, booster: 0.6, extras: [{ key: 'catFish', chance: 0.6, min: 1, max: 4 }, { key: 'bone', chance: 0.5, min: 1, max: 3 }] },
+      { key: 'fortune', label: 'Fortune', icon: '✨', color: '#facc15', desc: 'Beaucoup de poussières et de jetons, plus de hasard.', weight: 20, dust: 1.8, card: 0.3, booster: 1.6, extras: [{ key: 'shards', chance: 0.3, min: 1, max: 3 }, { key: 'xpBoost', chance: 0.15, min: 15, max: 30 }, { key: 'key', chance: 0.12, min: 1, max: 1 }, { key: 'chest', chance: 0.1, min: 1, max: 1 }] }
+    ]
+  },
+  ChestKeyRecipes: {
+    label: 'Coffres V2 : fabrication des clés (serrurier)', type: 'json', group: 'Coffres', storage: 'app',
+    help: 'Objet { key, gold, room } : ce que coûte une clé. Champs possibles : dust, parts (pièces détachées), keys (clés ordinaires), goldKeys (clés d’or), mineral + minerals (un minéral précis), mineralTier + minerals (minéraux d’un palier, les plus nombreux d’abord), chips (jetons de la salle), allMinerals (N de chaque minéral). La clé spéciale (celle de la forge, même objet) n’existe que porte de la salle ouverte.',
+    def: { key: { dust: 150, parts: 1, mineralTier: 1, minerals: 3 }, gold: { dust: 500, keys: 3, mineral: 'or', minerals: 1 }, room: { keys: 1, allMinerals: 1 } }
+  },
+  ChestOrdinaryKeyMaxTier: { ...int('Coffres V2 : palier max d’une clé ordinaire', 4, 'Coffres', 'Au-dessus (coffre ancien et plus), il faut une clé d’or ou de la salle. Les boules d’avant la V2 s’ouvrent toujours avec une clé ordinaire.', 1, 8), storage: 'app' },
+  ChestFirstOpenDust: { ...int('Coffres V2 : poussières de la première ouverture (× palier)', 25, 'Coffres', 'Collection de coffres : la première fois qu’un coffre d’une famille et d’un palier est ouvert.', 0, 10000), storage: 'app' },
+  ChestBuriedChance: { ...pct('Coffres V2 : coffre enfoui par trésor (par profondeur au-delà de 2)', 0.01, 'Coffres', 'Fouille à la profondeur 3 et plus : chaque trésor dégagé peut cacher une boule Explorateur (palier selon la profondeur).'), storage: 'app' },
+  ChestExpeditionCoinChance: { ...pct('Coffres V2 : pièce Explorateur après une expédition de 8 h et plus', 0.35, 'Coffres', ''), storage: 'app' },
+  ChestCookCoinChance: { ...pct('Coffres V2 : pièce Nature en pourboire d’une commande de cuisine', 0.1, 'Coffres', ''), storage: 'app' },
   ChestSpecialFinishChance: { ...pct('Chance de finition spéciale (cartes du coffre)', 0.15, 'Coffres', ''), storage: 'app' },
 
   // --- Peche
@@ -102,6 +123,11 @@ export const REGISTRY = {
   ArcheoPerfectDust: { ...int('Archéologie : bonus d’une tablette déchiffrée', 80, 'Fouille', 'Toutes les trouvailles dégagées sans aucune fissure.', 0, 100000), storage: 'app' },
   ArcheoStarterTablets: { ...int('Archéologie : tablettes offertes pour découvrir le jeu', 2, 'Fouille', 'Une seule fois par joueur.', 0, 20), storage: 'app' },
   PetLoveEnabled: { label: 'Tendresse pour Milo et Moka', type: 'bool', def: true, group: 'Animaux', storage: 'app', help: 'Jauge d’affection (caresse, jeu, friandise) qui rend Milo et Moka plus rapides et plus généreux.' },
+  CompanionsEnabled: { label: 'Compagnons V2 : niveaux, voies, missions, équipement', type: 'bool', def: true, group: 'Animaux', storage: 'app', help: 'Page Compagnons : niveaux 1 à 30, voies au niveau 15, missions, équipement, souvenirs, concours de la semaine, Praline, Réglisse (et le compagnon de la salle).' },
+  CompanionXpBase: { ...int('Compagnons : XP de base des niveaux', 25, 'Animaux', 'Niveau L = base × (L-1) × L XP (niveau 30 : 21 750 XP à 25).', 1, 1000), storage: 'app' },
+  CompanionRespecDust: { ...int('Compagnons : prix pour changer de voie (poussières)', 2000, 'Animaux', '', 0, 1000000), storage: 'app' },
+  CompanionMissionXpPerHour: { ...int('Compagnons : XP par heure de mission', 20, 'Animaux', 'Duo : ×1,2 pour chacun.', 0, 1000), storage: 'app' },
+  CompanionContestDust: { label: 'Compagnons : poussières du concours de la semaine', type: 'json', group: 'Animaux', storage: 'app', help: 'Liste : 1er, 2e, 3e, puis le dernier nombre pour les places 4 à 10. Le 1er reçoit aussi le titre « Ami des bêtes ».', def: [800, 500, 300, 100] },
   PetLoveDecayPerHour: { ...num('Tendresse : points d’affection perdus par heure', 2, 'Animaux', '2 = une jauge pleine se vide en un peu plus de 2 jours sans attention.', 0, 50), storage: 'app' },
   PetCuddleLove: { ...int('Tendresse : affection d’une caresse', 8, 'Animaux', '', 0, 100), storage: 'app' },
   PetCuddleMinutes: { ...int('Tendresse : minutes entre deux caresses', 60, 'Animaux', '', 1, 1440), storage: 'app' },
@@ -170,6 +196,10 @@ export const REGISTRY = {
   CookOrderRareChance: { ...pct('Cuisine : chance d’un ingrédient rare par commande', 0.25, 'Cuisine', 'Truffe, poisson rare, épice, fleur ou œuf.'), storage: 'app' },
   CookTools: { label: 'Cuisine : prix des ustensiles', type: 'json', group: 'Cuisine', storage: 'app', help: 'Objet { oven, smoker, mill, cauldron : liste de 3 niveaux [poussières, pièces détachées] }. Poussières × indice des prix. Niveau de cuisinier requis : four 2, fumoir 3, moulin 4, chaudron 5.', def: { oven: [[1500, 1], [4000, 2], [9000, 3]], smoker: [[2000, 1], [5000, 2], [11000, 3]], mill: [[2500, 2], [6000, 3], [12000, 4]], cauldron: [[3000, 2], [7000, 3], [14000, 5]] } },
   CookFreshHours: { ...int('Cuisine : heures avant qu’un plat frais perde une qualité', 24, 'Cuisine', 'Après « raté », il se gâte. Fumoir 2 : ×1,5 ; fumoir 3 : ×2. Les plats qui se gardent ne bougent pas.', 1, 720), storage: 'app' },
+  RatMinutesPerCheese: { ...int('Poivre le rat : minutes de travail par fromage', 120, 'Cuisine', 'Il cuisine pour toi avec les ingrédients du garde-manger.', 10, 1440), storage: 'app' },
+  RatMaxMinutes: { ...int('Poivre le rat : minutes de travail d’avance au maximum', 1440, 'Cuisine', '', 60, 10080), storage: 'app' },
+  RatJobMinutes: { ...int('Poivre le rat : minutes par plat', 60, 'Cuisine', 'Plus vite avec l’affection et son niveau.', 5, 1440), storage: 'app' },
+  RatCheeseTipChance: { ...pct('Poivre le rat : chance qu’un client laisse un fromage', 0.25, 'Cuisine', 'À chaque commande livrée.'), storage: 'app' },
   CookDishMax: { ...int('Cuisine : plats gardés au maximum', 20, 'Cuisine', '', 1, 200), storage: 'app' },
   CookDigPct: { ...int('Cuisine : chance d’un minéral en plus par coup de pelle (%)', 15, 'Cuisine', 'Effet « dig », × la force du plat.', 0, 100), storage: 'app' },
   CookExpeditionPct: { ...int('Cuisine : expédition plus courte (%)', 25, 'Cuisine', 'Effet « expedition », sur les départs pendant le bonus ; 80 % au plus.', 0, 80), storage: 'app' },
@@ -409,10 +439,21 @@ export const REGISTRY = {
   VaultDustPerRow: { ...int('Coffre-fort : poussières par ligne complète', 200, 'Coffre-fort perso', ''), storage: 'config' },
   // Coffre-fort V2 (2026-11-07) : niveau du coffre, recompense de palier et interets du jour.
   VaultXpPerCard: { ...int('Coffre-fort : points de prestige par carte rangée', 1, 'Coffre-fort perso', 'Chaque exemplaire rangé (hors émeraude). Retirer une carte retire ses points.'), storage: 'app' },
+  MetierContractDust: { label: 'Métiers : poussières des paliers de contrat', type: 'json', group: 'Métiers', storage: 'app', help: 'Liste de 3 nombres : bronze, argent, or (carnet des métiers, contrats de la semaine).', def: [80, 150, 250] },
+  MetierLegendDust: { ...int('Métiers : poussières d’une légende de la semaine', 400, 'Métiers', 'Une légende par métier et par semaine (chance à chaque action, garantie au bout d’un certain nombre).'), storage: 'app' },
+  MetierLegendTokens: { ...int('Métiers : jetons de maître d’une légende', 5, 'Métiers', 'Jetons du Comptoir des maîtres.', 0, 1000), storage: 'app' },
+  MetierSlamTokens: { ...int('Métiers : jetons du grand chelem', 10, 'Métiers', 'Les 10 contrats de la semaine en or.', 0, 1000), storage: 'app' },
+  VaultLevelsFromCards: { label: 'Coffre-fort : niveau max selon le nombre de cartes', type: 'bool', def: true, group: 'Coffre-fort perso', storage: 'app', help: 'Les paliers des niveaux du coffre gardent leurs proportions, mais le dernier est recalculé sur le catalogue : toutes les cartes rangeables (ni promo, ni Unique) dans leurs 6 finitions, lignes comprises. Une nouvelle extension recule donc le niveau max. Désactivé : les points des niveaux du coffre tels quels.' },
+  VaultMaxLevelPct: { ...int('Coffre-fort : niveau max à quel % du coffre complet', 100, 'Coffre-fort perso', '100 = il faut tout le catalogue rangé dans les 6 finitions pour le dernier niveau.', 1, 100), storage: 'app' },
+  VaultLevelCount: { ...int('Coffre-fort : nombre de niveaux', 100, 'Coffre-fort perso', 'Les niveaux du coffre (réglage suivant) servent de paliers : chacun donne son nom à une série de niveaux (Coffre de fer I, II…). Points sur une courbe jusqu’au niveau max, intérêts interpolés entre les paliers (doublés au sommet), boosters tous les 5 niveaux (plus tous les 10), poussières à chaque niveau. Au plus le nombre de paliers : les paliers tels quels.', 2, 200), storage: 'app' },
+  VaultGemXp: { ...int('Coffre-fort : points de prestige par pierre de l’écrin (× palier)', 5, 'Coffre-fort perso', 'Écrin : une carte sertie rangée dans la place de sa pierre donne ce nombre × le palier du minéral (1 à 5).', 0, 1000), storage: 'app' },
+  VaultGemTierRewards: { label: 'Coffre-fort : récompenses des paliers de l’écrin', type: 'json', group: 'Coffre-fort perso', storage: 'app', help: 'Liste de 5 { dust, boosters } : donnés une fois quand toutes les pierres d’un palier de minéraux (Commun à Légendaire) sont dans l’écrin. L’écrin complet donne aussi le titre « Joaillier ».', def: [{ dust: 200, boosters: 1 }, { dust: 350, boosters: 1 }, { dust: 500, boosters: 2 }, { dust: 800, boosters: 3 }, { dust: 1200, boosters: 5 }] },
+  VaultInterestBankDays: { ...int('Coffre-fort : jours d’intérêts qui s’accumulent', 1, 'Coffre-fort perso', 'Jours d’intérêts non récupérés gardés en réserve (1 = seulement celui du jour). Le talent Épargnant en ajoute 2.', 1, 30), storage: 'app' },
+  VaultInterestBonusPct: { ...int('Coffre-fort : bonus d’intérêts pour tous (%)', 0, 'Coffre-fort perso', 'S’ajoute au talent Banquier et à l’amélioration Coffre blindé.', 0, 500), storage: 'app' },
   VaultXpPerRow: { ...int('Coffre-fort : points de prestige par ligne complète', 10, 'Coffre-fort perso', 'Une fois par ligne récompensée (toutes éditions), même si une carte est retirée ensuite.'), storage: 'app' },
   VaultLevels: {
     label: 'Coffre-fort : niveaux du coffre', type: 'json', group: 'Coffre-fort perso', storage: 'app',
-    help: 'Une ligne par niveau, dans l’ordre. xp : points de prestige à atteindre ; boosters / dust : récompense donnée une fois en atteignant le niveau (bouton « Réclamer ») ; interest : poussières à récupérer une fois par jour à ce niveau ; name : nom affiché (la porte du coffre change de métal tous les 3 niveaux).',
+    help: 'Les paliers du coffre (avec 100 niveaux, chacun nomme une série de niveaux et donne ses intérêts de référence). Une ligne par palier, dans l’ordre. xp : points de prestige à atteindre (proportions, si le niveau max suit le catalogue) ; boosters / dust : récompense donnée une fois en atteignant le niveau (bouton « Réclamer ») ; interest : poussières à récupérer une fois par jour à ce niveau ; name : nom affiché (la porte du coffre change de métal tous les 3 niveaux).',
     def: [
       { xp: 0, name: 'Coffre de fer', boosters: 0, dust: 0, interest: 0 },
       { xp: 8, name: 'Coffre renforcé', boosters: 1, dust: 50, interest: 5 },
@@ -787,6 +828,9 @@ function validate(key, raw) {
     if (key === 'ExpeditionDestinations' && (!v.length || v.some((d) => !d || !d.key || !d.name || !d.loot || !Object.keys(d.loot).length || Object.entries(d.loot).some(([k, n]) => !['Worms', 'BoneCount', 'GoldBait', 'SpareParts', 'CatFish', 'KeyCount', 'DinoSkulls', 'ChestCount', 'minerals'].includes(k) || !(Number(n) >= 0))) || new Set(v.map((d) => d.key)).size !== v.length)) throw new Error(`${r.label} : chaque destination a une key unique, un nom et un butin de ressources connues`);
     if (['ForbiddenInlaySpins', 'ForbiddenInlayPower', 'ForbiddenForgeChance', 'ForbiddenHeartPoints'].includes(key) && (v.length !== 5 || v.some((x) => !(Number(x) >= 0)) || (key === 'ForbiddenForgeChance' && v.some((x) => Number(x) > 1)))) throw new Error(`${r.label} : il faut 5 nombres positifs${key === 'ForbiddenForgeChance' ? ' (entre 0 et 1)' : ''}`);
     if ((key === 'ForbiddenGoldCost' || key === 'ForbiddenDiamondCost') && (Array.isArray(v) || !Object.keys(v).length || Object.values(v).some((x) => !(Number(x) >= 1)))) throw new Error(`${r.label} : un objet { rareté : nombre ≥ 1 }`);
+    if (key === 'VaultGemTierRewards' && (!Array.isArray(v) || v.length !== 5 || v.some((x) => !x || !(Number(x.dust ?? 0) >= 0) || !(Number(x.boosters ?? 0) >= 0)))) throw new Error(`${r.label} : 5 objets { dust ≥ 0, boosters ≥ 0 }`);
+    if (key === 'CompanionContestDust' && (!Array.isArray(v) || !v.length || v.some((n) => !(Number(n) >= 0)))) throw new Error(`${r.label} : une liste de nombres ≥ 0`);
+    if (key === 'MetierContractDust' && (!Array.isArray(v) || v.length !== 3 || v.some((n) => !(Number(n) >= 0)))) throw new Error(`${r.label} : 3 nombres ≥ 0 (bronze, argent, or)`);
     if (key === 'CookQuality' && (v.length !== 4 || v.some((q) => !q || !q.label || !(Number(q.dur) > 0) || !(Number(q.power) > 0)))) throw new Error(`${r.label} : 4 qualités { key, label, dur > 0, power > 0 }`);
     if (key === 'CookTiming' && (v.length !== 3 || v.some((x, i) => !(Number(x) > 0) || (i && Number(x) < Number(v[i - 1]))))) throw new Error(`${r.label} : 3 nombres croissants`);
     if (key === 'CookTools' && (Array.isArray(v) || Object.values(v).some((l) => !Array.isArray(l) || l.some((x) => !Array.isArray(x) || !(Number(x[0]) >= 0) || !(Number(x[1]) >= 0))))) throw new Error(`${r.label} : un objet { ustensile : [[poussières, pièces], …] }`);

@@ -14,6 +14,7 @@ import { stockFactor } from './modefun.js';
 import { expeditionLevel } from './levels.js';
 import { isTight } from './inflation.js';
 import { dinoTalent, companionBonus } from './dino.js';
+import { upgradeValue } from './upgrades.js';
 
 const QUALITY_UP = { damaged: 'worn', worn: 'good', good: 'mint' };
 
@@ -91,6 +92,7 @@ export function afterWorkflow({ store, path, request, response }) {
   } else if (path === 'dig' && body.action === 'dig' && json.dug && json.dustGained > 0) {
     const added = applyDust(store, userId, json, json.dustGained, [
       { k: talentValue(user, 'tireless'), label: '⛏️ Talent Fouilleur infatigable' },
+      { k: upgradeValue(user, 'pickaxe'), label: '⛏️ Pioche affûtée' },
       { k: dinoTalent(user, 'rex') ? 0.25 : 0, label: '🦖 Tyrannosaure' },
       { k: face === 2 ? 0.25 : 0, label: '🎲 Dé du jour' },
       { k: lucky, label: luckyLabel }
@@ -101,6 +103,7 @@ export function afterWorkflow({ store, path, request, response }) {
     const added = applyDust(store, userId, json, json.reward.dust, [
       { k: lvl.perks.dustBonus, label: `🧭 Niveau d’expédition ${lvl.level}` },
       { k: talentValue(user, 'explorer'), label: '🗺️ Talent Explorateur' },
+      { k: upgradeValue(user, 'compass'), label: '🧭 Boussole' },
       { k: companionBonus(user), label: '🦖 Dino compagnon' },
       { k: face === 5 ? 0.25 : 0, label: '🎲 Dé du jour' },
       { k: lucky, label: luckyLabel }
@@ -129,6 +132,38 @@ export function afterWorkflow({ store, path, request, response }) {
       json.duplicateDust.newStardust = ns;
       json.bonuses = [...(json.bonuses || []), { label: '♻️ Talent Recycleur', dust: bonus }];
     }
+  } else if (path === 'archeo' && (json.finished || json.freed)) {
+    // Archeologie (2026-11-16) : talent Archeologue et Pinceau d'archeologue,
+    // sur le bonus de tablette parfaite et les poussieres des trouvailles.
+    const freed = Array.isArray(json.freed) ? json.freed : json.freed ? [json.freed] : [];
+    const base = (Number(json.finished && json.finished.bonus) || 0) + freed.reduce((n, f) => n + (Number(f && f.dust) || 0), 0);
+    if (base > 0) applyDust(store, userId, json, base, [
+      { k: talentValue(user, 'archeologist'), label: '🏺 Talent Archéologue' },
+      { k: upgradeValue(user, 'brush'), label: '🖌️ Pinceau d’archéologue' }
+    ]);
+  } else if (path === 'cook' && body.action === 'deliver' && json.delivered && json.delivered.dust > 0) {
+    const added = applyDust(store, userId, json, json.delivered.dust, [
+      { k: talentValue(user, 'chef'), label: '👨‍🍳 Talent Cordon-bleu' },
+      { k: upgradeValue(user, 'oven'), label: '🍳 Four de chef' }
+    ]);
+    json.delivered.dust += added;
+  } else if (path === 'garden' && body.action === 'harvest' && json.harvested && json.gained) {
+    // Talent Recolteur : chaque parcelle a sa chance de recolte double (vers et appats).
+    const k = talentValue(user, 'harvester');
+    const n = Number(json.harvested) || 0;
+    let doubled = 0;
+    for (let i = 0; i < n; i++) if (Math.random() < k) doubled++;
+    if (doubled) {
+      const worms = Math.round((Number(json.gained.worms) || 0) * doubled / n), bait = Math.round((Number(json.gained.bait) || 0) * doubled / n);
+      if (worms || bait) {
+        const u = store.get('Users', userId);
+        store.update('Users', userId, { Worms: (Number(u.Worms) || 0) + worms, GoldBait: (Number(u.GoldBait) || 0) + bait });
+        json.gained.worms = (Number(json.gained.worms) || 0) + worms;
+        json.gained.bait = (Number(json.gained.bait) || 0) + bait;
+        json.harvesterBonus = { plots: doubled, worms, bait };
+        json.notices = [...(json.notices || []), { kind: 'talent', icon: '🧺', label: `Talent Récolteur : récolte double sur ${doubled} parcelle${doubled > 1 ? 's' : ''} (+${worms} vers${bait ? `, +${bait} appât${bait > 1 ? 's' : ''} doré${bait > 1 ? 's' : ''}` : ''})` }];
+      }
+    }
   } else if (path === 'craft' && json.crafted && json.card) {
     const k = talentValue(user, 'thrifty');
     const rarity = json.card.rarity ? store.get('Rarities', Number(json.card.rarity.id)) : null;
@@ -145,3 +180,6 @@ export function afterWorkflow({ store, path, request, response }) {
     }
   }
 }
+
+// Routes natives (jardin, archeologie, cuisine) : memes bonus (index.js run).
+export const afterNative = (ctx) => { if (['archeo', 'cook', 'garden'].includes(ctx.path)) afterWorkflow(ctx); };

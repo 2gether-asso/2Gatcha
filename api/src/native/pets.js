@@ -25,6 +25,10 @@ import { ruleOn } from './moderules.js';
 import { ok, fail, userById, now, parisDay, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { buffOn } from './cooking.js';
+// Compagnons V2 (2026-11-16) : niveaux, voies, equipement (companion-core.js),
+// XP, envies du jour, travail (companions.js).
+import { perksOf, compOf, V2_PETS, onMission } from './companion-core.js';
+import { companionEvent, moodWanted, workFields, GESTURE_XP } from './companions.js';
 
 export const schema = { Users: { PetLove: { type: 'Text' }, MiloSpeed: { type: 'Numeric' }, MiloRest: { type: 'Numeric' } } };
 
@@ -33,8 +37,16 @@ export const PETS = {
   moka: { label: 'Moka', icon: '🐈', fem: true, gifts: [{ field: 'CatFish', label: 'un poisson', icon: '🐟' }, { field: 'GoldBait', label: 'un appât doré', icon: '✨' }, { field: 'SpareParts', label: 'une pièce détachée', icon: '🔩', rare: true }] },
   // 2026-10-30 : Noisette (jardin, garden.js) et Pistache (archeologie, archeo.js).
   noisette: { label: 'Noisette', icon: '🐇', fem: true, gifts: [{ field: 'Worms', label: '3 vers', icon: '🪱', n: 3 }, { field: 'GoldBait', label: 'un appât doré', icon: '✨' }, { field: 'SpareParts', label: 'une pièce détachée', icon: '🔩', rare: true }] },
-  pistache: { label: 'Pistache', icon: '🦔', gifts: [{ field: 'Worms', label: '2 vers', icon: '🪱', n: 2 }, { field: 'Tablets', label: 'une tablette d’argile', icon: '🟫' }, { field: 'KeyCount', label: 'une clé', icon: '🔑', rare: true }] }
+  pistache: { label: 'Pistache', icon: '🦔', gifts: [{ field: 'Worms', label: '2 vers', icon: '🪱', n: 2 }, { field: 'Tablets', label: 'une tablette d’argile', icon: '🟫' }, { field: 'KeyCount', label: 'une clé', icon: '🔑', rare: true }] },
+  // Poivre le rat (2026-11-16) : il cuisine pour toi (cooking.js).
+  poivre: { label: 'Poivre', icon: '🐀', gifts: [{ field: 'StardustCount', label: '30 poussières', icon: '✨', n: 30 }, { field: 'Cheese', label: 'un morceau de fromage', icon: '🧀' }, { field: 'SpareParts', label: 'une pièce détachée', icon: '🔩', rare: true }] },
+  // Compagnons V2 (2026-11-16) : a adopter (companions.js, quetes).
+  praline: { label: 'Praline', icon: '🐢', fem: true, v2: true, gifts: [{ field: 'StardustCount', label: '40 poussières', icon: '✨', n: 40 }, { field: 'SpareParts', label: 'une pièce détachée', icon: '🔩' }, { field: 'BoosterCount', label: 'un jeton booster', icon: '🃏', rare: true }] },
+  reglisse: { label: 'Réglisse', icon: '🦉', fem: true, v2: true, gifts: [{ field: 'StardustCount', label: '30 poussières', icon: '✨', n: 30 }, { field: 'GoldBait', label: 'un appât doré', icon: '✨' }, { field: 'BoosterCount', label: 'un jeton booster', icon: '🃏', rare: true }] },
+  paprika: { label: 'Paprika', icon: '🦜', v2: true, gifts: [{ field: 'CasinoChips', label: '10 jetons de la salle', icon: '🎰', n: 10 }, { field: 'ForbiddenFreeSpins', label: 'un tour gratuit', icon: '🎰' }, { field: 'KeyCount', label: 'une clé', icon: '🔑', rare: true }] }
 };
+// Nouveaux compagnons : seulement une fois adoptes (Users.Companions.adopt).
+const v2Adopted = (user, pet) => !V2_PETS.includes(pet) || !!compOf(user).adopt[pet];
 const GESTURES = {
   cuddle: { label: 'Caresse', icon: '🤲', love: 'PetCuddleLove' },
   play: { label: 'Jeu', icon: '🎾', love: 'PetPlayLove' },
@@ -50,7 +62,8 @@ export function loveOf(store, user, pet, t = now()) {
   const p = allLove(user)[pet];
   if (!p) return 0;
   const hours = Math.max(0, (t - (Number(p.at) || t)) / 3600);
-  return Math.max(0, Math.min(100, (Number(p.v) || 0) - hours * setting(store, 'PetLoveDecayPerHour')));
+  // Collier (compagnons V2) : l'affection baisse moins vite.
+  return Math.max(0, Math.min(100, (Number(p.v) || 0) - hours * setting(store, 'PetLoveDecayPerHour') * (1 - perksOf(store, user, pet).decay)));
 }
 // Bonus de l'animal : fractions (0,25 = 25 %).
 export function petBoost(store, user, pet) {
@@ -58,20 +71,22 @@ export function petBoost(store, user, pet) {
   // Tarte aux baies (cooking.js) : ils travaillent comme s'ils t'adoraient.
   const love = buffOn(user, 'pets') ? 100 : loveOf(store, user, pet);
   const k = love / 100;
+  // Compagnons V2 : niveau, voie et equipement s'ajoutent a la tendresse.
+  const p = perksOf(store, user, pet);
   return {
     love,
-    speed: Math.round(k * setting(store, 'PetMaxSpeedPct')) / 100,
-    loot: Math.round(k * setting(store, 'PetMaxLootPct')) / 100,
-    giftChance: love >= 80 ? setting(store, 'PetGiftChance') : 0
+    speed: Math.min(0.9, Math.round(k * setting(store, 'PetMaxSpeedPct')) / 100 + p.speed),
+    loot: Math.round(k * setting(store, 'PetMaxLootPct')) / 100 + p.loot,
+    giftChance: love >= 80 ? setting(store, 'PetGiftChance') + p.gift : love >= 50 && p.gift > 0 ? p.gift : 0
   };
 }
 // Fatigue : minutes de travail et de pause d'un cycle, et la jauge du moment.
 export function petRhythm(store, user, pet, t = now()) {
   const work = Math.max(5, setting(store, 'PetWorkMinutes'));
   const love = loveOf(store, user, pet, t);
-  const rest = Math.max(0, setting(store, 'PetRestMinutes') * (1 - (love / 100) * 0.5));
+  const rest = Math.max(0, setting(store, 'PetRestMinutes') * (1 - (love / 100) * 0.5) * (1 - perksOf(store, user, pet).rest));
   const cycle = work + rest;
-  const phase = ((t / 60) + (Number(user.id) || 0) * 7 + ({ moka: 23, noisette: 11, pistache: 37 }[pet] || 0)) % cycle;
+  const phase = ((t / 60) + (Number(user.id) || 0) * 7 + ({ moka: 23, noisette: 11, pistache: 37, praline: 5, reglisse: 29, paprika: 17, poivre: 41 }[pet] || 0)) % cycle;
   const resting = phase >= work;
   return {
     workMinutes: work, restMinutes: Math.round(rest), factor: rest > 0 ? cycle / work : 1, resting,
@@ -114,7 +129,7 @@ function petView(store, user, pet, t = now()) {
     rhythm: petRhythm(store, user, pet, t)
   };
 }
-const stateOf = (store, user) => ({ enabled: !!setting(store, 'PetLoveEnabled'), pets: Object.keys(PETS).map((k) => petView(store, user, k)), stardust: Number(user.StardustCount) || 0 });
+const stateOf = (store, user) => ({ enabled: !!setting(store, 'PetLoveEnabled'), pets: Object.keys(PETS).filter((k) => v2Adopted(user, k) && (k !== 'paprika' || Number(user.ForbiddenUnlocked) > 0)).map((k) => petView(store, user, k)), stardust: Number(user.StardustCount) || 0 });
 
 function handle({ store, body }) {
   let user = userById(store, body.userId);
@@ -124,10 +139,13 @@ function handle({ store, body }) {
   if (!GESTURES[action]) return fail('unknown_action');
   if (!setting(store, 'PetLoveEnabled')) return fail('pets_closed');
   const pet = String(body.pet || '');
-  if (!PETS[pet]) return fail('unknown_pet');
+  if (!PETS[pet] || !v2Adopted(user, pet)) return fail('unknown_pet');
   const t = now();
   const view = petView(store, user, pet, t);
-  const g = view.gestures[action];
+  const g = { ...view.gestures[action] };
+  // Envie du jour comblee (compagnons V2) : affection doublee.
+  const wanted = moodWanted(store, user, pet, action);
+  if (wanted) g.gain *= 2;
   if (action !== 'treat' && g.wait > 0) return fail('pet_cooldown', 400, { wait: g.wait, ...stateOf(store, user) });
   const fields = {};
   if (action === 'treat') {
@@ -137,8 +155,10 @@ function handle({ store, body }) {
   }
   const love = Math.min(100, loveOf(store, user, pet, t) + g.gain);
   fields.PetLove = loveFields(store, user, pet, g.gain, (p) => { if (action === 'treat') { p.treats = (p.treatDay === parisDay(0) ? Number(p.treats) || 0 : 0) + 1; p.treatDay = parisDay(0); } else p[action] = t; });
+  const ev = companionEvent(store, { ...user, ...fields }, pet, { xp: GESTURE_XP[action] || 0, mood: { kind: action } });
+  Object.assign(fields, ev.fields);
   user = store.update('Users', user.id, fields);
-  return ok({ ...stateOf(store, user), pet, gesture: action, gained: Math.round(love - view.love) });
+  return ok({ ...stateOf(store, user), pet, gesture: action, gained: Math.round(love - view.love), ...(ev.hit ? { moodHit: true } : {}), ...(ev.souvenir ? { souvenir: ev.souvenir } : {}), ...(ev.levelUp ? { levelUp: ev.levelUp } : {}), petXp: ev.xp || 0 });
 }
 
 // Affection en plus (gestes, promenade) : nouvelle valeur de Users.PetLove.
@@ -158,6 +178,9 @@ export function beforeWorkflow({ store, path, request }) {
   if (path !== 'dig') return null;
   const user = store.get('Users', Number((request.body || {}).userId));
   if (!user) return null;
+  // Milo en mission (compagnons V2) : on ne peut pas le remettre au travail.
+  const act = (request.body || {}).action;
+  if ((act === 'useBone' || act === 'frenzy') && onMission(user, 'milo')) return { status: 400, json: { error: 'pet_on_mission' } };
   const speed = petBoost(store, user, 'milo').speed;
   const rest = Math.round(petRhythm(store, user, 'milo').factor * 1000) / 1000;
   if ((Number(user.MiloSpeed) || 0) !== speed || (Number(user.MiloRest) || 0) !== rest) store.update('Users', user.id, { MiloSpeed: speed, MiloRest: rest });
@@ -175,8 +198,10 @@ export function afterWorkflow({ store, path, request, response }) {
   const dust = Number(report.dust) || 0;
   const bonus = dust > 0 && b.loot > 0 ? Math.round(dust * b.loot) : 0;
   const gift = petGift(store, user, 'milo');
-  if (!bonus && !gift) return;
-  const fields = { ...(gift ? gift.fields : {}) };
+  // Compagnons V2 : XP et trouvailles des competences, par case creusee.
+  const work = workFields(store, user, 'milo', Number(report.tiles) || 0);
+  if (work.items.length) report.petItems = work.items;
+  const fields = { ...work.fields, ...(gift ? gift.fields : {}) };
   if (bonus) fields.StardustCount = (Number(user.StardustCount) || 0) + bonus;
   user = store.update('Users', user.id, fields);
   if (bonus) { report.dust = dust + bonus; report.loveBonus = bonus; }

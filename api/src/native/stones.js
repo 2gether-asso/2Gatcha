@@ -170,6 +170,8 @@ function gem(store, user, body) {
   const m = BY_KEY.get(String(body.key || ''));
   if (!m) return fail('unknown_mineral');
   if (p.Gem === m.key) return fail('same_gem', 400, atelier(store, user));
+  // Ecrin du coffre-fort (2026-11-16) : une carte rangee garde sa pierre.
+  if (p.InVault) return fail('in_vault', 400, atelier(store, user));
   const cost = setting(store, 'ForbiddenGemCost');
   const owned = mineralsOf(user);
   if ((Number(owned[m.key]) || 0) < cost) return fail('not_enough_minerals', 400, atelier(store, user));

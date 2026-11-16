@@ -6,6 +6,12 @@
 // (10 points) ; ils se nourrissent des points des etoiles de prestige
 // (account-prestige.js) et renforcent les talents de leur branche (adds) :
 // 45 points en tout. Remise a zero payante (TalentResetCost).
+// 2026-11-16 : arbre de 100 points. Quatre branches (Gardien en plus :
+// coffre-fort perso, dinos, distributeur, Milo) de 25 points chacune :
+// palier 1 (3 talents x 3 rangs), ultime (6 points), palier 2 (3 talents x 3
+// rangs, 10 points dans la branche), grand ultime (19 points) et talent de
+// prestige (5 rangs, 10 points). Un joueur garde ses rangs ; tout le reste
+// est nouveau.
 //   POST /webhook/talents { userId, action: 'status' | 'learn' | 'reset', key? }
 // Effets appliques ailleurs (boosts.js, fishing.js, garden.js, rules.js,
 // market.js) via talentValue(user, key).
@@ -18,7 +24,8 @@ import { skyAdd } from './skytree.js';
 const BRANCHES = [
   { key: 'collector', label: 'Collectionneur', icon: '🎴' },
   { key: 'artisan', label: 'Artisan', icon: '⚒️' },
-  { key: 'adventurer', label: 'Aventurier', icon: '🧭' }
+  { key: 'adventurer', label: 'Aventurier', icon: '🧭' },
+  { key: 'warden', label: 'Gardien', icon: '🛡️' }
 ];
 
 export const TALENTS = [
@@ -34,11 +41,35 @@ export const TALENTS = [
   { key: 'greenthumb', branch: 'adventurer', label: 'Main verte', icon: '🌱', max: 3, per: 0.1, desc: 'Le jardin pousse 10 % plus vite par rang.' },
   { key: 'explorer', branch: 'adventurer', label: 'Explorateur', icon: '🗺️', max: 3, per: 0.1, desc: '+10 % de poussières rapportées d’expédition par rang.' },
   { key: 'tireless', branch: 'adventurer', label: 'Fouilleur infatigable', icon: '⛏️', max: 1, req: 6, per: 0.15, desc: '+15 % de poussières trouvées à la fouille.' },
+  // --- 2026-11-16 : palier 2 (10 points dans la branche) et grand ultime (19 points).
+  { key: 'prism', branch: 'collector', label: 'Prisme', icon: '🔮', max: 3, req: 10, per: 0, adds: { lynx: 0.005 }, desc: '+0,5 point de chance de finition spéciale par rang.' },
+  { key: 'velvet', branch: 'collector', label: 'Main de velours', icon: '🧤', max: 3, req: 10, per: 0, adds: { born: 0.015 }, desc: '+1,5 % de chance par rang qu’une carte tirée gagne un état.' },
+  { key: 'magnet', branch: 'collector', label: 'Aimant à poussières', icon: '🧲', max: 3, req: 10, per: 0, adds: { recycler: 0.05, patron: 0.03 }, desc: '+5 % de poussières de doublons et +3 % au décraft par rang.' },
+  { key: 'archivist', branch: 'collector', label: 'Grand archiviste', icon: '📜', max: 1, req: 19, per: 0, adds: { lynx: 0.01, patron: 0.05, born: 0.02 }, desc: '+1 point de finition spéciale, +5 % au décraft et +2 % de chance qu’une carte gagne un état.' },
+  { key: 'smith', branch: 'artisan', label: 'Forgeron', icon: '⚒️', max: 3, req: 10, per: 0.08, desc: '−8 % par rang sur le prix des relances de finition.' },
+  { key: 'tinker', branch: 'artisan', label: 'Bricoleur', icon: '🔧', max: 3, req: 10, per: 0.04, desc: '−4 % par rang sur le prix des améliorations permanentes.' },
+  { key: 'chef', branch: 'artisan', label: 'Cordon-bleu', icon: '👨‍🍳', max: 3, req: 10, per: 0.1, desc: '+10 % de poussières par rang sur les commandes livrées en cuisine.' },
+  { key: 'grandmaster', branch: 'artisan', label: 'Grand maître', icon: '🏅', max: 1, req: 19, per: 0.05, adds: { thrifty: 0.05, founder: 0.1 }, desc: '+5 points de réussite des relances de finition, −5 % sur le craft, +10 % de chance du Fondeur.' },
+  { key: 'archeologist', branch: 'adventurer', label: 'Archéologue', icon: '🏺', max: 3, req: 10, per: 0.1, desc: '+10 % de poussières par rang sur les tablettes et les trouvailles d’archéologie.' },
+  { key: 'linefine', branch: 'adventurer', label: 'Ligne fine', icon: '🪝', max: 3, req: 10, per: 0.06, desc: '+6 % de poussières et de perles pêchées par rang.' },
+  { key: 'harvester', branch: 'adventurer', label: 'Récolteur', icon: '🧺', max: 3, req: 10, per: 0.06, desc: '6 % de chance par rang qu’une parcelle récoltée donne une récolte double (vers et appâts).' },
+  { key: 'nomad', branch: 'adventurer', label: 'Grand voyageur', icon: '🌍', max: 1, req: 19, per: 0, adds: { explorer: 0.1, tireless: 0.1, angler: 2 }, desc: '+10 % de poussières d’expédition et de fouille, +2 énergie de pêche max.' },
+  // Branche Gardien (2026-11-16) : coffre-fort perso, dinos, Milo.
+  { key: 'banker', branch: 'warden', label: 'Banquier', icon: '🏦', max: 3, per: 0.1, desc: '+10 % par rang sur les intérêts du coffre-fort perso.' },
+  { key: 'tamer', branch: 'warden', label: 'Dresseur', icon: '🦖', max: 3, per: 0.05, desc: 'Le bonheur de tes dinos baisse 5 % moins vite par rang.' },
+  { key: 'nanny', branch: 'warden', label: 'Nourricier', icon: '🥣', max: 3, per: 0.1, desc: '10 % de chance par rang qu’une portion servie par le distributeur de l’enclos ne soit pas consommée.' },
+  { key: 'saver', branch: 'warden', label: 'Épargnant', icon: '🐖', max: 1, req: 6, per: 2, desc: 'Les intérêts du coffre-fort non récupérés s’accumulent jusqu’à 2 jours de plus.' },
+  { key: 'kennelmaster', branch: 'warden', label: 'Maître-chien', icon: '🐕', max: 3, req: 10, per: 0.08, desc: '+8 % par rang de poussières rapportées par Milo.' },
+  { key: 'paleo', branch: 'warden', label: 'Paléontologue', icon: '🦴', max: 3, req: 10, per: 0.1, desc: '+10 % par rang de poussières sur les trouvailles de tes dinos.' },
+  { key: 'curator', branch: 'warden', label: 'Conservateur', icon: '🗝️', max: 3, req: 10, per: 0.05, desc: '+5 % par rang de points de prestige du coffre-fort perso (niveau du coffre).' },
+  { key: 'guardian', branch: 'warden', label: 'Ange gardien', icon: '👼', max: 1, req: 19, per: 1, desc: 'Tes dinos ne meurent plus : à bout de forces, ils restent « en danger » et t’attendent.' },
   // Talents de prestige : branche complete exigee, effets ajoutes aux talents de la branche.
   { key: 'pLuck', branch: 'collector', label: 'Chance insolente', icon: '🍀', max: 5, req: 10, prestige: true, per: 0, adds: { lynx: 0.005, born: 0.01 }, desc: '+0,5 point de finition spéciale et +1 % de chance qu’une carte gagne un état, par rang.' },
   { key: 'pVirtuoso', branch: 'artisan', label: 'Virtuose', icon: '💎', max: 5, req: 10, prestige: true, per: 0, adds: { thrifty: 0.03, patron: 0.03 }, desc: '−3 % sur le craft et +3 % de poussières au décraft, par rang.' },
-  { key: 'pLegend', branch: 'adventurer', label: 'Légende vivante', icon: '🏔️', max: 5, req: 10, prestige: true, per: 0, adds: { angler: 1, explorer: 0.05, tireless: 0.05 }, desc: '+1 énergie de pêche max, +5 % de poussières d’expédition et de fouille, par rang.' }
+  { key: 'pLegend', branch: 'adventurer', label: 'Légende vivante', icon: '🏔️', max: 5, req: 10, prestige: true, per: 0, adds: { angler: 1, explorer: 0.05, tireless: 0.05 }, desc: '+1 énergie de pêche max, +5 % de poussières d’expédition et de fouille, par rang.' },
+  { key: 'pWarden', branch: 'warden', label: 'Protecteur', icon: '🛡️', max: 5, req: 10, prestige: true, per: 0, adds: { banker: 0.05, tamer: 0.03, nanny: 0.04 }, desc: '+5 % d’intérêts du coffre, bonheur des dinos 3 % moins vite et +4 % de portions offertes, par rang.' }
 ];
+export const TALENT_TOTAL = TALENTS.reduce((s, t) => s + t.max, 0);
 
 export const schema = { Users: { Talents: { type: 'Text' } } };
 
@@ -67,7 +98,7 @@ function state(store, user) {
   const spent = TALENTS.reduce((s, t) => s + Math.min(t.max, Number(ranks[t.key]) || 0), 0);
   const inBranch = (b) => TALENTS.filter((t) => t.branch === b).reduce((s, t) => s + Math.min(t.max, Number(ranks[t.key]) || 0), 0);
   return {
-    level, points: total, spent, available: Math.max(0, total - spent),
+    level, points: total, spent, treeTotal: TALENT_TOTAL, available: Math.max(0, total - spent),
     resetCost: setting(store, 'TalentResetCost'), stardust: Number(user.StardustCount) || 0,
     branches: BRANCHES.map((b) => ({ ...b, spent: inBranch(b.key) })),
     talents: TALENTS.map((t) => {

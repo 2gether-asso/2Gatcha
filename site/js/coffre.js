@@ -122,6 +122,8 @@ function pvRenderTabs(data) {
 
 function pvRender(data) {
   pvLastData = data;
+  // Ecrin des pierres (coffre-gems.js), seulement si le serveur l'envoie.
+  if (window.CoffreGems) CoffreGems.render(data);
   pvRenderTabs(data);
   const tab = pvEditionTab();
   const allRows = pvCurrentRows();

@@ -611,20 +611,82 @@
   const fusionSearch = { finish: "", quality: "" };
   // Filtre par niveau de depart (2026-10-18).
   const fusionFrom = { finish: "", quality: "" };
-  // Selection automatique sans exemplaire precieux (#001, arc-en-ciel,
-  // parfait etat, edition, ★, assure) ; null si pas assez d'exemplaires.
-  function autoFusion(kind, cardId, from) {
+  // Options du mode rapide (2026-11-16) : le bouton Rapide et « Tout en
+  // rapide » peuvent compléter une fusion avec une pièce détachée (au plus 1
+  // par fusion, comme le serveur), une restauration avec des poussières (au
+  // plus 1 exemplaire payé, dans la limite dustMax pour tout le lot), et
+  // transmuter (minerais Or / Diamants) les cartes qui n'ont pas encore la
+  // finition Dorée ou Diamant, avec un exemplaire en double dans sa finition.
+  const QUICK_OPTS_KEY = "2gatcha_quick_opts";
+  let quickOpts = { parts: false, dust: false, dustMax: 1000, gold: false, diamond: false };
+  try { quickOpts = { ...quickOpts, ...(JSON.parse(localStorage.getItem(QUICK_OPTS_KEY) || "{}") || {}) }; } catch (e) { /* stockage indisponible */ }
+  const saveQuickOpts = () => { try { localStorage.setItem(QUICK_OPTS_KEY, JSON.stringify(quickOpts)); } catch (e) { /* stockage indisponible */ } };
+  const quickBudget = () => ({ parts: quickOpts.parts ? Number(state.spareParts) || 0 : 0, dust: quickOpts.dust ? Math.min(Number(state.stardust) || 0, Math.max(0, Number(quickOpts.dustMax) || 0)) : 0 });
+  // Exemplaires manquants comblés : { parts, dustCopies } ou null.
+  function quickFill(kind, have, budget) {
+    const need = kind === "finish" ? 5 : 3;
+    const missing = need - have;
+    if (missing <= 0) return { parts: 0, dustCopies: 0 };
+    if (have < 1) return null;
+    const parts = budget.parts > 0 ? 1 : 0;
+    const dustCopies = kind === "quality" && missing - parts >= 1 && budget.dust >= repairDustPerCopy ? 1 : 0;
+    return parts + dustCopies >= missing ? { parts, dustCopies } : null;
+  }
+  const quickCopies = (kind, cardId, from) => {
     const isFinish = kind === "finish";
-    const need = isFinish ? 5 : 3;
     const otherRank = (c) => (isFinish ? FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c)) : FUSION_FINISH_RANK.indexOf(Coll.finishOf(c)));
-    const copies = (state.ownedMap.get(cardId)?.copies || [])
+    return (state.ownedMap.get(cardId)?.copies || [])
       .filter((c) => (isFinish ? Coll.finishOf(c) : Coll.qualityOf(c)) === from)
       .filter((c) => !Coll.isPrecious(c) && !(state.insured && state.insured.has(c.pullId)) && !c.inVault)
       .sort((a, b) => otherRank(a) - otherRank(b) || (b.serialNumber || 0) - (a.serialNumber || 0));
-    if (copies.length < need) return null;
-    const picked = copies.slice(0, need);
+  };
+  // Selection automatique sans exemplaire precieux (#001, arc-en-ciel,
+  // parfait etat, edition, ★, assure) ; null si pas assez d'exemplaires
+  // (meme avec les options du mode rapide).
+  function autoFusion(kind, cardId, from) {
+    const need = kind === "finish" ? 5 : 3;
+    const copies = quickCopies(kind, cardId, from);
+    const fill = copies.length >= need ? { parts: 0, dustCopies: 0 } : quickFill(kind, copies.length, quickBudget());
+    if (!fill) return null;
+    const picked = copies.slice(0, need - fill.parts - fill.dustCopies);
     const keepCopy = [...picked].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999))[0];
-    return { pullIds: picked.map((c) => c.pullId), keepPullId: keepCopy.pullId, parts: 0, dustCopies: 0, keepSerial: keepCopy.serialNumber, picked };
+    return { pullIds: picked.map((c) => c.pullId), keepPullId: keepCopy.pullId, parts: fill.parts, dustCopies: fill.dustCopies, keepSerial: keepCopy.serialNumber, picked };
+  }
+  // Transmutations du mode rapide : une par carte et par finition visee.
+  function transmutePlan() {
+    if (!state.transmute) return [];
+    const out = [];
+    for (const to of ["gold", "diamond"]) {
+      const t = state.transmute[to];
+      if (!quickOpts[to] || !t) continue;
+      let own = Number(t.own) || 0;
+      const rank = FINISH_ORDER.indexOf(to);
+      const allowed = to === "gold" ? ["normal", "holo"] : FINISH_ORDER.slice(0, rank);
+      const list = [];
+      state.ownedMap.forEach((owned, cardId) => {
+        const card = cardOf(cardId);
+        if (!card || card.isPromo || card.rarity?.key === "unique") return;
+        const copies = (owned.copies || []).filter((c) => !c.inVault);
+        if (copies.some((c) => Coll.finishOf(c) === to)) return;
+        const count = (f) => copies.filter((c) => Coll.finishOf(c) === f).length;
+        const cand = copies.filter((c) => allowed.includes(Coll.finishOf(c)) && count(Coll.finishOf(c)) >= 2 && !Coll.isPrecious(c) && !(state.insured && state.insured.has(c.pullId)))
+          .sort((a, b) => count(Coll.finishOf(b)) - count(Coll.finishOf(a)) || FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(b)) - FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(a)));
+        if (!cand.length) return;
+        list.push({ card, to, from: Coll.finishOf(cand[0]), pullId: cand[0].pullId, cost: t.costs[card.rarity?.key] || t.costs.default || 10, mineral: t.mineral });
+      });
+      // Les cartes les plus rares d'abord, tant qu'il reste des minerais.
+      list.sort((a, b) => (b.card.rarity?.sortOrder || 0) - (a.card.rarity?.sortOrder || 0) || a.card.name.localeCompare(b.card.name));
+      for (const u of list) { if (own < u.cost) continue; own -= u.cost; out.push(u); }
+    }
+    return out;
+  }
+  function quickOptsHtml(kind) {
+    const isFinish = kind === "finish";
+    const chk = (k, label, title, on = true) => (on ? `<label class="quick-opt" title="${title}"><input type="checkbox" data-qopt="${k}" ${quickOpts[k] ? "checked" : ""} /> ${label}</label>` : "");
+    return `<span class="quick-opts-title">Options du rapide :</span>`
+      + chk("parts", `${resIcon("part")} Pièces détachées <small>${fmtNum(state.spareParts || 0)}</small>`, "Une pièce détachée remplace un exemplaire manquant (une par " + (isFinish ? "fusion" : "restauration") + ")")
+      + (isFinish ? "" : chk("dust", `&#10024; Poussières <small>jusqu'à <input type="number" min="0" step="100" class="quick-opt-num" data-qopt-num="dustMax" value="${Number(quickOpts.dustMax) || 0}" aria-label="Poussières au plus pour le lot" /></small>`, `Un exemplaire manquant payé ${repairDustPerCopy} poussières (un par restauration)`))
+      + (isFinish && state.transmute ? chk("gold", `&#9879;&#65039; Transmuter en Doré`, "Avec tes minerais Or : les cartes sans exemplaire Doré, à partir d'un exemplaire en double") + chk("diamond", `&#9879;&#65039; en Diamant`, "Avec tes Diamants : les cartes sans exemplaire Diamant, à partir d'un exemplaire en double") : "");
   }
   let repairDustPerCopy = 60;
   API.getEconomyRules(Session.isLoggedIn() ? Session.userId : undefined).then((r) => { repairDustPerCopy = r.repairDustPerCopy || 60; }).catch(() => {});
@@ -640,7 +702,7 @@
       const counts = (kind === "finish" ? owned.finishCounts : owned.qualityCounts) || {};
       // Une piece detachee (pechee) peut remplacer un des exemplaires ; en
       // Qualite, une recherche montre aussi les cartes a 1 exemplaire.
-      const minNeed = kind === "quality" && q ? 1 : need - (state.spareParts > 0 ? 1 : 0);
+      const minNeed = kind === "quality" && q ? 1 : Math.max(1, need - (state.spareParts > 0 ? 1 : 0) - (kind === "quality" && quickOpts.dust ? 1 : 0));
       for (let i = 0; i < order.length - 1; i++) {
         if ((counts[order[i]] || 0) >= minNeed) out.push({ card, from: order[i], to: order[i + 1], available: counts[order[i]], need, withPart: (counts[order[i]] || 0) < need });
       }
@@ -689,7 +751,7 @@
     const ico = (img) => `<img class="ico-token" src="assets/${encodeURI(img)}" alt="" />`;
     box.innerHTML = `
       <summary><span>&#9879;&#65039; Transmutation minérale</span><small>${Object.values(state.transmute).map((x) => `${ico(x.mineral.img)} ${fmtNum(x.own)}`).join(" · ")}</small></summary>
-      <p class="coll-pane-help">Les pierres les plus précieuses de la fouille changent une carte d'un coup, sans fusion : de l'<strong>Or</strong> la passe en <strong>Doré</strong> (depuis Normal ou Holographique), du <strong>Diamant</strong> en <strong>Diamant</strong> (depuis Normal, Holo, Doré ou Ghost). C'est le même exemplaire : il garde son numéro, son état et son édition.</p>
+      <p class="coll-pane-help">Les pierres les plus précieuses de la fouille changent une carte d'un coup, sans fusion : de l'<strong>Or</strong> la passe en <strong>Doré</strong> (depuis Normal ou Holographique), du <strong>Diamant</strong> en <strong>Diamant</strong> (depuis Normal, Holo, Doré ou Ghost). C'est le même exemplaire : il garde son numéro, son état et son édition. Les autres usages des pierres (Cœur, forge interdite, sertissage) sont dans <a href="salamandre.html#pierres">la salle</a>.</p>
       <div class="transmute-tabs" role="radiogroup" aria-label="Finition visée">${Object.entries(state.transmute).map(([k, x]) => `<button type="button" role="radio" class="fusion-chip ${k === transmuteTo ? "active" : ""}" aria-checked="${k === transmuteTo}" data-transmute-to="${k}">${ico(x.mineral.img)} ${escapeHtml(x.mineral.name)} &#8594; <span class="finish-tag" data-finish="${k}">${FINISH_LABELS_LONG[k]}</span></button>`).join("")}</div>
       ${shown.length ? `<div class="transmute-list">${shown.map((u) => `
         <div class="finish-upgrade-row transmute-row" data-card-id="${u.card.cardId}">
@@ -755,13 +817,24 @@
     if (!bar) {
       bar = document.createElement("div");
       bar.className = "fusion-all-bar";
-      bar.innerHTML = `<button type="button" class="btn" data-fuse-all="${kind}" title="Toutes les ${kind === "finish" ? "fusions" : "restaurations"} rapides d'un coup, avec un aperçu">&#9889; Tout en rapide…</button>`;
+      bar.innerHTML = `<div class="quick-opts"></div><button type="button" class="btn" data-fuse-all="${kind}" title="Toutes les ${kind === "finish" ? "fusions" : "restaurations"} rapides d'un coup, avec un aperçu">&#9889; Tout en rapide…</button>`;
       bar.addEventListener("click", (e) => { if (e.target.closest("[data-fuse-all]")) openQuickAll(kind); });
+      bar.addEventListener("change", (e) => {
+        const t = e.target;
+        if (t.dataset.qopt) quickOpts[t.dataset.qopt] = t.checked;
+        else if (t.dataset.qoptNum) quickOpts[t.dataset.qoptNum] = Math.max(0, Math.floor(Number(t.value) || 0));
+        else return;
+        saveQuickOpts();
+        renderFusions(kind);
+      });
       el.parentNode.insertBefore(bar, chips);
     }
-    const quickCount = quickPlan(kind, null).length;
-    bar.hidden = !quickCount;
-    bar.querySelector("button").innerHTML = `&#9889; Tout en rapide <small>${quickCount}</small>`;
+    bar.querySelector(".quick-opts").innerHTML = quickOptsHtml(kind);
+    const quickCount = quickPlan(kind, null).length + (kind === "finish" ? transmutePlan().length : 0);
+    bar.hidden = false;
+    const allBtn = bar.querySelector("[data-fuse-all]");
+    allBtn.hidden = !quickCount;
+    allBtn.innerHTML = `&#9889; Tout en rapide <small>${quickCount}</small>`;
     if (!list.length) {
       el.innerHTML = `<div class="empty-state">${kind === "finish"
         ? "Aucune fusion possible pour l'instant : il te faut 5 exemplaires identiques (même carte, même finition) d'un coup."
@@ -822,9 +895,10 @@
     const to = order[order.indexOf(from) + 1];
     const card = cardOf(cardId);
     const serial = (n) => "#" + String(n ?? "?").padStart(3, "0");
-    const ok = await Confirm.show(`${isFinish ? "Fusionner" : "Restaurer"} <strong>${sel.pullIds.length} exemplaires ${labels[from]}</strong> de <strong>${escapeHtml(card?.name || "cette carte")}</strong> (${[...sel.picked].sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0)).map((c) => serial(c.serialNumber)).join(", ")}) en un exemplaire <strong>${labels[to]}</strong> qui garde le numéro <strong>${serial(sel.keepSerial)}</strong> ?`, { title: isFinish ? "Fusion rapide" : "Restauration rapide", confirmText: isFinish ? "Fusionner" : "Restaurer" });
+    const fills = [sel.parts ? `une pièce détachée ${resIcon("part")}` : "", sel.dustCopies ? `${sel.dustCopies * repairDustPerCopy} poussières &#10024;` : ""].filter(Boolean).join(" et ");
+    const ok = await Confirm.show(`${isFinish ? "Fusionner" : "Restaurer"} <strong>${sel.pullIds.length} exemplaire${sel.pullIds.length > 1 ? "s" : ""} ${labels[from]}</strong>${fills ? ` (+ ${fills})` : ""} de <strong>${escapeHtml(card?.name || "cette carte")}</strong> (${[...sel.picked].sort((a, b) => (a.serialNumber || 0) - (b.serialNumber || 0)).map((c) => serial(c.serialNumber)).join(", ")}) en un exemplaire <strong>${labels[to]}</strong> qui garde le numéro <strong>${serial(sel.keepSerial)}</strong> ?`, { title: isFinish ? "Fusion rapide" : "Restauration rapide", confirmText: isFinish ? "Fusionner" : "Restaurer" });
     if (!ok) return;
-    await runFuse(kind, cardId, from, { pullIds: sel.pullIds, keepPullId: sel.keepPullId, parts: 0, dustCopies: 0 });
+    await runFuse(kind, cardId, from, { pullIds: sel.pullIds, keepPullId: sel.keepPullId, parts: sel.parts || 0, dustCopies: sel.dustCopies || 0 });
   }
 
   // Tout en rapide (2026-10-28) : toutes les fusions rapides possibles d'un
@@ -841,6 +915,7 @@
     const otherRank = (c) => (isFinish ? FUSION_QUALITY_RANK.indexOf(Coll.qualityOf(c)) : FUSION_FINISH_RANK.indexOf(Coll.finishOf(c)));
     const order = isFinish ? FINISH_ORDER : QUALITY_ORDER;
     const out = [];
+    const budget = quickBudget();
     state.ownedMap.forEach((owned, cardId) => {
       const card = cardOf(cardId);
       if (!card || card.isPromo) return;
@@ -850,10 +925,20 @@
         const copies = (owned.copies || [])
           .filter((c) => levelOf(c) === from && !Coll.isPrecious(c) && !(state.insured && state.insured.has(c.pullId)) && !c.inVault)
           .sort((a, b) => otherRank(a) - otherRank(b) || (b.serialNumber || 0) - (a.serialNumber || 0));
-        for (let k = 0; k + need <= copies.length; k += need) {
+        let k = 0;
+        for (; k + need <= copies.length; k += need) {
           const picked = copies.slice(k, k + need);
           const keep = [...picked].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999))[0];
-          out.push({ card, from, to: order[i + 1], pullIds: picked.map((c) => c.pullId), keepPullId: keep.pullId });
+          out.push({ card, from, to: order[i + 1], pullIds: picked.map((c) => c.pullId), keepPullId: keep.pullId, parts: 0, dustCopies: 0 });
+        }
+        // Reste complete avec les options du mode rapide (budget partage par tout le lot).
+        const fill = copies.length - k > 0 ? quickFill(kind, copies.length - k, budget) : null;
+        if (fill && (fill.parts || fill.dustCopies)) {
+          const picked = copies.slice(k);
+          const keep = [...picked].sort((a, b) => (a.serialNumber || 9999) - (b.serialNumber || 9999))[0];
+          budget.parts -= fill.parts;
+          budget.dust -= fill.dustCopies * repairDustPerCopy;
+          out.push({ card, from, to: order[i + 1], pullIds: picked.map((c) => c.pullId), keepPullId: keep.pullId, parts: fill.parts, dustCopies: fill.dustCopies });
         }
       }
     });
@@ -886,7 +971,7 @@
           </fieldset>
           <fieldset class="recycle-group"><legend>Options</legend>
             <label class="recycle-check"><input type="checkbox" data-pref="cascade" ${prefs.cascade ? "checked" : ""} /> Enchaîner : refusionner les nouveaux exemplaires au niveau suivant tant que c'est possible</label>
-            <p class="recycle-note">Jamais touchés : #001, arc-en-ciel, parfait état, éditions limitées, cartes ★, exemplaires assurés ou au coffre. Aucune pièce détachée utilisée${isFinish ? "" : " ; le supplément de poussières des restaurations répétées dans la semaine s'applique comme à l'unité"}.</p>
+            <p class="recycle-note">Jamais touchés : #001, arc-en-ciel, parfait état, éditions limitées, cartes ★, exemplaires assurés ou au coffre. Pièces détachées${isFinish ? "" : ", poussières"}${isFinish && state.transmute ? " et transmutations" : ""} : selon les options du rapide, sous la liste des ${isFinish ? "fusions" : "restaurations"}${isFinish ? "" : " ; le supplément de poussières des restaurations répétées dans la semaine s'applique comme à l'unité"}.</p>
           </fieldset>
           <div class="recycle-preview" id="fuse-all-preview" aria-live="polite"></div>
         </div>
@@ -901,15 +986,23 @@
     const close = () => { if (running) running.stop = true; overlay.remove(); syncScrollLock(); };
     const draw = () => {
       const list = quickPlan(kind, levels());
+      const trans = isFinish ? transmutePlan() : [];
       // Une ligne par carte et niveau de depart (×n fusions).
       const groups = [];
-      list.forEach((u) => { const g = groups[groups.length - 1]; if (g && g.card === u.card && g.from === u.from) g.n++; else groups.push({ card: u.card, from: u.from, to: u.to, n: 1 }); });
-      $("fuse-all-preview").innerHTML = list.length
-        ? `<p><strong>${list.length}</strong> ${isFinish ? "fusion" : "restauration"}${list.length > 1 ? "s" : ""} sur ${groups.length} ligne${groups.length > 1 ? "s" : ""}${prefs.cascade ? ", puis les niveaux suivants si possible" : ""}</p>
-           <ul class="recycle-list">${groups.slice(0, 40).map((g) => `<li><span>${escapeHtml(g.card.name)}</span><small><span class="${tag}-tag" data-${tag}="${g.from}">${labels[g.from]}</span> &#8594; <span class="${tag}-tag" data-${tag}="${g.to}">${labels[g.to]}</span></small><b>×${g.n}</b></li>`).join("")}${groups.length > 40 ? `<li class="recycle-more">… et ${groups.length - 40} autre${groups.length - 40 > 1 ? "s" : ""}</li>` : ""}</ul>`
-        : `<p class="recycle-empty">Aucune ${isFinish ? "fusion" : "restauration"} rapide avec ces réglages.</p>`;
-      $("fuse-all-go").disabled = !list.length;
-      $("fuse-all-go").textContent = list.length ? `${verb} (${list.length})` : verb;
+      list.forEach((u) => { const g = groups[groups.length - 1]; if (g && g.card === u.card && g.from === u.from) { g.n++; g.parts += u.parts || 0; g.dust += u.dustCopies || 0; } else groups.push({ card: u.card, from: u.from, to: u.to, n: 1, parts: u.parts || 0, dust: u.dustCopies || 0 }); });
+      const parts = list.reduce((n, u) => n + (u.parts || 0), 0), dust = list.reduce((n, u) => n + (u.dustCopies || 0), 0) * repairDustPerCopy;
+      const fills = [parts ? `${parts} pièce${parts > 1 ? "s" : ""} détachée${parts > 1 ? "s" : ""} ${resIcon("part")}` : "", dust ? `${fmtNum(dust)} poussières &#10024;` : ""].filter(Boolean).join(" et ");
+      const minerals = {};
+      trans.forEach((u) => { const k = u.mineral.name; minerals[k] = (minerals[k] || 0) + u.cost; });
+      $("fuse-all-preview").innerHTML = (list.length
+        ? `<p><strong>${list.length}</strong> ${isFinish ? "fusion" : "restauration"}${list.length > 1 ? "s" : ""} sur ${groups.length} ligne${groups.length > 1 ? "s" : ""}${prefs.cascade ? ", puis les niveaux suivants si possible" : ""}${fills ? ` · utilise ${fills}` : ""}</p>
+           <ul class="recycle-list">${groups.slice(0, 40).map((g) => `<li><span>${escapeHtml(g.card.name)}</span><small><span class="${tag}-tag" data-${tag}="${g.from}">${labels[g.from]}</span> &#8594; <span class="${tag}-tag" data-${tag}="${g.to}">${labels[g.to]}</span>${g.parts ? ` ${resIcon("part")}` : ""}${g.dust ? " &#10024;" : ""}</small><b>×${g.n}</b></li>`).join("")}${groups.length > 40 ? `<li class="recycle-more">… et ${groups.length - 40} autre${groups.length - 40 > 1 ? "s" : ""}</li>` : ""}</ul>`
+        : `<p class="recycle-empty">Aucune ${isFinish ? "fusion" : "restauration"} rapide avec ces réglages.</p>`)
+        + (trans.length ? `<p><strong>${trans.length}</strong> transmutation${trans.length > 1 ? "s" : ""} ensuite (${Object.entries(minerals).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(", ")})</p>
+           <ul class="recycle-list">${trans.slice(0, 30).map((u) => `<li><span>${escapeHtml(u.card.name)}</span><small><span class="finish-tag" data-finish="${u.from}">${labels[u.from]}</span> &#8594; <span class="finish-tag" data-finish="${u.to}">${labels[u.to]}</span></small><b>${u.cost}</b></li>`).join("")}${trans.length > 30 ? `<li class="recycle-more">… et ${trans.length - 30} autre${trans.length - 30 > 1 ? "s" : ""}</li>` : ""}</ul>` : "");
+      const total = list.length + trans.length;
+      $("fuse-all-go").disabled = !total;
+      $("fuse-all-go").textContent = total ? `${verb} (${total})` : verb;
     };
     draw();
     overlay.addEventListener("change", (e) => {
@@ -924,22 +1017,23 @@
       if (!e.target.closest("#fuse-all-go")) return;
       if (running && !running.done) { running.stop = true; return; }
       let list = quickPlan(kind, levels());
-      if (!list.length) return;
+      const transCount = isFinish ? transmutePlan().length : 0;
+      if (!list.length && !transCount) return;
       const go = $("fuse-all-go");
       go.disabled = true;
-      if (!(await Confirm.show(`${verb} en lot : <strong>${list.length} ${isFinish ? "fusion" : "restauration"}${list.length > 1 ? "s" : ""}</strong>${prefs.cascade ? ", puis les niveaux suivants" : ""} ? Les exemplaires consommés disparaissent.`, { title: `${isFinish ? "Fusions" : "Restaurations"} rapides`, confirmText: verb }))) { go.disabled = false; return; }
+      if (!(await Confirm.show(`${verb} en lot : <strong>${list.length} ${isFinish ? "fusion" : "restauration"}${list.length > 1 ? "s" : ""}</strong>${prefs.cascade ? ", puis les niveaux suivants" : ""}${transCount ? ` et <strong>${transCount} transmutation${transCount > 1 ? "s" : ""}</strong>` : ""} ? Les exemplaires consommés disparaissent.`, { title: `${isFinish ? "Fusions" : "Restaurations"} rapides`, confirmText: verb }))) { go.disabled = false; return; }
       running = { stop: false, done: false };
       overlay.querySelectorAll("input").forEach((i) => { i.disabled = true; });
       go.textContent = "En cours…";
-      let ok = 0, failed = 0, done = 0, broke = false;
+      let ok = 0, failed = 0, done = 0, broke = false, transmuted = 0;
       const reached = {};
       const path = isFinish ? "foil-upgrade" : "card-quality-repair";
       try {
         // Un passage par niveau atteint (enchainer), au plus un par niveau.
         for (let round = 0; round < order.length && list.length && !running.stop; round++) {
           const bodies = list.map((u) => isFinish
-            ? { userId: Session.userId, cardId: u.card.cardId, fromFinish: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: 0, dustCopies: 0 }
-            : { userId: Session.userId, cardId: u.card.cardId, fromQuality: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: 0, dustCopies: 0 });
+            ? { userId: Session.userId, cardId: u.card.cardId, fromFinish: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: u.parts || 0, dustCopies: 0 }
+            : { userId: Session.userId, cardId: u.card.cardId, fromQuality: u.from, pullIds: u.pullIds, keepPullId: u.keepPullId, parts: u.parts || 0, dustCopies: u.dustCopies || 0 });
           const progress = (n) => { $("fuse-all-count").innerHTML = `${done + n} ${isFinish ? "fusion" : "restauration"}${done + n > 1 ? "s" : ""}`; };
           // API pas encore a jour : API.batchWrite repasse seul par un appel par fusion.
           const results = await API.batchWrite(path, bodies, { shouldStop: () => running.stop, onChunk: progress });
@@ -953,13 +1047,25 @@
           const next = [...new Set(list.map((u) => u.to))].filter((l) => order.indexOf(l) < order.length - 1 && !prefs.skip.includes(l));
           list = quickPlan(kind, next);
         }
+        // Transmutations (options du rapide), apres les fusions : le plan est recalcule.
+        if (isFinish && !running.stop) {
+          for (const u of transmutePlan()) {
+            if (running.stop) break;
+            try {
+              await API.post("forbidden", { userId: Session.userId, action: "transmute", pullId: u.pullId, to: u.to });
+              ok++; reached[u.to] = (reached[u.to] || 0) + 1; transmuted++;
+            } catch (e2) { failed++; }
+            $("fuse-all-count").innerHTML = `${done + transmuted} opération${done + transmuted > 1 ? "s" : ""}`;
+          }
+          if (transmuted) await Coll.refresh();
+        }
       } catch (err) {
         Toast.error(friendlyError(err));
       }
       running.done = true;
       const recap = Object.entries(reached).sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([l, n]) => `${n} ${labels[l]}`).join(", ");
       if (ok) {
-        Toast.success(`&#9889; ${ok} ${isFinish ? "fusion" : "restauration"}${ok > 1 ? "s" : ""} : ${recap}${failed ? ` (${failed} ignorée${failed > 1 ? "s" : ""}${broke ? " : plus assez de poussières pour le supplément" : ""})` : ""}.`);
+        Toast.success(`&#9889; ${ok - transmuted} ${isFinish ? "fusion" : "restauration"}${ok - transmuted > 1 ? "s" : ""}${transmuted ? ` et ${transmuted} transmutation${transmuted > 1 ? "s" : ""}` : ""} : ${recap}${failed ? ` (${failed} ignorée${failed > 1 ? "s" : ""}${broke ? " : plus assez de poussières pour le supplément" : ""})` : ""}.`);
         if (typeof confetti === "function") confetti({ particleCount: 120, spread: 100, origin: { y: 0.5 } });
       } else Toast.info(broke ? "Plus assez de poussières pour le supplément de restauration." : "Aucune fusion n'a pu se faire.");
       close();

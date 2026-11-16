@@ -74,7 +74,8 @@ await test('album : tout reclamer', () => {
 await test('coffre : niveau, paliers reclames d un coup, interets une fois par jour', () => {
   const vaultCard = store.getAll('Cards').find((c) => c.IsVault) || store.create('Cards', { Name: 'Coffre', IsVault: true, Active: false });
   if (!store.getAll('Pulls').some((p) => refIdOf(p.User) === u1.id && refIdOf(p.Card) === vaultCard.id)) store.create('Pulls', { User: u1.id, Card: vaultCard.id, SerialNumber: 1, BatchId: 'vault-1' });
-  post('admin-settings', { discordId: ADMIN, action: 'set', values: { VaultXpPerCard: 1, VaultXpPerRow: 10, VaultLevels: [
+  // Paliers tels quels (2026-11-16 : sinon 100 niveaux calcules sur le catalogue).
+  post('admin-settings', { discordId: ADMIN, action: 'set', values: { VaultLevelsFromCards: false, VaultLevelCount: 4, VaultXpPerCard: 1, VaultXpPerRow: 10, VaultLevels: [
     { xp: 0, name: 'Fer', interest: 0 }, { xp: 2, name: 'Bronze', boosters: 1, dust: 10, interest: 5 }, { xp: 12, name: 'Or', boosters: 2, dust: 20, interest: 9 }, { xp: 500, name: 'Loin' }] } });
   let st = post('personal-vault', { userId: u1.id }).json;
   const startXp = st.level.xp;

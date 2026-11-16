@@ -71,6 +71,8 @@ const NAV_ITEMS = [
   { href: "redeem.html", label: "Réclamer un code", icon: "&#127915;", auth: true, group: "jouer" },
   { href: "nouveautes.html", label: "Nouveautés", icon: "&#128240;", auth: "guest", group: "jouer" },
   { href: "jeux.html", label: "Jeux (la nature)", icon: "&#127918;", auth: true, badgeKey: "jeux", group: "monde", groupLabel: "Monde" },
+  // Compagnons V2 (2026-11-16) : fiches, missions, souvenirs, concours.
+  { href: "compagnons.html", label: "Compagnons", icon: "&#128062;", auth: true, group: "monde" },
   { href: "communaute.html", label: "Communauté (le village)", icon: "&#127758;", auth: true, badgeKey: "communaute", group: "monde" },
   { href: "collection.html", label: "Ma collection", icon: "&#128218;", auth: false, group: "collection", groupLabel: "Collection" },
   // Craft / decraft : modes de la page collection depuis la fusion (2026-10-04).
@@ -150,7 +152,7 @@ function renderBottomNav() {
     if (sheet && !sheet.hidden && !e.target.closest(".bn-sheet")) { sheet.hidden = true; btn?.setAttribute("aria-expanded", "false"); }
   });
 }
-const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "mode.html": "Mode", "progression.html": "Progression", "craft.html": "Atelier", "admin.html": "Admin", "stats.html": "Stats" };
+const BN_SHORT = { "index.html": "Accueil", "ouverture.html": "Ouvrir", "collection.html": "Collection", "jeux.html": "Jeux", "communaute.html": "Communauté", "trade.html": "Échanges", "coffre.html": "Coffre-fort", "boutique.html": "Boutique", "redeem.html": "Code", "mode.html": "Mode", "progression.html": "Progression", "craft.html": "Atelier", "admin.html": "Admin", "stats.html": "Stats", "compagnons.html": "Compagnons" };
 
 // Pastille sur "Plus" quand un element du panneau en a une.
 function syncBottomMoreDot() {
@@ -625,7 +627,7 @@ function renderHeader() {
     // Onglets et reglages qu'on cherche souvent (2026-11-02).
     const SEARCH_SPOTS = [
       ["&#9935;&#65039;", "Fouille", "jeux.html#fouille"], ["&#127907;", "Pêche", "jeux.html#peche"], ["&#127793;", "Jardin", "jeux.html#jardin"], ["&#127994;", "Archéologie", "jeux.html#archeologie"],
-      ["&#129430;", "Dinos", "jeux.html#dinos"], ["&#128062;", "Promenade", "jeux.html#promenade"], ["&#127859;", "Cuisine", "jeux.html#cuisine"], ["&#129517;", "Expédition", "jeux.html#expedition"],
+      ["&#129430;", "Dinos", "jeux.html#dinos"], ["&#128062;", "Promenade", "jeux.html#promenade"], ["&#128062;", "Compagnons (missions, équipement)", "compagnons.html"], ["&#127859;", "Cuisine", "jeux.html#cuisine"], ["&#129517;", "Expédition", "jeux.html#expedition"],
       ["&#9851;&#65039;", "Décrafter", "collection.html#decrafter"], ["&#10024;", "Crafter", "collection.html#crafter"], ["&#128293;", "Autel", "collection.html#autel"], ["&#127752;", "Finitions", "collection.html#finitions"], ["&#129529;", "Qualité, restauration", "collection.html#qualite"],
       ["&#129309;", "Objectif commun", "communaute.html#ensemble"], ["&#128197;", "Calendrier", "communaute.html#calendrier"], ["&#128081;", "Boss", "communaute.html#boss"], ["&#9881;&#65039;", "Salle des machines", "communaute.html#machines"],
       ["&#128100;", "Mon profil", "profile.html"], ["&#127942;", "Saison et pass", "index.html#saison"], ["&#128203;", "Nouveautés", "nouveautes.html"]

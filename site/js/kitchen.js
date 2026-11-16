@@ -38,6 +38,7 @@
     const zone = $("cook-zone");
     if (!zone) return;
     try { st = await API.cook(uid()); } catch (e) { zone.innerHTML = `<p class="error-box">${esc(friendlyError(e))}</p>`; return; }
+    if (window.Companions && Companions.cook) Companions.cook(st);
     if (st.spoiled) Toast.info(`&#129314; ${st.spoiled} plat${st.spoiled > 1 ? "s se sont gâtés" : " s'est gâté"} dans le garde-manger.`);
     render();
   }

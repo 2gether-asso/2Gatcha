@@ -112,7 +112,7 @@ body.jeux-in-game [id$="-pane"] > .vg-back { align-self: flex-start; }
 #garden-level, #garden-pane > .dig-shop, #garden-bunny,
 #archeo-pane > .dig-shop, #archeo-mole,
 #expe-level, #expedition-pane > .dig-shop { order: 5; }
-#fish-pane > details { order: 6; }
+#fish-pane > details:not(.mt-strip) { order: 6; }
 body.jeux-in-game [id$="-pane"] > .dig-shop { margin-top: 16px; }
 
 /* « Regles » (flottant a droite) sur la ligne du retour au village, sans pousser le jeu. */

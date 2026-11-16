@@ -49,6 +49,9 @@ export const PET_UNLOCKS = [
   { key: 'noisette', icon: '🐇', label: 'Noisette', url: 'jeux.html#jardin', hide: ['#garden-bunny'],
     had: (u) => Number(u.Carrots) > 0 || !!u.BunnyState,
     text: 'Une petite lapine a suivi l’odeur de ta carotte jusqu’au potager… Elle s’appelle Noisette : donne-lui des carottes et elle récolte et replante le jardin à ta place.' },
+  { key: 'poivre', icon: '🐀', label: 'Poivre', url: 'jeux.html#cuisine', hide: ['#cook-rat'],
+    had: (u) => Number(u.Cheese) > 0 || !!u.RatState,
+    text: 'Un petit rat gourmand a suivi l’odeur de ton fromage jusqu’aux fourneaux. Il s’appelle Poivre : donne-lui du fromage et il cuisine pour toi avec ce qu’il y a dans le garde-manger.' },
   { key: 'pistache', icon: '🦔', label: 'Pistache', url: 'jeux.html#archeologie', hide: ['#archeo-mole'],
     had: (u) => Number(u.Grubs) > 0 || !!u.MoleState,
     text: 'Un hérisson renifle tes vers blancs et refuse de partir. C’est Pistache : nourris-le et il gratte tes tablettes et nettoie tes blocs bruts pour toi.' }
@@ -157,7 +160,10 @@ export function isNewcomer(store, user) {
 
 const adoptedOf = (user) => { const a = parseJson(user && user.PetsAdopted, null); return a && typeof a === 'object' ? a : {}; };
 // Animal adopte (toujours vrai pour les anciens comptes).
+// Compagnons V2 (2026-11-16) : Praline, Reglisse et Paprika s'adoptent par une quete (companions.js).
+const V2_ADOPT = ['praline', 'reglisse', 'paprika'];
 export function petAdopted(store, user, pet) {
+  if (V2_ADOPT.includes(pet)) { const c = parseJson(user && user.Companions, null); return !!(c && c.adopt && c.adopt[pet]); }
   if (!isNewcomer(store, user)) return true;
   return !!adoptedOf(user)[pet];
 }
@@ -166,7 +172,7 @@ export function petAdopted(store, user, pet) {
 // lots...) : le nom disparait. « Os pour Milo » -> « Os », « Le flair de
 // Milo » -> « Le flair du chien », « Moka te fixe » -> « Le chat te fixe ».
 // Nom commun et article de chaque compagnon (« la lapine » : de la, à la).
-const PET_WORD = { milo: ['chien', 'le'], moka: ['chat', 'le'], noisette: ['lapine', 'la'], pistache: ['hérisson', 'le'] };
+const PET_WORD = { milo: ['chien', 'le'], moka: ['chat', 'le'], noisette: ['lapine', 'la'], pistache: ['hérisson', 'le'], poivre: ['rat', 'le'] };
 export function petMask(store, user) {
   const hide = PET_UNLOCKS.filter((p) => !petAdopted(store, user, p.key));
   if (!hide.length) return (s) => s;

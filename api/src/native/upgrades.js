@@ -5,12 +5,16 @@
 //    cree de booster.
 //  - Relance de finition : sur un exemplaire en finition normale, paie pour
 //    retenter une finition speciale (FinishRerollChance).
+// 2026-11-16 : six ateliers de plus (coffre blinde, pioche, pinceau, four,
+// tremie du distributeur, boussole). Talents Bricoleur (prix), Forgeron et
+// Grand maitre (relance), Maitre-chien (Milo) : talents.js.
 //   POST /webhook/upgrades       { userId, action: 'status' | 'buy', key? }
 //   POST /webhook/finish-reroll  { userId, pullId, action: 'status' | 'reroll' }
 
 import { refId, ok, fail, userById } from './common.js';
 import { setting } from './settings.js';
 import { price as indexed } from './inflation.js';
+import { talentValue } from './talents.js';
 
 export const schema = {
   Users: { Upgrades: { type: 'Text' } }
@@ -19,7 +23,13 @@ export const schema = {
 const TRACKS = {
   kennel: { label: 'Chenil', icon: '🐕', per: 0.1, effect: (n) => `+${n * 10} % de poussières rapportées par Milo` },
   greenhouse: { label: 'Serre', icon: '🌱', per: 0.06, effect: (n) => `−${n * 6} % de temps de pousse au jardin` },
-  rod: { label: 'Canne renforcée', icon: '🎣', per: 0.1, effect: (n) => `+${n * 10} % de poussières et de perles pêchées` }
+  rod: { label: 'Canne renforcée', icon: '🎣', per: 0.1, effect: (n) => `+${n * 10} % de poussières et de perles pêchées` },
+  vault: { label: 'Coffre blindé', icon: '🏦', per: 0.1, effect: (n) => `+${n * 10} % d’intérêts du coffre-fort perso` },
+  pickaxe: { label: 'Pioche affûtée', icon: '⛏️', per: 0.06, effect: (n) => `+${n * 6} % de poussières trouvées à la fouille` },
+  brush: { label: 'Pinceau d’archéologue', icon: '🖌️', per: 0.08, effect: (n) => `+${n * 8} % de poussières des tablettes et trouvailles` },
+  oven: { label: 'Four de chef', icon: '🍳', per: 0.08, effect: (n) => `+${n * 8} % de poussières des commandes de cuisine` },
+  hopper: { label: 'Trémie du distributeur', icon: '🥣', per: 0.2, effect: (n) => `+${n * 20} % de capacité du distributeur de l’enclos` },
+  compass: { label: 'Boussole', icon: '🧭', per: 0.06, effect: (n) => `+${n * 6} % de poussières rapportées d’expédition` }
 };
 export const MAX_LEVEL = 5;
 
@@ -28,14 +38,14 @@ const upgradeLevel = (user, key) => Math.min(MAX_LEVEL, Number(parse(user && use
 // Bonus d'une amelioration (fraction).
 export const upgradeValue = (user, key) => upgradeLevel(user, key) * (TRACKS[key] ? TRACKS[key].per : 0);
 
-const levelPrice = (store, level) => indexed(store, setting(store, 'UpgradeBasePrice') * 2 ** level);
+const levelPrice = (store, level, user = null) => Math.round(indexed(store, setting(store, 'UpgradeBasePrice') * 2 ** level) * (1 - Math.min(0.5, talentValue(user, 'tinker'))));
 
 function stateOf(store, user) {
   return {
     stardust: Number(user.StardustCount) || 0,
     upgrades: Object.entries(TRACKS).map(([key, t]) => {
       const level = upgradeLevel(user, key);
-      return { key, label: t.label, icon: t.icon, level, max: MAX_LEVEL, effect: t.effect(level), next: level < MAX_LEVEL ? { effect: t.effect(level + 1), price: levelPrice(store, level) } : null };
+      return { key, label: t.label, icon: t.icon, level, max: MAX_LEVEL, effect: t.effect(level), next: level < MAX_LEVEL ? { effect: t.effect(level + 1), price: levelPrice(store, level, user) } : null };
     })
   };
 }
@@ -49,7 +59,7 @@ function handleUpgrades({ store, body }) {
   if (!TRACKS[key]) return fail('unknown_upgrade');
   const level = upgradeLevel(user, key);
   if (level >= MAX_LEVEL) return fail('max_level', 400, stateOf(store, user));
-  const cost = levelPrice(store, level);
+  const cost = levelPrice(store, level, user);
   if ((Number(user.StardustCount) || 0) < cost) return fail('not_enough_dust', 400, stateOf(store, user));
   const all = parse(user.Upgrades);
   all[key] = level + 1;
@@ -58,9 +68,9 @@ function handleUpgrades({ store, body }) {
 }
 
 // --- relance de finition -------------------------------------------------------
-function rerollCost(store, rarityKey) {
+function rerollCost(store, rarityKey, user = null) {
   const table = setting(store, 'FinishRerollCost');
-  return indexed(store, Number(table[rarityKey]) || Number(table.default) || 800);
+  return Math.round(indexed(store, Number(table[rarityKey]) || Number(table.default) || 800) * (1 - Math.min(0.5, talentValue(user, 'smith'))));
 }
 
 function handleReroll({ store, body }) {
@@ -73,8 +83,10 @@ function handleReroll({ store, body }) {
   if (!card || !rarity || card.IsPromo || rarity.Key === 'unique') return fail('not_rerollable');
   if ((pull.Finish || 'normal') !== 'normal') return fail('already_special');
   if (pull.InVault || pull.Insured) return fail('protected_copy');
-  const cost = rerollCost(store, rarity.Key);
-  const chance = setting(store, 'FinishRerollChance');
+  const cost = rerollCost(store, rarity.Key, user);
+  // Talent Grand maitre : +5 points, sans depasser 95 % (un reglage admin plus haut reste tel quel).
+  const base = setting(store, 'FinishRerollChance');
+  const chance = Math.min(Math.max(base, 0.95), base + talentValue(user, 'grandmaster'));
   if ((body.action || 'status') === 'status') return ok({ cost, chance, stardust: Number(user.StardustCount) || 0 });
   if (body.action !== 'reroll') return fail('unknown_action');
   if ((Number(user.StardustCount) || 0) < cost) return fail('not_enough_dust', 400, { cost });
@@ -98,7 +110,7 @@ export function afterWorkflow({ store, path, request, response }) {
   if (path !== 'dig' || response.status !== 200 || !response.json || !response.json.dogReport) return;
   const report = response.json.dogReport;
   const user = store.get('Users', Number((request.body || {}).userId));
-  const k = upgradeValue(user, 'kennel');
+  const k = upgradeValue(user, 'kennel') + talentValue(user, 'kennelmaster');
   const dust = Number(report.dust) || 0;
   if (!k || dust <= 0) return;
   const bonus = Math.round(dust * k);

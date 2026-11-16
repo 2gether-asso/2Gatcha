@@ -508,6 +508,8 @@ await test('niveaux : formule, peche (XP, lancers en plus, piece detachee), foui
   call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'reset', key: 'FishingLoot' } });
   // Fouille : XP par case et tresor, bonus de poussieres au niveau 3 (+20 %).
   store.update('Users', 1, { DigXP: 60 });
+  // Legende du carnet des metiers (2 % par tresor) : sans poussieres ici.
+  call('POST', 'admin-settings', { body: { discordId: ADMIN, action: 'set', values: { MetierLegendDust: 0 } } });
   const before = store.get('Users', 1).StardustCount;
   const resp = { status: 200, json: { dug: true, revealed: true, dustGained: 50 } };
   native.afterWorkflow('dig', { body: { userId: 1, action: 'dig' } }, resp);

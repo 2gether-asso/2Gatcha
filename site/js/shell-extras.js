@@ -411,7 +411,7 @@ const KeyArt = {
   scheduled: false,
   swapText(node) {
     const parent = node.parentNode;
-    if (!parent || parent.nodeType !== 1 || this.SKIP.has(parent.nodeName) || parent.closest("svg, select, [contenteditable='true']")) return;
+    if (!parent || parent.nodeType !== 1 || this.SKIP.has(parent.nodeName) || parent.closest("svg, select, [contenteditable='true'], .keep-emoji")) return;
     const n = (this.hits.get(parent) || 0) + 1;
     if (n > 3) return;
     this.hits.set(parent, n);

@@ -39,6 +39,8 @@ import { dinoTalent, talentUntil } from './dino.js';
 import { ruleOn } from './moderules.js';
 import { petMask } from './starter.js';
 import { petBoost, petGift } from './pets.js';
+import { workFields } from './companions.js';
+import { onMission } from './companion-core.js';
 import { pantryFields, gardenBuff } from './cooking.js';
 
 export const PLOTS = 4;
@@ -99,6 +101,21 @@ export function growSeconds(store, user) {
   return Math.max(60, Math.round(base * (1 - cut) * (diceFace(user) === 3 ? 0.5 : 1)));
 }
 
+// Competence de Noisette (Pluie de printemps, compagnons V2) : toutes les
+// parcelles plantees pretes tout de suite.
+export function ripenAllFields(store, user) {
+  const t = now();
+  const grow = growSeconds(store, user);
+  let n = 0;
+  const plots = plotsOf(user, plotCount(store, user)).map((p) => {
+    if (!p) return p;
+    const need = Math.round(grow * seedMult(p));
+    if (p.plantedAt + need <= t) return p;
+    n++;
+    return { ...p, plantedAt: t - need };
+  });
+  return { fields: { GardenPlots: JSON.stringify(plots) }, n };
+}
 const plotsOf = (user, n = PLOTS) => {
   let p = [];
   try { p = JSON.parse(user.GardenPlots || '[]'); } catch (e) { p = []; }
@@ -270,6 +287,7 @@ function handleGarden({ store, body }) {
     return ok({ ...state(store, user), harvested: ready.length, items, gained: { worms, bait, dust, xp, rare, catFish: more.CatFish, bones: more.BoneCount, skulls: more.DinoSkulls, parts: more.SpareParts, grubs: more.Grubs, ...kitchen, wilted: items.filter((x) => x.wilted).length }, ...(after > before ? { levelUp: after } : {}), ...report });
   }
   if (action === 'bunnyFeed') {
+    if (onMission(user, 'noisette')) return fail('pet_on_mission', 400, { bunny: bunnyView(store, user) });
     const count = Math.max(1, Math.floor(Number(body.count) || 1));
     const v = bunnyView(store, user);
     if (v.carrots < count) return fail('no_carrot', 400, { bunny: v });
@@ -331,6 +349,8 @@ export function settleBunny(store, user) {
   const s = bunnyStateOf(user);
   if (!s) return null;
   const t = now();
+  // En mission (compagnons V2) : session decalee.
+  if (t < s.start) return null;
   const end = Math.min(t, s.until);
   const n = plotCount(store, user);
   const plots = plotsOf(user, n);
@@ -384,6 +404,7 @@ export function settleBunny(store, user) {
   };
   const gift = petGift(store, { ...user, ...fields }, 'noisette');
   if (gift) Object.assign(fields, gift.fields);
+  Object.assign(fields, workFields(store, { ...user, ...fields }, 'noisette', harvests).fields);
   // Rapport cumule jusqu'a la prochaine visite du jardin.
   const prev = parseJson(user.BunnyReport, null) || {};
   const rep = { harvests: (prev.harvests || 0) + harvests, replanted: (prev.replanted || 0) + replanted, spent: (prev.spent || 0) + spent, wilted: (prev.wilted || 0) + wilted, xp: (prev.xp || 0) + xp, gained: { ...(prev.gained || {}) }, done: finished, ...(gift ? { loveGift: gift.gift } : prev.loveGift ? { loveGift: prev.loveGift } : {}) };

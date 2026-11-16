@@ -4,6 +4,10 @@
 //  - Atelier (charge a l'ouverture) : forge interdite (un exemplaire sans
 //    edition + des mineraux d'un palier = chance de le passer en Interdite,
 //    une fissure par echec) et sertissage (une pierre sur une carte Interdite).
+// 2026-11-16 : un seul espace « Les pierres » (ancre #pierres, #coeur, #forge,
+// #sertissage) avec 3 onglets (Coeur, Forge, Sertissage), une introduction qui
+// explique a quoi servent les mineraux, et les liens vers ce qui s'en sert
+// ailleurs (Transmutation dans l'atelier de la collection, Ecrin du coffre-fort).
 // La machine (js/forbidden.js) previent par « forbidden:machine » quand elle
 // s'affiche et par « stones:refresh » quand le sac de mineraux a change.
 (() => {
@@ -12,26 +16,38 @@
   const fmt = fmtNum;
   const img = (p, cls = "") => `<img class="${cls}" src="assets/${encodeURI(p)}" alt="" loading="lazy" decoding="async" />`;
   const pct = (x) => `${Math.round(x * 100)} %`;
-  const ERR = { not_enough_minerals: "Pas assez de minéraux.", not_forgeable: "Cet exemplaire ne peut plus passer à la forge.", not_forbidden_copy: "Seule une carte Interdite se sertit.", same_gem: "Cette pierre y est déjà sertie.", locked: "La porte est fermée." };
+  const ERR = { not_enough_minerals: "Pas assez de minéraux.", not_forgeable: "Cet exemplaire ne peut plus passer à la forge.", not_forbidden_copy: "Seule une carte Interdite se sertit.", in_vault: "Cette carte est rangée au coffre-fort : retire-la de l'écrin pour changer sa pierre.", same_gem: "Cette pierre y est déjà sertie.", locked: "La porte est fermée." };
   const errText = (e) => ERR[e.code] || friendlyError(e);
   const FINISH = { normal: "", holo: "Holo", gold: "Or", ghost: "Fantôme", diamond: "Diamant", rainbow: "Arc-en-ciel", emerald: "Émeraude" };
-  let heart = null, atelier = null, tab = "forge", busy = false, shown = false;
+  const HASH_TAB = { coeur: "heart", forge: "forge", sertissage: "gem", pierres: "heart" };
+  let heart = null, atelier = null, tab = HASH_TAB[location.hash.slice(1)] || "heart", busy = false, shown = false;
   const sel = { forge: null, gem: null, tier: null, mineral: null, q: "" };
 
   function shell() {
     const z = $("fs-zone");
     z.hidden = false;
+    z.id = "fs-zone";
     z.innerHTML = `
+      <span id="pierres" class="anchor"></span>
+      <header class="fs-head">
+        <h2>&#128142; Les pierres</h2>
+        <p class="fs-dim">Les <strong>minéraux</strong> trouvés à la fouille, en expédition ou dans les géodes prennent ici tout leur pouvoir. Trois façons de s'en servir dans la salle, et deux ailleurs :</p>
+        <ul class="fs-uses">
+          <li><b>&#10084;&#65039; Le Cœur</b> : nourris-le de pierres, il monte de palier et renforce la salle (machine, forge…).</li>
+          <li><b>&#128293; La forge</b> : une carte sans édition + des pierres d'un palier = une chance de la passer en édition Interdite.</li>
+          <li><b>&#128142; Le sertissage</b> : une pierre sur une carte Interdite, qui brille dans ta collection et va dans l'<a href="coffre.html">écrin du coffre-fort</a> (points de prestige, récompenses par palier).</li>
+          <li><b>&#9879;&#65039; La transmutation</b> : de l'Or ou des Diamants changent la finition d'une carte, dans l'<a href="collection.html#finitions">atelier de la collection</a>.</li>
+        </ul>
+      </header>
+      <nav class="fs-tabs fs-main-tabs" role="tablist" aria-label="Les pierres">
+        <button type="button" role="tab" data-tab="heart">&#10084;&#65039; Le Cœur</button>
+        <button type="button" role="tab" data-tab="forge">&#128293; Forge interdite</button>
+        <button type="button" role="tab" data-tab="gem">&#128142; Sertissage</button>
+      </nav>
       <section class="fs-panel fs-heart" id="fs-heart"></section>
-      <details class="fs-panel fs-atelier" id="fs-atelier">
-        <summary><span>&#9874;&#65039; L'atelier des pierres</span><small>Forge interdite · Sertissage</small></summary>
-        <div class="fs-tabs" role="tablist">
-          <button type="button" role="tab" data-tab="forge">&#128293; Forge interdite</button>
-          <button type="button" role="tab" data-tab="gem">&#128142; Sertissage</button>
-        </div>
-        <div id="fs-tab"></div>
-      </details>`;
-    $("fs-atelier").addEventListener("toggle", () => { if ($("fs-atelier").open && !atelier) loadAtelier(); });
+      <section class="fs-panel fs-atelier" id="fs-atelier"><div id="fs-tab"></div></section>`;
+    syncTabs();
+    if (location.hash && HASH_TAB[location.hash.slice(1)]) setTimeout(() => $("pierres")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
     z.addEventListener("click", onClick);
     z.addEventListener("input", (e) => { if (e.target.id === "fs-q") { sel.q = e.target.value; renderList(); } });
   }
@@ -79,7 +95,7 @@
         if (typeof confetti === "function") confetti({ particleCount: 140, spread: 100, origin: { y: 0.5 }, colors: ["#f97316", "#ef4444", "#fde68a"] });
         document.dispatchEvent(new CustomEvent("forbidden:refresh"));
       }
-      if (atelier) { atelier = null; if ($("fs-atelier").open) loadAtelier(); }
+      if (atelier) { atelier = null; if (tab !== "heart") loadAtelier(); }
     } catch (e) { Toast.error(errText(e)); } finally { busy = false; }
   }
 
@@ -89,8 +105,16 @@
     try { atelier = await API.post("forbidden", { userId: Session.userId, action: "atelier" }); renderTab(); } catch (e) { $("fs-tab").innerHTML = `<p class="fs-dim">${esc(errText(e))}</p>`; }
   }
   const forgeChance = (card) => Math.min(0.95, sel.tier.chance + (card ? card.cracks * atelier.forge.crackBonus : 0));
+  // Onglet affiche : le Coeur, ou l'atelier (forge / sertissage, charge a la demande).
+  function syncTabs() {
+    document.querySelectorAll(".fs-main-tabs [data-tab]").forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+    $("fs-heart").hidden = tab !== "heart";
+    $("fs-atelier").hidden = tab === "heart";
+    if (tab !== "heart") { if (atelier) renderTab(); else loadAtelier(); }
+  }
   function renderTab() {
-    document.querySelectorAll(".fs-tabs [data-tab]").forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+    if (tab === "heart") return;
+    document.querySelectorAll(".fs-main-tabs [data-tab]").forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
     const box = $("fs-tab");
     if (tab === "forge") {
       const f = atelier.forge;
@@ -105,7 +129,7 @@
     } else {
       const g = atelier.gems;
       box.innerHTML = `
-        <p class="fs-dim">Sertis une pierre sur une carte Interdite : ${g.cost} minéraux du même type. Elle brille dans ta collection. Une nouvelle pierre remplace l'ancienne ; une fusion la perd.</p>
+        <p class="fs-dim">Sertis une pierre sur une carte Interdite : ${g.cost} minéraux du même type. Elle brille dans ta collection et peut rejoindre l'<a href="coffre.html">écrin du coffre-fort</a> : une place par minéral, des points de prestige selon le palier de la pierre et une récompense par palier complet. Une nouvelle pierre remplace l'ancienne ; une fusion la perd ; une carte rangée dans l'écrin garde la sienne.</p>
         <input type="search" id="fs-q" class="fs-q" placeholder="Chercher une carte Interdite…" value="${esc(sel.q)}" />
         <div class="fs-cards" id="fs-list"></div>
         <div class="fs-action" id="fs-action"></div>`;
@@ -200,7 +224,12 @@
     const fd = t.closest("[data-feed]");
     if (fd) { feed(fd.dataset.feed, fd.dataset.n === "all" ? "all" : 1); return; }
     const tb = t.closest("[data-tab]");
-    if (tb) { tab = tb.dataset.tab; sel.q = ""; renderTab(); return; }
+    if (tb) {
+      tab = tb.dataset.tab; sel.q = "";
+      const h = { heart: "coeur", forge: "forge", gem: "sertissage" }[tab];
+      if (h) history.replaceState(null, "", "#" + h);
+      syncTabs(); return;
+    }
     const tr = t.closest("[data-tier]");
     if (tr) { sel.tier = atelier.forge.tiers.find((x) => x.tier === Number(tr.dataset.tier)); renderTab(); return; }
     const cd = t.closest(".fs-card[data-pull]");
@@ -227,6 +256,6 @@
     if (!shown) return;
     loadHeart();
     atelier = null;
-    if ($("fs-atelier").open) loadAtelier();
+    if (tab !== "heart") loadAtelier();
   });
 })();

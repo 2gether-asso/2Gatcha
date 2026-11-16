@@ -59,12 +59,15 @@ import { price as indexed } from './inflation.js';
 import { currentSeason } from './seasonal.js';
 import { grantCosmetic } from './cosmetics.js';
 import { MINERALS, mineralsOf } from './digdepth.js';
-import { loveOf, PETS } from './pets.js';
+import { loveOf, PETS, petBoost, petGift, petRhythm } from './pets.js';
+import { workFields } from './companions.js';
+import { perksOf, onMission } from './companion-core.js';
 
 export const schema = {
   Users: {
     Pantry: { type: 'Text' }, Buffs: { type: 'Text' }, CookCount: { type: 'Numeric' },
-    CookXP: { type: 'Numeric' }, CookBook: { type: 'Text' }, CookOrders: { type: 'Text' }, CookTools: { type: 'Text' }, Dishes: { type: 'Text' }, CookSession: { type: 'Text' }
+    CookXP: { type: 'Numeric' }, CookBook: { type: 'Text' }, CookOrders: { type: 'Text' }, CookTools: { type: 'Text' }, Dishes: { type: 'Text' }, CookSession: { type: 'Text' },
+    Cheese: { type: 'Numeric' }, RatState: { type: 'Text' }, RatReport: { type: 'Text' }
   }
 };
 
@@ -273,7 +276,9 @@ function dishesOf(store, user, t = now()) {
 // ------------------------------------------------------------------ commandes
 function clientsOf(user) {
   const adopted = parseJson(user.PetsAdopted, null);
-  const pets = Object.entries(PETS).filter(([k]) => !adopted || typeof adopted !== 'object' || adopted[k]).map(([k, p]) => ({ key: k, label: p.label, icon: p.icon, pet: true }));
+  // Nouveaux compagnons (V2) : seulement une fois adoptes (Paprika reste secret).
+  const v2 = (parseJson(user.Companions, {}) || {}).adopt || {};
+  const pets = Object.entries(PETS).filter(([k, p]) => (!p.v2 || v2[k]) && (!adopted || typeof adopted !== 'object' || adopted[k] || p.v2)).map(([k, p]) => ({ key: k, label: p.label, icon: p.icon, pet: true }));
   return [...pets, ...VILLAGERS];
 }
 function ordersOf(store, user, recipes) {
@@ -353,7 +358,8 @@ function view(store, user) {
     mill: tools.mill ? { salt: [3, 2, 1][tools.mill - 1], spice: [3, 2, 1][tools.mill - 1], calcaire: Number(mineralsOf(user).calcaire) || 0, herb: stock.herb } : null,
     season: season && SEASON_INGREDIENT[season.key] ? { key: season.key, label: season.label, icon: season.icon, ingredient: { key: SEASON_INGREDIENT[season.key], ...INGREDIENTS[SEASON_INGREDIENT[season.key]] } } : null,
     session: activeSession(user),
-    maxHours: maxHours(store, lv.level), cookCount: Number(user.CookCount) || 0
+    maxHours: maxHours(store, lv.level), cookCount: Number(user.CookCount) || 0,
+    rat: ratView(store, user)
   };
 }
 function orderReward(store, o) {
@@ -486,15 +492,125 @@ function eatFields(store, user, dish, fields = {}) {
 const saveDishes = (list) => JSON.stringify(list.slice(-200));
 
 // ------------------------------------------------------------------ actions
+
+// ------------------------------------------------------------------ Poivre le rat
+// Poivre le rat (compagnons, 2026-11-16) : contre du fromage (Users.Cheese),
+// il cuisine pour toi avec les ingredients du garde-manger. Une session
+// (Users.RatState { start, until, done }) : un plat toutes les RatJobMinutes
+// (plus vite avec l'affection et son niveau). Il choisit d'abord une recette
+// commandee aujourd'hui (pas encore livree), sinon une recette connue au
+// hasard parmi celles qu'il peut faire (niveau, ustensiles, ingredients).
+// Qualite tiree selon l'affection et ses competences ; le plat va dans les
+// plats gardes (s'il y a de la place, sinon il attend). Il ne touche jamais
+// aux recettes cachees pas encore decouvertes ni a la recette du casino.
+// Rapport (Users.RatReport) remis a la visite de la cuisine.
+const ratStateOf = (user) => { const s = parseJson(user && user.RatState, null); return s && s.start && s.until ? s : null; };
+// Fatigue (pets.js) : ses pauses ralentissent le rythme moyen, comme Moka.
+const ratJobSeconds = (store, user) => Math.max(120, Math.round(setting(store, 'RatJobMinutes') * 60 * (1 - petBoost(store, user, 'poivre').speed) * petRhythm(store, user, 'poivre').factor));
+function ratView(store, user) {
+  const s = ratStateOf(user);
+  const t = now();
+  return { cheese: Number(user.Cheese) || 0, secondsLeft: s ? Math.max(0, s.until - t) : 0, minutesPerCheese: setting(store, 'RatMinutesPerCheese'), maxMinutes: setting(store, 'RatMaxMinutes'), jobMinutes: Math.round(ratJobSeconds(store, user) / 60), pending: !!parseJson(user.RatReport, null) };
+}
+// Recettes que Poivre sait faire maintenant (commandes du jour d'abord).
+function ratPick(store, user, stock) {
+  const lv = cookLevel(store, user).level;
+  const tools = toolsOf(user);
+  const ok2 = (r) => known(user, r) && r.effect !== 'casino' && r.level <= lv && (!r.tool || tools[r.tool]) && Object.entries(r.needs).every(([k, n]) => (stock[k] || 0) >= n);
+  const recipes = recipesFor(store, user).filter(ok2);
+  if (!recipes.length) return null;
+  const orders = parseJson(user.CookOrders, null);
+  const wanted = orders && orders.day === parisDay(0) && Array.isArray(orders.list) ? orders.list.filter((o) => !o.done).map((o) => o.recipe) : [];
+  const dishes = dishesRaw(user);
+  const pending = recipes.filter((r) => wanted.includes(r.key) && !dishes.some((d) => d.key === r.key));
+  const pool = pending.length ? pending : recipes;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function ratQuality(store, user, min = 0) {
+  const k = petBoost(store, user, 'poivre').love / 100;
+  const p = perksOf(store, user, 'poivre');
+  const perfect = Math.min(0.6, 0.08 + 0.17 * k + p.quality), good = 0.32, bad = Math.max(0.02, 0.14 - 0.1 * k - p.quality / 2);
+  const r = Math.random();
+  const q = r < perfect ? 3 : r < perfect + good ? 2 : r < perfect + good + bad ? 0 : 1;
+  return Math.max(min, q);
+}
+// n plats tout de suite (session ou competence) : { fields, cooked, full, none }.
+export function ratCook(store, user, n, { minQ = 0 } = {}) {
+  let u = { ...user };
+  const fields = {};
+  const cooked = [];
+  let full = 0, none = 0;
+  const max = setting(store, 'CookDishMax');
+  const save = perksOf(store, user, 'poivre').save;
+  for (let i = 0; i < n; i++) {
+    const good = dishesOf(store, u).good;
+    if (good.length >= max) { full++; continue; }
+    const r = ratPick(store, u, stockOf(u));
+    if (!r) { none++; continue; }
+    const q = ratQuality(store, u, minQ);
+    // Econome : parfois, rien n'est consomme.
+    const needs = Math.random() < save ? {} : r.needs;
+    const c = cookDish(store, u, r, needs, q, {});
+    c.fields.Dishes = saveDishes([...good, c.dish]);
+    Object.assign(fields, c.fields);
+    u = { ...u, ...c.fields };
+    cooked.push({ key: r.key, label: r.label, icon: r.icon, q, saved: !Object.keys(needs).length });
+  }
+  return { fields, cooked, full, none };
+}
+export function settleRat(store, user) {
+  const s = ratStateOf(user);
+  if (!s) return null;
+  const t = now();
+  // En mission (compagnons V2) : session decalee.
+  if (t < s.start) return null;
+  const jobSec = ratJobSeconds(store, user);
+  const total = Math.floor((Math.min(t, s.until) - s.start) / jobSec);
+  const n = Math.max(0, total - (Number(s.done) || 0));
+  const finished = t >= s.until;
+  if (!n) return finished ? { RatState: '' } : null;
+  const res = ratCook(store, user, n);
+  const fields = { ...res.fields, RatState: finished ? '' : JSON.stringify({ ...s, done: total }) };
+  const u = { ...user, ...fields };
+  const gift = res.cooked.length ? petGift(store, u, 'poivre') : null;
+  if (gift) Object.assign(fields, gift.fields);
+  Object.assign(fields, workFields(store, { ...u, ...fields }, 'poivre', res.cooked.length).fields);
+  const prev = parseJson(user.RatReport, null) || {};
+  fields.RatReport = JSON.stringify({
+    jobs: (prev.jobs || 0) + n, full: (prev.full || 0) + res.full, none: (prev.none || 0) + res.none, done: finished,
+    cooked: [...(prev.cooked || []), ...res.cooked].slice(-40),
+    ...(gift ? { loveGift: gift.gift } : prev.loveGift ? { loveGift: prev.loveGift } : {})
+  });
+  return fields;
+}
+
 function handle({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
   const action = body.action || 'status';
+  // Poivre : ses plats d'abord.
+  const ratDone = settleRat(store, user);
+  if (ratDone) user = store.update('Users', user.id, ratDone);
   if (action === 'status') {
     // Plats gates depuis la derniere visite : retires, et annonces.
     const { good, spoiled } = dishesOf(store, user);
     if (spoiled.length) user = store.update('Users', user.id, { Dishes: saveDishes(good) });
-    return ok({ ...view(store, user), ...(spoiled.length ? { spoiled: spoiled.length } : {}) });
+    // Rapport de Poivre (une fois).
+    const rep = parseJson(user.RatReport, null);
+    if (rep) user = store.update('Users', user.id, { RatReport: '' });
+    return ok({ ...view(store, user), ...(spoiled.length ? { spoiled: spoiled.length } : {}), ...(rep ? { ratReport: rep } : {}) });
+  }
+  if (action === 'ratFeed') {
+    if (onMission(user, 'poivre')) return fail('pet_on_mission', 400, view(store, user));
+    const count = Math.max(1, Math.floor(Number(body.count) || 1));
+    const v = ratView(store, user);
+    if (v.cheese < count) return fail('no_cheese', 400, view(store, user));
+    const t0 = now();
+    const s = ratStateOf(user);
+    const until = (s && s.until > t0 ? s.until : t0) + count * v.minutesPerCheese * 60;
+    if (until - t0 > v.maxMinutes * 60) return fail('rat_max_time', 400, view(store, user));
+    user = store.update('Users', user.id, { Cheese: v.cheese - count, RatState: JSON.stringify(s && s.until > t0 ? { ...s, until } : { start: t0, until, done: 0 }) });
+    return ok({ ...view(store, user), fed: count });
   }
   if (!setting(store, 'CookEnabled')) return fail('cook_closed');
   const t = now();
@@ -596,11 +712,14 @@ function handle({ store, body }) {
       notices.push({ icon: '🛎️', text: `Toutes les commandes du jour livrées ! Série : ${orders.streak} jour${orders.streak > 1 ? 's' : ''}.` });
       if (orders.streak >= 7 && grantCosmetic(store, user.id, 'title-aubergiste', { type: 'title', label: 'Aubergiste du village' })) notices.push({ icon: '🏅', text: '7 jours de commandes : titre « Aubergiste du village » !' });
     }
+    // Poivre (2026-11-16) : un client laisse parfois un morceau de fromage.
+    let cheese = 0;
+    if (Math.random() < setting(store, 'RatCheeseTipChance')) { cheese = 1; fields.Cheese = (Number(user.Cheese) || 0) + 1; }
     fields.CookOrders = JSON.stringify(orders);
     const lvBefore = cookLevel(store, user).level;
     user = store.update('Users', user.id, fields);
     const lvAfter = cookLevel(store, user).level;
-    return ok({ ...view(store, user), delivered: { order: o.id, who: client ? client.label : '', dust: rw.dust, love: client && client.pet ? rw.love : 0, rare }, notices, ...(lvAfter > lvBefore ? { levelUp: lvAfter } : {}) });
+    return ok({ ...view(store, user), delivered: { order: o.id, who: client ? client.label : '', dust: rw.dust, love: client && client.pet ? rw.love : 0, rare, cheese }, notices, ...(lvAfter > lvBefore ? { levelUp: lvAfter } : {}) });
   }
 
   if (action === 'buyTool') {

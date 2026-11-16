@@ -27,6 +27,7 @@
   let prestige = null;
 
   function renderTalents(st) {
+    window.__talents = st.talents;
     const box = $("talents-panel");
     box.innerHTML = prestigeBlock(prestige) + `
       <div class="talents-head">
@@ -34,17 +35,31 @@
         <span class="talents-points ${st.available ? "has-points" : ""}">${st.available} point${st.available > 1 ? "s" : ""} à dépenser · ${st.spent}/${st.points}</span>
         ${st.spent ? `<button type="button" class="btn-ghost" id="talents-reset">Tout réinitialiser (${st.resetCost} &#10024;)</button>` : ""}
       </div>
-      <p class="lead" style="font-size:0.85rem;">Un point par niveau de compte. Chaque branche a un talent ultime (6 points dans la branche) et un <strong>talent de prestige</strong> (branche complète, 10 points) qui se nourrit des points des étoiles de prestige et renforce toute la branche.</p>
-      <div class="talent-tree">${st.branches.map((b) => `
+      <p class="lead" style="font-size:0.85rem;">Un point par niveau de compte (et un par étoile de prestige) : l'arbre complet en compte <strong>${st.treeTotal || 100}</strong>. Chaque branche monte par paliers : un talent ultime à 6 points, un deuxième palier à 10, un grand ultime à 19, et un <strong>talent de prestige</strong> qui renforce toute la branche.</p>
+      <div class="talent-total" aria-hidden="true"><span style="width:${Math.min(100, Math.round((st.spent / (st.treeTotal || 100)) * 100))}%"></span></div>
+      <div class="talent-tree">${st.branches.map((b) => {
+        const mine = st.talents.filter((t) => t.branch === b.key);
+        const max = mine.reduce((n, t) => n + t.max, 0);
+        // Paliers (2026-11-16) : base, ultime (6), palier 2 (10), grand ultime (19), prestige.
+        const tiers = [
+          ["Palier 1", mine.filter((t) => !t.req)],
+          ["Ultime · 6 points", mine.filter((t) => !t.prestige && t.req === 6)],
+          ["Palier 2 · 10 points", mine.filter((t) => !t.prestige && t.req === 10)],
+          ["Grand ultime · 19 points", mine.filter((t) => !t.prestige && t.req === 19)],
+          ["Prestige · 10 points", mine.filter((t) => t.prestige)]
+        ].filter(([, l]) => l.length);
+        return `
         <div class="talent-branch">
-          <h3>${b.icon} ${esc(b.label)} <small>${b.spent} pt${b.spent > 1 ? "s" : ""}</small></h3>
-          ${st.talents.filter((t) => t.branch === b.key).map((t) => `
-            <button type="button" class="talent ${t.rank ? "learned" : ""} ${t.rank >= t.max ? "maxed" : ""} ${t.locked ? "locked" : ""} ${t.prestige ? "prestige" : t.req ? "ultimate" : ""}" data-talent="${t.key}" ${t.canLearn ? "" : "aria-disabled=\"true\""} title="${esc(t.desc)}">
+          <h3>${b.icon} ${esc(b.label)} <small>${b.spent} / ${max} pts</small></h3>
+          <div class="talent-branch-bar" aria-hidden="true"><span style="width:${Math.round((b.spent / Math.max(1, max)) * 100)}%"></span></div>
+          ${tiers.map(([label, list]) => `<div class="talent-tier-label">${label}</div>` + list.map((t) => `
+            <button type="button" class="talent ${t.rank ? "learned" : ""} ${t.rank >= t.max ? "maxed" : ""} ${t.locked ? "locked" : ""} ${t.prestige ? "prestige" : t.req ? "ultimate" : ""} ${t.req === 10 && !t.prestige ? "tier2" : ""}" data-talent="${t.key}" ${t.canLearn ? "" : "aria-disabled=\"true\""} title="${esc(t.desc)}">
               <span class="talent-icon" aria-hidden="true">${t.icon}</span>
               <span class="talent-body"><strong>${esc(t.label)}</strong><small>${esc(t.desc)}</small></span>
               <span class="talent-rank">${t.locked ? `&#128274; ${t.req} pts` : `${t.rank}/${t.max}`}${t.prestige ? '<em class="talent-tag">prestige</em>' : ""}</span>
-            </button>`).join("")}
-        </div>`).join("")}</div>`;
+            </button>`).join("")).join("")}
+        </div>`;
+      }).join("")}</div>`;
   }
 
   function renderTiers(st) {
@@ -90,7 +105,8 @@
         Toast.success(`&#127795; ${def ? esc(def.label) + " : rang " + def.rank : "Talent appris"} !`);
       } catch (err) {
         t.disabled = false;
-        const def = (t.dataset.talent || "").startsWith("p") ? "Talent de prestige : complète d'abord toute la branche (10 points)." : "Il faut d'abord 6 points dans cette branche.";
+        const tal = (window.__talents || []).find((x) => x.key === t.dataset.talent);
+        const def = tal && tal.req ? `Il faut d'abord ${tal.req} points dans cette branche.` : "Talent verrouillé.";
         Toast.error({ no_points: "Plus de point à dépenser : monte de niveau (ou gagne une étoile de prestige) !", talent_locked: def }[err.code] || friendlyError(err));
       }
       return;

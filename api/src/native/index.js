@@ -105,6 +105,8 @@ import * as duo from './duo.js';
 import * as bingo from './bingo.js';
 import * as cards from './cards.js';
 import * as dino from './dino.js';
+import * as metiers from './metiers.js';
+import * as companions from './companions.js';
 import * as discoveries from './discoveries.js';
 import * as moderules from './moderules.js';
 import * as chaosvote from './chaosvote.js';
@@ -155,9 +157,9 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, discordProfile, pity, sets, collectionV2, adminV2, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels, skills,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback, legacy];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback, legacy, metiers, companions];
 // Abonnes du bus d'activite (voir activity.js).
-const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, vacation, starter, seasonquests, story, cooking];
+const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, vacation, starter, seasonquests, story, cooking, metiers];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.
 moderules.useFeatures(features);
 // XP doublee pendant l'action du jour (daily.js).
@@ -359,6 +361,13 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       if (method === 'POST') { const iso = testaccount.denied(store, path, body) || starter.gate(store, method, path, body); if (iso) return iso; }
       // Ecritures de l'equipe : journal avec annulation (audit.js).
       const response = audit.wrap(store, path, body, () => routes.get(`${method} ${path}`)({ store, body, query }));
+      // Bonus apres une route native (2026-11-16 : talents et ameliorations du jardin, de l'archeologie, de la cuisine).
+      if (method === 'POST' && response && response.status === 200 && response.json && typeof response.json === 'object') {
+        for (const m of MODULES) {
+          if (!m.afterNative) continue;
+          try { m.afterNative({ store, path, request: { body, query }, response }); } catch (e) { console.error(e); captureError(e, { hook: 'native:' + path }); }
+        }
+      }
       if (method === 'POST') observe(path, body, response);
       discord.attachPending(response);
       return response;
@@ -386,6 +395,10 @@ export function createNative({ store, withLock, captureError = () => {}, workflo
       const heritage = async () => { try { await withLock(() => legacy.sweep(store)); } catch (e) { console.error(e); captureError(e, { job: 'legacy' }); } };
       setInterval(heritage, 3600 * 1000).unref();
       setTimeout(heritage, 20000).unref();
+      // Distributeurs de l'enclos (dino.js) : repas servis meme sans visite, toutes les 10 min.
+      const feeders = async () => { try { await withLock(() => dino.feederSweep(store)); } catch (e) { console.error(e); captureError(e, { job: 'dino-feeder' }); } };
+      setInterval(feeders, 600 * 1000).unref();
+      setTimeout(feeders, 30000).unref();
       if (!(await push.init({ store }))) return;
       // Planificateur des notifications : une passe par minute.
       const tick = async () => {

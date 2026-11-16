@@ -26,6 +26,16 @@
 //   - saisons : costume automatique et Pterodactyle saisonnier a l'eclosion ;
 //   - enclos vivant : nuit (23 h - 7 h), caresses, decorations qui ralentissent
 //     la baisse du bonheur.
+// Distributeur automatique (2026-11-16) : achete dans la boutique du dino
+// (3 niveaux, Users.DinoFeeder), rempli avec la nourriture du joueur. Des
+// qu'un dino passe sous FEEDER_AT de satiete, il lui sert des portions (le
+// plat prefere d'abord des le niveau 2, +5 bonheur par portion au niveau 3).
+// Rejoue dans l'ordre du temps a chaque passage (reap) et toutes les 10 min
+// (feederSweep, index.js) : tant qu'il reste des portions, un dino ne meurt
+// pas de faim. Talents Gardien (talents.js) : Dresseur (bonheur moins vite),
+// Nourricier (portions offertes), Paleontologue (poussieres des trouvailles),
+// Ange gardien (plus de mort : le dino reste « en danger »). Amelioration
+// Tremie (upgrades.js) : capacite.
 //   POST /webhook/dino { userId, action, dino?, food?, name?, key?, a?, b?, egg?, gold? }
 
 import { ok, fail, userById, now, parisHour, parseJson as parse } from './common.js';
@@ -34,12 +44,14 @@ import { addFeed } from './feed.js';
 import { grantCosmetic } from './cosmetics.js';
 import { currentSeason } from './seasonal.js';
 import { ruleOn } from './moderules.js';
+import { talentValue } from './talents.js';
+import { upgradeValue } from './upgrades.js';
 
 export const schema = {
   Users: {
     DinoSkulls: { type: 'Numeric' }, Dinos: { type: 'Text' }, DinoFood: { type: 'Text' }, DinoPoop: { type: 'Numeric' }, DinoGoldPoop: { type: 'Numeric' },
     DinoEggs: { type: 'Text' }, DinoDex: { type: 'Text' }, DinoAccessories: { type: 'Text' }, DinoDecor: { type: 'Text' },
-    DinoStar: { type: 'Numeric' }, DinoCompanion: { type: 'Numeric' }, DinoColorPity: { type: 'Numeric' }
+    DinoStar: { type: 'Numeric' }, DinoCompanion: { type: 'Numeric' }, DinoColorPity: { type: 'Numeric' }, DinoFeeder: { type: 'Text' }
   }
 };
 
@@ -120,7 +132,10 @@ const decorOf = (user) => arr(user.DinoDecor);
 const dexOf = (user) => ({ species: {}, patterns: {}, colors: {}, stages: {}, claimed: [], ...parse(user.DinoDex, {}) });
 const stageOf = (xp) => [...STAGES].reverse().find((s) => (xp || 0) >= s.xp) || STAGES[0];
 const favOf = (d) => d.fav || FOOD_KEYS[(d.id || 0) % FOOD_KEYS.length];
-const decorK = (user) => 1 - Math.min(0.3, decorOf(user).length * DECOR_BONUS);
+const decorOnly = (user) => 1 - Math.min(0.3, decorOf(user).length * DECOR_BONUS);
+// Vitesse de baisse du bonheur (decorations + talent Dresseur, 50 % au plus)
+// et protection de l'Ange gardien : { k, safe }, lu par live().
+const decorK = (user) => ({ k: Math.max(0.5, decorOnly(user) * (1 - Math.min(0.4, talentValue(user, 'tamer')))), safe: talentValue(user, 'guardian') > 0 });
 const sleepingNow = () => { const h = parisHour(); return h >= 23 || h < 7; };
 
 // Vacances des dinos (mode Cool, moderules.js) : faim et humeur figees, ponte
@@ -133,7 +148,9 @@ const eggHours = () => EGG_HOURS / (holiday ? 2 : 1);
 
 // Valeurs du moment depuis le dernier releve. k : ralentissement du bonheur
 // (decorations). Un dino deja mort le reste.
-function live(d, t = now(), k = 1) {
+function live(d, t = now(), kk = 1) {
+  const k = typeof kk === 'object' ? kk.k : kk;
+  const safe = typeof kk === 'object' && kk.safe;
   if (d.deadAt) return { food: 0, happy: 0, ripe: 0, clean: 0, dead: true, deadAt: d.deadAt };
   if (holiday) {
     const ripeNow = (d.poops || []).filter((p) => p <= t).length;
@@ -158,6 +175,8 @@ function live(d, t = now(), k = 1) {
     if (loss >= happy) { zeroAt = a + happy / rate; happy = 0; } else happy -= loss;
   }
   happy = clamp(happy);
+  // Ange gardien : jamais de mort, le dino reste « en danger ».
+  if (safe && food <= 0 && happy <= 0) return { food: 0, happy: 1, ripe: ripe.length, clean: clamp(100 - 25 * ripe.length), dead: false };
   // Mort : satiete ET bonheur a zero.
   if (food <= 0 && happy <= 0) {
     const deadH = Math.max(hungryFrom, zeroAt ?? dt);
@@ -233,6 +252,147 @@ export function setDinoHoliday(on) { holiday = !!on; }
 function settle(user, d, t = now()) {
   const v = live(d, t, decorK(user));
   return v.dead ? { ...d, deadAt: v.deadAt } : { ...d, food: v.food, happy: v.happy, at: t };
+}
+
+// --- distributeur automatique ------------------------------------------------
+export const FEEDER = [
+  null,
+  { level: 1, label: 'Mangeoire automatique', icon: '🥣', cap: 30, price: 1000, perk: 'sert le plus nourrissant d’abord' },
+  { level: 2, label: 'Distributeur malin', icon: '🍽️', cap: 80, price: 3000, fav: true, perk: 'sert le plat préféré connu d’abord' },
+  { level: 3, label: 'Distributeur de luxe', icon: '🏺', cap: 200, price: 8000, fav: true, treat: true, perk: 'plat préféré d’abord et +5 bonheur par portion' }
+];
+const FEEDER_AT = 35;     // satiete sous laquelle il sert
+const FEEDER_UNTIL = 75;  // il sert jusqu'a cette satiete
+function feederOf(user) {
+  const f = parse(user && user.DinoFeeder, {}) || {};
+  return {
+    level: Math.max(0, Math.min(FEEDER.length - 1, Number(f.level) || 0)),
+    stock: { fish: 0, seaweed: 0, shrimp: 0, worm: 0, ...(f.stock || {}) },
+    served: Number(f.served) || 0, unseen: Number(f.unseen) || 0, saved: Number(f.saved) || 0, lastAt: Number(f.lastAt) || 0
+  };
+}
+const feederCount = (f) => FOOD_KEYS.reduce((n, k) => n + (Number(f.stock[k]) || 0), 0);
+const feederCap = (user, f) => (f.level ? Math.round(FEEDER[f.level].cap * (1 + upgradeValue(user, 'hopper'))) : 0);
+function feederPick(f, d) {
+  const avail = FOOD_KEYS.filter((k) => (Number(f.stock[k]) || 0) > 0);
+  if (!avail.length) return null;
+  if (FEEDER[f.level].fav && d.favKnown && avail.includes(favOf(d))) return favOf(d);
+  return avail.sort((a, b) => FOODS[b].food - FOODS[a].food || f.stock[b] - f.stock[a])[0];
+}
+// Rejoue les repas servis depuis le dernier passage, dans l'ordre du temps.
+export function feederRun(store, user, t = now()) {
+  if (holiday || !user || !user.DinoFeeder) return { user, served: 0 };
+  const f = feederOf(user);
+  if (!f.level || !feederCount(f)) return { user, served: 0 };
+  const k = decorK(user);
+  const free = Math.min(0.6, talentValue(user, 'nanny'));
+  const lv = FEEDER[f.level];
+  const dinos = dinosOf(user);
+  let served = 0, saved = 0, changed = false;
+  for (let guard = 0; guard < 400 && feederCount(f) > 0; guard++) {
+    let best = -1, bestAt = Infinity;
+    dinos.forEach((d, i) => {
+      if (d.deadAt) return;
+      const at = d.at || t, food0 = d.food ?? 80;
+      const trig = food0 <= FEEDER_AT ? at : at + ((food0 - FEEDER_AT) / FOOD_DECAY) * HOUR;
+      if (trig <= t && trig < bestAt) { best = i; bestAt = trig; }
+    });
+    if (best < 0) break;
+    const at0 = dinos[best].at || t;
+    const when = Math.min(t, Math.max(at0, Math.round(bestAt)));
+    const v = live(dinos[best], when, k);
+    if (v.dead) { dinos[best] = { ...dinos[best], deadAt: v.deadAt }; changed = true; continue; }
+    let d = { ...dinos[best], food: v.food, happy: v.happy, at: when };
+    let meals = 0;
+    while (d.food < FEEDER_UNTIL && meals < 6) {
+      const key = feederPick(f, d);
+      if (!key) break;
+      if (Math.random() < free) saved++; else f.stock[key]--;
+      d = eat(store, d, key, when).d;
+      if (lv.treat) d.happy = clamp(d.happy + 5);
+      meals++;
+    }
+    if (!meals) break;
+    served += meals;
+    dinos[best] = d;
+    changed = true;
+  }
+  if (!changed) return { user, served: 0 };
+  const out = { ...f, served: f.served + served, unseen: f.unseen + served, saved: f.saved + saved, lastAt: served ? t : f.lastAt };
+  const u = store.update('Users', user.id, { Dinos: JSON.stringify(dinos), DinoFeeder: JSON.stringify(out) });
+  return { user: u, served };
+}
+// Passe periodique (index.js) : les dinos sont nourris meme sans visite.
+export function feederSweep(store) {
+  let n = 0;
+  for (const u of store.getAll('Users')) {
+    if (!u.DinoFeeder || !u.Dinos) continue;
+    n += feederRun(store, u).served;
+  }
+  return n;
+}
+function feederView(store, user) {
+  const f = feederOf(user);
+  const cur = FEEDER[f.level];
+  const next = FEEDER[f.level + 1] || null;
+  return {
+    level: f.level, label: cur ? cur.label : null, icon: cur ? cur.icon : '🥣', perk: cur ? cur.perk : null,
+    cap: feederCap(user, f), count: feederCount(f), stock: f.stock, served: f.served, unseen: f.unseen, saved: f.saved, lastAt: f.lastAt,
+    threshold: FEEDER_AT, until: FEEDER_UNTIL, free: Math.round(Math.min(0.6, talentValue(user, 'nanny')) * 100),
+    next: next ? { level: next.level, label: next.label, icon: next.icon, cap: Math.round(next.cap * (1 + upgradeValue(user, 'hopper'))), price: next.price, perk: next.perk } : null
+  };
+}
+// Actions du distributeur : null si l'action n'en est pas une.
+function feederAction(store, user, body, action) {
+  const f = feederOf(user);
+  const dust = Number(user.StardustCount) || 0;
+  const save = (fields) => store.update('Users', user.id, fields);
+  if (action === 'feederBuy') {
+    const next = FEEDER[f.level + 1];
+    if (!next) return fail('max_level');
+    if (dust < next.price) return fail('not_enough_dust', 400, { price: next.price });
+    const u = save({ StardustCount: dust - next.price, DinoFeeder: JSON.stringify({ ...f, level: next.level }) });
+    return ok({ ...state(store, u), feederBought: next.level });
+  }
+  if (!f.level) return fail('no_feeder');
+  if (action === 'feederSeen') return ok(state(store, save({ DinoFeeder: JSON.stringify({ ...f, unseen: 0 }) })));
+  if (action === 'feederFill') {
+    // body.food : une nourriture (body.n portions, tout par defaut) ; sans : un peu de tout.
+    const stock = foodOf(user);
+    let worms = Number(user.Worms) || 0;
+    const room = () => feederCap(user, f) - feederCount(f);
+    if (room() <= 0) return fail('feeder_full');
+    const keys = body.food ? [String(body.food)] : ['fish', 'shrimp', 'seaweed', 'worm'];
+    if (keys.some((k) => !FOODS[k])) return fail('unknown_food');
+    let moved = 0;
+    for (const key of keys) {
+      // Vers de terre : on garde 30 appats pour la peche si on remplit « un peu de tout ».
+      const have = key === 'worm' ? Math.max(0, worms - (body.food ? 0 : 30)) : Number(stock[key]) || 0;
+      const want = body.n != null ? Math.max(0, Math.floor(Number(body.n) || 0)) : Infinity;
+      const n = Math.min(have, want, room());
+      if (n <= 0) continue;
+      if (key === 'worm') worms -= n; else stock[key] -= n;
+      f.stock[key] = (Number(f.stock[key]) || 0) + n;
+      moved += n;
+    }
+    if (!moved) return fail('no_food');
+    let u = save({ DinoFood: JSON.stringify(stock), Worms: worms, DinoFeeder: JSON.stringify(f) });
+    u = feederRun(store, u).user;
+    return ok({ ...state(store, u), feederFilled: moved });
+  }
+  if (action === 'feederEmpty') {
+    const stock = foodOf(user);
+    let worms = Number(user.Worms) || 0, n = 0;
+    for (const key of FOOD_KEYS) {
+      const q = Number(f.stock[key]) || 0;
+      if (!q) continue;
+      if (key === 'worm') worms += q; else stock[key] = (Number(stock[key]) || 0) + q;
+      f.stock[key] = 0; n += q;
+    }
+    if (!n) return fail('feeder_empty');
+    return ok({ ...state(store, save({ DinoFood: JSON.stringify(stock), Worms: worms, DinoFeeder: JSON.stringify(f) })), feederEmptied: n });
+  }
+  return null;
 }
 
 // --- talents (utilises par boosts.js, garden.js) ------------------------------
@@ -409,7 +569,10 @@ function state(store, user) {
     maxEggs: MAX_EGGS,
     accessories: Object.entries(ACCESSORIES).map(([key, a]) => ({ key, ...a, owned: accOf(user).includes(key) })),
     decor: Object.entries(DECOR).map(([key, a]) => ({ key, ...a, owned: decorOf(user).includes(key) })),
-    decorBonus: Math.round((1 - decorK(user)) * 100),
+    decorBonus: Math.round((1 - decorOnly(user)) * 100),
+    tamerBonus: Math.round((1 - decorK(user).k / decorOnly(user)) * 100),
+    guardian: decorK(user).safe,
+    feeder: feederView(store, user),
     star: Number(user.DinoStar) || null,
     companion: Number(user.DinoCompanion) || null,
     species: Object.entries(SPECIES).map(([key, s]) => ({ key, label: s.label, talent: s.talent, seasonal: !!s.seasonal })),
@@ -432,6 +595,7 @@ function state(store, user) {
 
 // Marque les dinos morts depuis le dernier passage (date de deces figee).
 function reap(store, user) {
+  user = feederRun(store, user).user;
   const t = now(), k = decorK(user);
   let changed = false;
   const list = dinosOf(user).map((d) => {
@@ -450,7 +614,7 @@ function digLoot(store, user, d, v, t, loot) {
   const n = findsOf(store, d, v, t);
   for (let i = 0; i < n; i++) {
     loot.finds++;
-    loot.dust += (15 + Math.floor(Math.random() * 26)) * (dinoTalent(user, 'rex') ? 2 : 1);
+    loot.dust += Math.round((15 + Math.floor(Math.random() * 26)) * (dinoTalent(user, 'rex') ? 2 : 1) * (1 + talentValue(user, 'paleo')));
     if (Math.random() < 0.25) loot.worms += 1 + Math.floor(Math.random() * 3);
     if (d.species === 'raptor') loot.bones += 1;
     if (d.species === 'ptero') loot.fish += 1;
@@ -482,6 +646,10 @@ function handleDino({ store, body }) {
   const save = (list, extra = {}) => store.update('Users', user.id, { Dinos: JSON.stringify(list), ...extra });
   const dust = Number(user.StardustCount) || 0;
 
+  if (String(action).startsWith('feeder')) {
+    const r = feederAction(store, user, body, action);
+    if (r) return r;
+  }
   // Boutique du dino : accessoires et decorations.
   if (action === 'buyAcc' || action === 'buyDecor') {
     const cat = action === 'buyAcc' ? ACCESSORIES : DECOR;
@@ -840,6 +1008,8 @@ export function dinoAlerts(user) {
   if (dying.length) out.push({ priority: 98, key: 'dino-hungry', icon: '⚠️', label: `${dying[0].d.name} est en danger : nourris-le vite !`, url: 'jeux.html#dinos' });
   else if (hungry.length) out.push({ priority: 70, key: 'dino-hungry', icon: '🦖', label: hungry.length > 1 ? `${hungry.length} dinos ont faim` : `${hungry[0].d.name} a faim`, url: 'jeux.html#dinos' });
   if (dead.length) out.push({ priority: 60, key: 'dino-hungry', icon: '🦴', label: `Un tas d'os t'attend dans l'enclos`, url: 'jeux.html#dinos' });
+  const fd = feederOf(user);
+  if (fd.level && list.some((x) => !x.v.dead) && feederCount(fd) < 5) out.push({ priority: 66, key: 'dino-feeder', icon: '🥣', label: feederCount(fd) ? `Le distributeur de l’enclos est presque vide (${feederCount(fd)} portion${feederCount(fd) > 1 ? 's' : ''})` : 'Le distributeur de l’enclos est vide : remplis-le', url: 'jeux.html#dinos' });
   if (poops >= 2) out.push({ priority: 50, key: 'dino-poop', icon: '💩', label: `${poops} cacas de dino à ramasser (engrais)`, url: 'jeux.html#dinos' });
   if (eggsOf(user).some((e) => e.hatchAt <= t)) out.push({ priority: 75, key: 'dino-skull', icon: '🥚', label: 'Un œuf de dino est prêt à éclore !', url: 'jeux.html#dinos' });
   if (!list.length && (Number(user.DinoSkulls) || 0) > 0) out.push({ priority: 64, key: 'dino-skull', icon: '💀', label: 'Un crâne de dinosaure attend d’être ramené à la vie', url: 'jeux.html#dinos' });
