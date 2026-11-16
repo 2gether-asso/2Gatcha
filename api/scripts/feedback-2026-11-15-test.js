@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Store } from '../src/store.js';
 import { createNative } from '../src/native/index.js';
+import { parisHour } from '../src/native/common.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = path.join(os.tmpdir(), `2gatcha-avis-${process.pid}.sqlite`);
@@ -23,7 +24,6 @@ const get = (p, query) => { native.beforeRequest({}, query, p); const r = native
 const t = () => Math.floor(Date.now() / 1000);
 const user = store.create('Users', { Pseudo: 'Avis', DiscordId: '991115', BoosterCount: 0, StardustCount: 5000, XP: 0 });
 const me = () => store.get('Users', user.id);
-const parisHour = () => Number(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
 const night = () => { const h = parisHour(); return h >= 23 || h < 7; };
 
 let passed = 0;

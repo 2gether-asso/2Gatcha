@@ -640,7 +640,7 @@ function handle({ store, body }) {
     const target = 2200 + Math.floor(Math.random() * 1600);
     const tol = lv >= 9 ? 1.2 : 1;
     const windows = setting(store, 'CookTiming').map((w) => Math.round(Number(w) * tol));
-    const s = { id: `${Date.now()}`, at: Date.now(), target, total: Math.round(target * 1.7), windows, needs: res.needs, label: res.r && known(user, res.r) ? res.r.label : '???', icon: res.r && known(user, res.r) ? res.r.icon : '🫕' };
+    const s = { id: `${Date.now()}`, at: Date.now(), target, total: Math.round(target * 1.7), windows, needs: res.needs, recipe: body.recipe ? String(body.recipe) : null, label: res.r && known(user, res.r) ? res.r.label : '???', icon: res.r && known(user, res.r) ? res.r.icon : '🫕' };
     user = store.update('Users', user.id, { CookSession: JSON.stringify(s) });
     return ok({ session: { id: s.id, target, total: s.total, windows, label: s.label, icon: s.icon } });
   }
@@ -655,7 +655,7 @@ function handle({ store, body }) {
     const [perfect, good, okay] = s.windows;
     const q = ms >= s.total ? 0 : gap <= perfect ? 3 : gap <= good ? 2 : gap <= okay ? 1 : 0;
     // Meme marmite qu'au depart (une recette cachee se retrouve par ses ingredients).
-    const res = resolvePot(store, user, { pot: s.needs });
+    const res = resolvePot(store, user, s.recipe ? { recipe: s.recipe } : { pot: s.needs });
     if (res.error) { store.update('Users', user.id, { CookSession: '' }); return res.error; }
     const c = cookDish(store, user, res.r, res.needs, q, { CookSession: '' });
     const list = [...dishesOf(store, user).good, c.dish];
