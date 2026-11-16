@@ -3123,7 +3123,8 @@ await test('salle des machines interdites : engrenages, forge, porte, machine a 
   assert.equal(user(1).ForbiddenBonus, 5);
   r = fb({ action: 'spin' });
   assert.equal(r.kind, 'bonus');
-  assert.equal(r.results[0].mult, 2);
+  // x2 du tour bonus, encore x2 si l'heure de folie hebdomadaire tombe pendant le test.
+  assert.equal(r.results[0].mult, 2 * (r.machine.frenzy ? 2 : 1));
   // Quitte ou double : 2 jetons remis en jeu, doubles par un tour gagnant.
   store.update('Users', 1, { ForbiddenBonus: 0, BoosterCount: 10, ForbiddenSpin: JSON.stringify({ line: ['jeton', 'jeton', 'rare'], boosters: 2, risked: false }) });
   r = fb({ action: 'risk' });
