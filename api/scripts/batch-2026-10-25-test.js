@@ -123,7 +123,12 @@ await test('arbre celeste : nebuleuses a rangs illimites, points des cartes emer
 });
 
 await test('tendresse : caresse, delai, friandise payante, vitesse de Milo avant la fouille', () => {
-  store.update('Users', 1, { PetLove: '', StardustCount: 5000 });
+  // Envie du jour de Milo deja comblee : sinon, les jours ou il a envie de
+  // jouer ou d'une friandise, le gain est double (compagnons V2) et le test
+  // dependait de la date (CI du 19/11/2026 : 40 au lieu de 20).
+  const comp = JSON.parse(user(1).Companions || '{}') || {};
+  comp.mood = { day: parisDay(0), done: { milo: true } };
+  store.update('Users', 1, { PetLove: '', StardustCount: 5000, Companions: JSON.stringify(comp) });
   let st = post('pets', { userId: 1, action: 'play', pet: 'milo' }).json;
   assert.equal(st.pets.find((p) => p.pet === 'milo').love, 20);
   assert.equal(post('pets', { userId: 1, action: 'play', pet: 'milo' }).json.error, 'pet_cooldown');
