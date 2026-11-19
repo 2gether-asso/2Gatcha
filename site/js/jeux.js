@@ -16,6 +16,14 @@ function getInitialTab() {
   return "village";
 }
 
+// Script d'un jeu pas charge (reseau coupe, mise a jour en cours) : on le
+// dit au joueur au lieu de planter (GlitchTip #102 « loadFishing is not defined »).
+function runLoader(name) {
+  const f = window[name];
+  if (typeof f === "function") return f();
+  if (typeof Toast !== "undefined") Toast.info("Ce jeu n'a pas fini de charger : recharge la page.");
+}
+
 function setActiveTab(tab) {
   ["village", "dig", "archeo", "guess", "expedition", "fish", "garden", "walk", "cook", "dino", "bingo", "vault"].forEach((key) => {
     document.getElementById(`tab-${key}-btn`).classList.toggle("active", tab === key);
@@ -29,17 +37,17 @@ function setActiveTab(tab) {
   if (window.Village && Village.markLeads) requestAnimationFrame(Village.markLeads);
   if (TAB_HASH[tab] && location.hash !== "#" + TAB_HASH[tab]) history.replaceState(null, "", "#" + TAB_HASH[tab]);
   if (tab === "village" && window.Village) Village.load();
-  if (tab === "garden") loadGarden();
+  if (tab === "garden") runLoader("loadGarden");
   if (tab === "walk" && window.Companions) Companions.loadWalk();
   if (tab === "cook" && window.Companions) Companions.loadCook();
   if (tab === "dino" && window.loadDinos) window.loadDinos();
-  if (tab === "dig") loadDig();
+  if (tab === "dig") runLoader("loadDig");
   if (tab === "archeo" && window.loadArcheo) window.loadArcheo();
-  if (tab === "guess") loadGuess();
-  if (tab === "expedition") loadExpedition();
-  if (tab === "fish") loadFishing();
-  if (tab === "bingo") (window.loadBingoFull || loadBingo)();
-  if (tab === "vault") loadVault();
+  if (tab === "guess") runLoader("loadGuess");
+  if (tab === "expedition") runLoader("loadExpedition");
+  if (tab === "fish") runLoader("loadFishing");
+  if (tab === "bingo") { const f = window.loadBingoFull || window.loadBingo; if (f) f(); }
+  if (tab === "vault") runLoader("loadVault");
 }
 
 // -----------------------------------------------------------------------

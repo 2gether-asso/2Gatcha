@@ -56,12 +56,14 @@ await test('Noisette : recolte et replante a ta place', () => {
   const r = post('garden', { userId: user.id, action: 'bunnyFeed', count: 1 });
   assert.equal(r.status, 200, JSON.stringify(r.json));
   assert.equal(r.json.bunnyReport.harvests, 2);
-  assert.equal(r.json.bunnyReport.replanted, 2);
+  // 2 replantees + 2 parcelles vides semees (avis #104, 2026-11-19).
+  assert.equal(r.json.bunnyReport.replanted, 4);
   assert.ok(r.json.bunny.secondsLeft > 0);
   const u = get();
   assert.equal(Number(u.Carrots), 1);
   const plots = JSON.parse(u.GardenPlots);
   assert.ok(plots[0] && plots[1] && plots[1].seed === 'worm', 'meme graine replantee');
+  assert.ok(plots[2] && plots[3], 'parcelles vides semees');
   assert.equal(u.BunnyReport, '', 'rapport remis');
   assert.equal(post('garden', { userId: user.id, action: 'bunnyFeed', count: 50 }).json.error, 'no_carrot');
 });

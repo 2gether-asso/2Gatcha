@@ -33,6 +33,7 @@
         <section><h3>&#9729;&#65039; Sauvegardes</h3><p>Azure : ${az.enabled ? (az.lastError ? `<span class="adb-warn">échec ${ago(az.lastError.at)} : ${esc(az.lastError.message)}</span>` : `dernière ${ago(az.last && az.last.at)}`) : "non configurées"}</p>
           <p>Fichier JSON sur le serveur : ${js.lastError ? `<span class="adb-warn">échec ${ago(js.lastError.at)}</span>` : js.files && js.files.length ? `dernier ${ago(js.files[0].at)} (${js.files.length} gardé${js.files.length > 1 ? "s" : ""})` : "aucun pour l'instant"}</p></section>
         <section><h3>&#127922; Jeu</h3><p>Mode : ${h.mode ? `${h.mode.icon} ${esc(h.mode.label)}` : "?"}</p><p>${h.data.players} comptes · ${h.data.pulls.toLocaleString("fr-FR")} exemplaires</p></section>
+        ${h.room ? roomHtml(h.room) : ""}
       </div>
       <h3>Routes les plus lentes (dernière heure)</h3>
       <div class="adb-table-wrap"><table class="adb-table"><thead><tr><th>Route</th><th>Appels</th><th>Médiane</th><th>95 %</th><th>5xx</th></tr></thead><tbody>${rows(h.requests.slowest) || '<tr><td colspan="5">Rien pour l\'instant.</td></tr>'}</tbody></table></div>
@@ -41,6 +42,13 @@
       <p class="muted">Relu toutes les 30 s · démarré le ${new Date(h.startedAt).toLocaleString("fr-FR")}.</p>`;
   }
 
+  // Salle interdite V2 : bilan de la machine sur 7 jours (api forbidden-rep.js ledgerView).
+  // Taux de retour = poussieres gagnees / payees ; reglage ForbiddenPayoutScale pour corriger.
+  function roomHtml(r) {
+    const w = r.week || {};
+    const n = (v) => Number(v || 0).toLocaleString("fr-FR");
+    return `<section><h3>&#127920; Salle interdite (7 jours)</h3><p>${n(w.spins)} tours · payé ${n(w.paid)} ✨ · gagné ${n(w.won)} ✨${w.rtp != null ? ` · <strong class="${w.rtp > 110 ? "adb-warn" : ""}">retour ${w.rtp} %</strong>` : ""}</p><p>${n(w.boosters)} jetons booster · ${n(w.cards)} cartes · ${n(w.jackpots)} jackpot(s)</p><p>Caisse du casino : ${n(w.dustToChips)} ✨ changées en jetons, ${n(w.dustFromChips)} ✨ rendues</p><p class="muted">Multiplicateur des gains : ×${String(r.payoutScale).replace(".", ",")} (Économie → Salle interdite).</p></section>`;
+  }
   document.addEventListener("DOMContentLoaded", () => {
     const start = () => { load(); clearInterval(timer); timer = setInterval(() => { if (document.visibilityState === "visible" && $("pane-sante") && !$("pane-sante").hidden) load(); }, 30000); };
     if (typeof AdminNav !== "undefined" && AdminNav.onFirstShow) AdminNav.onFirstShow("sante", start); else setTimeout(start, 0);

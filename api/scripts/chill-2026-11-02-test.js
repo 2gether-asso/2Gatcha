@@ -67,9 +67,9 @@ await test('plage : sable et coquillages, chateau personnel, chateau commun', ()
   mode('chill');
   store.update('Users', u1.id, { BeachDig: JSON.stringify({ day: parisDay(0), chest: 15, dug: {}, left: 5, found: false }), Sand: 0, Shells: 0, Castle: '', KeyCount: 0 });
   vac('beach-dig', { tile: 0 }, u1.id);
-  assert.ok(user(u1.id).Sand >= 2 && user(u1.id).Sand <= 5);
+  assert.ok(user(u1.id).Sand >= 4 && user(u1.id).Sand <= 8);
   vac('beach-dig', { tile: 15 }, u1.id);
-  assert.ok(user(u1.id).Sand >= 12, 'le coffre donne 10 sable');
+  assert.ok(user(u1.id).Sand >= 24, 'le coffre donne 20 sable');
   assert.equal(JSON.parse(user(u1.id).VacStats).chests, 1);
   // Chateau : couts et recompenses par etage.
   store.update('Users', u1.id, { Sand: 300, Shells: 30, StardustCount: 0 });

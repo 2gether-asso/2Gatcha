@@ -83,8 +83,18 @@ function depthState(store, user) {
 // Grille absente ou d'une autre profondeur : le workflow en genere une neuve,
 // toute tuile convient (32 = BOARD_SIZE de dig.json).
 function autoTile(user) {
-  const tiles = parseJson(user.DigBoardState, {}).tiles;
+  const board = parseJson(user.DigBoardState, {});
+  const tiles = board.tiles;
   const free = (Array.isArray(tiles) ? tiles : []).flatMap((t, i) => (t && !t.d ? [i] : []));
+  // Milo au travail : il flaire les tresors (comme sniffTile dans dig.json),
+  // « Tout fouiller » creuse d'abord les tresors entames, puis les autres
+  // tresors, jamais une case vide tant qu'il en reste (avis #87).
+  if (Number(user.DogUntil) > Math.floor(Date.now() / 1000) && Array.isArray(board.treasures)) {
+    const hidden = free.filter((i) => tiles[i].t != null && board.treasures[tiles[i].t]);
+    const started = hidden.filter((i) => Number(board.treasures[tiles[i].t].dug) > 0);
+    const pool = started.length ? started : hidden;
+    if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+  }
   return free.length ? free[Math.floor(Math.random() * free.length)] : Math.floor(Math.random() * 32);
 }
 

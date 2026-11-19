@@ -57,13 +57,13 @@
   function moodHtml(p) {
     const m = p.mood;
     if (!m) return "";
-    return `<div class="cp-mood ${m.done ? "done" : ""}" title="Comble son envie : affection doublée et +30 XP">${m.done ? "💖" : "💭"} Envie du jour : <b>${esc(m.label)}</b>${m.done ? " · comblée !" : ""}</div>`;
+    return `<div class="cp-mood ${m.done ? "done" : ""}" title="Comble son envie : affection doublée et +30 XP">${m.done ? "💖" : "💭"} Envie du jour : <b>${esc(m.label)}</b>${m.done ? " · comblée !" : m.missed ? " · déjà promené ailleurs aujourd'hui, à demain !" : ""}</div>`;
   }
   function missionBadge(p) {
     const m = p.mission;
-    if (!m) return "";
+    if (!m) return p.restLeft > 0 ? `<div class="cp-away">💤 Se repose après sa mission · reprend le travail dans <span data-left="${Math.round(Date.now() / 1000 + p.restLeft)}">${fmtLeft(p.restLeft)}</span></div>` : "";
     if (m.duoOf) return `<div class="cp-away">🧭 En mission avec ${nameOf(m.duoOf)} · retour dans <span data-left="${m.end}">${fmtLeft(m.left)}</span></div>`;
-    return `<div class="cp-away ${m.ready ? "ready" : ""}">🧭 ${esc(m.placeLabel || "")} (${m.hours} h)${m.duo ? ` avec ${nameOf(m.duo)}` : ""} · ${m.ready ? "<b>de retour !</b>" : `retour dans <span data-left="${m.end}">${fmtLeft(m.left)}</span>`}</div>`;
+    return `<div class="cp-away ${m.ready ? "ready" : ""}">🧭 ${esc(m.placeLabel || "")} (${m.hours} h)${m.duo ? ` avec ${nameOf(m.duo)}` : ""} · ${m.ready ? `<b>rentré${e_(p, "", "e")} !</b> Trouvailles à récupérer${p.restLeft > 0 ? ` · se repose encore <span data-left="${Math.round(Date.now() / 1000 + p.restLeft)}">${fmtLeft(p.restLeft)}</span>` : ""}` : `retour dans <span data-left="${m.end}">${fmtLeft(m.left)}</span>`}</div>`;
   }
   function pathHtml(p) {
     if (p.level < p.pathAt && !p.path) return `<p class="cp-muted">Au niveau ${p.pathAt}, ${esc(p.label)} choisira une voie. Aperçu :</p>${p.paths.map((x) => `<div class="cp-path preview"><b>${x.icon} ${esc(x.label)}</b> <small>${esc(x.desc)}</small></div>`).join("")}`;
@@ -95,14 +95,14 @@
       const want = p.mood && !p.mood.done && p.mood.kind === k;
       return `<button type="button" class="cp-gest ${want ? "want" : ""}" data-cp-gesture="${k}" data-pet="${p.pet}" ${off ? "disabled" : ""}>${x.icon} ${esc(x.label)}<small>${esc(sub)}</small></button>`;
     };
-    const walk = p.mood && !p.mood.done && p.mood.kind === "walk" ? `<a class="cp-gest want" href="jeux.html#promenade">🐾 Promenade<small>${esc(p.mood.placeLabel || "")}</small></a>` : "";
+    const walk = p.mood && !p.mood.done && !p.mood.missed && !(p.mission && !p.mission.ready) && p.mood.kind === "walk" ? `<a class="cp-gest want" href="jeux.html#promenade">🐾 Promenade<small>${esc(p.mood.placeLabel || "")}</small></a>` : "";
     return `<div class="cp-gests">${btn("cuddle")}${btn("play")}${btn("treat")}${walk}</div>`;
   }
   function petHtml(p) {
     const xpSpan = p.xpTo ? p.xpTo - p.xpFrom : 1, xpIn = p.xpTo ? p.xp - p.xpFrom : 1;
     const perks = p.perks;
     const chips = [perks.speedPct && `⚡ +${perks.speedPct} % vitesse`, perks.lootPct && `💰 +${perks.lootPct} % butin`, perks.giftPct && `🎁 +${perks.giftPct} % cadeaux`, perks.xpPct && `📈 +${perks.xpPct} % XP`, perks.restPct && `😴 pauses −${perks.restPct} %`, perks.decayPct && `💞 affection ${perks.decayPct} % plus durable`].filter(Boolean);
-    return `<article class="cp-card ${p.mission ? "away" : ""}" data-pet="${p.pet}">
+    return `<article class="cp-card ${p.mission && !p.mission.ready ? "away" : ""}" data-pet="${p.pet}">
       <header class="cp-card-head">
         <span class="cp-ava" aria-hidden="true">${p.icon}</span>
         <div class="cp-id"><h3>${esc(p.label)} <span class="cp-level">Niv. ${p.level}${p.level >= p.max ? " ⭐" : ""}</span></h3>
@@ -112,9 +112,9 @@
       ${missionBadge(p)}
       ${moodHtml(p)}
       ${gesturesHtml(p)}
-      <p class="cp-does">${p.game.url ? `<a href="${p.game.url}">${esc(p.game.label)}</a>` : esc(p.game.label)} : ${esc(p.label)} ${esc(p.game.does)}.${p.mission ? " <b>En pause pendant la mission.</b>" : ""}</p>
+      <p class="cp-does">${p.game.url ? `<a href="${p.game.url}">${esc(p.game.label)}</a>` : esc(p.game.label)} : ${esc(p.label)} ${esc(p.game.does)}.${p.mission && !p.mission.ready ? " <b>En pause pendant la mission.</b>" : ""}</p>
       ${chips.length ? `<div class="cp-chips">${chips.map((c) => `<span>${c}</span>`).join("")}</div>` : ""}
-      ${p.active ? `<div class="cp-active ${p.active.ready ? "ready" : ""}"><b>⚡ ${esc(p.active.label)}</b><small>${esc(p.active.desc)}</small>${p.level >= p.max ? `<button type="button" class="btn" data-cp-active="${p.pet}" ${p.active.ready && !p.mission ? "" : "disabled"}>${p.active.usedToday ? "Utilisée aujourd'hui" : "Utiliser"}</button>` : `<small class="cp-muted">Au niveau ${p.active.level}.</small>`}</div>` : ""}
+      ${p.active ? `<div class="cp-active ${p.active.ready ? "ready" : ""}"><b>⚡ ${esc(p.active.label)}</b><small>${esc(p.active.desc)}</small>${p.level >= p.max ? `<button type="button" class="btn" data-cp-active="${p.pet}" ${p.active.ready && !(p.mission && !p.mission.ready) ? "" : "disabled"}>${p.active.usedToday ? "Utilisée aujourd'hui" : "Utiliser"}</button>` : `<small class="cp-muted">Au niveau ${p.active.level}.</small>`}</div>` : ""}
       <details class="cp-more"><summary>Voie, compétences et équipement</summary>
         ${pathHtml(p)}
         <h4>Équipement</h4>${gearHtml(p)}
@@ -146,7 +146,7 @@
       ${r.souvenir ? `<p class="cp-souv">${r.souvenir.icon} Souvenir : <b>${esc(r.souvenir.label)}</b>${r.souvenir.first ? " (nouveau !)" : ""}${r.souvenir.setDone ? ` · série complète : titre « ${esc(r.souvenir.setDone.title)} » et +${r.souvenir.setDone.dust} ✨` : ""}</p>` : ""}</div>`;
   }
   function missions() {
-    const free = data.pets.filter((p) => !p.mission);
+    const free = data.pets.filter((p) => !p.mission || p.mission.ready);
     const away = data.pets.filter((p) => p.mission && !p.mission.duoOf);
     if (!form.pet || !free.some((p) => p.pet === form.pet)) form.pet = free[0] ? free[0].pet : "";
     if (form.duo && (form.duo === form.pet || !free.some((p) => p.pet === form.duo))) form.duo = "";
@@ -157,7 +157,7 @@
     if (form.hours === 8 && !canLong) form.hours = 4;
     return `${reportHtml(lastReport)}
       <section class="cp-box"><h2>🧭 Partir en mission</h2>
-      <p class="cp-muted">Le compagnon part 2, 4 ou 8 h dans un lieu du village et en rapporte un butin (meilleur dans son lieu préféré ❤️), de l'XP, des fragments d'équipement et parfois un souvenir ou un coffre. <b>Pendant la mission, il ne travaille pas dans son jeu</b> : sa session reprend à son retour, sans rien perdre. À deux, le butin est plus gros et leur amitié grandit.</p>
+      <p class="cp-muted">Le compagnon part 2, 4 ou 8 h dans un lieu du village et en rapporte un butin (meilleur dans son lieu préféré ❤️), de l'XP, des fragments d'équipement et parfois un souvenir ou un coffre. <b>Pendant la mission, il ne travaille pas dans son jeu</b> : il rentre tout seul à la fin, fait une petite pause (20 min pour 2 h, 30 min pour 4 h, 40 min pour 8 h) puis reprend sa session, sans rien perdre. Ses trouvailles l'attendent ici : « Récupérer ». À deux, le butin est plus gros et leur amitié grandit.</p>
       ${free.length ? `<div class="cp-form">
         <label>Qui part ?<select id="cp-f-pet">${free.map((p) => `<option value="${p.pet}" ${p.pet === form.pet ? "selected" : ""}>${p.icon} ${esc(p.label)} (niv. ${p.level})</option>`).join("")}</select></label>
         <label>Avec (duo)<select id="cp-f-duo"><option value="">Seul${lead && lead.fem ? "e" : ""}</option>${free.filter((p) => p.pet !== form.pet).map((p) => `<option value="${p.pet}" ${p.pet === form.duo ? "selected" : ""}>${p.icon} ${esc(p.label)}</option>`).join("")}</select></label>
@@ -167,8 +167,8 @@
         <span>${p.icon}</span><b>${esc(p.label)}</b><small>${esc(p.desc)}</small>${p.fav.some((f) => f === form.pet || f === form.duo) ? `<em>❤️ lieu préféré</em>` : ""}${p.night && !p.open ? `<em>🌙 la nuit seulement</em>` : ""}</button>`).join("")}</div>
       <button type="button" class="btn cp-go" data-cp-go ${form.place ? "" : "disabled"}>Partir ${form.hours} h${form.duo ? " en duo" : ""}</button>` : `<p>Tous tes compagnons sont en vadrouille !</p>`}
       </section>
-      ${away.length ? `<section class="cp-box"><h2>🗺️ En route</h2><ul class="cp-trips">${away.map((p) => `<li class="${p.mission.ready ? "ready" : ""}"><span>${p.icon}${p.mission.duo ? nameOf(p.mission.duo).split(" ")[0] : ""}</span><div><b>${esc(p.label)}${p.mission.duo ? ` et ${esc(byPet(p.mission.duo).label)}` : ""}</b><small>${esc(p.mission.placeLabel)} · ${p.mission.hours} h · ${p.mission.ready ? "de retour !" : `retour dans <span data-left="${p.mission.end}">${fmtLeft(p.mission.left)}</span>`}</small></div>
-        ${p.mission.ready ? `<button type="button" class="btn" data-cp-claim="${p.pet}">Accueillir</button>` : `<button type="button" class="btn-ghost" data-cp-recall="${p.pet}" title="Il revient tout de suite, sans butin">Rappeler</button>`}</li>`).join("")}</ul></section>` : ""}`;
+      ${away.length ? `<section class="cp-box"><h2>🗺️ En route</h2><ul class="cp-trips">${away.map((p) => `<li class="${p.mission.ready ? "ready" : ""}"><span>${p.icon}${p.mission.duo ? nameOf(p.mission.duo).split(" ")[0] : ""}</span><div><b>${esc(p.label)}${p.mission.duo ? ` et ${esc(byPet(p.mission.duo).label)}` : ""}</b><small>${esc(p.mission.placeLabel)} · ${p.mission.hours} h · ${p.mission.ready ? "rentré, trouvailles à récupérer" : `retour dans <span data-left="${p.mission.end}">${fmtLeft(p.mission.left)}</span>`}</small></div>
+        ${p.mission.ready ? `<button type="button" class="btn" data-cp-claim="${p.pet}">Récupérer</button>` : `<button type="button" class="btn-ghost" data-cp-recall="${p.pet}" title="Il revient tout de suite, sans butin">Rappeler</button>`}</li>`).join("")}</ul></section>` : ""}`;
   }
 
   // ----------------------------------------------------------------- album
@@ -242,7 +242,7 @@
     if (d.cpPlace) { form.place = d.cpPlace; render(); return; }
     if ("cpClose" in d) { lastReport = null; render(); return; }
     if ("cpCloseVisit" in d) { visit = null; render(); return; }
-    if ("cpGo" in d) { const r = await call({ action: "mission", pet: form.pet, duo: form.duo || undefined, place: form.place, hours: form.hours }, () => `🧭 ${byPet(form.pet).label}${form.duo ? ` et ${byPet(form.duo).label}` : ""} partent pour ${form.hours} h !`); if (r) { form.duo = ""; } return; }
+    if ("cpGo" in d) { const r = await call({ action: "mission", pet: form.pet, duo: form.duo || undefined, place: form.place, hours: form.hours }, () => `🧭 ${byPet(form.pet).label}${form.duo ? ` et ${byPet(form.duo).label}` : ""} partent pour ${form.hours} h !`); if (r) { form.duo = ""; if (r.mission) { lastReport = r.mission; render(); } } return; }
     if (d.cpClaim) { const r = await call({ action: "claim", pet: d.cpClaim }); if (r && r.mission) { lastReport = r.mission; render(); if (typeof Haptics !== "undefined") Haptics.buzz([20, 40, 20]); } return; }
     if (d.cpRecall) { if (!confirm("Le rappeler maintenant ? Il revient sans butin et reprend son travail.")) return; await call({ action: "recall", pet: d.cpRecall }, "Il est de retour."); return; }
     if (d.cpPath) { await call({ action: "path", pet: d.pet, path: d.cpPath }, "Voie choisie !"); return; }

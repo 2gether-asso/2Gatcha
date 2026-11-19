@@ -231,6 +231,8 @@ const API = {
     LazyJs.load("js/lazy/share-studio.js").then(async () => {
       for (const a of list) await this._post("discordImage", { ...owner, id: a.id, image: await ShareStudio.announceImage(a) });
     }).catch((e) => {
+      // Annonce deja partie en texte (delai depasse, 410) : normal, rien a signaler (GlitchTip #83).
+      if (/announce_expired/.test(String((e && (e.code || e.message)) || e))) return;
       // Diagnostic (2026-11-02) : la raison part dans GlitchTip ; l'annonce partira en texte.
       if (typeof Monitor !== "undefined") Monitor.capture(new Error("Annonce Discord : image non créée (" + ((e && e.message) || e) + ")"), { endpoint: "discordImage", browser: navigator.userAgent.slice(0, 120) });
     });
@@ -357,7 +359,8 @@ const API = {
       if (!(e instanceof TypeError) || (typeof navigator !== "undefined" && navigator.onLine === false)) throw e;
       await new Promise((r) => setTimeout(r, 700));
       try { return await fn(); } catch (e2) {
-        if (e2 instanceof TypeError && !this._netReported[name] && typeof Monitor !== "undefined") {
+        // Page de maintenance : le serveur est arrete expres, rien a signaler (GlitchTip #91).
+        if (e2 instanceof TypeError && !this._netReported[name] && typeof Monitor !== "undefined" && !location.pathname.endsWith("maintenance.html")) {
           this._netReported[name] = true;
           Monitor.capture(new Error(`Lecture ${name} coupée : ${e2.message}`), { endpoint: name, via: "network", page: location.pathname.split("/").pop() + location.hash });
         }

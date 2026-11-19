@@ -8,6 +8,26 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-19', title: 'Avec la porte de la salle ouverte…', items: [
+    'La salle se visite en quatre espaces : le hall, les machines, le casino et l’atelier',
+    'De nouvelles machines à installer, chacune avec son caractère, et une qui se mérite',
+    'À chaque tour, le détail de ce qui multiplie tes gains ; la table des gains, tes derniers tours et ton bilan payé / gagné ; des tours automatiques',
+    'Réputation du mois : trois contrats du croupier par jour, dix paliers à récompenses et deux titres',
+    'Tournoi de la semaine : le même nombre de tours pour tous, des points, un classement et des récompenses le lundi',
+    'Quand le jackpot saute, ceux qui ont joué dans l’heure en reçoivent une part ; au blackjack, tous les joueurs de l’heure partagent la table',
+    'Il paraît qu’une vieille plaque, au mur du hall, attend quelque chose…'
+  ] },
+  { date: '2026-11-19', title: 'Vos avis : compagnons, jardin, ouvertures', items: [
+    'Missions des compagnons : ils rentrent tout seuls à la fin, font une petite pause (20 min pour 2 h, 30 min pour 4 h, 40 min pour 8 h) puis reprennent le travail ; leurs trouvailles t’attendent sur la page Compagnons (« Récupérer »)',
+    'Noisette sème aussi les parcelles vides pendant qu’elle travaille : plus de jardin vide au réveil',
+    '« Tout fouiller » suit le flair de Milo quand il creuse : les trésors d’abord, plus de cases vides au hasard',
+    'Plus de « Promenade » proposée quand le compagnon s’est déjà promené ailleurs aujourd’hui, ni de balade pendant une mission',
+    'Château de sable : la plage donne deux fois plus de sable, et chaque étage du château commun en demande moins',
+    'Ouverture : Échap accélère (tout révéler, puis passer au bilan) et ferme la fenêtre au bilan ; Échap ferme aussi les menus. Fermer une ouverture en route ne fait rien perdre : les cartes sont déjà dans ta collection',
+    'Coffres : « Ouvrir » et « ×3 » côte à côte sur une ligne ; « Ouvrir tous les coffres » coche les clés d’or quand il ne reste que de gros coffres',
+    'Avec la porte de la salle ouverte : les tours gratuits de la machine ont leur bouton à part, le levier tire toujours à ta mise ; les 10 tours détaillent leurs cascades, et l’aide explique ce que la mise multiplie',
+    'Corrections : quelques écrans en retard qui refusaient une action déjà faite ailleurs, une page de jeux qui plantait si un script n’avait pas fini de charger'
+  ] },
   { date: '2026-11-16', title: 'Compagnons V2', items: [
     'Une page Compagnons (menu Monde) : fiches, missions, souvenirs, amitiés et concours',
     'Tes compagnons ont un niveau (1 à 30) : ils gagnent de l’XP en travaillant, en se promenant, en mission et avec tes câlins, et deviennent plus rapides et plus généreux',

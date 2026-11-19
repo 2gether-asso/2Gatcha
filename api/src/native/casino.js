@@ -20,7 +20,7 @@
 // 2026-10-26 : les jeux s'ouvrent un a un avec le niveau de la machine a sous
 // (slots.js, GAME_LEVEL) ; les jetons peuvent aussi payer les tours de la machine.
 
-import { ok, fail, userById, now, parisDay, parseJson, refId, nextSerial } from './common.js';
+import { ok, fail, userById, now, parisDay, parisHour, parseJson, refId, nextSerial } from './common.js';
 import { setting } from './settings.js';
 import { priceMultiplier } from './inflation.js';
 import { grantCosmetic, catalog as cosmeticCatalog } from './cosmetics.js';
@@ -140,6 +140,45 @@ function bjView(bj, reveal) {
   const dealer = reveal || bj.done ? bj.dealer : [bj.dealer[0], { r: '?', s: '?' }];
   return { player: bj.player, dealer, playerValue: handValue(bj.player), dealerValue: reveal || bj.done ? handValue(bj.dealer) : handValue([bj.dealer[0]]), bet: bj.bet, doubled: !!bj.doubled, done: !!bj.done, result: bj.result || null, payout: bj.payout || 0, canDouble: !bj.done && bj.player.length === 2 };
 }
+// Table commune (salle V2, 2026-11-19) : tous ceux qui jouent au blackjack
+// dans la meme heure (Paris) sont a la meme table (AppSettings BjTable) :
+// sieges et resultats en direct, et chaque blackjack offre 1 ticket a tous
+// les autres joueurs de la table (« la tournee du croupier »). Les cartes
+// restent tirees pour chacun : rien a deviner chez les voisins.
+const hourKey = () => `${parisDay(0)}-${String(parisHour()).padStart(2, '0')}`;
+function tableOf(store) {
+  const row = store.tables.has('AppSettings') ? store.getAll('AppSettings').find((x) => x.Key === 'BjTable') : null;
+  const v = row ? parseJson(row.Value, null) : null;
+  return { row, t: v && v.hour === hourKey() ? v : { hour: hourKey(), seats: [], rounds: 0 } };
+}
+export function tableView(store, user) {
+  const { t } = tableOf(store);
+  return { hour: Number(t.hour.slice(-2)), seats: t.seats.slice(0, 12).map((s) => ({ pseudo: s.pseudo, hands: s.hands, net: s.net, bj: s.bj || 0, gifts: s.gifts || 0, me: user ? s.userId === user.id : false, last: s.last || null })), rounds: t.rounds || 0 };
+}
+function seatAt(store, user, bj) {
+  const { row, t } = tableOf(store);
+  let seat = t.seats.find((s) => s.userId === user.id);
+  if (!seat) { seat = { userId: user.id, pseudo: user.Pseudo || '?', hands: 0, net: 0, bj: 0, gifts: 0 }; t.seats.push(seat); }
+  seat.hands++; seat.net += (bj.payout || 0) - bj.bet; seat.last = bj.result; seat.at = now();
+  t.rounds = (t.rounds || 0) + 1;
+  let shared = 0;
+  if (bj.result === 'blackjack') {
+    seat.bj++;
+    for (const s of t.seats) {
+      if (s.userId === user.id) continue;
+      const u = store.get('Users', s.userId);
+      if (!u) continue;
+      store.update('Users', u.id, { CasinoTickets: tickets(u) + 1 });
+      s.gifts = (s.gifts || 0) + 1;
+      shared++;
+    }
+  }
+  t.seats.sort((a, b) => b.at - a.at);
+  t.seats = t.seats.slice(0, 20);
+  const value = JSON.stringify(t);
+  if (row) store.update('AppSettings', row.id, { Value: value }); else store.create('AppSettings', { Key: 'BjTable', Value: value });
+  return shared;
+}
 function bjSettle(store, user, st, bj) {
   const pv = handValue(bj.player);
   if (pv <= 21) while (handValue(bj.dealer) < 17) bj.dealer.push(bj.deck.pop());
@@ -155,13 +194,14 @@ function bjSettle(store, user, st, bj) {
   st.bj = bj;
   const u = save(store, user, { chipsDelta: payout, ticketsDelta: tix, state: st, stat: { bjHands: 1, bjWins: payout > bj.bet ? 1 : 0, won: payout } });
   if (payout > bj.bet) bigWinFeed(store, u, 'blackjack', payout);
-  return { user: u, tix };
+  const shared = seatAt(store, u, bj);
+  return { user: u, tix, shared };
 }
 function blackjack(store, user, body) {
   const st = stateOf(user);
   let bj = st.bj && !st.bj.done ? st.bj : null;
   const action = body.action || 'status';
-  if (action === 'status') return ok({ blackjack: bjView(st.bj, false) });
+  if (action === 'status') return ok({ blackjack: bjView(st.bj, false), table: tableView(store, user) });
   if (action === 'deal') {
     if (bj) return fail('hand_in_progress', 400, { blackjack: bjView(bj, false) });
     const b = checkBet(store, user, body.bet);
@@ -170,14 +210,14 @@ function blackjack(store, user, body) {
     bj = { bet: b.bet, deck, player: [deck.pop(), deck.pop()], dealer: [deck.pop(), deck.pop()] };
     user = save(store, user, { chipsDelta: -b.bet, xp: b.bet, stat: { wagered: b.bet } });
     st.bj = bj;
-    if (isBJ(bj.player) || isBJ(bj.dealer)) { const r = bjSettle(store, user, st, bj); return ok({ blackjack: bjView(bj, true), tickets: r.tix, ...wallet(store, r.user) }); }
+    if (isBJ(bj.player) || isBJ(bj.dealer)) { const r = bjSettle(store, user, st, bj); return ok({ blackjack: bjView(bj, true), tickets: r.tix, shared: r.shared, table: tableView(store, r.user), ...wallet(store, r.user) }); }
     user = save(store, user, { state: st });
     return ok({ blackjack: bjView(bj, false), ...wallet(store, user) });
   }
   if (!bj) return fail('no_hand');
   if (action === 'hit') {
     bj.player.push(bj.deck.pop());
-    if (handValue(bj.player) >= 21) { const r = bjSettle(store, user, st, bj); return ok({ blackjack: bjView(bj, true), tickets: r.tix, ...wallet(store, r.user) }); }
+    if (handValue(bj.player) >= 21) { const r = bjSettle(store, user, st, bj); return ok({ blackjack: bjView(bj, true), tickets: r.tix, shared: r.shared, table: tableView(store, r.user), ...wallet(store, r.user) }); }
     st.bj = bj;
     user = save(store, user, { state: st });
     return ok({ blackjack: bjView(bj, false), ...wallet(store, user) });
@@ -189,9 +229,9 @@ function blackjack(store, user, body) {
     bj.bet *= 2; bj.doubled = true;
     bj.player.push(bj.deck.pop());
     const r = bjSettle(store, user, st, bj);
-    return ok({ blackjack: bjView(bj, true), tickets: r.tix, ...wallet(store, r.user) });
+    return ok({ blackjack: bjView(bj, true), tickets: r.tix, shared: r.shared, table: tableView(store, r.user), ...wallet(store, r.user) });
   }
-  if (action === 'stand') { const r = bjSettle(store, user, st, bj); return ok({ blackjack: bjView(bj, true), tickets: r.tix, ...wallet(store, r.user) }); }
+  if (action === 'stand') { const r = bjSettle(store, user, st, bj); return ok({ blackjack: bjView(bj, true), tickets: r.tix, shared: r.shared, table: tableView(store, r.user), ...wallet(store, r.user) }); }
   return fail('unknown_action');
 }
 

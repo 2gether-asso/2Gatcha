@@ -364,7 +364,31 @@ export function settleBunny(store, user) {
   const base = setting(store, 'GardenPlantCost');
   let dust = Number(user.StardustCount) || 0;
   const sum = Object.fromEntries(GAIN_KEYS.map((k) => [k, 0]));
-  let harvests = 0, replanted = 0, spent = 0, xp = 0, wilted = 0;
+  let harvests = 0, replanted = 0, spent = 0, xp = 0, wilted = 0, sown = 0;
+  const seedFor = (prev) => {
+    const wanted = user.BunnySeed && seeds[user.BunnySeed] ? user.BunnySeed : prev || 'mix';
+    const seed = seeds[wanted] && level >= (seeds[wanted].level || 1) ? wanted : 'mix';
+    return { seed, cost: Math.round(base * (seeds[seed] || seeds.mix).cost) };
+  };
+  const sow = (i, seed, at) => {
+    const fresh = newPlot(store, user, seed, at);
+    // Avance de pousse grace a la tendresse (jusqu'a PetMaxSpeedPct %).
+    fresh.plantedAt = at - Math.round(grow * seedMult(fresh) * love.speed);
+    plots[i] = fresh;
+  };
+  // Parcelles vides pendant son travail (recolte a la main, jardin vide quand
+  // on l'a nourrie) : elle les seme aussi, depuis son dernier passage (s.seen),
+  // pas seulement celles qu'elle recolte (avis #104 « jardin vide le matin »).
+  const from = Math.max(s.start, Number(s.seen) || 0);
+  if (from <= end && from < s.until) {
+    plots.forEach((p, i) => {
+      if (p) return;
+      const { seed, cost } = seedFor(null);
+      if (dust < cost) return;
+      dust -= cost; spent += cost; sown++;
+      sow(i, seed, from);
+    });
+  }
   for (let guard = 0; guard < 120; guard++) {
     let best = -1, at = Infinity;
     plots.forEach((p, i) => { if (!p) return; const r = p.plantedAt + Math.round(grow * seedMult(p)); if (r <= end && r < at) { at = r; best = i; } });
@@ -381,28 +405,26 @@ export function settleBunny(store, user) {
     if (isWilted) wilted++;
     plots[best] = null;
     // Graine choisie pour elle (Users.BunnySeed), sinon la meme.
-    const wanted = user.BunnySeed && seeds[user.BunnySeed] ? user.BunnySeed : p.seed || 'mix';
-    const seed = seeds[wanted] && level >= (seeds[wanted].level || 1) ? wanted : 'mix';
-    const cost = Math.round(base * (seeds[seed] || seeds.mix).cost);
+    const { seed, cost } = seedFor(p.seed);
     if (h < s.until && dust + sum.dust >= cost) {
       dust -= cost; spent += cost; replanted++;
-      const fresh = newPlot(store, user, seed, h);
-      // Avance de pousse grace a la tendresse (jusqu'a PetMaxSpeedPct %).
-      fresh.plantedAt = h - Math.round(grow * seedMult(fresh) * love.speed);
-      plots[best] = fresh;
+      sow(best, seed, h);
     }
   }
   const finished = t >= s.until;
-  if (!harvests) return finished ? { BunnyState: '' } : null;
+  replanted += sown;
+  // Dernier passage retenu : une parcelle videe ensuite sera semee a partir de la.
+  const nextState = finished ? '' : JSON.stringify({ ...s, seen: end });
+  if (!harvests && !sown) return finished ? { BunnyState: '' } : nextState !== JSON.stringify(s) ? { BunnyState: nextState } : null;
   const fields = {
     GardenPlots: JSON.stringify(plots), Worms: (Number(user.Worms) || 0) + sum.worms, GoldBait: (Number(user.GoldBait) || 0) + sum.bait,
     StardustCount: dust + sum.dust, GardenXP: (Number(user.GardenXP) || 0) + xp,
     CatFish: (Number(user.CatFish) || 0) + sum.catFish, BoneCount: (Number(user.BoneCount) || 0) + sum.bones, DinoSkulls: (Number(user.DinoSkulls) || 0) + sum.skulls,
     SpareParts: (Number(user.SpareParts) || 0) + sum.parts, Grubs: (Number(user.Grubs) || 0) + sum.grubs,
     ...pantryFields(user, { veg: sum.veg, herb: sum.herb, mush: sum.mush, fruit: sum.fruit, honey: sum.honey }),
-    BunnyState: finished ? '' : JSON.stringify(s)
+    BunnyState: nextState
   };
-  const gift = petGift(store, { ...user, ...fields }, 'noisette');
+  const gift = harvests ? petGift(store, { ...user, ...fields }, 'noisette') : null;
   if (gift) Object.assign(fields, gift.fields);
   Object.assign(fields, workFields(store, { ...user, ...fields }, 'noisette', harvests).fields);
   // Rapport cumule jusqu'a la prochaine visite du jardin.

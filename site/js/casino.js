@@ -149,7 +149,7 @@
     const next = games.filter((g) => !g.open).sort((a, b) => a.level - b.level)[0];
     doors.innerHTML = `
       ${bulbs(30)}
-      <h2 class="cz-doors-title">Les autres salles</h2>
+      <h2 class="cz-doors-title">Les salles du casino</h2>
       <div class="cz-door-grid">${GAMES.map((g) => {
         const l = lockOf(g.key);
         return `<button type="button" class="cz-door ${l.open ? "" : "locked"}" data-room="${g.key}" ${l.open ? "" : `aria-disabled="true" title="Ouvre au niveau ${l.level} de la machine"`}>
@@ -255,6 +255,16 @@
   }
   let bjShown = { player: 0, dealer: 0 };
   const bjHistory = [];
+  // Table commune de l'heure (salle V2, casino.js tableView) : qui joue, resultats, tournees.
+  let bjTable = null;
+  function tableHtml() {
+    const t = bjTable;
+    if (!t) return "";
+    const me = t.seats.find((s) => s.me);
+    return `<div class="bj-commons"><h4>🍸 Table de ${t.hour} h <small>${t.seats.length} joueur${t.seats.length > 1 ? "s" : ""} · ${t.rounds} main${t.rounds > 1 ? "s" : ""}</small></h4>
+      ${t.seats.length ? `<ul>${t.seats.map((s) => `<li class="${s.me ? "me" : ""}"><b>${esc(s.pseudo)}</b><span class="${s.net > 0 ? "up" : s.net < 0 ? "down" : ""}">${s.net > 0 ? "+" : s.net < 0 ? "−" : "±"}${fmt(Math.abs(s.net))} 🪙</span><small>${s.hands} main${s.hands > 1 ? "s" : ""}${s.bj ? ` · ${s.bj} 🂡` : ""}</small></li>`).join("")}</ul>` : `<p>Personne encore à la table cette heure-ci.</p>`}
+      <p class="bj-commons-rule">Tous ceux qui jouent dans l'heure partagent la table : chaque blackjack offre 1 🎟️ à tous les autres joueurs de la table.${me && me.gifts ? ` Tu en as déjà reçu ${me.gifts}.` : ""}</p></div>`;
+  }
   function bjRender(bj, { dealerCount, flip } = {}) {
     const box = $("cz-game");
     const live = bj && !bj.done;
@@ -282,7 +292,7 @@
       </div>
       <div class="bj-controls">${live ? `<div class="cz-actions"><button type="button" class="btn" data-bj="hit">🂠 Tirer <kbd>T</kbd></button><button type="button" class="btn-secondary" data-bj="stand">✋ Rester <kbd>R</kbd></button>${bj.canDouble ? `<button type="button" class="btn-ghost" data-bj="double">×2 Doubler (+${bj.bet} 🪙) <kbd>D</kbd></button>` : ""}</div>`
         : `${betBar("bj-bets")}<div class="cz-actions"><button type="button" class="btn" data-bj="deal">🃏 Distribuer</button></div>`}
-      <p class="cz-history" ${bjHistory.length ? "" : 'style="visibility:hidden"'}>Dernières mains : ${bjHistory.map((h) => `<span class="${h}">${{ win: "G", lose: "P", push: "=" }[h]}</span>`).join("") || "<span>=</span>"}</p></div>`;
+      <p class="cz-history" ${bjHistory.length ? "" : 'style="visibility:hidden"'}>Dernières mains : ${bjHistory.map((h) => `<span class="${h}">${{ win: "G", lose: "P", push: "=" }[h]}</span>`).join("") || "<span>=</span>"}</p></div>${tableHtml()}`;
     bindBets(box);
     box.querySelectorAll("[data-bj]").forEach((b) => b.addEventListener("click", () => bjAct(b.dataset.bj)));
     bjShown = { player: bj ? bj.player.length : 0, dealer: dealer.length };
@@ -297,6 +307,8 @@
     run(async () => {
       const r = takeWallet(await call("blackjack", action, action === "deal" ? { bet } : {}));
       const bj = r.blackjack;
+      if (r.table) bjTable = r.table;
+      if (r.shared) setTimeout(() => Toast.success(`🍸 Ton blackjack offre 1 🎟️ à ${r.shared} joueur${r.shared > 1 ? "s" : ""} de la table !`), 1200);
       tone(action === "hit" ? 620 : 520, 0.05);
       if (action === "deal") bjShown = { player: 0, dealer: 0 };
       if (bj.done && bj.dealer.length >= 2) {
@@ -316,7 +328,7 @@
   }
   async function blackjack() {
     let bj = null;
-    try { bj = (await call("blackjack", "status")).blackjack; } catch (e) { bj = null; }
+    try { const r = await call("blackjack", "status"); bj = r.blackjack; bjTable = r.table || null; } catch (e) { bj = null; }
     bjShown = { player: bj ? bj.player.length : 0, dealer: bj ? bj.dealer.length : 0 };
     bjRender(bj && !bj.done ? bj : bj && bj.done ? bj : null);
   }

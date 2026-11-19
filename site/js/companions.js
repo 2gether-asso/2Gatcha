@@ -205,8 +205,8 @@
     if (!zone || !st) return;
     if (!st.enabled) { zone.innerHTML = `<div class="empty-state">Les promenades sont en pause pour l'instant.</div>`; return; }
     if (!st.pets.length) { zone.innerHTML = `<div class="empty-state">&#128062; Tu n'as pas encore de compagnon à promener. Ils viendront à toi en jouant…</div>`; return; }
-    const free = st.pets.filter((p) => !p.walked);
-    if (!walkPet || !st.pets.some((p) => p.pet === walkPet && !p.walked)) walkPet = (free[0] || st.pets[0]).pet;
+    const free = st.pets.filter((p) => !p.walked && !p.away);
+    if (!walkPet || !st.pets.some((p) => p.pet === walkPet && !p.walked && !p.away)) walkPet = (free[0] || st.pets[0]).pet;
     const cur = st.pets.find((p) => p.pet === walkPet);
     const placeOf = (k) => st.places.find((p) => p.key === k);
     zone.innerHTML = `
@@ -215,7 +215,7 @@
       <div class="walk-pets" role="radiogroup" aria-label="Compagnon">
         ${st.pets.map((p) => `<button type="button" role="radio" class="walk-pet ${p.pet === walkPet ? "on" : ""} ${p.walked ? "done" : ""}" data-walk-pet="${p.pet}" aria-checked="${p.pet === walkPet}">
           <span class="walk-pet-ico" aria-hidden="true">${p.icon}</span>
-          <span class="walk-pet-body"><strong>${esc(p.label)}</strong><small>${p.walked ? `&#9989; ${esc((placeOf(p.walked) || {}).label || "promené")}` : `&#10084;&#65039; ${p.love}/100 · aime ${esc((placeOf(p.fav) || { label: "tout" }).label.replace(/^(La|Le|Les|L’) /, "").toLowerCase())}`}</small></span>
+          <span class="walk-pet-body"><strong>${esc(p.label)}</strong><small>${p.away && !p.walked ? "&#129517; En mission" : p.walked ? `&#9989; ${esc((placeOf(p.walked) || {}).label || "promené")}` : `&#10084;&#65039; ${p.love}/100 · aime ${esc((placeOf(p.fav) || { label: "tout" }).label.replace(/^(La|Le|Les|L’) /, "").toLowerCase())}`}</small></span>
         </button>`).join("")}
       </div>
       ${result || ""}
@@ -223,14 +223,14 @@
       <div class="walk-places">
         ${st.places.map((pl) => {
           const fav = cur && cur.fav === pl.key;
-          const off = !pl.open || !cur || !!cur.walked || walkBusy;
+          const off = !pl.open || !cur || !!cur.walked || !!cur.away || walkBusy;
           return `<div class="walk-place place-${pl.key} ${pl.open ? "" : "closed"} ${fav ? "fav" : ""}">
             <span class="walk-place-ico" aria-hidden="true">${pl.icon}</span>
             <strong>${esc(pl.label)}</strong>
             <small>${esc(pl.desc)}</small>
             ${fav ? `<span class="walk-fav">&#11088; Lieu préféré de ${esc(cur.label)} : ×${String(st.favMult).replace(".", ",")}</span>` : ""}
             ${pl.night ? `<span class="walk-night">${pl.open ? "&#127769; Ouverte cette nuit" : "&#127769; S'ouvre à la nuit tombée"}</span>` : ""}
-            <button type="button" class="btn${fav ? "" : "-secondary"}" data-walk-go="${pl.key}" ${off ? "disabled" : ""}>${cur && cur.walked ? "Déjà promené" : pl.open ? "Partir en balade" : "Fermée"}</button>
+            <button type="button" class="btn${fav ? "" : "-secondary"}" data-walk-go="${pl.key}" ${off ? "disabled" : ""}>${cur && cur.walked ? "Déjà promené" : cur && cur.away ? "En mission" : pl.open ? "Partir en balade" : "Fermée"}</button>
           </div>`;
         }).join("")}
       </div>`;

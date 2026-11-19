@@ -41,10 +41,13 @@
   function todo(p, c) {
     const g = p.gestures;
     const ready = { cuddle: g.cuddle.wait <= 0, play: g.play.wait <= 0, treat: g.treat.left > 0 && (state.stardust || 0) >= g.treat.price };
-    const away = c && c.mission;
-    const wish = c && c.mood && !c.mood.done ? c.mood : null;
+    // Mission finie (ready) : il est rentre tout seul, seules ses trouvailles
+    // attendent (avis #92) ; il n'est plus « absent ».
+    const m = c && c.mission;
+    const away = m && !m.ready && !(m.duoOf && m.left <= 0) ? m : null;
+    const wish = c && c.mood && !c.mood.done && !c.mood.missed ? c.mood : null;
     const skill = c && c.active && c.level >= c.max && c.active.ready && !away;
-    const back = away && !away.duoOf && away.ready;
+    const back = m && !m.duoOf && m.ready ? m : null;
     return { ready, wish, skill, back, away, count: (away ? 0 : Object.values(ready).filter(Boolean).length) + (wish && !away ? 1 : 0) + (skill ? 1 : 0) + (back ? 1 : 0) };
   }
   function barHtml(p, c) {
@@ -60,8 +63,8 @@
     };
     const xp = c ? (c.xpTo ? Math.max(0, Math.min(100, ((c.xp - c.xpFrom) / Math.max(1, c.xpTo - c.xpFrom)) * 100)) : 100) : 0;
     let status = "";
-    if (t.away) status = t.away.duoOf ? `<span class="pb-pill away">🧭 En mission en duo · retour dans ${wait(t.away.left)}</span>` : t.back ? `<a class="pb-pill back" href="compagnons.html">🧭 De retour de mission : viens l'accueillir !</a>` : `<span class="pb-pill away">🧭 En mission (${esc(t.away.placeLabel || "")}) · retour dans ${wait(t.away.left)} · ne travaille pas</span>`;
-    else if (c && c.mood) status = `<span class="pb-pill mood ${c.mood.done ? "done" : ""}" title="La combler : affection doublée et +30 XP">${c.mood.done ? "💖 Envie comblée" : `💭 Envie : <b>${esc(c.mood.label)}</b>`}</span>${t.wish && t.wish.kind === "walk" ? `<a class="pb-pill walk" href="jeux.html#promenade">🐾 L'emmener</a>` : ""}`;
+    if (t.away) status = t.away.duoOf ? `<span class="pb-pill away">🧭 En mission en duo · retour dans ${wait(t.away.left)}</span>` : `<span class="pb-pill away">🧭 En mission (${esc(t.away.placeLabel || "")}) · retour dans ${wait(t.away.left)} · ne travaille pas</span>`;
+    else if (c && c.mood) status = (t.back ? `<a class="pb-pill back" href="compagnons.html">🧭 Rentré${p.fem ? "e" : ""} de mission : récupère ses trouvailles !</a>` : "") + (c.restLeft > 0 ? `<span class="pb-pill away">💤 Se repose après sa mission · reprend dans ${wait(c.restLeft)}</span>` : "") + `<span class="pb-pill mood ${c.mood.done ? "done" : ""}" title="La combler : affection doublée et +30 XP">${c.mood.done ? "💖 Envie comblée" : `💭 Envie : <b>${esc(c.mood.label)}</b>${c.mood.missed ? " (déjà promené aujourd'hui)" : ""}`}</span>${t.wish && t.wish.kind === "walk" ? `<a class="pb-pill walk" href="jeux.html#promenade">🐾 L'emmener</a>` : ""}`;
     const sk = c && c.active;
     const skill = sk ? (c.level >= c.max
       ? `<button type="button" class="pb-skill ${t.skill ? "ready" : ""}" data-pet-skill-use="${p.pet}" ${t.skill ? "" : "disabled"} title="${esc(sk.desc)}"><span class="pb-ico">⚡</span><span><b>${esc(sk.label)}</b><small>${t.away ? "en mission" : sk.usedToday ? "demain" : "prête"}</small></span>${t.skill ? `<i class="pb-badge skill" aria-hidden="true">⚡</i>` : ""}</button>`
@@ -85,7 +88,8 @@
     if (HOME[pet]) return document.getElementById(HOME[pet]);
     const h = HOSTS[pet];
     // Seulement sur la page de son jeu (« main .panel > .lead » existe partout).
-    if (h && h[4] && currentPage() !== h[4]) return null;
+    const page = typeof currentPage === "function" ? currentPage() : (location.pathname.split("/").pop() || "index.html");
+    if (h && h[4] && page !== h[4]) return null;
     const host = h && document.querySelector(h[0]);
     if (!host) return null;
     let home = document.querySelector(`[data-pet-home="${pet}"]`);
@@ -122,7 +126,7 @@
       if (!p) { if (bar) bar.remove(); badge(av, 0); continue; }
       if (!bar) { bar = document.createElement("div"); bar.className = "pet-bar"; home.appendChild(bar); }
       bar.innerHTML = barHtml(p, c);
-      home.classList.toggle("pet-away", !!(c && c.mission));
+      home.classList.toggle("pet-away", !!todo(p, c).away);
       badge(av, todo(p, c).count);
       // Jauge de fatigue : visible quand il travaille (data-working pose par jeux.js).
       const fat = document.querySelector(`[data-pet-fatigue="${pet}"]`);
@@ -136,7 +140,7 @@
     }
   }
 
-  const present = () => Object.values(HOME).some((id) => document.getElementById(id)) || Object.values(HOSTS).some(([sel, , , , page]) => (!page || currentPage() === page) && document.querySelector(sel));
+  const present = () => Object.values(HOME).some((id) => document.getElementById(id)) || Object.values(HOSTS).some(([sel, , , , page]) => (!page || (typeof currentPage === "function" ? currentPage() : location.pathname.split("/").pop()) === page) && document.querySelector(sel));
   async function load() {
     if (!present() || !Session.isLoggedIn() || !API.pets) return;
     const [s, c] = await Promise.all([API.pets(Session.userId).catch(() => null), API.post("companions", { userId: Session.userId, action: "status" }).catch(() => null)]);

@@ -286,7 +286,8 @@ function beachDig(store, user, body) {
   const bits = [];
   let notice = null;
   b.left -= 1;
-  const sand = sandOn(store) ? (tile === b.chest ? 10 : rnd(2, 5)) : 0;
+  // Sable double (avis #103, 2026-11-19 : « trop dur d'avoir du sable ») : 4 a 8 par coup, 20 au coffre.
+  const sand = sandOn(store) ? (tile === b.chest ? 20 : rnd(4, 8)) : 0;
   if (sand) { fields.Sand = n(user.Sand) + sand; bits.push(`+${sand} 🏝️ sable`); }
   if (tile === b.chest) {
     const dust = n(vacationCfg(store).beachChestDust);
@@ -339,7 +340,8 @@ const SHARED_FLOORS = 5;
 function sharedGoal(store) {
   const since = now() - 7 * 86400;
   const active = store.getAll('Users').filter((u) => n(u.LastSeenAt) >= since).length;
-  return Math.max(30, active * 10);
+  // Objectif par etage allege (avis #103) : 6 sables par joueur actif, 20 au moins.
+  return Math.max(20, active * 6);
 }
 function sharedState(store) {
   const s = appGet(store, 'shared-castle', {});

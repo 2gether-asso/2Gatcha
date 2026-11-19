@@ -23,13 +23,19 @@
 //    V M page 404 · VI A page Mode du moment · VII N aquarium ouvert ·
 //    VIII D code Konami sur l'accueil (ou glisses du doigt sur mobile) ·
 //    IX R salle des machines (Communaute) · X E dinodex ouvert. Indice de depart : note de mise a jour du 19/10.
-//   POST /webhook/forbidden { userId, action: 'status' | 'gear' | 'scroll' | 'craftKey' | 'insertKey' | 'spin' | 'nudge' | 'risk' | 'inlay' | 'atelier' | 'forge' | 'gem' | 'heart' | 'feed', n?, count?, bet?, reel?, key?, pullId?, tier? }
+//  - Salle V2 (2026-11-19) : 'machine' { key } (choisir / acheter une machine,
+//    slots.js), 'tourney' { op, count } (forbidden-tourney.js), 'seals' et
+//    'plaque' { word } (forbidden-seals.js) ; reputation : forbidden-rep.js.
+//   POST /webhook/forbidden { userId, action: 'status' | 'gear' | 'scroll' | 'craftKey' | 'insertKey' | 'spin' | 'nudge' | 'risk' | 'inlay' | 'machine' | 'tourney' | 'seals' | 'plaque' | 'atelier' | 'forge' | 'gem' | 'heart' | 'feed', n?, count?, bet?, reel?, key?, pullId?, tier?, op?, word? }
 
 import { ok, fail, userById, now, parseJson } from './common.js';
 import { setting } from './settings.js';
 import { MINERALS, mineralsOf } from './digdepth.js';
 import { addFeed } from './feed.js';
-import { machineView, spin, nudge, risk, inlay } from './slots.js';
+import { machineView, spin, nudge, risk, inlay, chooseMachine } from './slots.js';
+import { repView } from './forbidden-rep.js';
+import { tourneyView, tourneyAction, settleTourney } from './forbidden-tourney.js';
+import { sealsView, plaque } from './forbidden-seals.js';
 import { stonesAction, STONE_ACTIONS } from './stones.js';
 
 export const schema = {
@@ -95,14 +101,18 @@ function view(store, user) {
     unlocked: isUnlocked(user), forge: forgeView(r)
   };
   if (!base.unlocked) return base;
-  return { ...base, machine: machineView(store, user) };
+  // Salle V2 : reputation, tournoi, plaque des sceaux (forbidden-rep.js, forbidden-tourney.js, forbidden-seals.js).
+  return { ...base, machine: machineView(store, user), rep: repView(store, user), tourney: tourneyView(store, user), seals: sealsView(store, user) };
 }
 
 function handle({ store, body }) {
   let user = userById(store, body.userId);
   if (!user) return fail('unknown_user', 404);
   const action = body.action || 'status';
-  if (action === 'status') return ok(view(store, user));
+  if (action === 'status') {
+    if (isUnlocked(user) && setting(store, 'ForbiddenTourneyEnabled')) { settleTourney(store); user = store.get('Users', user.id); }
+    return ok(view(store, user));
+  }
 
   if (action === 'gear') {
     const n = Math.floor(Number(body.n));
@@ -147,9 +157,15 @@ function handle({ store, body }) {
     return stonesAction(store, user, body);
   }
 
-  if (action === 'spin' || action === 'nudge' || action === 'risk' || action === 'inlay') {
+  if (action === 'tourney' || action === 'plaque' || action === 'seals') {
     if (!isUnlocked(user)) return fail('locked', 403);
-    const r = action === 'spin' ? spin(store, user, body) : action === 'nudge' ? nudge(store, user) : action === 'inlay' ? inlay(store, user, body) : risk(store, user);
+    if (action === 'tourney') return tourneyAction(store, user, body);
+    if (action === 'seals') return ok({ seals: sealsView(store, user) });
+    return plaque(store, user, body);
+  }
+  if (action === 'spin' || action === 'nudge' || action === 'risk' || action === 'inlay' || action === 'machine') {
+    if (!isUnlocked(user)) return fail('locked', 403);
+    const r = action === 'spin' ? spin(store, user, body) : action === 'nudge' ? nudge(store, user) : action === 'inlay' ? inlay(store, user, body) : action === 'machine' ? chooseMachine(store, user, body) : risk(store, user);
     if (r.json && r.json.machine) r.json = { ...view(store, store.get('Users', user.id)), ...r.json };
     return r;
   }

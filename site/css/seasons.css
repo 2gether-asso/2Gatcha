@@ -1093,3 +1093,8 @@ body::before { will-change: transform; }
 .fs-main-tabs { margin: 12px 0 10px; flex-wrap: wrap; }
 .fs-main-tabs [data-tab] { flex: 1 1 140px; }
 .fs-panel[hidden] { display: none; }
+
+/* Machine interdite (2026-11-19, avis #98/#100) : bouton de tour gratuit a part, cascades dans le bilan x10. */
+.fm-lever-free { background: radial-gradient(circle at 40% 30%, #a7f3d0, #059669 45%, #064e3b); box-shadow: 0 6px 0 #022c22, 0 10px 24px -6px rgba(16, 185, 129, 0.7); }
+.fm-lever-free.bonus { background: radial-gradient(circle at 40% 30%, #fde68a, #f59e0b 45%, #92400e); box-shadow: 0 6px 0 #451a03, 0 10px 24px -6px rgba(251, 191, 36, 0.8); }
+.fm-ten-casc { display: block; padding-left: 10px; font-size: 0.9rem; color: #fcd34d; }

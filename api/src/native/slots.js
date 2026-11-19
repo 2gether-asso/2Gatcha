@@ -49,14 +49,49 @@ import { weekKey } from './levels.js';
 import { chipPrice } from './casino.js';
 import { MINERALS, mineralsOf } from './digdepth.js';
 import { heartOf } from './stones.js';
+import { inbox } from './modefun.js';
 
 export const schema = {
   Users: {
     ForbiddenSpin: { type: 'Text' }, ForbiddenHeat: { type: 'Numeric' }, ForbiddenFreeDay: { type: 'Text' }, ForbiddenStats: { type: 'Text' },
     ForbiddenXP: { type: 'Numeric' }, ForbiddenBonus: { type: 'Numeric' }, ForbiddenFreeSpins: { type: 'Numeric' }, ForbiddenDaily: { type: 'Text' },
-    ForbiddenCombos: { type: 'Text' }, ForbiddenRisk: { type: 'Numeric' }, ForbiddenInlays: { type: 'Text' }
+    ForbiddenCombos: { type: 'Text' }, ForbiddenRisk: { type: 'Numeric' }, ForbiddenInlays: { type: 'Text' },
+    ForbiddenHistory: { type: 'Text' }, ForbiddenMachines: { type: 'Text' }
   }
 };
+
+// Salle V2 (2026-11-19) : plusieurs machines a collectionner. Meme moteur,
+// reglages differents : prix d'un tour (cost x ForbiddenSpinCost), poids des
+// symboles (weights), surchauffe (heat), cascades (cascades, cascadeBoost =
+// cran de plus par cascade), triple force legendaire/mythique (blaze), jetons
+// du casino a chaque paire (pairChips x mise), 4 rouleaux d'office (reels),
+// geode sans le Coeur (geode). Deblocage : niveau de machine + achat
+// (ForbiddenMachinePrices), reputation (forbidden-rep.js) ou secret
+// (forbidden-seals.js). Users.ForbiddenMachines = { owned: [], current }.
+export const MACHINES = [
+  { key: 'classique', name: 'La Classique', icon: '🎰', desc: 'La machine de la salle, celle que tu connais.', cost: 1 },
+  { key: 'fournaise', name: 'La Fournaise', icon: '🔥', desc: 'Tour deux fois plus cher, surchauffe deux fois plus rapide ; à fond, le triple est légendaire ou mythique.', cost: 2, heat: 2, blaze: true, level: 4, buy: true },
+  { key: 'horloger', name: 'L’Horloger', icon: '⏱️', desc: 'Moitié moins de communes, jusqu’à 5 cascades, et chaque cascade paie un cran de plus (×3, ×4, ×5…).', cost: 1.5, weights: { commune: 0.5 }, cascades: 5, cascadeBoost: 1, level: 6, buy: true },
+  { key: 'pie', name: 'La Pie voleuse', icon: '🐦‍⬛', desc: 'Jetons et clés deux fois plus fréquents, moins de jackpots ; chaque paire rapporte aussi 5 jetons du casino par mise.', cost: 1, weights: { jeton: 2, clef: 2, jackpot: 0.5 }, pairChips: 5, rep: 5 },
+  { key: 'salamandre', name: 'La Salamandre', icon: '🦎', desc: 'Quatre rouleaux d’office, mythiques trois fois plus fréquents, géodes ; un tour coûte trois fois plus.', cost: 3, weights: { mythique: 3, legendaire: 1.5, commune: 0.5 }, reels: 4, geode: true, secret: true }
+];
+const MACHINE = new Map(MACHINES.map((m) => [m.key, m]));
+export function machinesOf(user) {
+  const v = parseJson(user && user.ForbiddenMachines, null) || {};
+  const owned = new Set(['classique', ...(Array.isArray(v.owned) ? v.owned : []).filter((k) => MACHINE.has(k))]);
+  const current = owned.has(v.current) ? v.current : 'classique';
+  return { owned, current };
+}
+// Ajoute une machine a la collection (reputation, secret) : champs a ecrire ou null.
+export function grantMachineFields(user, key) {
+  const m = machinesOf(user);
+  if (!MACHINE.has(key) || m.owned.has(key)) return null;
+  return { ForbiddenMachines: JSON.stringify({ owned: [...m.owned, key], current: m.current }) };
+}
+const machineDef = (user) => MACHINE.get(machinesOf(user).current) || MACHINES[0];
+const machinePrice = (store, key) => { const p = Number((setting(store, 'ForbiddenMachinePrices') || {})[key]) || 0; return p > 0 ? Math.round(p * pm(store)) : 0; };
+const HISTORY_MAX = 50;
+const historyOf = (user) => { const h = parseJson(user && user.ForbiddenHistory, []); return Array.isArray(h) ? h : []; };
 
 export const SYMBOLS = [
   { key: 'commune', icon: '⚙️', label: 'Commune', weight: 30, rarity: 'commune', level: 1 },
@@ -146,8 +181,9 @@ export function levelOf(user) {
   LEVELS.forEach((t, i) => { if (xp >= t) level = i + 1; });
   return { level, xp, next: LEVELS[level] ?? null, prev: LEVELS[level - 1] || 0 };
 }
-const symbolsFor = (level, heart = 0) => SYMBOLS.filter((s) => s.level <= level && (!s.heart || heart >= s.heart));
-const reelsFor = (level) => (level >= 10 ? 4 : 3);
+const symbolsFor = (level, heart = 0, def = null) => SYMBOLS.filter((s) => s.level <= level && (!s.heart || heart >= s.heart || (def && def.geode && s.key === 'geode')));
+const reelsFor = (level, def = null) => Math.max(level >= 10 ? 4 : 3, (def && def.reels) || 0);
+const spinPrice = (store, def) => Math.max(1, Math.round(cost(store, 'ForbiddenSpinCost') * ((def && def.cost) || 1)));
 
 // Incrustations du joueur, avec leur force (palier du mineral).
 const inlaysOf = (user) => (parseJson(user.ForbiddenInlays, []) || []).map((x) => (x && INLAYS[x.key] && Number(x.left) > 0 ? { key: x.key, left: Number(x.left) } : null));
@@ -157,8 +193,10 @@ const spinsPerMineral = (store, user, key) => Math.max(1, Math.round((Number(set
 function ctxOf(store, user) {
   const lv = levelOf(user);
   const heart = heartOf(store, user).level;
-  const inlays = inlaysOf(user).slice(0, reelsFor(lv.level)).map((x) => (x ? { ...x, ...INLAYS[x.key], power: inlayPower(store, x.key) } : null));
-  return { level: lv.level, heart, inlays };
+  const machine = machineDef(user);
+  const reels = reelsFor(lv.level, machine);
+  const inlays = inlaysOf(user).slice(0, reels).map((x) => (x ? { ...x, ...INLAYS[x.key], power: inlayPower(store, x.key) } : null));
+  return { level: lv.level, heart, inlays, machine, reels };
 }
 const hasEffect = (ctx, effect) => ctx.inlays.filter((x) => x && x.effect === effect).length;
 // Surchauffe : 3 tours de moins au palier 5 du Coeur.
@@ -271,7 +309,10 @@ function payout(store, user, line, batchId, { mult = 1, bet = 1, onlyTriple = fa
       const share = Math.min(1, bet / BETS[BETS.length - 1]);
       const won = Math.round(jp.pool * share);
       out.jackpot = won;
-      out.dust += won;
+      // Jackpot partage (salle V2) : une part pour ceux qui ont tire dans l'heure.
+      const crowd = crowdShare(store, user, won);
+      out.crowd = crowd;
+      out.dust += won - crowd.total;
       cards(1, { rarityKey: 'legendaire', special: true });
       const left = Math.max(cost(store, 'ForbiddenJackpotSeed'), jp.pool - won);
       appSet(store, 'ForbiddenJackpot', { pool: share >= 1 ? cost(store, 'ForbiddenJackpotSeed') : left, winners: [{ pseudo: user.Pseudo || '?', amount: won, at: now() }, ...(jp.winners || [])].slice(0, 10), announced: [] });
@@ -294,13 +335,46 @@ function payout(store, user, line, batchId, { mult = 1, bet = 1, onlyTriple = fa
     out.minerals = mineralGains(Array.from({ length: Math.min(10, Math.round((big ? 2 : 1) * k)) }, () => pool[Math.floor(Math.random() * pool.length)].key));
     out.label = `${word} de géodes`;
   }
+  // Garde-fou economique (ForbiddenPayoutScale) : poussieres hors jackpot.
+  const scale = Number(setting(store, 'ForbiddenPayoutScale'));
+  if (out.dust > 0 && scale >= 0 && scale !== 1) {
+    const jp = out.jackpot ? out.jackpot - ((out.crowd && out.crowd.total) || 0) : 0;
+    out.dust = jp + Math.round((out.dust - jp) * scale);
+  }
   return out;
+}
+
+// Joueurs qui ont tire a une machine dans l'heure (AppSettings ForbiddenRecent).
+const RECENT_SECONDS = 3600;
+function noteRecent(store, user) {
+  const t = now();
+  const r = appGet(store, 'ForbiddenRecent') || {};
+  const next = {};
+  for (const [id, at] of Object.entries(r)) if (t - Number(at) < RECENT_SECONDS) next[id] = Number(at);
+  next[user.id] = t;
+  appSet(store, 'ForbiddenRecent', next);
+}
+function crowdShare(store, user, won) {
+  const share = Math.max(0, Math.min(0.5, Number(setting(store, 'ForbiddenJackpotCrowdShare')) || 0));
+  const t = now();
+  const ids = Object.entries(appGet(store, 'ForbiddenRecent') || {}).filter(([id, at]) => Number(id) !== user.id && t - Number(at) < RECENT_SECONDS).map(([id]) => Number(id));
+  const total = Math.round(won * share);
+  if (!ids.length || total < ids.length) return { total: 0, players: 0, each: 0 };
+  const each = Math.floor(total / ids.length);
+  for (const id of ids) {
+    const u = store.get('Users', id);
+    if (!u) continue;
+    store.update('Users', id, { StardustCount: (Number(u.StardustCount) || 0) + each });
+    inbox(store, id, '🎰', `${user.Pseudo || 'Quelqu’un'} a fait sauter le jackpot de la salle : ta part, +${each} poussières !`);
+  }
+  return { total: each * ids.length, players: ids.length, each };
 }
 
 // Symboles d'un rouleau et leur poids (incrustation de ce rouleau comprise).
 function reelSymbols(ctx, i) {
   const inl = ctx.inlays[i];
-  const list = symbolsFor(ctx.level, ctx.heart).map((s) => ({ s, w: inl && inl.effect === 'attract' && inl.sym === s.key ? s.weight * inl.power : s.weight }));
+  const mw = (ctx.machine && ctx.machine.weights) || {};
+  const list = symbolsFor(ctx.level, ctx.heart, ctx.machine).map((s) => { const base = s.weight * (mw[s.key] ?? 1); return { s, w: inl && inl.effect === 'attract' && inl.sym === s.key ? base * inl.power : base }; });
   if (inl && inl.effect === 'joker') list.push({ s: JOKER, w: JOKER.weight });
   return list;
 }
@@ -335,17 +409,19 @@ export function machineView(store, user) {
   const combos = combosOf(user);
   const board = weekBoard(store);
   const fr = frenzyOf();
-  const symbols = symbolsFor(lv.level, ctx.heart);
+  const symbols = symbolsFor(lv.level, ctx.heart, ctx.machine);
   const owned = mineralsOf(user);
+  const mine = machinesOf(user);
+  const price = spinPrice(store, ctx.machine);
   return {
     symbols: [...symbols, ...(hasEffect(ctx, 'joker') ? [JOKER] : [])].map(({ key, icon, label }) => ({ key, icon, label })),
-    reels: reelsFor(lv.level),
+    reels: ctx.reels,
     bets: BETS,
-    spinCost: cost(store, 'ForbiddenSpinCost'), nudgeCost: hasEffect(ctx, 'nudge') ? 0 : cost(store, 'ForbiddenNudgeCost'),
-    inlays: Array.from({ length: reelsFor(lv.level) }, (_, i) => { const x = ctx.inlays[i]; const m = x && MINERAL.get(x.key); return x ? { reel: i, key: x.key, name: m.name, img: 'Fouille/' + m.img, tier: m.tier, left: x.left, text: inlayText(x.key, x.power) } : null; }),
+    spinCost: price, nudgeCost: hasEffect(ctx, 'nudge') ? 0 : cost(store, 'ForbiddenNudgeCost'),
+    inlays: Array.from({ length: ctx.reels }, (_, i) => { const x = ctx.inlays[i]; const m = x && MINERAL.get(x.key); return x ? { reel: i, key: x.key, name: m.name, img: 'Fouille/' + m.img, tier: m.tier, left: x.left, text: inlayText(x.key, x.power) } : null; }),
     inlayChoices: MINERALS.map((m) => ({ key: m.key, name: m.name, img: 'Fouille/' + m.img, tier: m.tier, own: Number(owned[m.key]) || 0, spins: spinsPerMineral(store, user, m.key), text: inlayText(m.key, inlayPower(store, m.key)) })),
     boosterCap: setting(store, 'ForbiddenBoosterDailyCap'), boostersToday: daily.boosters || 0,
-    spinCostChips: Math.ceil(cost(store, 'ForbiddenSpinCost') / chipPrice(store)), chips: Number(user.CasinoChips) || 0,
+    spinCostChips: Math.ceil(price / chipPrice(store)), chips: Number(user.CasinoChips) || 0,
     freeSpin: user.ForbiddenFreeDay !== parisDay(0),
     freeSpins: Number(user.ForbiddenFreeSpins) || 0,
     bonusSpins: Number(user.ForbiddenBonus) || 0,
@@ -361,9 +437,27 @@ export function machineView(store, user) {
     combosReward: { label: 'Cadre « Joueur interdit »', done: BASE_COMBOS.every((k) => combos.includes(k)) },
     week: { top: board.top.slice(0, 5), rarest: board.rarest },
     frenzy: fr.active,
-    stats: statsOf(user), stardust: Number(user.StardustCount) || 0
+    stats: statsOf(user), stardust: Number(user.StardustCount) || 0,
+    // Salle V2 : collection de machines, table des gains, 50 derniers tours.
+    machine: { key: ctx.machine.key, name: ctx.machine.name, icon: ctx.machine.icon, desc: ctx.machine.desc, cost: ctx.machine.cost || 1, cascades: Math.max(ctx.machine.cascades || 3, hasEffect(ctx, 'cascade') ? 5 : 3), cascadeBoost: ctx.machine.cascadeBoost || 0, pairChips: ctx.machine.pairChips || 0, heat: ctx.machine.heat || 1, blaze: !!(ctx.machine.blaze || hasEffect(ctx, 'blaze')) },
+    machines: MACHINES.filter((m) => !m.secret || mine.owned.has(m.key)).map((m) => {
+      const own = mine.owned.has(m.key);
+      const p = m.buy ? machinePrice(store, m.key) : 0;
+      return { key: m.key, name: m.name, icon: m.icon, desc: m.desc, cost: m.cost || 1, owned: own, current: mine.current === m.key, level: m.level || 1, levelOk: lv.level >= (m.level || 1), price: own ? 0 : p, buyable: !own && !!m.buy && lv.level >= (m.level || 1), need: own ? null : m.buy ? `Machine niveau ${m.level}${p ? ` · ${p.toLocaleString('fr-FR')} poussières` : ''}` : m.rep ? `Réputation de la salle : palier ${m.rep} dans un mois` : '???' };
+    }),
+    paytable: symbols.map((x) => ({ key: x.key, icon: x.icon, label: x.label, pair: PAYTEXT[x.key] ? PAYTEXT[x.key][0] : '', triple: PAYTEXT[x.key] ? PAYTEXT[x.key][1] : '' })),
+    history: historyOf(user).slice(0, HISTORY_MAX)
   };
 }
+// Table des gains (×1, avant mise et bonus) : paire, triple (un carre = triple ×2).
+const PAYTEXT = {
+  commune: ['1 carte commune', '3 cartes communes'], rare: ['1 carte rare', '3 cartes rares'], epique: ['1 carte épique', '2 cartes épiques'],
+  legendaire: ['1 carte légendaire', '2 légendaires, finition spéciale'], mythique: ['1 carte mythique', '2 mythiques, finition spéciale'],
+  finition: ['1 carte en finition spéciale', '2 cartes en finition spéciale'], ghost: ['1 carte Ghost', '2 cartes Ghost'],
+  jeton: ['30 poussières', '2 jetons booster (plafond du jour)'], clef: ['1 clé', '3 clés et 1 pièce de gatchapon'],
+  jackpot: ['120 poussières', 'le jackpot commun (complet à ×5) et 1 légendaire'], crane: ['2 os', 'un vrai crâne de dino'],
+  geode: ['1 minéral (paliers 1 à 3)', '2 minéraux (paliers 3 à 5)']
+};
 
 // Applique une combinaison au carnet / defis / tableau ; renvoie les notices.
 function track(store, user, acc, p, notices) {
@@ -384,16 +478,27 @@ export function spin(store, user, body) {
   const count = Number(body.count) === 10 ? 10 : 1;
   const lv = levelOf(user);
   const ctx = ctxOf(store, user);
-  const reels = reelsFor(lv.level);
+  const reels = ctx.reels;
   const today = parisDay(0);
   let bet = BETS.includes(Number(body.bet)) ? Number(body.bet) : 1;
   // Ordre des tours gratuits : bonus (x2), quotidien, reserve ; sinon paye.
   let bonusLeft = Number(user.ForbiddenBonus) || 0;
   let bank = Number(user.ForbiddenFreeSpins) || 0;
   let dailyFree = user.ForbiddenFreeDay !== today;
-  const price = cost(store, 'ForbiddenSpinCost');
+  const price = spinPrice(store, ctx.machine);
   let kind = 'paid';
-  if (count === 1) {
+  // body.free (avis #98, 2026-11-19) : true = un tour gratuit (bonus, du jour
+  // ou de la reserve), false = tour paye a la mise choisie meme s'il reste des
+  // tours gratuits. Absent (ancien site en cache) : comme avant.
+  const wantFree = body.free === true || body.free === 'true';
+  const wantPaid = body.free === false || body.free === 'false';
+  if (wantFree) {
+    if (count !== 1) return fail('free_single', 400, { machine: machineView(store, user) });
+    if (bonusLeft > 0) kind = 'bonus';
+    else if (dailyFree) kind = 'daily';
+    else if (bank > 0) kind = 'bank';
+    else return fail('no_free_spin', 400, { machine: machineView(store, user) });
+  } else if (!wantPaid && count === 1) {
     if (bonusLeft > 0) kind = 'bonus';
     else if (dailyFree) kind = 'daily';
     else if (bank > 0) kind = 'bank';
@@ -421,6 +526,8 @@ export function spin(store, user, body) {
   let risk = Number(user.ForbiddenRisk) || 0;
   let riskResult = null;
   const results = [];
+  const hist = historyOf(user);
+  let chipsWon = 0;
   const board = weekBoard(store);
   let boardChanged = false;
   if (fr.active && !board.frenzyAnnounced) {
@@ -440,23 +547,27 @@ export function spin(store, user, body) {
     }
     const forced = heatMax > 0 && heat >= heatMax;
     // Infernite sertie : la surchauffe donne un triple legendaire ou mythique.
-    const forcedPool = symbolsFor(lv.level, ctx.heart).filter((s) => (hasEffect(ctx, 'blaze') ? s.key === 'legendaire' || s.key === 'mythique' : s.key !== 'jackpot' && s.key !== 'crane'));
+    const forcedPool = symbolsFor(lv.level, ctx.heart, ctx.machine).filter((s) => (hasEffect(ctx, 'blaze') || ctx.machine.blaze ? s.key === 'legendaire' || s.key === 'mythique' : s.key !== 'jackpot' && s.key !== 'crane'));
     const forcedKey = forced ? pick(forcedPool, (s) => s.weight).key : null;
     const window = rollWindow(ctx, reels, forcedKey);
     const line = window.map((col) => col[1]);
     const mult = bet * (kind === 'bonus' ? 2 : 1) * (fr.active ? 2 : 1);
+    // Detail du multiplicateur (panneau « Ce tour » du site).
+    const multParts = [{ label: 'Mise', x: bet }, ...(kind === 'bonus' ? [{ label: 'Tour bonus', x: 2 }] : []), ...(fr.active ? [{ label: 'Heure de folie', x: 2 }] : [])];
     const batchId = `forbidden-${user.id}-${Date.now()}-${i}`;
     const p = payout(store, user, line, batchId, { mult, bet, jar });
     track(store, user, acc, p, notices);
     // Cascade : la ligne retombe tant qu'elle gagne (x2, x3, x4).
     const cascades = [];
     if (p.tier === 'triple' || p.tier === 'quad') {
-      for (let c = 0; c < (hasEffect(ctx, 'cascade') ? 5 : 3); c++) {
+      const cascMax = Math.max(ctx.machine.cascades || 3, hasEffect(ctx, 'cascade') ? 5 : 3);
+      const boost = ctx.machine.cascadeBoost || 0;
+      for (let c = 0; c < cascMax; c++) {
         const cl = rollWindow(ctx, reels).map((col) => col[1]);
-        const cp = payout(store, user, cl, `${batchId}-c${c}`, { mult: mult * (c + 2), bet, jar });
+        const cp = payout(store, user, cl, `${batchId}-c${c}`, { mult: mult * (c + 2 + boost), bet, jar });
         if (cp.tier === 'none') break;
         track(store, user, acc, cp, notices);
-        cascades.push({ line: cl, mult: c + 2, ...cp });
+        cascades.push({ line: cl, mult: c + 2 + boost, ...cp });
       }
     }
     // Tours bonus : 3 jackpots visibles n'importe ou.
@@ -465,12 +576,22 @@ export function spin(store, user, body) {
     if (bonusAwarded) { bonusLeft += bonusAwarded; notices.push({ icon: '🎰', text: `${jackpotsSeen} jackpots visibles : ${bonusAwarded} tours bonus à gains doublés !` }); }
     const all = [p, ...cascades];
     const won = all.reduce((a, x) => ({ dust: a.dust + x.dust, boosters: a.boosters + x.boosters, keys: a.keys + x.keys, coins: a.coins + x.coins, skulls: a.skulls + x.skulls, bones: a.bones + (x.bones || 0), cards: a.cards + x.cards.length }), { dust: 0, boosters: 0, keys: 0, coins: 0, skulls: 0, bones: 0, cards: 0 });
+    // La Pie voleuse : jetons du casino a chaque paire.
+    const chipsTour = (ctx.machine.pairChips || 0) * bet * all.filter((x) => x.tier === 'pair').length;
+    chipsWon += chipsTour;
     dust += won.dust; boosters += won.boosters; keys += won.keys; coins += won.coins; skulls += won.skulls; bones += won.bones;
     all.forEach((x) => minerals.push(x.minerals));
-    heat = p.tier === 'triple' || p.tier === 'quad' ? 0 : Math.min(heatMax || 999, heat + bet + hasEffect(ctx, 'heat'));
+    heat = p.tier === 'triple' || p.tier === 'quad' ? 0 : Math.min(heatMax || 999, heat + Math.round(bet * (ctx.machine.heat || 1)) + hasEffect(ctx, 'heat'));
     xp += bet;
     acc.daily.spins++;
     stats.spins++; stats.cards += won.cards; if (all.some((x) => x.jackpot)) stats.jackpots++;
+    const paidTour = kind === 'paid' ? price * bet : 0;
+    stats.paid = (Number(stats.paid) || 0) + (useChips ? 0 : paidTour);
+    stats.paidChips = (Number(stats.paidChips) || 0) + (useChips ? Math.ceil(paidTour / chipPrice(store)) : 0);
+    stats.won = (Number(stats.won) || 0) + won.dust;
+    stats.boosters = (Number(stats.boosters) || 0) + won.boosters;
+    const topLabel = (all.find((x) => x.jackpot) || all.find((x) => x.tier === 'quad') || all.find((x) => x.tier === 'triple') || p).label || '';
+    hist.unshift({ at: now(), m: ctx.machine.key, bet, kind, line, tier: p.tier, label: p.label || topLabel, casc: cascades.length, paid: paidTour, chips: useChips, dust: won.dust, cards: won.cards, boosters: won.boosters, keys: won.keys, jackpot: all.reduce((s, x) => s + (x.jackpot || 0), 0) });
     // Quitte ou double : resolu par le premier tour.
     if (risk > 0 && !riskResult) {
       const win = p.tier !== 'none';
@@ -489,7 +610,7 @@ export function spin(store, user, body) {
       board.rarest = { pseudo: user.Pseudo || '?', card: best.name, rarity: best.rarity.name, colorHex: best.rarity.colorHex, sortOrder: best.rarity.sortOrder, finish: best.finish };
       boardChanged = true;
     }
-    results.push({ window, line, forced, kind, bet, mult, ...p, cascades, bonusAwarded, nudgeable: count === 1 && p.tier === 'pair' && p.key !== 'crane' });
+    results.push({ window, line, forced, kind, bet, mult, multParts, machine: ctx.machine.key, chipsWon: chipsTour, ...p, cascades, bonusAwarded, nudgeable: count === 1 && p.tier === 'pair' && p.key !== 'crane' });
     // Chaque tour use une charge de chaque incrustation.
     ctx.inlays = ctx.inlays.map((x) => {
       if (!x) return null;
@@ -523,7 +644,9 @@ export function spin(store, user, body) {
     ForbiddenInlays: JSON.stringify(ctx.inlays.map((x) => (x ? { key: x.key, left: x.left } : null))),
     ForbiddenSpin: JSON.stringify(count === 1 ? { line: results[0].line, nudgeable: results[0].nudgeable, nudged: false, bet: results[0].bet, mult: results[0].mult, boosters: results[0].boosters + results[0].cascades.reduce((s, x) => s + x.boosters, 0), risked: false, at: now() } : null)
   };
-  if (chipCost) fields.CasinoChips = Math.max(0, (Number(fresh.CasinoChips) || 0) - chipCost);
+  fields.ForbiddenHistory = JSON.stringify(hist.slice(0, HISTORY_MAX));
+  if (chipCost || chipsWon) fields.CasinoChips = Math.max(0, (Number(fresh.CasinoChips) || 0) - chipCost + chipsWon);
+  noteRecent(store, user);
   if (keys) fields.KeyCount = (Number(fresh.KeyCount) || 0) + keys;
   if (coins) fields.ChestCount = (Number(fresh.ChestCount) || 0) + coins;
   if (skulls) fields.DinoSkulls = (Number(fresh.DinoSkulls) || 0) + skulls;
@@ -591,16 +714,16 @@ export function risk(store, user) {
 // valant spinsPerMineral tours. Le meme mineral s'ajoute ; un autre remplace
 // (l'ancienne incrustation est perdue).
 export function inlay(store, user, body) {
-  const lv = levelOf(user);
+  const nReels = ctxOf(store, user).reels;
   const reel = Math.floor(Number(body.reel));
-  if (!(reel >= 0 && reel < reelsFor(lv.level))) return fail('invalid_reel');
+  if (!(reel >= 0 && reel < nReels)) return fail('invalid_reel');
   const key = String(body.key || '');
   if (!INLAYS[key]) return fail('unknown_mineral');
   const count = Math.floor(Number(body.count) || 1);
   const owned = { ...mineralsOf(user) };
   if (!(count >= 1 && count <= 100) || (Number(owned[key]) || 0) < count) return fail('not_enough_minerals', 400, { machine: machineView(store, user) });
   const list = inlaysOf(user);
-  while (list.length < reelsFor(lv.level)) list.push(null);
+  while (list.length < nReels) list.push(null);
   const cur = list[reel];
   const add = count * spinsPerMineral(store, user, key);
   const replaced = cur && cur.key !== key ? cur.key : null;
@@ -609,3 +732,53 @@ export function inlay(store, user, body) {
   const updated = store.update('Users', user.id, { Minerals: JSON.stringify(owned), ForbiddenInlays: JSON.stringify(list) });
   return ok({ machine: machineView(store, updated), inlaid: { reel, key, name: MINERAL.get(key).name, spins: add, left: list[reel].left, replaced: replaced ? MINERAL.get(replaced).name : null } });
 }
+
+// Salle V2 : choisir (ou acheter) la machine sur laquelle on joue.
+export function chooseMachine(store, user, body) {
+  const key = String(body.key || '');
+  const def = MACHINE.get(key);
+  if (!def) return fail('unknown_machine');
+  const mine = machinesOf(user);
+  const fields = {};
+  if (!mine.owned.has(key)) {
+    if (!def.buy) return fail('machine_locked', 400, { machine: machineView(store, user) });
+    if (levelOf(user).level < (def.level || 1)) return fail('machine_level', 400, { level: def.level, machine: machineView(store, user) });
+    const price = machinePrice(store, key);
+    if ((Number(user.StardustCount) || 0) < price) return fail('not_enough_dust', 400, { machine: machineView(store, user) });
+    fields.StardustCount = (Number(user.StardustCount) || 0) - price;
+    mine.owned.add(key);
+    addFeed(store, { userId: user.id, kind: 'forbidden', icon: def.icon, text: `installe ${def.name} dans la salle interdite.` });
+  }
+  fields.ForbiddenMachines = JSON.stringify({ owned: [...mine.owned], current: key });
+  // Les incrustations restent sur les rouleaux ; un 4e rouleau garde son creux.
+  const updated = store.update('Users', user.id, fields);
+  return ok({ machine: machineView(store, updated), chosen: key, bought: 'StardustCount' in fields });
+}
+
+// Tournoi de la semaine (forbidden-tourney.js) : un tirage de la Classique au
+// niveau max (4 rouleaux exclus, sans incrustation ni geode), cascades
+// comprises, converti en points. Aucun gain reel.
+const TOURNEY_POINTS = { commune: 1, rare: 2, epique: 3, legendaire: 5, mythique: 8, finition: 3, ghost: 4, jeton: 3, clef: 4, jackpot: 20, crane: 2 };
+export function tourneyRoll() {
+  const ctx = { level: 9, heart: 0, inlays: [null, null, null], machine: MACHINES[0], reels: 3 };
+  const window = rollWindow(ctx, 3);
+  const line = window.map((col) => col[1]);
+  const score = (l) => { const { key, n } = combo(l); return n >= 2 ? (TOURNEY_POINTS[key] || 1) * (n >= 3 ? 5 : 1) : 0; };
+  let points = score(line);
+  const cascades = [];
+  if (combo(line).n >= 3) {
+    for (let c = 0; c < 3; c++) {
+      const cl = rollWindow(ctx, 3).map((col) => col[1]);
+      const pts = score(cl) * (c + 2);
+      if (!pts) break;
+      cascades.push({ line: cl, mult: c + 2, points: pts });
+      points += pts;
+    }
+  }
+  const { key, n } = combo(line);
+  return { line, points, cascades, tier: tierOf(n), key, label: n >= 2 ? `${n >= 3 ? 'Triple' : 'Paire'} ${SYM.get(key).label.toLowerCase()}` : '' };
+}
+export const TOURNEY_TABLE = TOURNEY_POINTS;
+export const symbolIcon = (k) => (SYM.get(k) || {}).icon || '❔';
+
+export const _test = { crowdShare, noteRecent };

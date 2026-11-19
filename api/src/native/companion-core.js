@@ -20,7 +20,7 @@ export const V2_PETS = ['praline', 'reglisse', 'paprika'];
 export function compOf(user) {
   const c = parseJson(user && user.Companions, null);
   const o = c && typeof c === 'object' && !Array.isArray(c) ? c : {};
-  for (const k of ['xp', 'path', 'gear', 'mission', 'friend', 'active', 'souv', 'adopt']) if (!o[k] || typeof o[k] !== 'object') o[k] = {};
+  for (const k of ['xp', 'path', 'gear', 'mission', 'friend', 'active', 'souv', 'adopt', 'restUntil']) if (!o[k] || typeof o[k] !== 'object') o[k] = {};
   if (!Array.isArray(o.log)) o.log = [];
   return o;
 }
@@ -35,11 +35,28 @@ export function levelOf(store, xp) {
 export const petLevel = (store, user, pet) => levelOf(store, compOf(user).xp[pet] || 0);
 
 // Le compagnon est-il parti en mission (seul ou en duo) ?
-export function missionOf(user, pet, c = compOf(user)) {
+// Mission enregistree (en cours, ou finie et pas encore recuperee).
+export function missionRaw(user, pet, c = compOf(user)) {
   const m = c.mission[pet];
   return m && Number(m.end) > 0 ? m : null;
 }
+// En mission = absent : seulement jusqu'a la fin. Le compagnon rentre tout
+// seul (avis #92, 2026-11-19) ; ses trouvailles l'attendent (« Récupérer »).
+export function missionOf(user, pet, c = compOf(user), t = Math.floor(Date.now() / 1000)) {
+  const m = missionRaw(user, pet, c);
+  return m && t < Number(m.end) ? m : null;
+}
 export const onMission = (user, pet) => !!missionOf(user, pet);
+// Pause au retour, avant de reprendre le travail : 20 min pour 2 h, 30 pour 4 h, 40 pour 8 h.
+export const missionRest = (hours) => ({ 2: 20, 4: 30, 8: 40 }[hours] ?? Math.round(10 + hours * 4)) * 60;
+// Encore en mission, ou dans sa pause du retour.
+// m.back = fin + pause (missions parties depuis le 19/11/2026) ; une fois
+// recuperee, la fin de la pause reste dans c.restUntil.
+export function missionResting(user, pet, c = compOf(user), t = Math.floor(Date.now() / 1000)) {
+  const m = missionRaw(user, pet, c);
+  if (m && t < (Number(m.back) || Number(m.end))) return true;
+  return Number(c.restUntil[pet]) > t;
+}
 
 // --- voies et competences ----------------------------------------------
 // Effets passifs : speed, loot, gift, rest (pause raccourcie), decay

@@ -38,9 +38,13 @@
       if (kt === "key" && !g.ordinary) return "";
       if (kt !== "key" && have < 1) return "";
       const c = Math.min(n, have, g.n, CHEST_MAX_BATCH);
-      return `<button type="button" class="${kt === "key" ? "btn" : "btn-secondary"} cv2-open" data-cv2-open data-tier="${g.tier}" data-family="${g.family}" data-key="${kt}" data-n="${c}" ${have < 1 ? "disabled" : ""} title="Avec une ${KEY[kt].label}">${KEY[kt].icon} ${kt === "key" ? (c > 1 ? `Ouvrir ×${c}` : "Ouvrir") : kt === "gold" ? "Clé d'or" : "Clé spéciale"}</button>`;
+      if (n > 1 && c < 2) return "";
+      return `<button type="button" class="${kt === "key" ? "btn" : "btn-secondary"} cv2-open" data-cv2-open data-tier="${g.tier}" data-family="${g.family}" data-key="${kt}" data-n="${c}" ${have < 1 ? "disabled" : ""} title="${n > 1 ? `Ouvrir ${c} coffres, ` : ""}avec une ${KEY[kt].label}">${kt === "key" && n > 1 ? "" : KEY[kt].icon + " "}${kt === "key" ? (n > 1 ? `×${c}` : "Ouvrir") : kt === "gold" ? "Clé d'or" : "Clé spéciale"}</button>`;
     };
-    return `${btn("key", 1)}${g.n > 1 ? btn("key", g.n) : ""}${btn("gold", 1)}${btn("room", 1)}${!g.ordinary && s.goldKeys < 1 && !(s.room && s.roomKeys) ? `<small class="cv2-need">${GOLD_KEY} Il faut une clé d'or (serrurier ci-dessous)</small>` : ""}`;
+    // Ouvrir et ×N cote a cote sur une ligne (avis #95).
+    const many = g.n > 1 ? btn("key", g.n) : "";
+    const one = btn("key", 1);
+    return `${one && many ? `<span class="cv2-keyrow">${one}${many}</span>` : one + many}${btn("gold", 1)}${btn("room", 1)}${!g.ordinary && s.goldKeys < 1 && !(s.room && s.roomKeys) ? `<small class="cv2-need">${GOLD_KEY} Il faut une clé d'or (serrurier ci-dessous)</small>` : ""}`;
   }
   function renderTray(s) {
     const tray = document.getElementById("gatcha-tray");
@@ -49,7 +53,7 @@
     tray.innerHTML = s.groups.length
       ? `<h3>Tes boules <small>${s.balls} coffre${s.balls > 1 ? "s" : ""} à ouvrir</small></h3>
         <div class="cv2-keys"><span title="Coffres jusqu'au palier ${s.ordinaryMax}">🔑 <b>${s.keys}</b> ordinaire${s.keys > 1 ? "s" : ""}</span><span title="Tout palier, bonus tirés deux fois">${GOLD_KEY} <b>${s.goldKeys}</b> d'or</span>${s.room ? `<span title="Clé spéciale de la forge : gros butin, finitions spéciales assurées">${resIcon("skey")} <b>${s.roomKeys}</b> spéciale${s.roomKeys > 1 ? "s" : ""}</span>` : ""}</div>
-        ${s.balls > 1 ? `<div class="cv2-all"><button type="button" class="btn gatcha-open-all" data-cv2-all ${!(s.keys && ordinaryAll) && !s.goldKeys ? "disabled" : ""}>Ouvrir tous les coffres</button>${s.goldKeys ? `<label class="cv2-gold-toggle"><input type="checkbox" id="cv2-all-gold" /> utiliser aussi mes clés d'or sur les gros coffres</label>` : ""}</div>` : ""}
+        ${s.balls > 1 ? `<div class="cv2-all"><button type="button" class="btn gatcha-open-all" data-cv2-all ${!(s.keys && ordinaryAll) && !s.goldKeys ? "disabled" : ""}>Ouvrir tous les coffres</button>${s.goldKeys ? `<label class="cv2-gold-toggle"><input type="checkbox" id="cv2-all-gold" ${s.keys && ordinaryAll ? "" : "checked"} data-ordinary="${s.keys && ordinaryAll ? 1 : 0}" /> utiliser aussi mes clés d'or sur les gros coffres</label>` : ""}</div>` : ""}
         <div class="gatcha-tray-grid">${s.groups.map((g) => {
           const t = (s.tiers || []).find((x) => x.tier === g.tier) || {};
           const fam = s.families.find((f) => f.key === g.family);
@@ -129,7 +133,12 @@
   document.addEventListener("click", (e) => {
     const o = e.target.closest("[data-cv2-open]");
     if (o) { e.stopPropagation(); scene({ tier: Number(o.dataset.tier), family: o.dataset.family, keyType: o.dataset.key, count: Number(o.dataset.n) || 1 }); return; }
-    if (e.target.closest("[data-cv2-all]")) { const g = document.getElementById("cv2-all-gold"); scene({ all: true, gold: !!(g && g.checked) }); }
+    if (e.target.closest("[data-cv2-all]")) {
+      const g = document.getElementById("cv2-all-gold");
+      // Plus aucun coffre pour une cle ordinaire : sans les cles d'or, rien a ouvrir (GlitchTip #88).
+      if (g && !g.checked && g.dataset.ordinary === "0") { Toast.info("Il ne reste que de gros coffres : coche « utiliser aussi mes clés d'or »."); g.focus(); return; }
+      scene({ all: true, gold: !!(g && g.checked) });
+    }
   }, true);
 
   // ------------------------------------------------------------ scene d'ouverture

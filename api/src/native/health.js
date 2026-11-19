@@ -7,6 +7,7 @@ import { ok, fail, isAdmin } from './common.js';
 import { snapshot } from '../metrics.js';
 import { deliveryStatus } from './discord.js';
 import { currentMode } from './presets.js';
+import { ledgerView } from './forbidden-rep.js';
 
 function handle({ store, body }) {
   if (!isAdmin(body.discordId)) return fail('forbidden', 403);
@@ -15,6 +16,8 @@ function handle({ store, body }) {
     ...snapshot(),
     discord: deliveryStatus(),
     mode: currentMode(store),
+    // Salle interdite V2 : bilan de la machine et de la caisse (31 jours).
+    room: ledgerView(store),
     data: { tables: Object.keys(tables).length, rows: Object.values(tables).reduce((s, n) => s + n, 0), players: tables.Users || 0, pulls: tables.Pulls || 0 }
   });
 }

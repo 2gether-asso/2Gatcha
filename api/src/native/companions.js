@@ -30,7 +30,7 @@ import { petAdopted } from './starter.js';
 import { vaultLevel } from './personal-vault.js';
 import { ripenAllFields } from './garden.js';
 import { ratCook } from './cooking.js';
-import { compOf, compJson, levelOf, xpForLevel, LEVEL_MAX, V2_PETS, PATHS, GEAR, GEAR_COST, perksOf, missionOf } from './companion-core.js';
+import { compOf, compJson, levelOf, xpForLevel, LEVEL_MAX, V2_PETS, PATHS, GEAR, GEAR_COST, perksOf, missionOf, missionRaw, missionRest, missionResting } from './companion-core.js';
 
 export { onMission, perksOf, petLevel } from './companion-core.js';
 export const schema = { Users: { Companions: { type: 'Text' }, PetFrags: { type: 'Numeric' } } };
@@ -105,7 +105,11 @@ export function moodOf(store, user, pet, day = parisDay(0)) {
   const place = kind === 'walk' && places.length ? places[(h >>> 4) % places.length] : null;
   const c = compOf(user);
   const done = !!(c.mood && c.mood.day === day && c.mood.done && c.mood.done[pet]);
-  return { kind, place: place ? place.key : null, placeLabel: place ? place.label : null, label: place ? `se promener (${place.label})` : MOOD_LABEL[kind], done };
+  // Envie de balade alors que la balade du jour est deja faite (ailleurs) :
+  // plus possible aujourd'hui, le site ne propose plus « Promenade » (avis #96).
+  const w = kind === 'walk' && !done ? parseJson(user.WalkDay, null) : null;
+  const missed = !!(w && w.day === day && w.done && w.done[pet]);
+  return { kind, place: place ? place.key : null, placeLabel: place ? place.label : null, label: place ? `se promener (${place.label})` : MOOD_LABEL[kind], done, ...(missed ? { missed: true } : {}) };
 }
 // L'envie du jour est-elle comblee par ce geste (ou cette balade) ?
 export function moodWanted(store, user, pet, kind, place = null) {
@@ -240,7 +244,7 @@ export function shiftWork(user, pet, d) {
 }
 
 // --- nouveaux compagnons ---------------------------------------------------------
-const working = (store, user, pet) => setting(store, 'CompanionsEnabled') && isAdopted(store, user, pet) && !missionOf(user, pet);
+const working = (store, user, pet) => setting(store, 'CompanionsEnabled') && isAdopted(store, user, pet) && !missionResting(user, pet);
 // Praline : bonus du coffre-fort (personal-vault.js).
 export function pralineBonus(store, user) {
   if (!user || !working(store, user, 'praline')) return { rate: 0, bankDays: 0, vaultXp: 0 };
@@ -255,7 +259,7 @@ function reglisseOnPack(store, user, response) {
     if (night) { c.owl = (Number(c.owl) || 0) + 1; store.update('Users', user.id, { Companions: compJson(c) }); }
     return;
   }
-  if (missionOf(user, 'reglisse', c)) return;
+  if (missionResting(user, 'reglisse', c)) return;
   const p = perksOf(store, user, 'reglisse');
   const love = loveOf(store, user, 'reglisse') / 100;
   const dust = Math.round((2 + p.level / 5) * (0.5 + love / 2) * (1 + p.boosterDust));
@@ -280,7 +284,7 @@ function paprikaOnForbidden(store, user, body, response) {
   if (body.action === 'spin') {
     const n = Math.max(1, Math.min(10, Math.floor(Number(body.count) || Number(body.n) || 1)));
     if (!isAdopted(store, user, 'paprika')) { c.parrot = (Number(c.parrot) || 0) + n; store.update('Users', user.id, { Companions: compJson(c) }); return; }
-    if (missionOf(user, 'paprika', c)) return;
+    if (missionResting(user, 'paprika', c)) return;
     const w = workFields(store, user, 'paprika', n);
     store.update('Users', user.id, w.fields);
     if (w.items.length) response.json.notices = [...(response.json.notices || []), { kind: 'pet', icon: '🦜', label: `Paprika picore : ${w.items.map((i) => `+${i.n} ${i.label}`).join(', ')}` }];
@@ -381,7 +385,11 @@ function petCard(store, user, pet, c, t = now()) {
   const xp = Number(c.xp[pet]) || 0, level = levelOf(store, xp);
   const p = perksOf(store, user, pet);
   const path = c.path[pet] || null;
-  const m = missionOf(user, pet, c);
+  // Mission en cours, ou finie avec ses trouvailles a recuperer (le chef du
+  // duo les rapporte ; son partenaire est deja libre).
+  const raw = missionRaw(user, pet, c);
+  const m = raw && (t < Number(raw.end) || !raw.lead) ? raw : null;
+  const restLeft = !m || t >= Number(m.end) ? Math.max(0, (Number(m && m.back) || Number(c.restUntil[pet]) || 0) - t) : 0;
   const day = parisDay(0);
   const paths = (PATHS[pet] || []).map((x) => ({ key: x.key, label: x.label, icon: x.icon, desc: x.desc, chosen: x.key === path, skills: x.skills.map((s) => ({ lvl: s.lvl, label: s.label, desc: s.desc, active: !!s.active, unlocked: x.key === path && level >= s.lvl })) }));
   const act = path ? (PATHS[pet].find((x) => x.key === path) || { skills: [] }).skills.find((s) => s.active) : null;
@@ -393,7 +401,8 @@ function petCard(store, user, pet, c, t = now()) {
     path, paths, pathAt: 15, game: { ...GAMES[pet], url: pet === 'paprika' ? null : GAMES[pet].url },
     perks: { speedPct: Math.round(p.speed * 100), lootPct: Math.round(p.loot * 100), giftPct: Math.round(p.gift * 100), xpPct: Math.round(p.xp * 100), restPct: Math.round(p.rest * 100), decayPct: Math.round(p.decay * 100) },
     gear: gearView(store, user, pet, c), gem: g.gem ? { key: g.gem, name: (MINERALS.find((x) => x.key === g.gem) || {}).name || g.gem, tier: Number(g.gemTier) || 3 } : null,
-    mission: m ? (m.lead ? { duoOf: m.lead, end: m.end, left: Math.max(0, m.end - t) } : { place: m.place, placeLabel: (PLACES.find((x) => x.key === m.place) || {}).label, hours: m.hours, end: m.end, left: Math.max(0, m.end - t), duo: m.duo || null, ready: t >= m.end }) : null,
+    mission: m ? (m.lead ? { duoOf: m.lead, end: m.end, left: Math.max(0, m.end - t) } : { place: m.place, placeLabel: (PLACES.find((x) => x.key === m.place) || {}).label, hours: m.hours, end: m.end, left: Math.max(0, m.end - t), duo: m.duo || null, ready: t >= m.end, rest: Math.max(0, (Number(m.back) || Number(m.end)) - Number(m.end)) }) : null,
+    restLeft,
     active: act ? { label: act.label, desc: act.desc, ready: level >= LEVEL_MAX && c.active[pet] !== day, usedToday: c.active[pet] === day, level: LEVEL_MAX } : null
   };
 }
@@ -513,7 +522,12 @@ function claimMission(store, user, pet, c) {
   const souvenir = Math.random() < Math.min(0.8, 0.25 * (m.hours / 2)) ? giveSouvenir(store, { ...user, ...fields }, c, fields, place.key) : null;
   const xpEach = setting(store, 'CompanionMissionXpPerHour') * m.hours * (duo ? 1.2 : 1);
   const levelUps = {};
-  for (const x of team) { const lu = addXp(store, c, x, xpEach * (1 + perksOf(store, user, x).xp)); if (lu) levelUps[x] = lu; delete c.mission[x]; }
+  for (const x of team) {
+    const lu = addXp(store, c, x, xpEach * (1 + perksOf(store, user, x).xp)); if (lu) levelUps[x] = lu;
+    const back = Number(c.mission[x] && c.mission[x].back) || Number(m.back) || 0;
+    if (back > now()) c.restUntil[x] = back; else delete c.restUntil[x];
+    delete c.mission[x];
+  }
   if (fk) c.friend[fk] = (Number(c.friend[fk]) || 0) + m.hours * 10;
   const names = team.map(label).join(' et ');
   const story = duo ? `${label(pet)} ${pick(place.story)}, pendant que ${label(duo)} ${pick(place.story)}.` : `${label(pet)} ${pick(place.story)}.`;
@@ -608,6 +622,18 @@ function handle({ store, body }) {
   }
   if (action === 'mission') {
     if (missionOf(user, pet, c)) return fail('pet_on_mission');
+    // Mission finie pas encore recuperee (lui ou son duo) : ses trouvailles
+    // d'abord, puis le depart.
+    let claimed = null;
+    for (const x of [pet, body.duo ? String(body.duo) : null]) {
+      const r0 = x && missionRaw(user, x, c);
+      if (!r0 || missionOf(user, x, c)) continue;
+      const lead0 = r0.lead || x;
+      if (!c.mission[lead0]) { delete c.mission[x]; continue; }
+      const r = claimMission(store, user, lead0, c);
+      user = store.update('Users', user.id, r.fields);
+      claimed = claimed || r.report;
+    }
     const hours = Number(body.hours);
     if (!MISSION_HOURS.includes(hours)) return fail('unknown_duration');
     if (hours >= 8 && level < 10) return fail('level_too_low', 400, { need: 10 });
@@ -616,16 +642,19 @@ function handle({ store, body }) {
     if (place.night && !isNight(store)) return fail('place_closed', 400, view(store, user));
     const duo = body.duo ? String(body.duo) : null;
     if (duo && (duo === pet || !isAdopted(store, user, duo) || missionOf(user, duo, c))) return fail('duo_unavailable');
-    const d = hours * 3600;
-    const fields = { ...shiftWork(user, pet, d), ...(duo ? shiftWork(user, duo, d) : {}) };
-    c.mission[pet] = { place: place.key, hours, start: t, end: t + d, ...(duo ? { duo } : {}) };
-    if (duo) c.mission[duo] = { lead: pet, start: t, end: t + d };
+    // Travail decale de la mission plus la pause du retour (avis #92).
+    const d = hours * 3600, rest = missionRest(hours);
+    const fields = { ...shiftWork(user, pet, d + rest), ...(duo ? shiftWork(user, duo, d + rest) : {}) };
+    c.mission[pet] = { place: place.key, hours, start: t, end: t + d, back: t + d + rest, ...(duo ? { duo } : {}) };
+    if (duo) c.mission[duo] = { lead: pet, start: t, end: t + d, back: t + d + rest };
+    delete c.restUntil[pet];
+    if (duo) delete c.restUntil[duo];
     logLine(c, pet, `${label(pet)}${duo ? ` et ${label(duo)}` : ''} ${duo ? 'partent' : 'part'} en mission : ${place.label}, ${hours} h.`);
     user = store.update('Users', user.id, { ...fields, Companions: compJson(c) });
-    return ok(view(store, user, { departed: { pet, duo, place: place.key, hours } }));
+    return ok(view(store, user, { departed: { pet, duo, place: place.key, hours, rest }, ...(claimed ? { mission: claimed } : {}) }));
   }
   if (action === 'claim' || action === 'recall') {
-    let m = missionOf(user, pet, c);
+    let m = missionRaw(user, pet, c);
     if (!m) return fail('no_mission');
     const lead = m.lead || pet;
     m = c.mission[lead];
@@ -638,8 +667,9 @@ function handle({ store, body }) {
     if (action === 'claim') return fail('mission_running', 400, { left: m.end - t });
     const back = -(m.end - t);
     const fields = { ...shiftWork(user, lead, back), ...(m.duo ? shiftWork(user, m.duo, back) : {}) };
-    delete c.mission[lead];
-    if (m.duo) delete c.mission[m.duo];
+    // Rappele : il rentre maintenant et fait sa pause du retour.
+    const restBack = t + Math.max(0, (Number(m.back) || Number(m.end)) - Number(m.end));
+    for (const x of [lead, m.duo].filter(Boolean)) { if (restBack > t) c.restUntil[x] = restBack; delete c.mission[x]; }
     logLine(c, lead, `${label(lead)} a été rappelé${PETS[lead].fem ? 'e' : ''} avant la fin de sa mission.`);
     user = store.update('Users', user.id, { ...fields, Companions: compJson(c) });
     return ok(view(store, user, { recalled: lead }));

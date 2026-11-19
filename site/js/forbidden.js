@@ -17,7 +17,7 @@
   const skeyImg = (cls = "ico-token") => `<img class="${cls}" src="assets/${encodeURI("cléSpeciale.png")}" alt="clé spéciale" />`;
   // Mise en poussieres ou en jetons du casino (2026-10-26, js/casino.js).
   let currency = (() => { try { return localStorage.getItem("2gatcha_fm_currency") === "chips" ? "chips" : "dust"; } catch (e) { return "dust"; } })();
-  const ERR = { not_enough_chips: "Pas assez de jetons : passe à la caisse du casino.", missing_ingredients: "Il manque des ingrédients.", no_special_key: "Il te faut une clé spéciale.", not_enough_dust: "Pas assez de poussières.", cannot_nudge: "Plus de relance possible pour ce tour.", cannot_risk: "Rien à remettre en jeu.", not_enough_boosters: "Tu n'as plus ces jetons.", locked: "La porte est fermée.", already_open: "La porte est déjà ouverte." };
+  const ERR = { not_enough_chips: "Pas assez de jetons : passe à la caisse du casino.", missing_ingredients: "Il manque des ingrédients.", no_special_key: "Il te faut une clé spéciale.", not_enough_dust: "Pas assez de poussières.", cannot_nudge: "Plus de relance possible pour ce tour.", cannot_risk: "Rien à remettre en jeu.", not_enough_boosters: "Tu n'as plus ces jetons.", locked: "La porte est fermée.", already_open: "La porte est déjà ouverte.", no_free_spin: "Plus de tour gratuit pour l'instant.", free_single: "Les tours gratuits se jouent un par un.", machine_level: "Cette machine demande un niveau de machine plus haut.", machine_locked: "Cette machine ne s'achète pas : elle se mérite.", unknown_machine: "Machine inconnue." };
   const errText = (e) => ERR[e.code] || friendlyError(e);
 
   // Pas d'acces (mot pas encore reclame, ou visiteur) : la page reste une
@@ -133,10 +133,11 @@
     const m = M();
     if (!m.bets.includes(bet)) bet = 1;
     z.innerHTML = `
+      <div class="fm-machines" id="fm-machines" role="radiogroup" aria-label="Machine"></div>
       <div class="fm-layout">
         <div class="fm-cabinet" id="fm-cabinet">
           <div class="fm-top">
-            <div class="fm-title">Machine interdite</div>
+            <div class="fm-title" id="fm-title">Machine interdite</div>
             <div class="fm-jackpot" title="Jackpot commun à tout le serveur : il grossit à chaque tour payant. Complet à la mise ×5.">
               <small>Jackpot</small><strong id="fm-jackpot">${fmt(m.jackpot)}</strong> &#10024;
             </div>
@@ -155,9 +156,20 @@
           <div class="fm-bets" role="radiogroup" aria-label="Mise">${m.bets.map((b) => `<button type="button" role="radio" class="fm-bet" data-bet="${b}">×${b}</button>`).join("")}</div>
           <div class="fm-pay" role="radiogroup" aria-label="Payer en"><span>Payer en</span><button type="button" role="radio" class="fm-cur" data-cur="dust">&#10024; poussières</button><button type="button" role="radio" class="fm-cur" data-cur="chips">&#129689; jetons <small id="fm-chips"></small></button></div>
           <div class="fm-controls">
+            <button type="button" class="fm-lever fm-lever-free" id="fm-free-spin" hidden></button>
             <button type="button" class="fm-lever" id="fm-spin"></button>
             <button type="button" class="btn btn-secondary" id="fm-spin10"></button>
           </div>
+          <details class="fm-auto" id="fm-auto">
+            <summary>&#9201;&#65039; Tours automatiques</summary>
+            <div class="fm-auto-body">
+              <label>Tours <select id="fm-auto-n"><option>10</option><option selected>25</option><option>50</option><option>100</option></select></label>
+              <label><input type="checkbox" id="fm-auto-stop" checked /> s'arrêter sur un triple</label>
+              <label>Budget max <input type="number" id="fm-auto-budget" min="0" step="100" placeholder="sans limite" /> &#10024;</label>
+              <button type="button" class="btn btn-secondary" id="fm-auto-go">Lancer</button>
+            </div>
+            <p class="fm-auto-note">Tours payés à ta mise, rouleaux accélérés. Tu peux arrêter à tout moment.</p>
+          </details>
           <div class="fm-free" id="fm-free"></div>
           <div class="fm-result" id="fm-result" aria-live="polite"></div>
         </div>
@@ -165,13 +177,17 @@
           <section class="fm-panel"><h3>&#127919; Défis du jour</h3><div id="fm-daily"></div></section>
           <section class="fm-panel"><h3>&#128214; Carnet des combinaisons</h3><div id="fm-combos"></div></section>
           <section class="fm-panel"><h3>&#127942; Les chanceux de la semaine</h3><div id="fm-week"></div></section>
+          <details class="fm-panel fm-paytable" id="fm-paytable"><summary>&#128176; Table des gains</summary><div id="fm-paytable-body"></div></details>
+          <details class="fm-panel fm-hist" id="fm-hist"><summary>&#128210; Mes derniers tours</summary><div id="fm-history"></div></details>
           <details class="fm-panel fm-help">
             <summary>Comment ça marche ?</summary>
             <ul>
               <li><strong>La ligne du milieu paie.</strong> Paire : une carte de la rareté (de commune à &#128160; mythique), une finition spéciale, un fantôme, des poussières (&#127183;), une clé ou deux os (&#128128;). Triple : plusieurs cartes, 2 jetons booster, des clés… Trois &#128128; : un vrai crâne de dino.</li>
               <li><strong>Jetons booster</strong> : la machine en donne un nombre limité par jour ; ensuite, un triple &#127183; paie en poussières.</li>
               <li><strong>Cascade</strong> : après un triple, la ligne retombe ; chaque nouvelle combinaison paie ×2, ×3, ×4.</li>
-              <li><strong>Mise ×3 ou ×5</strong> : tout est multiplié, et le jackpot n'est complet qu'à ×5.</li>
+              <li><strong>Mise ×3 ou ×5</strong> : tout est multiplié, et le jackpot n'est complet qu'à ×5. La mise multiplie aussi l'XP de la machine et la surchauffe : un tour à ×5 donne 5 XP, 10 tours à ×5 en donnent 50. Pour les défis du jour, un tour reste un tour, quelle que soit la mise.</li>
+              <li><strong>Tours gratuits</strong> (du jour, en réserve, bonus) : un bouton à part, joués à ×1. Le levier reste un tour payé à ta mise.</li>
+              <li><strong>10 tours d'un coup</strong> : chacun se joue comme un tour seul (cascades, tours bonus, surchauffe, incrustations) ; le bilan les détaille.</li>
               <li><strong>3 &#127920; visibles n'importe où</strong> : 5 tours bonus à gains doublés.</li>
               <li><strong>Surchauffe</strong> : à fond, triple garanti. <strong>Paire</strong> : relance le rouleau intrus.</li>
               <li><strong>Quitte ou double</strong> : remets les jetons gagnés en jeu ; le tour suivant gagnant les double.</li>
@@ -185,10 +201,15 @@
     z.querySelectorAll(".fm-bet").forEach((b) => b.addEventListener("click", () => { bet = Number(b.dataset.bet); try { localStorage.setItem("2gatcha_fm_bet", String(bet)); } catch (e) { /* stockage indisponible */ } refresh(); if (typeof Sfx !== "undefined" && Sfx._tone) Sfx._tone(500 + bet * 80, 0, 0.05, "square", 0.03); }));
     z.querySelectorAll(".fm-cur").forEach((b) => b.addEventListener("click", () => { currency = b.dataset.cur; try { localStorage.setItem("2gatcha_fm_currency", currency); } catch (e) { /* stockage indisponible */ } refresh(); }));
     $("fm-spin").addEventListener("click", () => spin(1));
+    $("fm-machines").addEventListener("click", onMachinePick);
+    $("fm-auto-go").addEventListener("click", toggleAuto);
+    // Tour gratuit a part (avis #98) : le levier reste un tour paye a la mise choisie.
+    $("fm-free-spin").addEventListener("click", () => spin(1, true));
     $("fm-spin10").addEventListener("click", () => spin(10));
     $("fm-inlays").addEventListener("click", (e) => { const b = e.target.closest("[data-reel]"); if (b) openInlayPick(Number(b.dataset.reel)); });
     $("fm-inlay-pick").addEventListener("click", onInlayPick);
     refresh();
+    window.FMachine = { state: () => state, refresh, reload: (st) => { const reshape = st.machine && st.machine.reels !== M().reels; state = st; if (reshape) renderMachine(st); else refresh(); } };
     document.dispatchEvent(new CustomEvent("forbidden:machine"));
     clearInterval(jackpotTimer);
     jackpotTimer = setInterval(liveJackpot, 6000);
@@ -203,9 +224,12 @@
     const price = (n) => (chips ? `${fmt(m.spinCostChips * bet * n)} &#129689;` : `${fmt(m.spinCost * bet * n)} &#10024;`);
     document.querySelectorAll(".fm-cur").forEach((b) => { const on = b.dataset.cur === (chips ? "chips" : "dust"); b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); });
     if ($("fm-chips")) $("fm-chips").textContent = m.chips != null ? `(${fmt(m.chips)})` : "";
-    $("fm-spin").innerHTML = kind === "bonus" ? `Tour bonus ×2 <small>(${m.bonusSpins})</small>` : kind === "daily" ? "Tour gratuit du jour" : kind === "bank" ? `Tour gratuit <small>(${m.freeSpins})</small>` : `Tirer · ${price(1)}`;
-    $("fm-spin").classList.toggle("bonus", kind === "bonus");
-    $("fm-spin10").innerHTML = `×10 · ${price(10)}`;
+    const free = $("fm-free-spin");
+    free.hidden = kind === "paid";
+    free.innerHTML = kind === "bonus" ? `Tour bonus ×2 <small>(${m.bonusSpins})</small>` : kind === "daily" ? "Tour gratuit du jour" : kind === "bank" ? `Tour gratuit <small>(${m.freeSpins})</small>` : "";
+    free.classList.toggle("bonus", kind === "bonus");
+    $("fm-spin").innerHTML = `Tirer${bet > 1 ? ` ×${bet}` : ""} · ${price(1)}`;
+    $("fm-spin10").innerHTML = `10 tours${bet > 1 ? ` à ×${bet}` : ""} · ${price(10)}`;
     setJackpot(m.jackpot);
     $("fm-heat-fill").style.width = `${Math.round((m.heat / Math.max(1, m.heatMax)) * 100)}%`;
     $("fm-heat-n").textContent = `${m.heat} / ${m.heatMax}`;
@@ -225,6 +249,88 @@
     $("fm-week").innerHTML = (w.top.length ? `<ol class="fm-top5">${w.top.map((t) => `<li><strong>${esc(t.pseudo)}</strong> <span>${esc(t.label)}</span> <small>${t.cards ? `${t.cards} carte${t.cards > 1 ? "s" : ""}` : ""}${t.dust ? ` · ${fmt(t.dust)} &#10024;` : ""}</small></li>`).join("")}</ol>` : `<p class="fm-empty">Personne encore cette semaine.</p>`)
       + (w.rarest ? `<p class="fm-rarest">Plus belle carte : <strong style="color:${esc(w.rarest.colorHex || "#fff")}">${esc(w.rarest.card)}</strong> (${esc(w.rarest.rarity)}${w.rarest.finish !== "normal" ? ", " + esc(w.rarest.finish) : ""}) par ${esc(w.rarest.pseudo)}</p>` : "")
       + (m.lastJackpots && m.lastJackpots.length ? `<p class="fm-rarest">Derniers jackpots : ${m.lastJackpots.map((j) => `${esc(j.pseudo)} (${fmt(j.amount)} &#10024;)`).join(" · ")}</p>` : "");
+    renderV2();
+  }
+
+  // ------------------------------------------------------------ salle V2
+  // Machines a collectionner, table des gains, derniers tours et bilan (2026-11-19).
+  const signedFmt = (n) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${fmt(Math.abs(n))}`;
+  function renderV2() {
+    const m = M();
+    const cur = m.machine || { key: "classique", name: "La Classique", icon: "🎰" };
+    $("fm-title").innerHTML = `${cur.icon} ${esc(cur.name)}`;
+    $("fm-title").title = cur.desc || "";
+    $("fm-cabinet").dataset.machine = cur.key;
+    const list = m.machines || [];
+    $("fm-machines").hidden = list.length < 2 && !list.some((x) => !x.owned);
+    $("fm-machines").innerHTML = list.map((x) => `
+      <button type="button" class="fm-mach ${x.current ? "on" : ""} ${x.owned ? "owned" : x.buyable ? "buy" : "locked"}" data-mach="${x.key}" role="radio" aria-checked="${x.current}" ${!x.owned && !x.buyable ? "aria-disabled=\"true\"" : ""} title="${esc(x.desc)}">
+        <span class="fm-mach-ico">${x.owned ? x.icon : x.buyable ? x.icon : "&#128274;"}</span>
+        <span class="fm-mach-txt"><b>${esc(x.name)}</b><small>${x.owned ? `tour ×${String(x.cost).replace(".", ",")}` : x.buyable ? `Installer · ${fmt(x.price)} &#10024;` : esc(x.need || "")}</small></span>
+      </button>`).join("");
+    const pt = m.paytable || [];
+    $("fm-paytable-body").innerHTML = `<table class="fm-pt"><thead><tr><th></th><th>Paire</th><th>Triple</th></tr></thead><tbody>${pt.map((p) => `<tr><th title="${esc(p.label)}">${p.icon}</th><td>${esc(p.pair)}</td><td>${esc(p.triple)}</td></tr>`).join("")}</tbody></table>
+      <p class="fm-pt-note">Tout est multiplié par la mise (×1, ×3, ×5), ×2 en tour bonus et ×2 à l'heure de folie. Un carré (4e rouleau) = triple ×2. Cascades : ×${2 + (cur.cascadeBoost || 0)}, ×${3 + (cur.cascadeBoost || 0)}… jusqu'à ${cur.cascades || 3}.${cur.pairChips ? ` ${esc(cur.name)} : +${cur.pairChips} jetons du casino par paire et par mise.` : ""} La mise multiplie aussi l'XP de la machine et la surchauffe${cur.heat > 1 ? ` (×${cur.heat} sur cette machine)` : ""}.</p>`;
+    const st = m.stats || {};
+    const h = m.history || [];
+    const net = (Number(st.won) || 0) - (Number(st.paid) || 0);
+    const icon = (k) => ((list.find((x) => x.key === k) || {}).icon) || "🎰";
+    $("fm-history").innerHTML = `<div class="fm-ledger-all ${net > 0 ? "up" : net < 0 ? "down" : ""}">Depuis le début : ${fmt(st.spins || 0)} tours · payé <b>${fmt(st.paid || 0)} &#10024;</b>${st.paidChips ? ` + ${fmt(st.paidChips)} &#129689;` : ""} · gagné <b>${fmt(st.won || 0)} &#10024;</b> = <strong>${signedFmt(net)} &#10024;</strong> · ${fmt(st.cards || 0)} cartes · ${fmt(st.boosters || 0)} ${resIcon("token")} · ${fmt(st.jackpots || 0)} jackpot${(st.jackpots || 0) > 1 ? "s" : ""}</div>
+      ${h.length ? `<ol class="fm-hlist">${h.map((x) => `<li class="${x.tier}"><span class="fm-h-m" title="${esc((list.find((y) => y.key === x.m) || {}).name || "")}">${icon(x.m)}</span><span class="fm-h-line">${(x.line || []).map(symIcon).join("")}</span><span class="fm-h-lbl">${esc(x.label || "—")}${x.casc ? ` +${x.casc} cascade${x.casc > 1 ? "s" : ""}` : ""}</span><span class="fm-h-bet">${x.kind === "paid" ? `×${x.bet}` : x.kind === "bonus" ? "bonus" : "gratuit"}</span><span class="fm-h-gain">${x.dust ? `+${fmt(x.dust)} &#10024;` : ""}${x.cards ? ` ${x.cards} &#127183;` : ""}${x.boosters ? ` +${x.boosters} ${resIcon("token")}` : ""}</span></li>`).join("")}</ol>` : `<p class="fm-empty">Aucun tour enregistré pour l'instant.</p>`}`;
+    document.dispatchEvent(new CustomEvent("forbidden:state", { detail: state }));
+  }
+  async function onMachinePick(e) {
+    const b = e.target.closest("[data-mach]");
+    if (!b || busy || auto) return;
+    const x = (M().machines || []).find((y) => y.key === b.dataset.mach);
+    if (!x || x.current) return;
+    if (!x.owned && !x.buyable) { Toast.info(x.need ? `À débloquer : ${esc(x.need)}` : "Cette machine se mérite."); return; }
+    if (!x.owned && !(await Confirm.show(`${esc(x.desc)}<br><br>Prix : <b>${fmt(x.price)} &#10024;</b>, pour toujours.`, { title: `Installer ${esc(x.name)} ?`, confirmText: "Installer" }))) return;
+    busy = true;
+    try {
+      const res = await API.post("forbidden", { userId: Session.userId, action: "machine", key: x.key });
+      const reshape = res.machine && res.machine.reels !== M().reels;
+      state = { ...state, ...res };
+      if (reshape) renderMachine(state); else refresh();
+      if (res.bought) { Toast.success(`${x.icon} ${esc(x.name)} est installée dans la salle !`); if (typeof confetti === "function") confetti({ particleCount: 80, spread: 70, origin: { y: 0.3 } }); }
+      if (typeof Sfx !== "undefined" && Sfx._tone) { Sfx._tone(330, 0, 0.08, "square", 0.04); Sfx._tone(495, 0.08, 0.12, "square", 0.04); }
+      if (typeof refreshStatus === "function") refreshStatus();
+    } catch (err) { Toast.error(errText(err)); if (err.data && err.data.machine) { state.machine = err.data.machine; refresh(); } } finally { busy = false; }
+  }
+
+  // Tours automatiques : un tour paye a la fois, rouleaux acceleres.
+  let auto = null;
+  function toggleAuto() {
+    if (auto) { auto.stop = true; return; }
+    const n = Number($("fm-auto-n").value) || 25;
+    const budget = Number($("fm-auto-budget").value) || 0;
+    const stopTriple = $("fm-auto-stop").checked;
+    auto = { stop: false, done: 0, spent: 0 };
+    const btn = $("fm-auto-go");
+    btn.textContent = "Arrêter";
+    btn.classList.add("on");
+    $("fm-cabinet").classList.add("auto");
+    (async () => {
+      let why = "";
+      for (let i = 0; i < n && !auto.stop; i++) {
+        const price = (currency === "chips" ? 0 : M().spinCost * bet);
+        if (budget && auto.spent + price > budget) { why = "budget atteint"; break; }
+        const res = await spin(1, false, { fast: true });
+        if (!res) { why = "tour refusé"; break; }
+        auto.done++;
+        auto.spent += Number(res.paid) || 0;
+        btn.textContent = `Arrêter (${auto.done}/${n})`;
+        const r = res.results[0];
+        if (stopTriple && [r, ...(r.cascades || [])].some((x) => x.tier === "triple" || x.tier === "quad" || x.jackpot)) { why = "triple !"; break; }
+        await sleep(reduced() ? 50 : 350);
+      }
+      if (auto.stop) why = why || "arrêtés";
+      Toast.info(`&#9201;&#65039; Tours automatiques : ${auto.done} tour${auto.done > 1 ? "s" : ""}${why ? ` (${why})` : ""}, ${fmt(auto.spent)} &#10024; dépensées.`);
+      auto = null;
+      btn.textContent = "Lancer";
+      btn.classList.remove("on");
+      $("fm-cabinet")?.classList.remove("auto");
+    })();
   }
 
   // Incrustations (2026-11-06) : un creux sous chaque rouleau, un mineral y
@@ -372,15 +478,18 @@
     if (typeof Haptics !== "undefined" && r.tier !== "none") Haptics.buzz(r.tier === "pair" ? 30 : [40, 50, 90]);
   };
 
-  async function spin(count) {
-    if (busy || !state || !M()) return;
+  let fastMode = false;
+  async function spin(count, useFree = false, opts = {}) {
+    if (busy || !state || !M()) return null;
+    if (auto && !opts.fast) return null;
+    fastMode = !!opts.fast;
     // Paiement en jetons sans tour gratuit : solde connu, on previent sans
     // appeler le serveur (GlitchTip #32, refus not_enough_chips).
     const m0 = M();
-    const paid = !(m0.bonusSpins > 0 || m0.freeSpin || m0.freeSpins > 0);
-    if (paid && currency === "chips" && m0.spinCostChips && m0.chips != null && m0.chips < m0.spinCostChips * bet * count) { Toast.info(ERR.not_enough_chips); return; }
+    const paid = !useFree;
+    if (paid && currency === "chips" && m0.spinCostChips && m0.chips != null && m0.chips < m0.spinCostChips * bet * count) { Toast.info(ERR.not_enough_chips); return null; }
     busy = true;
-    const btns = [$("fm-spin"), $("fm-spin10")];
+    const btns = [$("fm-spin"), $("fm-spin10"), $("fm-free-spin")];
     btns.forEach((b) => (b.disabled = true));
     const out = $("fm-result");
     out.className = "fm-result";
@@ -389,7 +498,7 @@
     $("fm-spin").classList.add("pulled");
     const cab = $("fm-cabinet");
     try {
-      const res = await API.post("forbidden", { userId: Session.userId, action: "spin", count, bet, currency });
+      const res = await API.post("forbidden", { userId: Session.userId, action: "spin", count, bet, currency, free: useFree });
       const heat = M().heat;
       state = res;
       if (M().reels !== document.querySelectorAll(".fm-reel").length) { renderMachine(res); }
@@ -398,10 +507,10 @@
         // Presque ! : les rouleaux d'avant s'accordent, le dernier fait durer.
         const line = r.line;
         const tense = line.length >= 3 && line.slice(0, -1).every((k) => k === line[0]);
-        const base = 1100;
-        const durations = r.window.map((_, i) => base + i * 420 + (tense && i === r.window.length - 1 ? 2200 : 0));
+        const base = fastMode ? 320 : 1100;
+        const durations = r.window.map((_, i) => base + i * (fastMode ? 110 : 420) + (tense && !fastMode && i === r.window.length - 1 ? 2200 : 0));
         const anims = r.window.map((col, i) => animateReel(i, col, durations[i], heat));
-        if (tense) setTimeout(() => { cab.classList.add("tense"); heartbeat(durations[durations.length - 1] - durations[durations.length - 2]); }, durations[durations.length - 2]);
+        if (tense && !fastMode) setTimeout(() => { cab.classList.add("tense"); heartbeat(durations[durations.length - 1] - durations[durations.length - 2]); }, durations[durations.length - 2]);
         await Promise.all(anims);
         cab.classList.remove("tense");
         await showSpin(r, res);
@@ -411,8 +520,8 @@
         const wins = res.results.filter((r) => r.tier !== "none" || r.dust);
         const all = sumGains(res.results.flatMap((r) => [r, ...(r.cascades || [])]));
         out.className = "fm-result " + (wins.length ? "win" : "");
-        out.innerHTML = `<div class="fm-label">10 tours : ${wins.length} gagnant${wins.length > 1 ? "s" : ""}</div>
-          <div class="fm-ten">${res.results.map((r) => `<span class="fm-ten-row ${r.tier}">${r.line.map(symIcon).join("")}${r.label ? ` <small>${esc(r.label)}${r.cascades && r.cascades.length ? ` +${r.cascades.length} cascade${r.cascades.length > 1 ? "s" : ""}` : ""}</small>` : ""}</span>`).join("")}</div>
+        out.innerHTML = `<div class="fm-label">10 tours : ${wins.length} gagnant${wins.length > 1 ? "s" : ""}${(() => { const n = res.results.reduce((s, r) => s + (r.cascades || []).length, 0); return n ? ` · ${n} cascade${n > 1 ? "s" : ""}` : ""; })()}</div>
+          <div class="fm-ten">${res.results.map((r) => `<span class="fm-ten-row ${r.tier}">${r.line.map(symIcon).join("")}${r.label ? ` <small>${esc(r.label)}</small>` : ""}${(r.cascades || []).map((c) => ` <span class="fm-ten-casc" title="Cascade ×${c.mult}">↓ ×${c.mult} ${c.line.map(symIcon).join("")}${c.label ? ` <small>${esc(c.label)}</small>` : ""}</span>`).join("")}</span>`).join("")}</div>
           ${gainsHtml(all)}`;
         if (res.results.some((r) => r.jackpot)) jackpotFx();
         if (wins.length) celebrate({ tier: "triple", cards: all.cards });
@@ -434,13 +543,16 @@
       if (res.results.some((r) => [r, ...(r.cascades || [])].some((x) => x.minerals && x.minerals.length))) document.dispatchEvent(new CustomEvent("stones:refresh"));
       if (typeof refreshStatus === "function") refreshStatus();
       if (typeof loadHeaderBoosterBadge === "function") loadHeaderBoosterBadge();
+      return res;
     } catch (e) {
       Toast.error(errText(e));
       if (e.data && e.data.machine) { state.machine = e.data.machine; refresh(); }
+      return null;
     } finally {
       $("fm-spin").classList.remove("pulled");
       btns.forEach((b) => (b.disabled = false));
       busy = false;
+      fastMode = false;
     }
   }
 
@@ -457,13 +569,16 @@
     highlightLine(r.line, r.tier !== "none" && r.key);
     const tag = r.kind === "bonus" ? `<div class="fm-forced">&#127920; Tour bonus ×2</div>` : r.kind === "daily" || r.kind === "bank" ? `<div class="fm-kind">Tour gratuit</div>` : r.bet > 1 ? `<div class="fm-kind">Mise ×${r.bet}</div>` : "";
     out.className = `fm-result ${r.tier !== "none" ? "win" : ""} ${r.tier}`;
+    // Ce tour (salle V2) : d'ou vient le multiplicateur.
+    const parts = r.multParts || [{ label: "Mise", x: r.bet || 1 }];
+    const multLine = `<div class="fm-mult" title="Gains de ce tour multipliés par…">${parts.map((p) => `<span>${esc(p.label)} <b>×${p.x}</b></span>`).join("<i>×</i>")}${parts.length > 1 ? `<i>=</i><span><b>×${r.mult}</b></span>` : ""}${(r.cascades || []).length ? `<em>puis cascades ${r.cascades.map((c) => `×${c.mult}`).join(", ")}</em>` : ""}${r.chipsWon ? `<em>+${r.chipsWon} &#129689;</em>` : ""}</div>`;
     out.innerHTML = `${r.forced ? `<div class="fm-forced">&#128293; Surchauffe ! Triple garanti</div>` : ""}${tag}
-      <div class="fm-label">${r.label ? esc(r.label) : "Rien cette fois…"}</div>${gainsHtml(r)}`;
+      <div class="fm-label">${r.label ? esc(r.label) : "Rien cette fois…"}</div>${r.tier !== "none" || r.dust ? multLine : ""}${gainsHtml(r)}${r.crowd && r.crowd.players ? `<div class="fm-crowd">&#127920; ${fmt(r.crowd.total)} &#10024; partagées avec ${r.crowd.players} joueur${r.crowd.players > 1 ? "s" : ""} de la salle</div>` : ""}`;
     celebrate(r);
     if (r.jackpot) jackpotFx();
     // Cascades : la ligne explose et retombe.
     for (const c of r.cascades || []) {
-      await sleep(reduced() ? 300 : 1300);
+      await sleep(reduced() || fastMode ? 300 : 1300);
       document.querySelectorAll(".fm-reel.win .fm-sym:nth-child(2)").forEach((e) => e.classList.add("boom"));
       if (typeof Sfx !== "undefined" && Sfx._tone) Sfx._tone(120, 0, 0.3, "sawtooth", 0.05);
       await sleep(reduced() ? 100 : 420);

@@ -91,3 +91,8 @@
 @keyframes cv2Spot { 0% { transform: scale(0.3) rotate(-8deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .cv2-chest, .cv2-item, .cv2-mini, .cv2-glow, .cv2-bilan { animation: none !important; } }
 @media (max-width: 640px) { .cv2-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Ouvrir + xN sur une ligne (avis #95, 2026-11-19). */
+.cv2-keyrow { display: flex; gap: 4px; flex: 1 1 100%; }
+.cv2-keyrow .cv2-open:first-child { flex: 1 1 auto; }
+.cv2-keyrow .cv2-open + .cv2-open { flex: 0 0 auto; min-width: 3.2em; }

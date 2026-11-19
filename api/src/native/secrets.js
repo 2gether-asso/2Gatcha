@@ -55,7 +55,7 @@ function secretCard(store) {
 }
 
 // Extension des cartes secretes (creee si absente, inactive : jamais en booster).
-function secretExtension(store) {
+export function secretExtension(store) {
   if (!store.tables.has('Extensions')) return null;
   const ext = store.getAll('Extensions').find((e) => e.Key === EXT_KEY);
   if (ext) return ext;

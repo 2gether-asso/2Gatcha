@@ -221,9 +221,13 @@
       const p = pets().find((x) => x.pet === pet);
       Toast.success(mask(`${p ? p.icon + " " + p.name : ""} se met au travail : +${hoursTxt(n * (p ? p.per : 60))} !`));
     } catch (e) {
-      Toast.error(FEED_ERR[e.code] || friendlyError(e));
+      // Jauge affichee en retard (travail donne ailleurs entre-temps) : on le
+      // dit et la jauge se recharge juste apres ; rien a signaler (GlitchTip #90).
+      if (/_max_time$/.test(e.code || "")) Toast.info(FEED_ERR[e.code] || "Déjà assez de travail.");
+      else Toast.error(FEED_ERR[e.code] || friendlyError(e));
     }
     busy = false;
+    API.invalidate && API.invalidate();
     await load();
   }
 

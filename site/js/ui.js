@@ -855,7 +855,13 @@ document.addEventListener("keydown", (e) => {
   if (packModal && !packModal.hidden && typeof isBusy !== "undefined" && !isBusy) {
     packModal.hidden = true;
     syncScrollLock();
+    return;
   }
+  // Menus de l'en-tete et feuille « Plus » du telephone (avis #93).
+  document.querySelectorAll(".nav-group.open").forEach((g) => { g.classList.remove("open"); const t = g.querySelector(".nav-group-trigger"); if (t) { t.setAttribute("aria-expanded", "false"); t.focus(); } });
+  document.querySelectorAll("#user-menu.open, #notif-bell.open").forEach((m) => m.classList.remove("open"));
+  const sheet = document.getElementById("bn-sheet");
+  if (sheet && !sheet.hidden) { sheet.hidden = true; document.getElementById("bn-more-btn")?.setAttribute("aria-expanded", "false"); }
 });
 
 // ---------------------------------------------------------------------------

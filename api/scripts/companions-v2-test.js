@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Store } from '../src/store.js';
 import { createNative } from '../src/native/index.js';
-import { compOf, xpForLevel, perksOf } from '../src/native/companion-core.js';
+import { compOf, xpForLevel, perksOf, onMission } from '../src/native/companion-core.js';
 import { moodOf, settleContest } from '../src/native/companions.js';
 import { settleCat } from '../src/native/cat.js';
 import { setSettings } from '../src/native/settings.js';
@@ -56,14 +56,16 @@ await test('travail : XP de Moka par lancer, rien pendant une mission', () => {
   let r = post('companions', { userId: user.id, action: 'mission', pet: 'moka', place: 'lac', hours: 2 });
   assert.equal(r.status, 200, JSON.stringify(r.json));
   const after = JSON.parse(me().CatState);
-  assert.equal(after.start - before.start, 7200);
+  // 2 h de mission + 20 min de pause au retour (avis #92).
+  assert.equal(after.start - before.start, 7200 + 1200);
   assert.equal(settleCat(store, me()), null, 'pas de lancer pendant la mission');
   assert.equal(post('cat', { userId: user.id, action: 'feed', count: 1 }).json.error, 'pet_on_mission');
   assert.equal(post('walk', { userId: user.id, action: 'go', pet: 'moka', place: 'lac' }).json.error, 'pet_on_mission');
-  // Rappel : decalage annule.
+  // Rappel : decalage annule, sauf la pause du retour.
   r = post('companions', { userId: user.id, action: 'recall', pet: 'moka' });
   assert.equal(r.status, 200, JSON.stringify(r.json));
-  assert.ok(Math.abs(JSON.parse(me().CatState).start - before.start) <= 2);
+  assert.ok(Math.abs(JSON.parse(me().CatState).start - before.start - 1200) <= 2);
+  assert.ok(r.json.pets.find((p) => p.pet === 'moka').restLeft > 1100, 'pause du retour');
   assert.equal(r.json.pets.find((p) => p.pet === 'moka').mission, null);
 });
 
@@ -72,8 +74,11 @@ await test('mission en duo : butin, fragments, XP, amitie', () => {
   assert.equal(r.status, 200, JSON.stringify(r.json));
   assert.equal(post('companions', { userId: user.id, action: 'mission', pet: 'noisette', place: 'foret', hours: 2 }).json.error, 'pet_on_mission');
   assert.equal(post('companions', { userId: user.id, action: 'claim', pet: 'milo' }).json.error, 'mission_running');
-  // Fin de mission avancee.
-  setComp((c) => { c.mission.milo.end = t() - 1; c.mission.noisette.end = t() - 1; });
+  // Fin de mission avancee : rentres tout seuls (avis #92), plus absents avant meme « Récupérer ».
+  setComp((c) => { c.mission.milo.end = t() - 1; c.mission.noisette.end = t() - 1; c.mission.milo.back = t() + 600; c.mission.noisette.back = t() + 600; });
+  assert.equal(onMission(me(), 'noisette'), false);
+  const lead = post('companions', { userId: user.id, action: 'status' }).json.pets.find((p) => p.pet === 'milo');
+  assert.equal(lead.mission.ready, true);
   const f0 = Number(me().PetFrags) || 0;
   r = post('companions', { userId: user.id, action: 'claim', pet: 'noisette' });
   assert.equal(r.status, 200, JSON.stringify(r.json));
@@ -83,6 +88,7 @@ await test('mission en duo : butin, fragments, XP, amitie', () => {
   assert.ok(comp().xp.milo >= 80 && comp().xp.noisette >= 80);
   assert.equal(comp().friend['milo+noisette'], 40);
   assert.ok(!comp().mission.milo && !comp().mission.noisette);
+  assert.ok(comp().restUntil.milo > t() && comp().restUntil.noisette > t(), 'pause du retour gardee apres Récupérer');
   assert.equal(post('companions', { userId: user.id, action: 'mission', pet: 'milo', place: 'foret', hours: 8 }).json.error, 'level_too_low');
 });
 

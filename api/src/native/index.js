@@ -136,6 +136,9 @@ import * as forbidden from './forbidden.js';
 import * as slots from './slots.js';
 import * as stones from './stones.js';
 import * as secrets from './secrets.js';
+import * as forbiddenRep from './forbidden-rep.js';
+import * as forbiddenTourney from './forbidden-tourney.js';
+import * as forbiddenSeals from './forbidden-seals.js';
 import * as ripen from './ripen.js';
 import * as pets from './pets.js';
 import * as archeo from './archeo.js';
@@ -157,7 +160,7 @@ import { setting } from './settings.js';
 
 const MODULES = [settings, auth, discordProfile, pity, sets, collectionV2, adminV2, matches, streak, events, boss, economy, push, chests, duplicates, seasons, fishing, unique, personalVault, levels, skills,
   challenges, achievements, cosmetics, rules, social, garden, communityDig, simulator,
-  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback, legacy, metiers, companions];
+  talents, feed, progression, daily, market, boosts, insights, shop, inflation, treasure, accountPrestige, balance, upgrades, ledger, presets, comfort, rendezvous, modeperks, machine, features, modeextras, seasonal, editions, modefun, vacation, health, moderules, chaosvote, draft, skytree, aquarium, cat, digdepth, guildworks, visuals, guildchest, guessgame, expedition2, testaccount, starter, museum, seasonquests, story, surprise, patchnotes, timers, ripen, phantom, lottery, wanted, halloffame, teams, duo, bingo, cards, dino, discoveries, forbidden, slots, stones, secrets, forbiddenRep, forbiddenTourney, forbiddenSeals, pets, archeo, casino, rewards, playeradmin, discord, explorer, audit, artists, cooking, walk, feedback, legacy, metiers, companions];
 // Abonnes du bus d'activite (voir activity.js).
 const SUBSCRIBERS = [challenges, achievements, progression, daily, comfort, modeperks, modeextras, seasonal, phantom, teams, bingo, cards, modefun, vacation, starter, seasonquests, story, cooking, metiers];
 // La page Admin > Difficultes affiche aussi les fonctionnalites fermees par mode.

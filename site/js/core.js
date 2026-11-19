@@ -101,6 +101,7 @@ const Gyro = {
 // propres en priorite : MESSAGES[e.code] || friendlyError(e).
 const COMMON_ERRORS = {
   // Compagnons V2 (2026-11-16).
+  pet_cooldown: "Encore un peu de patience avant le prochain geste.",
   pet_on_mission: "Ce compagnon est en mission : il reprendra le travail à son retour (page Compagnons).",
   mission_running: "La mission n'est pas encore terminée.", no_mission: "Aucune mission en cours.", duo_unavailable: "Ce partenaire n'est pas disponible.",
   quest_not_done: "Pas encore : termine d'abord sa quête.", path_chosen: "La voie est déjà choisie.", level_too_low: "Niveau trop bas pour ça.",

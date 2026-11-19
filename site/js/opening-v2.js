@@ -265,6 +265,7 @@ const OpeningV2 = (function () {
   }
 
   function actionsDuring(b) {
+    if (!b || !b.slots) return;
     const left = b.slots.filter((s) => !s.revealed).length;
     const acts = [];
     if (left > 1) acts.push(["all", "Tout révéler", "btn-secondary"]);
@@ -637,6 +638,9 @@ const OpeningV2 = (function () {
   function abort() {
     if (!st || st.dead) return;
     const was = st;
+    // Fermee avant la fin : tout est deja enregistre cote serveur a l'ouverture
+    // de chaque booster (jetons depenses = cartes gagnees), on le dit (avis #94).
+    if (!was.inBilan && !was.sim) Toast.info("Rien n'est perdu : toutes les cartes de ces boosters sont déjà dans ta collection.");
     if (!was.inBilan) { was.inBilan = true; onAllRevealed(); }
     was.dead = true;
     document.querySelectorAll(".ov2-spot").forEach((s) => s.remove());
@@ -658,7 +662,7 @@ const OpeningV2 = (function () {
       if (st.packGo && !(cur && cur.slots)) st.packGo();
       else if (cur && cur.done) next();
       else if (cur) revealAll(cur);
-      if (cur) actionsDuring(cur);
+      if (cur && cur.slots) actionsDuring(cur);
     } else if (k === "auto-off") { st.auto = false; if (cur && cur.slots && !cur.done) actionsDuring(cur); else if (cur && cur.done) boosterDone(Object.assign(cur, { done: false })); else setActions([["bilan", "&#9197; Passer au bilan", "btn-ghost"], ["auto", "&#9654;&#9654; Auto", "btn-ghost"]]); }
     else if (k === "again") { const a = $("open-another-btn"); if (a) a.click(); }
     else if (k === "close") { const c = $("pack-modal-close"); if (c) c.click(); }
@@ -690,6 +694,23 @@ const OpeningV2 = (function () {
     const left = cur.slots.filter((s) => !s.revealed && !s.pending).sort((a, b) => score(a.card) - score(b.card));
     if (left.length) reveal(cur, left[0], false);
     else if (cur.done) next();
+  }, true);
+
+  // Echap (avis #93) : accelere d'abord (tout reveler, puis passer au bilan),
+  // et ferme la fenetre une fois au bilan. Les cinematiques gerent leur Echap.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !st || st.dead) return;
+    const overlay = $("pack-modal-overlay");
+    if (!overlay || overlay.hidden) return;
+    if (document.querySelector(".cine-overlay, .ov2-spot, .reveal-zoom-overlay, .card-modal-overlay")) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (st.inBilan) { const x = $("pack-modal-close"); if (x) x.click(); return; }
+    if (st.busy) return;
+    const cur = st.boosters[st.bi];
+    if (cur && !cur.slots) { if (st.packGo) st.packGo(); return; }
+    if (cur && cur.slots.some((s) => !s.revealed)) { revealAll(cur); return; }
+    if (st.boosters.length > 1 && st.bi < st.boosters.length - 1) skipToBilan(); else bilan();
   }, true);
 
   // Croix de la fenetre pendant la scene.
