@@ -1,81 +1,3 @@
-/* modes.css - Modes de jeu (2026-10-14/15) : bonus et malus, salle des machines, Chaos, saisons, bingo V2, dos de carte.
-   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
-   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
-   specificite egale. */
-/* =====================================================================
-   MODES DE JEU (2026-10-14) : barre de menu et logo selon le mode en
-   cours (html[data-game-mode], shell.js). Cool : bulles et reflets glacés ;
-   Chill : feuilles qui tombent ; Medium : étincelles discrètes ; Hard :
-   dégradé rouge et flammes sur le logo.
-   ===================================================================== */
-/* Texte du logo sur son propre calque, au-dessus des effets (le degrade du texte
-   est un fond : sur .brand il passerait derriere ses enfants). */
-#site-brand { position: relative; display: inline-block; isolation: isolate; background: none; color: inherit; }
-.brand-text { position: relative; z-index: 1; display: inline-block; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand-fx { position: absolute; inset: -6px -4px; z-index: 0; pointer-events: none; overflow: visible; }
-.brand-fx i { position: absolute; display: block; opacity: 0; }
-.brand-fx i:nth-child(1) { left: 4%; --d: 0s; --dx: -4px; }
-.brand-fx i:nth-child(2) { left: 18%; --d: -0.6s; --dx: 5px; }
-.brand-fx i:nth-child(3) { left: 32%; --d: -1.3s; --dx: -3px; }
-.brand-fx i:nth-child(4) { left: 47%; --d: -0.3s; --dx: 4px; }
-.brand-fx i:nth-child(5) { left: 61%; --d: -1.7s; --dx: -5px; }
-.brand-fx i:nth-child(6) { left: 75%; --d: -0.9s; --dx: 3px; }
-.brand-fx i:nth-child(7) { left: 88%; --d: -2.1s; --dx: -2px; }
-html[data-game-mode] header#site-header { transition: background 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease; }
-
-/* --- Cool : bleu glacier -> lavande, logo qui flotte, bulles --- */
-html[data-game-mode="cool"] header#site-header { background: linear-gradient(90deg, rgba(8,47,73,0.94), rgba(30,58,138,0.9) 50%, rgba(76,29,149,0.88)); border-bottom-color: rgba(125,211,252,0.45); box-shadow: 0 8px 28px -14px rgba(103,232,249,0.55); }
-html[data-game-mode="cool"] .brand-text { background-image: linear-gradient(90deg, #67e8f9, #f0f9ff, var(--accent-pale), #67e8f9); background-size: 300% 100%; animation: brandShimmer 7s linear infinite; }
-html[data-game-mode="cool"] #site-brand { animation: brandFloat 4s ease-in-out infinite; }
-html[data-game-mode="cool"] .brand-fx i { bottom: 0; width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(224,242,254,0.85); background: rgba(186,230,253,0.18); animation: brandBubble 3.6s ease-in var(--d) infinite; }
-html[data-game-mode="cool"] .nav a.active, html[data-game-mode="cool"] .nav-group-trigger.active { background: rgba(103,232,249,0.18); }
-
-/* --- Chill : vert tropical, logo qui se balance, feuilles --- */
-html[data-game-mode="chill"] header#site-header { background: linear-gradient(90deg, rgba(6,78,59,0.94), rgba(15,118,110,0.9) 55%, rgba(21,94,117,0.92)); border-bottom-color: rgba(110,231,183,0.45); box-shadow: 0 8px 28px -14px rgba(52,211,153,0.5); }
-html[data-game-mode="chill"] .brand-text { background-image: linear-gradient(90deg, #bef264, #5eead4, #bef264); background-size: 200% 100%; animation: brandShimmer 9s linear infinite; }
-html[data-game-mode="chill"] #site-brand { animation: brandSway 5s ease-in-out infinite; transform-origin: 50% 100%; }
-html[data-game-mode="chill"] .brand-fx i { top: -2px; width: 8px; height: 8px; border-radius: 0 80% 0 80%; background: linear-gradient(135deg, #bbf7d0, #22c55e); animation: brandLeaf 6s linear var(--d) infinite; }
-html[data-game-mode="chill"] .brand-fx i:nth-child(even) { animation-duration: 7.5s; }
-html[data-game-mode="chill"] .nav a.active, html[data-game-mode="chill"] .nav-group-trigger.active { background: rgba(52,211,153,0.2); }
-
-/* --- Medium : barre habituelle, quelques étincelles --- */
-html[data-game-mode="medium"] .brand-fx i { top: 20%; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px rgba(196,181,253,0.8); animation: brandTwinkle 3.2s ease-in-out var(--d) infinite; }
-html[data-game-mode="medium"] .brand-fx i:nth-child(n+4) { display: none; }
-html[data-game-mode="medium"] .brand-fx i:nth-child(2) { top: 70%; }
-
-/* --- Hard : dégradé rouge, logo en fusion, flammes --- */
-html[data-game-mode="hard"] header#site-header { background: linear-gradient(90deg, rgba(69,10,10,0.96), rgba(127,29,29,0.93) 35%, rgba(185,28,28,0.9) 62%, rgba(67,20,7,0.96)); border-bottom-color: rgba(248,113,113,0.55); box-shadow: 0 8px 30px -12px rgba(239,68,68,0.65); }
-html[data-game-mode="hard"] .brand-text { background-image: linear-gradient(0deg, #ef4444, #fb923c 45%, #fde047 85%); background-size: 100% 200%; animation: brandHeat 1.6s ease-in-out infinite alternate; filter: drop-shadow(0 0 6px rgba(251,146,60,0.75)); }
-html[data-game-mode="hard"] .brand-fx { inset: -10px -4px -2px; }
-html[data-game-mode="hard"] .brand-fx i { bottom: -2px; width: 15px; height: 30px; margin-left: -6px; border-radius: 50% 50% 38% 38% / 62% 62% 38% 38%; background: radial-gradient(ellipse at 50% 85%, #fef9c3 0 16%, #fde047 26%, #fb923c 46%, rgba(239,68,68,0.75) 64%, transparent 74%); transform-origin: 50% 100%; mix-blend-mode: screen; animation: brandFlame 1.1s ease-out var(--d) infinite; }
-html[data-game-mode="hard"] .brand-fx i:nth-child(odd) { animation-duration: 0.85s; height: 24px; }
-html[data-game-mode="hard"] .nav a.active, html[data-game-mode="hard"] .nav-group-trigger.active { background: rgba(239,68,68,0.28); }
-html[data-game-mode="hard"] .header-stats, html[data-game-mode="hard"] button.header-stats { border-color: rgba(248,113,113,0.35); }
-
-@keyframes brandShimmer { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
-@keyframes brandFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-@keyframes brandSway { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
-@keyframes brandHeat { from { background-position: 50% 0%; } to { background-position: 50% 100%; } }
-@keyframes brandBubble { 0% { transform: translateY(6px) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(var(--dx), -26px) scale(1.15); opacity: 0; } }
-@keyframes brandLeaf { 0% { transform: translate(0, -6px) rotate(0deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(var(--dx), 30px) rotate(240deg); opacity: 0; } }
-@keyframes brandTwinkle { 0%, 100% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1); opacity: 1; } }
-@keyframes brandFlame { 0% { transform: translateY(2px) scale(0.7, 0.55); opacity: 0.2; } 30% { opacity: 1; } 60% { transform: translateY(-5px) scale(0.95, 1.15); opacity: 0.95; } 100% { transform: translate(var(--dx), -14px) scale(0.45, 0.6); opacity: 0; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .brand-fx { display: none; }
-  html[data-game-mode] #site-brand, html[data-game-mode] .brand-text { animation: none; }
-}
-/* Logo plus petit (mobile, en-tete reduit au defilement) : effets a l'echelle. */
-@media (max-width: 640px) {
-  html[data-game-mode="hard"] .brand-fx i { width: 10px; height: 18px; margin-left: -5px; opacity: 0.85; }
-  html[data-game-mode="hard"] .brand-fx i:nth-child(odd) { height: 14px; }
-  html[data-game-mode="hard"] .brand-fx { inset: -6px -2px -2px; }
-  html[data-game-mode="chill"] .brand-fx i { width: 6px; height: 6px; }
-  html[data-game-mode="cool"] .brand-fx i { width: 4px; height: 4px; }
-}
-header#site-header.shrunk .brand-fx i { transform-origin: 50% 100%; }
-html[data-game-mode="hard"] header#site-header.shrunk .brand-fx i { height: 18px; width: 10px; }
-
 /* =====================================================================
    BONUS ET MALUS DES MODES (2026-10-14) : annonce du mode, options du
    mode Medium, decrafts annulables, cartes forgees, contrat, admin.
@@ -121,7 +43,6 @@ html[data-game-mode="hard"] header#site-header.shrunk .brand-fx i { height: 18px
 .decor-frame-seasons { box-shadow: 0 0 0 3px #67e8f9, 0 0 0 5px #34d399, 0 0 0 7px var(--accent-light), 0 0 0 9px #f87171; }
 @keyframes brandHeatFrame { from { box-shadow: 0 0 0 3px #f97316, 0 0 0 5px #7f1d1d, 0 0 12px rgba(239,68,68,0.6); } to { box-shadow: 0 0 0 3px #fde047, 0 0 0 5px #b91c1c, 0 0 22px rgba(251,146,60,0.95); } }
 @media (prefers-reduced-motion: reduce) { .mode-announce-icon, .decor-frame-inferno { animation: none; } }
-
 
 /* =====================================================================
    SALLE DES MACHINES (2026-10-14) : laiton, vapeur et engrenages.
@@ -191,7 +112,6 @@ html[data-game-mode="hard"] header#site-header.shrunk .brand-fx i { height: 18px
 }
 @media (prefers-reduced-motion: reduce) { .mr-gears span { animation: none !important; } }
 
-
 /* Fonctionnalite fermee dans le mode de jeu en cours (features.js). */
 .feature-closed { display: grid; justify-items: center; gap: 12px; max-width: 520px; margin: 48px auto; padding: 32px 20px; text-align: center; border-radius: 18px; background: var(--surface, rgba(255,255,255,0.04)); border: 1px solid var(--border, rgba(255,255,255,0.1)); }
 .feature-closed-icon { font-size: 3rem; filter: grayscale(0.6); }
@@ -217,44 +137,13 @@ html[data-game-mode="hard"] header#site-header.shrunk .brand-fx i { height: 18px
 .mf-default { font-size: 0.7rem; color: var(--text-dim); }
 .mf-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
-
 /* =====================================================================
    LOT 2026-10-15 : mode Chaos, saisons, editions limitees, tableau
    d'affichage, equipes, salle des machines (suite), duo, saisonnier.
    ===================================================================== */
 
-/* --- Mode Chaos : barre glitch (magenta / cyan / lime), logo qui "saute". */
-html[data-game-mode="chaos"] header#site-header { background: linear-gradient(90deg, rgba(59,7,100,0.95), rgba(112,26,117,0.92) 30%, rgba(14,116,144,0.9) 65%, rgba(54,83,20,0.93)); background-size: 220% 100%; animation: chaosBar 9s linear infinite; border-bottom-color: rgba(232,121,249,0.55); box-shadow: 0 8px 30px -12px rgba(217,70,239,0.65); }
-html[data-game-mode="chaos"] .brand-text { background-image: linear-gradient(90deg, #f0abfc, #67e8f9, #bef264, #f0abfc); background-size: 300% 100%; animation: brandShimmer 3s steps(6) infinite, chaosGlitch 2.6s steps(1) infinite; }
-html[data-game-mode="chaos"] .brand-fx i { top: 30%; width: 5px; height: 5px; border-radius: 1px; background: #f0abfc; box-shadow: 6px 0 0 #67e8f9, -6px 0 0 #bef264; animation: chaosPixel 1.8s steps(3) var(--d) infinite; }
-html[data-game-mode="chaos"] .nav a.active, html[data-game-mode="chaos"] .nav-group-trigger.active { background: rgba(232,121,249,0.22); }
-html[data-game-mode="chaos"] .header-stats, html[data-game-mode="chaos"] button.header-stats { border-color: rgba(103,232,249,0.35); }
-@keyframes chaosBar { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
-@keyframes chaosGlitch { 0%, 86%, 100% { transform: none; filter: none; } 88% { transform: translate(2px, -1px) skewX(-8deg); filter: drop-shadow(-2px 0 #f0abfc) drop-shadow(2px 0 #67e8f9); } 92% { transform: translate(-2px, 1px); filter: drop-shadow(2px 0 #bef264); } }
-@keyframes chaosPixel { 0% { transform: translate(0, 0); opacity: 0; } 33% { transform: translate(var(--dx), -6px); opacity: 1; } 66% { transform: translate(calc(var(--dx) * -1), 4px); opacity: 0.8; } 100% { opacity: 0; } }
 .mode-chaos .mode-announce-card { --m: #e879f9; background: linear-gradient(180deg, rgba(112,26,117,0.5), var(--bg-panel-solid) 55%); }
 .mr-mode.mode-chaos { --m: #e879f9; }
-.beta-banner.banner-chaos { background: linear-gradient(90deg, rgba(112,26,117,0.92), rgba(14,116,144,0.9)); color: #fdf4ff; }
-.beta-banner.banner-next-mode { background: linear-gradient(90deg, rgba(120,53,15,0.92), rgba(146,64,14,0.88)); color: #fff7ed; }
-
-/* --- Evenements saisonniers : liseré de la barre et emblème a cote du logo. */
-html[data-season] #site-brand { position: relative; }
-html[data-season] #site-brand::after { position: absolute; right: -1.15em; top: -0.35em; font-size: 0.8em; line-height: 1; animation: seasonBob 3s ease-in-out infinite; pointer-events: none; }
-html[data-season="halloween"] #site-brand::after { content: "🎃"; }
-html[data-season="christmas"] #site-brand::after { content: "🎄"; }
-html[data-season="newyear"] #site-brand::after { content: "🎆"; }
-html[data-season="valentine"] #site-brand::after { content: "💘"; }
-html[data-season="easter"] #site-brand::after { content: "🐣"; }
-html[data-season="aprilfools"] #site-brand::after { content: "🐟"; }
-html[data-season="summer"] #site-brand::after { content: "🎶"; }
-html[data-season="halloween"] header#site-header { border-bottom: 2px solid #f97316; }
-html[data-season="christmas"] header#site-header { border-bottom: 2px solid #22c55e; }
-html[data-season="newyear"] header#site-header { border-bottom: 2px solid #facc15; }
-html[data-season="valentine"] header#site-header { border-bottom: 2px solid var(--accent-3); }
-html[data-season="easter"] header#site-header { border-bottom: 2px solid #a5f3fc; }
-html[data-season="aprilfools"] header#site-header { border-bottom: 2px dashed #60a5fa; }
-html[data-season="summer"] header#site-header { border-bottom: 2px solid #fbbf24; }
-@keyframes seasonBob { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-3px) rotate(6deg); } }
 
 .seasonal-treat { --s: #f97316; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; margin-bottom: 16px; padding: 14px 16px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--s) 55%, transparent); background: linear-gradient(120deg, color-mix(in srgb, var(--s) 22%, transparent), transparent 70%), var(--bg-panel, rgba(255,255,255,0.03)); }
 .seasonal-treat[data-season="christmas"] { --s: #22c55e; } .seasonal-treat[data-season="newyear"] { --s: #facc15; } .seasonal-treat[data-season="valentine"] { --s: #f472b6; }
@@ -274,7 +163,7 @@ html[data-season="summer"] header#site-header { border-bottom: 2px solid #fbbf24
 .collection-card[data-edition] .card-art img, .card[data-edition] .card-front .card-art img { filter: saturate(1.15); }
 .edition-badge { position: absolute; left: 6px; bottom: 6px; z-index: 3; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.02em; color: #0b0b12; background: linear-gradient(110deg, var(--ed) 0%, #fff 45%, var(--ed) 60%); background-size: 250% 100%; animation: editionSheen 3.5s linear infinite; box-shadow: 0 2px 8px -2px var(--ed); white-space: nowrap; }
 @keyframes editionSheen { from { background-position: 100% 0; } to { background-position: -150% 0; } }
-@media (prefers-reduced-motion: reduce) { .edition-badge, html[data-season] #site-brand::after, .season-icon, html[data-game-mode="chaos"] .brand-text, html[data-game-mode="chaos"] header#site-header { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .edition-badge, .season-icon { animation: none !important; } }
 
 /* --- Tableau d'affichage (Communaute). */
 .board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; align-items: start; }
@@ -384,7 +273,6 @@ html[data-season="summer"] header#site-header { border-bottom: 2px solid #fbbf24
    (sinon .weekly-recap, .mode-options, #today-golden... restaient visibles et vides). */
 [hidden] { display: none !important; }
 
-
 /* =====================================================================
    QoL 2026-10-15 : calendrier, onglets defilants, salle des machines.
    ===================================================================== */
@@ -427,7 +315,6 @@ html[data-season="summer"] header#site-header { border-bottom: 2px solid #fbbf24
 .seasonal-treat.teaser { border-style: dashed; }
 a.beta-banner.banner-link { display: block; color: inherit; text-decoration: none; cursor: pointer; }
 a.beta-banner.banner-link:hover { filter: brightness(1.12); }
-
 
 /* =====================================================================
    BINGO DU MOIS, VERSION 2 (2026-11) : carton 5 x 5 et tampons.
@@ -497,7 +384,6 @@ a.beta-banner.banner-link:hover { filter: brightness(1.12); }
 .b2a-cell small { font-size: 0.55rem; line-height: 1.1; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .b2a-cell.type-free { background: rgba(250,204,21,0.15); }
 
-
 /* Coffre-fort (2026-10-15) : lignes rangeables en tete. */
 .pv-group { margin: 14px 0 4px; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
 .pv-group:first-child { margin-top: 0; }
@@ -543,12 +429,6 @@ a.beta-banner.banner-link:hover { filter: brightness(1.12); }
 @media (max-width: 900px) { .pt-layout { grid-template-columns: 1fr; } .pt-form { position: static; } }
 @media (max-width: 520px) { .pt-duo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .pt-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .pt-gallery.matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .preview-tool-form .pt-checks label.checkbox-inline { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
-
-
-/* =====================================================================
-   CARTES ET OUVERTURE (2026-10-15) : dos de carte, choix du booster,
-   dechirure, suspense, cinematique, god pack, verso, historique, cote.
-   ===================================================================== */
 
 /* --- Choix du booster : 3 paquets en eventail. */
 .booster-stage { position: relative; }
@@ -614,7 +494,7 @@ a.beta-banner.banner-link:hover { filter: brightness(1.12); }
 /* --- Inclinaison 3D des cartes revelees et de la fenetre detaillee. */
 .card.revealed .card-inner { transform: rotateY(calc(180deg + var(--ry, 0deg))) rotateX(var(--rx, 0deg)); }
 .card.revealed.tilting .card-inner { transition: transform 0.12s ease-out; }
-.card-modal { transform-style: preserve-3d; }
+
 /* La fenetre entiere pivote (angle reduit) : faire pivoter l'illustration
    seule dans un cadre fixe laissait des vides sur les bords. */
 .card-modal.tilting { transform: perspective(1400px) rotateX(calc(var(--rx, 0deg) * 0.45)) rotateY(calc(var(--ry, 0deg) * 0.45)); transition: transform 0.12s ease-out; }

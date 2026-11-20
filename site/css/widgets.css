@@ -1,7 +1,8 @@
 /* widgets.css - Widgets : menus deroulants stylises, fil d'activite, quetes, roue, fouille, bingo, succes, badges, boutons d'arcade.
-   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
-   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
-   specificite egale. */
+   UI V2 (2026-11-20) : le socle commun (fond, en-tete, panneaux, boutons,
+   champs, onglets, modales) est dans core.css et les habillages par mode /
+   saison dans skins.css ; ce fichier ne garde que ses composants propres.
+   Ordre : tokens, core, base ... refonte, feuilles de page, skins. */
 /* ========================================================================
    Menu deroulant stylise (enhanceSelect(), main.js) : remplace le <select>
    natif du navigateur par une interface a la charte du site, en gardant le
@@ -642,82 +643,3 @@ p.lead { color: var(--text-dim); font-size: 1.02rem; line-height: 1.5; }
 .achievement-progress-label { font-size: 0.7rem; color: var(--text-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
 .achievement-tile.unlocked .achievement-progress-label { color: var(--rarity-legendaire); font-weight: 700; }
 
-input[type="text"] {
-  background: var(--bg-panel-2);
-  border: 1px solid var(--border-soft);
-  color: var(--text);
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 1rem;
-  font-family: var(--font-body);
-  transition: border-color 0.15s;
-}
-input[type="text"]:focus { outline: none; border-color: var(--accent); }
-
-/* Boutons "bouton-poussoir" de borne d'arcade : bordure epaisse + une
-   vraie ombre 3D (pas juste un glow) qui s'ecrase au clic, comme un vrai
-   bouton physique plutot qu'un bouton d'appli plat. */
-button, .btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  vertical-align: middle;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: white;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
-  border: 2px solid rgba(0,0,0,0.3);
-  padding: 11px 24px;
-  border-radius: 14px;
-  font-size: 1rem;
-  font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 10px 22px -10px rgba(var(--accent-rgb),  0.55);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.15s;
-  overflow: hidden;
-  isolation: isolate;
-  -webkit-tap-highlight-color: transparent;
-}
-button::before, .btn::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
-  transform: translateX(-120%);
-  transition: transform 0.5s ease;
-}
-button:hover:not(:disabled)::before, .btn:hover::before { transform: translateX(120%); }
-button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
-button:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.35), 0 4px 10px -6px rgba(var(--accent-rgb),  0.5);
-  filter: brightness(0.97);
-}
-button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
-
-.btn-ghost {
-  background: transparent;
-  border: 2px solid var(--border-soft);
-  color: var(--text-dim);
-  text-shadow: none;
-  padding: 6px 14px;
-  border-radius: 10px;
-  font-size: 0.82rem;
-  box-shadow: none;
-}
-.btn-ghost:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
-
-.btn-secondary {
-  background: var(--bg-panel-2);
-  border: 2px solid var(--border-soft);
-  color: var(--text);
-  text-shadow: none;
-  box-shadow: 0 3px 0 rgba(0,0,0,0.25);
-}
-.btn-secondary:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,0.25); }
-
-.actions { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; }

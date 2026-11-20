@@ -94,5 +94,8 @@
 
 /* Ouvrir + xN sur une ligne (avis #95, 2026-11-19). */
 .cv2-keyrow { display: flex; gap: 4px; flex: 1 1 100%; }
-.cv2-keyrow .cv2-open:first-child { flex: 1 1 auto; }
+/* width:auto : .gatcha-tier button (games.css) met tous les boutons a 100 %,
+   ce qui ecrasait « Ouvrir » au profit de « xN ». */
+.cv2-keyrow .cv2-open { width: auto; }
+.cv2-keyrow .cv2-open:first-child { flex: 1 1 auto; min-width: max-content; }
 .cv2-keyrow .cv2-open + .cv2-open { flex: 0 0 auto; min-width: 3.2em; }

@@ -1,7 +1,8 @@
 /* games.css - Dinos, difficultes (admin et skins), cinematiques de mode et de niveau, page Progression, Musee.
-   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
-   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
-   specificite egale. */
+   UI V2 (2026-11-20) : le socle commun (fond, en-tete, panneaux, boutons,
+   champs, onglets, modales) est dans core.css et les habillages par mode /
+   saison dans skins.css ; ce fichier ne garde que ses composants propres.
+   Ordre : tokens, core, base ... refonte, feuilles de page, skins. */
 /* =====================================================================
    DINOS DE COMPAGNIE (2026-10-15) : onglet Jeux > Dinos, crane a la
    fouille, nourriture a la peche, engrais au jardin (jeux-dino.js).
@@ -485,137 +486,6 @@
 .adoc-settings summary { cursor: pointer; font-weight: 600; }
 .adoc-settings td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .adoc-section { padding: 16px; } .adoc-toc { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .adoc-section p, .adoc-section li { font-size: 0.9rem; } }
-
-/* =====================================================================
-   SKINS PAR DIFFICULTE (2026-10-16). Medium garde le skin d'origine.
-   Appliques via html[data-game-mode] (shell.js), seulement quand le
-   joueur n'a pas choisi de theme cosmetique (Monochrome, Sepia, Cyberpunk).
-   Les couleurs de rarete, de finition et d'edition ne changent jamais.
-   ===================================================================== */
-html[data-game-mode="cool"]:not([data-theme]) {
-  color-scheme: dark;
-  --bg-void: #04121c; --bg-deep: #071c2b; --bg-panel: rgba(12, 40, 58, 0.6); --bg-panel-solid: #0b2234; --bg-panel-2: #12304a;
-  --text: #effaff; --text-dim: #93bcd1; --border: rgba(125, 211, 252, 0.28); --border-soft: rgba(224, 242, 254, 0.10);
-  --accent: #0ea5e9; --accent-2: #06b6d4; --accent-3: #a5b4fc; --accent-dark: #0369a1;
-  --accent-rgb: 14, 165, 233; --accent-2-rgb: 6, 182, 212; --accent-3-rgb: 165, 180, 252; --accent-strong-rgb: 2, 132, 199;
-  --accent-light: #7dd3fc; --accent-pale: #bae6fd; --accent-strong: #0284c7;
-  --font-brand: "Fredoka", "Bungee", "Segoe UI", system-ui, sans-serif; --radius-lg: 24px; --radius-md: 16px; --radius-sm: 11px;
-}
-html[data-game-mode="chill"]:not([data-theme]) {
-  color-scheme: dark;
-  --bg-void: #06140f; --bg-deep: #0a221b; --bg-panel: rgba(12, 44, 36, 0.6); --bg-panel-solid: #0e2a22; --bg-panel-2: #153a30;
-  --text: #f4fbf1; --text-dim: #a3c9b6; --border: rgba(45, 212, 191, 0.26); --border-soft: rgba(220, 255, 240, 0.09);
-  --accent: #0d9488; --accent-2: #f59e0b; --accent-3: #fb7185; --accent-dark: #0f766e;
-  --accent-rgb: 13, 148, 136; --accent-2-rgb: 245, 158, 11; --accent-3-rgb: 251, 113, 133; --accent-strong-rgb: 15, 118, 110;
-  --accent-light: #5eead4; --accent-pale: #99f6e4; --accent-strong: #0f766e;
-  --font-brand: "Righteous", "Bungee", "Segoe UI", system-ui, sans-serif; --radius-lg: 20px; --radius-md: 14px; --radius-sm: 10px;
-}
-html[data-game-mode="hard"]:not([data-theme]) {
-  color-scheme: dark;
-  --bg-void: #0a0404; --bg-deep: #150707; --bg-panel: rgba(40, 12, 10, 0.62); --bg-panel-solid: #1d0a08; --bg-panel-2: #2a100c;
-  --text: #fbefe9; --text-dim: #c9a196; --border: rgba(239, 68, 68, 0.32); --border-soft: rgba(255, 220, 200, 0.08);
-  --accent: #dc2626; --accent-2: #ea580c; --accent-3: #facc15; --accent-dark: #7f1d1d;
-  --accent-rgb: 220, 38, 38; --accent-2-rgb: 234, 88, 12; --accent-3-rgb: 250, 204, 21; --accent-strong-rgb: 185, 28, 28;
-  --accent-light: #fb923c; --accent-pale: #fdba74; --accent-strong: #b91c1c;
-  --font-brand: "Black Ops One", "Bungee", "Segoe UI", system-ui, sans-serif; --radius-lg: 6px; --radius-md: 4px; --radius-sm: 3px;
-}
-html[data-game-mode="chaos"]:not([data-theme]) {
-  color-scheme: dark;
-  --bg-void: #07020f; --bg-deep: #0e0420; --bg-panel: rgba(24, 8, 44, 0.62); --bg-panel-solid: #130626; --bg-panel-2: #1d0b38;
-  --text: #f7f2ff; --text-dim: #b4a4da; --border: rgba(232, 121, 249, 0.32); --border-soft: rgba(190, 242, 100, 0.10);
-  --accent: #c026d3; --accent-2: #0891b2; --accent-3: #a3e635; --accent-dark: #86198f;
-  --accent-rgb: 192, 38, 211; --accent-2-rgb: 8, 145, 178; --accent-3-rgb: 163, 230, 53; --accent-strong-rgb: 162, 28, 175;
-  --accent-light: #f0abfc; --accent-pale: #f5d0fe; --accent-strong: #a21caf;
-  --font-brand: "Silkscreen", "Bungee", "Segoe UI", system-ui, sans-serif; --radius-lg: 4px; --radius-md: 3px; --radius-sm: 2px;
-}
-
-/* --- Cool : glacier, givre et bulles --- */
-html[data-game-mode="cool"]:not([data-theme]) body::before {
-  background:
-    radial-gradient(ellipse 70% 40% at 20% 0%, rgba(56, 189, 248, 0.30), transparent 60%),
-    radial-gradient(ellipse 60% 45% at 90% 20%, rgba(165, 243, 252, 0.18), transparent 60%),
-    radial-gradient(ellipse 80% 50% at 50% 110%, rgba(165, 180, 252, 0.20), transparent 60%),
-    linear-gradient(180deg, #052235 0%, var(--bg-void) 60%);
-}
-html[data-game-mode="cool"]:not([data-theme]) body::after {
-  background-image:
-    radial-gradient(2px 2px at 30px 40px, rgba(240, 249, 255, 0.85), transparent),
-    radial-gradient(3px 3px at 150px 110px, rgba(224, 242, 254, 0.55), transparent),
-    radial-gradient(1.5px 1.5px at 90px 190px, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(2.5px 2.5px at 230px 70px, rgba(186, 230, 253, 0.6), transparent),
-    radial-gradient(1.5px 1.5px at 270px 220px, rgba(255, 255, 255, 0.7), transparent);
-  background-size: 300px 260px; opacity: 0.7; animation: skinSnow 40s linear infinite;
-}
-@keyframes skinSnow { from { background-position: 0 0; } to { background-position: 60px 520px; } }
-html[data-game-mode="cool"]:not([data-theme]) .panel { backdrop-filter: blur(10px) saturate(1.15); border-color: rgba(186, 230, 253, 0.16); border-top-color: rgba(224, 242, 254, 0.32); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 22px 44px -30px rgba(14, 165, 233, 0.45); }
-html[data-game-mode="cool"]:not([data-theme]) h1 { letter-spacing: 0.02em; text-shadow: 0 0 18px rgba(125, 211, 252, 0.35); }
-
-/* --- Chill : lagon au coucher du soleil --- */
-html[data-game-mode="chill"]:not([data-theme]) body::before {
-  background:
-    radial-gradient(ellipse 70% 45% at 85% 5%, rgba(245, 158, 11, 0.26), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 10% 25%, rgba(251, 113, 133, 0.16), transparent 60%),
-    radial-gradient(ellipse 90% 55% at 50% 105%, rgba(20, 184, 166, 0.28), transparent 60%),
-    linear-gradient(180deg, #13201a 0%, var(--bg-void) 55%);
-}
-html[data-game-mode="chill"]:not([data-theme]) body::after {
-  background-image:
-    radial-gradient(18px 18px at 40px 60px, rgba(253, 230, 138, 0.10), transparent 70%),
-    radial-gradient(26px 26px at 180px 140px, rgba(94, 234, 212, 0.08), transparent 70%),
-    radial-gradient(14px 14px at 110px 220px, rgba(251, 113, 133, 0.09), transparent 70%),
-    radial-gradient(22px 22px at 260px 40px, rgba(253, 230, 138, 0.07), transparent 70%);
-  background-size: 320px 280px; opacity: 1; animation: skinDrift 70s ease-in-out infinite alternate;
-}
-@keyframes skinDrift { from { background-position: 0 0; } to { background-position: -160px -80px; } }
-html[data-game-mode="chill"]:not([data-theme]) .panel { border-color: rgba(94, 234, 212, 0.14); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 22px 44px -30px rgba(245, 158, 11, 0.35); }
-html[data-game-mode="chill"]:not([data-theme]) h1 { letter-spacing: 0.03em; text-shadow: 0 2px 0 rgba(13, 148, 136, 0.45); }
-
-/* --- Hard : volcan, braises et métal --- */
-html[data-game-mode="hard"]:not([data-theme]) body::before {
-  background:
-    radial-gradient(ellipse 90% 45% at 50% 115%, rgba(234, 88, 12, 0.38), transparent 60%),
-    radial-gradient(ellipse 50% 35% at 15% 100%, rgba(220, 38, 38, 0.30), transparent 60%),
-    radial-gradient(ellipse 60% 30% at 80% 0%, rgba(127, 29, 29, 0.35), transparent 60%),
-    var(--bg-void);
-  animation: skinHeat 6s ease-in-out infinite alternate;
-}
-@keyframes skinHeat { from { filter: brightness(0.9); } to { filter: brightness(1.12); } }
-html[data-game-mode="hard"]:not([data-theme]) body::after {
-  background-image:
-    radial-gradient(2px 2px at 40px 200px, rgba(253, 186, 116, 0.9), transparent),
-    radial-gradient(1.5px 1.5px at 120px 120px, rgba(250, 204, 21, 0.8), transparent),
-    radial-gradient(2.5px 2.5px at 200px 230px, rgba(249, 115, 22, 0.85), transparent),
-    radial-gradient(1.5px 1.5px at 260px 60px, rgba(254, 215, 170, 0.8), transparent);
-  background-size: 300px 260px; opacity: 0.75; animation: skinEmbers 18s linear infinite;
-}
-@keyframes skinEmbers { from { background-position: 0 0; } to { background-position: -40px -520px; } }
-html[data-game-mode="hard"]:not([data-theme]) .panel { border-color: rgba(220, 38, 38, 0.26); box-shadow: inset 0 2px 0 rgba(234, 88, 12, 0.45), 0 18px 40px -24px rgba(0, 0, 0, 0.9); }
-html[data-game-mode="hard"]:not([data-theme]) h1 { letter-spacing: 0.04em; text-shadow: 0 0 14px rgba(234, 88, 12, 0.45), 0 2px 0 rgba(0, 0, 0, 0.6); }
-html[data-game-mode="hard"]:not([data-theme]) button:not(.btn-secondary):not(.btn-ghost) { border-color: rgba(0, 0, 0, 0.5); box-shadow: inset 0 1px 0 rgba(255, 237, 213, 0.25), 0 8px 18px -10px rgba(220, 38, 38, 0.7); }
-
-/* --- Chaos : glitch néon --- */
-html[data-game-mode="chaos"]:not([data-theme]) body::before {
-  background:
-    radial-gradient(ellipse 60% 40% at 15% 15%, rgba(192, 38, 211, 0.32), transparent 60%),
-    radial-gradient(ellipse 55% 40% at 85% 30%, rgba(8, 145, 178, 0.28), transparent 60%),
-    radial-gradient(ellipse 70% 40% at 50% 105%, rgba(163, 230, 53, 0.16), transparent 60%),
-    var(--bg-void);
-  animation: skinHue 16s linear infinite;
-}
-@keyframes skinHue { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
-html[data-game-mode="chaos"]:not([data-theme]) body::after {
-  inset: 0;
-  background-image:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
-    linear-gradient(90deg, rgba(240, 171, 252, 0.05) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(103, 232, 249, 0.04) 1px, transparent 1px);
-  background-size: 100% 3px, 32px 32px, 32px 32px; opacity: 1; animation: skinFlicker 5s steps(1) infinite;
-}
-@keyframes skinFlicker { 0%, 96%, 100% { opacity: 1; } 97% { opacity: 0.6; } 98% { opacity: 0.9; } }
-html[data-game-mode="chaos"]:not([data-theme]) .panel { border-color: rgba(232, 121, 249, 0.22); box-shadow: 3px 3px 0 rgba(192, 38, 211, 0.30), -3px -3px 0 rgba(8, 145, 178, 0.22), 0 18px 40px -26px rgba(0, 0, 0, 0.85); }
-html[data-game-mode="chaos"]:not([data-theme]) h1 { letter-spacing: 0.02em; text-shadow: 2px 0 0 rgba(240, 171, 252, 0.75), -2px 0 0 rgba(103, 232, 249, 0.75); }
-html[data-game-mode="chaos"]:not([data-theme]) button:not(.btn-secondary):not(.btn-ghost):hover:not(:disabled) { box-shadow: 2px 2px 0 rgba(163, 230, 53, 0.6), -2px -2px 0 rgba(8, 145, 178, 0.6); }
-@media (prefers-reduced-motion: reduce) { html[data-game-mode]:not([data-theme]) body::before, html[data-game-mode]:not([data-theme]) body::after { animation: none !important; } }
 
 /* =====================================================================
    Cinematique de changement de mode (2026-10-16, ui.js ModeFx).

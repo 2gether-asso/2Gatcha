@@ -1,108 +1,8 @@
 /* ui.css - Composants d'interface : toasts, navigation mobile, compteurs, impact legendaire, holo, modales, confirmation, ouverture plein ecran, finitions, particules.
-   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
-   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
-   specificite egale. */
-/* ========================================================================
-   Toasts
-   ======================================================================== */
-.toast-stack {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: min(360px, calc(100vw - 32px));
-  pointer-events: none;
-}
-.toast-clear-all {
-  pointer-events: auto;
-  align-self: flex-end;
-  background: var(--bg-panel-solid);
-  border: 1px solid var(--border-soft);
-  color: var(--text-dim);
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  box-shadow: 0 8px 20px -8px rgba(0,0,0,0.5);
-}
-
-.toast {
-  pointer-events: auto;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 13px 16px;
-  border-radius: 12px;
-  background: var(--bg-panel-solid);
-  border: 1px solid var(--border-soft);
-  box-shadow: 0 16px 40px -14px rgba(0,0,0,0.7);
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text);
-  animation: toastIn 0.3s cubic-bezier(.2,.9,.3,1.3) forwards;
-}
-.toast.hide { animation: toastOut 0.25s ease forwards; }
-.toast .toast-icon { font-size: 1.05rem; line-height: 1.2; flex-shrink: 0; }
-.toast-success { border-color: rgba(74, 222, 128, 0.35); }
-.toast-success .toast-icon { color: var(--success); }
-.toast-error { border-color: rgba(251, 113, 133, 0.35); }
-.toast-error .toast-icon { color: var(--danger); }
-.toast-info .toast-icon { color: var(--accent-2); }
-
-@keyframes toastIn {
-  from { opacity: 0; transform: translateX(30px) scale(0.95); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
-}
-@keyframes toastOut {
-  to { opacity: 0; transform: translateX(30px) scale(0.95); }
-}
-
-/* ========================================================================
-   Navigation mobile (barre du bas)
-   ======================================================================== */
-.bottom-nav {
-  display: none;
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  z-index: 50;
-  height: var(--nav-bottom-h);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(10, 11, 24, 0.88);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-top: 1px solid var(--border-soft);
-  justify-content: space-around;
-  align-items: center;
-}
-
-.bottom-nav a {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  min-width: 0;
-  color: var(--text-dim);
-  font-family: var(--font-display);
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-decoration: none;
-  flex: 1;
-  height: 100%;
-  transition: color 0.15s, transform 0.15s;
-}
-/* Icone seule (le libelle passe en .sr-only, voir main.js) : 7-9
-   destinations possibles ne tiennent pas avec un texte visible sous
-   chaque icone sur un ecran de telephone - une icone plus grande, sans
-   texte, scale correctement quel que soit le nombre d'entrees. */
-.bottom-nav a .bn-icon { font-size: 1.5rem; transition: transform 0.15s; }
-.bottom-nav a.active { color: var(--accent-2); }
-.bottom-nav a.active .bn-icon { transform: translateY(-2px) scale(1.1); }
-.bottom-nav a:active .bn-icon { transform: scale(0.85); }
-
+   UI V2 (2026-11-20) : le socle commun (fond, en-tete, panneaux, boutons,
+   champs, onglets, modales) est dans core.css et les habillages par mode /
+   saison dans skins.css ; ce fichier ne garde que ses composants propres.
+   Ordre : tokens, core, base ... refonte, feuilles de page, skins. */
 /* ========================================================================
    Compteur anime (badge boosters, stats)
    ======================================================================== */
@@ -395,25 +295,7 @@
 /* ========================================================================
    Pastille de notification sur la nav (echanges en attente)
    ======================================================================== */
-.nav-dot {
-  position: absolute;
-  top: -4px;
-  right: -8px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-pill);
-  background: var(--danger);
-  color: white;
-  font-size: 0.6rem;
-  font-weight: 800;
-  line-height: 16px;
-  text-align: center;
-  box-shadow: 0 0 0 2px var(--bg-void);
-  animation: navDotPop 0.3s cubic-bezier(.2,.9,.3,1.4);
-}
-.bottom-nav a { position: relative; }
-.nav .nav-dot { position: static; display: inline-flex; align-items: center; justify-content: center; margin-left: 5px; box-shadow: none; }
+
 @keyframes navDotPop {
   from { transform: scale(0); }
   to { transform: scale(1); }
@@ -633,41 +515,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ========================================================================
-   Modal plein ecran (zoom carte)
-   ======================================================================== */
-.card-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgba(4, 5, 12, 0.85);
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  opacity: 0;
-  animation: modalFadeIn 0.2s ease forwards;
-}
-/* Les modales creees dynamiquement (collection, echanges...) sont retirees
-   du DOM plutot que masquees, mais la modale de la roue est un element
-   statique de la page, bascule via l'attribut hidden - sans cette regle,
-   le display:flex ci-dessus l'emporterait sur le display:none par defaut
-   de [hidden] (une regle d'auteur bat toujours la feuille de style navigateur). */
-.card-modal-overlay[hidden] { display: none; }
-@keyframes modalFadeIn { to { opacity: 1; } }
-.card-modal {
-  width: min(480px, 100%);
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  background: var(--bg-panel-solid);
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  transform: scale(0.92) translateY(10px);
-  animation: modalPopIn 0.28s cubic-bezier(.2,.9,.3,1.3) forwards;
-  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
-}
-@keyframes modalPopIn { to { transform: scale(1) translateY(0); } }
 /* Accent de rarete a l'echelle de la modale (meme logique que les vignettes
    de la grille, mais un anneau + halo plus genereux, adaptes a un format
    4x plus grand qu'une vignette). */
@@ -772,48 +619,12 @@
   font-size: 0.82rem;
   margin-top: 12px;
 }
-.card-modal-close {
-  position: absolute;
-  top: 14px; right: 14px;
-  width: 34px; height: 34px;
-  padding: 0;
-  border-radius: 50%;
-  background: rgba(10,10,20,0.55);
-  backdrop-filter: blur(4px);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.22);
-  font-size: 1.1rem;
-  box-shadow: none;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 2;
-}
-.card-modal-close:hover { background: rgba(10,10,20,0.8); }
-.card-modal-close::before { content: none; }
 
 /* ========================================================================
    Confirmation stylisee (remplace window.confirm)
    ======================================================================== */
-.confirm-box {
-  width: min(360px, 100%);
-  background: var(--bg-panel-solid);
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  padding: 22px 24px;
-  transform: scale(0.92) translateY(10px);
-  animation: modalPopIn 0.28s cubic-bezier(.2,.9,.3,1.3) forwards;
-  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
-}
-.confirm-title { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; margin-bottom: 8px; }
-.confirm-message { color: var(--text-dim); font-size: 0.92rem; line-height: 1.5; }
-.altar-result-img { width: 140px; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; margin: 12px auto; display: block; }
-.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
-.btn-danger {
-  background: linear-gradient(135deg, #ef4444, #b91c1c);
-  box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 10px 22px -10px rgba(239,68,68,0.55);
-}
-.btn-danger:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,0.35), 0 4px 10px -6px rgba(239,68,68,0.5); }
+.altar-result-img { width: 140px; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; margin: 12px auto; display: block; }
 
 /* ========================================================================
    Selection d'extension (page ouverture)
@@ -1129,41 +940,7 @@
    souvent la largeur de l'ecran : defilement horizontal plutot qu'un
    retour a la ligne (casserait le soulignement actif) ou une coupe nette
    (rendrait un onglet inaccessible - c'etait le bug avant ce passage). */
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--border-soft);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.tabs::-webkit-scrollbar { display: none; }
-.tab {
-  flex-shrink: 0;
-  white-space: nowrap;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  color: var(--text-dim);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.95rem;
-  padding: 10px 6px;
-  cursor: pointer;
-  position: relative;
-  transform: none !important;
-}
-.tab.active { color: var(--text); }
-.tab.locked { opacity: 0.5; }
-.tab.locked::before { content: "\1F512 "; font-size: 0.8em; }
-.tab.active::after {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-}
+
 .tab-count {
   display: inline-block;
   min-width: 18px;
@@ -1387,7 +1164,7 @@
    Volontairement plus appuye que la v1 (retour utilisateur : "a peine
    visible") - l'oeuvre reste identifiable, mais la finition doit sauter
    aux yeux au premier coup d'oeil, pas seulement au survol. */
-.card-modal { position: relative; }
+
 .collection-card[data-finish]:not([data-finish="normal"]) .card-art::after,
 .card-modal[data-finish]:not([data-finish="normal"]) .card-art::after,
 .craft-card[data-finish]:not([data-finish="normal"]) .card-art::after,

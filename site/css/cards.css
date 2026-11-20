@@ -1,11 +1,8 @@
 /* cards.css - Cartes et ouverture : booster, reveal, typographie des raretes, collection, pochettes, groupes d'extension, squelettes.
-   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
-   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
-   specificite egale. */
-/* ========================================================================
-   Ouverture de booster
-   ======================================================================== */
-
+   UI V2 (2026-11-20) : le socle commun (fond, en-tete, panneaux, boutons,
+   champs, onglets, modales) est dans core.css et les habillages par mode /
+   saison dans skins.css ; ce fichier ne garde que ses composants propres.
+   Ordre : tokens, core, base ... refonte, feuilles de page, skins. */
 /* Compteur "credits de borne d'arcade" (page boosters) : le nombre lui-meme
    ressort fort, le mot "disponible(s)" reste discret a cote. */
 .credit-counter {
@@ -625,7 +622,6 @@ body[data-sleeve="carbone"] .collection-card:not(.locked)::before {
 }
 .collection-ext-group.collapsed .collection-grid { display: none; }
 
-.empty-state { color: var(--text-dim); text-align: center; padding: 40px 0; }
 .empty-state::before {
   content: "\1F5C3";
   display: block;

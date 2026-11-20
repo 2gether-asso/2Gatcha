@@ -1,0 +1,593 @@
+/* skins.css - UI V2 (2026-11-20) : habillage par mode de jeu, par evenement
+   saisonnier et emblemes. Chargee APRES toutes les feuilles partagees.
+
+   - html[data-game-mode] (shell.js) : Medium garde l'identite de base ;
+     Cool, Chill, Hard et Chaos redefinissent la palette ET la forme des
+     composants (jetons de tokens.css) + quelques regles signature (onglets,
+     panneaux, boutons, fond anime, logo).
+   - html[data-season-skin] (seasonal.js) : declare apres les modes, il passe
+     devant pendant un evenement. Desactivable (admin et joueur).
+   - Un theme cosmetique (html[data-theme]) desactive les deux : d'ou les
+     :not([data-theme]).
+   Les couleurs de rarete, de finition et d'edition ne changent jamais. */
+
+/* =====================================================================
+   LOGO : effets par mode (calque .brand-fx sous le texte)
+   ===================================================================== */
+html[data-game-mode="medium"] .brand-fx i { top: 20%; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px rgba(196, 181, 253, 0.8); animation: brandTwinkle 3.2s ease-in-out var(--d) infinite; }
+html[data-game-mode="medium"] .brand-fx i:nth-child(n+4) { display: none; }
+html[data-game-mode="medium"] .brand-fx i:nth-child(2) { top: 70%; }
+
+html[data-game-mode="cool"] .brand-text { background-image: linear-gradient(90deg, #67e8f9, #f0f9ff, var(--accent-pale), #67e8f9); background-size: 300% 100%; animation: brandShimmer 7s linear infinite; }
+html[data-game-mode="cool"] #site-brand { animation: brandFloat 4s ease-in-out infinite; }
+html[data-game-mode="cool"] .brand-fx i { bottom: 0; width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(224, 242, 254, 0.85); background: rgba(186, 230, 253, 0.18); animation: brandBubble 3.6s ease-in var(--d) infinite; }
+
+html[data-game-mode="chill"] .brand-text { background-image: linear-gradient(90deg, #bef264, #5eead4, #fde68a, #bef264); background-size: 300% 100%; animation: brandShimmer 9s linear infinite; }
+html[data-game-mode="chill"] #site-brand { animation: brandSway 5s ease-in-out infinite; transform-origin: 50% 100%; }
+html[data-game-mode="chill"] .brand-fx i { top: -2px; width: 8px; height: 8px; border-radius: 0 80% 0 80%; background: linear-gradient(135deg, #bbf7d0, #22c55e); animation: brandLeaf 6s linear var(--d) infinite; }
+html[data-game-mode="chill"] .brand-fx i:nth-child(even) { animation-duration: 7.5s; }
+
+html[data-game-mode="hard"] .brand-text { background-image: linear-gradient(0deg, #ef4444, #fb923c 45%, #fde047 85%); background-size: 100% 200%; animation: brandHeat 1.6s ease-in-out infinite alternate; filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.75)); }
+html[data-game-mode="hard"] .brand-fx { inset: -10px -4px -2px; }
+html[data-game-mode="hard"] .brand-fx i { bottom: -2px; width: 15px; height: 30px; margin-left: -6px; border-radius: 50% 50% 38% 38% / 62% 62% 38% 38%; background: radial-gradient(ellipse at 50% 85%, #fef9c3 0 16%, #fde047 26%, #fb923c 46%, rgba(239, 68, 68, 0.75) 64%, transparent 74%); transform-origin: 50% 100%; mix-blend-mode: screen; animation: brandFlame 1.1s ease-out var(--d) infinite; }
+html[data-game-mode="hard"] .brand-fx i:nth-child(odd) { animation-duration: 0.85s; height: 24px; }
+html[data-game-mode="hard"] header#site-header.shrunk .brand-fx i { height: 18px; width: 10px; }
+
+html[data-game-mode="chaos"] .brand-text { background-image: linear-gradient(90deg, #f0abfc, #67e8f9, #bef264, #f0abfc); background-size: 300% 100%; animation: brandShimmer 3s steps(6) infinite, chaosGlitch 2.6s steps(1) infinite; }
+html[data-game-mode="chaos"] .brand-fx i { top: 30%; width: 5px; height: 5px; border-radius: 1px; background: #f0abfc; box-shadow: 6px 0 0 #67e8f9, -6px 0 0 #bef264; animation: chaosPixel 1.8s steps(3) var(--d) infinite; }
+
+@media (max-width: 640px) {
+  html[data-game-mode="hard"] .brand-fx i { width: 10px; height: 18px; margin-left: -5px; opacity: 0.85; }
+  html[data-game-mode="hard"] .brand-fx i:nth-child(odd) { height: 14px; }
+  html[data-game-mode="hard"] .brand-fx { inset: -6px -2px -2px; }
+  html[data-game-mode="chill"] .brand-fx i { width: 6px; height: 6px; }
+  html[data-game-mode="cool"] .brand-fx i { width: 4px; height: 4px; }
+}
+header#site-header.shrunk .brand-fx i { transform-origin: 50% 100%; }
+
+@keyframes brandShimmer { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+@keyframes brandFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes brandSway { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@keyframes brandHeat { from { background-position: 50% 0%; } to { background-position: 50% 100%; } }
+@keyframes brandBubble { 0% { transform: translateY(6px) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(var(--dx), -26px) scale(1.15); opacity: 0; } }
+@keyframes brandLeaf { 0% { transform: translate(0, -6px) rotate(0deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(var(--dx), 30px) rotate(240deg); opacity: 0; } }
+@keyframes brandTwinkle { 0%, 100% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1); opacity: 1; } }
+@keyframes brandFlame { 0% { transform: translateY(2px) scale(0.7, 0.55); opacity: 0.2; } 30% { opacity: 1; } 60% { transform: translateY(-5px) scale(0.95, 1.15); opacity: 0.95; } 100% { transform: translate(var(--dx), -14px) scale(0.45, 0.6); opacity: 0; } }
+@keyframes chaosGlitch { 0%, 86%, 100% { transform: none; filter: none; } 88% { transform: translate(2px, -1px) skewX(-8deg); filter: drop-shadow(-2px 0 #f0abfc) drop-shadow(2px 0 #67e8f9); } 92% { transform: translate(-2px, 1px); filter: drop-shadow(2px 0 #bef264); } }
+@keyframes chaosPixel { 0% { transform: translate(0, 0); opacity: 0; } 33% { transform: translate(var(--dx), -6px); opacity: 1; } 66% { transform: translate(calc(var(--dx) * -1), 4px); opacity: 0.8; } 100% { opacity: 0; } }
+@keyframes chaosBar { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }
+
+/* =====================================================================
+   COOL : glacier. Verre givre, tout en rondeur, boutons-galets, onglets
+   en interrupteur segmente, neige qui tombe.
+   ===================================================================== */
+html[data-game-mode="cool"]:not([data-theme]) {
+  --bg-void: #04121c; --bg-deep: #071c2b; --bg-panel: rgba(12, 40, 58, 0.88); --bg-panel-solid: #0b2234; --bg-panel-2: #12304a;
+  --text: #effaff; --text-dim: #9cc4d8; --border: rgba(125, 211, 252, 0.3); --border-soft: rgba(224, 242, 254, 0.1);
+  --accent: #0ea5e9; --accent-2: #06b6d4; --accent-3: #a5b4fc; --accent-dark: #0369a1;
+  --accent-rgb: 14, 165, 233; --accent-2-rgb: 6, 182, 212; --accent-3-rgb: 165, 180, 252; --accent-strong-rgb: 2, 132, 199;
+  --accent-light: #7dd3fc; --accent-pale: #bae6fd; --accent-strong: #0284c7;
+  --font-brand: "Fredoka", "Bungee", "Segoe UI", system-ui, sans-serif;
+  --radius-xl: 28px; --radius-lg: 24px; --radius-md: 16px; --radius-sm: 11px;
+
+  --page-glow:
+    radial-gradient(ellipse 70% 40% at 20% 0%, rgba(56, 189, 248, 0.3), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 90% 20%, rgba(165, 243, 252, 0.16), transparent 60%),
+    radial-gradient(ellipse 80% 50% at 50% 110%, rgba(165, 180, 252, 0.2), transparent 60%),
+    linear-gradient(180deg, #052235 0%, transparent 60%);
+  --header-bg: linear-gradient(90deg, rgba(8, 47, 73, 0.94), rgba(30, 58, 138, 0.9) 50%, rgba(76, 29, 149, 0.88));
+  --header-line: linear-gradient(90deg, transparent, rgba(165, 243, 252, 0.9) 20%, #e0f2fe 50%, rgba(165, 180, 252, 0.85) 80%, transparent);
+  --header-shadow: 0 8px 28px -14px rgba(103, 232, 249, 0.55);
+  --nav-active-bg: rgba(186, 230, 253, 0.18);
+
+  --panel-bg: linear-gradient(165deg, rgba(26, 72, 104, 0.62), rgba(9, 32, 49, 0.9) 55%, rgba(11, 34, 52, 0.94));
+  --panel-border: rgba(186, 230, 253, 0.16);
+  --panel-edge: rgba(224, 242, 254, 0.32);
+  --panel-shadow: 0 26px 52px -32px rgba(14, 165, 233, 0.5);
+  --panel-radius: 28px;
+  --h1-shadow: 0 0 22px rgba(125, 211, 252, 0.45);
+  --h1-tracking: 0.02em;
+
+  --btn-font: "Fredoka", var(--font-body);
+  --btn-radius: var(--radius-pill);
+  --btn-pad: 10px 20px;
+  --btn-bg: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 55%, #0284c7 100%);
+  --btn-border: rgba(186, 230, 253, 0.5);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(3, 105, 161, 0.5), 0 10px 24px -12px rgba(14, 165, 233, 0.9);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(3, 105, 161, 0.5), 0 14px 30px -12px rgba(56, 189, 248, 1);
+  --btn2-bg: rgba(186, 230, 253, 0.08);
+  --btn2-bg-hover: rgba(186, 230, 253, 0.16);
+  --btn2-border: rgba(186, 230, 253, 0.28);
+  --field-radius: 14px;
+  --field-bg: rgba(4, 18, 28, 0.6);
+  --tab-bar: linear-gradient(90deg, #67e8f9, #e0f2fe);
+  --panel-ring: linear-gradient(180deg, rgba(224, 242, 254, 0.6), rgba(125, 211, 252, 0.18) 30%, rgba(255, 255, 255, 0.04) 65%, rgba(165, 180, 252, 0.22));
+  --nav-active-bg: linear-gradient(180deg, rgba(186, 230, 253, 0.42), rgba(14, 165, 233, 0.5));
+  --h1-bar: linear-gradient(90deg, #67e8f9, #e0f2fe);
+}
+html[data-game-mode="cool"]:not([data-theme]) body::after {
+  -webkit-mask-image: none; mask-image: none;
+  background-image:
+    radial-gradient(2px 2px at 30px 40px, rgba(240, 249, 255, 0.85), transparent),
+    radial-gradient(3px 3px at 150px 110px, rgba(224, 242, 254, 0.55), transparent),
+    radial-gradient(1.5px 1.5px at 90px 190px, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(2.5px 2.5px at 230px 70px, rgba(186, 230, 253, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 270px 220px, rgba(255, 255, 255, 0.7), transparent);
+  background-size: 300px 260px; opacity: 0.7; animation: skinSnow 40s linear infinite;
+}
+@keyframes skinSnow { from { background-position: 0 0; } to { background-position: 60px 520px; } }
+/* Onglets : interrupteur segmente en verre. */
+html[data-game-mode="cool"]:not([data-theme]) .tabs:not(.coffre-switch) { gap: 4px; padding: 4px; border: 1px solid rgba(186, 230, 253, 0.16); border-radius: 22px; background: rgba(4, 18, 28, 0.45); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35); }
+html[data-game-mode="cool"]:not([data-theme]) .tabs:not(.coffre-switch) .tab { border-radius: var(--radius-pill); padding: 8px 15px; font-family: "Fredoka", var(--font-body); font-weight: 600; }
+html[data-game-mode="cool"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active { background: linear-gradient(180deg, rgba(186, 230, 253, 0.26), rgba(125, 211, 252, 0.12)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 0 1px rgba(186, 230, 253, 0.32); }
+html[data-game-mode="cool"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active::after { display: none; }
+html[data-game-mode="cool"]:not([data-theme]) :where(h2) { font-family: "Fredoka", var(--font-body); font-weight: 700; letter-spacing: 0; }
+
+/* =====================================================================
+   CHILL : lagon au coucher du soleil. Doux et chaleureux : grands
+   arrondis, boutons « bonbon » sans relief dur, onglets en pastilles.
+   ===================================================================== */
+html[data-game-mode="chill"]:not([data-theme]) {
+  --bg-void: #06140f; --bg-deep: #0a221b; --bg-panel: rgba(12, 44, 36, 0.88); --bg-panel-solid: #0e2a22; --bg-panel-2: #153a30;
+  --text: #f4fbf1; --text-dim: #a8cdb9; --border: rgba(45, 212, 191, 0.28); --border-soft: rgba(220, 255, 240, 0.09);
+  --accent: #0d9488; --accent-2: #f59e0b; --accent-3: #fb7185; --accent-dark: #0f766e;
+  --accent-rgb: 13, 148, 136; --accent-2-rgb: 245, 158, 11; --accent-3-rgb: 251, 113, 133; --accent-strong-rgb: 15, 118, 110;
+  --accent-light: #5eead4; --accent-pale: #99f6e4; --accent-strong: #0f766e;
+  --font-brand: "Righteous", "Bungee", "Segoe UI", system-ui, sans-serif;
+  --radius-xl: 26px; --radius-lg: 22px; --radius-md: 15px; --radius-sm: 10px;
+
+  --page-glow:
+    radial-gradient(ellipse 70% 45% at 85% 5%, rgba(245, 158, 11, 0.24), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 10% 25%, rgba(251, 113, 133, 0.15), transparent 60%),
+    radial-gradient(ellipse 90% 55% at 50% 105%, rgba(20, 184, 166, 0.28), transparent 60%),
+    linear-gradient(180deg, #13201a 0%, transparent 55%);
+  --header-bg: linear-gradient(90deg, rgba(6, 78, 59, 0.94), rgba(15, 118, 110, 0.9) 55%, rgba(21, 94, 117, 0.92));
+  --header-line: linear-gradient(90deg, transparent, rgba(253, 230, 138, 0.8) 25%, rgba(251, 113, 133, 0.75) 60%, rgba(94, 234, 212, 0.75) 85%, transparent);
+  --header-shadow: 0 8px 28px -14px rgba(52, 211, 153, 0.5);
+  --nav-active-bg: rgba(253, 230, 138, 0.16);
+
+  --panel-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.07), transparent 200px), linear-gradient(160deg, #10302a, #0d2620 70%);
+  --panel-border: rgba(94, 234, 212, 0.14);
+  --panel-edge: rgba(253, 230, 138, 0.24);
+  --panel-shadow: 0 26px 50px -32px rgba(245, 158, 11, 0.38);
+  --panel-radius: 26px;
+  --h1-shadow: 0 2px 0 rgba(13, 148, 136, 0.55), 0 0 22px rgba(245, 158, 11, 0.25);
+  --h1-tracking: 0.03em;
+
+  --btn-radius: 16px;
+  --btn-bg: linear-gradient(135deg, #2dd4bf 0%, #14b8a6 45%, #0d9488 100%);
+  --btn-fg: #04241d;
+  --btn-border: rgba(153, 246, 228, 0.45);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 20px -10px rgba(13, 148, 136, 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 12px 26px -10px rgba(245, 158, 11, 0.55);
+  --btn-shadow-press: inset 0 2px 4px rgba(4, 36, 29, 0.35);
+  --btn2-bg: rgba(253, 230, 138, 0.06);
+  --btn2-bg-hover: rgba(253, 230, 138, 0.13);
+  --btn2-border: rgba(253, 230, 138, 0.26);
+  --field-radius: 14px;
+  --tab-active-fg: #fde68a;
+  --panel-ring: linear-gradient(180deg, rgba(253, 230, 138, 0.5), rgba(251, 113, 133, 0.16) 30%, rgba(255, 255, 255, 0.03) 65%, rgba(94, 234, 212, 0.22));
+  --nav-active-bg: linear-gradient(135deg, rgba(245, 158, 11, 0.55), rgba(251, 113, 133, 0.45));
+  --h1-bar: linear-gradient(90deg, #fde68a, #fb7185, #5eead4);
+}
+html[data-game-mode="chill"]:not([data-theme]) body::after {
+  -webkit-mask-image: none; mask-image: none;
+  background-image:
+    radial-gradient(18px 18px at 40px 60px, rgba(253, 230, 138, 0.1), transparent 70%),
+    radial-gradient(26px 26px at 180px 140px, rgba(94, 234, 212, 0.08), transparent 70%),
+    radial-gradient(14px 14px at 110px 220px, rgba(251, 113, 133, 0.09), transparent 70%),
+    radial-gradient(22px 22px at 260px 40px, rgba(253, 230, 138, 0.07), transparent 70%);
+  background-size: 320px 280px; opacity: 1; animation: skinDrift 70s ease-in-out infinite alternate;
+}
+@keyframes skinDrift { from { background-position: 0 0; } to { background-position: -160px -80px; } }
+/* Onglets : pastilles chaudes. */
+html[data-game-mode="chill"]:not([data-theme]) .tabs:not(.coffre-switch) { gap: 6px; border-bottom: 0; }
+html[data-game-mode="chill"]:not([data-theme]) .tabs:not(.coffre-switch) .tab { border-radius: var(--radius-pill); padding: 7px 15px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--line); }
+html[data-game-mode="chill"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active { background: linear-gradient(135deg, rgba(245, 158, 11, 0.24), rgba(251, 113, 133, 0.16)); box-shadow: inset 0 0 0 1px rgba(253, 230, 138, 0.5), 0 6px 16px -10px rgba(245, 158, 11, 0.8); }
+html[data-game-mode="chill"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active::after { display: none; }
+
+/* =====================================================================
+   HARD : volcan, braises et metal. Angles vifs, plaques rivetees,
+   boutons en acier rougi (majuscules), onglets biseautes.
+   ===================================================================== */
+html[data-game-mode="hard"]:not([data-theme]) {
+  --bg-void: #0a0404; --bg-deep: #150707; --bg-panel: rgba(32, 11, 9, 0.9); --bg-panel-solid: #1d0a08; --bg-panel-2: #2a100c;
+  --text: #fbefe9; --text-dim: #cfa79c; --border: rgba(239, 68, 68, 0.34); --border-soft: rgba(255, 220, 200, 0.08);
+  --accent: #dc2626; --accent-2: #ea580c; --accent-3: #facc15; --accent-dark: #7f1d1d;
+  --accent-rgb: 220, 38, 38; --accent-2-rgb: 234, 88, 12; --accent-3-rgb: 250, 204, 21; --accent-strong-rgb: 185, 28, 28;
+  --accent-light: #fb923c; --accent-pale: #fdba74; --accent-strong: #b91c1c;
+  --font-brand: "Black Ops One", "Bungee", "Segoe UI", system-ui, sans-serif;
+  --radius-xl: 6px; --radius-lg: 6px; --radius-md: 4px; --radius-sm: 3px;
+
+  --page-glow:
+    radial-gradient(ellipse 90% 45% at 50% 115%, rgba(234, 88, 12, 0.36), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 15% 100%, rgba(220, 38, 38, 0.28), transparent 60%),
+    radial-gradient(ellipse 60% 30% at 80% 0%, rgba(127, 29, 29, 0.35), transparent 60%);
+  --page-pattern: repeating-linear-gradient(135deg, rgba(255, 237, 213, 0.025) 0 2px, transparent 2px 12px);
+  --page-pattern-size: auto;
+  --header-bg: linear-gradient(90deg, rgba(69, 10, 10, 0.96), rgba(127, 29, 29, 0.93) 35%, rgba(185, 28, 28, 0.9) 62%, rgba(67, 20, 7, 0.96));
+  --header-line: linear-gradient(90deg, #7f1d1d, #f97316 30%, #fde047 50%, #f97316 70%, #7f1d1d);
+  --header-shadow: 0 8px 30px -12px rgba(239, 68, 68, 0.65);
+  --nav-active-bg: rgba(239, 68, 68, 0.3);
+
+  /* Plaque d'acier : coins rivetes (4 equerres) + degrade sombre. */
+  --rivet: rgba(249, 115, 22, 0.7);
+  --panel-bg:
+    linear-gradient(var(--rivet), var(--rivet)) left top / 16px 2px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) left top / 2px 16px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) right top / 16px 2px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) right top / 2px 16px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) left bottom / 16px 2px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) left bottom / 2px 16px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) right bottom / 16px 2px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) right bottom / 2px 16px no-repeat,
+    linear-gradient(180deg, #261009, #1b0907 260px);
+  --panel-border: rgba(220, 38, 38, 0.3);
+  --panel-edge: rgba(234, 88, 12, 0.5);
+  --panel-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.95);
+  --panel-radius: 6px;
+  --card-radius: 4px;
+  --h1-shadow: 0 0 14px rgba(234, 88, 12, 0.5), 0 2px 0 rgba(0, 0, 0, 0.6);
+  --h1-tracking: 0.04em;
+
+  --btn-weight: 800;
+  --btn-radius: 3px;
+  --btn-pad: 10px 18px;
+  --btn-bg: linear-gradient(180deg, #ef4444 0%, #b91c1c 52%, #7f1d1d 100%);
+  --btn-border: #120303;
+  --btn-shadow: inset 0 1px 0 rgba(254, 215, 170, 0.4), inset 0 -3px 0 rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(234, 88, 12, 0.25), 0 10px 20px -10px rgba(220, 38, 38, 0.8);
+  --btn-shadow-hover: inset 0 1px 0 rgba(254, 215, 170, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(251, 146, 60, 0.5), 0 12px 24px -10px rgba(234, 88, 12, 0.9);
+  --btn-shadow-press: inset 0 3px 6px rgba(0, 0, 0, 0.5);
+  --btn2-bg: linear-gradient(180deg, #2f130e, #1d0a08);
+  --btn2-bg-hover: linear-gradient(180deg, #45170f, #26100a);
+  --btn2-border: rgba(234, 88, 12, 0.38);
+  --field-radius: 3px;
+  --field-bg: #120605;
+  --tab-bar: linear-gradient(90deg, #dc2626, #fb923c);
+  --panel-ring: linear-gradient(180deg, rgba(249, 115, 22, 0.7), rgba(220, 38, 38, 0.25) 30%, rgba(127, 29, 29, 0.25));
+  --nav-active-bg: linear-gradient(180deg, #dc2626, #7f1d1d);
+  --h1-bar: linear-gradient(90deg, #dc2626, #fb923c, #fde047);
+}
+html[data-game-mode="hard"]:not([data-theme]) body::before { animation: skinHeat 6s ease-in-out infinite alternate; }
+@keyframes skinHeat { from { filter: brightness(0.9); } to { filter: brightness(1.12); } }
+html[data-game-mode="hard"]:not([data-theme]) body::after {
+  -webkit-mask-image: none; mask-image: none;
+  background-image:
+    radial-gradient(2px 2px at 40px 200px, rgba(253, 186, 116, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 120px 120px, rgba(250, 204, 21, 0.8), transparent),
+    radial-gradient(2.5px 2.5px at 200px 230px, rgba(249, 115, 22, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 260px 60px, rgba(254, 215, 170, 0.8), transparent);
+  background-size: 300px 260px; opacity: 0.75; animation: skinEmbers 18s linear infinite;
+}
+@keyframes skinEmbers { from { background-position: 0 0; } to { background-position: -40px -520px; } }
+html[data-game-mode="hard"]:not([data-theme]) header#site-header::after { height: 2px; bottom: -2px; }
+/* Majuscules sur les vrais boutons d action seulement (pas les tuiles, epingles ou menus). */
+html[data-game-mode="hard"]:not([data-theme]) :is(.btn, .btn-secondary, button:not([class]), button[type="submit"]):not(:is(.user-menu-dropdown, .nav-group-dropdown, .notif-bell-dropdown, .global-search-panel, .inventory-panel, .bn-sheet, [role="menu"]) *) { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
+html[data-game-mode="hard"]:not([data-theme]) .tabs:not(.coffre-switch) .tab { text-transform: uppercase; letter-spacing: 0.05em; }
+html[data-game-mode="hard"]:not([data-theme]) :where(h2) { text-transform: uppercase; letter-spacing: 0.04em; font-size: 1.05rem; }
+/* Onglets : plaques biseautees. */
+html[data-game-mode="hard"]:not([data-theme]) .tabs:not(.coffre-switch) { gap: 4px; border-bottom: 2px solid rgba(220, 38, 38, 0.45); }
+html[data-game-mode="hard"]:not([data-theme]) .tabs:not(.coffre-switch) .tab { font-size: 0.78rem; padding: 9px 16px; border-radius: 0; clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); background: rgba(255, 237, 213, 0.04); }
+html[data-game-mode="hard"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active { color: #fff; background: linear-gradient(180deg, #dc2626, #7f1d1d); }
+html[data-game-mode="hard"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active::after { display: none; }
+
+/* =====================================================================
+   CHAOS : glitch neon. Pixels, lignes de balayage, ombres chromatiques
+   (magenta / cyan) sur les panneaux et les boutons, onglets [entre
+   crochets] en police pixel.
+   ===================================================================== */
+html[data-game-mode="chaos"]:not([data-theme]) {
+  --bg-void: #07020f; --bg-deep: #0e0420; --bg-panel: rgba(24, 8, 44, 0.9); --bg-panel-solid: #130626; --bg-panel-2: #1d0b38;
+  --text: #f7f2ff; --text-dim: #b9a9df; --border: rgba(232, 121, 249, 0.34); --border-soft: rgba(190, 242, 100, 0.1);
+  --accent: #c026d3; --accent-2: #0891b2; --accent-3: #a3e635; --accent-dark: #86198f;
+  --accent-rgb: 192, 38, 211; --accent-2-rgb: 8, 145, 178; --accent-3-rgb: 163, 230, 53; --accent-strong-rgb: 162, 28, 175;
+  --accent-light: #f0abfc; --accent-pale: #f5d0fe; --accent-strong: #a21caf;
+  --font-brand: "Silkscreen", "Bungee", "Segoe UI", system-ui, sans-serif;
+  --radius-xl: 4px; --radius-lg: 4px; --radius-md: 3px; --radius-sm: 2px;
+
+  --page-glow:
+    radial-gradient(ellipse 60% 40% at 15% 15%, rgba(192, 38, 211, 0.3), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 85% 30%, rgba(8, 145, 178, 0.26), transparent 60%),
+    radial-gradient(ellipse 70% 40% at 50% 105%, rgba(163, 230, 53, 0.15), transparent 60%);
+  --header-bg: linear-gradient(90deg, rgba(59, 7, 100, 0.95), rgba(112, 26, 117, 0.92) 30%, rgba(14, 116, 144, 0.9) 65%, rgba(54, 83, 20, 0.93));
+  --header-line: linear-gradient(90deg, #f0abfc, #67e8f9 33%, #bef264 66%, #f0abfc);
+  --header-shadow: 0 8px 30px -12px rgba(217, 70, 239, 0.65);
+  --nav-active-bg: rgba(232, 121, 249, 0.24);
+
+  --panel-bg: linear-gradient(180deg, rgba(192, 38, 211, 0.06), transparent 160px), var(--bg-panel-solid);
+  --panel-border: rgba(232, 121, 249, 0.24);
+  --panel-edge: rgba(103, 232, 249, 0.3);
+  --panel-shadow: 4px 4px 0 rgba(192, 38, 211, 0.32), -4px -4px 0 rgba(8, 145, 178, 0.24), 0 18px 40px -26px rgba(0, 0, 0, 0.85);
+  --panel-radius: 4px;
+  --card-radius: 3px;
+  --h1-shadow: 2px 0 0 rgba(240, 171, 252, 0.8), -2px 0 0 rgba(103, 232, 249, 0.8);
+  --h1-tracking: 0.02em;
+
+  --btn-weight: 800;
+  --btn-radius: 2px;
+  --btn-bg: linear-gradient(90deg, #c026d3, #7c3aed 50%, #0891b2);
+  --btn-border: rgba(240, 171, 252, 0.6);
+  --btn-shadow: 3px 3px 0 rgba(163, 230, 53, 0.55), -3px -3px 0 rgba(8, 145, 178, 0.55);
+  --btn-shadow-hover: 4px 4px 0 rgba(163, 230, 53, 0.75), -4px -4px 0 rgba(240, 171, 252, 0.7);
+  --btn-shadow-press: 1px 1px 0 rgba(163, 230, 53, 0.6), -1px -1px 0 rgba(8, 145, 178, 0.6);
+  --btn2-bg: #1d0b38;
+  --btn2-bg-hover: #2a0f4f;
+  --btn2-border: rgba(103, 232, 249, 0.4);
+  --field-radius: 2px;
+  --field-bg: #0a0316;
+  --tab-bar: linear-gradient(90deg, #f0abfc, #67e8f9, #bef264);
+  --panel-ring: linear-gradient(90deg, rgba(240, 171, 252, 0.7), rgba(103, 232, 249, 0.6) 50%, rgba(190, 242, 100, 0.6));
+  --nav-active-bg: linear-gradient(90deg, rgba(192, 38, 211, 0.75), rgba(8, 145, 178, 0.75));
+  --h1-bar: linear-gradient(90deg, #f0abfc, #67e8f9, #bef264);
+}
+html[data-game-mode="chaos"]:not([data-theme]) header#site-header { background-size: 220% 100%; animation: chaosBar 9s linear infinite; }
+html[data-game-mode="chaos"]:not([data-theme]) body::before { animation: skinHue 16s linear infinite; }
+@keyframes skinHue { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+html[data-game-mode="chaos"]:not([data-theme]) body::after {
+  -webkit-mask-image: none; mask-image: none;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, rgba(240, 171, 252, 0.05) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(103, 232, 249, 0.04) 1px, transparent 1px);
+  background-size: 100% 3px, 32px 32px, 32px 32px; opacity: 1; animation: skinFlicker 5s steps(1) infinite;
+}
+@keyframes skinFlicker { 0%, 96%, 100% { opacity: 1; } 97% { opacity: 0.6; } 98% { opacity: 0.9; } }
+html[data-game-mode="chaos"]:not([data-theme]) :is(.btn, .btn-secondary, button:not([class]), button[type="submit"]):not(:is(.user-menu-dropdown, .nav-group-dropdown, .notif-bell-dropdown, .global-search-panel, .inventory-panel, .bn-sheet, [role="menu"]) *) { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
+html[data-game-mode="chaos"]:not([data-theme]) .btn-secondary:hover:not(:disabled) { box-shadow: 2px 2px 0 rgba(163, 230, 53, 0.6), -2px -2px 0 rgba(8, 145, 178, 0.6); }
+html[data-game-mode="chaos"]:not([data-theme]) :where(h2) { text-shadow: 1px 0 0 rgba(240, 171, 252, 0.5), -1px 0 0 rgba(103, 232, 249, 0.5); }
+/* Onglets : [entre crochets], police pixel. */
+html[data-game-mode="chaos"]:not([data-theme]) .tabs:not(.coffre-switch) .tab { font-family: "Silkscreen", var(--font-body); font-weight: 400; font-size: 0.78rem; border-radius: 0; }
+html[data-game-mode="chaos"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active { color: #bef264; background: rgba(192, 38, 211, 0.12); }
+html[data-game-mode="chaos"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active:not(.locked)::before { content: "["; margin-right: 4px; color: #f0abfc; }
+html[data-game-mode="chaos"]:not([data-theme]) .tabs:not(.coffre-switch) .tab.active::after { content: "]"; position: static; display: inline; height: auto; margin-left: 4px; background: none; box-shadow: none; color: #67e8f9; }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-game-mode]:not([data-theme]) body::before, html[data-game-mode]:not([data-theme]) body::after,
+  html[data-game-mode] #site-brand, html[data-game-mode] .brand-text, html[data-game-mode="chaos"] header#site-header { animation: none !important; }
+}
+
+/* =====================================================================
+   EVENEMENTS SAISONNIERS : embleme a cote du logo et liseré de la barre
+   (html[data-season], pose pendant tout l'evenement).
+   ===================================================================== */
+html[data-season] #site-brand::after { position: absolute; right: -1.15em; top: -0.35em; font-size: 0.8em; line-height: 1; animation: seasonBob 3s ease-in-out infinite; pointer-events: none; }
+html[data-season="halloween"] #site-brand::after { content: "🎃"; }
+html[data-season="christmas"] #site-brand::after { content: "🎄"; }
+html[data-season="newyear"] #site-brand::after { content: "🎆"; }
+html[data-season="valentine"] #site-brand::after { content: "💘"; }
+html[data-season="easter"] #site-brand::after { content: "🐣"; }
+html[data-season="aprilfools"] #site-brand::after { content: "🐟"; }
+html[data-season="summer"] #site-brand::after { content: "🎶"; }
+html[data-season] header#site-header::after { height: 2px; bottom: -2px; }
+html[data-season="halloween"] { --season-line: #f97316; }
+html[data-season="christmas"] { --season-line: #22c55e; }
+html[data-season="newyear"] { --season-line: #facc15; }
+html[data-season="valentine"] { --season-line: var(--accent-3); }
+html[data-season="easter"] { --season-line: #a5f3fc; }
+html[data-season="aprilfools"] { --season-line: #60a5fa; }
+html[data-season="summer"] { --season-line: #fbbf24; }
+html[data-season] header#site-header::after { background: linear-gradient(90deg, transparent, var(--season-line) 12%, var(--season-line) 88%, transparent); }
+@keyframes seasonBob { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-3px) rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { html[data-season] #site-brand::after { animation: none; } }
+
+/* =====================================================================
+   SKINS SAISONNIERS (2026-10-18, portes en V2) : palette, police du logo,
+   fond (halos + motif qui tombe), barre et liseré des panneaux.
+   ===================================================================== */
+@keyframes seasonFall { from { background-position: 0 0; } to { background-position: 40px 520px; } }
+/* --- Halloween --- */
+html[data-season-skin="halloween"]:not([data-theme]) {
+  color-scheme: dark;
+  --bg-void: #09050d; --bg-deep: #130a1c; --bg-panel: rgba(28, 14, 38, 0.9); --bg-panel-solid: #170c22; --bg-panel-2: #231233;
+  --text: #fbf3ff; --text-dim: #bba6cc; --border: rgba(249, 115, 22, 0.32); --border-soft: rgba(240, 220, 255, 0.08);
+  --accent: #f97316; --accent-2: #a855f7; --accent-3: #84cc16; --accent-dark: #9a3412;
+  --accent-rgb: 249, 115, 22; --accent-2-rgb: 168, 85, 247; --accent-3-rgb: 132, 204, 22; --accent-strong-rgb: 194, 65, 12;
+  --accent-light: #fdba74; --accent-pale: #fed7aa; --accent-strong: #c2410c;
+  --font-brand: "Creepster", "Bungee", system-ui, sans-serif;
+  --header-bg: linear-gradient(90deg, rgba(26, 11, 36, 0.96), rgba(88, 28, 135, 0.92) 45%, rgba(154, 52, 18, 0.92) 80%, rgba(26, 11, 36, 0.96));
+  --header-line: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.55) 15%, rgba(249, 115, 22, 0.55) 85%, transparent);
+  --header-shadow: 0 8px 30px -12px rgba(249, 115, 22, 0.6);
+  --nav-active-bg: rgba(249, 115, 22, 0.28);
+  --panel-edge: rgba(249, 115, 22, 0.35);
+  --h1-shadow: 0 0 18px rgba(249, 115, 22, 0.35);
+  /* Couleurs des composants remises a la base (la forme reste celle du mode). */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft); --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%); --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn2-bg: var(--bg-panel-2); --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent)); --btn2-border: var(--line-strong);
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2)); --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2)); --tab-active-fg: var(--text);
+  --page-glow: none;
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2))); --h1-bar: var(--grad-brand);
+}
+html[data-season-skin="halloween"]:not([data-theme]) body::before { background: radial-gradient(ellipse 70% 40% at 15% 0%, rgba(249, 115, 22, 0.24), transparent 60%), radial-gradient(ellipse 60% 45% at 90% 15%, rgba(168, 85, 247, 0.22), transparent 60%), radial-gradient(ellipse 80% 50% at 50% 110%, rgba(132, 204, 22, 0.10), transparent 60%), linear-gradient(180deg, #1a0b24 0%, var(--bg-void) 60%); animation: none; filter: none; }
+html[data-season-skin="halloween"]:not([data-theme]) body::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'260'%20height%3D'260'%3E%3Ctext%20x%3D'30'%20y%3D'50'%20font-size%3D'22'%20opacity%3D'0.55'%3E%F0%9F%A6%87%3C%2Ftext%3E%3Ctext%20x%3D'150'%20y%3D'30'%20font-size%3D'16'%20opacity%3D'0.55'%3E%F0%9F%8E%83%3C%2Ftext%3E%3Ctext%20x%3D'210'%20y%3D'140'%20font-size%3D'26'%20opacity%3D'0.55'%3E%F0%9F%95%B8%EF%B8%8F%3C%2Ftext%3E%3Ctext%20x%3D'70'%20y%3D'170'%20font-size%3D'18'%20opacity%3D'0.55'%3E%F0%9F%91%BB%3C%2Ftext%3E%3Ctext%20x%3D'130'%20y%3D'230'%20font-size%3D'14'%20opacity%3D'0.55'%3E%F0%9F%A6%87%3C%2Ftext%3E%3Ctext%20x%3D'240'%20y%3D'240'%20font-size%3D'20'%20opacity%3D'0.55'%3E%F0%9F%8E%83%3C%2Ftext%3E%3C%2Fsvg%3E"); background-size: 260px 260px; opacity: 0.5; animation: seasonFall 60s linear infinite; -webkit-mask-image: none; mask-image: none; }
+
+/* --- Noël --- */
+html[data-season-skin="christmas"]:not([data-theme]) {
+  color-scheme: dark;
+  --bg-void: #04100b; --bg-deep: #071a12; --bg-panel: rgba(10, 36, 26, 0.9); --bg-panel-solid: #0b2219; --bg-panel-2: #123327;
+  --text: #f6fff9; --text-dim: #a8cbb8; --border: rgba(239, 68, 68, 0.3); --border-soft: rgba(230, 255, 240, 0.09);
+  --accent: #dc2626; --accent-2: #16a34a; --accent-3: #facc15; --accent-dark: #7f1d1d;
+  --accent-rgb: 220, 38, 38; --accent-2-rgb: 22, 163, 74; --accent-3-rgb: 250, 204, 21; --accent-strong-rgb: 185, 28, 28;
+  --accent-light: #fca5a5; --accent-pale: #fecaca; --accent-strong: #b91c1c;
+  --font-brand: "Mountains of Christmas", "Bungee", system-ui, serif;
+  --header-bg: linear-gradient(90deg, rgba(7, 26, 18, 0.96), rgba(127, 29, 29, 0.92) 40%, rgba(21, 128, 61, 0.92) 75%, rgba(7, 26, 18, 0.96));
+  --header-line: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.55) 15%, rgba(220, 38, 38, 0.55) 85%, transparent);
+  --header-shadow: 0 8px 30px -12px rgba(220, 38, 38, 0.6);
+  --nav-active-bg: rgba(220, 38, 38, 0.28);
+  --panel-edge: rgba(220, 38, 38, 0.35);
+  --h1-shadow: 0 0 18px rgba(220, 38, 38, 0.35);
+  /* Couleurs des composants remises a la base (la forme reste celle du mode). */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft); --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%); --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn2-bg: var(--bg-panel-2); --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent)); --btn2-border: var(--line-strong);
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2)); --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2)); --tab-active-fg: var(--text);
+  --page-glow: none;
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2))); --h1-bar: var(--grad-brand);
+}
+html[data-season-skin="christmas"]:not([data-theme]) body::before { background: radial-gradient(ellipse 70% 40% at 20% 0%, rgba(220, 38, 38, 0.20), transparent 60%), radial-gradient(ellipse 60% 45% at 85% 20%, rgba(22, 163, 74, 0.22), transparent 60%), radial-gradient(ellipse 80% 50% at 50% 110%, rgba(250, 204, 21, 0.10), transparent 60%), linear-gradient(180deg, #0b2017 0%, var(--bg-void) 60%); animation: none; filter: none; }
+html[data-season-skin="christmas"]:not([data-theme]) body::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'260'%20height%3D'260'%3E%3Ctext%20x%3D'30'%20y%3D'50'%20font-size%3D'22'%20opacity%3D'0.55'%3E%E2%9D%84%EF%B8%8F%3C%2Ftext%3E%3Ctext%20x%3D'150'%20y%3D'30'%20font-size%3D'16'%20opacity%3D'0.55'%3E%F0%9F%8E%84%3C%2Ftext%3E%3Ctext%20x%3D'210'%20y%3D'140'%20font-size%3D'26'%20opacity%3D'0.55'%3E%E2%AD%90%3C%2Ftext%3E%3Ctext%20x%3D'70'%20y%3D'170'%20font-size%3D'18'%20opacity%3D'0.55'%3E%F0%9F%8E%81%3C%2Ftext%3E%3Ctext%20x%3D'130'%20y%3D'230'%20font-size%3D'14'%20opacity%3D'0.55'%3E%E2%9D%84%EF%B8%8F%3C%2Ftext%3E%3Ctext%20x%3D'240'%20y%3D'240'%20font-size%3D'20'%20opacity%3D'0.55'%3E%F0%9F%8E%84%3C%2Ftext%3E%3C%2Fsvg%3E"); background-size: 260px 260px; opacity: 0.5; animation: seasonFall 60s linear infinite; -webkit-mask-image: none; mask-image: none; }
+
+/* --- Nouvel an --- */
+html[data-season-skin="newyear"]:not([data-theme]) {
+  color-scheme: dark;
+  --bg-void: #05050c; --bg-deep: #0b0b1a; --bg-panel: rgba(18, 18, 38, 0.9); --bg-panel-solid: #10101f; --bg-panel-2: #1a1a32;
+  --text: #fffbea; --text-dim: #c9c3a6; --border: rgba(250, 204, 21, 0.32); --border-soft: rgba(255, 250, 220, 0.08);
+  --accent: #eab308; --accent-2: #a78bfa; --accent-3: #f472b6; --accent-dark: #854d0e;
+  --accent-rgb: 234, 179, 8; --accent-2-rgb: 167, 139, 250; --accent-3-rgb: 244, 114, 182; --accent-strong-rgb: 161, 98, 7;
+  --accent-light: #fde047; --accent-pale: #fef08a; --accent-strong: #a16207;
+  --font-brand: "Monoton", "Bungee", system-ui, sans-serif;
+  --header-bg: linear-gradient(90deg, rgba(11, 11, 26, 0.96), rgba(76, 29, 149, 0.9) 45%, rgba(161, 98, 7, 0.9) 80%, rgba(11, 11, 26, 0.96));
+  --header-line: linear-gradient(90deg, transparent, rgba(234, 179, 8, 0.55) 15%, rgba(234, 179, 8, 0.55) 85%, transparent);
+  --header-shadow: 0 8px 30px -12px rgba(234, 179, 8, 0.6);
+  --nav-active-bg: rgba(234, 179, 8, 0.28);
+  --panel-edge: rgba(234, 179, 8, 0.35);
+  --h1-shadow: 0 0 18px rgba(234, 179, 8, 0.35);
+  /* Couleurs des composants remises a la base (la forme reste celle du mode). */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft); --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%); --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn2-bg: var(--bg-panel-2); --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent)); --btn2-border: var(--line-strong);
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2)); --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2)); --tab-active-fg: var(--text);
+  --page-glow: none;
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2))); --h1-bar: var(--grad-brand);
+}
+html[data-season-skin="newyear"]:not([data-theme]) body::before { background: radial-gradient(ellipse 60% 40% at 20% 0%, rgba(250, 204, 21, 0.22), transparent 60%), radial-gradient(ellipse 60% 45% at 85% 25%, rgba(167, 139, 250, 0.20), transparent 60%), linear-gradient(180deg, #12112a 0%, var(--bg-void) 60%); animation: none; filter: none; }
+html[data-season-skin="newyear"]:not([data-theme]) body::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'260'%20height%3D'260'%3E%3Ctext%20x%3D'30'%20y%3D'50'%20font-size%3D'22'%20opacity%3D'0.55'%3E%F0%9F%8E%86%3C%2Ftext%3E%3Ctext%20x%3D'150'%20y%3D'30'%20font-size%3D'16'%20opacity%3D'0.55'%3E%E2%9C%A8%3C%2Ftext%3E%3Ctext%20x%3D'210'%20y%3D'140'%20font-size%3D'26'%20opacity%3D'0.55'%3E%F0%9F%A5%82%3C%2Ftext%3E%3Ctext%20x%3D'70'%20y%3D'170'%20font-size%3D'18'%20opacity%3D'0.55'%3E%F0%9F%8E%87%3C%2Ftext%3E%3Ctext%20x%3D'130'%20y%3D'230'%20font-size%3D'14'%20opacity%3D'0.55'%3E%F0%9F%8E%86%3C%2Ftext%3E%3Ctext%20x%3D'240'%20y%3D'240'%20font-size%3D'20'%20opacity%3D'0.55'%3E%E2%9C%A8%3C%2Ftext%3E%3C%2Fsvg%3E"); background-size: 260px 260px; opacity: 0.5; animation: seasonFall 60s linear infinite; -webkit-mask-image: none; mask-image: none; }
+
+/* --- Saint-Valentin --- */
+html[data-season-skin="valentine"]:not([data-theme]) {
+  color-scheme: dark;
+  --bg-void: #12050b; --bg-deep: #1f0a14; --bg-panel: rgba(48, 14, 30, 0.9); --bg-panel-solid: #260b18; --bg-panel-2: #3a1226;
+  --text: #fff1f6; --text-dim: #d6a8bb; --border: rgba(244, 114, 182, 0.34); --border-soft: rgba(255, 225, 238, 0.09);
+  --accent: #e11d48; --accent-2: #f472b6; --accent-3: #fbbf24; --accent-dark: #881337;
+  --accent-rgb: 225, 29, 72; --accent-2-rgb: 244, 114, 182; --accent-3-rgb: 251, 191, 36; --accent-strong-rgb: 190, 18, 60;
+  --accent-light: #fda4af; --accent-pale: #fecdd3; --accent-strong: #be123c;
+  --font-brand: "Pacifico", "Bungee", system-ui, cursive;
+  --header-bg: linear-gradient(90deg, rgba(31, 10, 20, 0.96), rgba(159, 18, 57, 0.92) 45%, rgba(219, 39, 119, 0.9) 80%, rgba(31, 10, 20, 0.96));
+  --header-line: linear-gradient(90deg, transparent, rgba(225, 29, 72, 0.55) 15%, rgba(225, 29, 72, 0.55) 85%, transparent);
+  --header-shadow: 0 8px 30px -12px rgba(225, 29, 72, 0.6);
+  --nav-active-bg: rgba(225, 29, 72, 0.28);
+  --panel-edge: rgba(225, 29, 72, 0.35);
+  --h1-shadow: 0 0 18px rgba(225, 29, 72, 0.35);
+  /* Couleurs des composants remises a la base (la forme reste celle du mode). */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft); --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%); --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn2-bg: var(--bg-panel-2); --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent)); --btn2-border: var(--line-strong);
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2)); --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2)); --tab-active-fg: var(--text);
+  --page-glow: none;
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2))); --h1-bar: var(--grad-brand);
+}
+html[data-season-skin="valentine"]:not([data-theme]) body::before { background: radial-gradient(ellipse 70% 40% at 20% 0%, rgba(244, 114, 182, 0.26), transparent 60%), radial-gradient(ellipse 60% 45% at 85% 20%, rgba(225, 29, 72, 0.20), transparent 60%), linear-gradient(180deg, #2a0c1c 0%, var(--bg-void) 60%); animation: none; filter: none; }
+html[data-season-skin="valentine"]:not([data-theme]) body::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'260'%20height%3D'260'%3E%3Ctext%20x%3D'30'%20y%3D'50'%20font-size%3D'22'%20opacity%3D'0.55'%3E%F0%9F%92%98%3C%2Ftext%3E%3Ctext%20x%3D'150'%20y%3D'30'%20font-size%3D'16'%20opacity%3D'0.55'%3E%F0%9F%92%95%3C%2Ftext%3E%3Ctext%20x%3D'210'%20y%3D'140'%20font-size%3D'26'%20opacity%3D'0.55'%3E%F0%9F%8C%B9%3C%2Ftext%3E%3Ctext%20x%3D'70'%20y%3D'170'%20font-size%3D'18'%20opacity%3D'0.55'%3E%F0%9F%92%8C%3C%2Ftext%3E%3Ctext%20x%3D'130'%20y%3D'230'%20font-size%3D'14'%20opacity%3D'0.55'%3E%F0%9F%92%98%3C%2Ftext%3E%3Ctext%20x%3D'240'%20y%3D'240'%20font-size%3D'20'%20opacity%3D'0.55'%3E%F0%9F%92%95%3C%2Ftext%3E%3C%2Fsvg%3E"); background-size: 260px 260px; opacity: 0.5; animation: seasonFall 60s linear infinite; -webkit-mask-image: none; mask-image: none; }
+
+/* --- Pâques --- */
+html[data-season-skin="easter"]:not([data-theme]) {
+  color-scheme: dark;
+  --bg-void: #07101a; --bg-deep: #0c1a2a; --bg-panel: rgba(16, 36, 56, 0.9); --bg-panel-solid: #10213a; --bg-panel-2: #183050;
+  --text: #f5fbff; --text-dim: #aac4d8; --border: rgba(103, 232, 249, 0.3); --border-soft: rgba(230, 245, 255, 0.09);
+  --accent: #8b5cf6; --accent-2: #22d3ee; --accent-3: #fde047; --accent-dark: #5b21b6;
+  --accent-rgb: 139, 92, 246; --accent-2-rgb: 34, 211, 238; --accent-3-rgb: 253, 224, 71; --accent-strong-rgb: 109, 40, 217;
+  --accent-light: #c4b5fd; --accent-pale: #ddd6fe; --accent-strong: #6d28d9;
+  --font-brand: "Chewy", "Bungee", system-ui, sans-serif;
+  --header-bg: linear-gradient(90deg, rgba(12, 26, 42, 0.96), rgba(109, 40, 217, 0.85) 40%, rgba(8, 145, 178, 0.85) 80%, rgba(12, 26, 42, 0.96));
+  --header-line: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.55) 15%, rgba(139, 92, 246, 0.55) 85%, transparent);
+  --header-shadow: 0 8px 30px -12px rgba(139, 92, 246, 0.6);
+  --nav-active-bg: rgba(139, 92, 246, 0.28);
+  --panel-edge: rgba(139, 92, 246, 0.35);
+  --h1-shadow: 0 0 18px rgba(139, 92, 246, 0.35);
+  /* Couleurs des composants remises a la base (la forme reste celle du mode). */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft); --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%); --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn2-bg: var(--bg-panel-2); --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent)); --btn2-border: var(--line-strong);
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2)); --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2)); --tab-active-fg: var(--text);
+  --page-glow: none;
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2))); --h1-bar: var(--grad-brand);
+}
+html[data-season-skin="easter"]:not([data-theme]) body::before { background: radial-gradient(ellipse 70% 40% at 20% 0%, rgba(167, 243, 208, 0.18), transparent 60%), radial-gradient(ellipse 60% 45% at 85% 20%, rgba(196, 181, 253, 0.22), transparent 60%), radial-gradient(ellipse 80% 50% at 50% 110%, rgba(253, 224, 71, 0.12), transparent 60%), linear-gradient(180deg, #102236 0%, var(--bg-void) 60%); animation: none; filter: none; }
+html[data-season-skin="easter"]:not([data-theme]) body::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'260'%20height%3D'260'%3E%3Ctext%20x%3D'30'%20y%3D'50'%20font-size%3D'22'%20opacity%3D'0.55'%3E%F0%9F%A5%9A%3C%2Ftext%3E%3Ctext%20x%3D'150'%20y%3D'30'%20font-size%3D'16'%20opacity%3D'0.55'%3E%F0%9F%90%A3%3C%2Ftext%3E%3Ctext%20x%3D'210'%20y%3D'140'%20font-size%3D'26'%20opacity%3D'0.55'%3E%F0%9F%8C%B7%3C%2Ftext%3E%3Ctext%20x%3D'70'%20y%3D'170'%20font-size%3D'18'%20opacity%3D'0.55'%3E%F0%9F%90%B0%3C%2Ftext%3E%3Ctext%20x%3D'130'%20y%3D'230'%20font-size%3D'14'%20opacity%3D'0.55'%3E%F0%9F%A5%9A%3C%2Ftext%3E%3Ctext%20x%3D'240'%20y%3D'240'%20font-size%3D'20'%20opacity%3D'0.55'%3E%F0%9F%90%A3%3C%2Ftext%3E%3C%2Fsvg%3E"); background-size: 260px 260px; opacity: 0.5; animation: seasonFall 60s linear infinite; -webkit-mask-image: none; mask-image: none; }
+
+/* --- Poisson d’avril --- */
+html[data-season-skin="aprilfools"]:not([data-theme]) {
+  color-scheme: dark;
+  --bg-void: #03101a; --bg-deep: #06192a; --bg-panel: rgba(8, 34, 54, 0.9); --bg-panel-solid: #082236; --bg-panel-2: #0e3150;
+  --text: #f1fbff; --text-dim: #9fc3d8; --border: rgba(96, 165, 250, 0.34); --border-soft: rgba(220, 240, 255, 0.09);
+  --accent: #2563eb; --accent-2: #f97316; --accent-3: #22c55e; --accent-dark: #1e3a8a;
+  --accent-rgb: 37, 99, 235; --accent-2-rgb: 249, 115, 22; --accent-3-rgb: 34, 197, 94; --accent-strong-rgb: 29, 78, 216;
+  --accent-light: #93c5fd; --accent-pale: #bfdbfe; --accent-strong: #1d4ed8;
+  --font-brand: "Bangers", "Bungee", system-ui, sans-serif;
+  --header-bg: repeating-linear-gradient(45deg, rgba(29, 78, 216, 0.92) 0 18px, rgba(37, 99, 235, 0.92) 18px 36px);
+  --header-line: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.55) 15%, rgba(37, 99, 235, 0.55) 85%, transparent);
+  --header-shadow: 0 8px 30px -12px rgba(37, 99, 235, 0.6);
+  --nav-active-bg: rgba(37, 99, 235, 0.28);
+  --panel-edge: rgba(37, 99, 235, 0.35);
+  --h1-shadow: 0 0 18px rgba(37, 99, 235, 0.35);
+  /* Couleurs des composants remises a la base (la forme reste celle du mode). */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft); --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%); --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn2-bg: var(--bg-panel-2); --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent)); --btn2-border: var(--line-strong);
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2)); --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2)); --tab-active-fg: var(--text);
+  --page-glow: none;
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2))); --h1-bar: var(--grad-brand);
+}
+html[data-season-skin="aprilfools"]:not([data-theme]) body::before { background: radial-gradient(ellipse 70% 40% at 20% 0%, rgba(96, 165, 250, 0.24), transparent 60%), radial-gradient(ellipse 60% 45% at 85% 20%, rgba(249, 115, 22, 0.16), transparent 60%), linear-gradient(180deg, #082640 0%, var(--bg-void) 60%); animation: none; filter: none; }
+html[data-season-skin="aprilfools"]:not([data-theme]) body::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'260'%20height%3D'260'%3E%3Ctext%20x%3D'30'%20y%3D'50'%20font-size%3D'22'%20opacity%3D'0.55'%3E%F0%9F%90%9F%3C%2Ftext%3E%3Ctext%20x%3D'150'%20y%3D'30'%20font-size%3D'16'%20opacity%3D'0.55'%3E%F0%9F%90%A0%3C%2Ftext%3E%3Ctext%20x%3D'210'%20y%3D'140'%20font-size%3D'26'%20opacity%3D'0.55'%3E%F0%9F%8E%AD%3C%2Ftext%3E%3Ctext%20x%3D'70'%20y%3D'170'%20font-size%3D'18'%20opacity%3D'0.55'%3E%F0%9F%A4%A1%3C%2Ftext%3E%3Ctext%20x%3D'130'%20y%3D'230'%20font-size%3D'14'%20opacity%3D'0.55'%3E%F0%9F%90%9F%3C%2Ftext%3E%3Ctext%20x%3D'240'%20y%3D'240'%20font-size%3D'20'%20opacity%3D'0.55'%3E%F0%9F%90%A0%3C%2Ftext%3E%3C%2Fsvg%3E"); background-size: 260px 260px; opacity: 0.5; animation: seasonFall 60s linear infinite; -webkit-mask-image: none; mask-image: none; }
+
+/* --- Fête de la musique --- */
+html[data-season-skin="summer"]:not([data-theme]) {
+  color-scheme: dark;
+  --bg-void: #120a03; --bg-deep: #1f1206; --bg-panel: rgba(48, 28, 10, 0.9); --bg-panel-solid: #26160a; --bg-panel-2: #3a2210;
+  --text: #fffaf0; --text-dim: #d8c09f; --border: rgba(251, 191, 36, 0.34); --border-soft: rgba(255, 245, 225, 0.09);
+  --accent: #f59e0b; --accent-2: #ec4899; --accent-3: #22d3ee; --accent-dark: #92400e;
+  --accent-rgb: 245, 158, 11; --accent-2-rgb: 236, 72, 153; --accent-3-rgb: 34, 211, 238; --accent-strong-rgb: 217, 119, 6;
+  --accent-light: #fcd34d; --accent-pale: #fde68a; --accent-strong: #d97706;
+  --font-brand: "Bungee", system-ui, sans-serif;
+  --header-bg: linear-gradient(90deg, rgba(31, 18, 6, 0.96), rgba(217, 119, 6, 0.9) 40%, rgba(219, 39, 119, 0.88) 80%, rgba(31, 18, 6, 0.96));
+  --header-line: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.55) 15%, rgba(245, 158, 11, 0.55) 85%, transparent);
+  --header-shadow: 0 8px 30px -12px rgba(245, 158, 11, 0.6);
+  --nav-active-bg: rgba(245, 158, 11, 0.28);
+  --panel-edge: rgba(245, 158, 11, 0.35);
+  --h1-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+  /* Couleurs des composants remises a la base (la forme reste celle du mode). */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft); --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%); --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn2-bg: var(--bg-panel-2); --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent)); --btn2-border: var(--line-strong);
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2)); --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2)); --tab-active-fg: var(--text);
+  --page-glow: none;
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2))); --h1-bar: var(--grad-brand);
+}
+html[data-season-skin="summer"]:not([data-theme]) body::before { background: radial-gradient(ellipse 70% 45% at 80% 0%, rgba(251, 191, 36, 0.28), transparent 60%), radial-gradient(ellipse 60% 45% at 10% 25%, rgba(236, 72, 153, 0.18), transparent 60%), linear-gradient(180deg, #2a1806 0%, var(--bg-void) 60%); animation: none; filter: none; }
+html[data-season-skin="summer"]:not([data-theme]) body::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'260'%20height%3D'260'%3E%3Ctext%20x%3D'30'%20y%3D'50'%20font-size%3D'22'%20opacity%3D'0.55'%3E%F0%9F%8E%B6%3C%2Ftext%3E%3Ctext%20x%3D'150'%20y%3D'30'%20font-size%3D'16'%20opacity%3D'0.55'%3E%F0%9F%8E%B8%3C%2Ftext%3E%3Ctext%20x%3D'210'%20y%3D'140'%20font-size%3D'26'%20opacity%3D'0.55'%3E%F0%9F%8E%B5%3C%2Ftext%3E%3Ctext%20x%3D'70'%20y%3D'170'%20font-size%3D'18'%20opacity%3D'0.55'%3E%E2%98%80%EF%B8%8F%3C%2Ftext%3E%3Ctext%20x%3D'130'%20y%3D'230'%20font-size%3D'14'%20opacity%3D'0.55'%3E%F0%9F%8E%B6%3C%2Ftext%3E%3Ctext%20x%3D'240'%20y%3D'240'%20font-size%3D'20'%20opacity%3D'0.55'%3E%F0%9F%8E%B8%3C%2Ftext%3E%3C%2Fsvg%3E"); background-size: 260px 260px; opacity: 0.5; animation: seasonFall 60s linear infinite; -webkit-mask-image: none; mask-image: none; }

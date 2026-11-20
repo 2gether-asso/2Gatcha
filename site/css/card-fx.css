@@ -1,7 +1,8 @@
 /* card-fx.css - Effets de carte v3 (2026-10-15) : etat x finition x edition. Bloc genere : modifier le generateur plutot que ce fichier.
-   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
-   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
-   specificite egale. */
+   UI V2 (2026-11-20) : le socle commun (fond, en-tete, panneaux, boutons,
+   champs, onglets, modales) est dans core.css et les habillages par mode /
+   saison dans skins.css ; ce fichier ne garde que ses composants propres.
+   Ordre : tokens, core, base ... refonte, feuilles de page, skins. */
 /* =====================================================================
    EFFETS DE CARTE v3 (2026-10-15) : un seul systeme, des couches qui
    s'empilent au lieu de s'ecraser.

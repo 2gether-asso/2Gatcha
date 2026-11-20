@@ -522,7 +522,7 @@ const Breadcrumb = {
     if (last) { last.textContent = tab; last.hidden = !tab; last.previousElementSibling.hidden = !tab; }
   },
   // Pages hors du menu (2026-10-21) : rattachees a une page du menu.
-  EXTRA: { "stats.html": { label: "Mes chiffres" }, "profile.html": { label: "Profil" } },
+  EXTRA: { "stats.html": { label: "Mes chiffres" }, "profile.html": { label: "Profil" }, "progression.html": { label: "Progression" }, "admin-db.html": { label: "Base de données", parent: "admin.html" } },
   init() {
     const page = currentPage();
     const extra = this.EXTRA[page];
@@ -542,7 +542,19 @@ const Breadcrumb = {
     new MutationObserver(() => this.render()).observe(main, { subtree: true, attributes: true, attributeFilter: ["aria-selected"] });
   }
 };
-document.addEventListener("DOMContentLoaded", () => { TabHash.init(); Breadcrumb.init(); });
+// UI V2 (2026-11-20) : le titre principal de chaque page (premier h1 visible
+// de <main>, quel que soit son conteneur) recoit .page-title pour une mise en
+// forme commune (core.css). Relu au chargement : certains titres sont rendus
+// par le script de la page (profil).
+const PageTitle = {
+  mark() {
+    if (document.querySelector("main .page-title")) return;
+    const h1 = [...document.querySelectorAll("main h1")].find((h) => !h.classList.contains("sr-only") && h.offsetParent !== null);
+    if (h1) h1.classList.add("page-title");
+  }
+};
+document.addEventListener("DOMContentLoaded", () => { TabHash.init(); Breadcrumb.init(); PageTitle.mark(); });
+window.addEventListener("load", () => PageTitle.mark());
 
 // ---------------------------------------------------------------------------
 // Accessibilite (2026-10-20), pour toutes les pages :

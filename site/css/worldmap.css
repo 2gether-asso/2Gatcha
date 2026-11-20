@@ -46,6 +46,8 @@
 a.wm-pin { text-decoration: none; }
 .wm-tail { position: absolute; left: 50%; bottom: -7px; width: 10px; height: 10px; transform: translateX(-50%) rotate(45deg); background: inherit; pointer-events: none; border-right: 1px solid rgba(255, 255, 255, 0.22); border-bottom: 1px solid rgba(255, 255, 255, 0.22); }
 .wm-pin[hidden] { display: none; }
+/* Largeur du texte : pres du bord droit de la carte, l epingle se retrecissait et tronquait son libelle. */
+.wm-pin { width: max-content; max-width: 240px; overflow: visible; } /* sa pointe depasse en dessous */
 .wm-pin.wm-town { background: rgba(48, 24, 10, 0.8); }
 .wm-pin.wm-night { background: rgba(30, 27, 75, 0.85); border-color: #c4b5fd88; box-shadow: 0 0 18px -4px #bef26488; }
 /* Survol : seulement la bordure, le repere ne bouge pas (malgre les effets de survol generiques des boutons). */

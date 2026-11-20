@@ -18,6 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&amp;family=Fredoka:wght@600;700&amp;family=Righteous&amp;family=Silkscreen:wght@400;700&amp;family=Bangers&amp;family=Bungee&amp;family=Chewy&amp;family=Creepster&amp;family=Monoton&amp;family=Mountains+of+Christmas:wght@700&amp;family=Pacifico&amp;display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <!-- Feuilles de style : l'ordre compte (voir css/tokens.css). -->
   <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/core.css" />
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/widgets.css" />
   <link rel="stylesheet" href="css/cards.css" />
@@ -31,6 +32,7 @@
   <link rel="stylesheet" href="css/seasons.css" />
   <link rel="stylesheet" href="css/refonte.css" />
   <link rel="stylesheet" href="css/vacation.css" />
+  <link rel="stylesheet" href="css/skins.css" />
 </head>
 <body>
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -97,10 +99,6 @@
           <div id="profile-wishlist-grid" class="wishlist-mini-grid"></div>
         </div>
 
-        <h2 style="margin-top:24px;">Collection publique</h2>
-        <p class="lead" style="font-size:0.8rem;">Le badge <span class="dupe-badge" style="position:static;display:inline-flex;">×N</span> indique une carte possédée en plusieurs exemplaires : ce joueur a peut-être un doublon à échanger.</p>
-        <div id="profile-grid" class="collection-grid"></div>
-
         <section id="profile-wall" class="profile-wall" hidden>
           <h2>&#128172; Mur</h2>
           <form id="wall-form" class="wall-form" hidden>
@@ -109,6 +107,11 @@
           </form>
           <ul class="wall-list" id="wall-list"></ul>
         </section>
+        <h2 style="margin-top:24px;">Collection publique</h2>
+        <p class="lead" style="font-size:0.8rem;">Le badge <span class="dupe-badge" style="position:static;display:inline-flex;">×N</span> indique une carte possédée en plusieurs exemplaires : ce joueur a peut-être un doublon à échanger.</p>
+        <div id="profile-grid" class="collection-grid is-folded"></div>
+        <button type="button" class="btn-secondary grid-unfold" id="profile-grid-unfold" hidden></button>
+
       </div>
     </div>
   </main>
@@ -386,6 +389,17 @@
           `;
         }).join("") : `<div class="empty-state">Collection vide pour l'instant.</div>`; };
         renderGrid();
+        // UI V2 (2026-11-20) : collection repliee sur quelques rangees, depliable.
+        const unfold = document.getElementById("profile-grid-unfold");
+        if (unfold && cards.length > 12) {
+          unfold.hidden = false;
+          unfold.textContent = `Tout afficher (${cards.length} cartes)`;
+          unfold.onclick = () => {
+            const folded = grid.classList.toggle("is-folded");
+            unfold.textContent = folded ? `Tout afficher (${cards.length} cartes)` : "Replier la collection";
+            if (folded) grid.scrollIntoView({ block: "nearest" });
+          };
+        } else grid.classList.remove("is-folded");
         // Comparer nos collections (js/lazy/compare.js) et image du profil a
         // partager (js/lazy/share-studio.js) : modules charges au clic.
         const own = Session.isLoggedIn() && Session.pseudo && pseudo.toLowerCase() === Session.pseudo.toLowerCase();

@@ -34,7 +34,7 @@
 
 .pb-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
 .pb-act, .pb-skill, .pb-more { position: relative; overflow: visible; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); color: var(--text); border-radius: 12px; padding: 6px 10px; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: none; transition: transform 0.15s, border-color 0.15s; }
-.pb-act { flex-direction: column; gap: 0; min-width: 76px; padding: 5px 8px; }
+.pb-act { flex-direction: column; gap: 0; min-width: 76px; padding: 5px 8px; white-space: normal; text-align: center; line-height: 1.2; }
 .pb-act small, .pb-skill small { font-size: 0.66rem; font-weight: 600; color: var(--text-dim); }
 .pb-ico { font-size: 1.1rem; line-height: 1.1; }
 .pb-act:not(:disabled):hover, .pb-skill:not(:disabled):hover, .pb-more:hover { transform: translateY(-2px); border-color: #f472b6; }

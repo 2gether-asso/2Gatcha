@@ -8,6 +8,15 @@ import { ok } from './common.js';
 import { setting } from './settings.js';
 
 export const PATCH_NOTES = [
+  { date: '2026-11-20', title: 'Un coup de neuf sur tout le site', items: [
+    'Nouvelle interface sur toutes les pages : fonds plus profonds, panneaux à liseré lumineux, boutons-poussoirs d’arcade',
+    'Le menu devient un dock centré, l’onglet où tu te trouves s’allume',
+    'Chaque mode a maintenant sa vraie personnalité : Cool givré et tout en rondeur, Chill doux et chaleureux, Hard en acier riveté, Chaos qui grésille',
+    'Les habillages des fêtes gardent leurs couleurs, posées sur la forme du mode en cours',
+    'Sur téléphone, la barre du bas montre plus clairement où tu es',
+    'Toutes les pages suivent la même structure : fil d’Ariane, titre, puis les onglets ; Collection et Coffre-fort changent d’espace avec le même interrupteur',
+    'Profil : le mur passe avant la collection, repliée sur quelques rangées (« Tout afficher » pour la voir en entier)',
+  ] },
   { date: '2026-11-19', title: 'Avec la porte de la salle ouverte…', items: [
     'La salle se visite en quatre espaces : le hall, les machines, le casino et l’atelier',
     'De nouvelles machines à installer, chacune avec son caractère, et une qui se mérite',

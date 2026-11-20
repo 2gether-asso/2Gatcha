@@ -1,29 +1,36 @@
-/* tokens.css - Jetons de design : couleurs, raretes, polices, rayons, espacements, puis les themes de couleur debloques par niveau.
-   Feuilles chargees dans l'ordre de css/tokens.css a css/refonte.css (voir
-   l'en-tete des pages) : l'ordre compte, une regle plus bas l'emporte a
-   specificite egale. */
+/* tokens.css - UI V2 « Arcade premium » (2026-11-20) : jetons de design.
+   Ordre des feuilles partagees : tokens, core, puis les feuilles de
+   fonctionnalites (base ... refonte), et skins.css en dernier. Une regle plus
+   bas l'emporte a specificite egale.
+
+   Deux niveaux de jetons :
+   1. Palette (noms historiques, utilises partout) : --bg-*, --text*, --border*,
+      --accent*, --rarity-*. Les modes, saisons et themes les redefinissent.
+   2. Composants (V2) : --header-*, --panel-*, --btn-*, --field-*, --tab-*...
+      Calcules depuis la palette ; skins.css les redefinit pour donner a chaque
+      mode sa propre forme (arrondis, relief, typo des boutons...). */
 :root {
-  /* Accents en composantes RGB et nuances (re-skin par difficulte, 2026-10-16). */
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------- palette */
   --accent-rgb: 139, 92, 246; --accent-2-rgb: 34, 211, 238; --accent-3-rgb: 244, 114, 182; --accent-strong-rgb: 124, 58, 237;
   --accent-light: #a78bfa; --accent-pale: #c4b5fd; --accent-strong: #7c3aed;
-  /* Couleurs "nebuleuse" d'origine (identite 2GETHER) restaurees a la
-     demande de l'asso ; la refonte "Salle d'arcade" garde sa typo (Bungee),
-     ses boutons "bouton-poussoir" et sa mise en page, mais reprend la
-     palette violet/cyan/rose d'avant plutot que le rouge/jaune/bleu. */
-  --bg-void: #06070f;
-  --bg-deep: #0b0d20;
-  --bg-panel: rgba(23, 25, 51, 0.6);
-  --bg-panel-solid: #14162e;
-  --bg-panel-2: #1c1f42;
-  --text: #f5f5fc;
-  --text-dim: #9a9cc4;
-  --border: rgba(139, 92, 246, 0.22);
-  --border-soft: rgba(255, 255, 255, 0.08);
-
+  /* Identite 2GETHER (violet / cyan / rose), demandee par l'asso. */
   --accent: #8b5cf6;
   --accent-2: #22d3ee;
   --accent-3: #f472b6;
   --accent-dark: #6d28d9;
+
+  /* Surfaces opaques en couches : vide < fond < panneau < panneau 2. */
+  --bg-void: #070818;
+  --bg-deep: #0c0e24;
+  --bg-panel: rgba(18, 20, 46, 0.9);
+  --bg-panel-solid: #12142e;
+  --bg-panel-2: #1a1d40;
+  --text: #f4f4fd;
+  --text-dim: #a3a6cc;
+  --border: rgba(139, 92, 246, 0.3);
+  --border-soft: rgba(255, 255, 255, 0.075);
 
   --rarity-commune: #9aa0b4;
   --rarity-rare: #60a5fa;
@@ -34,48 +41,142 @@
 
   --success: #4ade80;
   --danger: #fb7185;
+  --warning: #fbbf24;
 
+  /* ----------------------------------------------------------- typo */
   --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
-
-  --nav-bottom-h: 64px;
-
-  /* Design V2 (2026-10-07) : police de marque, rayons et espacements.
-     Les skins de difficulte redefinissent --font-brand et --radius-*. */
-  --font-brand: "Bungee", "Segoe UI", system-ui, sans-serif;
   --font-display: "Inter", "Segoe UI", system-ui, sans-serif;
-  --radius-lg: 18px;
+  /* Police de marque : logo, h1, gros chiffres. Chaque mode a la sienne. */
+  --font-brand: "Bungee", "Segoe UI", system-ui, sans-serif;
+  --fs-xs: 0.74rem; --fs-sm: 0.84rem; --fs-md: 0.92rem; --fs-lg: 1.08rem; --fs-xl: 1.3rem;
+
+  /* ------------------------------------------------- formes, espaces */
+  --radius-xl: 24px;
+  --radius-lg: 20px;
   --radius-md: 12px;
   --radius-sm: 8px;
-  --space-1: 6px; --space-2: 10px; --space-3: 16px; --space-4: 24px; --space-5: 36px;
   --radius-pill: 999px;
+  --space-1: 6px; --space-2: 10px; --space-3: 16px; --space-4: 24px; --space-5: 36px;
+  --nav-bottom-h: 64px;
+
+  /* --------------------------------------------------------- mouvement */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
+  --dur-1: 0.12s; --dur-2: 0.2s; --dur-3: 0.32s;
+
+  /* ------------------------------------------- derives de la palette */
+  --surface-0: var(--bg-void);
+  --surface-1: var(--bg-panel-solid);
+  --surface-2: var(--bg-panel-2);
+  --surface-3: color-mix(in srgb, var(--bg-panel-2) 88%, #ffffff);
+  --line: var(--border-soft);
+  --line-strong: color-mix(in srgb, var(--text) 16%, transparent);
+  --text-3: color-mix(in srgb, var(--text-dim) 70%, var(--bg-void));
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent-2) 45%, transparent);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 14px 30px -16px rgba(0, 0, 0, 0.85);
+  --shadow-3: 0 36px 72px -24px rgba(0, 0, 0, 0.9);
+  --glow: rgba(var(--accent-rgb), 0.5);
+  --grad-brand: linear-gradient(135deg, var(--accent), var(--accent-2));
+
+  /* ------------------------------------------------ jetons composants */
+  /* Fond de page : halos de couleur + trame de points (salle d'arcade). */
+  --page-glow:
+    radial-gradient(ellipse 60% 45% at 12% -5%, rgba(var(--accent-rgb), 0.26), transparent 62%),
+    radial-gradient(ellipse 55% 40% at 92% 6%, rgba(var(--accent-2-rgb), 0.16), transparent 60%),
+    radial-gradient(ellipse 70% 45% at 50% 108%, rgba(var(--accent-3-rgb), 0.12), transparent 62%);
+  --page-pattern: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1.6px);
+  --page-pattern-size: 26px 26px;
+
+  /* Toujours une image (degrade) : sur telephone on l'empile sur --bg-void. */
+  --header-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-void) 82%, transparent), color-mix(in srgb, var(--bg-deep) 86%, transparent));
+  --header-line: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.75) 20%, rgba(var(--accent-2-rgb), 0.7) 55%, rgba(var(--accent-3-rgb), 0.6) 80%, transparent);
+  --header-shadow: 0 12px 32px -22px rgba(0, 0, 0, 0.95);
+  --nav-active-bg: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), color-mix(in srgb, var(--accent) 45%, var(--accent-2)));
+  --nav-active-fg: #ffffff;
+
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-solid) 94%, var(--accent)) 0, var(--bg-panel-solid) 240px);
+  --panel-border: var(--border-soft);
+  --panel-edge: color-mix(in srgb, var(--text) 9%, transparent); /* liseré du haut */
+  --panel-shadow: 0 28px 56px -36px rgba(0, 0, 0, 0.95);
+  --panel-radius: var(--radius-xl);
+  --panel-ring: linear-gradient(180deg, rgba(var(--accent-rgb), 0.55), rgba(var(--accent-2-rgb), 0.14) 28%, rgba(255, 255, 255, 0.04) 60%, rgba(var(--accent-3-rgb), 0.16));
+  --h1-bar: var(--grad-brand);
+  --panel-pad: clamp(18px, 0.9rem + 1.2vw, 30px);
+  --card-bg: var(--bg-panel-2); /* bloc dans un panneau */
+  --card-border: var(--border-soft);
+  --card-radius: var(--radius-md);
+
+  --h1-font: var(--font-brand);
+  --h1-color: var(--text);
+  --h1-shadow: 0 0 28px rgba(var(--accent-rgb), 0.4);
+  --h1-tracking: 0.015em;
+
+  --btn-font: var(--font-body);
+  --btn-weight: 700;
+  --btn-case: none;
+  --btn-tracking: 0;
+  --btn-radius: var(--radius-md);
+  --btn-pad: 10px 18px;
+  --btn-bg: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 52%, var(--accent-2)) 100%);
+  --btn-fg: #ffffff;
+  --btn-border: color-mix(in srgb, var(--accent) 60%, #000000);
+  --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 10px 22px -12px rgba(var(--accent-rgb), 0.85);
+  --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 14px 28px -12px rgba(var(--accent-rgb), 0.95);
+  --btn-shadow-press: inset 0 2px 5px rgba(0, 0, 0, 0.35);
+  --btn2-bg: var(--bg-panel-2);
+  --btn2-bg-hover: color-mix(in srgb, var(--bg-panel-2) 86%, var(--accent));
+  --btn2-border: var(--line-strong);
+  --btn2-fg: var(--text);
+
+  --field-bg: color-mix(in srgb, var(--bg-void) 50%, var(--bg-panel-2));
+  --field-border: var(--line-strong);
+  --field-radius: 10px;
+
+  --tab-fg: var(--text-dim);
+  --tab-active-fg: var(--text);
+  --tab-bar: linear-gradient(90deg, var(--accent), var(--accent-2));
+
+  --modal-bg: var(--bg-panel-solid);
+  --modal-border: var(--line-strong);
+  --overlay-bg: rgba(3, 4, 12, 0.78);
 }
 
 /* ========================================================================
-   Themes de couleur (debloques par niveau, voir main.js cycleTheme()).
-   Chaque theme redefinit les memes variables que :root - tout le reste de
-   la feuille de style les utilise deja via var(...), rien d'autre a toucher.
+   Themes de couleur cosmetiques (debloques par niveau, cycleTheme()).
+   Ils passent devant les skins de mode et de saison (voir skins.css :
+   ceux-ci ne s'appliquent qu'en :not([data-theme])).
    ======================================================================== */
 :root[data-theme="monochrome"] {
   --bg-void: #060606; --bg-deep: #0d0d0d;
-  --bg-panel: rgba(30,30,30,0.6); --bg-panel-solid: #161616; --bg-panel-2: #202020;
-  --text: #f2f2f2; --text-dim: #9a9a9a;
+  --bg-panel: rgba(24,24,24,0.9); --bg-panel-solid: #141414; --bg-panel-2: #1f1f1f;
+  --text: #f2f2f2; --text-dim: #9e9e9e;
   --border: rgba(255,255,255,0.2); --border-soft: rgba(255,255,255,0.08);
   --accent: #d4d4d4; --accent-2: #a3a3a3; --accent-3: #e5e5e5;
+  --accent-rgb: 212, 212, 212; --accent-2-rgb: 163, 163, 163; --accent-3-rgb: 229, 229, 229;
+  --accent-light: #e5e5e5; --accent-pale: #f5f5f5; --accent-strong: #a3a3a3;
+  --btn-fg: #0a0a0a; --btn-border: #737373;
   --rarity-commune: #8a8a8a; --rarity-rare: #b0b0b0; --rarity-epique: #d9d9d9; --rarity-legendaire: #ffffff; --rarity-mythique: #ef4444; --rarity-unique: #e5e5e5;
 }
 :root[data-theme="sepia"] {
   --bg-void: #1c140d; --bg-deep: #241a11;
-  --bg-panel: rgba(70,50,30,0.5); --bg-panel-solid: #2c2015; --bg-panel-2: #3a2a1a;
+  --bg-panel: rgba(46,33,21,0.9); --bg-panel-solid: #2c2015; --bg-panel-2: #3a2a1a;
   --text: #f3e6d0; --text-dim: #c1a887;
   --border: rgba(212,163,89,0.32); --border-soft: rgba(255,235,200,0.1);
   --accent: #d4a359; --accent-2: #b5762f; --accent-3: #e8c078;
+  --accent-rgb: 212, 163, 89; --accent-2-rgb: 181, 118, 47; --accent-3-rgb: 232, 192, 120;
+  --accent-light: #e8c078; --accent-pale: #f3dcae; --accent-strong: #b5762f;
+  --btn-fg: #1c140d; --btn-border: #8a5a22;
+  --page-pattern: radial-gradient(circle at 1px 1px, rgba(255, 235, 200, 0.07) 1px, transparent 1.6px);
   --rarity-commune: #a89078; --rarity-rare: #8ba888; --rarity-epique: #b58ac0; --rarity-legendaire: #d4a359; --rarity-mythique: #c1440e; --rarity-unique: #7fa650;
 }
 :root[data-theme="cyberpunk"] {
   --bg-void: #04010a; --bg-deep: #0a0316;
-  --bg-panel: rgba(20,6,40,0.6); --bg-panel-solid: #12051f; --bg-panel-2: #1a0a2e;
+  --bg-panel: rgba(18,5,31,0.9); --bg-panel-solid: #12051f; --bg-panel-2: #1a0a2e;
   --text: #f0f0ff; --text-dim: #b088e8;
   --border: rgba(255,0,200,0.32); --border-soft: rgba(0,255,213,0.14);
   --accent: #ff2ec4; --accent-2: #00ffd5; --accent-3: #ffe600;
+  --accent-rgb: 255, 46, 196; --accent-2-rgb: 0, 255, 213; --accent-3-rgb: 255, 230, 0;
+  --accent-light: #ff7ad9; --accent-pale: #ffb3ea; --accent-strong: #d1009c;
   --rarity-commune: #7dd3fc; --rarity-rare: #00ffd5; --rarity-epique: #ff2ec4; --rarity-legendaire: #ffe600; --rarity-mythique: #ff1f3d; --rarity-unique: #39ff88;
 }
